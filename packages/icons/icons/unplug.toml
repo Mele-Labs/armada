@@ -52,3 +52,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 16 Oct 2026 for the walk `merge-line-freshness`. The sign-in that could not reach the forge already draws this glyph for a connection that is gone. The registry has no cloud-off or wifi-off, and a new glyph for the same silence would be a second answer. Tooltip `GitHub not answering since 18:40`. The row carries no reservation."
+
+  [[icons.unplug.usage]]
+    means = "The Quiet scope of the Cockpit's Jobs and Sessions list: Sessions Fleet cannot reach"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `cockpit-sessions-list`. The same gap `unplug` draws for a Session Fleet lost. Tooltip `Quiet`, icon-only. The row carries no reservation."

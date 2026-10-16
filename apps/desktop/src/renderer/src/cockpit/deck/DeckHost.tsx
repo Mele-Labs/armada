@@ -25,7 +25,7 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, showRows, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, toggleJobView, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
@@ -283,7 +283,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       const at = order.findIndex((one) => one === state.cursor);
       // Up from the first row goes to the search over them.
       if (!down && at === 0) {
-        document.querySelector<HTMLElement>(".deck-list__find input")?.focus();
+        setSearching(true);
         return;
       }
       const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? (down ? 0 : order.length - 1) : at + (down ? 1 : -1)))];

@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Search, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Box, ChartNoAxesGantt, CircleDashed, CircleDot, FileCog, GitMerge,  LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, PowerOff, Rows3, Search, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Input, Kbd, Switch, Tabs, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -53,7 +53,7 @@ import type { Found } from "./find";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -188,26 +188,55 @@ function MoreRows() {
   );
 }
 
-/** The search and the scope, over the rows. ↓ or Enter in the search goes to the first row, and ↑ from the first row comes back to it. */
+/** The glyph each scope is drawn as, in the registry's own meaning for it: Fleet cannot reach it, it ended, or every row. */
+const SCOPE_GLYPH: Record<Scope, LucideIcon> = { active: CircleDot, quiet: Unplug, ended: PowerOff, all: Rows3 };
+
+/**
+ * The scope and the search, on one line. The scopes are four glyphs, each named in its tooltip, the chosen one filled as the tabs of the
+ * places bar are. **The search is a glyph at the line's end that, pressed, widens a field over the scopes** on the panels' own timing;
+ * Esc or leaving it empty folds it back, and while it holds text it stays open. ↑ from the first row opens it, ↓ or Enter goes to the rows.
+ */
 function Find({ rows }: { rows: RefObject<HTMLElement | null> }) {
   const query = useDeck((deck) => deck.query);
   const scope = useDeck((deck) => deck.scope);
+  const searching = useDeck((deck) => deck.searching);
+  const open = searching || query !== "";
+  const field = useRef<HTMLInputElement>(null);
+  // Opened by the glyph or by the key, the caret goes into the field.
+  useEffect(() => {
+    if (searching) field.current?.focus();
+  }, [searching]);
   return (
-    <div className="deck-list__find">
-      <Input
-        type="search"
-        aria-label="Search Jobs and Sessions"
-        mono
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "Enter") return;
-          event.preventDefault();
-          rows.current?.querySelector<HTMLElement>(".deck-row")?.focus();
-        }}
-        trailing={<Search size={12} strokeWidth={2} aria-hidden />}
-      />
-      <Tabs items={SCOPES.map(({ id, label }) => ({ id, label }))} value={scope} onChange={(id) => setScope(id as Scope)} />
+    <div className="deck-list__find" data-open={open || undefined}>
+      <Tabs iconsOnly items={SCOPES.map(({ id, label }) => ({ id, label, icon: SCOPE_GLYPH[id] }))} value={scope} onChange={(id) => setScope(id as Scope)} />
+      <div className="deck-list__search" data-open={open || undefined}>
+        <Tooltip label="Search" asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Search" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setSearching(true)}>
+            <Search size={16} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+        <Input
+          ref={field}
+          type="search"
+          aria-label="Search Jobs and Sessions"
+          mono
+          value={query}
+          tabIndex={open ? 0 : -1}
+          onChange={(event) => setQuery(event.target.value)}
+          onBlur={() => query === "" && setSearching(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setQuery("");
+              setSearching(false);
+              return;
+            }
+            if (event.key !== "ArrowDown" && event.key !== "Enter") return;
+            event.preventDefault();
+            rows.current?.querySelector<HTMLElement>(".deck-row")?.focus();
+          }}
+          trailing={<Search size={12} strokeWidth={2} aria-hidden />}
+        />
+      </div>
     </div>
   );
 }

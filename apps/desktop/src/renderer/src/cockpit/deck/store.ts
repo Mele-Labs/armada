@@ -59,6 +59,8 @@ export type DeckState = {
   /** Narrowed to what has a Check running now. */
   checks: boolean;
   scope: Scope;
+  /** The search field is open over the scope glyphs. It stays open while it holds text. */
+  searching: boolean;
   /** What the list is searched for: a title, an id, a pull request, a branch, a slot or a Job. Kept while the window is. */
   query: string;
   /** How many rows of the list are drawn; the list asks for more as its end is reached. */
@@ -100,6 +102,7 @@ function fresh(): DeckState {
     needs: filters.includes("needs"),
     checks: filters.includes("checks"),
     scope: readRemembered(DECK_SCOPE_KEY, scopeNamed),
+    searching: false,
     query: "",
     limit: LIST_PAGE,
     visited: new Set(),
@@ -227,6 +230,7 @@ export const setScope = (scope: Scope) => {
   set({ scope, limit: LIST_PAGE });
 };
 export const setQuery = (query: string) => set({ query, limit: LIST_PAGE });
+export const setSearching = (searching: boolean) => state.searching !== searching && set({ searching });
 /** Draws the rows up to `row` (and a page past it), so a key that walks the list is never stopped at its end. */
 export const showRows = (row: number) => {
   if (row + 1 > state.limit) set({ limit: Math.ceil((row + 1) / LIST_PAGE) * LIST_PAGE + LIST_PAGE });

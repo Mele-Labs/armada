@@ -17,3 +17,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 15 Oct 2026 with `steps` on `show_window`, for the walk row of the capture window's bar. The magnifier says the target was looked for and not found. The owner has not seen it. Tooltip `Not found: ` and the target as a person would name it; no sentence. The row carries no reservation."
+
+[[icons.search.usage]]
+  means = "The search of the Cockpit's Jobs and Sessions list, a glyph at the end of the scope line that widens into a field over the scope glyphs"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 16 Oct 2026 for the walk `cockpit-sessions-list`. Tooltip `Search`, `aria-expanded` while the field is open. The field folds back on Esc or when it is left empty."

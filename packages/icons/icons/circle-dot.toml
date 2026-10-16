@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "Two concentric primitives, maximum legibility at 12px. Reads live, and unlike play it does not read as a button."
+
+  [[icons.circle-dot.usage]]
+    means = "The Active scope of the Cockpit's Jobs and Sessions list: the ones in flight"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `cockpit-sessions-list`, when the list's scope and search became one line of glyphs. Tooltip `Active`, icon-only, the chosen one filled as the places bar fills its tab. The row carries no reservation."

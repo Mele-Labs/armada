@@ -4,3 +4,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 11 Oct 2026 with the Cockpit's Bays tab, its rail glyph. The tab draws every bay's work as one row through the same stations, so the glyph is the rows, not a slot's state: `door-open` and `door-closed-locked` keep those."
+
+  [[icons.rows-3.usage]]
+    means = "The All scope of the Cockpit's Jobs and Sessions list: the live rows with the quiet and the ended"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `cockpit-sessions-list`. Every row stacked, which is what the scope adds to. Tooltip `All`, icon-only. Refused: `layers`, blast radius; `infinity`, reserved to a Trigger for every workflow. The row carries no reservation."
