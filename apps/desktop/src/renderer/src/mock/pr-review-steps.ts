@@ -15,8 +15,8 @@ const thread = (title: string, by: string) => role("article", `Thread on ${title
 const finding = (title: string) => role("article", `Finding: ${title}`);
 const tool = (name: string) => inside(flight, button(name));
 const results = (name: string) => region(`${name} results`);
-const asked = (words: RegExp) => inside(inside(region("Explanation"), role("list", "Asked")), role("listitem", words));
-const explanation = (name: string) => inside(region("Explanation"), tab(name));
+const asked = (words: RegExp) => inside(inside(region("Quick actions"), role("list", "Asked")), role("listitem", words));
+const explanation = (name: string) => inside(region("Quick actions"), tab(name));
 
 const pick = (name: string | RegExp) => role("menuitem", name);
 const lists = inside(list, button("List"));
@@ -39,6 +39,8 @@ export const toTheList: Step[] = [
   { press: pick("Natural Search"), say: "Choosing it puts the box in place of the list" },
   { type: "PRs that touch files I've touched", into: inside(list, role("textbox", "Natural Search")), say: "What he wants, in his own words" },
   { press: inside(list, button("Search")), say: "A Drone looks only when he sends, because it costs" },
+  { look: dialog("Natural Search"), say: "It spends tokens, so it asks first. Every act that spends asks the same way, with the same box" },
+  { press: inside(dialog("Natural Search"), button("Run")), say: "Run" },
   { look: inside(list, role("img", "Looking")), say: "Running, in the list" },
   { look: inside(list, role("note", /which you changed on 14 Oct/)), say: "What it found, each with one line on why it matched" },
   { press: lists, say: "The find is saved in the dropdown under his words" },
@@ -48,24 +50,41 @@ export const toTheList: Step[] = [
 
 /** A teammate's pull request: its description comes first, and each explanation is a choice that runs once. */
 export const theExplanation: Step[] = [
+  { press: lists, say: "A longer one first, from the team's list" },
+  { press: pick("Team"), say: "Team" },
+  { press: inside(list, button(/#1907/)), say: "Open a pull request with a long description" },
+  { look: inside(reader(1907), region("Quick actions")), say: "The quick actions are above the description, because descriptions are usually long" },
+  { look: inside(reader(1907), region("Description")), say: "With nothing chosen the description is open" },
+  { press: inside(reader(1907), explanation("How to Test")), say: "How to Test. No kept result, so it asks first" },
+  { look: dialog("How to Test"), say: "Running it uses tokens" },
+  { press: inside(dialog("How to Test"), role("checkbox", /ask again/)), say: "He can turn the question off for every act that spends tokens. It is a setting on this machine" },
+  { press: inside(dialog("How to Test"), button("Run")), say: "Run" },
+  { look: inside(reader(1907), region("How to Test")), say: "The explanation fills the body" },
+  { look: inside(reader(1907), button("Show the description")), say: "The description has tucked away into one row" },
+  { press: inside(reader(1907), button("Show the description")), say: "It opens again when he wants to read it" },
+  { look: inside(reader(1907), region("Description")), say: "Open, above the explanation" },
+  { press: inside(reader(1907), explanation("User Impact")), say: "User Impact. The question is off now, so it runs without asking" },
+  { look: inside(reader(1907), role("listitem", "Restarting Fleet")), say: "What a user sees differently, before and after" },
+  { press: lists, say: "Back to his requests" },
+  { press: pick("Requested for Review"), say: "Requested for Review" },
   { press: inside(list, button(/#1899/)), say: "Open one a teammate asked for" },
-  { look: inside(reader(1899), region("Description")), say: "The author's own description comes first" },
-  { look: explanation("How to test it"), say: "Under it, a choice of explanations. Nothing has run" },
-  { press: explanation("How to test it"), say: "Choose how to test it. An agent reads the pull request, once, because it costs" },
-  { look: inside(reader(1899), region("How to test it")), say: "Numbered steps, each with what to look for" },
+  { look: inside(reader(1899), region("Description")), say: "The author's own description" },
+  { look: explanation("How to Test"), say: "A choice of explanations above it. Nothing has run on this one" },
+  { press: explanation("How to Test"), say: "How to Test. An agent reads the pull request, once" },
+  { look: inside(reader(1899), region("How to Test")), say: "Numbered steps, each with what to look for" },
   { look: inside(reader(1899), role("note", /One provider call a minute/)), say: "What to look for sits under the step" },
   { hover: inside(reader(1899), role("img", "Explained by an agent when you chose it")), say: "Where the explanation came from" },
-  { look: inside(inside(reader(1899), region("How to test it")), role("img", /^Kept/)), say: "It is kept for the commit it read, as a tool's result is" },
-  { press: explanation("What it changes for you"), say: "What it changes for you, as someone who uses it" },
+  { look: inside(inside(reader(1899), region("How to Test")), role("img", /^Kept/)), say: "It is kept for the commit it read, as a tool's result is" },
+  { press: explanation("User Impact"), say: "What it changes for you, as someone who uses it" },
   { look: inside(reader(1899), role("listitem", "The plan meters in the title bar")), say: "What they see or can do differently, before and after" },
-  { press: explanation("How to test it"), say: "Back to how to test it" },
+  { press: explanation("How to Test"), say: "Back to how to test it" },
   { look: inside(reader(1899), role("list", "Steps")), say: "Shown at once. Nothing runs and nothing is spent" },
-  { press: explanation("Why it was needed"), say: "Why it was needed" },
+  { press: explanation("Why"), say: "Why it was needed" },
   { look: inside(reader(1899), button(/#1871/)), say: "The problem, what it cost, and the issue the pull request names" },
-  { hover: inside(inside(reader(1899), region("Why it was needed")), role("img", "Armada's tool")), say: "Explanations are defined where tools are: Armada's four, the Kit, and the repository" },
-  { look: inside(region("Explanation"), tab("Ask", { exact: true })), say: "The four are for any pull request. The last choice, Ask, is his own question" },
+  { hover: inside(inside(reader(1899), region("Why")), role("img", "Armada's tool")), say: "Explanations are defined where tools are: Armada's four, the Kit, and the repository" },
+  { look: inside(region("Quick actions"), tab("Ask", { exact: true })), say: "The four are for any pull request. The last one, Ask, is his own question" },
   { look: inside(reader(1899), role("list", "Asked")), say: "A question asked before is kept in a small panel above the choice, under his words" },
-  { press: inside(region("Explanation"), tab("Ask", { exact: true })), say: "Choosing Ask puts a box under the description" },
+  { press: inside(region("Quick actions"), tab("Ask", { exact: true })), say: "Choosing Ask puts a box under the quick actions" },
   { type: "Does this change what happens when gh is signed out?", into: inside(reader(1899), role("textbox", "Ask about this pull request")), say: "Whatever he wants to know about this one" },
   { press: inside(inside(reader(1899), role("form", "Ask")), button("Ask")), say: "An agent answers only when he sends, because it costs" },
   { look: inside(reader(1899), role("img", "Answering")), say: "Running, in place" },
@@ -115,12 +134,12 @@ export const theSessionsOwn: Step[] = [
   { press: pick("My PRs"), say: "My PRs" },
   { press: inside(list, button(/#1896/)), say: "One his Session holds" },
   { look: inside(reader(1896), button("Session: Fix the reconnect wait")), say: "The Session that holds it is in the head" },
-  { look: inside(reader(1896), region("Description")), say: "The description is first here too" },
+  { look: inside(reader(1896), region("Description")), say: "The description is tucked away, since an explanation is already shown" },
   { look: inside(reader(1896), region("How it works")), say: "How it works is already under it" },
   { hover: inside(reader(1896), role("img", "Written by the Session that made this pull request")), say: "The Session that wrote it knows how, so nothing is run to get it" },
-  { press: explanation("Why it was needed"), say: "Why it was needed comes from the Session too" },
+  { press: explanation("Why"), say: "Why it was needed comes from the Session too" },
   { look: inside(reader(1896), button(/#1859/)), say: "The problem, what it cost, and the issue it names, with no run" },
-  { press: explanation("How to test it"), say: "The other two are not the Session's to know. This one runs on choice" },
+  { press: explanation("How to Test"), say: "The other two are not the Session's to know. This one runs on choice" },
   { look: inside(reader(1896), role("note", /link mark says reconnecting/)), say: "Steps to try the change on this branch" },
   { press: explanation("How it works"), say: "Back to how it works" },
   { press: tool("Possible bugs"), say: "Possible bugs" },
@@ -154,5 +173,5 @@ export const theNewTool: Step[] = [
   { press: inside(dialog("Add a tool"), role("radio", "Repository")), say: "Saved to the repository, like a tool" },
   { press: inside(dialog("Add a tool"), button("Save")), say: "Recorded, not written to a file here" },
   { press: inside(reader(1896), tab("Overview")), say: "Back to the overview" },
-  { look: explanation("What it changes for support"), say: "It is one more choice under the description, carrying the repository's glyph" },
+  { look: explanation("What it changes for support"), say: "It is one more quick action, carrying the repository's glyph" },
 ];

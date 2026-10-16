@@ -41,6 +41,14 @@ export type ReviewStore = {
   removeFind: (id: string) => void;
   open: (key: string | undefined) => void;
   setMode: (on: boolean) => void;
+  /**
+   * **Everything that spends tokens goes through here**: the quick actions, the review tools and Natural Search. It runs
+   * at once where he turned the question off, and otherwise waits on a confirmation.
+   */
+  spend: (what: string, run: () => void) => void;
+  /** Run, from the confirmation. `again` is its box, "Don't ask again". */
+  confirmSpend: (again: boolean) => void;
+  cancelSpend: () => void;
   setView: (key: string, view: View) => void;
   /** Chooses an explanation. An agent reads the pull request the first time only, unless a Session of his already knows. A kept one shows at once. */
   explain: (key: string, def: ToolDef) => void;
@@ -91,6 +99,8 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     finds: [],
     open: undefined,
     mode: false,
+    askFirst: true,
+    spending: undefined,
     armada: seed.tools.armada,
     kit: seed.tools.kit,
     repository: seed.tools.repository,
@@ -153,6 +163,8 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     timers.add(window.setTimeout(() => setAsk(key, id, { state: "done", at: Date.now(), head }), AGENT_MS));
   };
 
+  let waiting: (() => void) | undefined;
+
   return {
     get: () => snapshot,
     subscribe: (listener) => {
@@ -181,6 +193,21 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
     open: (open) => set({ open }),
     setMode: (mode) => set({ mode }),
+    spend: (what, run) => {
+      if (!snapshot.askFirst) return run();
+      waiting = run;
+      set({ spending: what });
+    },
+    confirmSpend: (again) => {
+      const run = waiting;
+      waiting = undefined;
+      set({ spending: undefined, ...(again ? { askFirst: false } : {}) });
+      run?.();
+    },
+    cancelSpend: () => {
+      waiting = undefined;
+      set({ spending: undefined });
+    },
     setView: (key, view) => change(key, { view }),
     explain: (key, def) => {
       const pr = prOf(key);
@@ -272,7 +299,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

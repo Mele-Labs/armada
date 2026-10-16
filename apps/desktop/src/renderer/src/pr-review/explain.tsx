@@ -1,4 +1,4 @@
-// The explanations: one choice under the description, in the stage's own overview. **Each is its own question** (how it
+// The explanations: the quick actions above the description, in the stage's own overview. **Each is its own question** (how it
 // works, what it changes for him as a user, how to test it, why it was needed), and an agent answers one only when he
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
@@ -19,39 +19,46 @@ type Send = ReturnType<typeof useSendFindings>;
 const ASK = "ask";
 
 /**
- * The choice and what was chosen, under the description. **The strip is the explanations, then Ask**, which is not an
- * explanation but a box for his own question, as Natural Search is on the left. **A question he sent is kept in a small
- * panel above the strip**, an index of what he asked of this pull request, and is not drawn where he asked none.
+ * The quick actions, above the description: one bar of the four explanations and Ask. **Ask is not an explanation** but a box
+ * for his own question, as Natural Search is on the left. **A question he sent is kept in a small panel under the bar**, an
+ * index of what he asked of this pull request, and is not drawn where he asked none. An action with no kept result asks
+ * first, since it spends tokens (`store.spend`), and a kept one opens at once.
  */
-export function Explainer({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; onOpenLink: (address: string) => void }) {
+export function QuickActions({ pr }: { pr: ReviewPr }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
   const kinds = onlyExplanations(toolsOf(reviews, pr.manifestId));
-  const chosen = kinds.find((one) => one.id === work.kind);
-  const asked = work.asks.find((one) => one.id === work.kind);
   return (
-    <section className="pr-explainer" aria-label="Explanation">
-      {work.asks.length === 0 ? null : <Asks pr={pr} />}
+    <section className="pr-explainer" aria-label="Quick actions">
+      <h3 className="pr-what__title">Quick actions</h3>
       <div className="pr-explainer__pick">
         <Tabs
-          items={[
-            ...kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks })),
-            { id: ASK, label: "Ask", hint: "Ask about this pull request in your own words" },
-          ]}
+          items={[...kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks })), { id: ASK, label: "Ask", hint: "Ask about this pull request in your own words" }]}
           value={work.kind ?? ""}
           onChange={(id) => {
             const def = kinds.find((one) => one.id === id);
-            if (def === undefined) store.show(pr.key, id);
-            else store.explain(pr.key, def);
+            if (def === undefined) return store.show(pr.key, id);
+            const kept = work.explains[def.id];
+            if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) store.explain(pr.key, def);
+            else store.spend(def.name, () => store.explain(pr.key, def));
           }}
         />
       </div>
+      {work.asks.length === 0 ? null : <Asks pr={pr} />}
       {work.kind === ASK ? <AskBox pr={pr} /> : null}
-      {chosen === undefined ? null : <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />}
-      {asked === undefined ? null : <Answer pr={pr} asked={asked} />}
     </section>
   );
+}
+
+/** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */
+export function Explained({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; onOpenLink: (address: string) => void }) {
+  const reviews = useReviews();
+  const work = reviews.work[pr.key] ?? NO_WORK;
+  const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find((one) => one.id === work.kind);
+  const asked = work.asks.find((one) => one.id === work.kind);
+  if (chosen !== undefined) return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
+  return asked === undefined ? null : <Answer pr={pr} asked={asked} />;
 }
 
 /** What he asked of this pull request: one row each, his words in full, and what was kept under them. */
@@ -80,7 +87,7 @@ function Asks({ pr }: { pr: ReviewPr }) {
               />
             )}
             <Tooltip label="Ask again, for this pull request">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.askAgain(pr.key, one.id)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend("Ask", () => store.askAgain(pr.key, one.id))}>
                 <RotateCw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -103,9 +110,13 @@ function AskBox({ pr }: { pr: ReviewPr }) {
   const [words, setWords] = useState("");
   const send = () => {
     if (words.trim() === "") return;
-    store.ask(pr.key, words);
-    forgetKept(keep);
-    setWords("");
+    const said = words;
+    // The words stay in the box until he has said Run, so Cancel loses nothing.
+    store.spend("Ask", () => {
+      store.ask(pr.key, said);
+      forgetKept(keep);
+      setWords("");
+    });
   };
   return (
     <form
@@ -197,7 +208,7 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
           )}
           {fromSession ? null : (
             <Tooltip label="Explain again, for this pull request">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.explainAgain(pr.key, def)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}>
                 <RotateCw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>

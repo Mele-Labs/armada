@@ -34,7 +34,7 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
         <PrMark Glyph={source.Glyph} said={source.said} />
         <span className="pr-results__acts">
           <Tooltip label="Run again, for this pull request">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.rerun(pr.key, tool)}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(tool.name, () => store.rerun(pr.key, tool))}>
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>

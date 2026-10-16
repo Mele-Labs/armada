@@ -59,10 +59,14 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   ];
   const ask = () => {
     if (words.trim() === "") return;
-    store.find(words);
-    forgetKept(FIND_KEEP);
-    setWords("");
-    setAsking(false);
+    const said = words;
+    // The words stay in the box until he has said Run, so Cancel loses nothing.
+    store.spend("Natural Search", () => {
+      store.find(said);
+      forgetKept(FIND_KEEP);
+      setWords("");
+      setAsking(false);
+    });
   };
 
   return (
@@ -167,7 +171,7 @@ function FindHead({ find }: { find: Find }) {
       {find.run.state === "done" ? <PrMark Glyph={History} said={`Kept. Ran ${agoOf(new Date(find.run.at).toISOString())}`} /> : null}
       <span className="pr-find__acts">
         <Tooltip label="Run again">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.rerunFind(find.id)}>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend("Natural Search", () => store.rerunFind(find.id))}>
             <RotateCw size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>

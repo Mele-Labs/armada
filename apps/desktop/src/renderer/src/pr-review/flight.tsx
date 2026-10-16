@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
-import { Button, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
+import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
@@ -33,7 +33,10 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
 
   const press = (tool: ToolDef) => {
     if (pr === undefined) return;
-    store.runTool(pr.key, tool);
+    const kept = work.runs[tool.id];
+    // A kept result opens at once. Only a run that has not happened asks first.
+    if (!tool.agent || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
+    else store.spend(tool.name, () => store.runTool(pr.key, tool));
   };
 
   // The keys 1 to 9 press the tiles, where no box is being typed in.
@@ -106,7 +109,39 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
         )}
       </div>
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
+      <SpendConfirm />
     </>
+  );
+}
+
+/** Asks before an agent runs, since it spends tokens. **One box for all of it**, so every act that spends behaves the same. */
+function SpendConfirm() {
+  const store = useReviewStore()!;
+  const { spending } = useReviews();
+  const [again, setAgain] = useState(false);
+  return (
+    <Dialog
+      open={spending !== undefined}
+      tone="neutral"
+      title={spending ?? ""}
+      confirmLabel="Run"
+      field={
+        <Checkbox checked={again} onChange={(event) => setAgain(event.target.checked)}>
+          Don't ask again
+        </Checkbox>
+      }
+      onConfirm={() => {
+        const skip = again;
+        setAgain(false);
+        store.confirmSpend(skip);
+      }}
+      onCancel={() => {
+        setAgain(false);
+        store.cancelSpend();
+      }}
+    >
+      <p>Running this uses tokens.</p>
+    </Dialog>
   );
 }
 

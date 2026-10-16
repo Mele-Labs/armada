@@ -4,12 +4,13 @@
 // evidence, folded until opened. Checks and Commits stay reachable. A tool pressed in the Flight control below replaces
 // the body with what it found, and the way back is at its head.
 
-import { ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
 import { Badge, Button, DiffSize, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
-import { Explainer } from "./explain";
+import { Explained, QuickActions } from "./explain";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
 import { ToolResults } from "./results";
@@ -122,15 +123,26 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
 }
 
 function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  // **The description tucks away once an explanation is shown**, into one row that opens it again. With nothing chosen it is open.
+  const shown = work.kind !== undefined && work.kind !== "ask";
+  const [chosen, setChosen] = useState<boolean | undefined>(undefined);
+  const open = chosen ?? !shown;
   return (
     <div className="pr-explain">
-      <section className="pr-what pr-desc" aria-label="Description">
+      <QuickActions pr={pr} />
+      <section className="pr-what pr-desc" aria-label="Description" data-open={open || undefined}>
         <header className="pr-what__head">
+          <Tooltip label={open ? "Hide the description" : "Show the description"}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Hide the description" : "Show the description"} aria-expanded={open} onClick={() => setChosen(!open)}>
+              {open ? <ChevronDown size={16} strokeWidth={2} aria-hidden /> : <ChevronRight size={16} strokeWidth={2} aria-hidden />}
+            </Button>
+          </Tooltip>
           <h3 className="pr-what__title">Description</h3>
         </header>
-        <Prose text={pr.body} />
+        {open ? <Prose text={pr.body} /> : null}
       </section>
-      <Explainer pr={pr} send={send} onOpenLink={onOpenLink} />
+      <Explained pr={pr} send={send} onOpenLink={onOpenLink} />
     </div>
   );
 }

@@ -154,7 +154,7 @@ const marta = build({
   lists: ["requested", "team", "assigned"],
   team: "@Mele-Labs/fleet",
   opened: 205,
-  body: "The title bar's meters read the plan windows every five seconds, and each read is a call to the provider.\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.",
+  body: "## Why\n\nThe title bar's meters read the plan windows every five seconds, and each read is a call to the provider. With two windows open that is 24 calls a minute before a single Session has started, against an allowance of 30. On 11 Oct that was enough to rate limit three Sessions (#1880).\n\n## What changes\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n- A failed read is not cached, so the next ask tries the provider again\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.\n\n## How it is cached\n\nThe cache is one `Held` behind a `Mutex`, filled on the first ask and replaced when it is older than `CACHE_FOR`:\n\n```rust\nconst CACHE_FOR: Duration = Duration::from_secs(60);\n\nasync fn windows(&self) -> Result<Reading, Error> {\n    let mut held = self.held.lock().await;\n    if let Some(one) = held.as_ref().filter(|one| one.at.elapsed() < CACHE_FOR) {\n        return Ok(one.reading());\n    }\n    let fresh = anthropic::windows().await?;\n    *held = Some(Held { at: Instant::now(), windows: fresh });\n    Ok(held.as_ref().unwrap().reading())\n}\n```\n\n## Not in this pull request\n\n- A shared cache across Fleets on one machine. There is only ever one Fleet per home, so it would add a file to guard for nothing.\n- Pushing the figure to Bridge. Bridge still asks; it just asks less.\n- Any change to how the meters are drawn beyond the age line.\n\n## Compatibility\n\n`read_at` is a new required field on the wire. Bridge and Fleet ship together, so the protocol version moves with it and an old Bridge is refused at connect, as for any wire change.\n\n## Testing\n\n- `plan_usage` has three new tests: a second read inside the minute is served, one after it calls the provider, and a failed read is not kept\n- Run `armada check test plan_usage` for them\n- Open two windows for two minutes and watch the log: one provider call a minute\n\nCloses #1871.",
   checks: "passed",
   review: "required",
   conversation: [
@@ -1057,7 +1057,7 @@ const pause = build({
 
 // ---- Found by a find, on neither of his lists ------------------------------------------------------------
 
-const quick = (spec: { lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
   build({
     repository: "mele-labs/armada",
     manifestId: "armada",
@@ -1079,6 +1079,7 @@ const quick = (spec: { lists: ReviewPr["lists"]; team?: string; number: number; 
     commits: commits([[`${spec.number.toString(16)}a01c3`.slice(0, 7), spec.title, spec.author, spec.opened - 3]]),
     summary: spec.summary,
     explainedBy: "agent",
+    ...(spec.accounts === undefined ? {} : { accounts: spec.accounts }),
     themes: [spec.theme],
   });
 
@@ -1090,7 +1091,31 @@ const hub = quick({
   branch: "priya/hub-ports",
   author: "priya",
   opened: 300,
-  body: "The hub bound whatever port the operating system gave it and logged it once. A restart on a new port left every window reading the old one.\n\nThe hub now asks for the port in the runtime file and falls back to a free one only if it is taken.",
+  body: "## Problem\n\nThe hub bound whatever port the operating system gave it and logged it once. A restart on a new port left every window reading the old one, so each had to be closed and reopened to find the hub again. #1862 has the reports.\n\n## Change\n\nThe hub now asks for the port in the runtime file first, and falls back to a free one only if it is taken.\n\n1. Read `hub.port` from the runtime file at start\n2. Try to bind it\n3. If it is taken, bind port 0, as before, and write the port it got\n4. Write the port back before accepting a connection, so a window that reads the file never sees a port nobody listens on\n\n```rust\nlet wanted = runtime::read().ok().and_then(|file| file.hub_port);\nlet listener = match wanted {\n    Some(port) => TcpListener::bind((LOCALHOST, port)).or_else(|_| TcpListener::bind((LOCALHOST, 0)))?,\n    None => TcpListener::bind((LOCALHOST, 0))?,\n};\nruntime::write_hub_port(listener.local_addr()?.port())?;\n```\n\n## Behaviour\n\n| Case | Before | After |\n|---|---|---|\n| Restart, port free | new port | same port |\n| Restart, port taken | new port | new port, written to the file |\n| First start | random port | random port, written to the file |\n\n## Notes\n\n- The runtime file is still written atomically, with a rename, so a reader never sees half of it\n- Nothing reads `hub.port` from anywhere else; the Drones are told it on their command line\n- A Drone started before a restart still holds the old port. That is #1866 and is not touched here\n\n## Testing\n\n- `cargo test -p fleet hub_port` covers the three cases in the table\n- Restart Fleet with a window open and check it reconnects without a reload",
+  accounts: {
+    "for-you": {
+      shape: "change",
+      rows: [
+        { what: "Restarting Fleet", before: "Every open window kept reading the old port and had to be closed and reopened.", after: "The hub comes back on the same port, so a window reconnects on its own." },
+        { what: "A port that is taken", before: "Not handled; the hub took whatever it was given.", after: "The hub binds a free port and writes it to the runtime file." },
+      ],
+    },
+    "how-to-test": {
+      shape: "steps",
+      steps: [
+        { do: "Open Bridge and note the hub's port in the runtime file.", code: "cat ~/.armada/runtime.json", look: "A hub_port field with a number in it." },
+        { do: "Restart Fleet.", code: "armada fleet restart", look: "The same hub_port, and the open window reconnects without a reload." },
+        { do: "Occupy that port, then restart Fleet again.", code: "nc -l 4219 &", look: "A different hub_port in the file, and the window still reconnects." },
+        { do: "Run the hub port tests.", code: "armada check test hub_port", look: "Three cases pass: free, taken, and first start." },
+      ],
+    },
+    why: {
+      shape: "reason",
+      problem: "A restart left the hub on a new port, and every window that survived it was reading the old one.",
+      cost: "A window had to be closed and reopened after every Fleet restart before it found the hub again.",
+      links: [{ label: "#1862 Windows lose the hub after a Fleet restart", address: `${FORGE}/mele-labs/armada/issues/1862` }],
+    },
+  },
   summary: "The hub took a random port on every start, so a window that survived a restart read a stale one. It now asks for the port in the runtime file first.",
   theme: {
     id: "ports",
@@ -1215,9 +1240,9 @@ const armadaTools: ToolDef[] = [
   { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
   { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
   { id: "how-it-works", kind: "explanation", name: "How it works", source: "armada", mark: "custom", agent: true, checks: "How the code does what it does: its changes in the order they were made, each with why." },
-  { id: "for-you", kind: "explanation", name: "What it changes for you", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
-  { id: "how-to-test", kind: "explanation", name: "How to test it", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for." },
-  { id: "why", kind: "explanation", name: "Why it was needed", source: "armada", mark: "custom", agent: true, checks: "The problem, and what it cost, with the issue or incident the pull request names." },
+  { id: "for-you", kind: "explanation", name: "User Impact", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
+  { id: "how-to-test", kind: "explanation", name: "How to Test", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for." },
+  { id: "why", kind: "explanation", name: "Why", source: "armada", mark: "custom", agent: true, checks: "The problem, and what it cost, with the issue or incident the pull request names." },
 ];
 
 const kitTools: ToolDef[] = [
