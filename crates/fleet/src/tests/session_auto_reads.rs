@@ -204,9 +204,9 @@ fn a_read_outside_the_slots_runs_unless_macos_or_credentials_guard_it() {
     // Each one refused a session on 15 or 16 Oct 2026.
     ran(&[
         "cd ~/develop && grep -rl \"now run the preview at\" --include=*.ts . 2>/dev/null | head; ls ~/develop | head -50",
-        "F=~/.claude/projects/-Users-someone-develop-other/c42b7404.jsonl; grep -c 'run the preview at' $F",
+        "F=~/.claude/projects/-Users-user-develop-other/c42b7404.jsonl; grep -c 'run the preview at' $F",
         "ls ~/.claude/projects/ | grep -i other",
-        "cat /Users/someone/develop/other/.claude/worktrees/cm/.scratch/HANDOFF.md",
+        "cat /Users/user/develop/other/.claude/worktrees/cm/.scratch/HANDOFF.md",
         "jq -r 'select(.a // \"\") | .b' /tmp/x.jsonl",
         "ls ~",
         "ls ~ | head",
@@ -251,6 +251,14 @@ fn git_pointed_at_a_held_slot_is_its_own_and_cd_out_of_it_is_not() {
 
 #[test]
 fn a_subshell_is_read_by_what_it_runs() {
-    ran(&["(cd /Users/someone/develop/other && git log --oneline -3)", "(cd /repo/.armada/slots/slot-3 && rm x)"]);
+    ran(&["(cd /Users/user/develop/other && git log --oneline -3)", "(cd /repo/.armada/slots/slot-3 && rm x)"]);
     refused(&["(cd /etc && rm hosts)", "(rm /repo/a)"], Because::Destructive);
+}
+
+#[test]
+fn a_path_inside_a_quoted_search_pattern_is_text() {
+    ran(&[
+        r#"grep -n "someone\|\.claude\|/Users/x" crates/fleet/src/tests/session_auto_reads.rs; echo ==main; git show origin/main:crates/fleet/src/tests/session_auto_reads.rs | grep -n "someone\|\.claude\|/Users/x""#,
+        r#"git show origin/main:crates/fleet/src/tests/session_auto_reads.rs | grep -n "someone\|\.claude\|/Users/x"; echo "-- main foundations run for comparison:"; gh run list --branch main --workflow ci --limit 3 --json databaseId,conclusion,headSha -q '.[] | "\(.databaseId) \(.conclusion) \(.headSha[0:9])"'"#,
+    ]);
 }
