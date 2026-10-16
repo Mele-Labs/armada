@@ -102,3 +102,41 @@ export const InAnOpenJob: Story = {
     await expect(opened).toHaveBeenCalledWith(SESSION);
   },
 };
+
+
+const MANY = Array.from({ length: 37 }, (_, i) => `crates/store/src/migrations/${String(i + 1).padStart(4, "0")}_clock.rs`);
+
+/** A long list shows three files and one chip for the rest; the chip opens them all and then folds them back. */
+export const WithManyFiles: Story = {
+  render: () => (
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j1" ? [{ with: MAIN, paths: MANY }] : []) }}>
+      <ClashNotice kind="job" id="j1" />
+    </ClashesProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    const list = canvas.getByRole("list", { name: "Conflicting files" });
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
+    const more = canvas.getByRole("button", { name: "34 more" });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(more);
+    await expect(list).toHaveTextContent("0037_clock.rs");
+    await expect(canvas.queryByText("34 more")).toBeNull();
+    const fewer = canvas.getByRole("button", { name: "Fewer" });
+    await expect(fewer).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(fewer);
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
+  },
+};
+
+/** Four files are drawn whole, with no chip. */
+export const WithFourFiles: Story = {
+  render: () => (
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j1" ? [{ with: MAIN, paths: MANY.slice(0, 4) }] : []) }}>
+      <ClashNotice kind="job" id="j1" />
+    </ClashesProvider>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
+    await expect(canvas.queryByRole("button")).toBeNull();
+  },
+};

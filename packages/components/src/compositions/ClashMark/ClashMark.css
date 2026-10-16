@@ -59,3 +59,8 @@ button.armada-clash-notice__with:hover { text-decoration: underline; }
   padding: 0;
   list-style: none;
 }
+
+/* The chip that folds a long list. A path chip's surface, in the accent a control wears. */
+.armada-clash-notice__fold .armada-path__base { color: var(--accent); }
+.armada-clash-notice__fold:hover .armada-path__base,
+.armada-clash-notice__fold:focus-visible .armada-path__base { color: var(--fg-default); }
