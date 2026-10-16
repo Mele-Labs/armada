@@ -10,6 +10,8 @@ import { History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
 import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
+import { REVIEW_KEYS, capOf } from "./key-table";
+import { ReviewKeys } from "./keys";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -100,16 +102,20 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
           </button>
         </Tooltip>
         {leave === undefined ? null : (
-          <Tooltip label="PR Review" asChild>
+          <Tooltip label="PR Review" shortcut={capOf(REVIEW_KEYS.mode)} asChild>
             <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={leave.pressed} onClick={leave.press}>
               {leave.icon}
               <span className="deck-tile__text">PR Review</span>
+              <Kbd className="deck-tile__key" aria-hidden="true">
+                {capOf(REVIEW_KEYS.mode)}
+              </Kbd>
             </button>
           </Tooltip>
         )}
       </div>
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
       <SpendConfirm />
+      <ReviewKeys />
     </>
   );
 }
@@ -119,6 +125,31 @@ function SpendConfirm() {
   const store = useReviewStore()!;
   const { spending } = useReviews();
   const [again, setAgain] = useState(false);
+  // Focus lands on the box in it. Enter runs from anywhere in it but Cancel, and Space turns the question off where focus is not on a button.
+  useEffect(() => {
+    if (spending === undefined) return;
+    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.armada-dialog input[type="checkbox"]')?.focus());
+    const listen = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target === null || target.closest(".armada-dialog") === null) return;
+      const onButton = target.closest("button") !== null;
+      if (event.key === "Enter" && !(onButton && target.closest("button")?.textContent?.startsWith("Cancel"))) {
+        event.preventDefault();
+        event.stopPropagation();
+        const skip = again;
+        setAgain(false);
+        store.confirmSpend(skip);
+      } else if (event.key === " " && !onButton && target.tagName !== "INPUT") {
+        event.preventDefault();
+        setAgain((now) => !now);
+      }
+    };
+    window.addEventListener("keydown", listen, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", listen, true);
+    };
+  }, [spending, again, store]);
   return (
     <Dialog
       open={spending !== undefined}

@@ -218,6 +218,8 @@ export type ReviewSnapshot = {
   open: string | undefined;
   /** The Cockpit has swapped into review mode. */
   mode: boolean;
+  /** The Natural Search box is up, in place of the list. */
+  searching: boolean;
   /** Asking before anything that spends tokens runs. One setting for all of it, turned off by "Don't ask again". Machine-local. */
   askFirst: boolean;
   /** What waits on his Run, by name, where a confirmation is up. */

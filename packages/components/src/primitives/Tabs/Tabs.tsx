@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type HTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
+import { Kbd } from "../Kbd/Kbd";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { useSelectedFill } from "./selected-fill";
 
@@ -33,6 +34,8 @@ export type TabsItem = {
   alert?: string;
   /** The glyph the tab is drawn as under `iconsOnly`. A registry glyph. */
   icon?: LucideIcon;
+  /** The key that chooses this tab, drawn as a keycap on it, as a Flight control tile draws its own. */
+  keycap?: string;
 };
 
 export type TabsProps = {
@@ -57,6 +60,9 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
     if (value === undefined) setInternal(id);
     onChange?.(id);
   }
+
+  // With nothing chosen the first tab takes the Tab key, so the strip is reachable by keyboard.
+  const anyActive = items.some((item) => item.id === active);
 
   function onKey(event: React.KeyboardEvent<HTMLDivElement>) {
     const at = items.findIndex((item) => item.id === active);
@@ -87,7 +93,7 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
             type="button"
             role="tab"
             aria-selected={item.id === active}
-            tabIndex={item.id === active ? 0 : -1}
+            tabIndex={item.id === active || (!anyActive && item === items[0]) ? 0 : -1}
             className={
               item.id === active ? "armada-tabs__tab armada-tabs__tab--active" : "armada-tabs__tab"
             }
@@ -95,6 +101,11 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
             {...(Icon === undefined ? {} : { "aria-label": item.label, "data-icon-only": "" })}
           >
             {Icon === undefined ? item.label : <Icon size={16} strokeWidth={2} aria-hidden />}
+            {item.keycap === undefined ? null : (
+              <Kbd className="armada-tabs__key" aria-hidden="true">
+                {item.keycap}
+              </Kbd>
+            )}
             {item.alert === undefined ? null : (
               <Tooltip label={item.alert}>
                 <span className="armada-tabs__alert" role="img" aria-label={item.alert} />

@@ -136,3 +136,6 @@
   background: var(--status-escalated);
   vertical-align: middle;
 }
+
+/* A keycap on a tab, quiet beside its label. */
+.armada-tabs__key { margin-left: calc(var(--space-1) * -1); }

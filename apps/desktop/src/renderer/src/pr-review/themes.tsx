@@ -110,7 +110,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   };
 
   return (
-    <article className="pr-change" aria-label={`Change: ${bare ? place : change.title}`} data-mode={mode} data-bare={bare || undefined}>
+    <article className="pr-change" tabIndex={0} data-stop aria-label={`Change: ${bare ? place : change.title}`} data-mode={mode} data-bare={bare || undefined}>
       <header className="pr-change__head">
         {bare ? null : <span className="pr-change__n mono">{number}</span>}
         <h4 className="pr-change__title" data-mono={bare || undefined}>

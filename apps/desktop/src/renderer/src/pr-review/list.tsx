@@ -7,10 +7,11 @@
 
 import { useEffect, useState } from "react";
 import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
-import { Button, DropdownMenu, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import { Button, DropdownMenu, Kbd, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
+import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { Find, ReviewPr } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -31,10 +32,10 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, work } = useReviews();
+  const { prs, tab, finds, open, fetchedAt, fetching, work, searching: asking } = useReviews();
+  const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
-  const [asking, setAsking] = useState(false);
   // The list is read when the view is opened, the first time and no more.
   useEffect(() => {
     if (fetchedAt === undefined) store.fetch();
@@ -55,7 +56,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
     ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
     { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Natural Search", selected: asking },
+    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search },
   ];
   const ask = () => {
     if (words.trim() === "") return;
@@ -73,6 +74,9 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     <section className="deck-panel deck-list pr-list" aria-label="Pull requests" tabIndex={-1}>
       <header className="deck-band">
         Pull requests
+        <Tooltip label="Go to Pull requests" shortcut={REVIEW_KEYS.list}>
+          <Kbd>{REVIEW_KEYS.list}</Kbd>
+        </Tooltip>
         <span className="pr-list__refresh">
           <Tooltip label={fetching ? "Fetching" : fetched}>
             <Button variant="ghost" size="sm" iconOnly aria-label="Refresh" disabled={fetching} onClick={() => store.fetch()}>
@@ -93,6 +97,9 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
             if (id !== ASK) store.setTab(id);
           }}
         />
+        <Tooltip label="Open the lists" shortcut={capOf(REVIEW_KEYS.lists)}>
+          <Kbd>{capOf(REVIEW_KEYS.lists)}</Kbd>
+        </Tooltip>
       </div>
       {asking ? (
       <form

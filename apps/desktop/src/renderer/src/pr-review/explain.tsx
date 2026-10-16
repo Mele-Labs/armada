@@ -10,7 +10,8 @@ import { Button, Prose, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, send
 import type { useSendFindings } from "./acts";
 import { SOURCE_MARK } from "./marks";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
-import { NO_WORK, useReviewStore, useReviews } from "./store";
+import { QUICK_KEYS, capOf } from "./key-table";
+import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { ThemeBlock } from "./themes";
 import { bySession, onlyExplanations, toolsOf } from "./tools";
 
@@ -34,21 +35,29 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
       <h3 className="pr-what__title">Quick actions</h3>
       <div className="pr-explainer__pick">
         <Tabs
-          items={[...kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks })), { id: ASK, label: "Ask", hint: "Ask about this pull request in your own words" }]}
+          items={[...kinds, { id: ASK, name: "Ask", checks: "Ask about this pull request in your own words" }].map((one) => ({ id: one.id, label: one.name, hint: one.checks, ...(QUICK_KEYS[one.id] === undefined ? {} : { keycap: capOf(QUICK_KEYS[one.id]!) }) }))}
           value={work.kind ?? ""}
-          onChange={(id) => {
-            const def = kinds.find((one) => one.id === id);
-            if (def === undefined) return store.show(pr.key, id);
-            const kept = work.explains[def.id];
-            if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) store.explain(pr.key, def);
-            else store.spend(def.name, () => store.explain(pr.key, def));
-          }}
+          onChange={(id) => chooseQuick(store, pr, id)}
         />
       </div>
       {work.asks.length === 0 ? null : <Asks pr={pr} />}
       {work.kind === ASK ? <AskBox pr={pr} /> : null}
     </section>
   );
+}
+
+/**
+ * Chooses a quick action, by the id of the explanation or `ask`. **A choice with no kept result asks first**, since it spends
+ * tokens, and one that is kept (or a Session's own) opens at once. One place for the strip's press and for its key.
+ */
+export function chooseQuick(store: ReviewStore, pr: ReviewPr, id: string): void {
+  const snap = store.get();
+  const kinds = onlyExplanations(toolsOf(snap, pr.manifestId));
+  const def = kinds.find((one) => one.id === id);
+  if (def === undefined) return store.show(pr.key, id);
+  const kept = (snap.work[pr.key] ?? NO_WORK).explains[def.id];
+  if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) store.explain(pr.key, def);
+  else store.spend(def.name, () => store.explain(pr.key, def));
 }
 
 /** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */

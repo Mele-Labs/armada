@@ -11,14 +11,14 @@ const work = region("Jobs and Sessions");
 
 const prReviewMode = walk("pr-review", [
   { look: work, say: "The Cockpit on its work" },
-  { hover: inside(controls, button("PR Review")), say: "PR Review is a mode in the Flight control" },
-  { press: inside(controls, button("PR Review")), say: "The Cockpit's panels swap into review" },
+  { hover: inside(controls, button("PR Review")), say: "PR Review is a mode in the Flight control, and ⇧P is its key" },
+  { key: "Shift+P", on: work, say: "The Cockpit's panels swap into review" },
   ...toTheList,
   ...theExplanation,
   ...theTools,
   ...theSessionsOwn,
   ...theNewTool,
-  { press: inside(controls, button("PR Review")), say: "Pressed again, the Cockpit is back" },
+  { key: "Shift+P", on: region("Pull requests"), say: "⇧P again, and the Cockpit is back" },
   { look: work, say: "The list of Jobs and Sessions, as it was left" },
 ]);
 

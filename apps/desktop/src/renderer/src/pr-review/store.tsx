@@ -41,6 +41,8 @@ export type ReviewStore = {
   removeFind: (id: string) => void;
   open: (key: string | undefined) => void;
   setMode: (on: boolean) => void;
+  /** Puts the Natural Search box up in place of the list, or takes it down. */
+  setSearching: (on: boolean) => void;
   /**
    * **Everything that spends tokens goes through here**: the quick actions, the review tools and Natural Search. It runs
    * at once where he turned the question off, and otherwise waits on a confirmation.
@@ -99,6 +101,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     finds: [],
     open: undefined,
     mode: false,
+    searching: false,
     askFirst: true,
     spending: undefined,
     armada: seed.tools.armada,
@@ -193,6 +196,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
     open: (open) => set({ open }),
     setMode: (mode) => set({ mode }),
+    setSearching: (searching) => set({ searching }),
     spend: (what, run) => {
       if (!snapshot.askFirst) return run();
       waiting = run;
@@ -299,7 +303,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

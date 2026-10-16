@@ -6,11 +6,12 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
-import { Badge, Button, DiffSize, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
+import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
 import { Explained, QuickActions } from "./explain";
+import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
 import { ToolResults } from "./results";
@@ -40,7 +41,7 @@ export function ReviewReader(hosts: ReaderHosts) {
   const pr = prs.find((one) => one.key === open);
   if (pr === undefined) {
     return (
-      <section className="deck-pane pr-reader" aria-label="Pull request">
+      <section className="deck-pane pr-reader" aria-label="Pull request" tabIndex={-1}>
         <header className="deck-band deck-pane__head">
           <Tooltip label="Pull request">
             <span className="deck-pane__kind" role="img" aria-label="Pull request">
@@ -64,7 +65,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
 
   return (
-    <section className="deck-pane pr-reader" aria-label={`Pull request #${pr.number}`}>
+    <section className="deck-pane pr-reader" aria-label={`Pull request #${pr.number}`} tabIndex={-1}>
       <header className="deck-band deck-pane__head">
         <Tooltip label="Pull request">
           <span className="deck-pane__kind" role="img" aria-label="Pull request">
@@ -74,6 +75,9 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         <h2 className="deck-pane__title">{`#${pr.number} ${pr.title}`}</h2>
         <span className="deck-pane__where">{pr.repository}</span>
         <span className="deck-pane__acts">
+          <Tooltip label="Go to the pull request" shortcut={REVIEW_KEYS.reader}>
+            <Kbd>{REVIEW_KEYS.reader}</Kbd>
+          </Tooltip>
           {pr.holder === undefined ? null : (
             <Tooltip label="Held by this Session">
               <Button variant="ghost" size="sm" aria-label={`Session: ${pr.holder.title}`} onClick={() => onOpenSession(pr.holder!.id)}>
@@ -133,7 +137,7 @@ function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typ
       <QuickActions pr={pr} />
       <section className="pr-what pr-desc" aria-label="Description" data-open={open || undefined}>
         <header className="pr-what__head">
-          <Tooltip label={open ? "Hide the description" : "Show the description"}>
+          <Tooltip label={open ? "Hide the description" : "Show the description"} shortcut={capOf(REVIEW_KEYS.description)}>
             <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Hide the description" : "Show the description"} aria-expanded={open} onClick={() => setChosen(!open)}>
               {open ? <ChevronDown size={16} strokeWidth={2} aria-hidden /> : <ChevronRight size={16} strokeWidth={2} aria-hidden />}
             </Button>

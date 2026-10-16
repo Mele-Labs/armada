@@ -17,6 +17,7 @@ import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { REVIEW_KEYS, capOf } from "../../pr-review/key-table";
 import { ReviewList } from "../../pr-review/list";
 import { ReviewReader } from "../../pr-review/reader";
 import { ReviewTools } from "../../pr-review/flight";
@@ -533,10 +534,13 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
             </Tooltip>
           ))}
           {reviews === undefined ? null : (
-            <Tooltip label="PR Review" asChild>
+            <Tooltip label="PR Review" shortcut={capOf(REVIEW_KEYS.mode)} asChild>
               <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={false} onClick={() => reviews.setMode(true)}>
                 <Eye size={20} aria-hidden="true" />
                 <span className="deck-tile__text">PR Review</span>
+                <Kbd className="deck-tile__key" aria-hidden="true">
+                  {capOf(REVIEW_KEYS.mode)}
+                </Kbd>
               </button>
             </Tooltip>
           )}
