@@ -9,6 +9,7 @@ import type {
   CheckoutDiff,
   CheckoutSentAsPullRequest,
   ClaimPullRequest,
+  DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -18,8 +19,10 @@ import type {
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
+  JudgeSession,
   RenameSession,
   ReviewDispatched,
+  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   ChosenHold,
@@ -88,6 +91,12 @@ export type SessionsApi = {
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
   sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
+  /** Runs a judge now on the work so far against the plan. Answers at once with `judging` set; `judge` lands on the record. */
+  judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
+  /** Sends a judge's concern (`judge:<n>`) to the agent as his message, and settles it. */
+  sendConcern: (send: SendConcern) => Promise<SessionActed>;
+  /** Settles a judge's concern. The agent is told nothing. */
+  dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -227,6 +236,9 @@ export const SESSIONS_CHANNELS = {
   dismissWaiting: "bridge:dismiss-waiting",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
+  judgeSession: "bridge:judge-session",
+  sendConcern: "bridge:send-concern",
+  dismissConcern: "bridge:dismiss-concern",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

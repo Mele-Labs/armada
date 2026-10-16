@@ -21,7 +21,9 @@
  * entries are the road a Session's `build` reads its stops from. `session.workflow`, `session.model` and
  * `session.effort` are a change a person made in a panel that the agent was told of: `says` is
  * `workflow: old → new`, `model: old → new` or `effort: old → new` (none of a workflow is `custom`, no effort
- * `the default`). The model and effort entries are dated at the start of the turn that ran on the change. Since 23.91.
+ * `the default`). `session.step` is the Session moving from one step of its workflow to another as Fleet
+ * observed: `says` is `step: old → new`, a step by its label, none before the first as `start` and past the last as
+ * `done`. The model and effort entries are dated at the start of the turn that ran on the change. Since 23.91.
  */
 export type TimelineKind =
   | "job.created"
@@ -52,6 +54,7 @@ export type TimelineKind =
   | "session.committed"
   | "session.pushed"
   | "session.workflow"
+  | "session.step"
   | "session.model"
   | "session.effort"
   | "session.ended"

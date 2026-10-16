@@ -77,7 +77,8 @@
   align-items: center;
   gap: var(--space-3);
   min-height: var(--h-row-header);
-  padding: var(--space-2) var(--space-4) var(--space-1);
+  /* No padding above or below: the band's own height centres the line, so there is as much space over the title as under it. */
+  padding: 0 var(--space-4);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -141,7 +142,10 @@
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
-.deck-activity { flex: none; height: var(--deck-activity, calc(var(--space-12) * 6)); }
+/* Activity and Incoming calls rest at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so their edges
+   line up with the middle's. They give way, never overlap, when the column is shorter. */
+.deck-activity,
+.deck-incoming { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
@@ -496,7 +500,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
 }
 
-.deck-incoming { flex: 2 1 0; }
 .deck-bays,
 .deck-ledger { flex: 3 1 0; }
 /* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
@@ -779,3 +782,46 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-history__to { flex: none; }
 .deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
 .deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }
+
+/* ---- A panel folds to its band ------------------------------------------------------------------------------ */
+
+/* The band is what folds a panel: pressed, it closes the panel to the band alone, and pressed again it opens. The size is animated, and what
+   is under the band is clipped by the panel while it goes and hidden from the pointer and the keyboard once it has. The band, with its key,
+   stays as it was. */
+.deck-foot { interpolate-size: allow-keywords; }
+.deck-band[role="button"],
+.sv-panel__band[role="button"] { cursor: pointer; user-select: none; }
+.deck-band[role="button"]:hover,
+.sv-panel__band[role="button"]:hover { color: var(--fg-default); }
+.deck-band[role="button"]:focus-visible,
+.sv-panel__band[role="button"]:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
+.deck-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
+.deck-panel,
+.sv-panel {
+  transition: flex-grow calc(var(--duration-sheet) * 1.6) var(--ease), flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), min-height calc(var(--duration-sheet) * 1.6) var(--ease), max-height calc(var(--duration-sheet) * 1.6) var(--ease), height calc(var(--duration-sheet) * 1.6) var(--ease), margin-top calc(var(--duration-sheet) * 1.6) var(--ease);
+}
+.deck-panel > :not(.deck-band),
+.sv-panel > :not(.sv-panel__band) { visibility: visible; }
+.deck-panel[data-collapsed] > :not(.deck-band),
+.sv-panel[data-collapsed] > :not(.sv-panel__band) { visibility: hidden; transition: visibility 0s linear calc(var(--duration-sheet) * 1.6); }
+/* In a column the panel gives up its share and keeps the band. Specific enough to stand over each panel's own size. */
+.deck-panel[data-collapsed][data-collapsed][data-collapsed],
+.sv-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); min-height: 0; height: auto; max-height: var(--folded); }
+/* In the foot, a row, it keeps its width and gives up its height. */
+.deck-foot > .deck-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 1 1 auto; align-self: flex-start; height: var(--folded); }
+
+/* ---- A Session's flight controls fill the panel ------------------------------------------------------------- */
+
+/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. One row of seven where
+   the block is wide and low, two rows of four where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
+   its word from its own box. */
+.deck-controls__block[data-subject="session"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
+.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+@container tiles (min-aspect-ratio: 45 / 10) {
+  .deck-controls__tiles { grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+}
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
+.deck-controls__tiles > .deck-tile svg,
+.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
+.deck-tile__done { color: var(--step-advanced); }

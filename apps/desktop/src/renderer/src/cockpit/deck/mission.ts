@@ -233,7 +233,7 @@ export function sceneOf(input: SceneIn): { layout: Layout; route: RouteIn; world
   };
   const layoutAt = new Map<string, Placed>(drones.map((one) => [one.key, { ...sh(place.get(one.key)!), s: 1, root: input.repo.root }]));
   const layoutOver = new Map([...over].map(([key, list]) => [key, list.map(({ tile, w }) => ({ tile: swap.get(tile)!, w }))] as const));
-  const layout: Layout = { territories: [territory], at: layoutAt, over: layoutOver, clashes };
+  const layout: Layout = { territories: [territory], at: layoutAt, bars: new Map(), over: layoutOver, clashes };
 
   const pins: PinIn[] = [
     ...spine.map((one): PinIn => ({ ...one, at: sh(at.get(one.id)!), fan: false })),

@@ -10,11 +10,152 @@
   min-height: 0;
 }
 
+/* The thread and the region pinned over its foot share the stage; what is under the stage (working on, needs you, done) is the footer. */
+.armada-session-thread__stage {
+  --calls-band: var(--h-row-header);
+  /* No region, no height: a length of nothing, which the thread sets inline once it has cards. */
+  --calls-body: calc(var(--border-width) * 0);
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  /* The region is slid down off the stage's foot and clipped there. */
+  overflow: clip;
+  timeline-scope: --thread-scroll;
+}
+
+/* **The scroller keeps its size and ends in padding the height of the pinned region**, which lies over that padding. Its scroll range is
+   then the same whether the region is whole or shrunk, so he can always scroll back down to where it is whole again. */
 .armada-session-thread__rows {
   flex: 1;
   min-height: 0;
+  padding-block-end: var(--calls-body);
+  overflow: auto;
+  scroll-timeline: --thread-scroll block;
+}
+
+/* The band's row is kept in the stage's flow, so the thread ends above it with a gap. */
+.armada-session-thread__stage:has(> .armada-session-thread__calls)::after {
+  content: "";
+  flex: none;
+  height: calc(var(--calls-band) + var(--border-width) * 2);
+}
+
+/* Everything the Session waits on him for sits in one framed region over the foot of the thread: a band, then its cards. It is as tall as
+   its cards (`--calls-body`, set from the cards' height, never above two fifths of the stage) and is slid down off the stage as the thread
+   is scrolled up, so that only the band is left. */
+.armada-session-thread__calls {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(var(--calls-band) + var(--calls-body) + var(--border-width) * 2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.armada-session-thread__calls[data-open] {
+  height: 100%;
+  border-color: var(--accent);
+}
+
+/* **A pixel of scroll is a pixel of height.** The region slides down the length of its own body as the thread is scrolled up through the last
+   body's height of its range, and is whole again when he is at the end. */
+@keyframes armada-session-calls-shrink {
+  from { transform: translateY(var(--calls-body)); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .armada-session-thread__calls:not([data-open]) {
+    animation: armada-session-calls-shrink linear both;
+    animation-timeline: --thread-scroll;
+    animation-range: calc(100% - var(--calls-body)) 100%;
+  }
+}
+/* Reduced motion snaps: whole at the end of the thread, the band alone once he is a region's height away. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-thread__calls[data-shrink="collapsed"]:not([data-open]) { transform: translateY(var(--calls-body)); }
+}
+
+/* The band is the region's header, as a panel's is: small caps in mono over the raised surface. */
+.armada-session-thread__calls-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  height: var(--calls-band);
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-align: start;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.armada-session-thread__calls-band:hover { color: var(--fg-default); }
+.armada-session-thread__calls-band:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.armada-session-thread__calls-head { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); color: var(--fg-default); }
+.armada-session-thread__calls-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.armada-session-thread__calls-fold { flex: none; margin-inline-start: auto; }
+
+.armada-session-thread__calls-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.armada-session-thread__calls-body:is([inert]) { visibility: hidden; }
+.armada-session-thread__calls-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.armada-session-thread__calls-list > * { flex-shrink: 0; }
+.armada-session-thread__calls-list > .armada-session-thread__ask { max-height: none; }
+/* Open over the thread, the plan is shown whole and the region scrolls rather than the card. */
+.armada-session-thread__calls[data-open] .armada-session-thread__plan { max-height: none; }
+
+/* Under the stage: what the agent is working on, what needs him, and the Session being done. It never takes more than two fifths of the thread
+   and scrolls past that, so his message and the agent's replies above it are always in view. */
+.armada-session-thread__footer {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  max-height: min(40%, 40vh);
   overflow: auto;
 }
+.armada-session-thread__footer:empty { display: none; }
+.armada-session-thread__footer > * { flex-shrink: 0; }
+.armada-session-thread__footer > .armada-session-needs { max-height: none; }
 
 /* The first write: the one row that is not a message, filled in the slot's
    leased hue so it reads before anything around it. */
@@ -26,6 +167,27 @@
   border-radius: var(--radius-md);
   background: var(--slot-held);
   color: var(--fg-inverse);
+}
+
+/* A change he made through a panel, which the agent was told of: the same event row as the lease, filled in his colour. */
+.armada-session-change {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--you);
+  color: var(--fg-inverse);
+}
+
+.armada-session-change__facts {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
 }
 
 .armada-session-lease__eyebrow {
@@ -144,6 +306,35 @@
   background: transparent;
   box-shadow: none;
 }
+
+/* The plan: a compact card. Its groups are closed rows under an eyebrow, a small thumbnail of its sketch beside them, and Approve. A press on it opens the plan in full. */
+.armada-session-thread__plan[data-reviewable] { cursor: pointer; transition: border-color var(--duration-fast) var(--ease); }
+.armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
+.armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-session-thread__plan { max-height: calc(var(--space-12) * 5); overflow: hidden; }
+.armada-session-thread__calls-list > .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); }
+.armada-session-thread__plan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.armada-session-thread__plan-band { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fg-muted); font: inherit; text-align: start; cursor: pointer; }
+.armada-session-thread__plan-band:hover { color: var(--fg-default); }
+.armada-session-thread__plan-band:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-session-thread__plan-version { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-session-thread__plan-fold { margin-inline-start: auto; }
+.armada-session-thread__settled[data-state="waiting"] { color: var(--step-waiting); }
+.armada-session-thread__plan > .armada-session-thread__plan-body { min-height: 0; overflow: auto; }
+.armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
+.armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
+.armada-session-thread__groups { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__group { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); row-gap: var(--space-1); min-width: 0; }
+.armada-session-thread__group-title { min-width: 0; font-weight: var(--weight-heading); overflow-wrap: anywhere; }
+.armada-session-thread__group > .armada-session-thread__agent { grid-column: 1; }
+.armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); }
+.armada-session-thread__marks { display: flex; flex-wrap: wrap; flex: none; justify-content: flex-end; max-width: 50%; gap: var(--space-1); }
+.armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__record { list-style: none; }
+.armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
+.armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.armada-session-thread__plan .armada-session-sketch__band { display: none; }
+.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 3); }
 
 /* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
 /* Many rows scroll inside it, so End session stays in view. */
@@ -929,6 +1120,112 @@
   opacity: 1;
 }
 
+/* The changes and notes he sent on the plan: his message, in his colour, a line for each. */
+.armada-session-suggest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--you);
+  color: var(--fg-inverse);
+}
+
+.armada-session-suggest__lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-session-suggest__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-suggest__verb {
+  display: inline-flex;
+}
+
+.armada-session-suggest__where {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+
+.armada-session-suggest__line s {
+  opacity: 0.7;
+}
+
+/* What the agent changed since the last plan, over the card's groups. */
+.armada-session-thread__changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-thread__changes li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-2);
+}
+
+/* A rename stacks: the old text struck through, then the new text on the line below, both under the glyph's right edge. */
+.armada-session-thread__change-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+
+.armada-session-thread__changes [data-kind="added"] > span[role="img"] { color: var(--step-advanced); }
+.armada-session-thread__changes [data-kind="renamed"] > span[role="img"] { color: var(--step-running); }
+.armada-session-thread__changes [data-kind="removed"] { color: var(--fg-muted); }
+.armada-session-thread__changes [data-kind="removed"] > span[role="img"] { color: var(--step-failed); }
+.armada-session-thread__changes s { color: var(--fg-muted); }
+
+/* A judge's concern, waiting on him: the question card's own frame, with what it cites. */
+.armada-session-thread__concern { border-color: var(--status-piloted); box-shadow: inset 0 0 0 var(--border-width) var(--status-piloted); }
+.armada-session-thread__concern-band { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent); color: var(--status-piloted); }
+.armada-session-thread__concern-judge { display: inline-flex; }
+.armada-session-thread__concern-from { margin-inline-start: auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
+/* A concern as a claim: the consequence as its headline, then a labelled row for what was expected and what was found. Prose, never mono. */
+.armada-session-thread__claim { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; font-family: var(--font-sans); }
+.armada-session-thread__claim-head { margin: 0; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); overflow-wrap: anywhere; }
+.armada-session-thread__claim-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--space-3); min-width: 0; }
+.armada-session-thread__claim-row > .armada-session-thread__eyebrow { color: var(--fg-muted); }
+.armada-session-thread__claim-text { margin: 0; min-width: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.armada-session-thread__claim-row > .armada-session-thread__claim-text:not([data-open]) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.armada-session-thread__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__cites code { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); }
+
+/* A dismissed concern, folded to one line. */
+.armada-session-concern-settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-session-concern-settled__mark { display: inline-flex; }
+.armada-session-concern-settled__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.armada-session-thread__rows:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
 /* reach answers — the call's own answers in a row, then Always in a panel washed in
    --accent-faint behind an --accent-muted edge, so the folder picked in it reads as what the two
    Always answers cover. The folder each names is --accent. */
@@ -959,6 +1256,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
+
 
 .armada-session-thread__always-folder {
   color: var(--accent);

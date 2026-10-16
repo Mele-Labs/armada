@@ -6,13 +6,14 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
+import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
 import { share } from "./share";
 import type {
   Session,
@@ -39,9 +40,20 @@ export type Beside = {
   pending: readonly SessionTag[];
   /** A repository as the picker names it, for the place a `sent` row says words went. Absent, the id stands. */
   repository?: (manifestId: string | undefined) => string;
+  /** The workflows Fleet holds, which name the steps of the one a Session follows. */
+  workflows?: readonly WorkflowSummary[];
+  /** What happened across the Fleet, of which a value the person changed in a panel is a row of the thread. */
+  events?: readonly TimelineEvent[];
+  /** Picks of the proposer the person has changed here, which the record has not yet said. */
+  unpicked?: ReadonlySet<ProposedField>;
+  /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
+  workflowsOff?: boolean;
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
+
+const NO_WORKFLOWS: readonly WorkflowSummary[] = [];
+const NO_PICKS: ReadonlySet<ProposedField> = new Set();
 
 /** What other sessions call a session: `s-` and the first eight characters of its id. */
 export const addressOf = (id: string): string => `s-${id.slice(0, 8)}`;
@@ -467,6 +479,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
             : { narrative: { trying_to: row.narrative.trying_to, blocked_by: row.narrative.blocked_by, tried: linesOf(row.narrative.tried) } }),
         });
         break;
+      case "plan_changes":
+        out.push({ id: row.id, at, kind: "suggest", lines: linesOfWire(row.lines) });
+        break;
       case "ask":
         if (row.state !== "waiting") {
           out.push({
@@ -513,9 +528,10 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture, beside.repository);
+  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events, record.settled);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -556,7 +572,27 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
+    ...(work === undefined ? {} : { work }),
   };
+}
+
+/** The values the person changed through a panel, which the agent was told of, and the concerns he settled, as rows of the thread where they happened. */
+function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined, settled: readonly WaitingItem[] | undefined): SessionRow[] {
+  const changes = [...settledRowsOf(settled, thread)];
+  for (const event of events ?? []) {
+    if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
+    const change = changeOfEvent(event.kind, event.says);
+    if (change !== undefined) changes.push({ at: event.at, row: { id: `event:${event.id}`, at: clock(event.at), kind: "change" as const, ...change } });
+  }
+  if (changes.length === 0) return thread;
+  changes.sort((a, b) => a.at.localeCompare(b.at));
+  const when = new Map(rows.map((one) => [one.id, one.at]));
+  const out = [...thread];
+  for (const change of changes) {
+    const at = out.findIndex((one) => (when.get(one.id) ?? "") > change.at);
+    out.splice(at < 0 ? out.length : at, 0, change.row);
+  }
+  return out;
 }
 
 /**
@@ -635,4 +671,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.jobs === b.jobs && a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch;
+  a.jobs === b.jobs && a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;

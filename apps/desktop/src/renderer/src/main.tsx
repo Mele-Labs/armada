@@ -98,7 +98,7 @@ function Root() {
                 <WiredNumbered>
                   <PlanUsageSourceProvider value={PLAN_USAGE}>
                     <DownshiftSourceProvider value={DOWNSHIFT}>
-                      <WiredSessions>
+                      <WiredSessions events={TIMELINE}>
                         <ClashesFromFleet source={CLASHES}>
                           <TerritoryFromFleet source={TERRITORY}>
                             <AccountFromFleet source={ACCOUNT}>

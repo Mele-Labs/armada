@@ -24,7 +24,7 @@
 .armada-clash-notice__row {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
   min-width: 0;
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--status-awaiting-review-bg);
@@ -33,9 +33,10 @@
 }
 
 .armada-clash-notice__head {
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -74,7 +75,54 @@
 button.armada-clash-notice__with { color: var(--accent); cursor: pointer; }
 button.armada-clash-notice__with:hover { text-decoration: underline; }
 
-.armada-clash-notice__paths[hidden] { display: none; }
+/* Opens and folds on a height animation, the panels' own: a grid row from nothing to its content. */
+.armada-clash-notice__fold-box {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-sheet) var(--ease);
+}
+
+.armada-clash-notice__fold-box[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.armada-clash-notice__fold-box > .armada-clash-notice__clashes {
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+  transition: padding-top var(--duration-sheet) var(--ease);
+}
+
+.armada-clash-notice__fold-box[data-open="true"] > .armada-clash-notice__clashes {
+  padding-top: var(--space-2);
+}
+
+/* The folded line's chips: the other holders, on the one line, cut at its end. */
+.armada-clash-notice__chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.armada-clash-notice__clashes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding-inline: 0;
+  list-style: none;
+}
+
+.armada-clash-notice__clash {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
 
 .armada-clash-notice__paths {
   display: flex;

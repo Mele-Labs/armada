@@ -110,15 +110,15 @@ pub const JUDGE_QUESTION: Piece = Piece {
 /// built in one place and can be asserted on without a model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Brief {
-    criterion: CriterionId,
-    question: String,
+    pub(crate) criterion: CriterionId,
+    pub(crate) question: String,
     /// What the assembler put where, so a quotation can be placed in a part of
     /// the brief rather than only on a line of it. See
     /// [`shown`](mod@crate::shown).
-    regions: Vec<Region>,
+    pub(crate) regions: Vec<Region>,
     /// Whether a refusal must say if the work is risky. Set by
     /// [`on_a_panel`](Brief::on_a_panel) and nowhere else.
-    asks_risk: bool,
+    pub(crate) asks_risk: bool,
 }
 
 impl Brief {

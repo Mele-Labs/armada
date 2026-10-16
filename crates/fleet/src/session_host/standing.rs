@@ -109,6 +109,8 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
             options: Vec::new(),
             steps: Vec::new(),
             place: None,
+            concern: None,
+            cites: Vec::new(),
         }],
         None => Vec::new(),
     }

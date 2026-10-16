@@ -20,6 +20,7 @@ import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
+import { useSplits } from "./splits";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
@@ -36,6 +37,7 @@ import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } fr
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
+import { useCollapse } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
@@ -48,8 +50,9 @@ import { checkoutSaid, heldOf } from "./YourCheckout";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
+import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -163,6 +166,7 @@ export function QueuedRow({ idea }: { idea: QueuedIdea }) {
 }
 
 function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; onPick: (subject: Subject) => void }) {
+  const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
   const ideas = useQueued();
@@ -189,8 +193,8 @@ function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { s
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
-      <header className="deck-band">
+    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+      <header className="deck-band" {...folded.band}>
         Jobs and Sessions
         <PanelKey id="list" />
       </header>
@@ -209,31 +213,33 @@ function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { s
 }
 
 /**
- * What Fleet has been doing over the last hour, as a beeswarm with no words: a dot for each event. **Hovering a dot shows the events
- * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
+ * Activity and Incoming calls stand as tall as the merge queue and the flight controls beside them: from the queue's top to the foot's
+ * bottom. Each is in a side column, so the height is set on the grid and both read it. A size he has dragged to takes over from it.
  */
-/** Activity stands as tall as the merge queue and the flight controls beside it: from the queue's top to the foot's bottom. */
-function useActivityBeside(grid: RefObject<HTMLDivElement | null>) {
+export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
   useEffect(() => {
     const root = grid.current;
     if (root === null || typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(() => measure());
     const measure = () => {
-      const left = root.querySelector<HTMLElement>(".deck-left");
       const queue = root.querySelector<HTMLElement>(".deck-queue");
       const foot = root.querySelector<HTMLElement>(".deck-foot");
-      if (left === null || queue === null || foot === null) return;
+      if (queue === null || foot === null) return;
       // The queue is redrawn when the repository changes, so the one on screen is watched each time.
       watch.observe(queue);
       const height = foot.getBoundingClientRect().bottom - queue.getBoundingClientRect().top;
-      if (height > 0) left.style.setProperty("--deck-activity", `${Math.round(height)}px`);
+      if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
     };
     for (const one of root.querySelectorAll(".deck-centre, .deck-foot, .deck-stage > *")) watch.observe(one);
     measure();
     return () => watch.disconnect();
-  }, [grid]);
+  }, [grid, layout]);
 }
 
+/**
+ * What Fleet has been doing over the last hour, as a beeswarm with no words: a dot for each event. **Hovering a dot shows the events
+ * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
+ */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
   const only = useDeck((deck) => deck.only);
   const needs = useDeck((deck) => deck.needs);
@@ -317,7 +323,7 @@ function useBayViews(props: CockpitProps) {
   return useBays(slots, events, undefined, props.now);
 }
 
-function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null }) {
+function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
   const sel = useDeck((deck) => deck.sel);
   const held = useDeck((deck) => deck.held);
   const view = useDeck((deck) => deck.view);
@@ -346,7 +352,7 @@ function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps
     if (held === undefined) props.onOpenSession(id);
     else select(selOfSubject(held));
   };
-  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} ledger={ledger} openSession={openSession} />;
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
   if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
@@ -539,6 +545,7 @@ export const TILES: readonly Tile[] = [
  * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
  */
 function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
+  const folded = useCollapse("controls");
   const only = useDeck((deck) => deck.only);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
@@ -554,8 +561,8 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
   return (
-    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
-      <header className="deck-band">
+    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
       </header>
@@ -687,9 +694,10 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
 }
 
 function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
+  const folded = useCollapse("calls");
   return (
-    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1}>
-      <header className="deck-band">
+    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <header className="deck-band" {...folded.band}>
         Incoming calls
         <PanelKey id="calls" />
       </header>
@@ -801,13 +809,22 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   }, [bring?.at]);
   const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
   const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
-  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
+  // The selected Session's own calls are cards in its thread, so Incoming calls leaves them out and nothing shows twice.
+  const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
+  // A Session with `work` draws its own panels in the places of Activity, Bays and Autopilot, and its status in the ring's.
+  const sessions = useSessions();
+  const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
+  const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
+  const [footHost, setFootHost] = useState<HTMLElement | null>(null);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
-  const { columns, resize, reset } = useColumns(grid);
-  useActivityBeside(grid);
+  const layout = unified ? "session" : reading ? "reading" : "idle";
+  const { columns, resize, reset } = useColumns(grid, layout);
+  const splits = useSplits(grid, layout);
+  useActivityBeside(grid, layout);
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
@@ -822,30 +839,33 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} onPick={(one) => select(selOfSubject(one))} />
-          <Activity props={props} listed={listed} ship={ship} />
+          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading ? ledgerHost : null} />
+            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
-            <DispatchDeck />
-            <AutopilotPanel props={props} autopilot={autopilot} />
+            {unified ? null : <DispatchDeck />}
+            {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
           </div>
         </div>
         <div className="deck-right">
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {reading ? (
+          {unified ? (
+            <div className="sv-side" ref={setSideHost} />
+          ) : reading ? (
             <>
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
             </>
           ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} />}
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>
+        {splits}
       </div>
     </div>
     </ClashesOpenHere>

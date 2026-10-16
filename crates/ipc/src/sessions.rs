@@ -556,6 +556,9 @@ pub enum WaitingSource {
     /// Fleet: the plan the agent recorded is not approved yet. Derived on every read: id
     /// `plan:<version>`. It is settled by `approve_plan` or `send_plan_changes`.
     Plan,
+    /// Fleet: a judge raised a concern about the work. Kept, id `judge:<n>`, with `concern` beside the
+    /// text. It is settled by `send_concern` or `dismiss_concern`.
+    Judge,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -597,6 +600,12 @@ pub struct WaitingItem {
     /// Where a question asked in the walk window points. Present only on a `window_ask` item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<WindowPlace>,
+    /// What a `judge` item carries beside its text. Present only on that source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub concern: Option<crate::session_rail::JudgeConcern>,
+    /// Where a `judge` item points: the files its quotation lands in, as the change leaves them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cites: Vec<crate::session_rail::WaitingCite>,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.
@@ -786,6 +795,21 @@ pub struct SessionRecord {
     /// until one is seen.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub touches: Vec<crate::session_plan::FileTouch>,
+    /// The index of the workflow step the Session is on, read by Fleet from what it observed and never
+    /// from the agent's word. Absent for a custom Session, and once the delivering step's pull request
+    /// has merged with no step after it. `docs/concepts/session.md`, *The rail*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_step: Option<u32>,
+    /// A judge is reading the work now. Held in memory: a Fleet that restarts reads nothing as reading.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub judging: bool,
+    /// The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judge: Option<crate::session_rail::JudgeReading>,
+    /// Concerns the person has settled, oldest first, a bounded window. Each is a `judge` item with its
+    /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settled: Vec<WaitingItem>,
 }
 
 /// A value of a Session the proposer can pick.

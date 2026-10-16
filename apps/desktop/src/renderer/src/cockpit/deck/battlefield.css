@@ -93,6 +93,28 @@
 .bf-plotname .bf-bb { top: calc(-15 * var(--bf-u)); transform-origin: 0 100%; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: calc(14 * var(--bf-u)); color: var(--fg-muted); text-shadow: 0 0 calc(3 * var(--bf-u)) var(--bg-base), 0 0 calc(3 * var(--bf-u)) var(--bg-base), 0 0 calc(6 * var(--bf-u)) var(--bg-base); }
 .bf-slab[data-clash] .bf-plotname .bf-bb { color: var(--status-awaiting-review); }
 
+/* ---- Files: a small bar on the plot of its directory ------------------------------------------------------ */
+
+/* At rest a file is plain. Made is the success hue, changed is the accent, taken away is the failure hue and fades before it goes. */
+.bf-bar {
+  position: absolute;
+  --bar: color-mix(in srgb, var(--fg-default) 30%, var(--bg-base));
+  background: var(--bar);
+  border-radius: calc(1.5 * var(--bf-u));
+  transform: translateZ(calc(var(--h) * var(--border-width)));
+  transition: transform var(--rise) var(--ease), background-color var(--rise) var(--ease), box-shadow var(--rise) var(--ease);
+  animation: bf-bar-in var(--rise) var(--ease) backwards;
+  pointer-events: auto;
+}
+.bf-bar[data-act="write"] { --bar: var(--step-advanced); box-shadow: 0 0 calc(7 * var(--bf-u)) var(--step-advanced); }
+.bf-bar[data-act="edit"] { --bar: var(--accent); box-shadow: 0 0 calc(7 * var(--bf-u)) var(--accent); }
+.bf-bar[data-act="remove"] { --bar: var(--step-failed); box-shadow: 0 0 calc(7 * var(--bf-u)) var(--step-failed); background-image: repeating-linear-gradient(45deg, transparent 0 calc(2 * var(--bf-u)), color-mix(in srgb, var(--bg-base) 60%, transparent) calc(2 * var(--bf-u)) calc(3 * var(--bf-u))); animation: bf-bar-out calc(var(--duration-pulse) * 1.4) var(--ease) forwards; }
+@keyframes bf-bar-in { from { opacity: 0; transform: translateZ(calc((var(--h) + 14) * var(--border-width))); } }
+@keyframes bf-bar-out { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .bf-bar { animation: none; }
+}
+
 /* ---- Lifted lines: what drones leave in the air --------------------------------------------------------- */
 
 .bf-lift { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; transition: opacity calc(var(--duration-sheet) * 1.2) var(--ease); }
