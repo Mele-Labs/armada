@@ -62,12 +62,14 @@ export type ToastsProps = {
   copied: string | null;
   said: string | null;
   onCopied: (value: string) => void;
+  /** Hands a failure's debug info to a new Session. Absent where none can be started, and the toast draws no such control. */
+  onDispatchSession?: ((info: string) => Promise<boolean>) | undefined;
   /** Toasts of another owner's that stand in this column too, so two never sit on one spot. */
   children?: ReactNode;
 };
 
 /** Every toast in the window, in one column. */
-export function Toasts({ raised, bridge, onLower, copied, said, onCopied, children }: ToastsProps) {
+export function Toasts({ raised, bridge, onLower, copied, said, onCopied, onDispatchSession, children }: ToastsProps) {
   return (
     <ToastRegion>
       {raised.map((one) => {
@@ -82,6 +84,7 @@ export function Toasts({ raised, bridge, onLower, copied, said, onCopied, childr
             onDismiss={() => onLower(one.key)}
             // A throw is re-run by a redraw; a command is not.
             reloadable={"uncaught" in one}
+            {...(onDispatchSession === undefined ? {} : { onDispatchSession })}
           />
         );
       })}
