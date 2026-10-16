@@ -11,6 +11,7 @@ import { ClashNotice } from "../ClashMark/ClashMark";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
+import { RunningChecks, type RunningCheck } from "./RunningChecks";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -93,6 +94,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 export { ContextFigure } from "./ContextFigure";
 export type { ContextFill } from "./ContextFigure";
 export type { FreshStart } from "./FreshNudge";
+export type { RunningCheck } from "./RunningChecks";
 export { modelSaid } from "./model-said";
 export type { ContextBreakdown } from "../../context-breakdown";
 
@@ -114,6 +116,12 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
+  /**
+   * The Checks the Session has out, drawn as the running glyph and their count before the context tank: a press lists
+   * them and a press on one calls `onOpenCheck` with its run. Absent or empty draws nothing.
+   */
+  checks?: readonly RunningCheck[];
+  onOpenCheck?: (run: number) => void;
   /** Big or old: a quiet mark after the context tank, offering a fresh Session or a fork. Absent draws nothing. */
   fresh?: FreshStart;
   /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
@@ -192,7 +200,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
   return (
     <div className="armada-session-panels">
@@ -202,6 +210,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {repository}
         {actions}
+        {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
         <span className="armada-session-frame__marks">
           {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
