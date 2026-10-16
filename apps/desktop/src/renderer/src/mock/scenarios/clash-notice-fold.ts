@@ -43,7 +43,7 @@ const PATHS = [
 ];
 
 const CLASHES: readonly WriteClash[] = [
-  { one: { kind: "session", id: SESSION.id, label: SESSION.title }, other: { kind: "main", id: "main", label: "main" }, paths: PATHS, since: minutesAgo(5) },
+  { one: { kind: "session", id: SESSION.id, label: "Checkout card sync" }, other: { kind: "main", id: "main", label: "main" }, paths: PATHS, since: minutesAgo(5) },
 ];
 
 export const clashNoticeFold: Scenario = {
