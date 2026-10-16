@@ -1,22 +1,37 @@
-// A bay's history: who held it recently, newest first, on a rail that joins the rows in time, under a strip of the last day in
-// blocks so that quiet and busy stretches read at a glance. **Only what Fleet's slot events say**: who took the slot and when it
-// was given back, so a row carries a holder and a span and nothing about why it ended or which branch it was on, and a bay with
-// no slot events has no history and draws none. Pressing a row opens the Job or Session when the ship still holds it. Facts
-// only; nothing is counted. Ported from proto/cockpit-flight-deck. #2301.
+// A bay's history: every lease and every branch checkout, newest first, on a rail that joins the rows in time, under a strip of
+// the last day in blocks so that quiet and busy stretches read at a glance. A lease is one row: who took it, when, for how long
+// and on which branch; a checkout is a row of its own, from one branch to the next at a commit. Days are headed on the rail. A
+// history Fleet cut has a rail that fades out below its last row. Pressing a lease opens the Job or Session when the ship still
+// holds it. Facts only; nothing is counted. Ported from proto/cockpit-flight-deck. #2301.
 
-import type { KeyboardEvent } from "react";
+import { Fragment, type KeyboardEvent } from "react";
+import { GitBranch, SquareTerminal } from "lucide-react";
 import { Tooltip } from "@armada/components";
+import type { BayHistory, BayHolder } from "@armada/protocol";
 
 import { kindGlyph } from "./BayRows";
-import { clockOf, shortOf, spanOf, type Holder, type Ledger, type Lease } from "./bays";
+import { rowsOf, type Stay } from "./bay-history";
+import { clockOf, shortOf, spanOf } from "./bays";
 
 const DAY = 24 * 60 * 60_000;
 
-const whoOf = (holder: Holder) => holder.title ?? shortOf(holder.id);
-const spanText = (one: Lease) => (one.from === undefined ? undefined : `${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`);
+const whoOf = (holder: BayHolder) => holder.title ?? shortOf(holder.id);
+const KIND = { job: "Job", session: "Session", agent: "Agent" } as const;
+const glyphOf = (kind: BayHolder["kind"]) => (kind === "agent" ? <SquareTerminal size={14} aria-hidden /> : kindGlyph(kind, 14));
+const spanText = (one: Stay) =>
+  one.from === undefined ? (one.to === undefined ? undefined : `to ${clockOf(one.to)}`) : `${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`;
 
-export function SlotHistory({ ledger, clock, known, onOpen }: { ledger: Ledger; clock: number; known: ReadonlySet<string>; onOpen: (holder: Holder) => void }) {
-  const rows = ledger.leases;
+/** The day a row is under: Today, Yesterday, or the date. */
+function dayOf(at: number, clock: number): string {
+  const day = (ms: number) => new Date(ms).toDateString();
+  if (day(at) === day(clock)) return "Today";
+  if (day(at) === day(clock - DAY)) return "Yesterday";
+  return new Date(at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
+export function SlotHistory({ history, clock, known, onOpen }: { history: BayHistory; clock: number; known: ReadonlySet<string>; onOpen: (holder: { kind: "job" | "session"; id: string }) => void }) {
+  const rows = rowsOf(history);
+  const stays = rows.flatMap((one) => (one.kind === "stay" ? [one.stay] : []));
   const start = clock - DAY;
   const at = (ms: number) => `${(Math.min(1, Math.max(0, (ms - start) / DAY)) * 100).toFixed(2)}%`;
   const move = (event: KeyboardEvent<HTMLOListElement>) => {
@@ -30,12 +45,14 @@ export function SlotHistory({ ledger, clock, known, onOpen }: { ledger: Ledger; 
     to.focus();
   };
   if (rows.length === 0) return null;
+  let first = true;
+  let heading = "";
   return (
     <section className="deck-history" aria-label="History">
       <h3 className="deck-history__head">History</h3>
       <div className="deck-history__strip" role="img" aria-label="The last 24 hours, a block for each holder">
-        {rows.flatMap((one, index) => {
-          if (one.from === undefined) return [];
+        {stays.flatMap((one, index) => {
+          if (one.from === undefined || (one.to ?? clock) < start) return [];
           const to = one.to ?? clock;
           return [
             <Tooltip asChild key={`${one.holder.id}:${one.from}:${index}`} label={`${whoOf(one.holder)}, ${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`}>
@@ -44,32 +61,87 @@ export function SlotHistory({ ledger, clock, known, onOpen }: { ledger: Ledger; 
           ];
         })}
       </div>
-      <ol className="deck-history__rows" onKeyDown={move}>
-        {rows.map((one, index) => {
-          const live = known.has(`${one.holder.kind}:${one.holder.id}`);
-          const kind = one.holder.kind === "job" ? "Job" : "Session";
-          const span = spanText(one);
-          return (
-            <li key={`${one.holder.id}:${one.from ?? "unknown"}:${index}`} className="deck-history__item" data-ended={one.to === undefined ? "held" : undefined}>
-              <button type="button" className="deck-history__row" data-gone={!live || undefined} tabIndex={index === 0 ? 0 : -1} aria-label={`${kind} ${whoOf(one.holder)}`} aria-disabled={!live || undefined} onClick={() => live && onOpen(one.holder)}>
-                <span className="deck-history__who">
-                  <Tooltip label={kind}>
-                    <span className="deck-history__kind" role="img" aria-label={kind}>
-                      {kindGlyph(one.holder.kind, 14)}
+      <ol className="deck-history__rows" data-cut={history.cut || undefined} onKeyDown={move}>
+        {rows.map((row, index) => {
+          const day = dayOf(row.at, clock);
+          const head = day === heading ? null : <li className="deck-history__day">{day}</li>;
+          heading = day;
+          if (row.kind === "checkout") {
+            return (
+              <Fragment key={`checkout:${row.sha}:${row.at}:${index}`}>
+                {head}
+                <li className="deck-history__item" data-row="checkout">
+                  <div className="deck-history__checkout">
+                    <Tooltip label="Checkout">
+                      <span className="deck-history__kind" role="img" aria-label="Checkout">
+                        <GitBranch size={14} aria-hidden />
+                      </span>
+                    </Tooltip>
+                    <span className="deck-history__refs">
+                      {row.from === undefined ? null : (
+                        <>
+                          <span className="deck-history__ref">{row.from}</span>
+                          <span className="deck-history__to">to</span>
+                        </>
+                      )}
+                      <span className="deck-history__ref">{row.to}</span>
                     </span>
-                  </Tooltip>
-                  <Tooltip label={one.holder.title ?? one.holder.id}>
-                    <span className="deck-history__title">{whoOf(one.holder)}</span>
-                  </Tooltip>
-                </span>
-                {span === undefined || one.from === undefined ? null : (
-                  <span className="deck-history__facts">
-                    <span className="deck-history__span">{span}</span>
-                    <span className="deck-history__length">{spanOf((one.to ?? clock) - one.from)}</span>
+                    <Tooltip label="Commit">
+                      <span className="deck-history__sha">{row.sha.slice(0, 7)}</span>
+                    </Tooltip>
+                    <span className="deck-history__span">{clockOf(row.at)}</span>
+                  </div>
+                </li>
+              </Fragment>
+            );
+          }
+          const one = row.stay;
+          const live = one.holder.kind !== "agent" && known.has(`${one.holder.kind}:${one.holder.id}`);
+          const kind = KIND[one.holder.kind];
+          const span = spanText(one);
+          const tab = first ? 0 : -1;
+          first = false;
+          return (
+            <Fragment key={`${one.holder.id}:${one.from ?? "cut"}:${index}`}>
+              {head}
+              <li className="deck-history__item" data-ended={one.to === undefined ? "held" : undefined}>
+                <button
+                  type="button"
+                  className="deck-history__row"
+                  data-gone={!live || undefined}
+                  tabIndex={tab}
+                  aria-label={`${kind} ${whoOf(one.holder)}`}
+                  aria-disabled={!live || undefined}
+                  onClick={() => live && one.holder.kind !== "agent" && onOpen({ kind: one.holder.kind, id: one.holder.id })}
+                >
+                  <span className="deck-history__who">
+                    <Tooltip label={kind}>
+                      <span className="deck-history__kind" role="img" aria-label={kind}>
+                        {glyphOf(one.holder.kind)}
+                      </span>
+                    </Tooltip>
+                    <Tooltip label={one.holder.title ?? one.holder.id}>
+                      <span className="deck-history__title">{whoOf(one.holder)}</span>
+                    </Tooltip>
                   </span>
-                )}
-              </button>
-            </li>
+                  {span === undefined && one.branch === undefined ? null : (
+                    <span className="deck-history__facts">
+                      {one.branch === undefined ? null : (
+                        <Tooltip label={one.branch}>
+                          <span className="deck-history__branch">{one.branch}</span>
+                        </Tooltip>
+                      )}
+                      {span === undefined ? null : <span className="deck-history__span">{span}</span>}
+                      {one.from === undefined ? null : (
+                        <Tooltip label="Held for">
+                          <span className="deck-history__length">{spanOf((one.to ?? clock) - one.from)}</span>
+                        </Tooltip>
+                      )}
+                    </span>
+                  )}
+                </button>
+              </li>
+            </Fragment>
           );
         })}
       </ol>

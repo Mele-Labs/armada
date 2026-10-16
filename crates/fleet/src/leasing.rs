@@ -53,6 +53,23 @@ const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
 pub(crate) const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
 
+/// Every slot number the pool has on this machine. **A person may add slots past
+/// `setup.worktrees`**, and a lease takes any of them, so a count from the Manifest
+/// missed a session's slot-9 on a machine of fifteen (15 Oct 2026).
+pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
+    let pool = pool_of(served);
+    adapters::leasing::Pool::at(
+        std::path::Path::new(pool.repo_root()),
+        pool.slots() as usize,
+        pool.base(),
+        pool.keep().to_vec(),
+    )
+    .bays()
+    .into_iter()
+    .filter_map(|bay| u32::try_from(bay).ok())
+    .collect()
+}
+
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
     let manifest = served.manifest();
@@ -120,6 +137,16 @@ pub(crate) struct PoolSlot {
     pub(crate) last_holder: Option<ipc::SlotLastHolder>,
     /// When Fleet told that holder to commit, push and release, as an instant.
     pub(crate) told: Option<String>,
+}
+
+/// How the pool is read for the list.
+#[derive(Clone, Copy)]
+pub(crate) enum Reading {
+    /// Every slot, from git, now. A test's read, which keeps nothing.
+    #[cfg(test)]
+    Live,
+    /// What the adapter keeps, with `whole` reading every slot again.
+    Kept { whole: bool },
 }
 
 /// A Job's worktree, as the lookup finds it.
@@ -231,12 +258,12 @@ where
     #[cfg(test)]
     pub(crate) async fn pool_slots(&self) -> Result<Vec<PoolSlot>, Adrift> {
         let (loaded, _) = self.every_job().await?;
-        Ok(self.pool_slots_among(&loaded.jobs).await)
+        Ok(self.pool_slots_among(&loaded.jobs, Reading::Live).await)
     }
 
     /// [`pool_slots`](Fleet::pool_slots) over Jobs the caller already loaded,
     /// so a caller asking for more than the pool reads the store once.
-    pub(crate) async fn pool_slots_among(&self, jobs: &[Job]) -> Vec<PoolSlot> {
+    pub(crate) async fn pool_slots_among(&self, jobs: &[Job], how: Reading) -> Vec<PoolSlot> {
         let job_of = |id: &str| jobs.iter().find(|job| job.id().as_str() == id);
         let (mut kept, strandings) = {
             let store = self.store().lock().await;
@@ -250,7 +277,7 @@ where
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
             let pool = pool_of(&served);
-            for mut reading in self.pool_read(pool.clone()).await {
+            for mut reading in self.pool_read(pool.clone(), how).await {
                 let stranded = reading.work.take();
                 let job = match &reading.held {
                     // A repair's slot is held under its own id and shown under its Job.
@@ -343,9 +370,13 @@ where
     /// Each slot of one pool, off the runtime. The pool reads its slots side
     /// by side and each reading carries what its slot holds, where it shows
     /// work: `SlotReading::with_work` is the rule.
-    async fn pool_read(&self, pool: SlotPool) -> Vec<SlotReading> {
+    async fn pool_read(&self, pool: SlotPool, how: Reading) -> Vec<SlotReading> {
         let vcs = Arc::clone(self.vcs());
-        tokio::task::spawn_blocking(move || vcs.slot_pool(&pool))
+        tokio::task::spawn_blocking(move || match how {
+            #[cfg(test)]
+            Reading::Live => vcs.slot_pool(&pool),
+            Reading::Kept { whole } => vcs.slot_pool_kept(&pool, whole),
+        })
             .await
             .expect("git panicked reading the pool")
     }

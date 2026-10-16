@@ -190,6 +190,7 @@ import type { AccountsActed } from "./api/accounts";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
+import type { BayHistoryRead } from "./api/bay-history";
 import type { WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
@@ -500,6 +501,7 @@ type OldBridgeApi = {
     getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
+    getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     getModelDownshift: () => Promise<ModelDownshiftRead>;
     acceptDownshift: () => Promise<ModelDownshiftRead>;
@@ -526,6 +528,7 @@ type OldBridgeApi = {
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
+    moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
@@ -542,7 +545,7 @@ type OldBridgeApi = {
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
     readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
-    startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
+    startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
@@ -839,6 +842,7 @@ const OLD_CHANNELS = {
     getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",
     timelineAppended: "bridge:timeline-appended",
+    getSlotHistory: "bridge:get-slot-history",
     planUsageChanged: "bridge:plan-usage-changed",
     getModelDownshift: "bridge:get-model-downshift",
     acceptDownshift: "bridge:accept-downshift",
@@ -863,6 +867,7 @@ const OLD_CHANNELS = {
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
+    moveSession: "bridge:move-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",

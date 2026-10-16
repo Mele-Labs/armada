@@ -183,3 +183,51 @@ async fn without_a_keeper_every_request_reads() {
 
     assert_eq!(fleet.vcs().pool_reads(), 2);
 }
+
+#[tokio::test]
+async fn a_change_reads_the_slots_that_changed_and_not_the_whole_pool() {
+    let home = TempDir::new();
+    let (fleet, app) = warm(&home).await;
+    held(&app).await;
+    let (reads, wholes) = (fleet.vcs().pool_reads(), fleet.vcs().whole_pool_reads());
+    assert_eq!(wholes, 1, "the first read has nothing kept to lean on");
+
+    fleet.worktrees_memory().changed();
+    until("a read for the change", || fleet.vcs().pool_reads() > reads).await;
+
+    assert_eq!(fleet.vcs().whole_pool_reads(), wholes, "only the whole read asks for every slot");
+}
+
+#[tokio::test]
+async fn the_read_every_stale_after_asks_for_every_slot() {
+    let home = TempDir::new();
+    let (fleet, app) = warm(&home).await;
+    held(&app).await;
+    let wholes = fleet.vcs().whole_pool_reads();
+
+    fleet
+        .worktrees_memory()
+        .aged(crate::worktrees_kept::STALE_AFTER + Duration::from_secs(1));
+    held(&app).await;
+
+    until("a whole read", || fleet.vcs().whole_pool_reads() > wholes).await;
+}
+
+#[tokio::test]
+async fn reads_for_changes_do_not_put_the_whole_read_back() {
+    let home = TempDir::new();
+    let (fleet, app) = warm(&home).await;
+    held(&app).await;
+    let stale = crate::worktrees_kept::STALE_AFTER;
+    let (reads, wholes) = (fleet.vcs().pool_reads(), fleet.vcs().whole_pool_reads());
+
+    // The whole read is two seconds from due; a change is read in that time.
+    fleet.worktrees_memory().aged(stale - Duration::from_secs(2));
+    fleet.worktrees_memory().changed();
+    until("the read for the change", || fleet.vcs().pool_reads() > reads).await;
+    assert_eq!(fleet.vcs().whole_pool_reads(), wholes);
+
+    // Three seconds on, the whole read is due though the last read is not old.
+    fleet.worktrees_memory().aged(Duration::from_secs(3));
+    until("the whole read", || fleet.vcs().whole_pool_reads() > wholes).await;
+}

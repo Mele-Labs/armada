@@ -63,6 +63,7 @@ export type SliceName =
   | "clashes"
   | "territory"
   | "timeline"
+  | "bayHistory"
   | "issues"
   | "autopilot"
   | "sketchShare";

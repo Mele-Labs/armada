@@ -7,6 +7,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use super::plain;
 use crate::daemon::Fleet;
 use crate::session_host::waiting::TAKEN_OFF;
+use crate::session_host::RunEnd;
 
 /// Lines of the end of the output the Session is told.
 const TOLD_LINES: usize = 40;
@@ -33,6 +34,11 @@ fn fenced(text: &str) -> String {
     format!("{fence}\n{text}\n{fence}")
 }
 
+/// The last lines the run printed, as the screen drew them.
+fn tail_of(ended: &Ended) -> String {
+    plain::last_lines(&ended.output, TOLD_LINES)
+}
+
 /// What the Session reads. `taken_off` is whether its waiting list lost an item to the exit.
 pub(crate) fn told(ended: &Ended, taken_off: bool) -> String {
     let how = match (ended.code, ended.stopped) {
@@ -46,7 +52,7 @@ pub(crate) fn told(ended: &Ended, taken_off: bool) -> String {
     } else {
         format!("Owner ran `{command}` in Bridge. {how}")
     };
-    let tail = plain::last_lines(&ended.output, TOLD_LINES);
+    let tail = tail_of(ended);
     if tail.is_empty() {
         text.push_str(" No output.");
     } else {
@@ -75,6 +81,13 @@ where
     pub(crate) async fn session_run_ended(self: Arc<Self>, ended: Ended) {
         let taken_off =
             ended.code == Some(0) && self.run_item_settled(&ended.session, &ended.command).await;
-        let _ = self.told_by_fleet(&ended.session, &told(&ended, taken_off)).await;
+        let ran = RunEnd {
+            command: ended.command.clone(),
+            code: ended.code,
+            tail: tail_of(&ended),
+        };
+        let _ = self
+            .told_of_a_run(&ended.session, &told(&ended, taken_off), ran)
+            .await;
     }
 }

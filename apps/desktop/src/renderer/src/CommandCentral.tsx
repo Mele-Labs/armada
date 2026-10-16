@@ -7,7 +7,7 @@ import { AGE_MS } from "./cockpit/deck/clock";
 import { quantized } from "./cockpit/deck/field";
 import type { CockpitProps } from "./cockpit/deck/props";
 
-type Data = "state" | "now" | "picked" | "nowViews" | "nows" | "bring";
+type Data = "state" | "now" | "picked" | "nowViews" | "nows" | "bring" | "bayActs";
 type Act = Exclude<keyof CockpitProps, Data>;
 
 /** Every callback the deck is handed. A record, so a callback added to its props and left off this list does not compile. */
@@ -56,7 +56,7 @@ function useSteady(props: CockpitProps): Pick<CockpitProps, Act> {
 
 export function CommandCentral(props: CockpitProps) {
   const acts = useSteady(props);
-  const { state, now, picked, nowViews, nows, bring } = props;
+  const { state, now, picked, nowViews, nows, bring, bayActs } = props;
   // The deck reads ages in whole minutes, so it is handed the minute: a clock that moves each second would draw all of it each second.
-  return <DeckBody state={state} now={quantized(now, AGE_MS)} picked={picked} nowViews={nowViews} nows={nows} bring={bring} {...acts} />;
+  return <DeckBody state={state} now={quantized(now, AGE_MS)} picked={picked} nowViews={nowViews} nows={nows} bring={bring} bayActs={bayActs} {...acts} />;
 }

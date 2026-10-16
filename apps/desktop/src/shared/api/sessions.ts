@@ -92,6 +92,11 @@ export type SessionsApi = {
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
   /**
+   * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
+   * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
+   */
+  moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
+  /**
    * Hold a session's thread: read once, then followed by `session.row`. Held threads are kept for the
    * window's life, so reopening one draws at once.
    */
@@ -130,8 +135,8 @@ export type SessionsApi = {
   readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
   /** A comment, an approval or a request for changes on a pull request a Session holds. Answers the page read again after it. */
   writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
-  /** Runs a shell block from a Session's thread. Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
-  startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Runs a shell block from a Session's thread, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
+  startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
   stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Types into a run's terminal: the keys as a string, written as they are. Refused where the run has ended. */
@@ -177,6 +182,7 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",

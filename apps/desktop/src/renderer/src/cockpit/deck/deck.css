@@ -445,20 +445,33 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-hail__title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-hail__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
 .deck-hail[data-arrived] { animation: deck-hail-in var(--duration-travel) var(--ease); }
-.deck-hail[data-first] { animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite; }
-.deck-hail[data-first][data-arrived] {
-  animation:
-    deck-hail-in var(--duration-travel) var(--ease),
-    deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out var(--duration-travel) infinite;
+/* The ring is a pseudo-element moved by transform and opacity alone, which the compositor draws with no repaint;
+   the box-shadow it replaced repainted the card every frame, for as long as the call waited. It grows to the same
+   reach as that shadow did, one --space-4 past each edge: the card is its own inline-size container so the scale
+   can be read from its width (the container is the content box, so the card's padding and border go back on), and its
+   height is the control height. */
+.deck-hail { position: relative; container-type: inline-size; }
+.deck-hail[data-first]::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--border-width) * -1);
+  border: calc(var(--border-width) * 3) solid color-mix(in srgb, var(--hue) 70%, transparent);
+  border-radius: inherit;
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite;
 }
+.deck-hail[data-first][data-arrived]::after { animation-delay: var(--duration-travel); }
 .deck-hail[data-first] .deck-hail__kind { animation: deck-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out infinite; }
 
 @keyframes deck-hail-in {
   from { opacity: 0; transform: translateY(var(--space-8)); }
 }
 @keyframes deck-hail-ring {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent), 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent); }
-  70%, 100% { box-shadow: 0 0 0 var(--space-4) transparent, 0 0 var(--space-3) transparent; }
+  0% { opacity: 1; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(calc(1 + var(--space-4) * 2 / (100cqw + var(--space-3) * 2 + var(--border-width) * 4)), calc(1 + var(--space-4) * 2 / var(--h-control))); }
 }
 @keyframes deck-hail-icon {
   50% { transform: scale(1.35); }
@@ -467,9 +480,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* No motion: the front call reads as waiting by a heavier edge and a filled ground. */
 @media (prefers-reduced-motion: reduce) {
   .deck-hail[data-arrived],
-  .deck-hail[data-first],
-  .deck-hail[data-first][data-arrived],
   .deck-hail[data-first] .deck-hail__kind { animation: none; }
+  .deck-hail[data-first]::after { display: none; }
   .deck-hail[data-first] {
     border-width: calc(var(--border-width) * 3);
     background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
@@ -520,11 +532,17 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-bay[data-live] .deck-bay__state { animation: none; }
 }
 
-/* A stranded bay's pane: what it means, the Scout's finding, and the acts the Bays page offers for it. */
-.deck-slot__rescue { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
-.deck-slot__means { margin: 0; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.deck-slot__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.deck-slot__asked { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); }
+/* A bay's pane: its acts in a frame in the bay's own hue, as the bay's tile is framed, over the facts. The acts, their confirms and
+   the Scout's finding are the tile panel's own (`BayManage`); the frame only holds them. */
+.deck-slot__manage { --hue: var(--fg-subtle); display: flex; flex-direction: column; margin-bottom: var(--space-4); padding: var(--space-3); border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 5%, var(--bg-sunken)); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-slot__manage[data-bay="leased"] { --hue: var(--slot-held); }
+.deck-slot__manage[data-bay="kept"],
+.deck-slot__manage[data-bay="stranded"] { --hue: var(--slot-stranded); }
+.deck-slot__manage[data-bay="free"] { --hue: var(--slot-free); }
+.deck-slot__manage[data-bay="closed"] { --hue: var(--slot-closed); }
+.deck-slot__manage[data-bay="stranded"] { box-shadow: inset 0 0 var(--space-12) color-mix(in srgb, var(--slot-stranded) 10%, transparent); }
+.armada-bay-manage { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.armada-bay-manage__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .deck-link__plain { color: var(--fg-default); }
 
 /* A bay's history: a strip of the last day, and the holders on a rail, newest first. */
@@ -533,6 +551,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-history__strip { position: relative; height: var(--space-4); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
 .deck-history__strip .deck-history__block { position: absolute; top: var(--space-1); bottom: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-muted) 55%, transparent); }
 .deck-history__block[data-kind="job"] { background: color-mix(in srgb, var(--accent) 60%, transparent); }
+.deck-history__block[data-kind="agent"] { background: color-mix(in srgb, var(--slot-held) 60%, transparent); }
 .deck-history__block[data-ended="held"] { background: var(--accent); }
 .deck-history__block[data-ended="stranded"] { background: var(--status-awaiting-review); }
 .deck-history__rows { position: relative; display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-6); list-style: none; }
@@ -555,7 +574,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-history__item[data-ended="stranded"] .deck-history__end { color: var(--status-awaiting-review); }
 .deck-history__facts { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 .deck-history__facts > .armada-tooltip { flex: 1 1 0; min-width: 0; }
-.deck-history__branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-history__branch { min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-history__span,
 .deck-history__length { flex: none; font-variant-numeric: tabular-nums; }
 .deck-history__length { color: var(--fg-subtle); }
@@ -670,3 +689,13 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   .deck-replay__fill,
   .deck-replay__head { transition: none; }
 }
+/* A day on the rail, a checkout inside a lease, and the rail's end where Fleet kept no more. */
+.deck-history__day { padding: var(--space-2) var(--space-3) 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.deck-history__rows[data-cut]::before { background: linear-gradient(var(--border-default) 70%, transparent); }
+.deck-history__item[data-row="checkout"]::before { top: 50%; width: var(--space-1); height: var(--space-1); margin-top: calc(var(--space-1) / -2); left: calc(var(--space-2) - var(--space-6) - var(--space-1) + var(--space-1) / 2); }
+.deck-history__checkout { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); padding: var(--space-1) var(--space-3); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.deck-history__refs { display: flex; flex: 1 1 0; align-items: center; min-width: 0; column-gap: var(--space-2); overflow: hidden; white-space: nowrap; }
+.deck-history__ref { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); text-overflow: ellipsis; }
+.deck-history__to { flex: none; }
+.deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
+.deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }

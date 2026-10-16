@@ -116,6 +116,8 @@ export type Calls = {
   forked: string[];
   /** The Sessions forked from one message, and the message. */
   forkedAt: { sessionId: string; at: string }[];
+  /** The Sessions moved to another repository, and where. */
+  moved: { sessionId: string; manifestId: string }[];
   /** The Sessions the Retro press was pressed on. */
   retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
@@ -132,7 +134,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -145,6 +147,8 @@ export class FakeSessionsFleet {
   refusesSend: { code: string; message: string } | undefined;
   /** Set to have the next End session refused, the way Fleet refuses one: nothing ends and nothing is parked. */
   refusesClose: { code: string; message: string } | undefined;
+  /** Set to have the next move refused, the way Fleet refuses one: nothing ends and nothing starts. */
+  refusesMove: { code: string; message: string } | undefined;
   /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
   refusesRetro: { code: string; message: string } | undefined;
   /** How long each frame of a retro's writing takes, so a person can see the row move. */
@@ -351,6 +355,22 @@ export class FakeSessionsFleet {
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
             const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
+            return { ok: true, value: record };
+          },
+          moveSession: async (sessionId, manifestId) => {
+            this.calls.moved.push({ sessionId, manifestId });
+            const old = this.records.find((one) => one.id === sessionId);
+            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            const refused = this.refusesMove ?? (old.manifest_id === manifestId ? { code: "fleet.session_move_same", message: "session is already in that repository" } : old.terminal?.listening === true ? { code: "fleet.session_move_listening", message: "session runs in a terminal that is still listening" } : undefined);
+            if (refused !== undefined) {
+              this.refusesMove = undefined;
+              return { ok: false, outcome: { ok: false, why: "refused", error: refused } as never };
+            }
+            const id = `01MOVE${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
+            const branch = old.attachments.filter((one) => one.kind === "branch").map((one) => one.target).join(",");
+            const record = hosted(id, { ...this.began(), manifest_id: manifestId, ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { ...(old.manifest_id === undefined ? {} : { moved: old.manifest_id }), ...(branch === "" ? {} : { branch }) }, "spent")] });
+            const ended = (one: SessionRecord): SessionRecord => ({ ...one, state: "ended", attachments: [...one.attachments, held("forked_to", id, { moved: manifestId }, "spent")] });
+            this.set([record, ...this.records.map((one) => (one.id === sessionId ? ended(one) : one))]);
             return { ok: true, value: record };
           },
           retroSession: async (sessionId: string) => {

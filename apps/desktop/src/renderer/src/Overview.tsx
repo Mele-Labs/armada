@@ -55,6 +55,7 @@ export function Overview({
   onWantHeld,
   onReleaseSlot,
   onRescueSlot,
+  bayActs,
   onMergeJob,
   onPickRepository,
   onAddRepository,
@@ -115,6 +116,7 @@ export function Overview({
   onWantHeld?: (want: boolean) => void;
   onReleaseSlot?: Hosts["onReleaseSlot"];
   onRescueSlot?: Hosts["onRescueSlot"];
+  bayActs?: Hosts["bayActs"];
   onMergeJob?: Hosts["onMergeJob"];
   /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
   onPickRepository?: Hosts["onPickRepository"];
@@ -235,6 +237,7 @@ export function Overview({
             onWantHeld={onWantHeld}
             onReleaseSlot={onReleaseSlot}
             onRescueSlot={onRescueSlot}
+            bayActs={bayActs}
             onMergeJob={onMergeJob}
             onPickRepository={onPickRepository}
             onAddRepository={onAddRepository}

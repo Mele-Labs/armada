@@ -41,6 +41,9 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   (18 Sep).
 - **Never ask him to delete a merged branch.** A hosted session calls
   `finish_up`; `agent-worktrees` has why (15 Oct).
+- **A question he sends mid-turn is answered before the next tool call**, and
+  a check or build runs with `run_in_background` so the turn ends and he can
+  reach the session (15 Oct: asked twice during a five-minute foreground check).
 - **Plumbing is yours to decide** (CI, manifests, layers, test layout). State
   the choice in a line. Ask about what he would see (6 Oct).
 

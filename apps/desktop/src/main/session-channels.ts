@@ -87,6 +87,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
+    text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unsent.outcome,
   );
@@ -115,8 +118,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.moveSessionPage, (event, bounds: unknown) => pages.move(event.sender, bounds));
   ipc.handle(CHANNELS.hideSessionPage, (event) => pages.hide(event.sender));
-  ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string) =>
-    text(sessionId) && text(command) ? (connection()?.sessions.startRun({ session_id: sessionId, command }) ?? unsent) : unsent,
+  ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string, cols?: number, rows?: number) =>
+    text(sessionId) && text(command) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
+      ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
+      : unsent,
   );
   ipc.handle(CHANNELS.stopSessionRun, (_event, runId: string) =>
     text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unsent,

@@ -340,16 +340,17 @@ where
         self.write_manifest_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
 
-    /// A form's edits, placed and written — [`amending`](mod@crate::amending).
+    /// A form's edits, placed and sent — [`amending`](mod@crate::amending).
     ///
-    /// **Not `Arc`**, for [`Commands::save_manifest_file`]'s reason: the bytes
-    /// are on disk when this answers.
+    /// **Not `Arc`**, for [`Commands::save_manifest_file`]'s reason: the edit
+    /// is on disk or on the remote when this answers.
     async fn edit_manifest(
         &self,
         asked: ipc::EditManifest,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ManifestEdited, Refusal> {
         self.edit_manifest_file(asked, &self.served_named(manifest_id.as_ref())?)
+            .await
     }
 
     /// One edit to a Setup proposal. Held in memory, so nothing is written.

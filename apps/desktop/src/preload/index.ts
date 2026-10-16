@@ -40,6 +40,7 @@ import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
+import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { WriteClashesRead } from "../shared/api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
@@ -694,6 +695,7 @@ const api: BridgeApi = {
     };
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
+  getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);
@@ -737,6 +739,8 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
@@ -782,8 +786,8 @@ const api: BridgeApi = {
   writePullRequest: (sessionId: string, number: number, write: PullRequestWrite): Promise<SessionActed<PullRequestPage>> =>
     ipcRenderer.invoke(CHANNELS.writePullRequest, sessionId, number, write),
   // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
-  startSessionRun: (sessionId: string, command: string): Promise<SessionActed<SessionRunUnderway>> =>
-    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),
+  startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command, cols, rows),
   stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
   writeSessionRun: (runId: string, data: string): Promise<SessionActed<SessionRunUnderway>> =>

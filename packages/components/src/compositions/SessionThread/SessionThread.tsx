@@ -8,6 +8,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
+import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ApprovalCard } from "../HelmThread/ApprovalCard";
 import type { HelmApprovalCard } from "../HelmThread/ApprovalCard";
@@ -23,6 +24,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { SketchRow } from "./SketchRow";
 import type { Scene } from "../SketchScene/scene";
@@ -80,6 +82,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
+  /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /**
@@ -90,6 +94,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
+  | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData
   | {
@@ -577,6 +583,24 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "ran") {
+    const phase = { state: "ended", code: row.code } as const;
+    const first = row.command.split("\n")[0] ?? "";
+    return (
+      <li className="armada-session-fold armada-session-fold--ran">
+        <details>
+          <summary className="armada-session-fold__head" aria-label={`${row.code === null ? "Stopped" : `Exit ${row.code}`}: ${first}`}>
+            <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+            <TerminalMark phase={phase} />
+            <code className="armada-session-fold__target">{first}</code>
+          </summary>
+          <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Session">
+            {row.tail}
+          </pre>
+        </details>
+      </li>
+    );
+  }
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
   if (row.kind === "approval") {
     return (
@@ -587,6 +611,7 @@ function Row({
   }
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">

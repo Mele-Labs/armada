@@ -61,6 +61,7 @@ import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ClashesHost } from "./clashes";
 import { TerritoryHost } from "./territory";
+import { BayHistoryHost } from "./bay-history";
 import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
@@ -226,6 +227,8 @@ export class FleetConnection {
   );
   /** What each repository holds and where each agent has changed it — `territory.ts`. */
   readonly territory: TerritoryHost = new TerritoryHost(() => this.connected()?.port ?? null);
+  /** Who held one slot and what was checked out in it — `bay-history.ts`. */
+  readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**

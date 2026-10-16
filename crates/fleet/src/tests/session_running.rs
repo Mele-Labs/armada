@@ -364,6 +364,38 @@ async fn a_failed_or_stopped_run_is_told_and_leaves_the_item_standing() {
 }
 
 #[tokio::test]
+async fn a_hosted_thread_keeps_a_ran_row_and_the_agent_is_sent_the_words_once() {
+    let rig = super::session_host::rig_placing(None);
+    let id = rig.start().await;
+    let run = Arc::clone(&rig.fleet)
+        .start_session_run(StartSessionRun {
+            session_id: id.clone(),
+            command: "echo built; exit 3".into(),
+            cols: None,
+            rows: None,
+        })
+        .await
+        .expect("underway")
+        .run_id;
+    let ended = rig.fleet.observe_session_run(run).await.expect("held");
+    whole(ended).await;
+    eventually(|| async { rig.stand_in.starts().len() == 1 }).await;
+    eventually(|| async { !rig.stand_in.process(0).sent.lock().unwrap().is_empty() }).await;
+
+    let rows = rig.rows(&id).await;
+    let [ipc::SessionRow::Ran { command, code, tail, .. }] = &rows[..] else {
+        panic!("one ran row and no message from Fleet: {rows:?}");
+    };
+    assert_eq!(command, "echo built; exit 3");
+    assert_eq!(*code, Some(3));
+    assert_eq!(tail, "built");
+
+    let sent = rig.stand_in.process(0).sent.lock().unwrap().clone();
+    assert_eq!(sent.len(), 1, "told once: {sent:?}");
+    assert!(sent[0].contains("Owner ran `echo built; exit 3` in Bridge. Exit 3. Last lines:"), "{sent:?}");
+}
+
+#[tokio::test]
 async fn an_ended_or_unknown_session_is_refused() {
     let rig = rig().await;
     rig.fleet

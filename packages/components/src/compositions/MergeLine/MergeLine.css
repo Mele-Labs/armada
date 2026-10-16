@@ -166,18 +166,29 @@
   padding: var(--space-1) 0;
   overflow: hidden;
   list-style: none;
-  background: linear-gradient(90deg, var(--border-strong) var(--space-1), transparent var(--space-1)) 0 center / var(--space-3) calc(var(--border-width) * 2) repeat-x;
+  /* The dashes are a layer behind the dots that slides one period; animating the belt's own
+     background-position repainted the whole belt every frame. */
+  position: relative;
+  isolation: isolate;
+}
+.armada-merge-line__belt::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(50% - var(--border-width));
+  left: calc(var(--space-3) * -1);
+  width: calc(100% + var(--space-3));
+  height: calc(var(--border-width) * 2);
+  background: linear-gradient(90deg, var(--border-strong) var(--space-1), transparent var(--space-1)) 0 0 / var(--space-3) 100% repeat-x;
+  will-change: transform;
   animation: armada-merge-line-flow var(--duration-pulse) linear infinite;
 }
 
 /* The belt moving toward main: the dashes alone travel, one period a loop, linear so the flow never
    surges. The dots ride on top and hold still. */
 @keyframes armada-merge-line-flow {
-  from {
-    background-position-x: 0;
-  }
   to {
-    background-position-x: var(--space-3);
+    transform: translateX(var(--space-3));
   }
 }
 
@@ -634,7 +645,7 @@
   .armada-merge-line__mark[data-pulsing] > svg > circle + circle,
   .armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg,
   .armada-merge-line__dot,
-  .armada-merge-line__belt {
+  .armada-merge-line__belt::before {
     animation: none;
   }
 }

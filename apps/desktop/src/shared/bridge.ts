@@ -48,6 +48,7 @@ import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
 import { CLASHES_CHANNELS } from "./api/clashes";
 import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
+import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { ISSUES_CHANNELS } from "./api/issues";
 
 export type { HistoryStep, Summons } from "./api/core";
@@ -166,6 +167,7 @@ export const CHANNELS = {
   ...CLASHES_CHANNELS,
   ...TERRITORY_CHANNELS,
   ...TIMELINE_CHANNELS,
+  ...BAY_HISTORY_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
   ...SKETCH_SHARE_CHANNELS,

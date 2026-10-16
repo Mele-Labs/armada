@@ -11,6 +11,7 @@
 //! **The third is the one `#430` is about.** A reload that reached a `Manifest`
 //! nothing consulted would be this defect with more code in it.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use config::{Adopted, LoadError, Manifest, Moved};
@@ -137,7 +138,7 @@ async fn a_rename_over_the_manifest_is_noticed_and_read_once() {
     let (manifest, reloads) = Manifest::reloadable(&file).expect("it loads");
     let (told, mut readings) = mpsc::unbounded_channel();
 
-    let _watching = watch_every(reloads, QUICK_POLL, QUICK_SETTLE, move |read| {
+    let _watching = watch_every(Arc::new(reloads), QUICK_POLL, QUICK_SETTLE, move |read| {
         let _ = told.send(summarised(read));
     })
     .expect("a watch on a file that is there");
@@ -162,7 +163,7 @@ async fn an_edit_that_will_not_parse_is_said_and_leaves_the_fleet_alone() {
     let (manifest, reloads) = Manifest::reloadable(&file).expect("it loads");
     let (told, mut readings) = mpsc::unbounded_channel();
 
-    let _watching = watch_every(reloads, QUICK_POLL, QUICK_SETTLE, move |read| {
+    let _watching = watch_every(Arc::new(reloads), QUICK_POLL, QUICK_SETTLE, move |read| {
         let _ = told.send(summarised(read));
     })
     .expect("a watch on a file that is there");
@@ -207,7 +208,7 @@ async fn an_edit_reaches_the_next_step_of_a_running_job() {
         Duration::from_secs(300)
     );
 
-    let _watching = watch_every(reloads, QUICK_POLL, QUICK_SETTLE, move |read| {
+    let _watching = watch_every(Arc::new(reloads), QUICK_POLL, QUICK_SETTLE, move |read| {
         let _ = told.send(summarised(read));
     })
     .expect("a watch on a file that is there");
