@@ -135,7 +135,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  flex: none;
+  /* Shrinks to the block it is in and wraps there. It was `flex: none`, which held
+     the whole row at its widest and ran it off the edge of a toast. */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 /* The story that proves a long path truncates, and nothing else. 420px is the

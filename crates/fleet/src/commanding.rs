@@ -327,7 +327,8 @@ where
     }
 
     /// A corrected Manifest, written and nothing more —
-    /// [`editing`](mod@crate::editing).
+    /// [`editing`](mod@crate::editing). Where a form's edit is pending, the
+    /// text goes into its pull request instead.
     ///
     /// **Not `Arc`, because nothing outlives the call.** The bytes are on disk
     /// when this answers; what the re-read makes of them is the watch's, and
@@ -338,6 +339,7 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ManifestSaved, Refusal> {
         self.write_manifest_file(asked, &self.served_named(manifest_id.as_ref())?)
+            .await
     }
 
     /// A form's edits, placed and sent — [`amending`](mod@crate::amending).
