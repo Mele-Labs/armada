@@ -436,6 +436,7 @@ where
 
     /// A Job was given a pool slot, or gave it back.
     pub(crate) fn job_slot(&self, job: &core_model::Job, slot: u32, leased: bool) {
+        self.worktrees_memory().announced();
         self.timeline().note(slot_fact(
             self.timeline().now(),
             Subject::Job(job.id().as_str().to_string()),
@@ -455,6 +456,7 @@ where
         slot: u32,
         leased: bool,
     ) {
+        self.worktrees_memory().announced();
         self.timeline().note(slot_fact(
             self.timeline().now(),
             Subject::Session(id.to_string()),

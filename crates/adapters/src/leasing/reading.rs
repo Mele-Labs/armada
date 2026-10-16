@@ -49,7 +49,13 @@ impl Pool {
         let shape = self.shape();
         let base = self.base_ref();
         concurrently(numbers, |&number| {
-            let (state, status) = self.probe_trusting(number, trusted.get(&number));
+            // **A take or a release holds the slot's lock while it works**, and a slot read
+            // in the middle of one has files and no record: stranded, its holder gone.
+            // `take` reads under its own lock and asks `probe_trusting` itself.
+            let (state, status) = match self.under_way(number) {
+                true => (SlotState::Busy, None),
+                false => self.probe_trusting(number, trusted.get(&number)),
+            };
             let kept = status.clone();
             let reading = self.reading(
                 Slot {
