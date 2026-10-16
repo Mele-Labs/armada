@@ -148,12 +148,26 @@ where
         // Before the forge is asked, which may not answer: the pool is local.
         self.slot_rows_followed(served).await;
         let gate = served.manifest().ci_gate().to_string();
-        let Some(watched) = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_watch(root, &gate))
+        let list_gate = gate.clone();
+        let Some(mut watched) = self
+            .forge_asked(&root, move |vcs: &V, root: &str| {
+                vcs.pull_watch(root, &list_gate)
+            })
             .await
         else {
             return;
         };
+        // The list stops at 100: a pull request someone holds that it left out is read by number.
+        let listed: Vec<u64> = watched.iter().map(|pull| pull.number).collect();
+        for number in self.held_beyond(served, &listed).await {
+            let gate = gate.clone();
+            let one = self
+                .forge_asked(&root, move |vcs: &V, root: &str| {
+                    vcs.watched_pull(root, &gate, number)
+                })
+                .await;
+            watched.extend(one);
+        }
         let before = self
             .store()
             .lock()

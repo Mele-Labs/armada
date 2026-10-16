@@ -854,6 +854,16 @@ pub trait Delivery {
     /// open.
     fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<crate::OpenPulls>;
 
+    /// One pull request of that list, **by its number**, for a pull request someone holds that the
+    /// list's cap left out. `None` is the forge's silence, and also a pull request that is no
+    /// longer open: either way it is not listed.
+    fn open_pull_request(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<crate::OpenPull>;
+
     /// The merge queue of `base`, one forge call. `None` is the forge's silence.
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
 
@@ -861,6 +871,15 @@ pub trait Delivery {
     /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
     /// forge call for all of them.** `None` is the forge's silence.
     fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
+
+    /// One pull request as [`pull_watch`](Delivery::pull_watch) reads it, **by its number**. `None`
+    /// is the forge's silence, and also a pull request that is no longer open.
+    fn watched_pull(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<crate::WatchedPull>;
 
     /// The login the forge's own command line is signed in as on this machine, the person whose
     /// pull requests are "mine" beside the account Armada is signed in as. `None` is a forge

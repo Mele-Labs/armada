@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     CiRun, CiRuns, CommitStatus, FromOutside, MergeQueue, MergedPull, OpenPulls,
-    RecentlyMergedPulls, WatchedPulls,
+    OpenPull, RecentlyMergedPulls, WatchedPull, WatchedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -18,6 +18,9 @@ struct Script {
     pulls: Option<OpenPulls>,
     queue: Option<MergeQueue>,
     watched: Option<WatchedPulls>,
+    by_number: Vec<WatchedPull>,
+    open_by_number: Vec<OpenPull>,
+    asked_by_number: Vec<u64>,
     recent: Option<RecentlyMergedPulls>,
     asked_recent: usize,
     asked_head: usize,
@@ -73,6 +76,22 @@ impl MainCiScript {
     /// The open pull requests as a watcher reads them; `None` is a forge that would not answer.
     pub fn watched_are(&self, watched: Option<WatchedPulls>) {
         self.with(|it| it.watched = watched);
+    }
+
+    /// The pull requests the forge answers for by number and not in its lists, as a watcher reads
+    /// them: a pull request the lists' cap left out. An unscripted number is the forge's silence.
+    pub fn watched_by_number_are(&self, watched: Vec<WatchedPull>) {
+        self.with(|it| it.by_number = watched);
+    }
+
+    /// The same, as the forge's listing reads them.
+    pub fn open_by_number_are(&self, pulls: Vec<OpenPull>) {
+        self.with(|it| it.open_by_number = pulls);
+    }
+
+    /// Every number a pull request was asked for by, in order, whichever reading asked.
+    pub fn numbers_asked(&self) -> Vec<u64> {
+        self.with(|it| it.asked_by_number.clone())
     }
 
     /// The recently merged pull requests the forge lists, newest first.
@@ -192,6 +211,20 @@ impl MainCiScript {
         self.with(|it| {
             it.asked_pulls += 1;
             it.pulls.clone()
+        })
+    }
+
+    pub(super) fn watched_one(&self, number: u64) -> Option<WatchedPull> {
+        self.with(|it| {
+            it.asked_by_number.push(number);
+            it.by_number.iter().find(|pull| pull.number == number).cloned()
+        })
+    }
+
+    pub(super) fn open_one(&self, number: u64) -> Option<OpenPull> {
+        self.with(|it| {
+            it.asked_by_number.push(number);
+            it.open_by_number.iter().find(|pull| pull.number == number).cloned()
         })
     }
 }
