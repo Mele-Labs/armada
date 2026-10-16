@@ -84,6 +84,7 @@ async fn a_walk_the_session_had_open_ends_with_it() {
             title: None,
             session_id: Some(id.clone()),
             variations: Vec::new(),
+            ..Default::default()
         })
         .await
         .expect("shown");

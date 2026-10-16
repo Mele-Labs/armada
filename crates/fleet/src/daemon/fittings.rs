@@ -427,6 +427,7 @@ where
             helm,
             sessions,
             session_runs: Default::default(),
+            window_sign_ins: Default::default(),
             scouts,
             inbox: EvidenceInbox::new(),
             delivered: Mutex::new(BTreeMap::new()),
@@ -505,6 +506,10 @@ where
 
     pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {
         &self.session_runs
+    }
+
+    pub(crate) fn window_sign_ins(&self) -> &crate::window_sign_in::SignIns {
+        &self.window_sign_ins
     }
 
     pub(crate) fn scouts(&self) -> &crate::scout::Scouts {

@@ -23,7 +23,7 @@ const TWO: &str = "http://localhost:5173/two";
 
 async fn show(rig: &Rig, id: &SessionId, url: &str) {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new() })
+        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() })
         .await
         .expect("shown");
 }
@@ -100,7 +100,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
     let rig = rig_placing(None);
     let id = rig.start().await;
     let mut watching = rig.fleet.events().subscribe();
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes(), ..Default::default() };
     let record = rig.fleet.show_window(None, shown).await.expect("shown");
 
     let kept = record
@@ -132,6 +132,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
         title: None,
         session_id: Some(id.clone()),
         variations,
+        ..Default::default()
     };
     let bad = |name: &str, url: &str| WindowTake { name: name.into(), url: url.into() };
     for (url, variations) in [
@@ -150,7 +151,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
 async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_the_word_does_not() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes(), ..Default::default() };
     rig.fleet.show_window(None, shown).await.expect("shown");
 
     let waiting = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.len() };
@@ -171,7 +172,7 @@ async fn a_question_may_be_about_a_take_on_another_origin_than_the_first() {
         WindowTake { name: "A".into(), url: ONE.into() },
         WindowTake { name: "B".into(), url: other.into() },
     ];
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes, ..Default::default() };
     rig.fleet.show_window(None, shown).await.expect("shown");
     let ask = |url: &str| ipc::AskInWindow {
         question: "Beside or under?".into(),
