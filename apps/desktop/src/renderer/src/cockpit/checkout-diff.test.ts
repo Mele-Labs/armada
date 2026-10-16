@@ -31,6 +31,17 @@ describe("the change of one uncommitted file", () => {
     expect(checkoutDiffOf({ ok: false, said: "That file is not uncommitted in the checkout." })).toEqual({ files: [], emptyNote: "That file is not uncommitted in the checkout." });
   });
 
+  it("says the lines drawn where Fleet cut the change first", () => {
+    const sent = `${DIFF}${Array.from({ length: 10 }, (_, i) => `+line ${i}\n`).join("")}`;
+    const { files, cut } = checkoutDiffOf({ ok: true, diff: sent, cut: true });
+    expect(files[0]?.lines.length).toBe(14);
+    expect(cut).toBe("First 14 lines");
+  });
+
+  it("says nothing of a cut where Fleet sent the whole change", () => {
+    expect(checkoutDiffOf({ ok: true, diff: DIFF }).cut).toBeUndefined();
+  });
+
   it("is cut at the bound and says how much was drawn", () => {
     const long = `${DIFF}${Array.from({ length: 2500 }, (_, i) => `+line ${i}\n`).join("")}`;
     const { files, cut } = checkoutDiffOf({ ok: true, diff: long });

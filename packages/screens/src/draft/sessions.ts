@@ -375,8 +375,8 @@ export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: fa
 /** One file of a pull request as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { ok: false; said: string };
 
-/** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. */
-export type CheckoutDiffRead = { ok: true; diff: string } | { ok: false; said: string };
+/** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. `cut` is set where Fleet sent only the start of a long change. */
+export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: false; said: string };
 
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
