@@ -248,6 +248,29 @@ pub(crate) fn open_pulls(in_repo: &str, gate: &str) -> Option<OpenPulls> {
     Some(said.lines().filter_map(|line| open_pull_of_line(line, gate)).collect())
 }
 
+/// One open pull request by its number, read as [`open_pulls`] reads each: for a pull request a
+/// session or Job holds that the list's cap left out. `None` where the forge would not answer or
+/// the pull request is not open.
+pub(crate) fn open_pull(in_repo: &str, gate: &str, number: u64) -> Option<OpenPull> {
+    let number = number.to_string();
+    let jq = format!("select(.state == \"OPEN\") | [.] | {OPEN_PULLS}");
+    let said = asked(
+        in_repo,
+        &[
+            "pr",
+            "view",
+            &number,
+            "--json",
+            "state,number,title,headRefName,url,author,statusCheckRollup,headRefOid,\
+             autoMergeRequest,createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,\
+             deletions",
+            "--jq",
+            &jq,
+        ],
+    )?;
+    said.lines().find_map(|line| open_pull_of_line(line, gate))
+}
+
 /// Put one commit status on `commit`: `gh api` fills `{owner}/{repo}` from the
 /// repository it runs in. **Only a commit and a context that cannot be read as an
 /// option**, so a word from a branch name never becomes a flag.
