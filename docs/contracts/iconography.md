@@ -691,6 +691,11 @@ reached for.
   it, nothing landed and nothing sent back draws a small picture in the
   border tokens and no words under it. `EmptyLine` in
   `packages/components/src/compositions/MergeLine/`.
+  **Second exception, the owner's, 16 Oct 2026**: a review tool that looked at a
+  pull request and found nothing draws a small picture in the border tokens,
+  tinted with the tool's hue at low strength, and under it at most one line
+  naming what was checked. `NothingFound` in
+  `apps/desktop/src/renderer/src/pr-review/nothing-found.tsx`.
 - **Spend, quota, elapsed, step N of M.** Numbers in mono. No gauge, no
   coin, no timer. **One exception, the owner's, 12 Oct 2026**: the Claude plan's 5-hour and weekly limits are one ring of two arcs in the title bar (15 Oct 2026), the context card draws a Session's window as one slim bar of its categories, and a Session's head draws its context as a tank, a pill filled to the percent (14 Oct 2026).
 
@@ -756,9 +761,9 @@ no table has not been decided, whatever it looks like in a mockup.
    label. Most new things need nothing.
 2. If an icon is needed it comes from **lucide-react**, at **12 or 16px**,
    **strokeWidth 2**, inheriting text colour. No second library, no emoji,
-   no illustration, no custom SVG. **Two exceptions exist, and only two** —
-   see Brand mark below, and the merge line's empty picture under Where the
-   answer is no icon. A chart drawing a measurement is not an icon and
+   no illustration, no custom SVG. **Three exceptions exist, and only three** —
+   see Brand mark below, and the merge line's and the review tool's empty
+   pictures under Where the answer is no icon. A chart drawing a measurement is not an icon and
    is not governed here; see Instruments in the
    [Design System](design-system.md).
 3. Choose on **outline, not detail**. At 12px only the silhouette survives.

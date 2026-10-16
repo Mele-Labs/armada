@@ -82,7 +82,7 @@ export function DiffSize({ additions, deletions }: { additions: number; deletion
   );
 }
 
-function Mark({ Glyph, said, tone }: { Glyph: LucideIcon; said: string; tone?: string | undefined }) {
+export function Mark({ Glyph, said, tone }: { Glyph: LucideIcon; said: string; tone?: string | undefined }) {
   return (
     <Tooltip label={said}>
       <span className="armada-pr-mark" data-tone={tone} role="img" aria-label={said}>
@@ -112,7 +112,7 @@ function Entry({ title, who, at, mark, body }: { title?: string; who: string | u
   );
 }
 
-function Conversation({ page, description }: { page: PullRequestTabsProps["page"]; description: string }) {
+export function Conversation({ page, description }: { page: PullRequestTabsProps["page"]; description: string }) {
   const first = description.trim() !== "";
   if (!first && page.conversation.length === 0) return null;
   return (
@@ -142,7 +142,7 @@ function Conversation({ page, description }: { page: PullRequestTabsProps["page"
   );
 }
 
-function Checks({ rows, onOpenLink }: { rows: readonly PullRequestCheckRow[]; onOpenLink: (address: string) => void }) {
+export function Checks({ rows, onOpenLink }: { rows: readonly PullRequestCheckRow[]; onOpenLink: (address: string) => void }) {
   if (rows.length === 0) return null;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Checks">
@@ -212,7 +212,7 @@ function Files({ rows, open, onFile }: { rows: readonly PullRequestFile[]; open?
   );
 }
 
-function Commits({ rows }: { rows: readonly PullRequestCommit[] }) {
+export function Commits({ rows }: { rows: readonly PullRequestCommit[] }) {
   if (rows.length === 0) return null;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Commits">

@@ -58,6 +58,9 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
     onChange?.(id);
   }
 
+  // With nothing chosen the first tab takes the Tab key, so the strip is reachable by keyboard.
+  const anyActive = items.some((item) => item.id === active);
+
   function onKey(event: React.KeyboardEvent<HTMLDivElement>) {
     const at = items.findIndex((item) => item.id === active);
     // A tab strip with nothing in it takes no arrow key. Without this the
@@ -87,7 +90,7 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }
             type="button"
             role="tab"
             aria-selected={item.id === active}
-            tabIndex={item.id === active ? 0 : -1}
+            tabIndex={item.id === active || (!anyActive && item === items[0]) ? 0 : -1}
             className={
               item.id === active ? "armada-tabs__tab armada-tabs__tab--active" : "armada-tabs__tab"
             }

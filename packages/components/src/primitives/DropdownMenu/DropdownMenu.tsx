@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
 import { Input } from "../Input/Input";
+import { Tooltip } from "../Tooltip/Tooltip";
 
 /**
  * The row menu, and the one place besides a dialog, sheet, popover, tooltip
@@ -37,6 +38,8 @@ export type DropdownMenuEntry =
        * does nothing. It stays in the arrow order so a person can read why.
        */
       disabled?: boolean;
+      /** What a hover on a disabled item says, where it is listed and not choosable. */
+      hint?: string;
       /**
        * How many rows the item holds, where the menu is a panel's filters (the
        * owner, 29 Sep 2026). Tabs' count rule: trailing mono. Zero draws nothing.
@@ -310,7 +313,7 @@ export function DropdownMenu({
                 </div>
               );
             }
-            return (
+            const item = (
               <button
                 key={entry.id}
                 type="button"
@@ -339,6 +342,13 @@ export function DropdownMenu({
                   <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
                 ) : null}
               </button>
+            );
+            return entry.disabled === true && entry.hint !== undefined ? (
+              <Tooltip key={entry.id} label={entry.hint} asChild>
+                {item}
+              </Tooltip>
+            ) : (
+              item
             );
           })}
         </div>

@@ -5,6 +5,7 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { PullRequestOwner } from "./merge-lines";
+import type { PullReviewComment, PullReviewThread } from "./pull-reviews";
 
 /** Where a pull request stands. A draft is open and not yet ready for review. */
 export type PullRequestStanding = "draft" | "open" | "merged" | "closed";
@@ -112,6 +113,12 @@ export type PullRequestPage = {
   checks: PullRequestCheckRow[];
   files: PullRequestFile[];
   commits: PullRequestCommit[];
+  /** The commit the branch is at, whole. Absent where the forge did not say. */
+  head?: string;
+  /** Its description, as Markdown. Absent where the author wrote none. */
+  body?: string;
+  /** The conversations on its diff, resolved ones too: the forge's first 100. Absent when there are none. */
+  threads?: PullReviewThread[];
   /** Who registered it in the central store, as the merge line's open pull requests carry it. Absent as `HubPullRequest.owner` is. */
   owner?: PullRequestOwner;
 };
@@ -136,6 +143,10 @@ export type WritePullRequest = {
   kind: "comment" | "approve" | "request_changes";
   /** Markdown. Required for `comment` and `request_changes`; optional for `approve`. */
   body?: string;
+  /** The comments of the review, posted with it as one review. With any, `body` may be empty. */
+  comments?: PullReviewComment[];
+  /** The commit the person read, whole: their line comments land on it. Absent reviews the branch as it stands. */
+  commit?: string;
   /** The Session the press came from. Absent records no Session. */
   session_id?: string;
 };
