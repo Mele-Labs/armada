@@ -1,0 +1,346 @@
+// One view of a Session, on the Cockpit and on the Sessions page: its thread and composer in the middle, its plan and workflow in the Status
+// area, its drones on a Field, a judge's concerns as cards, and a proposal to start from. One Session goes from its dispatched words to a
+// pull request ready, a step each time the walk lets time pass or he presses an act. The Session's `work` is draft data
+// (`packages/screens/src/draft/sessions.ts`); nothing here reaches Fleet. The walk `oneSessionView` plays it, in two takes.
+
+import { featureRunning } from "@armada/jobs/fake";
+import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+
+import { mockAreas } from "../cockpit-areas";
+import { asRow, holding, servedFrom } from "../holding";
+import type { Scenario } from "../moment";
+import { sessionsStore } from "../sessions/script";
+import type { SessionsStore } from "../sessions/script";
+
+const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+const board = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
+const OWNER = board.manifests[0]!.id;
+const ROOT = servedFrom(board.manifests[0]!).root;
+
+const MINE = "one-view-1";
+const QUIET = "one-view-2";
+const BUSY = "one-view-3";
+const BRANCH = "armada/lease-retry";
+
+const WORKFLOWS: readonly WorkflowChoice[] = [
+  { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
+  { name: "Bug fix", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
+  { name: "Code review", steps: ["Read", "Review", "Report"] },
+];
+const FEATURE = WORKFLOWS[0]!;
+
+const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
+const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+
+const WORDS = "Make the slot lease retry when two Sessions ask for the same bay at once.";
+
+/** The Session as dispatched: the words are in the thread, and the proposer has read them. Nothing has run. */
+const dispatched: Session = {
+  id: MINE,
+  title: "Retry the slot lease",
+  manifestId: OWNER,
+  cwd: ROOT,
+  model: "opus",
+  effort: "high",
+  mode: "auto",
+  turn: { state: "idle" },
+  lastTurn: "14:02",
+  lastTurnAt: ago(1),
+  standing: "idle",
+  rows: [you("v-1", "14:02:00", WORDS)],
+  attachments: [],
+  work: { proposal: { workflow: FEATURE.name }, workflow: { ...FEATURE, at: -1 } },
+};
+
+const quiet: Session = {
+  id: QUIET,
+  title: "Name the store migrations",
+  manifestId: OWNER,
+  cwd: ROOT,
+  turn: { state: "idle" },
+  lastTurn: "13:41",
+  lastTurnAt: ago(22),
+  standing: "idle",
+  rows: [agent("q-1", "13:41:10", "The migrations are named by their order.")],
+  attachments: [{ kind: "branch", name: "fix/migration-names", slot: 2 }],
+};
+
+const busy: Session = {
+  id: BUSY,
+  title: "Rotate the audit log",
+  manifestId: OWNER,
+  cwd: ROOT,
+  turn: { state: "working" },
+  lastTurn: "14:00",
+  lastTurnAt: ago(2),
+  standing: "working",
+  rows: [you("b-1", "13:50:00", "Rotate the audit log at midnight."), { id: "b-2", at: "14:00:05", kind: "tool", text: "Edit crates/store/src/audit.rs" }],
+  attachments: [{ kind: "branch", name: "armada/audit-rotation", slot: 1 }],
+};
+
+// ---- What the Session records as it goes ------------------------------------------------------------------
+
+const SCOPE = ["crates/fleet", "crates/ipc", "packages/protocol", "apps/desktop"];
+
+const task = (id: string, text: string, state: WorkTaskState): WorkTask => ({ id, text, state, seen: state !== "open" });
+
+/** The task groups at a stage of the build: 0 recorded, 1 started, 2 the first two done, 3 the Fleet group done, 4 everything done. */
+function groups(stage: number): WorkGroup[] {
+  const at = (from: number, done: number): WorkTaskState => (stage >= done ? "done" : stage >= from ? "working" : "open");
+  return [
+    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), task("T2", "Back off between attempts", at(2, 3))] },
+    { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", tasks: [task("T3", "Add attempts to the lease reply", at(1, 2))] },
+    { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", tasks: [task("T4", "Show the attempt on the bay tile", at(2, 4))] },
+  ];
+}
+
+/** Who is flying and where. The Session's own drone has no agent type; each subagent has one and a task. */
+function field(stage: number): WorkDrone[] {
+  const rust: WorkDrone = { id: "rust", agent: "rust-engineer", task: "Retry the lease when the pool is contended", path: "crates/fleet", doing: "write" };
+  const protocol: WorkDrone = { id: "protocol", agent: "protocol-engineer", task: "Add attempts to the lease reply", path: "crates/ipc", doing: "write" };
+  const bridge: WorkDrone = { id: "bridge", agent: "bridge-engineer", task: "Show the attempt on the bay tile", path: "apps/desktop", doing: "write" };
+  if (stage === 0) return [{ id: "main", path: "crates/fleet", doing: "read" }];
+  if (stage === 1) return [{ id: "main", path: "crates/fleet", doing: "write" }, rust, protocol];
+  if (stage === 2) return [{ id: "main", path: "crates/fleet", doing: "read" }, rust, bridge];
+  if (stage === 3) return [{ id: "main", path: "crates/fleet", doing: "run" }, bridge];
+  return [{ id: "main", path: "crates/fleet", doing: "run" }];
+}
+
+const CONCERNS: WorkConcern[] = [
+  { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay." },
+  { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling." },
+];
+
+const REPLIES: Record<string, string> = {
+  c1: "The read now happens under the lease lock.",
+  c2: "The back off stops at two seconds.",
+};
+
+const QUESTIONS = [
+  {
+    question: "How many attempts before it gives up?",
+    header: "Attempts",
+    multi_select: false,
+    options: [
+      { label: "Three", description: "Gives up after the third try" },
+      { label: "Five", description: "Gives up after the fifth try" },
+    ],
+  },
+];
+
+// ---- The store -------------------------------------------------------------------------------------------
+
+function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy]);
+  // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
+  base.start();
+  const own = new Set([MINE, QUIET, BUSY]);
+  let from: readonly Session[] | undefined;
+  let only: readonly Session[] = [];
+  let stage = 0;
+  let rowId = 0;
+  let clock = 2 * 60 + 2;
+  const timers = new Set<number>();
+  const stamp = () => {
+    clock += 1;
+    return `14:${String(Math.floor(clock / 60) % 60).padStart(2, "0")}:${String(clock % 60).padStart(2, "0")}`;
+  };
+  const next = <T extends SessionRow>(make: (id: string, at: string) => T): T => make(`v-r${(rowId += 1)}`, stamp());
+  const said = (text: string) => next((id, at) => agent(id, at, text));
+  const asked = (text: string) => next((id, at) => you(id, at, text));
+  const tool = (text: string): SessionRow => next((id, at) => ({ id, at, kind: "tool", text }));
+  const mine = () => base.get().find((one) => one.id === MINE);
+  const change = (edit: (one: Session) => Session) => base.edit(MINE, edit);
+  const works = (edit: (work: SessionWork) => SessionWork) => change((one) => ({ ...one, work: edit(one.work ?? {}) }));
+  const push = (rows: SessionRow[], more: Partial<Session> = {}) => change((one) => ({ ...one, ...more, rows: [...one.rows, ...rows] }));
+  const after = (ms: number, run: () => void) => {
+    const handle = window.setTimeout(() => {
+      timers.delete(handle);
+      run();
+    }, ms);
+    timers.add(handle);
+  };
+  const idle = (): Partial<Session> => ({ turn: { state: "idle" }, standing: "replied", lastTurnAt: new Date().toISOString() });
+  const working = (): Partial<Session> => ({ turn: { state: "working" }, standing: "working" });
+
+  /** The build at `at`: the groups, the drones, and the step the workflow is at. */
+  const building = (at: number) => {
+    stage = at;
+    works((work) => ({
+      ...work,
+      ...(work.plan === undefined ? {} : { plan: { ...work.plan, groups: groups(at) } }),
+      field: field(at),
+      ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: at >= 4 ? work.workflow.steps.length - 1 : 1 } }),
+    }));
+  };
+
+  return {
+    ...base,
+    get: () => {
+      const all = base.get();
+      if (all !== from) {
+        from = all;
+        only = all.filter((one) => own.has(one.id));
+      }
+      return only;
+    },
+    work: {
+      workflows: WORKFLOWS,
+      // The proposal is read again: a different workflow draws a different rail, and none draws no rail at all.
+      choose: (_id, name) => {
+        const chosen = WORKFLOWS.find((one) => one.name === name);
+        works((work) => {
+          const { workflow, ...rest } = work;
+          void workflow;
+          return { ...rest, proposal: { workflow: name }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: -1 } }) };
+        });
+      },
+      // Start begins the work: the first step, and the agent reads and asks before it plans.
+      start: () => {
+        works((work) => {
+          const { proposal, ...rest } = work;
+          void proposal;
+          return { ...rest, ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }), field: field(0) };
+        });
+        push([tool("Read crates/fleet/src/lease.rs"), said("Two Sessions can ask for the same bay between the read and the write. One question before I plan.")], {
+          asked: { command: QUESTIONS[0]!.question, call: "v-q1", offers: ["allow_once", "refuse"], questions: QUESTIONS },
+        });
+      },
+      approve: () => {
+        works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
+        push(
+          [
+            asked("Approved the plan."),
+            said("Starting with the lease in Fleet. The wire and the bay tile follow."),
+            tool("Edit crates/fleet/src/lease.rs"),
+            next((id, at) => ({ id, at, kind: "lease", slot: 3, branch: BRANCH })),
+          ],
+          { ...working(), attachments: [{ kind: "branch", name: BRANCH, slot: 3 }] },
+        );
+        building(1);
+      },
+      sendConcern: (_id, concern) => {
+        const one = mine()?.work?.concerns?.find((it) => it.id === concern);
+        if (one === undefined) return;
+        works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
+        push([asked(`${one.step}: ${one.text}`)], working());
+        after(700, () => push([tool("Edit crates/fleet/src/lease.rs"), said(REPLIES[concern] ?? "Noted.")], idle()));
+      },
+      dismissConcern: (_id, concern) => works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) })),
+    },
+    // The question the agent asked is answered, and it goes on to record the plan.
+    answer: (_id, answer, answers) => {
+      change((one) => {
+        const { asked: was, ...rest } = one;
+        void was;
+        return rest;
+      });
+      if (answer === "refuse" || (answers ?? []).length === 0) return push([said("Taking three attempts.")], working());
+      push([asked(answers!.map((one) => `**${one.question}**\n${one.chosen.join(", ")}`).join("\n\n")), said(`${answers!.map((one) => one.chosen.join(" and ")).join(", ")} attempts. Writing the plan.`)], working());
+    },
+    // Words he types go to the agent, which answers in a line.
+    send: (id, sent) => {
+      const done = base.send(id, sent);
+      if (id === MINE) after(700, () => push([said("Noted.")], idle()));
+      return done;
+    },
+    later() {
+      const now = mine();
+      if (now === undefined) return;
+      const plan = now.work?.plan;
+      if (plan === undefined) {
+        // The agent records its plan after planning with him, and it arrives for his approval.
+        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false }, field: field(0) }));
+        push([said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.")], idle());
+        return;
+      }
+      if (!plan.approved) return;
+      if (stage === 1) {
+        building(2);
+        push([tool("Edit crates/ipc/src/lease.rs"), tool("Edit apps/desktop/src/renderer/src/cockpit/deck/BayRows.tsx")], working());
+      } else if (stage === 2) {
+        building(3);
+        // A judge reads the Build step and raises two concerns. Neither blocks: the agent goes on.
+        works((work) => ({ ...work, concerns: CONCERNS }));
+      } else if (stage === 3) {
+        building(4);
+        push(
+          [tool("Bash armada check test lease"), said("The checks pass on the branch. The change is ready for a pull request.")],
+          {
+            ...idle(),
+            attachments: [
+              { kind: "branch", name: BRANCH, slot: 3 },
+              {
+                kind: "pull_request",
+                number: 2390,
+                title: "Retry the slot lease",
+                branch: BRANCH,
+                address: "https://git.example/armada/pull/2390",
+                checks: { state: "passed" },
+                state: "draft",
+                auto: false,
+              },
+            ],
+          },
+        );
+      }
+    },
+    dispose: () => {
+      timers.forEach((one) => window.clearTimeout(one));
+      base.dispose();
+    },
+    start: (tag, root) => {
+      const id = base.start(tag, root);
+      if (typeof id === "string") {
+        own.add(id);
+        base.edit(id, (one) => ({ ...one, manifestId: OWNER }));
+      }
+      return id;
+    },
+  };
+}
+
+// ---- The Cockpit round it --------------------------------------------------------------------------------
+
+const bay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}): WorktreeSlot => ({ manifest_id: OWNER, slot, path: `${ROOT}/.armada/slots/slot-${slot}`, base: "main", warm: true, behind: 0, held, ...rest });
+
+function pool(): WorktreesHeld {
+  return {
+    worktrees: [],
+    slots: [
+      bay(1, { state: "hosted_session", session_id: BUSY, session_title: busy.title! }, { branch: "armada/audit-rotation", since: ago(35) }),
+      bay(2, { state: "hosted_session", session_id: QUIET, session_title: quiet.title! }, { branch: "fix/migration-names", since: ago(90) }),
+      bay(3, { state: "free" }),
+      bay(4, { state: "free" }),
+    ],
+  };
+}
+
+let count = 0;
+const event = (minutes: number, session: Session, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, detail?: string): TimelineEvent => {
+  count += 1;
+  return { id: count, at: ago(minutes), kind, subject: { kind: "session", id: session.id }, title: session.title!, tone, says, manifest_id: OWNER, ...(detail === undefined ? {} : { detail }) };
+};
+const EVENTS: TimelineEvent[] = [
+  event(35, busy, "session.started", "run", "Started"),
+  event(35, busy, "slot.leased", "idle", "Slot 1 leased", "slot-1"),
+  event(3, busy, "session.edited", "run", "Edited 1 file", "crates/store/src/audit.rs"),
+  event(90, quiet, "session.started", "run", "Started"),
+  event(22, quiet, "session.turn", "idle", "Replied"),
+];
+
+function build(): Scenario {
+  const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
+  const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, concerns, proposal", rows);
+  return {
+    ...base,
+    state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
+    held: pool(),
+    draft: { sessions, events: EVENTS, areas: mockAreas },
+  };
+}
+
+export const s261OneSessionView: Scenario = build();

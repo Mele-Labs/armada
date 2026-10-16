@@ -105,6 +105,7 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -848,6 +849,8 @@ export type DeckSession = {
   acts: ReactNode;
   /** The element the ledger is drawn into. Absent until the deck has drawn it, and the ledger waits for it. */
   ledger: HTMLElement | null;
+  /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
+  hosts?: Hosts;
 };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
@@ -992,6 +995,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
+      <SessionWorkspace session={session} entries={entries} repositories={repositories} hosts={deck?.hosts}>
       <SessionFrame
         state={state}
         said={said}
@@ -1038,7 +1042,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 </>
               ),
             }}
-        {...(narrow || minimized || deck !== undefined
+        {...(narrow || minimized || deck !== undefined || session.work !== undefined
           ? {}
           : {
               aside: (
@@ -1162,7 +1166,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           )}
         </div>
       </SessionFrame>
-      {deck?.ledger == null ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
+      </SessionWorkspace>
+      {deck?.ledger == null || session.work !== undefined ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
           <SessionLedger entries={ledger} folded />

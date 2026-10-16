@@ -21,6 +21,7 @@ import { dotsOf } from "../horizon";
 import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
+import type { Hosts } from "../../session-view/SessionWorkspace";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
@@ -210,7 +211,7 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
  * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
  * and Needs you band.
  */
-export function SessionPane({ subject, props, acts, onPr, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; openSession: (id: string) => void }) {
+export function SessionPane({ subject, props, acts, onPr, ledger, hosts, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
   const session = useSessions().find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
@@ -231,6 +232,7 @@ export function SessionPane({ subject, props, acts, onPr, ledger, openSession }:
         repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
+          ...(hosts === undefined ? {} : { hosts }),
           acts: (
             <>
               <SubjectActs subject={subject} acts={acts} onPr={onPr} />

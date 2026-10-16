@@ -44,6 +44,7 @@ import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
+import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
 import "./deck.css";
 
@@ -248,7 +249,7 @@ function useBayViews(props: CockpitProps) {
   return useBays(slots, events, undefined, props.now);
 }
 
-function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null }) {
+function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
   const sel = useDeck((deck) => deck.sel);
   const held = useDeck((deck) => deck.held);
   const view = useDeck((deck) => deck.view);
@@ -277,7 +278,7 @@ function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps
     if (held === undefined) props.onOpenSession(id);
     else select(selOfSubject(held));
   };
-  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} ledger={ledger} openSession={openSession} />;
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} ledger={ledger} hosts={hosts} openSession={openSession} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
   if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
@@ -667,6 +668,13 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
+  // A Session with `work` draws its own panels in the places of Activity, Bays and Autopilot, and its status in the ring's.
+  const sessions = useSessions();
+  const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
+  const [leftHost, setLeftHost] = useState<HTMLElement | null>(null);
+  const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
+  const [footHost, setFootHost] = useState<HTMLElement | null>(null);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { left: leftHost, side: sideHost, foot: footHost } : undefined), [unified, leftHost, sideHost, footHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
@@ -684,22 +692,24 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
-          <Activity props={props} listed={listed} ship={ship} />
+          {unified ? <div className="sv-slot" data-place="left" ref={setLeftHost} /> : <Activity props={props} listed={listed} ship={ship} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading ? ledgerHost : null} />
+            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
-            <AutopilotPanel props={props} autopilot={autopilot} />
+            {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
           </div>
         </div>
         <div className="deck-right">
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {reading ? (
+          {unified ? (
+            <div className="sv-side" ref={setSideHost} />
+          ) : reading ? (
             <>
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
