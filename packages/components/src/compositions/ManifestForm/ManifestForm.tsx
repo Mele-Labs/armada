@@ -1,5 +1,6 @@
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
 import { AfterMergeSection } from "./AfterMergeSection";
 import { BaseSection } from "./BaseSection";
 import { BudgetSection } from "./BudgetSection";
@@ -112,8 +113,8 @@ export type ManifestFormProps = {
   saving?: boolean;
   onSave: () => void;
   onDiscard: () => void;
-  /** The last save went out as a pull request the forge would not auto-merge, so a person merges it. `onOpen` opens it. */
-  mergeByHand?: { number: number; onOpen: () => void };
+  /** The last save went out as a pull request the forge would not auto-merge, so a person merges it: its number opens it, and Sessions' acts sit beside. */
+  mergeByHand?: { number: number; checks: PullRequestActsProps["checks"]; pending?: PullRequestActsProps["pending"]; onOpen: () => void; onAct: PullRequestActsProps["onAct"] };
   /** The line beside the path: when the last save landed, or that one has not. */
   receipt?: string;
   /** What Fleet would not write, with its faults key by key. */
@@ -145,7 +146,7 @@ export function ManifestForm(props: ManifestFormProps) {
           <Button variant="ghost" size="sm" onClick={mergeByHand.onOpen}>
             {`#${mergeByHand.number}`}
           </Button>
-          <span>needs merging by hand</span>
+          <PullRequestActs state="open" checks={mergeByHand.checks} auto={false} {...(mergeByHand.pending === undefined ? {} : { pending: mergeByHand.pending })} onAct={mergeByHand.onAct} />
         </p>
       )}
 

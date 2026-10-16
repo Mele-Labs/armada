@@ -60,6 +60,7 @@ import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
 import { checkoutCall } from "./cockpit/checkout";
 import { MERGE_BY_HAND } from "./cockpit/horizon";
+import { ByHandActs } from "./merge-by-hand";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -569,7 +570,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
             hue: "ask",
             where,
             body: [["Branch", pull.branch]],
-            acts: () => <Button variant="secondary" onClick={() => hosts.onOpenLink(pull.url)}>Open pull request</Button>,
+            acts: () => <ByHandActs number={pull.number} {...(pull.ci === undefined ? {} : { ci: pull.ci })} />,
           });
           continue;
         }

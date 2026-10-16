@@ -27,7 +27,7 @@ export type ManifestFormSlice = {
   onEditManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
   onReadSpend: () => Promise<ManifestSpendRead>;
   /** The form edit's pull request that waits for a person to merge it, where the merge line holds one. */
-  mergeByHand?: { number: number; onOpen: () => void };
+  mergeByHand?: ManifestFormProps["mergeByHand"];
 };
 
 /** The forms, as the screen draws them. */
