@@ -19,4 +19,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/pull_request_writes/:repository",
     },
+    Route {
+        operation: "get_review_lists",
+        method: "GET",
+        path: "/review_lists",
+    },
+    Route {
+        operation: "resolve_review_thread",
+        method: "POST",
+        path: "/review_threads/:repository",
+    },
 ];

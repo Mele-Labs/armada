@@ -4,8 +4,8 @@
 //! holding this fake exists.
 
 use adapter_traits::{
-    FilePatch, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, Remark,
-    UnderReview,
+    FilePatch, ListedPull, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
+    Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
 use super::{commit, Delivered, FakeVcs};
@@ -23,6 +23,10 @@ pub(super) struct PullRequests {
     pub(super) file_patch: Option<FilePatch>,
     /// The forge's reply to a write on a pull request.
     pub(super) written: Result<(), String>,
+    /// What the forge answers for each review list. A list with no entry is silent.
+    pub(super) review_lists: Vec<(ReviewList, Vec<ListedPull>)>,
+    /// The forge's reply to resolving or reopening a review thread.
+    pub(super) thread_resolved: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
     /// taken, as a real forge's would. A test that wants them to stay put
     /// scripts nothing.
@@ -37,6 +41,8 @@ impl Default for PullRequests {
             page: None,
             file_patch: None,
             written: Ok(()),
+            review_lists: Vec::new(),
+            thread_resolved: Ok(()),
             follows_writes: true,
         }
     }
@@ -146,6 +152,81 @@ impl FakeVcs {
                 write: write.clone(),
             });
         self.pull_requests.lock().expect("not poisoned").written.clone()
+    }
+
+    /// `Delivery::pull_review_list`: recorded, then answered as scripted. A list nobody
+    /// scripted is the forge's silence.
+    pub(super) fn review_list_read(&self, ask: &ReviewListAsk<'_>) -> Option<Vec<ListedPull>> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::AskedForReviewList {
+                list: ask.list,
+                login: ask.login.to_string(),
+                repositories: ask.repositories.to_vec(),
+            });
+        let forge = self.pull_requests.lock().expect("not poisoned");
+        let rows = forge.review_lists.iter().find(|(list, _)| *list == ask.list)?;
+        Some(rows.1.iter().take(ask.most).cloned().collect())
+    }
+
+    /// `Delivery::resolve_review_thread`: recorded, then answered as scripted.
+    pub(super) fn thread_resolution_asked(&self, thread: &str, resolved: bool) -> Result<bool, String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ResolvedReviewThread {
+                thread: thread.to_string(),
+                resolved,
+            });
+        self.pull_requests
+            .lock()
+            .expect("not poisoned")
+            .thread_resolved
+            .clone()
+            .map(|()| resolved)
+    }
+
+    /// Say what the forge answers for one review list. Say nothing, and that list is silent.
+    pub fn now_review_list(&self, list: ReviewList, rows: Vec<ListedPull>) {
+        let mut forge = self.pull_requests.lock().expect("not poisoned");
+        forge.review_lists.retain(|(held, _)| *held != list);
+        forge.review_lists.push((list, rows));
+    }
+
+    /// Say that resolving or reopening a review thread is refused, in the forge's own sentence.
+    pub fn resolving_a_thread_refuses(&self, said: &str) {
+        self.pull_requests.lock().expect("not poisoned").thread_resolved = Err(said.to_string());
+    }
+
+    /// Every list the forge was asked for, in order, with the login and repositories asked.
+    pub fn review_lists_asked(&self) -> Vec<(ReviewList, String, Vec<String>)> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .iter()
+            .filter_map(|it| match it {
+                Delivered::AskedForReviewList {
+                    list,
+                    login,
+                    repositories,
+                } => Some((*list, login.clone(), repositories.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Every thread resolved or reopened, in order, with whether it was resolved.
+    pub fn review_thread_resolutions(&self) -> Vec<(String, bool)> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .iter()
+            .filter_map(|it| match it {
+                Delivered::ResolvedReviewThread { thread, resolved } => Some((thread.clone(), *resolved)),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Say what the forge shows on a pull request's page, or that it is silent.

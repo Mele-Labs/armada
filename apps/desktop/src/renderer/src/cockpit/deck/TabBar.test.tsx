@@ -33,10 +33,10 @@ const tab = (host: HTMLElement, name: string) => [...host.querySelectorAll<HTMLE
 test("The tab bar maps each tab to its surface, and System opens the strip", () => {
   const went: string[] = [];
   const bar = mount(<TabBar showing={SURFACE.overview} onGoTo={(id) => went.push(id)} />);
-  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Sessions", "Studios", "Retros", "System"]);
+  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Sessions", "Studios", "Retros", "Reviews", "System"]);
   expect(tab(bar, "Cockpit").getAttribute("aria-selected")).toBe("true");
-  for (const name of ["Jobs", "Sessions", "Studios", "Retros", "System"]) act(() => tab(bar, name).click());
-  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.kit]);
+  for (const name of ["Jobs", "Sessions", "Studios", "Retros", "Reviews", "System"]) act(() => tab(bar, name).click());
+  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.reviews, SURFACE.kit]);
 
   // The strip is there when System is the place, whichever of its pages is up, and is not otherwise.
   expect(mount(<SystemStrip showing={SURFACE.overview} onGoTo={() => {}} />).querySelector("nav")).toBeNull();
