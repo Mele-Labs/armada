@@ -27,6 +27,11 @@ import {
   transcriptPath,
   updatedTask,
   usedFact,
+  isCovered,
+  needsSaidIn,
+  sentBackReason,
+  waitingItemsOf,
+  withReplyNeeds,
 } from './facts'
 
 test('a title is the first line of a prompt, cut, and never a command', () => {
@@ -317,4 +322,135 @@ test('a permission prompt is named by its command line, its path or its address,
   expect(promptDetail({ url: 'https://example.com/a' })).toBe('https://example.com/a')
   expect(promptDetail({ command: 'x'.repeat(500) })).toBe('x'.repeat(300))
   expect(promptDetail({ prompt: 'what to fetch' })).toBe('')
+})
+
+// The owner's BLUF reply, as his output style writes it.
+const BLUF = (rows: string) => `**BLUF:** The detector is built and its tests pass.
+
+## Summary
+
+The Stop hook now reads the reply.
+
+## Actions
+
+| # | Action | Owner | Status |
+|---|---|---|---|
+${rows}
+`
+
+test('a BLUF Actions table the agent owns names nothing the owner owes', () => {
+  const reply = BLUF(
+    [
+      '| 1 | Wrote `needsSaidIn` in facts.ts | Agent | Done |',
+      '| 2 | Ran the touched tests | Claude | Done |',
+      '| 3 | Review the parser | Explore subagent | In progress |',
+      '| 4 | Check the door names | rust-engineer | Not started |',
+    ].join('\n'),
+  )
+  expect(needsSaidIn(reply)).toEqual([])
+})
+
+test('rows the owner owns and has not done are named, each as its action', () => {
+  const reply = BLUF(
+    [
+      '| 1 | Opened PR #2415 | Agent | Done |',
+      '| 2 | Approve PR #2415 | **Nick** | Not started |',
+      '| 3 | Run `scripts/restart` after it merges | You | Not started |',
+      '| 4 | Merged the rules branch | Nick | Done ✅ |',
+      '| 5 | Decide whether the fallback posts to Fleet | Owner / Agent | Waiting |',
+    ].join('\n'),
+  )
+  expect(needsSaidIn(reply)).toEqual([
+    'Approve PR #2415',
+    'Run scripts/restart after it merges',
+    'Decide whether the fallback posts to Fleet',
+  ])
+})
+
+test('a row the owner owns that is done names nothing', () => {
+  expect(needsSaidIn(BLUF('| 1 | Approve PR #2410 | Nick | Done |'))).toEqual([])
+  expect(needsSaidIn(BLUF('| 1 | Approve PR #2410 | Nick | ✅ Merged |'))).toEqual([])
+})
+
+test('a table with an Owner column counts under any heading, and one with none counts nowhere', () => {
+  const owned = '## Leftovers\n\n| Item | Owner |\n|---|---|\n| Rotate the token | Nick |\n'
+  expect(needsSaidIn(owned)).toEqual(['Rotate the token'])
+  const ownerless = '## Actions\n\n| Step | Result |\n|---|---|\n| Ran tsc | clean |\n'
+  expect(needsSaidIn(ownerless)).toEqual([])
+  // Who is an owner column only in an Actions table.
+  expect(needsSaidIn('## Results\n\n| What | Who |\n|---|---|\n| Restart Fleet | Nick |\n')).toEqual([])
+  expect(needsSaidIn('## Next actions\n\n| What | Who |\n|---|---|\n| Restart Fleet | Nick |\n')).toEqual(['Restart Fleet'])
+})
+
+test('items under a Questions heading are named, and a section that asks nothing is not', () => {
+  const reply = [
+    'The route is in place.',
+    '',
+    '## Questions',
+    '',
+    '1. Should a reply line carry an act, or none?',
+    '2. **Keep** the id prefix `reply:`?',
+    '',
+    '## Notes',
+    '',
+    '- The door names one server.',
+  ].join('\n')
+  expect(needsSaidIn(reply)).toEqual(['Should a reply line carry an act, or none?', 'Keep the id prefix reply:?'])
+  expect(needsSaidIn('## Questions\n\nNone.\n')).toEqual([])
+  expect(needsSaidIn('**Open questions:**\n- Which slot pool?\n')).toEqual(['Which slot pool?'])
+})
+
+test('a QUESTION: line is named wherever it stands', () => {
+  expect(needsSaidIn('Built it.\n\nQUESTION: Bump to 0.3.26 or wait for #2414?')).toEqual([
+    'Bump to 0.3.26 or wait for #2414?',
+  ])
+  // Lower case is prose, not the marker.
+  expect(needsSaidIn('The question: does it loop? It does not.')).toEqual([])
+})
+
+test('a table or a question inside a fenced block is never read', () => {
+  const reply = [
+    'Here is what the owner style asks for:',
+    '',
+    '```markdown',
+    '## Actions',
+    '| # | Action | Owner | Status |',
+    '|---|---|---|---|',
+    '| 1 | Approve the PR | Nick | Not started |',
+    'QUESTION: Which one?',
+    '```',
+    '',
+    'Nothing is owed.',
+  ].join('\n')
+  expect(needsSaidIn(reply)).toEqual([])
+})
+
+test('the list a waiting_for call set is read from its body, and a shapeless one is not', () => {
+  const items = [{ id: 'merge', text: 'Approve PR #2415', act: { kind: 'approve_pr', target: '#2415' } }]
+  expect(waitingItemsOf({ body: { session_id: 'S1', waiting_for: items } })).toEqual(items)
+  expect(waitingItemsOf({ body: JSON.stringify({ session_id: 'S1', waiting_for: [] }) })).toEqual([])
+  expect(waitingItemsOf({ body: { session_id: 'S1' } })).toBeUndefined()
+})
+
+test('a list holds a line when an item shares two of its words', () => {
+  const items = [{ id: 'merge', text: 'Approve #2415, the needs detector' }]
+  expect(isCovered(['Approve PR #2415'], items)).toBe(true)
+  expect(isCovered(['Run scripts/restart after it merges'], items)).toBe(false)
+  expect(isCovered(['Approve PR #2415'], [])).toBe(false)
+})
+
+test('what the session is sent back with names each line, and the list adds only what it lacks', () => {
+  expect(sentBackReason(['Approve PR #2415', 'Restart Fleet'], 'S1')).toBe(
+    [
+      'Your reply names what the owner owes, and the armada waiting_for list does not hold it:',
+      '- Approve PR #2415',
+      '- Restart Fleet',
+      'Put each in waiting_for with its own id, one short line and an act, passing session_id S1, then end the turn. Do not repeat them as a table.',
+    ].join('\n'),
+  )
+  const held = [{ id: 'merge', text: 'Approve PR #2415' }]
+  expect(withReplyNeeds(held, ['Approve PR #2415', 'Restart Fleet'])).toEqual([
+    { id: 'merge', text: 'Approve PR #2415' },
+    { id: 'reply:1', text: 'From the reply: Restart Fleet' },
+  ])
 })

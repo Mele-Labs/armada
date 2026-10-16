@@ -3,11 +3,13 @@
 //
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
-// this mod asks (`submitHeld`). One thing is told to the model: its own session id, so
-// `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
-// `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
+// this mod asks (`submitHeld`). Two things are told to the model: its own session id, so
+// `show_window` can name it, and the lines a stop is sent back with. Three hooks change what a session does: an `open` of a page, an
+// `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
+// `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, and a question put to Bridge.** A message is reported as who it went to
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, and each line a reply named as owed that the session left out of
+// `waiting_for` after it was sent back.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
@@ -45,10 +47,15 @@ import {
   modeOf,
   modelName,
   MOD_VERSION,
+  isCovered,
+  needsSaidIn,
+  sentBackReason,
+  waitingItemsOf,
+  withReplyNeeds,
   promptDetail,
   transcriptPath,
 } from './facts'
-import type { RateLimit } from './facts'
+import type { RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
 
 const HARNESS = 'claude_code'
@@ -79,7 +86,18 @@ type Known = {
   tuned?: Tuning
   // The terminal's permission prompts open now, oldest first. Fleet is told of the first.
   prompts: Prompt[]
+  /** What the session's last `waiting_for` call set. */
+  waiting: WaitingItem[]
+  turn: Turn
 }
+
+/**
+ * What this turn did about the owner. `sentBack` holds the lines the Stop hook sent the session back
+ * with; a turn is sent back once, then what is still missing is put in the list for it.
+ */
+type Turn = { setWaiting: boolean; asked: boolean; sentBack?: string[]; reported: boolean }
+
+const freshTurn = (): Turn => ({ setWaiting: false, asked: false, reported: false })
 
 type Prompt = { tool: string; detail: string }
 
@@ -445,7 +463,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [] })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [], waiting: [], turn: freshTurn() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -774,6 +792,48 @@ async function promptPut($: Dollar, tool: string, input: unknown): Promise<void>
   if (asked?.outcome === 'answered' || asked?.outcome === 'refused') call.answer(asked)
 }
 
+/**
+ * A turn is stopping on a reply that names what the owner owes and a `waiting_for` list that does not
+ * hold it. The first stop is blocked with the lines found; the second, or one another hook already sent
+ * back (`stopActive`), is let through and the lines go in the list marked as read from the reply, so
+ * the session can never loop on it.
+ */
+async function sendBack($: Dollar, answer: string, stopActive: boolean): Promise<string | undefined> {
+  if (await $.env.get('ARMADA_DRONE')) return undefined
+  const [id, one] = await current($)
+  const turn = one.turn
+  if (turn.reported) return undefined
+  const found = needsSaidIn(answer)
+  if (turn.sentBack === undefined && !stopActive) {
+    if (found.length === 0 || turn.asked || isCovered(found, one.waiting)) return undefined
+    turn.sentBack = found
+    turn.setWaiting = false
+    return sentBackReason(found, id)
+  }
+  turn.reported = true
+  const needs = [...new Set([...(turn.sentBack ?? []), ...found])]
+  const complied = turn.sentBack !== undefined && turn.setWaiting && one.waiting.length > 0
+  if (needs.length === 0 || turn.asked || complied || isCovered(needs, one.waiting)) return undefined
+  void putInWaiting($, id, one, needs).catch(() => undefined)
+  return undefined
+}
+
+/** The session's list with the reply's lines added, set through the route the `waiting_for` tool posts to. */
+async function putInWaiting($: Door, id: string, one: Known, needs: string[]): Promise<void> {
+  const port = await portOf($)
+  if (port === undefined) return
+  const items = withReplyNeeds(one.waiting, needs)
+  const sent = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/waiting`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: id, items }),
+    }),
+    $.clock.sleep(WAIT_MS).then(() => undefined),
+  ])
+  if (sent?.ok === true) one.waiting = items
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -811,6 +871,8 @@ export const register: Register = on => {
 
   on('prompt.submit', async ($, e, next) => {
     const out = await next(e)
+    const one = known.get(await $.session.id())
+    if (one !== undefined) one.turn = freshTurn()
     void titled($, e.text).catch(() => undefined)
     void turnBegan($, e.text).catch(() => undefined)
     return out
@@ -846,6 +908,8 @@ export const register: Register = on => {
     const id = await $.session.id()
     const put = await firstPut($, id, { input: { questions: e.questions } })
     if (put?.outcome === 'refused') return { deny: put.message }
+    const asking = known.get(id)
+    if (asking !== undefined) asking.turn.asked = true
     const over = { done: false }
     const terminal = next(e).then(ran => ({ ran }))
     const bridge = putToBridge($, id, { input: { questions: e.questions } }, over, put).then(asked =>
@@ -1054,11 +1118,29 @@ export const register: Register = on => {
     return out
   })
 
+  // What the owner owes is read from the reply here, where the stop can still be turned back.
   on('classic.Stop', async ($, e, next) => {
     const out = await next(e)
     void seen($, e.permission_mode, e.effort)
-    return out
+    if (e.agent_id !== undefined || out.block !== undefined) return out
+    const reason = await sendBack($, e.last_assistant_message ?? '', e.stop_hook_active).catch(() => undefined)
+    return reason === undefined ? out : { ...out, block: reason }
   })
+
+  // The list a session keeps in Bridge is what the Stop hook holds a reply to.
+  on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) {
+      const items = waitingItemsOf(e as Record<string, unknown>)
+      const one = known.get(await $.session.id())
+      if (items !== undefined && one !== undefined) {
+        one.waiting = items
+        one.turn.setWaiting = true
+      }
+    }
+    return ran
+  })
+
 
   // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
   // of a hold for the limit, so the failed one is not told.
