@@ -219,24 +219,30 @@
 }
 
 /* Autoplay stopped before a step that acts on a page off this machine: Next is the key waited on. */
-.armada-capture-bar__walk .armada-button[data-waiting] {
+/* The halo is a still ring whose opacity pulses, so the endless motion stays on the compositor. `::after` is the button's press line. */
+.armada-capture-bar__walk .armada-button[data-waiting]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  pointer-events: none;
   animation: armada-capture-bar-waiting 1.2s ease-in-out infinite;
 }
 
 @keyframes armada-capture-bar-waiting {
   0%,
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    opacity: 0;
   }
   50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-capture-bar__walk .armada-button[data-waiting] {
+  .armada-capture-bar__walk .armada-button[data-waiting]::before {
     animation: none;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
   }
 }
 
