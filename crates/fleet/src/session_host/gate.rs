@@ -83,6 +83,10 @@ where
         if mode_of(&hosting.mode) == SessionMode::Plan {
             return GateAnswer::pass();
         }
+        // Before the write rules: `armada` reads, so a lone check never reaches them.
+        if let Some(answer) = in_the_background(&gate, mode_of(&hosting.mode)) {
+            return answer;
+        }
         let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
             Ok(served) => served,
             // Setup's session, until its root's Manifest is served (the owner, 13 Oct 2026).
@@ -456,6 +460,29 @@ fn setting_up(gate: &SessionGate, root: &str) -> GateAnswer {
             "Until this repository's armada.yml is served, this session writes only a file named \
              armada.yml or .gitignore anywhere under {root}, and {root}/.git/info/exclude, with \
              the Write or Edit tool. Nothing else is written here."
+        )),
+    }
+}
+
+/// **A check runs in the background, so the person can reach the session while it runs**
+/// (#2415). The harness wakes the session when it ends. A subagent's call is left alone: one
+/// handed a background result ends its turn and reports before the check has finished. A line
+/// that also writes is refused, since backgrounding it would hide whether the write happened.
+fn in_the_background(gate: &SessionGate, mode: SessionMode) -> Option<GateAnswer> {
+    let command = gate.tool_input.get("command").and_then(|said| said.as_str())?;
+    if gate.tool_name != "Bash" || gate.agent_id.is_some() || gate.in_background() {
+        return None;
+    }
+    match adapters::check_line(command) {
+        adapters::CheckLine::NoCheck => None,
+        adapters::CheckLine::Alone => Some(GateAnswer::rewrite(
+            gate.backgrounded(),
+            mode == SessionMode::Ask,
+            "Fleet runs a check in the background, so the person can reach the session while it runs.",
+        )),
+        adapters::CheckLine::Chained => Some(GateAnswer::deny(
+            "A check runs in the background, so the person can reach this session while it runs. \
+             Run the check on a line of its own, then the rest once you are told it ended.",
         )),
     }
 }
