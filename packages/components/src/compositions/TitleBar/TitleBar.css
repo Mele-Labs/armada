@@ -129,9 +129,11 @@
 }
 
 
-/* A word at the row's start, standing for the lockup: the Cockpit's own mark, mono capitals. */
+/* The brand at the row's start, standing for the lockup: the Cockpit draws the mark; a word takes mono capitals. */
 .armada-title-bar__wordmark {
-  /* Never shrinks, so what sits beside the word inside it stays on its line; the repository's name gives way first. */
+  /* Never shrinks, so what sits beside the mark inside it stays on its line; the repository's name gives way first. */
+  display: flex;
+  align-items: center;
   flex: none;
   color: var(--fg-default);
   font-family: var(--font-mono);
@@ -141,7 +143,7 @@
   text-transform: uppercase;
 }
 
-/* The picked repository, named where no picker is drawn. Quiet: the wordmark is the row's one loud word. */
+/* The picked repository, named where no picker is drawn. Quiet beside the brand. */
 .armada-title-bar__repository {
   min-width: 0;
   max-width: var(--w-menu);
@@ -206,10 +208,12 @@
 
 /* The plan's limits: two small fill meters, a mono label then the track, coloured by how full. The figure is
  * in the hover card, not beside the meter. The fill is the tokens' own status hues; the width is handed in as `--fill`. */
+/* Stacked, one meter a line, so the pair takes one meter's width of the row (the owner, 15 Oct 2026). */
 .armada-title-bar__usage {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
   flex: none;
 }
 
@@ -217,7 +221,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--h-control-sm);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
@@ -295,7 +298,8 @@
   gap: var(--space-2);
   flex: none;
   height: var(--h-control-sm);
-  padding-inline: var(--space-3);
+  /* Square around the glyph: the button is drawn as its icon, named by its title (the owner, 15 Oct 2026). */
+  padding-inline: var(--space-2);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-raised);

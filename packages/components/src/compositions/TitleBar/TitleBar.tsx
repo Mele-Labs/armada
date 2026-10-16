@@ -152,8 +152,8 @@ export type TitleBarProps = {
    */
   places?: ReactNode;
   /**
-   * A word at the row's start, after the traffic lights. **It stands for the brand lockup and mark**, so
-   * the row draws neither beside it. Absent draws the lockup and the mark as they were.
+   * The brand at the row's start, after the traffic lights: a word or the mark. **It stands for the brand lockup
+   * and mark at the end**, so the row draws neither there. Absent draws the lockup and the mark as they were.
    */
   wordmark?: ReactNode;
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
@@ -278,7 +278,8 @@ function useRoomForPlaces(on: boolean) {
       const between = center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
       // Drawn, the start clips and the name truncates; what either hides is added back.
       const name = repository.current;
-      const whole = (start.current?.scrollWidth ?? 0) + (name === null ? 0 : name.scrollWidth - name.clientWidth);
+      // `scrollWidth` is rounded, and a name a fraction too narrow draws its ellipsis: a pixel over.
+      const whole = (start.current?.scrollWidth ?? 0) + (name === null ? 0 : name.scrollWidth - name.clientWidth) + 1;
       const searching = trigger > 0 ? trigger + between : 0;
       const content = width(places.current) + searching;
       const shown = start.current !== null && start.current.getClientRects().length > 0;
@@ -359,9 +360,9 @@ export function TitleBar({
             className="armada-title-bar__helm"
             onClick={helm.onOpen}
             title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
+            aria-label="Helm"
           >
             <MessageSquare size={16} strokeWidth={2} aria-hidden />
-            <span>Helm</span>
             {helm.questions > 0 ? (
               <span className="armada-title-bar__helm-count">{helm.questions}</span>
             ) : null}
