@@ -394,6 +394,17 @@ export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: fa
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
+/** An idea saved to start later: the words, the repository it is for, and the model and effort picked for it. */
+export type QueuedIdea = {
+  id: string;
+  text: string;
+  /** The repository's root, as `start` takes it, and its name as the rail draws it. */
+  root: string;
+  repository: string;
+  model?: string;
+  effort?: string;
+};
+
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
  * (`apps/desktop/src/renderer/src/sessions-draft.tsx`): a real Fleet gives none,
@@ -440,7 +451,15 @@ export type SessionsDraft = {
    * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
    * `root` is the repository it starts in; absent, the picked one, or the only one Fleet serves.
    */
-  start: (tag?: SessionTag, root?: string) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, tuning?: { model?: string; effort?: string }) => string | Promise<string | undefined>;
+  /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
+  queued?: () => readonly QueuedIdea[];
+  /** Saves an idea without starting it. Absent with `queued`. */
+  queue?: (idea: Omit<QueuedIdea, "id">) => void;
+  /** Starts the Session a queued idea describes, takes the idea off the queue, and returns the Session's id as `start` does. Absent with `queued`. */
+  startQueued?: (id: string) => string | Promise<string | undefined>;
+  /** Takes an idea off the queue without starting it. Absent with `queued`. */
+  dropQueued?: (id: string) => void;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**
