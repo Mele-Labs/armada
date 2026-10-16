@@ -1,0 +1,16 @@
+[operations.catch_up_checkout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Pull a served checkout that Fleet would not catch up level with its base, keeping its uncommitted files, and answer with what git printed"
+notes = """
+`POST /merge_lines/catch_up`, body `CatchUpCheckout`: the repository's `manifest_id` and nothing else. Answered `CheckoutCaughtUp` with a 200: git's `code` and its `output`. `docs/concepts/fleet.md`, *What Fleet knows after the merge, and what it does not*, has the model.
+
+**No command crosses the wire.** Fleet runs `git pull --ff-only --autostash` in the served root, the one command the card in *Your checkout* offers, and a caller can name nothing else to run. The card's command and this are the same pull, and Fleet does not take the card's word that it is safe: it reads the hold again (`held_back`) and refuses unless the checkout is on the base, ahead of nothing, has an uncommitted file, and none of them is a file main also changed. The pull runs under the merge end, as Fleet's own catch-up does, and the hub's `checkout` is read again after it, so `merge_lines.changed` carries a hub without it within two seconds.
+
+**A pull that did not take is an answer.** A history that cannot fast-forward, a fetch that failed, and a stash git could not put back are each a non-zero `code` with git's words in `output`. git exits clean when the stash does not go back on, and the files are then in conflict; Fleet answers `code` 1 for that. **The stash is left where git left it**: Fleet never drops, pops or applies one.
+
+Refused with a 409 and nothing run: `fleet.checkout_not_held` where nothing holds the checkout back now, the repository names no base or git could not be read there; `fleet.checkout_not_catchable` where it is on another branch, has commits the base lacks, has an uncommitted file main also changed, or has nothing uncommitted (Fleet catches a clean checkout up itself). 422 `fleet.repository_not_served` on a `manifest_id` this Fleet does not serve.
+
+`Bridge only`: it writes into the checkout a person is standing in, and the press is the owner's say-so.
+"""

@@ -57,6 +57,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/merge_lines/fix",
     },
+    // The one pull a held checkout is offered, from the card on that line.
+    Route {
+        operation: "catch_up_checkout",
+        method: "POST",
+        path: "/merge_lines/catch_up",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",

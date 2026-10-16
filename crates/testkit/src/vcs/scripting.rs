@@ -178,6 +178,16 @@ impl FakeVcs {
         self.delivery.lock().expect("not poisoned").held_back = held;
     }
 
+    /// Say what the one pull a held checkout is offered comes to.
+    pub fn pulling_comes_to(&self, pulled: adapter_traits::CheckoutPulled) {
+        self.delivery.lock().expect("not poisoned").pulled = pulled;
+    }
+
+    /// How many times the served checkout was asked to pull itself level.
+    pub fn times_the_checkout_was_pulled(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::PulledTheCheckout { .. }))
+    }
+
     /// How many times a branch has been asked to be kept current against a
     /// base that moved. **The one call here a person watching the pull
     /// request's branch sees happen**, so a test that asserts once is

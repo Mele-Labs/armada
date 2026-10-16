@@ -13,7 +13,7 @@
 
 use adapter_traits::{HeldBack, Rendering, RepositoryStanding};
 
-use crate::landing::{caught_up, checkout_has, fields, held_back, rendering};
+use crate::landing::{caught_up, checkout_has, fields, held_back, pulled_the_checkout, rendering};
 use crate::tests::repo::TempRepo;
 
 // ------------------------------------------------------- one line, four fields
@@ -325,6 +325,66 @@ fn a_checkout_on_another_branch_with_its_own_commit_names_both() {
     let held = held_back(&repo.root_str(), "main").expect("read");
     assert_eq!(held.on.as_deref(), Some("something-of-my-own"));
     assert_eq!((held.ahead, held.behind), (1, 1));
+}
+
+// ------------------------------------------- the one pull a held checkout is offered
+
+/// The press behind "Your checkout": a file main never changed stays the owner's
+/// and the branch still moves.
+#[test]
+fn an_autostash_pull_moves_the_branch_and_keeps_a_file_main_did_not_touch() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "theirs.rs");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+    let before = repo.head_str();
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_ne!(repo.head_str(), before, "the branch moved");
+    assert!(repo.root().join("theirs.rs").exists(), "main's file arrived");
+    assert_eq!(
+        std::fs::read_to_string(repo.root().join("armada.yml")).expect("reads"),
+        "auto_merge: checks-pass",
+        "the owner's edit is where it was"
+    );
+    assert_eq!(repo.git(&["stash", "list"]).trim(), "", "nothing is left in the stash");
+    assert!(!pulled.output.is_empty(), "git's words come back");
+}
+
+/// **git exits clean for this and Fleet does not.** The fast-forward happened, the
+/// file is in conflict and the work is in the stash git left; none of it is dropped.
+#[test]
+fn a_stash_that_will_not_go_back_on_is_reported_and_left_in_place() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_ne!(pulled.code, 0, "{}", pulled.output);
+    assert!(
+        repo.git(&["stash", "list"]).contains("autostash"),
+        "the owner's work is still in git's stash"
+    );
+}
+
+/// A history that has diverged is refused by git, and the owner's file is not touched.
+#[test]
+fn a_diverged_checkout_is_refused_by_git_and_left_as_it_was() {
+    let repo = a_repository_behind_its_remote();
+    repo.commit_one("src/mine.rs", "mine", "my own commit");
+    repo.write("src/mine.rs", "and more");
+    let before = repo.head_str();
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_ne!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(repo.head_str(), before);
+    assert_eq!(
+        std::fs::read_to_string(repo.root().join("src/mine.rs")).expect("reads"),
+        "and more"
+    );
 }
 
 /// **A repository takes every directory it made with it.**

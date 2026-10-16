@@ -8,10 +8,47 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, RepositoryStanding, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, HeldBack, RepositoryStanding, Vcs, WorkProduct};
+use api::Refusal;
+use ipc::WireError;
 
 use crate::daemon::Fleet;
+use crate::refusing::NOT_SERVED;
 use crate::repositories::Served;
+
+/// A catch-up pressed for a checkout nothing holds back, or that could not be
+/// read. A 409: Bridge's card was drawn before the owner or Fleet moved it.
+const CHECKOUT_NOT_HELD: &str = "fleet.checkout_not_held";
+/// A catch-up pressed for a hold the one safe pull does not clear: another
+/// branch, commits main lacks, a file main also changed, or nothing uncommitted
+/// to set aside. A 409, and the message names which.
+const CHECKOUT_NOT_CATCHABLE: &str = "fleet.checkout_not_catchable";
+
+/// Why the pull `catch_up_checkout` offers cannot be run for this hold, as a
+/// code and a sentence. **The same four conditions Bridge's card names**, read
+/// again here because the card may be old: on the base, ahead of nothing, no
+/// uncommitted file main also changed, and a file to set aside.
+fn why_not_pull(held: Option<&HeldBack>) -> Option<(&'static str, String)> {
+    let Some(held) = held else {
+        return Some((CHECKOUT_NOT_HELD, String::from("nothing holds the checkout back, or git could not be read there")));
+    };
+    if held.behind == 0 {
+        return Some((CHECKOUT_NOT_HELD, format!("the checkout already has `{}`", held.base)));
+    }
+    if let Some(on) = &held.on {
+        return Some((CHECKOUT_NOT_CATCHABLE, format!("the checkout is on `{on}` and not `{}`", held.base)));
+    }
+    if held.ahead > 0 {
+        return Some((CHECKOUT_NOT_CATCHABLE, format!("the checkout has {} commit(s) that `{}` lacks", held.ahead, held.base)));
+    }
+    if !held.clashing.is_empty() {
+        return Some((CHECKOUT_NOT_CATCHABLE, format!("{} also changed on `{}`: {}", if held.clashing.len() == 1 { "an uncommitted file" } else { "uncommitted files" }, held.base, held.clashing.join(", "))));
+    }
+    if held.uncommitted.is_empty() {
+        return Some((CHECKOUT_NOT_CATCHABLE, String::from("nothing is uncommitted, so Fleet catches the checkout up itself")));
+    }
+    None
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -63,5 +100,62 @@ where
             Some(held) => sweep.held_back.insert(root, held),
             None => sweep.held_back.remove(&root),
         };
+    }
+
+    /// `catch_up_checkout`: the one pull a held checkout is offered, run for the
+    /// owner.
+    ///
+    /// **Fleet reads the hold itself** and runs only when it is the one this
+    /// pull cannot lose anything in, under the merge end for
+    /// `checkout_caught_up`'s reason. **No command crosses the wire.** Afterwards
+    /// the checkout is read again so the hub's `checkout` clears, and the hub
+    /// loop publishes it. A stash git left stays in git's stash.
+    pub(crate) async fn caught_up_checkout(
+        &self,
+        asked: ipc::CatchUpCheckout,
+    ) -> Result<ipc::CheckoutCaughtUp, Refusal> {
+        let raised = |code: &'static str, said: String| WireError::raised(code, said, self.run_id());
+        let Some(served) = self.repositories().serving(asked.manifest_id.as_str()) else {
+            return Err(Refusal::Unacceptable(raised(
+                NOT_SERVED,
+                format!("this Fleet does not serve {}", asked.manifest_id.as_str()),
+            )));
+        };
+        let root = served.root().to_string();
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return Err(Refusal::IllegalMove(raised(
+                CHECKOUT_NOT_HELD,
+                String::from("the repository names no base to catch up to"),
+            )));
+        };
+        let pulled = {
+            let _at_the_merge_end = self.merge_end().lock().await;
+            let held = self
+                .forge_asked(&root, {
+                    let base = base.clone();
+                    move |vcs: &V, root: &str| vcs.held_back(root, &base)
+                })
+                .await;
+            if let Some((code, said)) = why_not_pull(held.as_ref()) {
+                return Err(Refusal::IllegalMove(raised(code, said)));
+            }
+            self.forge_asked(&root, |vcs: &V, root: &str| vcs.pulled_the_checkout(root))
+                .await
+        };
+        // Read again whether or not the pull took: a stash that would not go back
+        // on leaves the checkout on main's tip, and the hold is then not behind.
+        let head = self
+            .forge_asked(&root, {
+                let base = base.clone();
+                move |vcs: &V, root: &str| vcs.base_head_on_the_forge(root, &base)
+            })
+            .await;
+        if let Some(head) = head {
+            self.checkout_caught_up(&served, &base, &head).await;
+        }
+        Ok(ipc::CheckoutCaughtUp {
+            code: pulled.code,
+            output: pulled.output,
+        })
     }
 }

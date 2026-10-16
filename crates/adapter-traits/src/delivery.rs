@@ -1110,6 +1110,15 @@ pub trait Delivery {
     /// `None` where the repository or its remote base cannot be read.
     fn held_back(&self, in_repo: &str, base: &str) -> Option<HeldBack>;
 
+    /// Pull the checkout in `in_repo` up to its upstream with a fast-forward
+    /// only, setting its uncommitted work aside and putting it back.
+    ///
+    /// **The press behind a held checkout's one safe command.** Whether the
+    /// hold is one a pull can clear is the caller's to have read just before;
+    /// this runs the pull and says what git said. **A stash git could not put
+    /// back is left where git left it** and reported as a non-zero code.
+    fn pulled_the_checkout(&self, in_repo: &str) -> CheckoutPulled;
+
     /// Whether an edit to the Manifest at `file` can go out as a pull request:
     /// `in_repo` is a repository with an `origin`, and the file is tracked and
     /// not ignored there. **False sends the edit to the file on disk.**
@@ -1153,6 +1162,16 @@ pub struct HeldBack {
     pub behind: usize,
     /// Commits the checkout has that the remote base does not.
     pub ahead: usize,
+}
+
+/// What pulling a held checkout up came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckoutPulled {
+    /// git's exit code. `1` where git exited clean and left the stashed work
+    /// conflicted, and `-1` where git did not run or was stopped by a signal.
+    pub code: i32,
+    /// What git printed, both streams, for a person to read.
+    pub output: String,
 }
 
 /// A line for a person about where the base came from. Built here so the two

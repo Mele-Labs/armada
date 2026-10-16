@@ -26,7 +26,7 @@
 use std::path::Path;
 
 use adapter_traits::{
-    HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
+    CheckoutPulled, HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
     WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
@@ -455,6 +455,34 @@ pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
         behind,
         ahead,
     })
+}
+
+/// `git pull --ff-only --autostash` in `in_repo`: the command a held checkout
+/// offers its owner, run for them.
+///
+/// **A stash that would not go back on is not a success**, though git exits
+/// clean for it: the pull moved the branch, the owner's files are in conflict
+/// and their work is in the stash git left. That is a `1`, with git's own words,
+/// and nothing here drops or pops the stash.
+pub(crate) fn pulled_the_checkout(in_repo: &str) -> CheckoutPulled {
+    let run = match run_in(in_repo, "git", &["pull", "--ff-only", "--autostash"]) {
+        Ok(run) => run,
+        Err(why) => {
+            return CheckoutPulled {
+                code: -1,
+                output: why.to_string(),
+            }
+        }
+    };
+    let output = said(&run);
+    let code = run.status.code().unwrap_or(-1);
+    let conflicted = Repository::open(in_repo)
+        .and_then(|repo| repo.index())
+        .is_ok_and(|index| index.has_conflicts());
+    CheckoutPulled {
+        code: if code == 0 && conflicted { 1 } else { code },
+        output,
+    }
 }
 
 /// The paths `theirs` changed since it and `ours` parted.

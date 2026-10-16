@@ -63,6 +63,11 @@ pub enum Delivered {
     KeptCurrent { worktree: String, base: String },
     /// The repository every worktree is cut from was asked to catch up.
     CaughtTheRepositoryUp { base: String },
+    /// The served checkout was asked to pull itself level with its upstream,
+    /// autostashing what is uncommitted. **The one write into the repository a
+    /// person is standing in that a person asked for**, so a test that could
+    /// not see it could not tell a press that ran from one that was refused.
+    PulledTheCheckout { in_repo: String },
     /// The forge was asked to merge a pull request. **The one write to a
     /// repository Fleet did not make**, so a test that could not see it could
     /// not tell a press that merged from one that only moved a Job.

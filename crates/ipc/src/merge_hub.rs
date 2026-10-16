@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId};
+use crate::ids::{Instant, JobId, ManifestId};
 
 /// One repository's main and open pull requests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +65,27 @@ pub struct HeldCheckout {
     pub behind: u32,
     /// Commits the checkout has that main does not. Above zero is diverged.
     pub ahead: u32,
+}
+
+/// `catch_up_checkout`'s body: pull a held checkout level with its base, the one
+/// way that cannot lose a person's files. **Names a repository and nothing more.**
+/// There is no command in it: Fleet reads the hold again and runs the pull it
+/// knows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CatchUpCheckout {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+}
+
+/// `catch_up_checkout`'s answer: what the pull came to. **A pull git refused or
+/// left conflicted is still an answer**, with a non-zero `code`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutCaughtUp {
+    /// git's exit code. `1` where git exited clean and the stashed work would not
+    /// go back on; the work is in git's stash and nothing dropped it.
+    pub code: i32,
+    /// What git printed, for the person to read as it came.
+    pub output: String,
 }
 
 /// Who holds main's red on another machine. **No title and no work**: the store
