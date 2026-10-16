@@ -11,9 +11,9 @@
 /* ---- Beeswarm: a dot for each event along a centre line ---------------------------------------------- */
 
 .armada-tl__axis-line { position: absolute; top: 50%; right: 0; left: 0; border-top: var(--border-width) solid var(--border-subtle); pointer-events: none; }
-.armada-tl__dot { position: absolute; padding: 0; border: 0; border-radius: 50%; background: var(--tone); transform: translate(-50%, -50%); cursor: pointer; }
+.armada-tl__dot { position: absolute; top: calc(50% + var(--row, 0) * var(--d) * 0.5); width: var(--d); height: var(--d); padding: 0; border: 0; border-radius: 50%; background: var(--tone); transform: translate(-50%, -50%); cursor: pointer; }
 .armada-tl__dot::after { content: ""; position: absolute; inset: calc(var(--space-1) * -0.75); }
-.armada-tl__dot[data-weight="quiet"] { opacity: 0.4; }
+.armada-tl__dot[data-weight="quiet"] { width: calc(var(--d) * 0.7); height: calc(var(--d) * 0.7); opacity: 0.4; }
 .armada-tl__dot:hover { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: var(--border-width); z-index: 2; }
 .armada-tl__dot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); z-index: 2; }
 .armada-tl__dot[data-lit] { z-index: 3; outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: calc(var(--border-width) * 2); }

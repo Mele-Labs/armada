@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
@@ -264,7 +265,8 @@ type OldBridgeState = {
 
 type OldBridgeApi = {
     state: () => Promise<OldBridgeState>;
-    subscribe: (onState: (state: OldBridgeState) => void) => () => void;
+    subscribeChanges: (onChange: (change: StateChange<OldBridgeState>) => void) => () => void;
+    syncState: () => Promise<StateChange<OldBridgeState>>;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
     proposeFromRequest: (request: string, attachments: readonly StagedAttachment[], repository?: string | null) => Promise<Proposed>;
     stopProposal: () => Promise<Outcome>;
@@ -624,6 +626,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
 const OLD_CHANNELS = {
     state: "bridge:state",
     changed: "bridge:changed",
+    syncState: "bridge:sync-state",
     walkFocused: "bridge:walk-focused",
     proposeFromRequest: "bridge:propose-from-request",
     stopProposal: "bridge:stop-proposal",
