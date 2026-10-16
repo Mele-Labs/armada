@@ -20,6 +20,11 @@ use crate::rail::{self, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
 use crate::session_host::session_judging::{Question, Reading};
 
+/// Whether a step left behind is read by a judge. **Off since 16 Oct 2026**, the owner's decision:
+/// most concerns were useless or too technical, and how a judge reads the work is to be reworked first.
+/// The Judge tile still reads on his press.
+const BOUNDARY_JUDGES: bool = false;
+
 /// What the loop last acted on for a Session, so a row that moved nothing costs no read.
 #[derive(Clone, PartialEq, Eq)]
 struct Seen {
@@ -129,7 +134,7 @@ where
             TimelineKind::SessionStep,
             format!("step: {} → {}", rail::named(steps, from, "start"), rail::named(steps, to, "done")),
         );
-        let left = rail::left_behind(steps, from, to, facts.landed, &kept.judged);
+        let left = if BOUNDARY_JUDGES { rail::left_behind(steps, from, to, facts.landed, &kept.judged) } else { None };
         kept.step = record.workflow_step;
         if let Some(left) = left {
             kept.judged.push(left as u32);

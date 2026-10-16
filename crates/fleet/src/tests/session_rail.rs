@@ -298,8 +298,10 @@ async fn a_step_that_asks_the_judge_nothing_is_not_read_when_the_session_leaves_
     assert!(record(&rig, &id).await.judge.is_none());
 }
 
+/// Boundary judges are off (16 Oct 2026, the owner's decision): leaving a step that asks the Judge
+/// reads nothing, and only the tile does.
 #[tokio::test]
-async fn leaving_a_step_that_asks_the_judge_reads_the_work_in_the_background() {
+async fn leaving_a_step_that_asks_the_judge_reads_nothing_while_boundary_judges_are_off() {
     let judge = Arc::new(FakeJudge::with_no_objection());
     let rig = ruled(Arc::clone(&judge));
     let id = on_the_rail(&rig).await;
@@ -312,15 +314,10 @@ async fn leaving_a_step_that_asks_the_judge_reads_the_work_in_the_background() {
         .expect("kept");
 
     eventually(|| async { record(&rig, &id).await.workflow_step == Some(2) }).await;
-    eventually(|| async { record(&rig, &id).await.judge.is_some() }).await;
-    let asked = judge.asked();
-    assert_eq!(asked.len(), 1, "one question for the one criterion of the step left");
-    for part in [REQUEST, "Stop at the end", "Does the reader stop at the end?"] {
-        assert!(asked[0].contains(part), "{part}: {}", asked[0]);
-    }
+    rig.fleet.timeline().settled().await;
+    assert!(judge.asked().is_empty(), "no judge reads a step left behind: {:?}", judge.asked());
     let read = record(&rig, &id).await;
-    assert_eq!(read.judge.map(|one| one.concerns), Some(0));
-    assert!(!read.judging, "and it is done");
+    assert!(read.judge.is_none() && !read.judging);
 }
 
 #[tokio::test]
