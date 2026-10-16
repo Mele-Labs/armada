@@ -299,6 +299,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                           onShow: (shown: boolean) => void api.walkGuide(shown),
                           ...(state.walk.guide.stopped === undefined ? {} : { stopped: state.walk.guide.stopped }),
                           ...(state.walk.guide.signingIn === true ? { signingIn: true } : {}),
+                          ...(state.walk.guide.waiting === true ? { waiting: true } : {}),
                         },
                 },
               })}

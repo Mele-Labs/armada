@@ -32,6 +32,11 @@ const SAID_MAX = 240;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Whether a step acts on the page. A look, a hover and a later only show it. */
+export function acts(step: WalkStep): boolean {
+  return !("look" in step || "hover" in step || "later" in step);
+}
+
 /** The target a step aims at. */
 export function targetOf(step: WalkStep): WalkTarget {
   if ("press" in step) return step.press;
@@ -233,6 +238,11 @@ export type StepHost = {
   stuck: (why: string) => void;
   /** Whether the window is still on screen. */
   open: () => boolean;
+  /**
+   * Whether the page is off this machine, so autoplay stops before a step that acts and waits for Next.
+   * Absent: it is not, and autoplay plays every step.
+   */
+  guarded?: () => boolean;
 };
 
 type Phase = "seeking" | "ready" | "stopped" | "done";
@@ -258,6 +268,8 @@ export class StepWalk {
   /** The steps the session has been told it cannot be played, so a step is reported once until it is found. */
   private readonly told = new Set<number>();
   private stoppedOn: "target" | "words" = "target";
+  /** Autoplay stopped on this step because it acts on a page off this machine, and Next is what is waited on. */
+  private waiting = false;
 
   constructor(name: string, steps: readonly WalkStep[], host: StepHost) {
     this.name = name;
@@ -280,6 +292,7 @@ export class StepWalk {
         box: this.phase === "ready" ? this.box : null,
         folded: this.folded,
         ...(this.signing ? { signingIn: true } : {}),
+        ...(this.phase === "ready" && this.waiting && !this.signing ? { waiting: true } : {}),
         ...(this.phase === "stopped" && !this.signing ? { stopped: line(this.stoppedWords(), SAID_MAX) } : {}),
       },
     };
@@ -350,13 +363,33 @@ export class StepWalk {
     this.dwelling = null;
   }
 
-  /** Autoplay: go on after the dwell. */
+  /** Autoplay: go on after the dwell, unless the step acts on a page off this machine. */
   private dwell(): void {
     if (this.dwelling !== null) clearTimeout(this.dwelling);
+    if (this.holdsAutoplay()) return;
     const round = this.round;
     this.dwelling = setTimeout(() => {
-      if (round === this.round) void this.next();
+      if (round !== this.round) return;
+      if (!this.holdsAutoplay()) void this.next();
     }, DWELL_MS);
+  }
+
+  /** Whether nothing but a press of Next runs this step: it acts, on a page off this machine. */
+  private guards(step: WalkStep): boolean {
+    return acts(step) && this.host.guarded?.() === true;
+  }
+
+  /**
+   * Autoplay stops before a step that acts on a page off this machine, and goes off. Next runs the
+   * step, and Autoplay pressed again goes on to the next one that acts.
+   */
+  private holdsAutoplay(): boolean {
+    const step = this.steps[this.at];
+    if (step === undefined || !this.guards(step)) return false;
+    this.autoplaying = false;
+    this.waiting = true;
+    this.host.changed();
+    return true;
   }
 
   /** The page again, then the walk from step 1 with the steps before `from` run straight through. */
@@ -365,6 +398,7 @@ export class StepWalk {
     this.clear();
     this.phase = "seeking";
     this.box = null;
+    this.waiting = false;
     this.host.changed();
     await this.host.reload();
     if (round !== this.round || !this.host.open()) return;
@@ -390,6 +424,7 @@ export class StepWalk {
       }
       this.phase = "seeking";
       this.box = null;
+      this.waiting = false;
       this.host.changed();
       const box = await this.arrive(targetOf(step), round);
       if (round !== this.round) return;
@@ -399,9 +434,14 @@ export class StepWalk {
       }
       this.told.delete(at);
       if (at < this.from) {
-        if (!(await this.perform(step, box, round))) return;
-        this.at += 1;
-        continue;
+        // Back and Replay run the steps before the target straight through, but not one that acts on a page off this machine.
+        if (!this.guards(step)) {
+          if (!(await this.perform(step, box, round))) return;
+          this.at += 1;
+          continue;
+        }
+        this.from = at;
+        this.waiting = true;
       }
       // A hover is shown with what it opens already open.
       if ("hover" in step) for (const event of hoverEvents(box)) this.host.send(event);
@@ -464,6 +504,7 @@ export class StepWalk {
     // Acting: a second press while it does is no second act.
     this.phase = "seeking";
     this.box = null;
+    this.waiting = false;
     this.host.changed();
     // The box is read once more: what the press aims at is where the target is now.
     const box = (await this.host.finder.box()) ?? (await this.arrive(targetOf(step), round));

@@ -81,12 +81,24 @@ around `nodeIntegration: false`.
 
 > **Rule.** A Session may pass `sign_in`: addresses the window loads in order in
 > that jar before the page, each on the shown origin or a named one. They are a
-> secret. Fleet holds them in memory until Bridge takes them once, main holds
-> them for the loads and no longer, and none is written to a row, the ledger, the
-> timeline, a note, an event or a log. A load of one that fails is told to
+> secret. Fleet holds them in memory until Bridge takes them once, the session
+> shows another window, or the session ends, and main holds them for the loads and no longer. None is
+> written to a row, the ledger, the timeline, a note, an event or a log. A load of one that fails is told to
 > nobody, and the page's own failure look waits until they are done.
 > Why: a magic link or a token address is a login. The failure notice carries
 > the address it failed on, and would put the login into the Session's thread.
+> It is held past a Bridge that is not connected, because a clock would drop it
+> from a Bridge that connects late, and a secret that is only ever in memory and
+> only until its session ends is no wider a thing to keep.
+
+> **Rule.** A Bridge that connects opens the window of each live Session whose
+> newest shown page has not ended, was not opened by this Bridge and was shown
+> in the last 15 minutes (`REOPEN_WITHIN_MS`, `sessions.ts`), and takes the
+> Session's sign-in then. A window the person closed has ended, and is not
+> opened again.
+> Why: a page shown while Bridge was offline for a few minutes had no window to
+> open and no way to ask for its sign-in. A walk from before a restart is stale,
+> and opening it on every launch would put old windows on the screen.
 
 > **Rule.** A Session may show several takes of one change in its window
 > (`variations`). The window is pinned to the origin of the take on screen, and
@@ -517,6 +529,16 @@ this window, and what it adds is below.
 > unasked, and a hover is the only act on arrival.
 > Why: the Session chose the page and the steps, and the person is the one walking it.
 
+> **Rule.** Where the shown origin is not loopback (`127.0.0.1`, `[::1]`, `localhost`), Autoplay
+> plays `look`, `hover` and `later` steps and stops before one that acts: `press`, `type`, `key`,
+> `paste`, `drag` or `select`. Autoplay goes off there, the bar shows the Next key waiting, and the
+> person presses Next to run the step. Autoplay pressed again goes on to the next step that acts.
+> Back and Replay stop the same way: the steps before their target run straight
+> through until one that acts, which waits for Next with the Next key waiting.
+> Where the origin is loopback, Autoplay plays every step.
+> Why: a deployed staging app has real buttons, and a Session's steps would press whichever one they
+> name with nobody there. A local or mock walk has nothing to lose, so it feels as it did.
+
 > **Rule.** While the ring is up the bar's view covers the page, as under armed capture, and the page
 > takes no press. One press beside the card, or the Ring switch on the walk row, puts the ring away and
 > the page takes presses again; the wheel is forwarded either way. A walk that is done, or held on a
@@ -672,6 +694,8 @@ is that a second Bridge document sits beside it, with the bar's grant.
 > looked for in a signing-in state, the bar draws a glyph with a tooltip and not the not-found one,
 > and the Session is told nothing. Back on the shown origin the same step is looked for again, with
 > its whole patience. A page that has its popup open is in the same state.
+> The signing-in glyph wins over Autoplay's waiting key: no Next key waits while the page is off the
+> shown origin, and Autoplay's stop before an acting step resumes with the step.
 > Why: a step that sends the page to a provider has a target the provider's page cannot hold, and
 > reading that as missing told the Session to fix steps that were right. The person's time at a
 > provider is not the step's patience. The state is read off the page's address and the popup, which
@@ -687,8 +711,7 @@ is that a second Bridge document sits beside it, with the bar's grant.
 
 **Costs.** A bot check that reads more than the user agent still refuses this window, and the
 owner signs in on the provider's page in a browser first. A popup that opens `about:blank` and
-navigates it afterwards is refused, since its first address is on no origin. A Bridge that is not
-connected when the page is shown opens no window, and `sign_in` is lost with the call.
+navigates it afterwards is refused, since its first address is on no origin.
 
 ## A popup a Session's page opened
 
