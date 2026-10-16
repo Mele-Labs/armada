@@ -50,7 +50,7 @@
 .pr-reader__tabs { flex: none; padding: 0 var(--space-4) var(--space-2); }
 .pr-reader__page { flex: 1 1 0; min-height: 0; padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; }
 
-.pr-reader__files { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); border-top: var(--border-width) solid var(--border-subtle); }
+.pr-reader__files { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); border-top: var(--border-width) solid var(--border-subtle); }
 .pr-reader__scroll { min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; overscroll-behavior: contain; }
 
 /* The tree: one row per file, the name over where it is, a check once it is read. */
@@ -140,6 +140,8 @@
 
 .pr-agent { flex: 1 1 0; }
 .pr-yours { flex: none; max-height: 70%; }
+.pr-agent__body { flex: 1 1 0; }
+.pr-yours__body { flex: 1 1 auto; }
 .pr-agent__body,
 .pr-yours__body { display: flex; min-height: 0; flex-direction: column; gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3); overflow-y: auto; }
 .pr-agent__findings,
