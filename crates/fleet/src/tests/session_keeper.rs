@@ -566,7 +566,7 @@ async fn ended_rows(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
         .rows
         .into_iter()
         .filter_map(|row| match row {
-            SessionRow::Tool { text, .. } if text.starts_with("the session's process ended") => {
+            SessionRow::Message { text, .. } if text.starts_with("The session's process ended") => {
                 Some(text)
             }
             _ => None,

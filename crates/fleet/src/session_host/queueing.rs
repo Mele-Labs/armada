@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{ManifestId, SessionRow, SessionTurn};
+use ipc::{ManifestId, SessionTurn};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
@@ -116,15 +116,8 @@ where
                     Taken::Gone | Taken::Held { .. } => queue.leave(&id),
                     Taken::Refused(why) => {
                         queue.leave(&id);
-                        self.row_put(
-                            &id,
-                            SessionRow::Tool {
-                                id: self.row_id(&id),
-                                at: self.instant(),
-                                text: format!("could not lease the slot it was waiting for: {why}"),
-                            },
-                        )
-                        .await;
+                        self.fleet_note(&id, format!("Could not lease the slot it was waiting for: {why}"))
+                            .await;
                     }
                     Taken::Moving(moving) => {
                         queue.leave(&id);
