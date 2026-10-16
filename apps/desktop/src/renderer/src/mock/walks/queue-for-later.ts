@@ -1,5 +1,5 @@
 // An idea saved to start later. A Session's dispatcher has Model and Effort beside the act and Queue for later next to Start,
-// ⌘⇧↵ on the request does the same, and the idea waits under Queued at the head of the Cockpit's list with Start and Remove.
+// ⌘⇧↵ on the request does the same, and the idea waits in its repository's group of the Cockpit's list, a dashed row with Start and Remove.
 // Over `queue-for-later`, where the 5-hour limit is nearly spent.
 
 import { button, inside, region, role, tab, walk } from "../walk";
@@ -8,7 +8,7 @@ const cockpit = region("Jobs and Sessions");
 const frame = role("region", "Dispatch", { exact: true });
 const request = inside(frame, role("textbox", "Request"));
 const repository = (name: string) => inside(frame, role("radio", `Repository ${name}`));
-const queued = inside(cockpit, role("group", "Queued"));
+const idea = (title: string) => inside(cockpit, button(title, { exact: true }));
 
 const first = "Make the Cleanup grid sortable by size";
 const second = "Draft the billing export notes";
@@ -27,10 +27,11 @@ const queueForLater = walk("queue-for-later", [
   { type: second, into: request, say: "A second idea" },
   { press: repository("billing"), say: "For billing" },
   { key: "Meta+Shift+Enter", on: request, say: "⌘⇧↵ on the request queues it" },
-  { look: queued, say: "Both wait under Queued, at the head of the list" },
-  { hover: inside(queued, role("img", "Model opus")), say: "The model is on the row" },
-  { hover: inside(queued, button(new RegExp(`^Start ${first}`))), say: "Start is a press on the row, and ↵ on the row does the same" },
-  { press: inside(queued, button(new RegExp(`^Start ${first}`))), say: "Start the first" },
+  { look: idea(first), say: "The first sits in armada's group, dashed" },
+  { look: idea(second), say: "The second sits in billing's" },
+  { hover: inside(cockpit, role("img", "Model opus")), say: "The model is on the row" },
+  { hover: inside(cockpit, button(new RegExp(`^Start ${first}`))), say: "Start is a press beside the row, and ↵ on the row does the same" },
+  { press: inside(cockpit, button(new RegExp(`^Start ${first}`))), say: "Start the first" },
   { look: role("textbox", "Message"), say: "It is a Session now, holding the idea's words" },
 ]);
 

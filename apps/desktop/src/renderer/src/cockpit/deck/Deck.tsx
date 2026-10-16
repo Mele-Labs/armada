@@ -38,6 +38,7 @@ import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
+import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
@@ -112,62 +113,51 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
   );
 }
 
-/** Ideas saved to start later, a group at the head of the list. A row starts the idea on ↵ (a click with no pointer) or on its play press, never on a mouse click on its words, and Remove lets it go. */
-function Queued({ picked }: { picked: RepositorySummary | null }) {
+/** An idea saved to start later, a row of the list: dashed, with its repository and model. ↵ (a click with no pointer) or its play press starts it, never a mouse click on its words; Remove lets it go. */
+function QueuedRow({ idea }: { idea: QueuedIdea }) {
   const draft = useSessionsDraft();
-  const ideas = queuedIn(useQueued(), picked);
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
-  if (ideas.length === 0) return null;
-  const start = (id: string) => {
+  const key = queuedKey(idea.id);
+  const title = idea.text.trim().split("\n")[0] ?? "";
+  const start = () => {
     if (draft?.startQueued === undefined) return;
-    void Promise.resolve(draft.startQueued(id)).then((session) => session !== undefined && askToOpenSessionInCockpit(session));
+    void Promise.resolve(draft.startQueued(idea.id)).then((session) => session !== undefined && askToOpenSessionInCockpit(session));
   };
   return (
-    <li className="deck-list__band deck-list__queued" role="group" aria-label="Queued">
-      <h3 className="deck-list__repository">Queued</h3>
-      <ul className="deck-list__group">
-        {ideas.map((idea) => {
-          const key = queuedKey(idea.id);
-          const title = idea.text.trim().split("\n")[0] ?? "";
-          return (
-            <li key={key} className="deck-list__item">
-              <button type="button" className="deck-row" data-row={key} data-queued data-cursor={cursor === key || undefined} data-hover={hover === key || undefined} aria-label={title} onClick={(event) => event.detail === 0 && start(idea.id)} onFocus={() => (moveCursor(key), setHover(key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(undefined)}>
-                <Tooltip label="Queued">
-                  <span className="deck-row__kind" role="img" aria-label="Queued">
-                    <CircleDashed size={14} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-                <span className="deck-row__title">{title}</span>
-                <span className="deck-row__tags">
-                  <Tooltip label="Repository">
-                    <span role="img" aria-label={`Repository ${idea.repository}`}>
-                      {idea.repository}
-                    </span>
-                  </Tooltip>
-                  {idea.model === undefined ? null : (
-                    <Tooltip label="Model">
-                      <span role="img" aria-label={`Model ${idea.model}`}>
-                        {idea.model}
-                      </span>
-                    </Tooltip>
-                  )}
-                </span>
-              </button>
-              <Tooltip label="Start" asChild>
-                <Button variant="ghost" size="sm" iconOnly aria-label={`Start ${title}`} onClick={() => start(idea.id)}>
-                  <Play size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-              <Tooltip label="Remove" asChild>
-                <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${title}`} onClick={() => draft?.dropQueued?.(idea.id)}>
-                  <Trash2 size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-            </li>
-          );
-        })}
-      </ul>
+    <li className="deck-list__item">
+      <button type="button" className="deck-row" data-row={key} data-queued data-cursor={cursor === key || undefined} data-hover={hover === key || undefined} aria-label={title} onClick={(event) => event.detail === 0 && start()} onFocus={() => (moveCursor(key), setHover(key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(undefined)}>
+        <Tooltip label="Queued">
+          <span className="deck-row__kind" role="img" aria-label="Queued">
+            <CircleDashed size={14} aria-hidden="true" />
+          </span>
+        </Tooltip>
+        <span className="deck-row__title">{title}</span>
+        <span className="deck-row__tags">
+          <Tooltip label="Repository">
+            <span role="img" aria-label={`Repository ${idea.repository}`}>
+              {idea.repository}
+            </span>
+          </Tooltip>
+          {idea.model === undefined ? null : (
+            <Tooltip label="Model">
+              <span role="img" aria-label={`Model ${idea.model}`}>
+                {idea.model}
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      </button>
+      <Tooltip label="Start" asChild>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Start ${title}`} onClick={start}>
+          <Play size={16} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+      <Tooltip label="Remove" asChild>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${title}`} onClick={() => draft?.dropQueued?.(idea.id)}>
+          <Trash2 size={16} aria-hidden="true" />
+        </Button>
+      </Tooltip>
     </li>
   );
 }
@@ -175,6 +165,7 @@ function Queued({ picked }: { picked: RepositorySummary | null }) {
 function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
+  const ideas = useQueued();
   const row = (one: Subject) => {
     const Kind = one.kind === "job" ? Box : SquareTerminal;
     const quiet = one.since ?? one.step?.label ?? "";
@@ -204,13 +195,12 @@ function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { s
         <PanelKey id="list" />
       </header>
       <ul className="deck-list__rows">
-        <Queued picked={picked} />
         {banding === undefined
-          ? subjects.map(row)
-          : bandsOf(subjects, banding).map((band) => (
+          ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...subjects.map(row)]
+          : bandsOf(subjects, banding, ideas).map((band) => (
               <li key={`band:${band.key}`} className="deck-list__band">
                 <h3 className="deck-list__repository">{band.label}</h3>
-                <ul className="deck-list__group">{band.subjects.map(row)}</ul>
+                <ul className="deck-list__group">{[...band.ideas.map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...band.subjects.map(row)]}</ul>
               </li>
             ))}
       </ul>

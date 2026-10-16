@@ -17,7 +17,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { holdFor } from "./props";
-import { queuedIn, queuedKey } from "./queued";
+import { walkOrder } from "./queued";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
@@ -276,8 +276,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       const down = step === 0 || step === 2 || event.key === "ArrowDown";
       if (panel !== undefined && panel.id !== "list") return letter ? stepBy(panel, target, down ? 1 : -1) : stepIn(panel, target, event.key);
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") return;
-      // The ideas saved for later head the list, and the cursor walks them first.
-      const order = [...queuedIn(queued, picked).map((one) => queuedKey(one.id)), ...listed.map((one) => one.key)];
+      // The ideas saved for later sit in their repository's group, ahead of its rows, and the cursor walks them in that order.
+      const order = walkOrder(listed, banding, queued, picked);
       const at = order.findIndex((one) => one === state.cursor);
       const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? (down ? 0 : order.length - 1) : at + (down ? 1 : -1)))];
       if (next !== undefined) rowFocus(next);
