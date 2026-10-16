@@ -229,6 +229,18 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
     <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
       {head ? (
         <div className="sv-edit-group__head">
+          <div className="sv-edit-group__name">
+            <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
+            {group.added === true ? (
+              <Tooltip label="Added, not sent yet">
+                <span className="sv-since" data-kind="added" role="img" aria-label="Added">
+                  <Plus size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : null}
+            {group.since === undefined ? null : <SinceMark since={group.since} />}
+            <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+          </div>
           <Tooltip label="Subagent type">
             <span className="sv-group__agent">
               <Bot size={12} strokeWidth={2} aria-hidden />
@@ -242,16 +254,6 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
               </Select>
             </span>
           </Tooltip>
-          <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
-          {group.added === true ? (
-            <Tooltip label="Added, not sent yet">
-              <span className="sv-since" data-kind="added" role="img" aria-label="Added">
-                <Plus size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          ) : null}
-          {group.since === undefined ? null : <SinceMark since={group.since} />}
-          <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
         </div>
       ) : (
         <div className="sv-edit-group__head">

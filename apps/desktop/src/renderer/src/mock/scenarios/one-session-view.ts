@@ -113,7 +113,7 @@ function groups(stage: number): WorkGroup[] {
   const at = (from: number, done: number): WorkTaskState => (stage >= done ? "done" : stage >= from ? "working" : "open");
   const r = revision.on;
   return [
-    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), ...(r ? [] : [task("T2", "Back off between attempts", at(2, 3))])] },
+    { id: "g1", agent: "rust-engineer", title: "Retry the slot lease when the pool is contended, with back off", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), ...(r ? [] : [task("T2", "Back off between attempts", at(2, 3))])] },
     { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", paths: ["crates/ipc", "packages/protocol"], tasks: [task("T3", "Add attempts to the lease reply", at(1, 2)), ...(r ? [task("T5", "Bump the protocol ID", at(1, 2))] : [])] },
     { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", paths: ["apps/desktop"], tasks: [task("T4", r ? "Show the attempt count on the bay tile" : "Show the attempt on the bay tile", at(2, 4))] },
   ];
@@ -159,7 +159,7 @@ const BIG_GROUPS: readonly { id: string; agent: string; title: string; paths: re
   {
     id: "p3",
     agent: "bridge-engineer",
-    title: "Plan panel",
+    title: "Plan panel with edits, notes and moves between groups, in the overlay",
     paths: ["apps/desktop/src/renderer/src/session-view"],
     tasks: ["Draw each group as an expanding row", "Tick tasks as events arrive", "Fold the panel to its band", "Open the sketch from the header"],
   },

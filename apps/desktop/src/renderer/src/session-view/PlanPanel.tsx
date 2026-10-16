@@ -20,6 +20,7 @@ function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
   return (
     <section className="sv-group" data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
       <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setOpen((was) => !was)}>
+        <span className="sv-group__title">{group.title}</span>
         <span className="sv-group__head">
           <Tooltip label="Subagent type">
             <span className="sv-group__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
@@ -36,7 +37,6 @@ function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
           ) : null}
           <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
         </span>
-        <span className="sv-group__title">{group.title}</span>
         {open ? null : (
           <span className="sv-group__marks">
             {group.tasks.map((task) => (

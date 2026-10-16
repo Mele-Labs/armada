@@ -893,12 +893,6 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         <ul className="armada-session-thread__groups">
           {approval.groups.map((group) => (
             <li key={group.id} className="armada-session-thread__group">
-              <Tooltip label="Subagent type">
-                <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
-                  <Bot size={12} strokeWidth={2} aria-hidden />
-                  <code>{group.agent}</code>
-                </span>
-              </Tooltip>
               <span className="armada-session-thread__group-title">{group.title}</span>
               {approved ? null : (
                 <span className="armada-session-thread__marks">
@@ -907,6 +901,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
                   ))}
                 </span>
               )}
+              <Tooltip label="Subagent type">
+                <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
+                  <Bot size={12} strokeWidth={2} aria-hidden />
+                  <code>{group.agent}</code>
+                </span>
+              </Tooltip>
             </li>
           ))}
         </ul>
