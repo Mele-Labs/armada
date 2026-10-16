@@ -546,6 +546,9 @@ pub enum WaitingSource {
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
     Done,
+    /// Fleet: the plan the agent recorded is not approved yet. Derived on every read: id
+    /// `plan:<version>`. It is settled by `approve_plan` or `send_plan_changes`.
+    Plan,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -761,6 +764,14 @@ pub struct SessionRecord {
     /// nothing Fleet observed. `docs/concepts/session.md`, *The build record*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<crate::session_build::SessionBuild>,
+    /// The plan the agent recorded, with what Fleet saw of it carried out. Absent until it records
+    /// one. `docs/concepts/session.md`, *The plan*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<crate::session_plan::SessionPlan>,
+    /// The latest files the Session and its subagents wrote, newest last, for the Field. Absent
+    /// until one is seen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub touches: Vec<crate::session_plan::FileTouch>,
 }
 
 /// `list_sessions`: the most recently seen first.
