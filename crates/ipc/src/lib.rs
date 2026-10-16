@@ -260,6 +260,7 @@ mod waiting;
 /// What a person said while walking a Prototype's mock, kept on the Job.
 /// Since 23.18.
 mod walk_notes;
+mod walk_steps;
 /// The material a reviewing person reads, and what their note carries.
 mod work;
 /// A Job's plan and its tasks. **Not `work`'s `DeclaredPlan`**, which is where a
@@ -580,6 +581,7 @@ pub use waiting::{
     RedirectWaiting,
 };
 pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold};
+pub use walk_steps::{WalkPoint, WalkStep, WalkTarget};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

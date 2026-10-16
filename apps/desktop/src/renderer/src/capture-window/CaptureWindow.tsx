@@ -14,6 +14,7 @@ import {
   ACTION,
   CaptureBar,
   StudioCapture as CaptureOverlay,
+  WalkGuide,
   WindowQuestion,
   type CaptureBarApproval,
   type CaptureBox,
@@ -58,6 +59,7 @@ export type CaptureWindowApi = {
   walkBack: () => Promise<void>;
   walkAutoplay: (on: boolean) => Promise<void>;
   walkReplay: () => Promise<void>;
+  walkGuide: (shown: boolean) => Promise<void>;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -83,6 +85,10 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const askId = ask?.id;
   // Over the page while it is shown and capture is not armed: capture takes the page while it is.
   const asking = ask !== undefined && ask.shown && !armed;
+  // The ring of a walk Bridge plays, over the page until it is put away, held on a step or done. A question
+  // or an armed capture is drawn instead: each of them takes the page.
+  const guide = state?.walk?.guide;
+  const guiding = guide !== undefined && !guide.folded && state?.walk?.done !== true && guide.stopped === undefined && !armed && !asking;
 
   // A new question starts with nothing typed against it.
   useEffect(() => {
@@ -93,16 +99,16 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
 
   /** The page's viewport, which starts where the bar ends. Measured, never assumed. */
   const strip = useCallback((): number => bar.current?.offsetHeight ?? 0, []);
-  // The page still scrolls under the outline while the question is drawn over it, as under capture's.
+  // The page still scrolls under the outline while the question or the ring is drawn over it, as under capture's.
   useEffect(() => {
-    if (!asking) return undefined;
+    if (!asking && !guiding) return undefined;
     function wheeled(event: WheelEvent): void {
       if (event.clientY < strip()) return;
       api.scroll({ x: event.clientX, y: event.clientY - strip(), deltaX: -event.deltaX, deltaY: -event.deltaY });
     }
     window.addEventListener("wheel", wheeled, { capture: true, passive: true });
     return () => window.removeEventListener("wheel", wheeled, true);
-  }, [api, asking, strip]);
+  }, [api, asking, guiding, strip]);
 
   // The walk's keys answer while this bar has the keyboard, even when nothing in it holds focus: a Next
   // that goes disabled while the step seeks drops focus to the body, and the keys would go quiet.
@@ -285,6 +291,14 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                   onNext: () => void api.walkNext(),
                   onAutoplay: (on: boolean) => void api.walkAutoplay(on),
                   onReplay: () => void api.walkReplay(),
+                  guide:
+                    state.walk.guide === undefined
+                      ? undefined
+                      : {
+                          shown: !state.walk.guide.folded,
+                          onShow: (shown: boolean) => void api.walkGuide(shown),
+                          ...(state.walk.guide.stopped === undefined ? {} : { stopped: state.walk.guide.stopped }),
+                        },
                 },
               })}
           {...(state.variations === undefined ? {} : { variations: { names: state.variations.names, at: state.variations.at, onPick: (at: number) => void api.pick(at) } })}
@@ -305,6 +319,17 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           onFold={() => void api.showAsk(false)}
           sending={replying}
           {...(replyRefused === undefined ? {} : { refused: replyRefused })}
+        />
+      )}
+      {!guiding || state.walk === undefined || guide === undefined ? null : (
+        <WalkGuide
+          name={state.walk.name}
+          at={state.walk.at}
+          of={state.walk.of}
+          said={state.walk.said}
+          box={guide.box === null ? null : lowered(guide.box)}
+          top={strip()}
+          onFold={() => void api.walkGuide(false)}
         />
       )}
       {armed ? (

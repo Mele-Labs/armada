@@ -50,6 +50,7 @@ import type {
   WindowClosed,
   WalkTold,
   WindowFailed,
+  WalkStep,
   WindowSignIn,
   WindowTake,
   WriteSessionRun,
@@ -58,7 +59,7 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import { openSessionFile, originsOfWindow, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
+import { openSessionFile, originsOfWindow, readSessionArtifact, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 
@@ -104,6 +105,7 @@ export class SessionsHost {
     takes: readonly WindowTake[],
     origins: readonly string[],
     signIn: readonly string[],
+    steps: readonly WalkStep[],
   ) => void = () => {};
   /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
   private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
@@ -241,6 +243,7 @@ export class SessionsHost {
       takes: readonly WindowTake[],
       origins: readonly string[],
       signIn: readonly string[],
+      steps: readonly WalkStep[],
     ) => void,
   ): void {
     this.shown = shown;
@@ -259,7 +262,7 @@ export class SessionsHost {
     const record = this.sessions?.find((one) => one.id === sessionId);
     const title = titleOfWindow(record, url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), []);
+    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), [], stepsOfWindow(record, url));
     return { ok: true };
   }
 
@@ -287,10 +290,10 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      const { title, url, variations, origins } = change.row;
+      const { title, url, variations, steps, origins } = change.row;
       this.inOrder(async () => {
         const signIn = await this.signInFor(change.session_id, url);
-        this.shown(change.session_id, title, url, variations ?? [], origins ?? [], signIn);
+        this.shown(change.session_id, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps));
       });
     }
     // A question asked in the walk takes the person there, once, when it is asked.

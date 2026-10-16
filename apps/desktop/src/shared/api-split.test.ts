@@ -455,6 +455,7 @@ type OldBridgeApi = {
         walkBack: () => Promise<void>;
         walkAutoplay: (on: boolean) => Promise<void>;
         walkReplay: () => Promise<void>;
+        walkGuide: (shown: boolean) => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -826,6 +827,7 @@ const OLD_CHANNELS = {
     captureWindowWalkBack: "bridge:capture-window-walk-back",
     captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
     captureWindowWalkReplay: "bridge:capture-window-walk-replay",
+    captureWindowWalkGuide: "bridge:capture-window-walk-guide",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",

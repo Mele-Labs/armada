@@ -49,6 +49,13 @@ around `nodeIntegration: false`.
 > Why: the Session chose the page to show the person, and there is no Run's
 > link to resolve it against.
 
+> **Rule.** A Session may pass `steps` with the page it shows (`show_window`), and the window plays
+> them itself: a scripted walk of any page, in any repository, that knows nothing of Armada. Main
+> reads them off the Session's own record, and they are Fleet's checked shape and no other
+> (`session-file.ts`, `readSteps`). *A walk in the page* has how, and what that adds to this review.
+> Why: the owner reviews a quick spike by walking it, and a Session in another repository (a web app
+> on a local dev server, or a deployed staging address) had no way to give him the same walk.
+
 > **Rule.** A Session's window may also pass through the origins the Session
 > names in `origins` (`show_window`): `http` or `https`, a host and an optional
 > port, no path. A top-level navigation, a redirect or a subframe to one of them
@@ -406,10 +413,12 @@ nothing draws the card without an outline.
 
 ## A walk in the page
 
-A page may be a walk: a mock played by `WalkPlayer`, with steps, a ringed target and a card. When the
+A page may be a walk in two ways: a mock that plays its own, or a page of any repository that a Session
+gave `steps`. **A mock plays its own** with `WalkPlayer`: steps, a ringed target and a card. When the
 page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/surfaces/jobs/src/fake/walk-window.tsx`),
 the bar draws the walk's controls in a row of its own, and Back, Next, Autoplay and Replay act on the
-page from there. The owner approved the mock, walk `walk-in-the-window`. This is what that adds to the
+page from there. **A page given steps plays none of it**: Bridge does, below, and a window that carries
+steps does not look for the handle at all. The owner approved the mock, walk `walk-in-the-window`. This is what that adds to the
 review above, and it is a capability added to this window.
 
 | Step | Held by | What happens |
@@ -449,6 +458,76 @@ can call five acts and one card toggle on the page's own handle. **What it does 
 preload on the page, no channel from the page that main did not open, no address the page can make main
 load, and no Armada record named to the page. A page that forges a walk can draw a row of controls on
 the bar and press its own Next, and can do nothing else.
+
+### Steps Bridge plays
+
+A Session's `steps` are the mock walks' own steps as JSON (`packages/protocol/src/sessions.ts`, `WalkStep`):
+a `say` caption and one verb aimed at a target found by role and accessible name, or by its words.
+`apps/desktop/src/main/capture/stepwalk.ts` plays them. The same bar row drives them as drives a
+page's handle, through the same five acts, and the keys are the same. This is a capability added to
+this window, and what it adds is below.
+
+| Step | Held by | What happens |
+|---|---|---|
+| The steps arrive | Main, off the Session's `window` row or its ledger artifact | Re-read to Fleet's shape; anything else is no steps. The window is pinned to the origin it opened on, as always, and the steps are the window's and not a take's: another take starts them over |
+| The walk begins | Main, on the first load of the shown page | Not a `sign_in` address's load, and not a provider's page the window passed through (`origins`): the steps wait for a load on the origin the window is pinned to, and the finder is asked of no other |
+| The target is found | `finder.ts`, in an isolated world | `executeJavaScriptInIsolatedWorld`, a world of Bridge's own that shares the page's DOM and nothing else. `walk-find.ts` finds it, the code the mock's walks find theirs with. The page is scrolled to it, once, as a person's scroll would, and waited on until it holds still |
+| It is ringed | The bar's view over the page | Main sends the target's box and the caption; the bar draws the ring and the card, as a question's outline is drawn (`WalkGuide`). The page draws nothing |
+| The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between |
+| The target is not found | Main, after the patience a step has | The walk holds on the step. The bar marks it, and the Session is told once through `window_failed`, naming the step and its target |
+| Back, Replay, Reload | Main | The pinned address loads again and the steps before the one asked for run straight through, as the mock's Back does |
+
+> **Rule.** The finder runs in an isolated world and nowhere else. The page's own world gets no global,
+> no listener, no node and no attribute from it, and the walk writes nothing to the page: not a node, an
+> attribute or a style. It moves two things, as a person does: the scroll that brings a target into view,
+> and the focus of the field a `type`, `key` or `paste` step names.
+> Why: this is *The injected layer*'s stance kept. A world the page's scripts cannot reach has nothing
+> to forge, restyle or read, and the ring is drawn by the bar over the page for the reason capture's
+> outline is.
+
+> **Rule.** The finder's script is installed in that world on the first ask of each document, and asked
+> by name after. It dies with the document, and nothing is injected again after a navigation but the
+> one install on the next ask.
+> Why: *The injected layer* ships its source with each ask because the promise it answers on must be the
+> page's only channel. Here the page has no handle on the world at all, and the finder, with its
+> accessible-name code, is too large to ship on every look at a ringed box that is followed every beat.
+
+> **Rule.** What the page's DOM answers is a box or a point, re-bounded in main against the viewport,
+> and nothing else. The target a Session named is serialised into the script as JSON, as every ask's
+> arguments are, and no string of the Session's is composed into code.
+> Why: the page can answer with anything, and a Session's target is text another party wrote.
+
+> **Rule.** The walk acts with the real input a person makes, to the page's contents, and never by
+> dispatching an event in the page. A paste is the editing command on a field the
+> walk has focused, and so the clipboard as it stands; text outside the keyboard's range is inserted as text.
+> Why: it has to work on any framework, and a page can tell an event it was handed from one a person
+> made. A script that clicked for the Session would be a script the page could watch for.
+
+> **Rule.** A step acts when the person presses Next, or on autoplay he switched on. Nothing acts
+> unasked, and a hover is the only act on arrival.
+> Why: the Session chose the page and the steps, and the person is the one walking it.
+
+> **Rule.** While the ring is up the bar's view covers the page, as under armed capture, and the page
+> takes no press. One press beside the card, or the Ring switch on the walk row, puts the ring away and
+> the page takes presses again; the wheel is forwarded either way. A walk that is done, or held on a
+> step, leaves the page to take presses.
+> Why: a ring drawn where a press could land on the page is a forgery the page could read, and a walk
+> the person cannot touch the page of is not one he can use.
+
+> **Rule.** A step whose target is not found within the patience a step has, the mock's, is held on, and
+> told to the Session through the path `window_failed` uses: once per step until it is found, in a line
+> naming the step and its target, never the page's text. The person is shown the bar's glyph and its
+> tooltip, no sentence.
+> Why: the Session wrote the steps, so it is the one to fix them. The person is not asked to carry the
+> news back.
+
+**What it adds.** A Session's steps can make the person's own pointer and keyboard act on the page it
+chose, one step at a time and on his press, with the cookies of the repository's partition. The page
+can see only that a person acted. **What it does not add:** no preload on the page, no channel from the
+page to main, no address the page can make main load, no global in the page's world, and no Armada
+record named to the page. A step that follows a link off the origin is refused by the same hold as a
+person's press. **It is not an allowlist**: a Session that shows a page it should not can have steps
+press on it, which showing it already exposed him to.
 
 ## The panel beside the page
 

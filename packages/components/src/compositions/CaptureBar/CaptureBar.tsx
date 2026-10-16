@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, RotateCcw, Search } from "lucide-react";
 import type { KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -128,6 +128,12 @@ export type CaptureBarWalk = {
   onNext: () => void;
   onAutoplay: (on: boolean) => void;
   onReplay: () => void;
+  /**
+   * Present where Bridge plays the steps itself and draws the ring over the page. `shown` is whether
+   * the ring is up, `onShow` puts it away or draws it again so the page can be used, and `stopped` names
+   * the target the step cannot find. **Absent: the page plays its own walk** and rings its own target.
+   */
+  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string };
 };
 
 /**
@@ -300,9 +306,23 @@ export function CaptureBar(props: CaptureBarProps) {
           <span className="armada-capture-bar__walk-where">
             Step {walk.at} of {walk.of}
           </span>
+          {walk.guide?.stopped === undefined ? null : (
+            <Tooltip label={`Not found: ${walk.guide.stopped}`}>
+              <span className="armada-capture-bar__walk-stopped" role="img" aria-label="Not found">
+                <Search size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          )}
           <span className="armada-capture-bar__walk-said" title={walk.said}>
             {walk.said}
           </span>
+          {walk.guide === undefined ? null : (
+            <Tooltip label="Ring the target over the page">
+              <Switch checked={walk.guide.shown} onChange={(event) => walk.guide?.onShow(event.target.checked)}>
+                Ring
+              </Switch>
+            </Tooltip>
+          )}
           <Tooltip label="Replay from step 1">
             <Button variant="ghost" size="sm" iconOnly aria-label="Replay" onClick={walk.onReplay}>
               <RotateCcw size={12} strokeWidth={2} aria-hidden />

@@ -49,6 +49,7 @@ test("the bar draws a pushed walk and its presses call the api", async () => {
     walkBack: vi.fn(async () => {}),
     walkAutoplay: vi.fn(async (_on: boolean) => {}),
     walkReplay: vi.fn(async () => {}),
+    walkGuide: async (_shown: boolean) => {},
   } satisfies CaptureWindowApi;
   const host = document.body.appendChild(document.createElement("div"));
   createRoot(host).render(<CaptureWindow api={api} />);
