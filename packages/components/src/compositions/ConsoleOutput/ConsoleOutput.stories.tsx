@@ -304,3 +304,32 @@ export const TheGutterInLight: Story = {
     </div>
   ),
 };
+
+/**
+ * Two lines in a tall container: the gutter runs to the bottom of the output,
+ * not just to the last line (owner, 16 Oct 2026).
+ */
+export const TheGutterRunsTheFullHeight: Story = {
+  render: () => (
+    <div style={{ display: "grid", height: "calc(var(--space-12) * 8)" }}>
+      <ConsoleOutput rows={NUMBERED.slice(0, 2)} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const rows = canvasElement.querySelector<HTMLElement>(".armada-console__rows")!;
+    const console_ = canvasElement.querySelector<HTMLElement>(".armada-console")!;
+    const last = canvasElement.querySelector<HTMLElement>(
+      ".armada-console__line:last-child",
+    )!;
+    // The scroller reaches the bottom of the console, well past the last line,
+    // and paints the gutter's stripe there.
+    await expect(rows.getBoundingClientRect().bottom).toBeCloseTo(
+      console_.getBoundingClientRect().bottom,
+      0,
+    );
+    await expect(rows.getBoundingClientRect().bottom).toBeGreaterThan(
+      last.getBoundingClientRect().bottom + 100,
+    );
+    await expect(getComputedStyle(rows).backgroundImage).toContain("linear-gradient");
+  },
+};
