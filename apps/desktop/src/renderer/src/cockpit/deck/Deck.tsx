@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -19,7 +19,7 @@ import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
-import { dotsOf } from "../horizon";
+import { dotsOf, MERGE_BY_HAND } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
 import { useClock } from "./clock";
@@ -318,6 +318,13 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         {place === undefined ? null : <span className="deck-chip__place" aria-hidden="true">{place}</span>}
         <span className="deck-chip__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} aria-hidden="true" />
         <span>{dot.card.heading}</span>
+        {dot.card.byHand === undefined ? null : (
+          <Tooltip label={MERGE_BY_HAND}>
+            <span className="deck-chip__hand" role="img" aria-label={MERGE_BY_HAND}>
+              <UserCheck size={12} aria-hidden="true" />
+            </span>
+          </Tooltip>
+        )}
       </>
     );
     return (

@@ -17,10 +17,10 @@
 //! parsed first and refused as a broken form edit is: the pull request merges
 //! itself, so it never carries a file that does not load.
 //!
-//! **A forge that would not turn auto-merge on is kept on the edit**, as the
-//! plain fact [`Pending::merge_by_hand`] says. Nothing draws it yet: no surface
-//! Fleet already has for a fact with no Job to hang it on can carry it without
-//! a Bridge change, which is the owner's to decide (#2396).
+//! **A forge that would not turn auto-merge on is kept on the edit**, and
+//! [`Pending::merge_by_hand`] names the pull request a person is owed a merge
+//! of. The hub marks that pull request's row (`merge_by_hand`), which is where
+//! Bridge draws it (#2396).
 
 use std::io;
 use std::sync::{Mutex, PoisonError};
@@ -53,14 +53,11 @@ pub(crate) struct Pending {
 }
 
 impl Pending {
-    /// The fact a person is owed when the pull request waits for them, or
-    /// `None` while the forge is going to merge it itself.
-    // #2396: nothing reads it until the owner decides where it is drawn.
-    #[allow(dead_code)]
-    pub(crate) fn merge_by_hand(&self) -> Option<String> {
+    /// The number of the pull request when it waits for a person, or `None`
+    /// while the forge is going to merge it itself.
+    pub(crate) fn merge_by_hand(&self) -> Option<u64> {
         self.auto_merge_refused.as_ref()?;
-        let number = self.pull_request.rsplit('/').next().unwrap_or_default();
-        Some(format!("armada.yml edit #{number} needs merging by hand"))
+        self.pull_request.rsplit('/').next()?.parse().ok()
     }
 }
 
