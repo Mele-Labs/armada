@@ -97,7 +97,8 @@ export class WiredStore {
     // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
     // one Session finds every other one the same and reads only that one.
     const next = {
-      sessions: share(was?.sessions, state.sessions),
+      // A failed re-read after a good one is not a list with no Sessions: what was held stays, as main's does.
+      sessions: state.sessions.state === "failed" && was?.sessions.state === "read" ? was.sessions : share(was?.sessions, state.sessions),
       sessionThreads: share(was?.sessionThreads, state.sessionThreads),
       jobs: share(was?.jobs, state.jobs),
       holds: share(was?.holds, state.holds),
