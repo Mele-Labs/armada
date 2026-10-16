@@ -12,6 +12,7 @@ pub(crate) mod activity;
 mod agent_starting;
 mod annotating;
 mod asking;
+mod backgrounding;
 mod cut_off;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
@@ -387,6 +388,8 @@ pub(crate) struct State {
     pub proposal: proposing::ProposalState,
     /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
     pub spawns: crate::file_touching::Spawns,
+    /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
+    pub background: backgrounding::Calls,
 }
 
 impl State {
@@ -427,6 +430,7 @@ impl State {
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
+            background: backgrounding::Calls::default(),
         }
     }
 }
