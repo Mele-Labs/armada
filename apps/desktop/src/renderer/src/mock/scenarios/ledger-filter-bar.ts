@@ -1,5 +1,5 @@
-// A Session with something waiting on the person, a pull request, four branches in four slots, a slot no
-// branch is on and three artifacts, over the `sessions` scenario: every kind the ledger's bar narrows to.
+// A done Session with something still waiting on the person, a pull request, four branches in four slots, a slot no
+// branch is on and three artifacts, over the `sessions` scenario: every kind the ledger's bar narrows to, and the waiting item in the thread.
 // The walk `ledger-filter-bar` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";

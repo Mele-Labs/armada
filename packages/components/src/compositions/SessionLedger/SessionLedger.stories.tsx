@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
-import { SessionLedger, type LedgerEntry } from "./SessionLedger";
+import { BellRing } from "lucide-react";
+
+import { LedgerRows, SessionLedger, type LedgerEntry } from "./SessionLedger";
 
 /** What a Session has accumulated, a group per kind and only the groups that hold a row. Each row opens its own surface. */
 const meta: Meta<typeof SessionLedger> = {
@@ -36,6 +38,9 @@ const ENTRIES: LedgerEntry[] = [
   { key: "ar4", kind: "artifact", artifact: "window", name: "Shown in a window Store clock findings", text: "Store clock findings", onOpen: shown },
 ];
 
+/** The ledger draws no waiting rows: the thread's Needs you band does, with these. */
+const inTheBand: Story["render"] = (args) => <LedgerRows kind="waiting" Glyph={BellRing} rows={args.entries} />;
+
 const picked = fn();
 const WAITING: LedgerEntry[] = [
   { key: "w1", kind: "waiting", act: "walk", name: "Look at the findings page", text: "Look at the findings page", onOpen: shown },
@@ -55,12 +60,11 @@ const WAITING: LedgerEntry[] = [
   },
 ];
 
-/** Waiting on you leads the ledger, each item names its act by glyph, and a question's choices are a deck. */
+/** What waits on the person, as the Needs you band draws it: each item names its act by glyph, and a question's choices are a deck. The ledger itself draws none. */
 export const WaitingOnYou: Story = {
-  args: { entries: [...ENTRIES.slice(0, 2), ...WAITING] },
+  args: { entries: WAITING },
+  render: inTheBand,
   play: async ({ canvas }) => {
-    const headings = canvas.getAllByRole("heading").map((one) => one.textContent);
-    await expect(headings[0]).toBe("Waiting on you");
     await expect(canvas.getByRole("img", { name: "Opens the walk" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Opens the pull request" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Copies the command" })).toBeInTheDocument();
@@ -76,6 +80,7 @@ let delivered: () => void = () => undefined;
 const sent = fn(() => new Promise<void>((done) => (delivered = done)));
 /** While Fleet delivers an answer, Answer is disabled, so a second press cannot send it again. */
 export const AnswerSentOnce: Story = {
+  render: inTheBand,
   args: { entries: [{ ...WAITING[3]!, key: "w6", options: [{ label: "Fake", onPick: sent }, { label: "Frozen", onPick: sent }] }] },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("radio", { name: "Frozen" }));
@@ -91,6 +96,7 @@ export const AnswerSentOnce: Story = {
 const replied = fn();
 /** An item with no act and a reply: its glyph is Reply, a press opens a box under the row, and a send hands over the line. */
 export const WaitingReply: Story = {
+  render: inTheBand,
   args: {
     entries: [
       { key: "w5", kind: "waiting", name: "Keep the old fixture or drop it?", text: "Keep the old fixture or drop it?", onReply: replied, onOpen: open },
@@ -109,6 +115,7 @@ export const WaitingReply: Story = {
 const removed = fn();
 /** An item the agent stated has Remove: a press opens a one-line reason box, Enter removes with the words or without, and Esc removes nothing. */
 export const WaitingRemove: Story = {
+  render: inTheBand,
   args: {
     entries: [{ key: "w6", kind: "waiting", name: "Pick a name for the cache table", text: "Pick a name for the cache table", onRemove: removed, onOpen: open }],
   },
@@ -172,19 +179,18 @@ const BAR_ENTRIES: LedgerEntry[] = [
   { key: "b3", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
   { key: "b5", kind: "branch", name: "Branch store/migration-lock", text: <code>store/migration-lock</code>, slot: 5, onOpen: open },
   { key: "s9", kind: "slot", name: "Worktree slot 9", text: "9", onOpen: open },
-  WAITING[1]!,
 ];
 const headingsOf = (canvas: { queryAllByRole: (role: string) => HTMLElement[] }) => canvas.queryAllByRole("heading").map((one) => one.textContent);
 
 /**
  * The bar across the top narrows the ledger to one kind, and Search narrows every section by the words of
- * its rows. Sections run Waiting on you, Pull requests, Branches. A kind with no rows is disabled, not gone.
+ * its rows. Sections run Pull requests, Branches; what waits on the person is in the thread, not here. A kind with no rows is disabled, not gone.
  */
 export const FilterBar: Story = {
   args: { entries: BAR_ENTRIES },
   play: async ({ canvas }) => {
     const bar = within(canvas.getByRole("group", { name: "Narrow the ledger" }));
-    await expect(headingsOf(canvas)).toEqual(["Waiting on you", "Pull requests", "Branches"]);
+    await expect(headingsOf(canvas)).toEqual(["Pull requests", "Branches"]);
     // A kind narrows to its own section, and pressing it again brings every section back.
     const pulls = bar.getByRole("button", { name: "Pull requests" });
     await userEvent.click(pulls);
@@ -192,11 +198,12 @@ export const FilterBar: Story = {
     await expect(headingsOf(canvas)).toEqual(["Pull requests"]);
     await userEvent.click(pulls);
     await expect(pulls).toHaveAttribute("aria-pressed", "false");
-    await expect(headingsOf(canvas)).toEqual(["Waiting on you", "Pull requests", "Branches"]);
+    await expect(headingsOf(canvas)).toEqual(["Pull requests", "Branches"]);
     // One kind at a time; Branches holds the bare slot row too.
-    await userEvent.click(bar.getByRole("button", { name: "Calls" }));
+    await userEvent.click(pulls);
     await userEvent.click(bar.getByRole("button", { name: "Branches and slots" }));
-    await expect(bar.getByRole("button", { name: "Calls" })).toHaveAttribute("aria-pressed", "false");
+    await expect(pulls).toHaveAttribute("aria-pressed", "false");
+    await expect(bar.queryByRole("button", { name: "Calls" })).toBeNull();
     await expect(headingsOf(canvas)).toEqual(["Branches"]);
     await expect(canvas.getByRole("button", { name: "Open Worktree slot 9" })).toBeInTheDocument();
     // A kind the ledger holds no row of is disabled and stays in the bar.
@@ -397,7 +404,6 @@ const CARDS: LedgerEntry[] = [
     },
     onOpen: pressed,
   },
-  { key: "wc", kind: "waiting", act: "answer", name: "Which clock?", text: "Which clock should the store pin, the fake or the frozen one?", card: { title: "Which clock should the store pin, the fake or the frozen one?", facts: [] }, onOpen: open },
 ];
 
 /**
@@ -415,11 +421,9 @@ export const PreviewCards: Story = {
     await expect(pr).toHaveAccessibleDescription(/Checks Failed: store: 2 failed/);
     await userEvent.unhover(pr);
     await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible());
-    // By keyboard: one stop a row, Waiting on you first, so nothing inside the pull request's row took one.
+    // By keyboard: one stop a row, so nothing inside the pull request's row took one.
     // The bar's buttons are stops before the rows; start from the last of them.
-    canvas.getByRole("button", { name: "Calls" }).focus();
-    await userEvent.tab();
-    await expect(canvas.getByRole("button", { name: "Open Which clock?" })).toHaveFocus();
+    canvas.getByRole("button", { name: "Pull requests" }).focus();
     await userEvent.tab();
     await expect(pr).toHaveFocus();
     await userEvent.tab();

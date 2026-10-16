@@ -158,8 +158,8 @@ export type SessionThreadProps = {
    */
   done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
   /**
-   * What the Session waits on the person for, in the done callout's place while it has not said it is done:
-   * a band of one glyph per item, which a press opens to the ledger's own rows. Empty or absent draws none.
+   * What the Session waits on the person for, at the foot of the thread in every state, above the done callout once
+   * it has one: a band of one glyph per item, which a press opens to the rows. Empty or absent draws none.
    */
   waiting?: readonly LedgerEntry[];
   /**
@@ -891,7 +891,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
         </Card>
       )}
       {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
-      {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
+      {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
           <div className="armada-session-done__head">

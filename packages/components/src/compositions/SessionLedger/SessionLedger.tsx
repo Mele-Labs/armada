@@ -21,6 +21,10 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * a slot no branch is on keeps a row of its own, drawn last under Branches with the key glyph (the
  * owner's choice of 16 Oct 2026, "slot chip on branch").
  *
+ * **What waits on the person is not here.** The thread's Needs you band holds it, in every state of the
+ * Session, done included (the owner's choice of 16 Oct 2026: "its already in the thread"); `LedgerRows`
+ * and `waitingMark` are what that band draws it with.
+ *
  * **A section is drawn only when it holds a row.** A ledger with nothing in it
  * draws one small picture and no words (the owner's choice of 7 Oct 2026, who
  * first asked for every section dim and then took it back: once some filled,
@@ -149,7 +153,6 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
-  { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "job", label: "Jobs", Glyph: Box },
@@ -263,7 +266,6 @@ function rowsOf(entries: readonly LedgerEntry[], kind: LedgerKind): LedgerEntry[
 /** The kinds the bar narrows the ledger to, in the bar's order; each stands for one section. */
 const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
   { kind: "pull_request", said: "Pull requests", Glyph: GitPullRequest },
-  { kind: "waiting", said: "Calls", Glyph: BellRing },
   { kind: "branch", said: "Branches and slots", Glyph: GitBranch },
   { kind: "artifact", said: "Artifacts", Glyph: Files },
 ];
@@ -297,7 +299,7 @@ export function SessionLedger({ entries, folded = false, keepKey }: { entries: r
   };
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
-      {entries.length === 0 ? null : (
+      {SECTIONS.every(({ kind }) => rowsOf(entries, kind).length === 0) ? null : (
       <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
         <Tooltip label="Search">
           <Button

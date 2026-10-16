@@ -327,11 +327,6 @@ path.armada-session-ledger__picture-later {
   min-width: 0;
 }
 
-/* The section that needs the person carries the awaiting-review edge the list's rows do. */
-.armada-session-ledger__group[aria-label="Waiting on you"] .armada-session-ledger__row {
-  border-inline-start: var(--space-1) solid var(--status-awaiting-review);
-}
-
 /* A row's mark is in its state's hue, as the PR chip's Checks are, and the row carries that hue on its
    leading edge: a pull request's Checks, or a subagent's turn, read at a glance down the ledger. */
 .armada-session-ledger__row[data-mark] { --mark: var(--fg-subtle); border-inline-start: var(--space-1) solid var(--mark); }

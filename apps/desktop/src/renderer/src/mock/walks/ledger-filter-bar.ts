@@ -10,7 +10,8 @@ function steps(narrow: boolean): Step[] {
   const sessions = region("Sessions");
   const bar = inside(ledger, role("group", "Narrow the ledger"));
   return [
-    { press: inside(sessions, button("Lock the store migrations")), say: "A Session holding a call, a pull request, branches in slots, a bare slot and artifacts" },
+    { press: inside(sessions, button("Lock the store migrations")), say: "A done Session holding a pull request, branches in slots, a bare slot and artifacts" },
+    { look: region("Needs you"), say: "The item waiting on you stays in the thread, over the done callout" },
     ...(narrow ? [{ press: button("Attachments"), say: "The ledger, opened" } as Step] : []),
     { look: bar, say: "A bar across the top of the ledger" },
     { press: inside(bar, button("Pull requests")), say: "Pull requests" },

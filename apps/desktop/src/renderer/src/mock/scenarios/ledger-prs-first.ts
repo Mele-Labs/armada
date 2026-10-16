@@ -1,5 +1,5 @@
-// A Session that says it is done, so what waits on the person is back in the ledger; it holds a pull request and three branches, over the `sessions`
-// scenario. The ledger draws Waiting on you, then Pull requests, then Branches. The walk
+// A Session that says it is done and still has an item waiting on the person, which stays in the thread; it holds a pull request and three branches, over the `sessions`
+// scenario. The ledger draws Pull requests, then Branches. The walk
 // `ledger-prs-first` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
