@@ -15,6 +15,7 @@ import {
   Clock,
   Cpu,
   Eye,
+  FolderGit2,
   GitMerge,
   GitPullRequest,
   Compass,
@@ -57,6 +58,7 @@ import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
+import { checkoutCall } from "./cockpit/checkout";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -534,6 +536,22 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
               Hand to a Job
             </Button>
           ),
+        });
+      }
+      // A held checkout is told here and answered on the merge queue's checkout light, which opening the call pins.
+      if (view.hub?.checkout !== undefined) {
+        const held = checkoutCall(view.root, view.hub.checkout);
+        items.push({
+          key: `checkout:${view.root}`,
+          owner: "line",
+          icon: FolderGit2,
+          kind: "Checkout",
+          title: held.title,
+          fact: held.fact,
+          hue: "ask",
+          where,
+          body: held.facts.map((one) => [one.label, one.lines.map((line) => line.text).join("\n")] as const),
+          acts: () => null,
         });
       }
       for (const pull of view.hub?.pulls ?? []) {

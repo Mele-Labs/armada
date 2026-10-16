@@ -1,4 +1,4 @@
-/* A stop's card: the Bays view's metro card, and the title bar's plan card. The tone is `--tone`, set by the
+/* A stop's card: the Bays view's metro card, and a Session's context card. The tone is `--tone`, set by the
    caller; position and stacking are the caller's too. */
 .armada-stop-card {
   display: flex;

@@ -1,5 +1,5 @@
 import { BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -10,7 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdBinding, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { useKeyBindings } from "../../keymap";
-import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
+import { useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 import { TitleMenu } from "./TitleMenu";
@@ -62,82 +62,101 @@ function countdown(ms: number): string {
   return `${minutes}m`;
 }
 
-/**
- * One limit as a fill meter, and the card it opens: **hover or focus opens it, a press keeps it open, and
- * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
- */
-function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
-  const { open, pinned, toggle, close, bind } = useCardOpen();
+type Drawn = { one: PlanUsage; limit: { short: string; name: string } };
+
+/** One limit in the card: its name and how much is used on one line, then when it resets, any offer's facts and its acts. */
+function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
   const percent = Math.round(one.percentUsed);
-  const level = usageLevel(percent);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
   const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
+  const rows: readonly StopCardRow[] = [...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])];
   return (
-    <span className="armada-title-bar__usage-limit" data-level={level} {...bind}>
+    <section className="armada-title-bar__usage-limit" data-level={usageLevel(percent)} aria-label={limit.name}>
+      <p className="armada-title-bar__usage-head">
+        {limit.name}
+        <span className="armada-title-bar__usage-percent">{percent}%</span>
+      </p>
+      {rows.length === 0 ? null : (
+        <dl className="armada-title-bar__usage-facts">
+          {rows.map(([term, value, mono]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd data-mono={mono || undefined}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
+        <span className="armada-title-bar__usage-acts">
+          {one.offer.acts.map((act) => (
+            <Button
+              key={act.label}
+              variant={act.primary === true ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                act.onPress();
+                if (act.stays !== true) close();
+              }}
+            >
+              {act.label}
+            </Button>
+          ))}
+        </span>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The plan's limits as one ring glyph, and the one card it opens: **hover or focus opens it, a press keeps it
+ * open, and Esc or a press outside closes it**, as a metro stop's card does in the Bays view. The first limit is
+ * the outer ring and the second the inner, each arc in its level's tone.
+ */
+function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
+  const { open, pinned, toggle, close, bind } = useCardOpen();
+  const drawn: readonly Drawn[] = usage.flatMap((one) => {
+    const limit = LIMITS[one.kind];
+    return limit === undefined ? [] : [{ one, limit }];
+  });
+  if (drawn.length === 0) return null;
+  const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
+  return (
+    <span className="armada-title-bar__usage" {...bind}>
       <button
         type="button"
         className="armada-title-bar__usage-meter"
-        aria-label={`${limit.name} ${percent}%`}
+        aria-label={drawn.map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`).join(", ")}
         aria-expanded={open}
-        style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
         onClick={toggle}
       >
-        <span className="armada-title-bar__usage-label">{limit.short}</span>
-        <span className="armada-title-bar__usage-track" />
-        {one.offer?.attention === undefined ? null : (
-          <Tooltip label={one.offer.attention} beside>
-            <span className="armada-title-bar__usage-attention" role="img" aria-label={one.offer.attention}>
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+          {drawn.map(({ one }, i) => {
+            const percent = Math.min(100, Math.max(0, Math.round(one.percentUsed)));
+            const r = 9 - i * 4;
+            return (
+              <g key={one.kind} data-level={usageLevel(percent)}>
+                <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
+                <circle className="armada-title-bar__usage-ring-fill" cx="11" cy="11" r={r} pathLength={100} strokeDasharray={`${percent} 100`} transform="rotate(-90 11 11)" />
+              </g>
+            );
+          })}
+        </svg>
+        {attention === undefined ? null : (
+          <Tooltip label={attention} beside>
+            <span className="armada-title-bar__usage-attention" role="img" aria-label={attention}>
               <BellRing size={12} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>
         )}
       </button>
       {open ? (
-        <StopCard
-          className="armada-title-bar__usage-card"
-          role="dialog"
-          aria-label={limit.name}
-          data-pinned={pinned || undefined}
-          pill={`${percent}% used`}
-          where={limit.short}
-          title={limit.name}
-          rows={[...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])]}
-        >
-          {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
-            <span className="armada-title-bar__usage-acts">
-              {one.offer.acts.map((act) => (
-                <Button
-                  key={act.label}
-                  variant={act.primary === true ? "primary" : "secondary"}
-                  size="sm"
-                  onClick={() => {
-                    act.onPress();
-                    if (act.stays !== true) close();
-                  }}
-                >
-                  {act.label}
-                </Button>
-              ))}
-            </span>
-          )}
-        </StopCard>
+        <div className="armada-title-bar__usage-card" role="dialog" aria-label="Plan limits" data-pinned={pinned || undefined}>
+          {drawn.map(({ one, limit }) => (
+            <LimitSection key={one.kind} one={one} limit={limit} close={close} />
+          ))}
+        </div>
       ) : null}
     </span>
-  );
-}
-
-function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
-  const drawn = usage.flatMap((one) => {
-    const limit = LIMITS[one.kind];
-    return limit === undefined ? [] : [{ one, limit }];
-  });
-  if (drawn.length === 0) return null;
-  return (
-    <div className="armada-title-bar__usage">
-      {drawn.map(({ one, limit }) => (
-        <LimitMeter key={one.kind} one={one} limit={limit} />
-      ))}
-    </div>
   );
 }
 
@@ -152,8 +171,8 @@ export type TitleBarProps = {
    */
   places?: ReactNode;
   /**
-   * A word at the row's start, after the traffic lights. **It stands for the brand lockup and mark**, so
-   * the row draws neither beside it. Absent draws the lockup and the mark as they were.
+   * The brand at the row's start, after the traffic lights: a word or the mark. **It stands for the brand lockup
+   * and mark at the end**, so the row draws neither there. Absent draws the lockup and the mark as they were.
    */
   wordmark?: ReactNode;
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
@@ -242,6 +261,59 @@ export type TitleBarProps = {
   };
 };
 
+const PlacesRoom = createContext<number | undefined>(undefined);
+
+/**
+ * The width the places have in the row: what is left once the two sides and the search trigger are drawn. Read by
+ * the places to choose what fits, so the strip stays on one line. `undefined` outside a title bar and before the
+ * first measure.
+ */
+export function usePlacesRoom(): number | undefined {
+  return useContext(PlacesRoom);
+}
+
+/**
+ * The room is the row less its sides, the gaps and the trigger, the start taken **at its whole width**, the
+ * repository's name untruncated: the places give up their labels before the name gives up any of itself.
+ */
+function useRoomForPlaces(on: boolean) {
+  const bar = useRef<HTMLDivElement>(null);
+  const start = useRef<HTMLDivElement>(null);
+  const repository = useRef<HTMLSpanElement>(null);
+  const center = useRef<HTMLDivElement>(null);
+  const places = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLButtonElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState<number>();
+  useLayoutEffect(() => {
+    const row = bar.current;
+    if (!on || row === null) return;
+    const measure = () => {
+      const style = getComputedStyle(row);
+      const inner = row.clientWidth - parseFloat(style.paddingInlineStart) - parseFloat(style.paddingInlineEnd);
+      const gap = parseFloat(style.columnGap) || 0;
+      const width = (part: HTMLElement | null) => part?.getBoundingClientRect().width ?? 0;
+      const trigger = width(search.current);
+      const between = center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
+      // Drawn, the start clips and the name truncates; what either hides is added back.
+      const name = repository.current;
+      // `scrollWidth` is rounded, and a name a fraction too narrow draws its ellipsis: a pixel over.
+      const whole = (start.current?.scrollWidth ?? 0) + (name === null ? 0 : name.scrollWidth - name.clientWidth) + 1;
+      const searching = trigger > 0 ? trigger + between : 0;
+      const content = width(places.current) + searching;
+      const shown = start.current !== null && start.current.getClientRects().length > 0;
+      const left = inner - 2 * gap - width(end.current) - content;
+      row.style.setProperty("--armada-title-start-floor", `${Math.floor(shown ? Math.max(0, Math.min(whole, left)) : content)}px`);
+      setRoom(Math.floor(inner - 2 * gap - whole - width(end.current) - searching));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    for (const part of [row, start.current, places.current, search.current, end.current]) if (part !== null) watch.observe(part);
+    return () => watch.disconnect();
+  }, [on]);
+  return { bar, start, repository, center, places, search, end, room };
+}
+
 export function TitleBar({
   repositoryPicker,
   repository,
@@ -261,13 +333,14 @@ export function TitleBar({
   // The palette's key as this person bound it in Settings → Keyboard, redrawn when they rebind it.
   useKeyBindings();
   const searchKey = keyFor("command_palette");
+  const parts = useRoomForPlaces(places !== undefined);
   return (
-    <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
-      <div className="armada-title-bar__start">
+    <div ref={parts.bar} className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
+      <div ref={parts.start} className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repository === undefined ? null : (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
-          <span className="armada-title-bar__repository" title={repository}>
+          <span ref={parts.repository} className="armada-title-bar__repository" title={repository}>
             {repository}
           </span>
         )}
@@ -276,10 +349,15 @@ export function TitleBar({
         )}
       </div>
 
-      <div className="armada-title-bar__center">
-        {places === undefined ? null : <div className="armada-title-bar__places">{places}</div>}
+      <div ref={parts.center} className="armada-title-bar__center">
+        {places === undefined ? null : (
+          <div ref={parts.places} className="armada-title-bar__places">
+            <PlacesRoom.Provider value={parts.room}>{places}</PlacesRoom.Provider>
+          </div>
+        )}
         {onSearch === undefined ? null : (
           <button
+            ref={parts.search}
             type="button"
             className="armada-title-bar__search"
             onClick={onSearch}
@@ -292,7 +370,7 @@ export function TitleBar({
         )}
       </div>
 
-      <div className="armada-title-bar__end">
+      <div ref={parts.end} className="armada-title-bar__end">
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
 
         {helm === undefined ? null : (
@@ -301,9 +379,9 @@ export function TitleBar({
             className="armada-title-bar__helm"
             onClick={helm.onOpen}
             title={helm.binding === undefined ? "Open Helm" : `Open Helm — ${helm.binding}`}
+            aria-label="Helm"
           >
             <MessageSquare size={16} strokeWidth={2} aria-hidden />
-            <span>Helm</span>
             {helm.questions > 0 ? (
               <span className="armada-title-bar__helm-count">{helm.questions}</span>
             ) : null}
