@@ -274,13 +274,11 @@ fn the_outstanding_background_set_is_read_as_a_count_in_both_directions() {
     assert_eq!(emptied, vec![DroneEvent::BackgroundWork { outstanding: 0 }]);
 }
 
-/// **The other three spellings stay unrecognised, deliberately.** The harness
-/// says the same thing four ways and only one of them carries the whole set;
-/// reading `task_started` as a start would make the count a fold that has to
-/// know every terminal status the harness can send, and be wrong the first time
-/// it grows another.
+/// **The other three spellings are not the count.** They are read for the task they name
+/// (`tests/background_task.rs`), and a line without that task is still a row of its own kind
+/// rather than a count of nothing.
 #[test]
-fn the_other_background_task_lines_are_not_read_as_the_count() {
+fn a_bare_task_line_is_not_read_as_the_count() {
     for subtype in ["task_started", "task_updated", "task_notification"] {
         let read = read(&format!(
             r#"{{"type":"system","subtype":"{subtype}","task_id":"b2qi6vicy","session_id":"a"}}"#

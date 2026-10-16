@@ -518,6 +518,41 @@ pub(crate) async fn report_session_check<D: Sessions>(
     }
 }
 
+/// One Session run's log as it is written, on a socket of its own. A run no Session kept is a 422
+/// before the socket opens.
+pub(crate) async fn observe_session_check<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(run): axum::extract::Path<u64>,
+    upgrade: axum::extract::WebSocketUpgrade,
+) -> Response {
+    match served.daemon().observe_session_check(run).await {
+        Ok(live) => upgrade.on_upgrade(move |socket| crate::following::relay_session_check(socket, live)),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A person asks a running Session Check to stop, gracefully.
+pub(crate) async fn stop_session_check<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(run): axum::extract::Path<u64>,
+) -> Response {
+    match served.daemon().stop_session_check(run, false).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// [`stop_session_check`], by force.
+pub(crate) async fn force_stop_session_check<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(run): axum::extract::Path<u64>,
+) -> Response {
+    match served.daemon().stop_session_check(run, true).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One Session run's log. 200 with the window; 422 for a run no Session kept.
 pub(crate) async fn get_session_check_output<D: Sessions>(
     State(served): State<Served<D>>,

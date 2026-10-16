@@ -8,7 +8,7 @@
 use std::fmt;
 use std::path::Path;
 
-use crate::delivery::{run_in, said};
+use crate::delivery::{read_in, said};
 
 /// What merging the two sides would do.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -111,7 +111,7 @@ fn merged(
     let base = merge_base(worktree, one_commit, other_commit)?;
     let base = format!("--merge-base={base}^{{tree}}");
     let args = ["merge-tree", "--write-tree", "--name-only", "-z", &base, one, other];
-    let ran = run_in(&worktree.to_string_lossy(), "git", &args)
+    let ran = read_in(&worktree.to_string_lossy(), "git", &args)
         .map_err(|why| NotChecked(format!("git merge-tree could not run: {why}")))?;
     match ran.status.code() {
         Some(0) => Ok(Verdict::Clean),
@@ -133,7 +133,7 @@ fn merged(
 }
 
 fn git(worktree: &Path, args: &[&str]) -> Result<String, NotChecked> {
-    let ran = run_in(&worktree.to_string_lossy(), "git", args)
+    let ran = read_in(&worktree.to_string_lossy(), "git", args)
         .map_err(|why| NotChecked(format!("git {} could not run: {why}", args[0])))?;
     if !ran.status.success() {
         return Err(NotChecked(format!("git {}: {}", args[0], said(&ran))));

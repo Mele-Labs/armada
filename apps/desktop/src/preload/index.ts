@@ -623,6 +623,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
+  stopSessionCheck: (run: number, force: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.stopSessionCheck, run, force),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
@@ -722,7 +724,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string, request?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request),
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>

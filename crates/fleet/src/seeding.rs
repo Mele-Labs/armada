@@ -423,7 +423,7 @@ where
                 Path::new(checkout.path()),
                 self.budget,
                 checks_runner::Writing::Nowhere,
-                &[],
+                &checks_runner::build_cap(self.room.width()).into_iter().collect::<Vec<_>>(),
                 std::future::pending(),
                 checks_runner::Priority::from_env(),
             )

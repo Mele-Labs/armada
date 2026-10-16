@@ -20,7 +20,10 @@ use ipc::{
 use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session_owning, pages_opened, unanswered, Because, Own, Said};
+use crate::helm::{
+    answering, blocked_folder, guarded_in_a_session, pages_opened, unanswered, Because, Folders, Guarded, Own,
+    Said,
+};
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
@@ -125,12 +128,14 @@ where
         let mode = mode_of(&hosting.mode);
         // A question is for the person whatever the mode: nothing else can
         // answer it, and the agent is told what they chose.
-        // **In `auto` a session never waits on the person** (the owner, 8 Oct
-        // 2026: "JUST LET IT DO WHAT IT NEEDS", after it sat blocked while he
-        // was away). A call runs, or, where it would reach into his own files
-        // or take away something outside the slot and `/tmp`, is refused with
-        // the reason, which the agent reads and works around. Only a question
-        // is put to him.
+        // **In `auto` a call runs unless it reaches past the slots.** A read
+        // macOS guards and a write outside the slots and `/tmp` are put to the
+        // owner on a card, with the path (16 Oct 2026, reversing 8 Oct's "never
+        // waits"); the hold bounds the wait, and silence refuses. His folder
+        // list answers first: blocked is refused, allowed runs. A removal
+        // outside the slots is refused with the reason, which the agent reads
+        // and works around.
+        let mut reaching = None;
         let put_to_a_person = asking.tool_name == ipc::ASKS_A_QUESTION
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
@@ -144,15 +149,19 @@ where
                     let merged: Vec<&str> = merged.iter().map(String::as_str).collect();
                     let started = self.started_by(id, &held);
                     let own = Own { started: Some(&started), merged_branches: &merged };
-                    match because_in_a_session_owning(&asking, &named, own) {
-                        Some(Because::ReachesOutside) => {
-                            return Ok(RunOrNot::Deny {
-                                message: String::from(
-                                    "Refused: that reaches into the owner's own files outside your slots. Work inside a slot you hold, /tmp, or a path under Armada's own folders.",
-                                ),
-                            });
+                    let listed = self.reach_folders();
+                    let home = std::env::var("HOME").unwrap_or_default();
+                    let folders = Folders { allow: &listed.allow, block: &listed.block, home: &home };
+                    match guarded_in_a_session(&asking, &named, own, folders) {
+                        Some(Guarded::Blocked { folder }) => {
+                            return Ok(RunOrNot::Deny { message: blocked_folder(&folder) });
                         }
-                        Some(Because::Destructive) => {
+                        Some(Guarded::Because { because: Because::ReachesOutside, reaching: at })
+                        | Some(Guarded::Because { because: Because::Destructive, reaching: at @ Some(_) }) => {
+                            reaching = Some(at);
+                            true
+                        }
+                        Some(Guarded::Because { because: Because::Destructive, .. }) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(
                                     "Refused: that removes or overwrites something outside the slots you hold and /tmp. Do it inside a slot you hold, or say in your reply what you need and why.",
@@ -169,10 +178,11 @@ where
             });
         }
         let asks = self.hosts().asks();
-        let (waiting, answer) = asks.minted(
+        let (waiting, answer) = asks.minted_reaching(
             &ManifestId::carried(&hosting.manifest_id),
             &asking,
             &self.now(),
+            reaching,
         );
         let row_id = format!("ask-{}-{id}", waiting.call);
         let put = |state: SessionAskState, via: Option<ipc::Via>| SessionRow::Ask {
@@ -194,6 +204,18 @@ where
                 let state = match said.answer {
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
+                    // A list that will not be written is not a refusal: the person
+                    // answered this call, and the next one asks again.
+                    HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock => {
+                        let blocked = said.answer == HelmCallAnswer::AlwaysBlock;
+                        if let Some(folder) = &said.folder {
+                            let _ = self.reach_folder_kept(folder, blocked).await;
+                        }
+                        match blocked {
+                            true => SessionAskState::AlwaysBlocked,
+                            false => SessionAskState::AlwaysAllowed,
+                        }
+                    }
                     HelmCallAnswer::AllowAndRemember => {
                         let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a

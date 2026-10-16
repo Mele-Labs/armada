@@ -18,8 +18,13 @@
  */
 export function clock(at: string): string {
   const ms = instant(at);
-  return ms === null ? at : new Date(ms).toLocaleTimeString([], { hour12: false });
+  return ms === null ? at : CLOCK.format(ms);
 }
+
+// One formatter for every row: `toLocaleTimeString` builds a fresh Intl formatter on each call, which was
+// most of the time a Sessions message took to read (the owner's profile, 16 Oct 2026). Same fields, same output.
+const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
+const CLOCK_PADDED = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 /** An RFC 3339 instant, in epoch milliseconds. `null` where it will not parse. */
 export function instant(at: string): number | null {
@@ -109,5 +114,5 @@ export function absoluteOf(at: string): string | null {
 /** `HH:MM:SS`, off an ISO instant — a run row here carries no date, and
  * neither does a save's receipt beside the file it saved. */
 export function clockOf(at: string): string {
-  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return CLOCK_PADDED.format(new Date(at));
 }

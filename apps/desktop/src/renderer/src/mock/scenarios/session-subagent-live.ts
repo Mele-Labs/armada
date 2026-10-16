@@ -18,8 +18,8 @@ const more: Session[] = [
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/ci-history", slot: 2 },
-      { kind: "subagent", id: "live1", task: "Read the CI history of store_flaky", state: "running" },
-      { kind: "subagent", id: "done1", task: "Find other tests that read the wall clock", state: "done" },
+      { kind: "subagent", id: "live1", task: "Read the CI history of store_flaky", state: "running", agentType: "general-purpose" },
+      { kind: "subagent", id: "done1", task: "Find other tests that read the wall clock", state: "done", agentType: "rust-engineer" },
     ],
   },
 ];

@@ -106,7 +106,8 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
             .filter_map(|offer| match offer {
                 HelmCallAnswer::AllowOnce => Some("allow_once"),
                 HelmCallAnswer::Refuse => Some("refuse"),
-                HelmCallAnswer::AllowAndRemember => None,
+                // The phone has no folder picker.
+                HelmCallAnswer::AllowAndRemember | HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock => None,
             })
             .collect(),
     }

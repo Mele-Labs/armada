@@ -1,4 +1,4 @@
-import { Children, createContext, isValidElement, useContext, type ReactNode } from "react";
+import { Children, createContext, isValidElement, memo, useContext, type ReactNode } from "react";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -140,17 +140,24 @@ export function ReferenceLink({ reference, children }: { reference: ProseReferen
   );
 }
 
-export function Prose({ text }: ProseProps) {
+const keepRef = (url: string): string => (url.startsWith(REF) ? url : defaultUrlTransform(url));
+
+/**
+ * **Memoised on its text**, which is its only prop: parsing markdown cost the owner's Cockpit 800 ms in a
+ * profile (16 Oct 2026), most of it re-parsing messages whose words had not changed when a thread drew again.
+ * What it reads from context still redraws it, and what its links read inside do not need it to.
+ */
+export const Prose = memo(function Prose({ text }: ProseProps) {
   const refs = useContext(ProseRefs);
   if (text.trim() === "") return null;
   return (
     <div className="armada-prose">
-      <Markdown remarkPlugins={PLUGINS} components={DRAWN} urlTransform={(url) => (url.startsWith(REF) ? url : defaultUrlTransform(url))}>
+      <Markdown remarkPlugins={PLUGINS} components={DRAWN} urlTransform={keepRef}>
         {refs === null ? text : linked(text, refs)}
       </Markdown>
     </div>
   );
-}
+});
 
 const PLUGINS = [remarkGfm, remarkBreaks];
 

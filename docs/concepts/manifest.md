@@ -389,9 +389,35 @@ Rules that follow:
 - **Do not widen a timeout to compensate.** A bounded suite that no longer fits its budget is a budget to raise deliberately and say so.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` keeps it for `places`' reason: the machine is no wider for the merge having happened.
 - **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where Jobs and sessions share the CPU.
-- **A compile is capped by the same number.** Every Check that compiles Rust spells it: `--build-jobs ${width}` for nextest and `--jobs ${width}` for cargo. Without it cargo builds at one job per core in each worktree, each with a target of its own, and the width bounded only the tests: three sessions compiling at once were 54 rustc jobs on 18 cores (12 Oct 2026). On a sole-tenant machine `${width}` is every core, so CI keeps all of them.
-- **An agent's own build takes it too.** Every Drone, session, Helm and scout starts with `CARGO_BUILD_JOBS` set to the machine's number, so a `cargo` an agent runs outside `armada check` is held to what a Check would be. A `-j` on the command still wins. Sessions, Helm and scouts read the number when Fleet starts, so a saved Jobs bound reaches them at the next start.
+- **A compile is not capped by this number: it takes from the machine's one pool of compiler jobs.** See *One pool of compiler jobs for the machine*, below. A Check does not spell `--build-jobs` or `--jobs`, and cargo says so if one does.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check a Drone is measured by. It reads the shipped Jobs bound rather than a saved one, and where those differ the gate is the authority.
+
+### One pool of compiler jobs for the machine
+
+**Fleet holds one pool of compiler slots, sized to the machine's cores, and hands it to every build it starts**: Drones, Sessions, Helm, scouts, Checks and the `setup.seed` warm-up. Five builds share the cores and a lone build can use all of them. Decided by the owner on 16 Oct 2026, and it replaces the per-Check width as the cap on a compile (#1444), which bounded each build and left the sum of them unbounded.
+
+Measured on the owner's 12-core M2 Max (8 performance, 4 efficiency). Five `cargo` builds ran at once, in four agent slots and the base warm-up, each held to 3 jobs: 15 compiler jobs on 12 cores, at a load average of 28. Earlier, three sessions at no cap were 54 rustc jobs on 18 cores (12 Oct 2026).
+
+It is a GNU make jobserver on a named fifo, `build-slots.fifo` in Fleet's machine directory. Cargo and rustc take a token before each job and give it back after. A named fifo, not an inherited pipe, because Fleet starts agents detached and a Drone's builds begin long after its spawn. Fleet puts it in `MAKEFLAGS` for an agent, and for every Check it runs.
+
+What was measured, on a 16-crate workspace with a `RUSTC_WRAPPER` that counts concurrent compiles and sleeps (no load), cargo 1.97.1, `jobserver` 0.1.35:
+
+| Run | Most compiles at once |
+|---|---|
+| One cargo, `-j 4`, no jobserver | 4 |
+| One cargo, fifo of 4 tokens | 5 |
+| Two cargos at once, fifo of 4 | 6 |
+| One cargo, fifo of 4, and `-j 2` or `-j 8` | 5, and cargo warns it ignored `-j` |
+| One cargo, fifo of 4, `CARGO_BUILD_JOBS=2` | 5, and says nothing |
+| `kill -9` on a cargo holding all 4 | the fifo then held 0 of 4 |
+
+Rules that follow:
+
+- **A build is one job of its own plus what it takes from the fifo, so the fifo holds four fewer than the cores.** Decided by the owner on 16 Oct 2026, after a fifo of `cores - 1` let five builds peak at 16 on 12 cores, more than the old widths' 15. `k` builds peak at `cores - 4 + k`: five at 13 on this machine, and a lone build gets 9, three times its old width. The pool bounds the work Fleet hands out and cannot take each build's own job away, so the headroom is what keeps several builds near the cores.
+- **`-j`, `--jobs`, `--build-jobs` and `CARGO_BUILD_JOBS` are not ceilings.** Cargo ignores all four once it inherits a jobserver. `CARGO_BUILD_JOBS` is set only where there is no pool: a Fleet whose pool could not be made, `armada check` in a terminal outside a Fleet, and CI, where `${width}` is every core.
+- **A killed build loses its tokens for good.** Tokens are anonymous bytes, so Fleet cannot say whose they were. Every 15 s it counts them; a pool short of its size while a `cargo`, `rustc` or `rustdoc` is running anywhere on the machine is left alone, and one short with none for two looks in a row has the difference written back. A token returned late to a fifo already refilled is dropped.
+- **A fifo found at start is kept**, with what builds still running hold of it, because a Fleet that crashed leaves its Drones building. One that is missing, or not a fifo, is made again, now or at a later look.
+- **Nothing outside Fleet takes from it.** A build a person starts in a terminal is outside the pool, as it was outside every width.
 
 ### How many Checks run at once
 
@@ -456,6 +482,7 @@ Rules that follow:
 **An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every Drone, Helm and scout, and a Session's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it. `ARMADA_CHECK_PRIORITY=normal` in Fleet's environment turns this off with the Checks' lowering.
 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered. Decided 15 Oct 2026. Before, the job set none, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max that day, Fleet, its `gh` and `git`, every keeper, every agent, a child of an agent's shell and a run from Bridge all read 20, against 31 for processes outside Fleet.
+- **Fleet's own polling is lowered too, and an act is not** (16 Oct 2026). Interactive put Fleet's own `git` and `gh` at 31 with the owner's runs, and `git status` in `lendinghome-monolith` slots read 71% of a core each there. What Fleet reads on a poll goes through `checks_runner::Priority::Low` at the helpers they share: the pool's reads (`adapters::leasing::git::read`), the forge's reads (`adapters::delivery::read_in`, and the `gh` calls of the issue tracker and CI), the territory, clash and base-standing reads, and `headroom`. A merge, a push, a lease, a clone and a run the owner starts from Bridge go through `run_in` and `leasing::git::git` and stay at normal. Not lowered, and not a poll: `fleet::process`, `resources` and `orphans`, which read `ps`, `du` and `lsof` for a person's own question.
 - **A build a Session runs for the owner yields under load too**, `scripts/preview --restart` among them, because it is an agent's command.
 - Load on that machine, one-minute average: 22 to 27 with two Sessions each building the workspace cold at full width, before #2355 and #2356; 7 to 13 after, with no Rust build running. The two windows did not run the same work, so the drop is not a measured effect of either.
 

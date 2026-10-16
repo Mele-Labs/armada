@@ -814,6 +814,46 @@
   line-height: var(--leading-2xs);
 }
 
+/* Where the message stands while Fleet has not taken it. Turning is something under way and a cross is a failure,
+   both read off the band's own ink, so neither adds a colour to it. */
+.armada-session-you__delivery {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-session-you__delivery[data-state="sending"] > svg {
+  animation: armada-session-you-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-session-you-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-you__delivery[data-state="sending"] > svg { animation: none; }
+}
+
+/* A message still going breathes, on opacity alone so the compositor draws it. Held static and dimmed under reduced motion. */
+.armada-session-you[data-delivery="sending"] {
+  animation: armada-session-you-pulse calc(var(--duration-pulse) * 1.6) ease-in-out infinite;
+}
+
+@keyframes armada-session-you-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-you[data-delivery="sending"] {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.armada-session-you__retry {
+  display: flex;
+}
+
 .armada-session-you__body {
   display: flex;
   flex-direction: column;
@@ -887,4 +927,40 @@
 /* A permission's command is there to be run, so its ▶ is always shown. */
 .armada-session-thread__ask .armada-prose__run-acts {
   opacity: 1;
+}
+
+/* reach answers — the call's own answers in a row, then Always in a panel washed in
+   --accent-faint behind an --accent-muted edge, so the folder picked in it reads as what the two
+   Always answers cover. The folder each names is --accent. */
+.armada-session-thread__reach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__always {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--accent-muted);
+  border-radius: var(--radius-md);
+  background: var(--accent-faint);
+}
+
+.armada-session-thread__always-head {
+  color: var(--fg-default);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-thread__always-covers {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-session-thread__always-folder {
+  color: var(--accent);
+  font-family: var(--font-mono);
 }

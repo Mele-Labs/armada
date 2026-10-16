@@ -66,6 +66,7 @@ async fn answer(
             answer,
             note: None,
             answers,
+            folder: None,
         })
         .await
         .map(|_| ())

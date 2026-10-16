@@ -8,11 +8,12 @@
 
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
+import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
-import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
 export type SessionsStore = SessionsDraft & {
@@ -25,7 +26,12 @@ export type SessionsStore = SessionsDraft & {
   edit: (id: string, change: (one: Session) => Session) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
+  /** How Fleet takes a message from the person: held until the walk lets it go, and refused where `outcomes` says so. Taken at once where absent. */
+  delivery?: Delivery;
 };
+
+/** Each message waits on `gate`, then is taken or refused by the next of `outcomes`; with none left it is taken. */
+export type Delivery = { gate: Gate; outcomes: ("taken" | "refused")[] };
 
 /** Something a route waits on until it is let go: a walk's step, not a timer, so a person can sit on the wait. */
 export type Gate = { wait: () => Promise<void>; release: () => void };
@@ -121,6 +127,12 @@ export function others(): Session[] {
 /** How long the mock's pull request act takes to come back from the forge. */
 const ACT_MS = 1500;
 
+/** What a subagent's window holds: a running one starts at the first and takes in the second with each row it has drawn. */
+const SUBAGENT_TOKENS_FROM = 18_000;
+const SUBAGENT_TOKENS_PER_READ = 9_000;
+const SUBAGENT_TOKENS_DONE = 142_000;
+const SUBAGENT_WINDOW = 200_000;
+
 /** What every subagent the mock holds does, in order: the brief, its calls, and the report it ends on. */
 const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
   ["message", "Read the CI history of store_flaky and say when it fails."],
@@ -202,6 +214,8 @@ export function sessionsStore(
   more: readonly Session[] = [],
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
   arrivals: readonly (readonly [id: string, text: string])[] = [],
+  /** The Manifest id of each repository by its root, as Fleet names the repository a Session starts in. A root not here leaves the Session with none. */
+  owners: ReadonlyMap<string, string> = new Map(),
 ): SessionsStore {
   // A Session in `more` with a usual one's id stands in for it.
   let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
@@ -211,6 +225,8 @@ export function sessionsStore(
   let arrived = 0;
   let started = false;
   let made = 0;
+  let queued: readonly QueuedIdea[] = [];
+  let queuing = 0;
   /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
   const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
@@ -426,11 +442,43 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag) {
+    start(tag, root, _request, tuning) {
       made += 1;
       const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
-      set([{ id, attachments: [], rows: [], turn: idle, ...(tag === undefined ? {} : { pendingTags: [tag] }) }, ...now]);
+      const manifestId = root === undefined ? undefined : owners.get(root);
+      set([
+        {
+          id,
+          ...(manifestId === undefined ? {} : { manifestId }),
+          attachments: [],
+          rows: [],
+          turn: idle,
+          ...(tag === undefined ? {} : { pendingTags: [tag] }),
+          ...(tuning?.model === undefined ? {} : { model: tuning.model }),
+          ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+        },
+        ...now,
+      ]);
       return id;
+    },
+    queued: () => queued,
+    queue(idea) {
+      queuing += 1;
+      queued = [...queued, { id: `q${queuing}`, ...idea }];
+      set([...now]);
+    },
+    startQueued(id) {
+      const idea = queued.find((one) => one.id === id);
+      if (idea === undefined) return Promise.resolve(undefined);
+      const session = store.start(undefined, idea.root, idea.text, { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) });
+      if (typeof session !== "string") return session;
+      store.dropQueued!(id);
+      store.send(session, { text: idea.text, files: [], sketches: [], tags: [] });
+      return session;
+    },
+    dropQueued(id) {
+      queued = queued.filter((one) => one.id !== id);
+      set([...now]);
     },
     taggable() {
       const jobsOnBoard = taggableJobs.map((j): SessionTag => ({
@@ -786,7 +834,15 @@ export function sessionsStore(
           : { id, at: stamp, kind: "message", from: { kind: index === 0 ? "you" : "agent" }, text };
       });
       const finished = seen === script.length;
-      return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
+      // Its window fills as it is read: each read of a running one has taken in more.
+      const tokens = held.state === "done" ? SUBAGENT_TOKENS_DONE : SUBAGENT_TOKENS_FROM + SUBAGENT_TOKENS_PER_READ * seen;
+      return {
+        rows,
+        finished,
+        ...(finished ? { report: script[script.length - 1]![1] } : {}),
+        model: "vendor-opus-5-5",
+        context: { tokens, window: SUBAGENT_WINDOW },
+      };
     },
     later() {
       const arrival = arrivals[arrived];
@@ -817,6 +873,21 @@ export function sessionsStore(
       });
       if (stated !== undefined) addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: removedSaid(stated.text, reason) }))]);
     },
+  };
+  // A message goes through `delivery` where a scenario sets one: the thread then shows it going, and refused.
+  const sendNow = store.send;
+  store.send = (id, sent) => {
+    const held = store.delivery;
+    if (held === undefined) return sendNow(id, sent);
+    return held.gate.wait().then(() => {
+      if (held.outcomes.shift() === "refused") {
+        const title = now.find((one) => one.id === id)?.title ?? "the Session";
+        askToTell(`Message to ${title} not sent. Fleet did not take it`);
+        return false;
+      }
+      sendNow(id, sent);
+      return true;
+    });
   };
   return store;
 }

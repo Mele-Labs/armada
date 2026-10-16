@@ -137,7 +137,7 @@ pub use daemon::{
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
-pub use following::{Follow, Followed, LandOutput, LiveOutput};
+pub use following::{Follow, Followed, LandOutput, LiveOutput, SessionCheckLive};
 pub use journal::{Journal, Reading, Window, FOLLOW};
 pub use mcp::{Caller, MCP_PATH};
 pub use observing::{Channel, Feed, Observed, Seen, Turns, Watch, WATCHING};

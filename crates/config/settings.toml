@@ -55,6 +55,8 @@ notes = """
 
 **A step's gate runs its own Checks one at a time**, so this bounds how many Jobs' gates and Drones' runs share the machine, never one gate's Checks beside each other. The owner's decision of 4 Oct 2026, after Job 3's gate ran its own `desktop_test` beside its own `components_test` and Rust `test`. `docs/concepts/manifest.md`, *How many Checks run at once*.
 
+**Not a cap on compiling.** A compile takes from one pool of compiler jobs sized to the machine's cores and shared by every build Fleet starts, Drones and Sessions included: the owner's decision of 16 Oct 2026, after five builds at 3 jobs each were 15 rustc jobs on 12 cores at a load average of 28. This number counts Checks and `${width}` sizes a runner's workers; neither bounds a compile. `docs/concepts/manifest.md`, *One pool of compiler jobs for the machine*.
+
 **Machine, not Manifest.** How many Checks a repository declares is the Manifest's; how many one machine can host is not. Shipped at half the cores, from one to eight — `limits.checksAtOnce`'s entry in `config::settings` says why.
 
 **The value lives in settings.json under `limits.checksAtOnce`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*. A save moves Fleet's places and the machine's Check slots it holds (`checks_runner::CheckSlots::resize`) from the next Check; one running keeps its slot. An `armada check` already running counts by the number it started with.

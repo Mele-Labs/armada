@@ -5,9 +5,11 @@
 // Fleet's are `sessions-wired.tsx`, built over what main publishes. Where nothing serves them,
 // `useSessionsDraft` is `undefined`, the rail row is left off and no chip is owned.
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+
+import { withOutgoing } from "./outgoing";
 
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
@@ -17,12 +19,15 @@ const Acts = createContext<RepositoryActs | undefined>(undefined);
 
 const NONE: readonly Session[] = [];
 const NEVER = { get: () => NONE, subscribe: () => () => undefined };
+const NO_IDEAS: readonly QueuedIdea[] = [];
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
 export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
+  // What the person sent is in the thread at once, over whichever serves it (`outgoing.ts`).
+  const sending = useMemo(() => (held === undefined ? undefined : withOutgoing(held)), [held]);
   return (
     <Acts.Provider value={acts}>
-      <Held.Provider value={held}>{children}</Held.Provider>
+      <Held.Provider value={sending}>{children}</Held.Provider>
     </Acts.Provider>
   );
 }
@@ -57,4 +62,10 @@ export function useSessionsSaid(): string | undefined {
 export function useSessions(): readonly Session[] {
   const held = useContext(Held) ?? NEVER;
   return useSyncExternalStore(held.subscribe, held.get);
+}
+
+/** The ideas saved to start later, live. Empty where none are served. */
+export function useQueued(): readonly QueuedIdea[] {
+  const held = useContext(Held);
+  return useSyncExternalStore(held?.subscribe ?? NEVER.subscribe, held?.queued ?? (() => NO_IDEAS));
 }

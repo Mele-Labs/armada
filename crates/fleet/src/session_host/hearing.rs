@@ -164,6 +164,7 @@ where
     /// build record, whichever tool made it.
     async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
         self.touch_heard(id, event, subagent).await;
+        self.background_heard(id, event).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
         if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), event) {
             let doer = match self.store().lock().await.session(id) {

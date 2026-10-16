@@ -86,6 +86,8 @@ export type AnswerSessionAsk = {
   note?: string;
   /** One entry per question, for an ask that carries some. Since protocol 23.71. */
   answers?: QuestionAnswer[];
+  /** The folder an `always_allow` or `always_block` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
+  folder?: string;
 };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */
@@ -211,6 +213,8 @@ export type SessionAskState =
   | "ran_unasked"
   | "allowed_once"
   | "allowed_and_remembered"
+  | "always_allowed"
+  | "always_blocked"
   | "refused"
   | "unanswered"
   | "session_gone";
@@ -385,7 +389,16 @@ export type SessionRow =
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };
 
 /** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
-export type SessionSubagent = { rows: SessionRow[]; finished: boolean; report?: string };
+export type SessionSubagent = {
+  rows: SessionRow[];
+  finished: boolean;
+  report?: string;
+  /** The model id its last answer was written under. Absent until it has answered. */
+  model?: string;
+  /** What that answer had in its window, and the window it is measured against. Absent until it has answered. */
+  context_tokens?: number;
+  context_window?: number;
+};
 
 /** `session.row`: one row appended, or replaced where `row.id` is held. */
 export type SessionRowChanged = { session_id: string; row: SessionRow };

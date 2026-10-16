@@ -695,6 +695,8 @@ pub(crate) async fn ran(
                     WIDTH_ENV.to_string(),
                     width_of(&checks[at], width).get().to_string(),
                 ));
+                // Only for a Fleet with no pool: cargo ignores it otherwise.
+                env.extend(checks_runner::build_cap(width_of(&checks[at], width)));
                 let log = announcing.log_for(at);
                 let writing = log.clone();
                 let stop = stop.clone();
