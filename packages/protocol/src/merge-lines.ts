@@ -251,6 +251,11 @@ export type HubPullRequest = {
    * repository's switch is off (rows another machine wrote included), and whenever the store could not be read.
    */
   owner?: PullRequestOwner;
+  /**
+   * The pull request of an `armada.yml` edit a form sent, which the forge would not turn auto-merge on for, so it waits
+   * for a person (`Pending::merge_by_hand`). Absent is any other pull request, or one the forge is going to merge itself.
+   */
+  merge_by_hand?: boolean;
 };
 
 /** Who registered a pull request: a kind, a short id and a machine's name, and nothing about the pull request. */

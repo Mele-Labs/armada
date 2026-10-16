@@ -42,6 +42,9 @@ const CI: Record<string, { state: PullState; says: string }> = {
   waiting_on_main: { state: "blocked", says: "ci red because main is" },
 };
 
+/** A form edit's pull request the forge would not auto-merge: the tooltip of its mark. */
+export const MERGE_BY_HAND = "Needs merging by hand";
+
 /** Where a pull request's review stands, as the station says it. */
 export type Review = "approved" | "changes" | "required";
 
@@ -49,7 +52,7 @@ export type Review = "approved" | "changes" | "required";
  * What the forge says of a pull request beyond its checks: when it was opened, its review, whether it is a
  * draft, whether it conflicts with main (`opened_at`, `review`, `draft` and `mergeable` on the hub row).
  */
-export type PullFacts = { opened?: string; review?: Review; draft?: true; conflicts?: true };
+export type PullFacts = { opened?: string; review?: Review; draft?: true; conflicts?: true; byHand?: true };
 
 /** The review decision in the forge's word. `none` is a pull request no rule applies to: no station. */
 const REVIEWS: Record<string, Review> = { approved: "approved", changes_requested: "changes", review_required: "required" };
@@ -72,6 +75,7 @@ const keep = (one: PullFacts): PullFacts => ({
   ...(one.review === undefined ? {} : { review: one.review }),
   ...(one.draft === undefined ? {} : { draft: one.draft }),
   ...(one.conflicts === undefined ? {} : { conflicts: one.conflicts }),
+  ...(one.byHand === undefined ? {} : { byHand: one.byHand }),
 });
 
 export type PullBlock = PullFacts & {
@@ -114,6 +118,7 @@ export function pullBlocks(
       `#${pull.number}${title === undefined || title === "" ? "" : ` ${title}`}`,
       pull.branch,
       `${reading?.says ?? "Open"}${position === undefined ? "" : `, place ${position}`}`,
+      ...(pull.mergeByHand === true ? [MERGE_BY_HAND] : []),
       ...(owner === undefined ? [] : [`${owner.kind === "job" ? "Job" : "Session"}: ${owner.title}`]),
     ].join(" · ");
     return {
@@ -130,6 +135,7 @@ export function pullBlocks(
       says: reading?.says ?? "Open",
       tip,
       ...factsOf(row),
+      ...(pull.mergeByHand === true ? { byHand: true as const } : {}),
     };
   });
 }
