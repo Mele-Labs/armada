@@ -147,6 +147,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         set: SetSessionWorkflow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `release_session_holds`: the person gives back what a Session holds on the ledger, or hands
+    /// it to another live Session of the same repository. [`Refusal::IllegalMove`] for a target
+    /// that is the Session itself, has ended or is of another repository.
+    fn release_session_holds(
+        &self,
+        release: ipc::ReleaseSessionHolds,
+    ) -> impl Future<Output = Result<ipc::SessionHoldsReleased, Refusal>> + Send;
+
     /// `get_session`: the row and its thread.
     fn get_session(
         self: Arc<Self>,

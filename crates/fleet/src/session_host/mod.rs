@@ -21,6 +21,7 @@ mod finishing;
 mod fork_point;
 mod forking;
 mod gate;
+mod handing;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;

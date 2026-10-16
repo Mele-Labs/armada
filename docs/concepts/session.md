@@ -122,6 +122,10 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
+### Releasing what a Session holds
+
+**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch`, `pr`, `job` and `need` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>` as `take_over` writes `job <id>`, and each slot's lease moves to it as it stands, held as a Job of its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, a piloted Job's slot, branch and Job stay for the pilot's exit, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act.
+
 ### Which machine owned a pull request
 
 **A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
@@ -287,8 +291,8 @@ hold, is held if it then runs anything that is not a read. `cd <slot> && git sta
 read and runs. **A relative `cd` after another is read from where the first left the line**,
 and so is a `..` path after it, never from where the call began. Every part of a line is told
 read from write before the slot rule applies, and `git worktree list`, `git stash list`,
-`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
-substitution, a file a script opens by a name the line does not spell, and anything a build
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a substitution or a variable the line did
+not set (one it set, `out=/tmp/x; : > $out`, is read as the path it holds), a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 **The permission door reads the same ledger.** In `auto` it refuses a call that removes or
@@ -296,7 +300,8 @@ overwrites something outside the slots the session holds and `/tmp`: **every** s
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
 written at all is the gate's. **What the session started or made is its own to remove**
-(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree, or running a file from a slot it holds (a dev Fleet
+its subagent started leaves the tree by `setsid`), and of
 nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
 branch and the branches of slots it holds, once the base holds every commit on them, and
 `rm` under `$TMPDIR` as under `/tmp`.
@@ -305,7 +310,11 @@ branch and the branches of slots it holds, once the base holds every commit on t
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
 off the machine unasked. A call that reaches into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. Only a question (`AskUserQuestion`)
+reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
+`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
+and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
+variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a

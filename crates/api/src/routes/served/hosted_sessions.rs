@@ -56,6 +56,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/workflow",
     },
     Route {
+        operation: "release_session_holds",
+        method: "POST",
+        path: "/sessions/release_holds",
+    },
+    Route {
         operation: "get_session",
         method: "GET",
         path: "/sessions/one",

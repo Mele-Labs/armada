@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -98,6 +98,15 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
     text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
+    if (!text(sessionId)) return unsent;
+    // Each row a kind and a target, or none sent; anything else is not a choice Fleet could read.
+    const chosen = Array.isArray(rows) && rows.every((one) => text(one?.kind) && text(one?.target)) ? (rows as ChosenHold[]).map(({ kind, target }) => ({ kind, target })) : undefined;
+    if (rows !== undefined && chosen === undefined) return unsent;
+    return (
+      connection()?.sessions.releaseHolds({ session_id: sessionId, ...(text(toSessionId) ? { to_session_id: toSessionId } : {}), ...(chosen === undefined ? {} : { rows: chosen }) }) ?? unsent
+    );
+  });
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
     text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
   );

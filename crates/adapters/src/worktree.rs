@@ -208,6 +208,16 @@ impl Vcs for GitVcs {
         noted(crate::leasing::jobs::release_session(pool, slot, holder))
     }
 
+    fn hand_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        from: &str,
+        to_session: &str,
+    ) -> Result<(), SlotParkRefused> {
+        noted(crate::leasing::jobs::hand(pool, slot, from, to_session))
+    }
+
     fn lease_existing_slot(
         &self,
         pool: &SlotPool,
