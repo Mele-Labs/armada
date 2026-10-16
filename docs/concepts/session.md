@@ -876,6 +876,8 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
 
+**While it runs, its log is live and a person can stop it.** `armada check` tells Fleet what it printed in `chunk` calls on the same route, and the Check log panel follows it (`observe_session_check`). The panel's head holds Stop, which sends `SIGTERM` to the Check's process group and `SIGKILL` after a grace period, and Force stop, which sends `SIGKILL`. Fleet holds the ask and answers it to the next `chunk`; the process ends its own group and tells `end` as for any run.
+
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
 
 ## A Session's retro in its thread

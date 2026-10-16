@@ -9,7 +9,7 @@
 
 import WebSocket from "ws";
 
-import type { FollowedLog, OutputMessage } from "@armada/protocol";
+import type { FollowedLog, OutputMessage, SessionCheckOutputMessage } from "@armada/protocol";
 import { HOST } from "./runtime-file";
 
 /**
@@ -17,6 +17,16 @@ import { HOST } from "./runtime-file";
  * read in, so a live one and a recorded one show a person the same amount.
  */
 const HELD = 2_000;
+
+/**
+ * A Session's run is kept as `session.<session>.<run>.log`, and is followed by its run id on a route of its own;
+ * a Job's Check is followed under the Job.
+ */
+function followPath(jobId: string, kept: string): string {
+  const run = /^session\..+\.(\d+)\.log/.exec(kept)?.[1];
+  if (run !== undefined) return `/sessions/checks/${run}/observe`;
+  return `/jobs/${encodeURIComponent(jobId)}/checks/${encodeURIComponent(kept)}/observe`;
+}
 
 /** One running Check's log connection. */
 export class FollowSocket {
@@ -58,7 +68,7 @@ export class FollowSocket {
     }
     this.set({ state: "opening", jobId, kept });
 
-    const path = `/jobs/${encodeURIComponent(jobId)}/checks/${encodeURIComponent(kept)}/observe`;
+    const path = followPath(jobId, kept);
     const socket = new WebSocket(`ws://${HOST}:${port}${path}`);
     this.socket = socket;
     socket.on("message", (data: WebSocket.RawData) => this.arrived(jobId, kept, String(data)));
@@ -84,9 +94,9 @@ export class FollowSocket {
   }
 
   private arrived(jobId: string, kept: string, text: string): void {
-    let message: OutputMessage;
+    let message: OutputMessage | SessionCheckOutputMessage;
     try {
-      message = JSON.parse(text) as OutputMessage;
+      message = JSON.parse(text) as OutputMessage | SessionCheckOutputMessage;
     } catch {
       this.broke(jobId, kept, "Fleet sent a message this Bridge could not read.");
       return;
@@ -98,8 +108,9 @@ export class FollowSocket {
         jobId,
         kept,
         name: message.name,
-        attempt: message.attempt,
-        path: message.path,
+        // A Session's run has one attempt and no file path on the wire.
+        attempt: "attempt" in message ? message.attempt : 1,
+        path: "path" in message ? message.path : `session-check/${message.run}`,
         fromLine: message.skipped + 1,
         lines: [],
       });

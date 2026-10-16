@@ -20,7 +20,7 @@ use std::sync::Arc;
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
     JobId, LandOutputMessage, LandOutputOpened, OutputClosed, OutputEnded, OutputLines,
-    OutputMessage, OutputOpened, ProtocolId,
+    OutputMessage, OutputOpened, ProtocolId, SessionCheckOutputMessage, SessionCheckOutputOpened,
 };
 use serde::Serialize;
 
@@ -92,6 +92,38 @@ pub struct LandOutput {
     /// The Check whose log this is.
     pub name: String,
     pub follow: Arc<dyn Follow>,
+}
+
+/// One Session run's log, resolved: which run it is, and the reader for it.
+///
+/// **[`LandOutput`]'s shape for a run no Job owns.** A run that has ended is served too: it opens,
+/// sends what the log holds and closes `finished`.
+#[derive(Clone)]
+pub struct SessionCheckLive {
+    pub run: u64,
+    pub name: String,
+    pub follow: Arc<dyn Follow>,
+}
+
+/// Serve one viewer of a Session's run.
+pub(crate) async fn relay_session_check(socket: WebSocket, live: SessionCheckLive) {
+    let SessionCheckLive { run, name, follow } = live;
+    let opened = move |skipped| {
+        SessionCheckOutputMessage::Opened(SessionCheckOutputOpened {
+            protocol_id: ProtocolId::current(),
+            run,
+            name,
+            skipped,
+        })
+    };
+    tail(
+        socket,
+        follow,
+        opened,
+        SessionCheckOutputMessage::Lines,
+        SessionCheckOutputMessage::Closed,
+    )
+    .await;
 }
 
 /// Serve one viewer of a Job's running Check.

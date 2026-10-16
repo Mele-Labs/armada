@@ -3,10 +3,12 @@
 
 use api::Sessions;
 use ipc::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState, SessionFact,
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState, SessionCheckStop, SessionFact,
     SessionId, SessionReport,
 };
 use testkit::FakeWorkProduct;
+
+use crate::daemon::Fleet;
 
 use crate::tests::daemon::a_fleet;
 use crate::tests::slot_leases::{leased, By};
@@ -45,7 +47,7 @@ async fn a_session_check_in_a_held_slot_is_a_run_that_ends_with_its_log() {
         .await
         .expect("kept");
 
-    let SessionCheckAnswer { run: Some(run) } = fleet
+    let SessionCheckAnswer { run: Some(run), .. } = fleet
         .session_check_reported(call(SessionCheckAct::Start, &format!("{slot}/crates")))
         .await
         .expect("begins")
@@ -89,7 +91,7 @@ async fn a_session_check_where_no_session_holds_the_slot_is_nobodys_run() {
             .session_check_reported(call(SessionCheckAct::Start, &cwd))
             .await
             .expect("answers");
-        assert_eq!(answered, SessionCheckAnswer { run: None });
+        assert_eq!(answered, SessionCheckAnswer { run: None, stop: None });
     }
     assert!(fleet.manifest_checks(None).await.expect("lists").rows.is_empty());
     assert!(fleet.session_check_output(99).await.is_err());
@@ -115,7 +117,7 @@ async fn a_session_check_still_out_when_the_session_ends_fails_with_that_said() 
         }))
         .await
         .expect("kept");
-    let SessionCheckAnswer { run: Some(run) } = fleet
+    let SessionCheckAnswer { run: Some(run), .. } = fleet
         .session_check_reported(call(SessionCheckAct::Start, &slot))
         .await
         .expect("begins")
@@ -185,4 +187,101 @@ async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
     assert_eq!(target_of(filtered).as_deref(), Some("store::reads_the_last_row"));
     assert_eq!(target_of(changed).as_deref(), Some("--changed fleet, ipc"));
     assert_eq!(target_of(plain), None);
+}
+
+async fn a_running_check(fleet: &Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>, root: &str) -> (String, u64) {
+    let slot = leased(root, 2, "fleet/topic", By::Job("s1"));
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s1"),
+            fact: SessionFact::Started {
+                cwd: slot.clone(),
+                title: None,
+                origin: ipc::SessionOrigin::Bridge,
+                mod_version: None,
+            },
+        })
+        .await
+        .expect("kept");
+    let SessionCheckAnswer { run: Some(run), .. } = fleet
+        .session_check_reported(call(SessionCheckAct::Start, &slot))
+        .await
+        .expect("begins")
+    else {
+        panic!("held");
+    };
+    (slot, run)
+}
+
+#[tokio::test]
+async fn a_running_session_checks_follow_yields_lines_before_end() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let (slot, run) = a_running_check(&fleet, &root).await;
+
+    let mut chunk = call(SessionCheckAct::Chunk, &slot);
+    chunk.run = Some(run);
+    chunk.log = Some("compiling\nrunning 3 tests\npartial".into());
+    fleet.session_check_reported(chunk).await.expect("heard");
+
+    let live = fleet.session_check_observed(run).await.expect("observes");
+    assert!(live.follow.writing(), "the run is still out");
+    let read = live.follow.read(0, false);
+    assert_eq!(read.lines, ["compiling", "running 3 tests"], "whole lines, before end");
+
+    let mut more = call(SessionCheckAct::Chunk, &slot);
+    more.run = Some(run);
+    more.log = Some(" line\nlast\n".into());
+    fleet.session_check_reported(more).await.expect("heard");
+    let next = live.follow.read(read.from, false);
+    assert_eq!(next.lines, ["partial line", "last"]);
+
+    let mut end = call(SessionCheckAct::End, &slot);
+    end.run = Some(run);
+    end.outcome = Some(SessionCheckState::Passed);
+    end.log = Some("$ t\nok\n".into());
+    fleet.session_check_reported(end).await.expect("ends");
+    assert!(!live.follow.writing(), "an ended run is final");
+    let over = fleet.session_check_observed(run).await.expect("an ended run is served too");
+    assert_eq!(over.follow.read(0, true).lines, ["$ t", "ok"]);
+}
+
+#[tokio::test]
+async fn each_stop_route_is_answered_to_the_runs_next_chunk_and_force_outranks() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let (slot, run) = a_running_check(&fleet, &root).await;
+    let beat = || {
+        let mut chunk = call(SessionCheckAct::Chunk, &slot);
+        chunk.run = Some(run);
+        chunk
+    };
+    assert_eq!(fleet.session_check_reported(beat()).await.expect("heard").stop, None);
+
+    let said = fleet.session_check_stopped(run, false).await.expect("asks");
+    assert_eq!(said.stop, Some(SessionCheckStop::Graceful));
+    assert_eq!(
+        fleet.session_check_reported(beat()).await.expect("heard").stop,
+        Some(SessionCheckStop::Graceful)
+    );
+
+    let said = fleet.session_check_stopped(run, true).await.expect("asks");
+    assert_eq!(said.stop, Some(SessionCheckStop::Force));
+    // A graceful ask after a force one does not take it back.
+    let said = fleet.session_check_stopped(run, false).await.expect("asks");
+    assert_eq!(said.stop, Some(SessionCheckStop::Force));
+    assert_eq!(
+        fleet.session_check_reported(beat()).await.expect("heard").stop,
+        Some(SessionCheckStop::Force)
+    );
+
+    let mut end = call(SessionCheckAct::End, &slot);
+    end.run = Some(run);
+    end.outcome = Some(SessionCheckState::Failed);
+    fleet.session_check_reported(end).await.expect("ends");
+    assert!(fleet.session_check_stopped(run, false).await.is_err(), "an ended run takes no stop");
+    assert!(fleet.session_check_stopped(999, true).await.is_err());
 }

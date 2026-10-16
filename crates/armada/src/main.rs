@@ -174,7 +174,7 @@ async fn declared_by_the_manifest(
         Registry::Commands => None,
     };
     let began = std::time::Instant::now();
-    let executed = declared::execute(
+    let executed = declared::execute_told(
         &root,
         registry,
         name,
@@ -184,6 +184,7 @@ async fn declared_by_the_manifest(
         // Agent priority unless `ARMADA_CHECK_PRIORITY=normal`, which the
         // merge line sets on every Check it runs.
         checks_runner::Priority::from_env(),
+        told.as_ref(),
     )
     .await;
     match executed {

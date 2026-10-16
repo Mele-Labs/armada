@@ -79,7 +79,10 @@ pub use narrow::{
 };
 pub use priority::{Priority, PRIORITY_ENV};
 pub use reach::{reached, Reach};
-pub use run::{run, run_until, run_writing, run_writing_with_env, split, Attempt, Output, Writing};
+pub use run::{
+    run, run_stoppable, run_until, run_writing, run_writing_with_env, split, Attempt, Output, Stop, Writing,
+    GRACE,
+};
 pub use serving::Served;
 pub use slots::{already_held, CheckSlots, Held, InUse, AHEAD_ENV, HELD_ENV};
 pub use width::{resolve_width, CheckWidth, SOLE_TENANT_ENV, WIDTH_ENV};
