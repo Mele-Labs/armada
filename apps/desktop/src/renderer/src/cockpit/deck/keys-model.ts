@@ -26,7 +26,7 @@ export type Panel = {
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
   { id: "list", name: "Jobs and Sessions", root: ".deck-list", items: ".deck-row" },
-  { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__who", aside: true },
+  { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
   { id: "calls", name: "Incoming calls", root: ".deck-incoming", items: ".deck-hail" },

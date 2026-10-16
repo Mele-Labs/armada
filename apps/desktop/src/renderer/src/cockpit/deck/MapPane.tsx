@@ -1,6 +1,6 @@
 // The two places the battlefield is drawn: the map, which is the stage when nothing is picked, and a Job's mission, the same plane
 // cut down to the one Job in the canvas's place. Both read the field with the same hook, and both carry the same picked event and
-// the same replay, so a row of Activity and a replay say the same thing wherever they are drawn. #2301.
+// the same replay, so a dot of Activity and a replay say the same thing wherever they are drawn. #2301.
 
 import { useMemo } from "react";
 import { Orbit } from "lucide-react";

@@ -271,3 +271,19 @@ async fn the_kernel_places_a_connection_held_by_a_child_of_the_root() {
     let _ = sibling.kill().await;
     let _ = shell.wait().await;
 }
+
+// A process the session's own binary runs as is its own though it left the tree, and one running
+// a file from anywhere else is not.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn a_process_running_a_file_from_a_held_directory_is_the_holders() {
+    let exe = std::env::current_exe().expect("this test's binary");
+    let here = exe.parent().expect("its directory").to_string_lossy().into_owned();
+    let mine = std::process::id();
+    assert!(crate::peer::runs_from(mine, &[here.clone()], &Kernel));
+    assert!(!crate::peer::runs_from(mine, &["/usr/share".to_string()], &Kernel));
+    assert!(!crate::peer::runs_from(mine, &[], &Kernel));
+    // A pid nothing runs under, and a fake that cannot say, are not anyone's.
+    assert!(!crate::peer::runs_from(u32::MAX - 1, &[here.clone()], &Kernel));
+    assert!(!crate::peer::runs_from(mine, &[here], &Placing::default()));
+}

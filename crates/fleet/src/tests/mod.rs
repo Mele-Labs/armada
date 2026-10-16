@@ -240,6 +240,7 @@ mod sent_back_wire;
 mod serving;
 mod session;
 mod session_auto;
+mod session_auto_reads;
 mod session_background;
 mod session_bays;
 mod session_fork;

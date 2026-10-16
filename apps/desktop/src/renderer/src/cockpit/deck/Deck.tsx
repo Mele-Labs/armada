@@ -25,7 +25,8 @@ import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
 import { useClock } from "./clock";
 import { CLOCK_MS } from "./field";
-import { ActivityFeed, Timeline } from "../Timeline";
+import { ActivityGraph } from "../ActivityChart";
+import { Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
@@ -159,8 +160,8 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
 }
 
 /**
- * What Fleet has been doing, newest first, in the column under the list. **A press picks the event**, and the map shows what moved: the
- * drone it is about, ringed, and the rest dimmed. A Job or Session link inside the row opens it as a list row does.
+ * What Fleet has been doing over the last hour, as a beeswarm with no words: a dot for each event. **Hovering a dot shows the events
+ * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
  */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
   const only = useDeck((deck) => deck.only);
@@ -171,13 +172,9 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   const replay = useDeck((deck) => deck.replay);
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const keep = useMemo(() => keepOf(listed, { only, needs, checks }), [listed, only, needs, checks]);
-  const pick = (key: string) => {
-    const subject = ship.subjects.find((one) => one.key === key);
-    if (subject !== undefined && subject.kind !== "pr") select(selOfSubject(subject));
-  };
-  // The row held lit: the one picked, or the one the playhead has last passed. It is brought into view.
+  // The event held lit: the one picked, or the one the playhead has last passed. Its column is marked.
   const events = useFleetEvents();
-  // A Job or Session open on the stage is the only one the feed tells of.
+  // A Job or Session open on the stage is the only one the graph tells of.
   const open = sel?.kind === "job" || sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind) : undefined;
   const of = useMemo(() => (open === undefined || open.kind === "pr" ? undefined : { kind: open.kind, id: open.id }), [open?.kind, open?.id]);
   const lit = useMemo(() => {
@@ -185,22 +182,16 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
     const { at } = replay;
     return inOrder(events).filter((one) => Date.parse(one.at) <= at).at(-1)?.id.toString();
   }, [events, focus, replay === undefined ? undefined : replay.at]);
-  useEffect(() => {
-    if (lit !== undefined) document.querySelector(`.deck-activity [data-event="${CSS.escape(lit)}"]`)?.scrollIntoView?.({ block: "nearest" });
-  }, [lit]);
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
       <header className="deck-band">Activity</header>
-      <ActivityFeed
-        stacked
+      <ActivityGraph
         now={props.now}
         jobs={props.state.jobs}
         views={views}
         filter="running"
         keep={keep as never}
         {...(of === undefined ? {} : { of })}
-        onOpenJob={(id) => pick(`job:${id}`)}
-        onOpenSession={(id) => pick(`session:${id}`)}
         onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
         {...(lit === undefined ? {} : { lit })}
       />

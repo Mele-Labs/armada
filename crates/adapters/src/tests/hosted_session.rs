@@ -317,6 +317,19 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
 }
 
 #[test]
+fn another_sessions_slot_is_read_like_any_directory() {
+    for read in [
+        "git -C /repo/.armada/slots/slot-9 status",
+        "git -C /repo/.armada/slots/slot-9 log --oneline -5",
+        "ls /repo/.armada/slots/slot-9/crates",
+        "cd /repo/.armada/slots/slot-9 && git status",
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    assert!(!reads_only("git -C /repo/.armada/slots/slot-9 checkout main"));
+}
+
+#[test]
 fn a_redirect_to_nowhere_and_quoted_shell_marks_do_not_make_a_line_a_write() {
     for read in [
         r#"armada worktree --status 2>&1 | grep -E "slot-1 |07541e89""#,

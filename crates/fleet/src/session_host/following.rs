@@ -12,7 +12,7 @@ use ipc::SessionRow;
 use store::{AttachmentState, Holder as Keeper, KeptAttachment, KeptHosting};
 
 use crate::daemon::Fleet;
-use crate::peer::started_within;
+use crate::peer::{runs_from, started_within};
 use crate::repositories::Served;
 
 /// What the pool says of a slot a session may own.
@@ -168,10 +168,15 @@ where
         held
     }
 
-    /// Whether a process is one the session started, however deep: what it may `kill`.
-    pub(super) fn started_by<'a>(&'a self, id: &str) -> impl Fn(u32) -> bool + 'a {
+    /// Whether a process is one the session started, however deep, or runs a file from a
+    /// directory it holds: what it may `kill`. The second covers a dev Fleet its subagent started
+    /// and which left the tree by `setsid`.
+    pub(super) fn started_by<'a>(&'a self, id: &str, held: &'a [String]) -> impl Fn(u32) -> bool + 'a {
         let roots = self.tree_roots(id);
-        move |pid| started_within(&roots, pid, self.peers().as_ref())
+        move |pid| {
+            started_within(&roots, pid, self.peers().as_ref())
+                || runs_from(pid, held, self.peers().as_ref())
+        }
     }
 
     /// The head branch of every pull request the session holds or held on the ledger. **A branch
