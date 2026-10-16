@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -16,6 +16,10 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * a sketch beside it, a page or a document at its address, a file on the
  * machine. The ledger draws no surface of its own; the host says where each
  * press goes.
+ *
+ * **A branch row ends in the chip of the slot it stands in**, so slots have no section of their own:
+ * a slot no branch is on keeps a row of its own, drawn last under Branches with the key glyph (the
+ * owner's choice of 16 Oct 2026, "slot chip on branch").
  *
  * **A section is drawn only when it holds a row.** A ledger with nothing in it
  * draws one small picture and no words (the owner's choice of 7 Oct 2026, who
@@ -88,7 +92,7 @@ export type LedgerEntry = {
   handed?: string;
   /** A Job this Session is piloting: its exits are drawn in the row. */
   exits?: ReactNode;
-  /** A Job's own slot, as a chip at the row's end. */
+  /** The slot a Job or a branch stands in, as a chip at the row's end. */
   slot?: number;
   /**
    * Done with: a merged pull request, an ended Job, a finished subagent. Such a row is drawn only
@@ -122,6 +126,10 @@ export type LedgerEntry = {
   onRemove?: (reason: string) => void;
   /** What the reason box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   removeKeep?: string;
+  /** Release at the row's end, shown on hover or focus, `name` what its tooltip names. Its press is the host's, which confirms first. */
+  release?: { name: string; onPress: () => void };
+  /** Released from here: given back, or kept by Fleet with `kept` saying why. */
+  released?: { kept?: string };
   onOpen: () => void;
 };
 
@@ -142,7 +150,6 @@ const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
-  { kind: "slot", label: "Worktree Slot", Glyph: KeyRound },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "job", label: "Jobs", Glyph: Box },
@@ -247,12 +254,18 @@ function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) =
   ];
 }
 
+/** A section's rows; Branches also holds the slots no branch is on, after the branches. */
+function rowsOf(entries: readonly LedgerEntry[], kind: LedgerKind): LedgerEntry[] {
+  const own = entries.filter((one) => one.kind === kind);
+  return kind === "branch" ? [...own, ...entries.filter((one) => one.kind === "slot")] : own;
+}
+
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
       {entries.length === 0 ? <EmptyLedger /> : null}
       {SECTIONS.map(({ kind, label, Glyph }) => (
-        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={entries.filter((one) => one.kind === kind)} />
+        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={rowsOf(entries, kind)} />
       ))}
     </aside>
   );
@@ -387,7 +400,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
                 </span>
               </Tooltip>
             ) : form === undefined ? (
-              <Glyph size={12} strokeWidth={2} aria-hidden />
+              row.kind === "slot" ? <KeyRound size={12} strokeWidth={2} aria-hidden /> : <Glyph size={12} strokeWidth={2} aria-hidden />
             ) : (
               <Tooltip label={form.said}>
                 <span className="armada-session-mark" role="img" aria-label={form.said}>
@@ -396,6 +409,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             <span className="armada-session-ledger__text">{row.text}</span>
+            {row.released === undefined || row.released.kept !== undefined ? null : (
+              <Tooltip label="Given back">
+                <span className="armada-session-mark" role="img" aria-label="Given back">
+                  <Unplug size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
             {row.handed === undefined ? null : (
               <Tooltip label={row.handed}>
                 <span className="armada-session-mark" role="img" aria-label={row.handed}>
@@ -434,7 +454,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
           </button>
         );
         return (
-          <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
+          <li
+            key={row.key}
+            className="armada-session-ledger__row"
+            aria-label={row.name}
+            data-mark={row.mark?.glyph}
+            data-given={(row.released !== undefined && row.released.kept === undefined) || undefined}
+          >
             {row.card === undefined ? (
               opener
             ) : (
@@ -443,6 +469,8 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             {removal(row)}
+            {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
+            {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
             {row.exits}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
@@ -555,6 +583,19 @@ export function RemoveAct({ name, open, onPress }: { name: string; open: boolean
         <Trash2 size={12} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>
+  );
+}
+
+/** Gives one row back. The row's hover or focus shows it; its tooltip names the row. */
+function ReleaseAct({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <span className="armada-session-ledger__release">
+      <Tooltip label={`Release ${name}`}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Release ${name}`} onClick={onPress}>
+          <Unplug size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
   );
 }
 

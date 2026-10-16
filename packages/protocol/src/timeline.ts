@@ -18,7 +18,10 @@
  * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
  * `session.walked` is a walk the Session showed (`detail` the page's title), `session.committed` a `git commit` that made a
  * commit and `session.pushed` a `git push` that updated a ref (`detail` the branch). Those three and the pull request's own
- * entries are the road a Session's `build` reads its stops from.
+ * entries are the road a Session's `build` reads its stops from. `session.workflow`, `session.model` and
+ * `session.effort` are a change a person made in a panel that the agent was told of: `says` is
+ * `workflow: old → new`, `model: old → new` or `effort: old → new` (none of a workflow is `custom`, no effort
+ * `the default`). The model and effort entries are dated at the start of the turn that ran on the change. Since 23.91.
  */
 export type TimelineKind =
   | "job.created"
@@ -48,6 +51,9 @@ export type TimelineKind =
   | "session.walked"
   | "session.committed"
   | "session.pushed"
+  | "session.workflow"
+  | "session.model"
+  | "session.effort"
   | "session.ended"
   | "slot.leased"
   | "slot.released"

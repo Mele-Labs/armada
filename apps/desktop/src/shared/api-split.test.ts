@@ -7,6 +7,8 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
+  ChosenHold,
+  SessionHoldsReleased,
   AddTask,
   FixMain,
   EditTask,
@@ -403,6 +405,7 @@ type OldBridgeApi = {
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
+    stopSessionCheck: (run: number, force: boolean) => Promise<Outcome>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
     readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
@@ -531,6 +534,8 @@ type OldBridgeApi = {
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
+    setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
+    releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -755,6 +760,7 @@ const OLD_CHANNELS = {
     readRemarks: "bridge:read-remarks",
     readCheckOutput: "bridge:read-check-output",
     readSessionCheckOutput: "bridge:read-session-check-output",
+    stopSessionCheck: "bridge:stop-session-check",
     readBrief: "bridge:read-brief",
     readRetro: "bridge:read-retro",
     readLessons: "bridge:read-lessons",
@@ -877,6 +883,8 @@ const OLD_CHANNELS = {
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
+    setSessionWorkflow: "bridge:set-session-workflow",
+    releaseSessionHolds: "bridge:release-session-holds",
     moveSession: "bridge:move-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

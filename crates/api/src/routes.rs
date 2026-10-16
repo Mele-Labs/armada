@@ -304,6 +304,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::get_session_check_output::<D>),
         )
         .route(
+            "/sessions/checks/:run/observe",
+            get(crate::sessions::observe_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/stop",
+            post(crate::sessions::stop_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/force_stop",
+            post(crate::sessions::force_stop_session_check::<D>),
+        )
+        .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),
         )
@@ -354,6 +366,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/stop",
             post(crate::hosted_sessions::stop_session::<D>),
+        )
+        .route(
+            "/sessions/workflow",
+            post(crate::hosted_sessions::set_session_workflow::<D>),
+        )
+        .route(
+            "/sessions/release_holds",
+            post(crate::hosted_sessions::release_session_holds::<D>),
         )
         .route(
             "/sessions/one",

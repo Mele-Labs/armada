@@ -16,7 +16,7 @@ use std::path::Path;
 use adapter_traits::{KeptCurrent, NotDelivered, Pushed, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository, WorktreeAddOptions, WorktreePruneOptions};
 
-use crate::delivery::{a_remote, git, last_line, open, pushed, run_in, said, unmerged_files};
+use crate::delivery::{a_remote, git, last_line, open, pushed, read_in, said, unmerged_files};
 use crate::fetching_the_base::base_ref;
 use crate::merging_in::{merge_in_progress, merged_in, rev_parsed, MergedIn, OnConflict};
 
@@ -26,7 +26,7 @@ use crate::merging_in::{merge_in_progress, merged_in, rev_parsed, MergedIn, OnCo
 /// is asked exactly as cheaply as one whose worktree is still there.
 pub(crate) fn base_tip(in_repo: &str, base: &str) -> Option<String> {
     let read = base_ref(&Repository::open(in_repo).ok()?, base);
-    let run = run_in(in_repo, "git", &["rev-parse", &read]).ok()?;
+    let run = read_in(in_repo, "git", &["rev-parse", &read]).ok()?;
     let line = last_line(&run);
     (run.status.success() && !line.is_empty()).then_some(line)
 }

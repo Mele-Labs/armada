@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-use crate::delivery::{run_in, said};
+use crate::delivery::{read_in, said};
 
 /// Git would not answer, so nothing is known.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,7 +64,7 @@ pub fn changed_since(worktree: &Path, base: &str) -> Result<Vec<String>, NotRead
 }
 
 fn git(dir: &Path, args: &[&str]) -> Result<String, NotRead> {
-    let ran = run_in(&dir.to_string_lossy(), "git", args)
+    let ran = read_in(&dir.to_string_lossy(), "git", args)
         .map_err(|why| NotRead(format!("git {} could not run: {why}", args[0])))?;
     if !ran.status.success() {
         return Err(NotRead(format!("git {}: {}", args[0], said(&ran))));

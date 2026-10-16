@@ -100,12 +100,16 @@ pub fn environment(
         //
         // Measured against a real Drone: same binary, same `HOME`, `USER` the
         // only difference. `LOGNAME` does not substitute.
-        .and("USER", host.user)?
-        // **A build the agent runs itself gets a Check's width.** Cargo
-        // otherwise starts one job per core in every worktree: three sessions
-        // compiling at once were 54 rustc jobs on 18 cores (12 Oct 2026), and a
-        // smaller machine is taken whole. A `-j` the command passes still wins.
-        .and("CARGO_BUILD_JOBS", &host.width.get().to_string())?;
+        .and("USER", host.user)?;
+    // **A build the agent runs itself draws from the machine's one pool of
+    // compiler jobs** (`checks_runner::BuildSlots`), as a Check and a seed
+    // warm-up do: five builds at 3 jobs each were 15 rustc on 12 cores at load
+    // 28. Cargo ignores `CARGO_BUILD_JOBS` and `-j` once it inherits a
+    // jobserver, so the width stays only as the cap for a Fleet with no pool.
+    env = match checks_runner::offered() {
+        Some(flags) => env.and("MAKEFLAGS", flags)?,
+        None => env.and("CARGO_BUILD_JOBS", &host.width.get().to_string())?,
+    };
     // **A seventh and eighth kind, added when `crate::ports` has something to
     // add.** Empty for every repository that declares no `ports:`, which is
     // most of them — see that module for `ARMADA_PORT_<NAME>` and why a

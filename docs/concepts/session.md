@@ -122,6 +122,10 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
+### Releasing what a Session holds
+
+**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch`, `pr`, `job` and `need` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>` as `take_over` writes `job <id>`, and each slot's lease moves to it as it stands, held as a Job of its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, a piloted Job's slot, branch and Job stay for the pilot's exit, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act. **Each held row of the Session's ledger also carries its own Release**, shown on hover or focus, which confirms the one row and sends it alone with no target; the row then reads given back, or says why Fleet kept it. The owner, 16 Oct 2026: "I should also be able to release items from the ledger panel one by one."
+
 ### Which machine owned a pull request
 
 **A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
@@ -191,7 +195,8 @@ engine with a note and a few more tools, one per repository.
 > (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
- start ─▶ a row: no process, no slot, no branch
+ start ─▶ a row: no process, no slot, no branch (a start with a `request` is read first;
+          its process starts when the reading lands, see *A Session's proposal*)
  message ─▶ a live process, `--session-id`, the message on its input
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
                 both on the ledger, refuses the write and the turn ends; the
@@ -303,11 +308,14 @@ branch and the branches of slots it holds, once the base holds every commit on t
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
-off the machine unasked. A call that reaches into the owner's own files, or
+off the machine unasked. A call that writes into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
-`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
-and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+reason the agent reads and works around. **A read anywhere runs** (the owner, 16 Oct 2026),
+except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads, Pictures,
+Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`, `~/.config/gh`),
+another volume, or a search from `/`, `/Users` or his home (`fleet::helm::deciding::GUARDED`).
+`launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
+session's slot all run. `chmod` and `chown` in a
 held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
 variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
@@ -609,7 +617,7 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Session plans with him first, and w
 
 **His changes are proposals.** **`send_plan_changes`** (`session_id`, `version`, `marks`, `approve`) takes marks against the version he read: rename, remove, add task, add group, move task, change subagent, note. Fleet checks each against that version (a mark may name a group or task another mark of the same batch adds), words them as **one message** to the agent, with the ids so it can answer by them, and writes one `plan_changes` row to the thread in place of a Fleet message beside it. **The plan does not change**, whether it is pending or approved; it changes when the agent records it again. `approve: true` approves the version with them.
 
-**How far it got is observed.** A task is `open`, `working`, `handed_in`, `done` or `failed`. The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text, as `build_record` matches it. A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed. `failed` is not set by anything Fleet observes yet. An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
+**How far it got is observed.** A task is `open`, `working`, `handed_in`, `done` or `failed`. The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text. **The same words first; otherwise reworded close enough** (the task's words in a row inside the item's or the item's inside the task's, filler such as `the` and `to` left out, or at least 0.6 of the longer line's words shared, two words at least), **and an item says at most one task and a task is said by at most one item**, the best pairs taken first and an item no task wants ignored. **The agent is told its list is the plan**: the `record_plan` receipt (`task_list`), and the message for an approval (with or without marks), which lists the tasks verbatim, say `TASK_LIST_IS_THE_PLAN`, and the Planning prompt says it before the plan is recorded. A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed. `failed` is not set by anything Fleet observes yet. An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Session's recent file touches for the Field: the subagent (type and the call that started it, absent for the Session's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`. The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one. A hosted Session's touches are read off its process stream: the `Agent` call (once `Task`) names the type, and every line a subagent makes carries that call as `parent_tool_use_id`. A call whose start Fleet never heard (a Fleet that restarted) is named `subagent`. A terminal Session's come from the mod's `touched` fact, which carries the subagent's `agentId` (`by`) and the `act`; the type is read from the `subagent` attachment. A hosted Session loads the mod too, so only the stream is recorded for it. A removal is read from a plain `rm`, `git rm` or `unlink`; a command that removes by a pattern or a variable names nothing.
 
@@ -784,7 +792,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Bridge draws | From |
 |---|---|
-| The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
+| The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
 | The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
@@ -803,6 +811,29 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 **A Session's composer names the model it runs on.** Fleet launches `claude` with `--model` only where a person picked one, and the CLI's own default applies otherwise, so the pick alone says nothing. Fleet reads the model off each `init` line of the stream (`DroneEvent::Started`, one per turn) and carries it as `HostedFacts.resolved_model` (23.85): `claude-opus-5-5`, which Bridge names `Opus 5.5`. **It is cleared when the process is let go** and absent before the first turn, because the next process has not said. The composer's Model select reads it: the selected option, the picked alias or the default, is labelled `Opus 5.5` once the resolved model is of that option's family. Until it has, or after another model is picked, the select reads the alias or the default as it did, **never a guess**. The head draws no model. A terminal Session is named only where its mod reported a model.
 
 **Past 300k tokens of context or a day since it started, a quiet mark (`move-right`) sits after the context tank.** Hover or focus opens its card and a press keeps it open, as the context tank's does: `612k context`, `Started 3h ago`, and two acts. **Fork** forks the conversation at its latest row (`start_session` with `fork.at`, 23.79). **New Session** asks the old Session for its handoff, which is a message of the person's sent with `send_session_message`: the goal, where it stands, open pull requests and branches, and what is next. Its next reply, once the turn is over, is the handoff, and the new Session opens under the same title with `Handoff from <title>` and that reply as its first message, sent for the person. While the old Session writes it the mark pulses and New Session waits. **If it ended, the send was refused, or no reply came within 90 seconds**, the first message is the ledger's facts instead: the title, its slot, its branches and its open pull requests. Nothing is typed. Both are Bridge's alone (`session-handoff.ts`), over operations that already exist; the cost is one turn of the old Session, which re-reads its whole context once.
+
+## A Session's proposal
+
+**A Session started from the dispatch sheet is read once**, by the same model call that proposes a Job (`job-proposer.md`, *A Session's request*), and what the call settles is the Session's own. `StartSession.request` carries the words. The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled. A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came. A failed, late or unreadable call starts the Session on the machine's defaults.
+
+| On the record | Meaning |
+|---|---|
+| `workflow` | The one workflow the Session follows, or absent: **a custom Session**. Never a default |
+| `proposal.reading` | The call is still out |
+| `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
+
+**What a person sets wins, and an answer never overwrites it.** A field given on the start, or changed in a panel while the call was out, stays as set.
+
+**A change reaches the agent, because it cannot read the panel.**
+
+| Changed | What the agent is told | When | Timeline |
+|---|---|---|---|
+| The workflow (`set_session_workflow`) | A message from Fleet naming the workflow and its step labels, or saying it is now a custom Session | At once: mid-turn at the next tool call, and an idle Session wakes. A Session that has not run is told with its first turn | `workflow: <old> → <new>` |
+| The model or effort (`tune_session`) | A line ahead of the turn that starts on the new values: `from this turn your model is X, not Y` | On the next turn, with no wake | `model: <old> → <new>`, `effort: <old> → <new>`, entered when that turn starts |
+
+**An unchanged model tells nothing.** Fleet keeps the model and effort each turn ran on, and the first turn only sets the baseline, so a restart does not tell again. The three events are `session.workflow`, `session.model` and `session.effort` on the timeline, where committed and pushed rows come from.
+
+**Held turns are in memory.** A Fleet that restarts while a Session is still being read loses them; the message row stays on the thread.
 
 ## Stopping a turn
 
@@ -837,6 +868,8 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | A hosted Session's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Session is published whole each time |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
+
+**While it runs, its log is live and a person can stop it.** `armada check` tells Fleet what it printed in `chunk` calls on the same route, and the Check log panel follows it (`observe_session_check`). The panel's head holds Stop, which sends `SIGTERM` to the Check's process group and `SIGKILL` after a grace period, and Force stop, which sends `SIGKILL`. Fleet holds the ask and answers it to the next `chunk`; the process ends its own group and tells `end` as for any run.
 
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
 

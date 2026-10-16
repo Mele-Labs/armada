@@ -16,16 +16,18 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { SessionRunMessage } from "@armada/protocol";
+import type { SessionHoldsReleased, SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
 import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
-import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { SessionMemo, rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { share } from "@armada/screens/src/share";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   CheckoutDiffRead,
+  HoldsReleased,
   PullRequestFileRead,
   PullRequestPageRead,
   Session,
@@ -92,8 +94,19 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository && was.helm === state.helm) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository, helm: state.helm };
+    // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
+    // one Session finds every other one the same and reads only that one.
+    const next = {
+      // A failed re-read after a good one is not a list with no Sessions: what was held stays, as main's does.
+      sessions: state.sessions.state === "failed" && was?.sessions.state === "read" ? was.sessions : share(was?.sessions, state.sessions),
+      sessionThreads: share(was?.sessionThreads, state.sessionThreads),
+      jobs: share(was?.jobs, state.jobs),
+      holds: share(was?.holds, state.holds),
+      repository: state.repository,
+      helm: share(was?.helm, state.helm),
+    };
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.jobs === next.jobs && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm) return;
+    this.inputs = next;
     this.recompute();
   }
 
@@ -101,20 +114,41 @@ export class WiredStore {
     const read = this.inputs?.sessions;
     // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
-    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside);
+    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo);
+    // Nothing drawn changed: the same list, so what reads it does not draw again.
+    if (mapped.length !== this.mapped.length || mapped.some((one, at) => one !== this.mapped[at])) this.mapped = mapped;
     // Helm answers for the repository the dock points at, which the rail's pick need not be.
     const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
     const record = aimed === undefined || read === undefined || read.state !== "read" ? undefined : read.sessions.find((one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed);
-    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside)[0];
+    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside, undefined, this.memo)[0];
+    this.memo.keep(new Set(read?.state === "read" ? read.sessions.map((one) => one.id) : []));
     this.listeners.forEach((listener) => listener());
+  }
+
+  private readonly memo = new SessionMemo();
+  /** Bumped when a picture arrives, which a Session's rows draw without any record changing. */
+  private epoch = 0;
+  private repositoryOf: { from: unknown; read: (manifestId: string | undefined) => string } | undefined;
+
+  private readonly pictureOf = (sessionId: string, fileId: string): string | undefined => this.picture(sessionId, fileId);
+
+  /** One function while the repositories are the same ones, so a Session's rows are not read again for a new closure. */
+  private repository(): (manifestId: string | undefined) => string {
+    const from = this.inputs?.holds.repositories;
+    const held = this.repositoryOf;
+    if (held !== undefined && held.from === from) return held.read;
+    const read = (manifestId: string | undefined): string => from?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
+    this.repositoryOf = { from, read };
+    return read;
   }
 
   private readonly beside = (id: string): Beside => ({
     jobs: this.inputs?.jobs ?? NONE,
-    picture: (sessionId, fileId) => this.picture(sessionId, fileId),
+    picture: this.pictureOf,
     sketches: this.sketches.get(id) ?? NONE,
     pending: this.pending.get(id) ?? NONE,
-    repository: (manifestId) => this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "",
+    repository: this.repository(),
+    epoch: this.epoch,
   });
 
   /** A picture a message carried, once read. Read on first ask and drawn from then on. */
@@ -126,6 +160,7 @@ export class WiredStore {
     void this.api.readSessionFile(sessionId, fileId).then((read) => {
       if (!read.ok) return;
       this.pictures.set(key, URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })));
+      this.epoch += 1;
       this.recompute();
     });
     return undefined;
@@ -176,9 +211,9 @@ export class WiredStore {
     return manifest === undefined ? undefined : this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifest)?.root;
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag));
+    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag), request);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -239,6 +274,14 @@ export class WiredStore {
     if (!done.ok) return void this.tell(done.outcome);
     await this.held(done.value.id);
     return done.value.id;
+  }
+
+  /** One call; a refusal is the toast `stop`'s is. Both Sessions' rows change by `session.changed`. */
+  private async releasing(id: string, to: string | undefined, rows: readonly { kind: string; target: string }[] | undefined): Promise<HoldsReleased | undefined> {
+    this.say(undefined);
+    const done = await this.api.releaseSessionHolds(id, to, rows === undefined ? undefined : rows.map(({ kind, target }) => ({ kind, target })));
+    if (!done.ok) return void this.tell(done.outcome);
+    return holdsReleasedOf(done.value);
   }
 
   /** As `forking`, from one message of a Session that may still be running. */
@@ -395,7 +438,7 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root) => this.starting(tag, root),
+    start: (tag, root, request) => this.starting(tag, root, request),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),
@@ -417,6 +460,7 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
@@ -512,4 +556,20 @@ export function WiredSessions({ children }: { children: ReactNode }) {
       {children}
     </SessionsFrom>
   );
+}
+
+/** Fleet's answer, as the deck draws it. */
+export function holdsReleasedOf(wire: SessionHoldsReleased): HoldsReleased {
+  const row = (one: SessionHoldsReleased["moved"][number]) => ({
+    kind: one.kind,
+    target: one.target,
+    ...(one.released === undefined || one.released === null
+      ? {}
+      : { saved: { branch: one.released.branch, files: one.released.saved?.files ?? [], ...(one.released.saved?.commit === undefined ? {} : { commit: one.released.saved.commit }) } }),
+  });
+  return {
+    ...(wire.to_session_id === undefined ? {} : { to: wire.to_session_id }),
+    moved: wire.moved.map(row),
+    kept: wire.kept.map((one) => ({ kind: one.kind, target: one.target, why: one.why })),
+  };
 }

@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, activityOf, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
+import { share } from "./share";
 
 const AT = "2026-10-07T13:48:02Z";
 
@@ -384,6 +385,12 @@ describe("a session's trail", () => {
 });
 
 describe("a session", () => {
+  it("carries the needs it holds standing, by path and the words declared, which Release names", () => {
+    const wire = record("a", { attachments: [held("need", "crates/ipc", { what: "a new operation" }), held("need", "docs", {}, "given_back")] });
+    expect(sessionOfRecord(wire, undefined, beside()).needs).toEqual([{ path: "crates/ipc", what: "a new operation" }]);
+    expect(sessionOfRecord(record("b"), undefined, beside()).needs).toBeUndefined();
+  });
+
   it("carries Helm's mark from the record", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { helm: true }), undefined, beside())).toMatchObject({ helm: true });
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();
@@ -808,5 +815,37 @@ describe("a show_sketch call in the thread", () => {
     expect(sketchCallOf("mcp__armada-fleet__show_sketch {not json")).toBeUndefined();
     expect(sketchCallOf(call({ scene: SCENE }))).toBeUndefined();
     expect(sketchCallOf(call({ title: "Flow", scene: { nodes: "no", edges: [] } }))).toBeUndefined();
+  });
+});
+
+describe("a message about one session", () => {
+  const say = (id: string, text: string): SessionRow => ({ id, at: AT, kind: "message", from: { kind: "agent" }, text }) as SessionRow;
+  const stable: Beside = { jobs: [], picture: () => undefined, sketches: [], pending: [], repository: (id) => id ?? "" };
+
+  it("reads that session again and hands back every other one, and every unchanged row, as it was", () => {
+    const memo = new SessionMemo();
+    const records = [record("a"), record("b")];
+    const threads: Record<string, SessionRow[]> = { a: [say("a1", "one"), say("a2", "two")], b: [say("b1", "one")] };
+    const first = sessionsOfRecords(records, threads, () => stable, undefined, memo);
+
+    // The next state arrives as new objects, one row more on `a`.
+    const arrived = structuredClone({ records, threads: { ...threads, a: [...threads.a!, say("a3", "three")] } });
+    const second = sessionsOfRecords(share(records, arrived.records), share(threads, arrived.threads), () => stable, undefined, memo);
+
+    expect(second[1]).toBe(first[1]);
+    expect(second[0]).not.toBe(first[0]);
+    expect(second[0]!.rows).toHaveLength(3);
+    expect(second[0]!.rows[0]).toBe(first[0]!.rows[0]);
+    expect(second[0]!.rows[1]).toBe(first[0]!.rows[1]);
+  });
+
+  it("reads a session again when what stands beside it changed", () => {
+    const memo = new SessionMemo();
+    const records = [record("a")];
+    const first = sessionsOfRecords(records, {}, () => stable, undefined, memo);
+    const tag = { kind: "job", id: "j1", title: "A job" } as const;
+    const again = sessionsOfRecords(records, {}, () => ({ ...stable, pending: [tag] }), undefined, memo);
+    expect(first[0]!.pendingTags).toEqual([]);
+    expect(again[0]!.pendingTags).toEqual([tag]);
   });
 });

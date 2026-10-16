@@ -9,6 +9,7 @@ import type { HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
+import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { FileTouch, SessionPlan } from "./session-plan";
 
@@ -112,10 +113,31 @@ export type SessionRecord = {
    * done nothing Fleet observed. See `session-build.ts`.
    */
   build?: SessionBuild;
+  /**
+   * The workflow id the Session runs under. Absent is a custom Session, which is not a default workflow.
+   * Hosted Sessions only. Since 23.91.
+   */
+  workflow?: string;
+  /** What the proposer did for this Session. Absent where it was never asked. Since 23.91. */
+  proposal?: SessionProposal;
   /** The plan the Session recorded. Absent until it records one. See `session-plan.ts`. */
   plan?: SessionPlan;
   /** The files it and its subagents last touched, oldest first, a bounded window. Absent while there are none. */
   touches?: FileTouch[];
+};
+
+/** A value of a Session the proposer can pick. */
+export type ProposedField = "title" | "workflow" | "model" | "effort";
+
+/**
+ * The proposer's part in a Session, per field. A field in `picked` is one the proposer chose and nobody has
+ * changed since, so it is marked "Picked by the proposer"; the person changing it in a panel takes it out.
+ * `reading` is the call being out: the Session exists and its process starts on the answer. In memory in
+ * Fleet, so a Fleet that restarts reads nothing as reading. Since 23.91.
+ */
+export type SessionProposal = {
+  reading?: boolean;
+  picked?: ProposedField[];
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -420,7 +442,7 @@ export type SessionReport = {
  * Bridge never sends it; it is here so the wire reads whole.
  */
 export type SessionCheckCall = {
-  act: "start" | "end";
+  act: "start" | "chunk" | "end";
   cwd: string;
   name: string;
   /** What the run was narrowed to: the test filter, or `--changed ` and the packages reached. `end` may tell it when `start` could not. */
@@ -428,8 +450,32 @@ export type SessionCheckCall = {
   run?: number;
   outcome?: "passed" | "failed";
   took_ms?: number;
+  /** All of it on `end`; what is new since the last one on `chunk`. */
   log?: string;
 };
 
-/** What it answers. `run` is absent where no Session holds the slot, which is a person's own run. */
-export type SessionCheckAnswer = { run?: number };
+/** How a person asked a running Check to stop: `SIGTERM` to its group, or `SIGKILL`. */
+export type SessionCheckStop = "graceful" | "force";
+
+/**
+ * What it answers. `run` is absent where no Session holds the slot, which is a person's own run.
+ * `stop` is a stop a person asked for, answered to `chunk` and to the two stop routes.
+ */
+export type SessionCheckAnswer = { run?: number; stop?: SessionCheckStop };
+
+/**
+ * One message on `GET /sessions/checks/:run/observe`, a Session run's log as it is written. The
+ * lines and the end are `OutputMessage`'s own. An ended run opens, sends what it holds and closes `finished`.
+ */
+export type SessionCheckOutputMessage =
+  | ({ message: "opened" } & SessionCheckOutputOpened)
+  | ({ message: "lines" } & { lines: string[] })
+  | ({ message: "closed" } & { because: string });
+
+export type SessionCheckOutputOpened = {
+  protocol_id: ProtocolId;
+  run: number;
+  name: string;
+  /** Older lines the first read left out, because the window is bounded. */
+  skipped: number;
+};

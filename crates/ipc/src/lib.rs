@@ -371,9 +371,10 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HostedFacts, MessagesHeld, MoveSession, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
-    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds, RunSessionCommand,
+    SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode, SessionRow,
+    SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
@@ -505,7 +506,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use session_checks::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
+    SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
@@ -514,7 +516,7 @@ pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, Ses
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
-    SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
+    SessionFact, SessionId, SessionList, SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed, WindowFailed,
@@ -529,6 +531,7 @@ pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark, PlanMoved,
     PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
+    TASK_LIST_IS_THE_PLAN,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,

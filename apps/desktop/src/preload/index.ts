@@ -31,6 +31,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
+import type { ChosenHold, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
@@ -622,6 +623,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
+  stopSessionCheck: (run: number, force: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.stopSessionCheck, run, force),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
@@ -721,7 +724,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root),
+  startSession: (title?: string, root?: string, request?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
@@ -741,6 +744,9 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
+  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
+    ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),
   moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),

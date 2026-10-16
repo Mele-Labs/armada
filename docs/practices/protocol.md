@@ -4048,6 +4048,20 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *The plan*. **Additive.** No prot
 
 **Optional members are left out, never sent as `null`.** A Bridge that predates this ignores the members it does not read, and draws a `plan:` waiting item by its text; a `plan` or `plan_changes` row it does not know is one it skips. A Fleet that predates sends none, and a mod that predates `by` and `act` tells a touch with neither, which reads as the Session's own edit. Migration `20261016T1500Z-session_plan`: five tables, none read by anything else.
 
+## Protocol 23.91: a Session's request is read, and its workflow is on the record
+
+`docs/concepts/session.md`, *A Session's proposal*, and `docs/concepts/job-proposer.md`, *A Session's request*. **Additive only**: one optional field on a request, one operation, two fields on a record, three timeline kinds.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession` gains optional `request` | The words the person dispatched. Fleet reads them once with the Job proposer's model and fills in the `title`, `model` and `effort` the start left unset, and the Session's `workflow`. **The answer is the `SessionRecord` at once**, with `proposal.reading` true and no process; the process starts when the answer lands. Not read with `pilot`, `fork` or `root`. A call that fails or cannot be read starts the Session on the machine's defaults and nothing is refused |
+| `set_session_workflow` (`POST /sessions/workflow`) | `SetSessionWorkflow`: `session_id`, `workflow?`. Answers 200 `SessionRecord` | Sets the workflow a hosted Session follows, or clears it (absent) so it is a custom Session. Fleet tells the agent at once and enters `session.workflow`. 422 `fleet.session_workflow_not_held` for an id the repository does not hold, 422 `fleet.session_command_refused` for a terminal Session, 409 `fleet.session_closed` for one that ended. `agent_access: No` |
+| `SessionRecord` | `workflow?`, `proposal?` | `workflow` is absent for a custom Session. `proposal` is `{ reading, picked }`, each skipped where false or empty; `picked` lists `title`, `workflow`, `model` and `effort` as the proposer filled them, and a field leaves it when the person sets it |
+| `timeline.entry` | `TimelineKind` gains `session.workflow`, `session.model`, `session.effort` | `says` is `workflow: <old> → <new>`, `model: <old> → <new>` or `effort: <old> → <new>`, naming a workflow by its name and none as `custom`, a model or effort not set as `the default` |
+| `tune_session` | Behaviour only | A changed `model` or `effort` is now told to the agent on the next turn that starts on it, and entered as above. No wake |
+
+**Skew.** A Fleet before 23.91 ignores `request` and answers 404 for `/sessions/workflow`; a Bridge before it never sends either. A Bridge before reads a `session.*` timeline kind it does not know and draws nothing or draws it badly, and ignores the two record fields. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{hosted-sessions,sessions,timeline}.ts`, written by hand like the rest.
+
 ## A terminal's permission prompt is a call
 
 Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*; measured in `docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`. **Additive only**: two `SessionFact` variants a terminal's mod reports, an optional `tool` on the mod's `asks`, and a `WaitingItem` with the existing `permission` source. No operation, event kind or error is new. Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item and the open ask are existing shapes.
@@ -4195,6 +4209,14 @@ Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `docs/pra
 **Why a call and not the row.** The row is stored, replayed to every viewer that reads a thread, and folded into the state Bridge's renderer holds, so a login on it would be kept and shown far from the window that needs it. The call hands it to main once.
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. A Bridge that predates the row field opens the window with no origins, as it has no word for them. The migration is none: the ledger's `detail` holds strings and `origins` is one more.
+
+## A Session's running Check: its log live, and a stop
+
+Since 16 Oct 2026. `docs/concepts/session.md`. **Additive only**: one value on `SessionCheckAct` (`chunk`), one optional field on `SessionCheckAnswer` (`stop`), `SessionCheckStop`, `SessionCheckOutputMessage` and its opening, and three operations, `observe_session_check` (`GET /sessions/checks/:run/observe`, a WebSocket), `stop_session_check` and `force_stop_session_check` (`POST /sessions/checks/:run/stop` and `/force_stop`), all `agent_access` `No`. Fleet and Bridge both carry them; Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
+
+**Fleet never reaches the Check's process.** `armada check` runs in the Session's own process, so it tells Fleet what it printed in `chunk` calls (a quarter-second apart) and Fleet answers each with the stop a person asked for. `armada check` then ends its own process group: `SIGTERM` and `SIGKILL` after a grace period, or `SIGKILL` at once, and tells `end` as for any run. Fleet holds a running run's log in memory, up to 8 MiB, and serves it over `api::Follow`, so one reader draws a Job's Check, a merge line's and a Session's.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet that differ are refused regardless. **The event stream is untouched**, so the back-pressure risk below is neither better nor worse: the log has its own socket and reads from a cursor, so nothing on it is dropped. The lifeboat is untouched.
 
 ## Open questions
 

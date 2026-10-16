@@ -977,6 +977,16 @@ impl Vcs for FakeVcs {
             })
     }
 
+    fn hand_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        from: &str,
+        to_session: &str,
+    ) -> Result<(), adapter_traits::SlotParkRefused> {
+        self.noted(self.slots.hand(pool, slot, from, to_session))
+    }
+
     fn lease_existing_slot(
         &self,
         pool: &SlotPool,

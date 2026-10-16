@@ -129,8 +129,9 @@ test("Sessions wired: rows stream into an open thread, and the first write is th
   fleet.changed(hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }));
   await expect.element(page.getByRole("region", { name: "Leased on first write" })).toBeVisible();
   const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByRole("button", { name: "Worktree slot 3" })).toBeVisible();
   await expect.element(ledger.getByRole("button", { name: "Branch fix/flaky-store" })).toBeVisible();
+  await expect.element(ledger.getByRole("listitem", { name: "Branch fix/flaky-store" }).getByRole("img", { name: "Worktree slot 3" })).toBeVisible();
+  await expect.element(ledger.getByRole("button", { name: "Worktree slot 3" })).not.toBeInTheDocument();
 });
 
 test("Sessions wired: the ask offers what Fleet will take, and the press names the offer", async () => {

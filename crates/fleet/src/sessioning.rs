@@ -383,6 +383,13 @@ where
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
         }
+        if let Some(hosting) = &reads.hosting {
+            record.workflow = hosting.workflow.clone();
+            let reading = self.hosts().of(&session.id).state().proposal.reading.is_some();
+            let picked = crate::session_host::proposing::picked_of(&hosting.proposed);
+            record.proposal = (reading || !picked.is_empty())
+                .then_some(ipc::SessionProposal { reading, picked });
+        }
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
@@ -845,6 +852,14 @@ where
         self.session_check_output(run).await
     }
 
+    async fn observe_session_check(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
+        self.session_check_observed(run).await
+    }
+
+    async fn stop_session_check(&self, run: u64, force: bool) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        self.session_check_stopped(run, force).await
+    }
+
     async fn show_window(
         &self,
         caller: Option<api::Caller>,
@@ -1094,6 +1109,10 @@ where
         store
             .keep_session(&session)
             .map_err(|why| self.ledger_fault(why))?;
+        if changed {
+            // A name the person gave is theirs, and a proposal still being read leaves it be.
+            self.person_changed(&mut store, &session.id, ipc::ProposedField::Title);
+        }
         let record = self.ledger_row(&store, &session)?;
         drop(store);
         if changed {
@@ -1299,6 +1318,8 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         helm: false,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
         plan: None,
         touches: Vec::new(),
     }
