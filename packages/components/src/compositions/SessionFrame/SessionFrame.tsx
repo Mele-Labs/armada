@@ -1,13 +1,14 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Eye, Power, Reply, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { ClashMark, ClashNotice } from "../ClashMark/ClashMark";
+import { ClashNotice } from "../ClashMark/ClashMark";
+import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
 
@@ -116,8 +117,15 @@ export type SessionFrameProps = {
   fresh?: FreshStart;
   /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
   repository?: ReactNode;
-  /** Icon-only acts after the title: Retro, End session, and the ledger's button where it has folded. */
+  /** Icon-only acts after the title: the ledger's button where it has folded. */
   actions?: ReactNode;
+  /**
+   * The Session's other acts, behind one three-dots button just before `back`: each an item with its glyph, and a key
+   * where it has one. Absent or empty draws no button.
+   */
+  menu?: { entries: DropdownMenuEntry[]; onSelect: (id: string) => void };
+  /** The way out, the header's far right item. */
+  back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
   children: ReactNode;
@@ -183,17 +191,13 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, repository, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
   return (
     <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${named}`}>
       <header className="armada-session-frame__head">
-        <Tooltip label={named}>
-          <span className="armada-session-frame__glyph" role="img" aria-label={named}>
-            <SquareTerminal size={16} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
+        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {repository}
         {actions}
@@ -201,9 +205,9 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__marks">
           {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
-          <ClashMark kind="session" id={id} size={16} />
         </span>
-        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}</span>
+        {menu === undefined || menu.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={menu.entries} onSelect={menu.onSelect} />}
+        {back}
       </header>
       <ClashNotice kind="session" id={id} />
       <div className="armada-session-frame__body">{children}</div>

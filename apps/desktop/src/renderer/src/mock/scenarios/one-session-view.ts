@@ -4,7 +4,7 @@
 // (`packages/screens/src/draft/sessions.ts`); nothing here reaches Fleet. The walk `oneSessionView` plays it, in two takes.
 
 import { featureRunning } from "@armada/jobs/fake";
-import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import type { TimelineEvent, WriteClash, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 
 import { mockAreas } from "../cockpit-areas";
@@ -57,6 +57,9 @@ const dispatched: Session = {
   standing: "idle",
   rows: [you("v-1", "14:02:00", WORDS)],
   attachments: [],
+  // The live bar carries all of these at once: a big context, a stale mod, a write clash with another Session.
+  context: { tokens: 342_000, window: 400_000 },
+  modOutOfDate: true,
   work: { proposal: { workflow: FEATURE.name, picked: ["workflow", "model", "effort"] }, workflow: { ...FEATURE, at: 0 } },
 };
 
@@ -436,6 +439,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
 
   return {
     ...base,
+    // Only the menu's Retro item is drawn here; the press writes nothing.
+    retro: async () => true,
     tune: (id, tuning) => {
       const now = id === MINE ? mine() : undefined;
       if (now !== undefined) {
@@ -624,6 +629,11 @@ const EVENTS: TimelineEvent[] = [
   event(22, quiet, "session.turn", "idle", "Replied"),
 ];
 
+/** MINE edits a file QUIET also changes: the header's clash, and the notice under it. */
+const CLASHES: readonly WriteClash[] = [
+  { one: { kind: "session", id: MINE, label: dispatched.title! }, other: { kind: "session", id: QUIET, label: quiet.title! }, paths: ["crates/store/src/migrations.rs"], since: ago(3) },
+];
+
 function build(): Scenario {
   const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
   const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, concerns, proposal", rows);
@@ -631,7 +641,7 @@ function build(): Scenario {
     ...base,
     state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
     held: pool(),
-    draft: { sessions, events: EVENTS, areas: () => mockAreas("/armada") },
+    draft: { sessions, clashes: CLASHES, events: EVENTS, areas: () => mockAreas("/armada") },
   };
 }
 

@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
+import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Alert,
   Button,
@@ -18,11 +19,11 @@ import {
   PilotExits,
   DockedTerminal,
   ProseTerminal,
-  RetroPress,
   Tooltip,
   Sheet,
   SessionComposer,
   SessionFrame,
+  type DropdownMenuEntry,
   SessionLedger,
   SessionList,
   SessionThread,
@@ -840,14 +841,19 @@ export function entriesOf(
 /** What Cleanup holds, read here for a slot's panel. */
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
+/** An act in the header's menu: its glyph, its label and what it does. */
+export type DeckAct = { id: string; label: string; icon: LucideIcon; run: () => void };
+
 /**
  * What the flight deck changes in a Session it draws on its stage: its own acts beside the Session's, and the ledger drawn where
  * the deck keeps it, in the right column, and not beside the thread. There the ledger is always up, so the fold below the
  * breakpoint and the button that hides it are not drawn.
  */
 export type DeckSession = {
-  /** The deck's acts, after the ones the Sessions window draws: the pull request, Stop, Open and the way back. */
-  acts: ReactNode;
+  /** The deck's acts, first in the header's menu: Open the Session page and Stop. */
+  acts: readonly DeckAct[];
+  /** The way back, the header's far right item. */
+  back: ReactNode;
   /** The element the ledger is drawn into. Absent until the deck has drawn it, and the ledger waits for it. */
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
@@ -1010,25 +1016,24 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
+        menu={{
+          entries: [
+            ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),
+            ...(draft.fork === undefined || session.dead === undefined ? [] : [{ kind: "item", id: "fork", label: "Fork", icon: GitFork } as const]),
+            ...(retro.press === undefined ? [] : [{ kind: "item", id: "retro", label: retro.writing.has(session.id) ? "Writing the retro" : "Retro", icon: Rewind, disabled: retro.writing.has(session.id) } as const]),
+            ...(draft.close === undefined || session.dead !== undefined ? [] : [{ kind: "separator", id: "end-rule" } as const, { kind: "item", id: "end", label: "End session", icon: PowerOff, danger: true } as const]),
+          ],
+          onSelect: (id) => {
+            if (id === "fork") opening(draft.fork!(session.id), onOpen);
+            else if (id === "retro") retro.press?.(session, true);
+            else if (id === "end") draft.close?.(session.id);
+            else deck?.acts.find((one) => one.id === id)?.run();
+          },
+        }}
+        {...(deck === undefined ? {} : { back: deck.back })}
         {...{
               actions: (
                 <>
-                  {draft.fork === undefined || session.dead === undefined ? null : (
-                    <Tooltip label="Start a new Session with this one's conversation">
-                      <Button variant="ghost" size="sm" onClick={() => opening(draft.fork!(session.id), onOpen)}>
-                        Fork
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session, true)} />}
-                  {draft.close === undefined || session.dead !== undefined ? null : (
-                    <Tooltip label="End session">
-                      <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
-                        <PowerOff size={16} strokeWidth={2} aria-hidden />
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {deck?.acts}
                   {deck !== undefined ? null : narrow ? (
                     <Tooltip label="Open what this Session holds">
                       <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
