@@ -386,7 +386,10 @@ where
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
                     // Nothing to decide: sending it is his, and it stays on the list for the morning.
-                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done => continue,
+                    // A plan is his to approve, so it waits the same way.
+                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan => {
+                        continue
+                    }
                     WaitingSource::Permission => {
                         self.leave(row("blocked", id, who.clone(), item.text.clone())).await?;
                     }

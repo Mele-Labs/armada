@@ -78,6 +78,7 @@ mod roundtrip;
 mod session_checks;
 mod sent_back;
 mod session_ledger;
+mod session_plan;
 mod settings_file;
 mod showing;
 mod signers;

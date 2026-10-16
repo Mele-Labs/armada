@@ -63,6 +63,8 @@ pub(crate) struct RunEnd {
 enum Written {
     Message(SessionVoice),
     Ran(RunEnd),
+    /// A row of the caller's own, in place of a message: the words are still what the agent is sent.
+    Row(SessionRow),
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
@@ -688,6 +690,17 @@ where
         self.fleet_word(session, text, false, None).await
     }
 
+    /// [`Self::told_by_fleet`] where a hosted thread keeps `row` in place of Fleet's message, so what the
+    /// person did is drawn once, as itself.
+    pub(crate) async fn told_by_fleet_as(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        row: SessionRow,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, Some(Written::Row(row))).await
+    }
+
     /// [`Self::told_by_fleet`] for a run that ended. **A hosted thread keeps a `ran` row** in place
     /// of Fleet's message, and the agent is sent the same words; a terminal Session's thread is
     /// not Fleet's to write, so it holds the words as it holds any other.
@@ -697,7 +710,7 @@ where
         text: &str,
         ran: RunEnd,
     ) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, false, Some(ran)).await
+        self.fleet_word(session, text, false, Some(Written::Ran(ran))).await
     }
 
     /// [`Self::told_by_fleet`] for news that asks the agent for nothing: a pull request merged, a
@@ -716,7 +729,7 @@ where
         session: &str,
         text: &str,
         news: bool,
-        ran: Option<RunEnd>,
+        kept: Option<Written>,
     ) -> Result<bool, Refusal> {
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
@@ -729,8 +742,8 @@ where
                 super::terminal::LISTENING_FOR,
             ));
         }
-        let (kept, _) = self.session_and_hosting(session).await?;
-        if kept.state == store::SessionState::Ended {
+        let (held, _) = self.session_and_hosting(session).await?;
+        if held.state == store::SessionState::Ended {
             return Ok(false);
         }
         let sent = SendSessionMessage {
@@ -739,8 +752,8 @@ where
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        let written = match ran {
-            Some(ran) => Written::Ran(ran),
+        let written = match kept {
+            Some(kept) => kept,
             None => Written::Message(SessionVoice::Session {
                 id: FLEET_NAME.to_lowercase(),
                 title: FLEET_NAME.to_string(),
@@ -802,6 +815,7 @@ where
                 files: kept.files.clone(),
                 tags: sent.mentions.clone(),
             },
+            Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
                 id: self.row_id(&id),
                 at: now,
