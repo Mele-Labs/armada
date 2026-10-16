@@ -112,7 +112,7 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
   );
 }
 
-/** Ideas saved to start later, a group at the head of the list. A row starts the idea on ↵ or on its play press, and Remove lets it go. */
+/** Ideas saved to start later, a group at the head of the list. A row starts the idea on ↵ (a click with no pointer) or on its play press, never on a mouse click on its words, and Remove lets it go. */
 function Queued({ picked }: { picked: RepositorySummary | null }) {
   const draft = useSessionsDraft();
   const ideas = queuedIn(useQueued(), picked);
@@ -132,7 +132,7 @@ function Queued({ picked }: { picked: RepositorySummary | null }) {
           const title = idea.text.trim().split("\n")[0] ?? "";
           return (
             <li key={key} className="deck-list__item">
-              <button type="button" className="deck-row" data-row={key} data-queued data-cursor={cursor === key || undefined} data-hover={hover === key || undefined} aria-label={title} onClick={() => start(idea.id)} onFocus={() => (moveCursor(key), setHover(key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(undefined)}>
+              <button type="button" className="deck-row" data-row={key} data-queued data-cursor={cursor === key || undefined} data-hover={hover === key || undefined} aria-label={title} onClick={(event) => event.detail === 0 && start(idea.id)} onFocus={() => (moveCursor(key), setHover(key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(undefined)}>
                 <Tooltip label="Queued">
                   <span className="deck-row__kind" role="img" aria-label="Queued">
                     <CircleDashed size={14} aria-hidden="true" />
