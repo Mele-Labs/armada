@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
 import {
   Alert,
+  BACKGROUND,
   Button,
   ChipOwnership,
   ForkedFrom,
@@ -65,6 +66,7 @@ import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
+import { backgroundEntryOf } from "./session-background";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
@@ -482,7 +484,7 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
+export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
 
 export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
   open === undefined || open.kind === "steps"
@@ -578,13 +580,16 @@ export function ReadingSheet({
         ? `Sketch ${one.title}`
         : one.kind === "subagent"
           ? `Subagent ${one.task}`
-          : one.kind === "artifact"
-            ? one.title
-            : "";
+          : one.kind === "background"
+            ? one.task
+            : one.kind === "artifact"
+              ? one.title
+              : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   // The agent's sketch is a scene, which wants the width.
   const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
-  const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
+  const background = one?.kind === "background" ? one : undefined;
+  const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
   return (
     <Sheet
       kind="session-reading"
@@ -593,7 +598,7 @@ export function ReadingSheet({
       floor={floor}
       title={title}
       {...(drawnByAgent ? { size: "wide" as const } : {})}
-      bleed={artifact !== undefined || one?.kind === "subagent" || drawnByAgent}
+      bleed={artifact !== undefined || background !== undefined || one?.kind === "subagent" || drawnByAgent}
       {...(Glyph === undefined ? {} : { leading: <Glyph size={16} strokeWidth={2} aria-hidden /> })}
       {...(artifact !== undefined && isAddress(artifact.form)
         ? {
@@ -621,6 +626,9 @@ export function ReadingSheet({
         )
       ) : one?.kind === "subagent" ? (
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
+      ) : one?.kind === "background" ? (
+        // The output is a file the agent's shell wrote, read as an artifact file is.
+        <ArtifactBody draft={draft} sessionId={sessionId} form="file" id={one.output} title={one.task} onClose={onClose} />
       ) : one?.kind === "artifact" ? (
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
@@ -824,6 +832,8 @@ export function entriesOf(
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
       case "sketch":
         return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read({ kind: "sketch", id: one.id }) };
+      case "background":
+        return backgroundEntryOf(one, () => read({ kind: "background", id: one.id }));
       case "artifact":
         return {
           key: one.id,

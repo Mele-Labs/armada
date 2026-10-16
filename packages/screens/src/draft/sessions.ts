@@ -72,6 +72,25 @@ export type SessionAttachment =
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
   /**
+   * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
+   * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
+   * its output is written to, read as an artifact file is. `exit` is present once a `done` command ended.
+   * **Stopped is a command the agent or a person killed**, which has no exit of its own.
+   */
+  | {
+      kind: "background";
+      id: string;
+      form: "command" | "monitor";
+      task: string;
+      command: string;
+      /** RFC 3339 instants. */
+      started: string;
+      ended?: string;
+      state: "running" | "done" | "stopped";
+      exit?: number;
+      output: string;
+    }
+  /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.

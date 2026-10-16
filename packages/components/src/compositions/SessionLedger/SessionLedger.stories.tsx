@@ -31,6 +31,8 @@ const ENTRIES: LedgerEntry[] = [
   { key: "st", kind: "studio", name: "Studio Flaky store shapes", text: "Flaky store shapes", onOpen: open },
   { key: "k", kind: "sketch", name: "Sketch Store clock", text: "Store clock", onOpen: open },
   { key: "a", kind: "subagent", name: "Subagent Read the CI history, running", text: "Read the CI history", mark: { glyph: "running", said: "Running" }, onOpen: open },
+  { key: "bg1", kind: "background", background: "command", name: "Background command Serve the Bridge mock from slot 6, running", text: "Serve the Bridge mock from slot 6", mark: { glyph: "running", said: "Running" }, onOpen: open },
+  { key: "bg2", kind: "background", background: "monitor", name: "Monitor Watch the CI run, running", text: "Watch the CI run", mark: { glyph: "running", said: "Running" }, onOpen: open },
   { key: "ar1", kind: "artifact", artifact: "page", name: "Published page Store clock findings", text: "Store clock findings", onOpen: open },
   { key: "ar2", kind: "artifact", artifact: "file", name: "File written clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar4", kind: "artifact", artifact: "image", name: "Looked at clock-trace.png", text: "clock-trace.png", onOpen: open },

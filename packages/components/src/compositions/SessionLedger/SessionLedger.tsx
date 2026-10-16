@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2, Unplug } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -30,13 +30,16 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork" | "start";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
+/** What a background row is: a shell command the agent ran in the background, or a monitor it set to watch. */
+export type BackgroundForm = "command" | "monitor";
+
 /** A hue a ledger row or a card's fact carries: the Checks or the turn it stands for, never a chosen colour. */
-export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted";
+export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted" | "stopped";
 
 /**
  * What hovering or focusing a row shows beside it: what the row is, one fact a line. **Built by the host
@@ -90,6 +93,8 @@ export type LedgerEntry = {
   card?: SessionLedgerCard;
   /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
+  /** Which of the two a `background` row is, and so its glyph and what its tooltip names. */
+  background?: BackgroundForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
   /** Came with a Job a person piloted: handed over, not leased. */
@@ -99,7 +104,7 @@ export type LedgerEntry = {
   /** The slot a Job or a branch stands in, as a chip at the row's end. */
   slot?: number;
   /**
-   * Done with: a merged pull request, an ended Job, a finished subagent. Such a row is drawn only
+   * Done with: a merged pull request, an ended Job, a finished subagent, an ended background command. Such a row is drawn only
    * under **All**, and a section that holds one gets the `Open | All` toggle.
    */
   finished?: boolean;
@@ -159,6 +164,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
+  { kind: "background", label: "Background", Glyph: Terminal },
   { kind: "artifact", label: "Artifacts", Glyph: Files },
   { kind: "fork", label: "Forks", Glyph: MoveRight },
   { kind: "start", label: "Started", Glyph: CornerUpRight },
@@ -173,6 +179,12 @@ export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }>
   window: { Glyph: AppWindow, said: "Shown in a window" },
 };
 
+/** The glyphs of a background row, and what each one's tooltip names. */
+export const BACKGROUND: Record<BackgroundForm, { Glyph: LucideIcon; said: string }> = {
+  command: { Glyph: Terminal, said: "Background command" },
+  monitor: { Glyph: Radar, said: "Monitor" },
+};
+
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   pending: ShieldEllipsis,
   passed: ShieldCheck,
@@ -181,6 +193,7 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   done: Check,
   escalated: Megaphone,
   piloted: Terminal,
+  stopped: Power,
 };
 
 type Show = "open" | "all";
@@ -470,10 +483,11 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             </li>
           );
         }
-        const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
+        // A command that exited badly is no gate failing, so it takes the cross and not the shield.
+        const Mark = row.mark === undefined ? undefined : row.kind === "background" && row.mark.glyph === "failed" ? X : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;
-        const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+        const form = row.artifact !== undefined ? ARTIFACT[row.artifact] : row.background !== undefined ? BACKGROUND[row.background] : undefined;
         const opener = (
           <button
             type="button"
