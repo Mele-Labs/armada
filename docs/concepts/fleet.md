@@ -604,8 +604,9 @@ a change an event announces shows in under three. What no event announces is a h
 another process changing the pool's size, and a branch deleted from under a free slot's commits.
 
 **A lease takes the slot's branch first and writes its record last** (16 Oct 2026). A made slot
-read in between has files and no record, so it reads as stranded with no holder. The record is
-watched so that read is corrected, and a slot lease or release Fleet enters on the timeline is
+read in between has files and no record, so it would read as stranded with no holder: a reading
+made while a take or a release holds the slot's lock says busy instead. The record is watched so
+the read after it is corrected, and a slot lease or release Fleet enters on the timeline is
 answered from a read begun after it: Bridge reads the list again on that fact and on nothing
 else, so a list from before it would stay on the screen.
 
