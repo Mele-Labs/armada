@@ -18,6 +18,12 @@ import { idOfName } from "./tools";
 /** How long an agent runs in the mock before it has read the pull request. */
 export const AGENT_MS = 2200;
 
+/** A pull request with the commit pushed to it since: its head moves, and the page lists it. */
+const withPush = (pr: ReviewPr, push: ReviewSeed["pushes"][string] | undefined): ReviewPr =>
+  push === undefined
+    ? pr
+    : { ...pr, head: push.sha, page: { ...pr.page, commits: [...pr.page.commits, { sha: push.sha, headline: push.headline, author: push.author, at: new Date().toISOString() }] } };
+
 const EMPTY: PrWork = { explain: { state: "idle" }, view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
 
 export type ToolIn = { name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
@@ -38,6 +44,8 @@ export type ReviewStore = {
   setView: (key: string, view: View) => void;
   /** An agent reads the pull request and says what it does. Only where nobody of his wrote it. */
   explain: (key: string) => void;
+  /** Explains again, at the commit the pull request is at now. */
+  explainAgain: (key: string) => void;
   /** Runs a tool for this pull request, or shows what it found last time. Comments runs nothing. */
   runTool: (key: string, tool: ToolDef) => void;
   /** Asks a tool again, for this pull request. */
@@ -63,7 +71,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
   const timers = new Set<number>();
   const initialWork = (pr: ReviewPr): PrWork => ({
     ...EMPTY,
-    explain: pr.explainedBy === "session" ? { state: "done", at: Date.now() } : { state: "idle" },
+    explain: pr.explainedBy === "session" ? { state: "done", at: Date.now(), head: pr.head } : { state: "idle" },
     threads: pr.threads,
     review: pr.page.review,
   });
@@ -90,11 +98,13 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
 
   const arrive = () => {
     const kept = snapshot.work;
+    // A commit pushed since he first read the list arrives with the second read.
+    const prs = snapshot.fetchedAt === undefined ? seed.prs : seed.prs.map((one) => withPush(one, seed.pushes[one.key]));
     set({
-      prs: seed.prs,
+      prs,
       fetchedAt: Date.now(),
       fetching: false,
-      work: Object.fromEntries(seed.prs.map((one) => [one.key, kept[one.key] ?? initialWork(one)])),
+      work: Object.fromEntries(prs.map((one) => [one.key, kept[one.key] ?? initialWork(one)])),
     });
   };
 
@@ -104,12 +114,13 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     timers.add(
       window.setTimeout(() => {
         const hits = seed.finds.find((one) => new RegExp(one.when, "i").test(words))?.hits ?? [];
-        setFind(id, { run: { state: "done", at: Date.now() }, hits });
+        setFind(id, { run: { state: "done", at: Date.now(), head: "" }, hits });
       }, AGENT_MS + 600),
     );
   };
 
   const start = (key: string, tool: ToolDef) => {
+    const head = prOf(key)?.head ?? "";
     change(key, {
       view: tool.id,
       runs: { ...work(key).runs, [tool.id]: { state: "running", since: Date.now() } },
@@ -118,7 +129,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     timers.add(
       window.setTimeout(() => {
         const found: Finding[] = (seed.results[key]?.[tool.id] ?? []).map((one) => ({ id: nextId("f"), tool: tool.id, ...one, dismissed: false, sent: false }));
-        change(key, { runs: { ...work(key).runs, [tool.id]: { state: "done", at: Date.now() } }, findings: [...work(key).findings, ...found] });
+        change(key, { runs: { ...work(key).runs, [tool.id]: { state: "done", at: Date.now(), head } }, findings: [...work(key).findings, ...found] });
       }, AGENT_MS),
     );
   };
@@ -156,7 +167,14 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
       const pr = prOf(key);
       if (pr === undefined || pr.explainedBy === "session" || work(key).explain.state !== "idle") return;
       change(key, { explain: { state: "running", since: Date.now() } });
-      timers.add(window.setTimeout(() => change(key, { explain: { state: "done", at: Date.now() } }), AGENT_MS));
+      timers.add(window.setTimeout(() => change(key, { explain: { state: "done", at: Date.now(), head: pr.head } }), AGENT_MS));
+    },
+    explainAgain: (key) => {
+      const pr = prOf(key);
+      if (pr === undefined || pr.explainedBy === "session" || work(key).explain.state !== "done") return;
+      const head = pr.head;
+      change(key, { explain: { state: "running", since: Date.now() } });
+      timers.add(window.setTimeout(() => change(key, { explain: { state: "done", at: Date.now(), head } }), AGENT_MS));
     },
     runTool: (key, tool) => {
       if (!tool.agent) return change(key, { view: tool.id });

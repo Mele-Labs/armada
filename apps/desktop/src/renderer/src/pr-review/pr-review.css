@@ -102,7 +102,7 @@
   border-style: dashed;
   border-color: var(--border-strong);
   background:
-    repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg-default) 5%, transparent) 0 var(--space-1), transparent var(--space-1) var(--space-3)),
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg-default) 2%, transparent) 0 var(--space-1), transparent var(--space-1) var(--space-3)),
     var(--bg-raised);
 }
 
@@ -221,3 +221,49 @@
 .pr-bare { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .pr-change__title[data-mono] { font-family: var(--font-mono); font-size: var(--text-xs); }
 .pr-change[data-bare] .pr-change__n { display: none; }
+
+/* ---- Colour where it carries meaning ------------------------------------------------------------------------ */
+
+/* Each tool has a hue, and its tile, its results and its findings share it. Existing status and accent tokens only. */
+[data-tool="risks"] { --tool-hue: var(--status-awaiting-review); }
+[data-tool="bugs"] { --tool-hue: var(--status-completed-failed); }
+[data-tool="breaks"] { --tool-hue: var(--status-escalated); }
+[data-tool="comments"] { --tool-hue: var(--accent); }
+[data-tool="custom"] { --tool-hue: var(--status-handed-in); }
+[data-tool="custom"][data-source="repository"] { --tool-hue: var(--status-rejected); }
+
+.pr-tool > svg:first-child { color: var(--tool-hue, currentColor); }
+.pr-tool { box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), inset 0 calc(var(--border-width) * -3) 0 color-mix(in srgb, var(--tool-hue, transparent) 60%, transparent); }
+.pr-tool[aria-pressed="true"] { border-color: var(--tool-hue, var(--accent)); background: color-mix(in srgb, var(--tool-hue, var(--accent)) 14%, transparent); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), inset 0 calc(var(--border-width) * -3) 0 var(--tool-hue, var(--accent)), 0 0 var(--space-3) color-mix(in srgb, var(--tool-hue, var(--accent)) 35%, transparent); }
+.pr-hued .armada-pr-mark,
+.pr-results__head > .armada-pr-mark:first-of-type { color: var(--tool-hue); }
+.pr-results[data-tool] .pr-results__head .armada-pr-mark:first-of-type { color: var(--tool-hue); }
+.pr-results[data-tool] .pr-results__title { color: var(--tool-hue); }
+
+/* A finding takes its tool's hue as a weighted left edge, over the quieter hatching. */
+.pr-results .pr-finding { border-left: var(--space-1) solid var(--tool-hue); }
+
+/* Where a source is: Armada's is plain, the Kit's teal, the repository's violet. */
+.pr-tool__source[data-source="kit"] { color: var(--status-handed-in); opacity: 1; }
+.pr-tool__source[data-source="repository"] { color: var(--status-rejected); opacity: 1; }
+
+/* A theme's number, and the spine its changes hang on, share one of five hues in order. */
+.pr-theme { --theme-hue: var(--accent); }
+.pr-theme[data-hue="1"] { --theme-hue: var(--status-running); }
+.pr-theme[data-hue="2"] { --theme-hue: var(--status-completed-success); }
+.pr-theme[data-hue="3"] { --theme-hue: var(--status-rejected); }
+.pr-theme[data-hue="4"] { --theme-hue: var(--status-awaiting-review); }
+.pr-theme__n { background: color-mix(in srgb, var(--theme-hue) 22%, transparent); box-shadow: inset 0 0 0 var(--border-width) var(--theme-hue); }
+.pr-theme__changes { border-left-color: color-mix(in srgb, var(--theme-hue) 55%, transparent); }
+.pr-change__n { box-shadow: 0 0 0 var(--border-width) var(--theme-hue); color: var(--theme-hue); }
+
+/* Who wrote an explanation: a Session in the accent, an agent in violet. */
+.pr-what__source[data-by="session"] { color: var(--accent); }
+.pr-what__source[data-by="agent"] { color: var(--status-rejected); }
+.pr-what__source { display: inline-flex; }
+
+/* A kept result: a small glyph on the tile, and amber once a newer commit has made it out of date. */
+.pr-tool__kept { position: absolute; top: var(--space-1); left: calc(var(--space-4) + var(--space-1)); display: inline-flex; color: var(--fg-subtle); }
+.pr-tool[data-stale] .pr-tool__kept,
+.pr-results__stale .armada-pr-mark { color: var(--status-awaiting-review); }
+.pr-results__stale { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }

@@ -115,6 +115,7 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     address: `${FORGE}/${spec.repository}/pull/${spec.number}`,
     draft: false,
     checks: spec.checks,
+    head: spec.commits.at(-1)?.sha ?? "",
     tab: spec.tab,
     ...(spec.holder === undefined ? {} : { holder: spec.holder }),
     body: spec.body,
@@ -1160,6 +1161,9 @@ export function reviewSeed(): ReviewSeed {
     prs: all.map((one) => one.pr),
     tools: { armada: armadaTools, kit: kitTools, repository: repositoryTools },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
+    pushes: {
+      [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "claude" },
+    },
     finds: [
       {
         when: "touch.*files.*touched|files i.?ve (touched|changed)",

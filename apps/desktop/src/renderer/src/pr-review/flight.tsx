@@ -6,8 +6,8 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { LoaderCircle, SquarePlus } from "lucide-react";
-import { Button, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
+import { Button, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
@@ -59,17 +59,28 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
           const run = work.runs[tool.id];
           const running = run?.state === "running";
           const blocked = pr === undefined;
+          const kept = run?.state === "done" && tool.agent ? run : undefined;
+          // A result is kept for the commit it ran on. A newer commit marks it out of date, and it is still shown.
+          const stale = kept !== undefined && pr !== undefined && kept.head !== pr.head;
           const mark = TOOL_MARK[tool.mark];
           const source = SOURCE_MARK[tool.source];
           return (
             <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-source={tool.source} onClick={() => press(tool)}>
+              <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-stale={stale || undefined} onClick={() => press(tool)}>
                 {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
                   {at + 1}
                 </Kbd>
-                <span className="pr-tool__source">
+                {kept === undefined ? null : (
+                  <span className="pr-tool__kept">
+                    <PrMark
+                      Glyph={stale ? RefreshCw : History}
+                      said={stale ? `Out of date. Ran on ${kept.head.slice(0, 7)}, the pull request is at ${pr!.head.slice(0, 7)}` : `Kept. Ran ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+                    />
+                  </span>
+                )}
+                <span className="pr-tool__source" data-source={tool.source}>
                   <PrMark Glyph={source.Glyph} said={tool.replaces === undefined ? source.said : `${source.said}. Replaces ${WHOSE[tool.replaces]} ${tool.name}`} />
                 </span>
               </button>

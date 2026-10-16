@@ -160,7 +160,9 @@ export function FindingCard({ finding, mark, session, onDismiss, onSend }: { fin
     <article className="pr-finding" aria-label={`Finding: ${finding.title}`} data-finding={finding.id}>
       <header className="pr-card__head">
         <ArmadaMark />
-        <PrMark Glyph={kind.Glyph} said={kind.said} />
+        <span className="pr-hued" data-tool={mark}>
+          <PrMark Glyph={kind.Glyph} said={kind.said} />
+        </span>
         <b className="pr-card__who">{finding.title}</b>
         <span className="pr-card__act">
           <Tooltip label="Dismiss">

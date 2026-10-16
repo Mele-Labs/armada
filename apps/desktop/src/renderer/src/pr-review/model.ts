@@ -92,7 +92,8 @@ export type Verdict = "comment" | "approve" | "request_changes";
 export type Submission = { verdict: Verdict; body: string; comments: number; at: string; told?: string };
 
 /** A run of an agent: asked for, underway, or read. */
-export type AgentRun = { state: "idle" } | { state: "running"; since: number } | { state: "done"; at: number };
+/** **A finished run is kept** for the commit it ran on: pressing again shows it with no run, and only Run again spends one. */
+export type AgentRun = { state: "idle" } | { state: "running"; since: number } | { state: "done"; at: number; head: string };
 
 export type ReviewPr = {
   /** `owner/name#number`. */
@@ -106,6 +107,8 @@ export type ReviewPr = {
   address: string;
   draft: boolean;
   checks: "passed" | "failed" | "running";
+  /** The commit the branch is at, as the forge last said. A run's result is kept for the commit it ran on. */
+  head: string;
   /** Which list it is on: someone asked for his review, or an agent of his opened it. */
   tab: PrTab;
   /** The Session that holds it, where one of his does. */
@@ -142,6 +145,8 @@ export type ReviewSeed = {
   /** What each tool comes to, by pull request. A tool with none for a pull request reads clean. */
   results: Readonly<Record<string, Readonly<Record<string, readonly FindingSeed[]>>>>;
   finds: readonly FindSeed[];
+  /** A commit pushed to a pull request after he first read the list: the next fetch brings it, and results kept for the old head fall out of date. */
+  pushes: Readonly<Record<string, { sha: string; headline: string; author: string }>>;
 };
 
 /** What the stage is showing: the explanation, a page of the forge's, or a tool's results. */

@@ -2,7 +2,7 @@
 // change's own title, with the hunk one press away. Armada's alone, hatched, and never posted. Where a Session of his
 // holds the pull request, a finding can be sent to it. A way back to the overview is always at the head.
 
-import { ArrowLeft, Check, LoaderCircle, RotateCw } from "lucide-react";
+import { ArrowLeft, Check, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
 import { Button, PrMark, Tooltip } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
@@ -16,11 +16,12 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const run = work.runs[tool.id];
   const running = run?.state === "running";
+  const stale = run?.state === "done" && run.head !== pr.head;
   const mine = work.findings.filter((one) => one.tool === tool.id && !one.dismissed);
   const mark = TOOL_MARK[tool.mark];
   const source = SOURCE_MARK[tool.source];
   return (
-    <div className="pr-results" aria-label={`${tool.name} results`} role="region">
+    <div className="pr-results" aria-label={`${tool.name} results`} role="region" data-tool={tool.mark} data-source={tool.source}>
       <header className="pr-results__head">
         <Tooltip label="Back to the overview">
           <Button variant="ghost" size="sm" iconOnly aria-label="Back to the overview" onClick={() => store.setView(pr.key, "explanation")}>
@@ -38,6 +39,12 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
           </Tooltip>
         </span>
       </header>
+      {run?.state === "done" && stale ? (
+        <p className="pr-results__stale" role="note" aria-label="Ran on an older commit">
+          <PrMark Glyph={RefreshCw} said="Out of date" />
+          {`Ran on ${run.head.slice(0, 7)}. The pull request is at ${pr.head.slice(0, 7)}.`}
+        </p>
+      ) : null}
       {running ? (
         <p className="pr-results__running">
           <span className="pr-review__mark" data-checks="running">

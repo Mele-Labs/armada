@@ -5,7 +5,7 @@
 // at its head. **Where the explanation comes from**: a Session of his that wrote the pull request knows why, so it is
 // there at open; on anybody else's, an agent writes it when he presses Explain.
 
-import { Bot, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
+import { Bot, ExternalLink, GitPullRequest, RefreshCw, SquareTerminal } from "lucide-react";
 import { Badge, Button, DiffSize, PrChecks, PrCommits, Prose, PrMark, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
@@ -128,6 +128,9 @@ function Explanation({ pr, send }: { pr: ReviewPr; send: ReturnType<typeof useSe
   const explained = work.explain.state === "done";
   const running = work.explain.state === "running";
   const by = pr.explainedBy === "session" ? { Glyph: SquareTerminal, said: "Written by the Session that made this pull request" } : { Glyph: Bot, said: "Explained by an agent when you pressed Explain" };
+  const kept = work.explain.state === "done" ? work.explain : undefined;
+  // An agent's explanation is kept for the commit it read. A newer commit leaves it standing, marked, with Explain again as the act.
+  const stale = pr.explainedBy === "agent" && kept !== undefined && kept.head !== pr.head;
   return (
     <div className="pr-explain">
       <section className="pr-what pr-desc" aria-label="Description">
@@ -150,7 +153,17 @@ function Explanation({ pr, send }: { pr: ReviewPr; send: ReturnType<typeof useSe
           <section className="pr-what" aria-label="What this does">
             <header className="pr-what__head">
               <h3 className="pr-what__title">What this does</h3>
-              <PrMark Glyph={by.Glyph} said={by.said} />
+              <span className="pr-what__source" data-by={pr.explainedBy}>
+                <PrMark Glyph={by.Glyph} said={kept === undefined || pr.explainedBy === "session" ? by.said : `${by.said}, ${agoOf(new Date(kept.at).toISOString())}, on ${kept.head.slice(0, 7)}`} />
+              </span>
+              {stale ? (
+                <span className="pr-what__acts">
+                  <PrMark Glyph={RefreshCw} said={`Out of date. Explained on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}`} />
+                  <Button variant="ghost" size="sm" onClick={() => store.explainAgain(pr.key)}>
+                    Explain again
+                  </Button>
+                </span>
+              ) : null}
             </header>
             <Prose text={pr.explanation.summary} />
           </section>

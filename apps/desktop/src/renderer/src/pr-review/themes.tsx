@@ -26,7 +26,7 @@ export function ThemeBlock({ pr, theme, number, mode, tool, send, quiet }: { pr:
   const changes = quiet === undefined ? theme.changes : theme.changes.filter((one) => !quiet(one));
   if (changes.length === 0) return null;
   return (
-    <section className="pr-theme" aria-label={`Theme: ${theme.title}`}>
+    <section className="pr-theme" aria-label={`Theme: ${theme.title}`} data-hue={(number - 1) % 5}>
       <header className="pr-theme__head">
         <span className="pr-theme__n mono">{number}</span>
         <h3 className="pr-theme__title">{theme.title}</h3>
@@ -118,7 +118,9 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
         </h4>
         <span className="pr-change__marks">
           {marked.map((one) => (
-            <PrMark key={one} Glyph={TOOL_MARK[one].Glyph} said={TOOL_MARK[one].said} />
+            <span key={one} className="pr-hued" data-tool={one}>
+              <PrMark Glyph={TOOL_MARK[one].Glyph} said={TOOL_MARK[one].said} />
+            </span>
           ))}
           {open ? <PrMark Glyph={MessageSquare} said="Open comments" /> : null}
         </span>

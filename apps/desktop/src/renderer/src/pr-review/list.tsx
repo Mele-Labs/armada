@@ -6,7 +6,7 @@
 // since a Drone looking costs, and again only when he asks for it again.
 
 import { useEffect, useState } from "react";
-import { Check, LoaderCircle, RotateCw, X } from "lucide-react";
+import { Check, History, LoaderCircle, RotateCw, X } from "lucide-react";
 import { Button, DropdownMenu, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
@@ -162,6 +162,7 @@ function FindHead({ find }: { find: Find }) {
       ) : find.hits.length === 0 ? (
         <PrMark Glyph={Check} said="Nothing found" tone="success" />
       ) : null}
+      {find.run.state === "done" ? <PrMark Glyph={History} said={`Kept. Ran ${agoOf(new Date(find.run.at).toISOString())}`} /> : null}
       <span className="pr-find__acts">
         <Tooltip label="Run again">
           <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.rerunFind(find.id)}>
