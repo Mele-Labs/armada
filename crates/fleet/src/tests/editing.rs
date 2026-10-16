@@ -246,6 +246,7 @@ async fn a_fleet_refuses_a_moved_save_with_the_disk_on_the_refusal_and_admits_an
             },
             &fleet.first(),
         )
+        .await
         .expect_err("a save over a file that moved is refused");
     assert_eq!(refused.status(), 409, "a conflict, not a fault");
     assert_eq!(refused.error().code, "fleet.manifest_moved_under_the_edit");
@@ -267,6 +268,7 @@ async fn a_fleet_refuses_a_moved_save_with_the_disk_on_the_refusal_and_admits_an
             },
             &fleet.first(),
         )
+        .await
         .expect("a save over the text it read lands");
     assert_eq!(saved.path, reopened.path, "one file, spelled one way");
     assert_eq!(
