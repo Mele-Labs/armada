@@ -211,6 +211,28 @@
   color: var(--error);
 }
 
+/* Autoplay stopped before a step that acts on a page off this machine: Next is the key waited on. */
+.armada-capture-bar__walk .armada-button[data-waiting] {
+  animation: armada-capture-bar-waiting 1.2s ease-in-out infinite;
+}
+
+@keyframes armada-capture-bar-waiting {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-capture-bar__walk .armada-button[data-waiting] {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
 .armada-capture-bar__walk-said {
   flex: 1 1 auto;
   min-width: 0;

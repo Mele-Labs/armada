@@ -298,6 +298,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                           shown: !state.walk.guide.folded,
                           onShow: (shown: boolean) => void api.walkGuide(shown),
                           ...(state.walk.guide.stopped === undefined ? {} : { stopped: state.walk.guide.stopped }),
+                          ...(state.walk.guide.waiting === true ? { waiting: true } : {}),
                         },
                 },
               })}

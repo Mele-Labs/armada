@@ -25,7 +25,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onAnyOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
+import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
@@ -898,6 +898,7 @@ export class CaptureWindow {
         if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
       },
       open: () => this.open && this.serving,
+      guarded: () => loopbackOrigin(this.pin.origin) === null,
     });
   }
 

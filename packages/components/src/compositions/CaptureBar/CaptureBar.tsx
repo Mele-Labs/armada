@@ -131,9 +131,11 @@ export type CaptureBarWalk = {
   /**
    * Present where Bridge plays the steps itself and draws the ring over the page. `shown` is whether
    * the ring is up, `onShow` puts it away or draws it again so the page can be used, and `stopped` names
-   * the target the step cannot find. **Absent: the page plays its own walk** and rings its own target.
+   * the target the step cannot find. `waiting` is Autoplay stopped before a step that acts on a page
+   * off this machine, so Next is what the walk waits on. **Absent: the page plays its own walk** and
+   * rings its own target.
    */
-  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string };
+  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string; waiting?: boolean };
 };
 
 /**
@@ -335,8 +337,14 @@ export function CaptureBar(props: CaptureBarProps) {
             </Switch>
           </Tooltip>
           <Kbd>A</Kbd>
-          <Tooltip label="Act on the ringed target and go on">
-            <Button variant="primary" size="sm" disabled={!walk.ready || walk.done} onClick={walk.onNext}>
+          <Tooltip label={walk.guide?.waiting === true ? "Autoplay stops before a step that acts on this page" : "Act on the ringed target and go on"}>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!walk.ready || walk.done}
+              onClick={walk.onNext}
+              {...(walk.guide?.waiting === true ? { "data-waiting": "" } : {})}
+            >
               Next
               <ChevronRight size={12} strokeWidth={2} aria-hidden />
             </Button>
