@@ -34,6 +34,7 @@ const HEARTBEAT_MS = 250;
 export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean; view?: unknown }) {
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
+  const slot = useRef<HTMLDivElement>(null);
   const line = useRef<SVGLineElement>(null);
   const dot = useRef<SVGCircleElement>(null);
 
@@ -49,16 +50,18 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
       const base = host.getBoundingClientRect();
       const from = boxOf(anchor);
       const el = card.current;
-      if (from !== undefined && el !== null && line.current !== null && dot.current !== null && root.current !== null) {
+      const moves = slot.current;
+      if (from !== undefined && el !== null && moves !== null && line.current !== null && dot.current !== null && root.current !== null) {
         const a = { x: from.x - base.left, y: from.y - base.top, w: from.w, h: from.h };
         const put = placeCallout(a, { w: el.offsetWidth, h: el.offsetHeight }, { width: base.width, height: base.height });
         const key = [put.left, put.top, put.end.x, put.end.y, a.x, a.y].map((n) => Math.round(n)).join();
         if (key !== seen) {
           seen = key;
           moved = true;
-          el.style.transform = `translate(${put.left.toFixed(1)}px, ${put.top.toFixed(1)}px)`;
-          el.style.setProperty("--ox", `${(a.x - put.left).toFixed(1)}px`);
-          el.style.setProperty("--oy", `${(a.y - put.top).toFixed(1)}px`);
+          // On the wrapper, so the card's own entry animation is the only one on the card.
+          moves.style.transform = `translate(${put.left.toFixed(1)}px, ${put.top.toFixed(1)}px)`;
+          moves.style.setProperty("--ox", `${(a.x - put.left).toFixed(1)}px`);
+          moves.style.setProperty("--oy", `${(a.y - put.top).toFixed(1)}px`);
           line.current.setAttribute("x1", put.start.x.toFixed(1));
           line.current.setAttribute("y1", put.start.y.toFixed(1));
           line.current.setAttribute("x2", put.end.x.toFixed(1));
@@ -106,6 +109,7 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
           <circle ref={dot} r={2.5} />
         </g>
       </svg>
+      <div ref={slot} className="bf-callout__place">
       <div ref={card} className="bf-callout__card">
         <i className="bf-callout__glow" aria-hidden="true" />
         <div className="bf-callout__kind">{tip.label}</div>
@@ -160,6 +164,7 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
             ))}
           </svg>
         )}
+      </div>
       </div>
     </div>
   );
