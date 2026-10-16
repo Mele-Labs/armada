@@ -72,6 +72,7 @@ impl Rig {
                     outcome: PilotOutcome::TakeOver,
                 }),
                 fork: None,
+                request: None,
             })
             .await
     }
@@ -421,6 +422,7 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
             root: None,
             pilot: None,
             fork: None,
+            request: None,
         })
         .await
         .unwrap();

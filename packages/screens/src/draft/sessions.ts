@@ -222,6 +222,17 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `job`, `need`) and its target. */
+export type HeldRow = {
+  kind: string;
+  target: string;
+  /** A slot given back: the branch its work is on, and the WIP commit and files where something was uncommitted. */
+  saved?: { branch: string; commit?: string; files: readonly string[] };
+};
+
+/** What a release gave back or handed over, and what stayed with why. `to` is the Session handed them. */
+export type HoldsReleased = { to?: string; moved: readonly HeldRow[]; kept: readonly (HeldRow & { why: string })[] };
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -260,6 +271,8 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
+  /** The needs it holds standing, by repository-relative path and the words it declared each in. Absent is none. */
+  needs?: readonly { path: string; what: string }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
@@ -426,8 +439,10 @@ export type SessionsDraft = {
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
    * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
    * `root` is the repository it starts in; absent, the picked one, or the only one Fleet serves.
+   * `request` is the words the person dispatched with: Fleet reads them once to fill in the title, workflow,
+   * model and effort, and the Session starts on the answer without the press waiting for it.
    */
-  start: (tag?: SessionTag, root?: string) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string) => string | Promise<string | undefined>;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**
@@ -444,6 +459,13 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /**
+   * Gives back the slots, branches, pull requests, Jobs and needs a Session holds, or hands them to the live Session
+   * `to` of the same repository: the `rows` ticked, by the ledger's kind and target, or every one where absent. A
+   * running turn is stopped first where a slot is among them, and the Session stays live. Resolves to what moved and
+   * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
+   */
+  releaseHolds?: (id: string, to?: string, rows?: readonly { kind: string; target: string }[]) => Promise<HoldsReleased | undefined>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

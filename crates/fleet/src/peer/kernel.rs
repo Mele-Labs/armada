@@ -172,6 +172,10 @@ impl PeerOf for Kernel {
     fn children(&self, pid: u32) -> Vec<u32> {
         children_of(pid)
     }
+
+    fn executable(&self, pid: u32) -> Option<String> {
+        executable_of(pid)
+    }
 }
 
 /// `PROC_PPID_ONLY`, from `sys/proc_info.h`. Not in `libc`.
@@ -204,6 +208,22 @@ fn children_of(pid: u32) -> Vec<u32> {
         .filter_map(|child| u32::try_from(child).ok())
         .filter(|child| *child != 0)
         .collect()
+}
+
+/// The file `pid` is running, or `None` for a process that has gone or is not ours to ask about.
+pub(super) fn executable_of(pid: u32) -> Option<String> {
+    let mut path = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+    // SAFETY: the pointer is to `path`, live for this call, and the size handed over is that
+    // allocation's own; the kernel writes no more than it is told and answers how many bytes.
+    #[allow(unsafe_code)]
+    let written = unsafe {
+        libc::proc_pidpath(pid as libc::c_int, path.as_mut_ptr().cast::<c_void>(), path.len() as u32)
+    };
+    if written <= 0 {
+        return None;
+    }
+    path.truncate(written as usize);
+    String::from_utf8(path).ok()
 }
 
 /// Every socket file descriptor the process holds. Empty on any failure,

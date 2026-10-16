@@ -185,8 +185,15 @@ pub enum SessionFact {
     },
     /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
     /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    /// `by` is the id of the subagent that wrote them, absent for the session's own agent, and `act`
+    /// whether the call made the file or changed it; both feed the Field (`docs/concepts/session.md`,
+    /// *Who touched which file*).
     Touched {
         paths: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        by: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        act: Option<crate::session_plan::TouchAct>,
     },
     /// A file the session read, relative to its `cwd`. **A path and nothing else**, and only one under
     /// it. Counted for the Fleet's timeline (`docs/practices/protocol.md`, *The Fleet's timeline*).
@@ -546,6 +553,9 @@ pub enum WaitingSource {
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
     Done,
+    /// Fleet: the plan the agent recorded is not approved yet. Derived on every read: id
+    /// `plan:<version>`. It is settled by `approve_plan` or `send_plan_changes`.
+    Plan,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -761,6 +771,67 @@ pub struct SessionRecord {
     /// nothing Fleet observed. `docs/concepts/session.md`, *The build record*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<crate::session_build::SessionBuild>,
+    /// The workflow id the Session runs under. Absent is a custom Session, which is not a default
+    /// workflow. Hosted Sessions only. Since 23.91. `docs/concepts/session.md`, *A Session's proposal*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+    /// What the proposer did for this Session. Absent where it was never asked. Since 23.91.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<SessionProposal>,
+    /// The plan the agent recorded, with what Fleet saw of it carried out. Absent until it records
+    /// one. `docs/concepts/session.md`, *The plan*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<crate::session_plan::SessionPlan>,
+    /// The latest files the Session and its subagents wrote, newest last, for the Field. Absent
+    /// until one is seen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub touches: Vec<crate::session_plan::FileTouch>,
+}
+
+/// A value of a Session the proposer can pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProposedField {
+    Title,
+    Workflow,
+    Model,
+    Effort,
+}
+
+impl ProposedField {
+    /// The spelling Fleet keeps a list of them under.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            ProposedField::Title => "title",
+            ProposedField::Workflow => "workflow",
+            ProposedField::Model => "model",
+            ProposedField::Effort => "effort",
+        }
+    }
+
+    pub fn from_wire(spelling: &str) -> Option<ProposedField> {
+        [
+            ProposedField::Title,
+            ProposedField::Workflow,
+            ProposedField::Model,
+            ProposedField::Effort,
+        ]
+        .into_iter()
+        .find(|field| field.as_wire() == spelling)
+    }
+}
+
+/// The proposer's part in a Session. **Per field, and cleared by the person's own change**: a
+/// field in `picked` is a value the proposer chose and nobody has touched since, so Bridge marks
+/// it "Picked by the proposer"; changing it in a panel takes it out of the list.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionProposal {
+    /// The call is out. The Session exists and its process has not started, and Fleet starts it on
+    /// the answer. Held in memory: a Fleet that restarts reads nothing as reading.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reading: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub picked: Vec<ProposedField>,
 }
 
 /// `list_sessions`: the most recently seen first.

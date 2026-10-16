@@ -68,6 +68,7 @@ pub(super) async fn rig(judge: FakeJudge) -> (Arc<Hosted>, SessionId, TempDir) {
             root: None,
             pilot: None,
             fork: None,
+            request: None,
         })
         .await
         .expect("started")

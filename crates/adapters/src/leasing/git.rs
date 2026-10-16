@@ -6,11 +6,13 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn run(at: &Path, args: &[&str]) -> std::io::Result<Output> {
-    command(at, args).output()
+    command(Command::new("git"), at, args).output()
 }
 
-fn command(at: &Path, args: &[&str]) -> Command {
-    let mut command = Command::new("git");
+/// `git` for arguments, at `at`, with no prompt. Takes the command so a
+/// caller picks its priority: an act is at normal and a read is at utility,
+/// which is what `crate::background` is for.
+fn command(mut command: Command, at: &Path, args: &[&str]) -> Command {
     command
         .arg("-C")
         .arg(at)
@@ -24,7 +26,9 @@ fn command(at: &Path, args: &[&str]) -> Command {
 /// `git status` otherwise takes the index lock to refresh it, and an agent's
 /// `git commit` in the same slot is then refused for it.
 fn run_reading(at: &Path, args: &[&str]) -> std::io::Result<Output> {
-    command(at, args).env("GIT_OPTIONAL_LOCKS", "0").output()
+    command(crate::background::command("git"), at, args)
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .output()
 }
 
 /// What git printed, trimmed, or what it said when it refused.

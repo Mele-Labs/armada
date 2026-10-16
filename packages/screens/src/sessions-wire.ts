@@ -13,6 +13,7 @@ import { parseScene } from "@armada/components/src/compositions/SketchScene/scen
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
+import { share } from "./share";
 import type {
   Session,
   SessionActivity,
@@ -38,6 +39,8 @@ export type Beside = {
   pending: readonly SessionTag[];
   /** A repository as the picker names it, for the place a `sent` row says words went. Absent, the id stands. */
   repository?: (manifestId: string | undefined) => string;
+  /** Moves when something `picture` answers has changed without its identity doing so. */
+  epoch?: number;
 };
 
 /** What other sessions call a session: `s-` and the first eight characters of its id. */
@@ -481,6 +484,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
   );
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
+  const needs = ended ? [] : record.attachments.filter((one) => one.kind === "need" && one.state === "standing").map((one) => ({ path: one.target, what: one.detail?.["what"] ?? "" }));
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
@@ -499,6 +503,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
+    ...(needs.length === 0 ? {} : { needs }),
     trail: trailOfRecord(record),
     rows: thread,
     turn:
@@ -568,10 +573,41 @@ export function sessionsOfRecords(
   threads: Readonly<Record<string, readonly WireRow[]>>,
   beside: (id: string) => Beside,
   now: number = Date.now(),
+  memo?: SessionMemo,
 ): Session[] {
   const since = now - ENDED_LISTED_DAYS * 24 * 60 * 60 * 1000;
   return records.map((one) => {
-    const session = sessionOfRecord(one, threads[one.id], beside(one.id));
-    return one.state === "ended" && Date.parse(one.last_seen_at) < since ? { ...session, older: true as const } : session;
+    const old = one.state === "ended" && Date.parse(one.last_seen_at) < since;
+    const build = (): Session => {
+      const session = sessionOfRecord(one, threads[one.id], beside(one.id));
+      return old ? { ...session, older: true as const } : session;
+    };
+    return memo === undefined ? build() : memo.of(one, threads[one.id], beside(one.id), old, build);
   });
 }
+
+/**
+ * What each Session was last drawn from, so a message about one Session reads only that one. **A hit needs the very
+ * same record, rows and `Beside` parts, so the caller hands in values that do not change identity unless they changed**
+ * (`share.ts`), including a `picture` and `repository` that stay one function. A miss is built again and shares what it
+ * can with the last build, so a row that did not change is the same object it was.
+ */
+export class SessionMemo {
+  private readonly held = new Map<string, { record: SessionRecord; rows: readonly WireRow[] | undefined; beside: Beside; old: boolean; session: Session }>();
+
+  of(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, old: boolean, build: () => Session): Session {
+    const last = this.held.get(record.id);
+    if (last !== undefined && last.record === record && last.rows === rows && last.old === old && sameBeside(last.beside, beside)) return last.session;
+    const session = share(last?.session, build());
+    this.held.set(record.id, { record, rows, beside, old, session });
+    return session;
+  }
+
+  /** Lets go of every Session not in `ids`: one that left the list must not be held. */
+  keep(ids: ReadonlySet<string>): void {
+    for (const id of this.held.keys()) if (!ids.has(id)) this.held.delete(id);
+  }
+}
+
+const sameBeside = (a: Beside, b: Beside): boolean =>
+  a.jobs === b.jobs && a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch;

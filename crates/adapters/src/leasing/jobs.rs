@@ -109,6 +109,18 @@ pub(crate) fn release_session(
     }
 }
 
+/// Write a slot an agent session holds as `to`'s, while `from` still holds it.
+pub(crate) fn hand(slots: &SlotPool, slot: u32, from: &str, to: &str) -> Result<(), SlotParkRefused> {
+    match pool(slots).hand(slot as usize, from, to) {
+        Ok(()) => Ok(()),
+        Err(ParkRefused::HeldByAnother(now)) => Err(SlotParkRefused::HolderChanged(now)),
+        Err(ParkRefused::Busy) => Err(SlotParkRefused::Busy),
+        Err(ParkRefused::NotASlot(_) | ParkRefused::NotLeased(_)) => Err(SlotParkRefused::NotLeased),
+        Err(ParkRefused::Release(refused)) => Err(SlotParkRefused::Release(refused.said())),
+        Err(ParkRefused::Vcs(why)) => Err(SlotParkRefused::Vcs(why)),
+    }
+}
+
 /// [`park_hosted`] for a slot a terminal session stood in, once the process
 /// that leased it has ended. Refused while that process still runs.
 pub(crate) fn park_ended_session(

@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use super::git::{count, dirty, git, git_ok};
+use super::git::{count, dirty, git_ok, read};
 use super::saving::{commit_all, cut_kept_branch};
 use super::strays;
 use super::{Holder, ParkRefused, Parked, Pool, Record};
@@ -113,7 +113,7 @@ impl Pool {
         if record.holder != *holder {
             return Err(ParkRefused::HeldByAnother(record.holder.said()));
         }
-        let on = git(&slot, &["branch", "--show-current"]).map_err(ParkRefused::Vcs)?;
+        let on = read(&slot, &["branch", "--show-current"]).map_err(ParkRefused::Vcs)?;
         if tenant == Tenant::Session {
             strays::end_in(&slot);
         }

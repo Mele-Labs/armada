@@ -28,6 +28,7 @@ version = "0.0.0"
 dependencies = [
  "adapter-traits",
  "base64",
+ "checks-runner",
  "core-model",
  "git2",
  "ipc",

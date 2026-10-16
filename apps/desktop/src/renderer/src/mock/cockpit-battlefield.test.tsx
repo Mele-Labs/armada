@@ -1,5 +1,5 @@
 // The flight deck's battlefield through `App` on the ship scenario: a drone for each Job and Session at rest by its pad where no
-// path is known, a marker on a drone that holds a call and an edge marker for one out of the pane, a row of Activity that focuses
+// path is known, a marker on a drone that holds a call and an edge marker for one out of the pane, a dot of Activity that focuses
 // its drone and plays on to Live, a Job's mission and its canvas showing the same run, and no two hit boxes on the field meeting.
 // Hand-run with the rest of `mock/`. #2301.
 
@@ -76,18 +76,16 @@ test("a drone that holds a call carries a call marker, and an off-screen one an 
   await expect.poll(() => [...document.querySelectorAll<HTMLElement>(".bf-call")].some((one) => one.getAttribute("aria-label") === title && inside(one)), { timeout: 4000 }).toBe(true);
 });
 
-test("pressing an Activity row focuses its drone and Replay from here plays forward to Live and clears the focus", async () => {
+test("pressing an Activity dot focuses its drone and Replay from here plays forward to Live and clears the focus", async () => {
   await map();
-  const feed = page.getByRole("region", { name: "Activity" });
-  await expect.poll(() => document.querySelectorAll(".deck-activity [data-event]").length).toBeGreaterThan(0);
-  const row = document.querySelector<HTMLElement>(".deck-activity [data-event]")!;
-  row.click();
+  await expect.poll(() => document.querySelectorAll(".deck-activity .armada-tl__dot").length).toBeGreaterThan(0);
+  // The newest event is the last dot: they are drawn oldest first.
+  [...document.querySelectorAll<HTMLElement>(".deck-activity .armada-tl__dot")].at(-1)!.click();
 
   // The drone the event is about is focused, the rest dimmed, and a line says what moved.
   await expect.element(page.getByRole("region", { name: "Event" })).toBeVisible();
   expect(document.querySelectorAll(".bf-drone[data-focus]")).toHaveLength(1);
   expect(document.querySelectorAll(".bf-drone[data-dim]").length).toBeGreaterThan(0);
-  void feed;
 
   await page.getByRole("button", { name: "Replay from here" }).click();
   await expect.element(page.getByRole("region", { name: "Replay" })).toBeVisible();
@@ -102,8 +100,8 @@ test("pressing an Activity row focuses its drone and Replay from here plays forw
 
 test("Esc leaves a replay for Live, and Space plays and pauses it", async () => {
   await map();
-  await expect.poll(() => document.querySelectorAll(".deck-activity [data-event]").length).toBeGreaterThan(0);
-  document.querySelector<HTMLElement>(".deck-activity [data-event]")!.click();
+  await expect.poll(() => document.querySelectorAll(".deck-activity .armada-tl__dot").length).toBeGreaterThan(0);
+  [...document.querySelectorAll<HTMLElement>(".deck-activity .armada-tl__dot")].at(-1)!.click();
   await page.getByRole("button", { name: "Replay from here" }).click();
   const bar = page.getByRole("region", { name: "Replay" });
   await expect.element(bar).toBeVisible();

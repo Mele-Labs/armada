@@ -112,6 +112,12 @@ impl ShowSketch {
 
     /// The sketch, or every reason it is refused in one message an agent can act on.
     pub fn checked(&self) -> Result<Sketch, String> {
+        self.checked_for("show_sketch")
+    }
+
+    /// [`Self::checked`] for a scene that arrived through another tool, whose name the refusal asks
+    /// the agent to call again.
+    pub fn checked_for(&self, tool: &str) -> Result<Sketch, String> {
         let mut problems = Vec::new();
         let title = self.title.trim().to_string();
         if title.is_empty() {
@@ -121,28 +127,32 @@ impl ShowSketch {
         }
         let counts = scene_problems(&self.scene.0, &mut problems);
         if !problems.is_empty() {
-            return Err(refusal(&problems));
+            return Err(refusal_for(&problems, tool));
         }
         let (nodes, edges) = counts.unwrap_or_default();
-        let scene = crate::encode(&self.scene.0).map_err(|why| refusal(&[why.to_string()]))?;
+        let scene = crate::encode(&self.scene.0).map_err(|why| refusal_for(&[why.to_string()], tool))?;
         if scene.len() > MOST_SCENE_BYTES {
-            return Err(refusal(&[format!(
+            return Err(refusal_for(&[format!(
                 "the scene is {} bytes and a sketch holds at most {MOST_SCENE_BYTES}. Draw less \
                  per sketch, or split it into two with their own titles",
                 scene.len()
-            )]));
+            )], tool));
         }
         Ok(Sketch { title, scene, nodes, edges, against: None })
     }
 }
 
 fn refusal(problems: &[String]) -> String {
+    refusal_for(problems, "show_sketch")
+}
+
+fn refusal_for(problems: &[String], tool: &str) -> String {
     let said: Vec<&str> = problems.iter().take(MOST_PROBLEMS_SAID).map(String::as_str).collect();
     let more = match problems.len().saturating_sub(MOST_PROBLEMS_SAID) {
         0 => String::new(),
         left => format!("; and {left} more"),
     };
-    format!("the sketch was not drawn: {}{more}. Fix these and call show_sketch again", said.join("; "))
+    format!("the sketch was not drawn: {}{more}. Fix these and call {tool} again", said.join("; "))
 }
 
 /// `(nodes, edges)` of a scene whose shape could be read, with what is wrong with it pushed.

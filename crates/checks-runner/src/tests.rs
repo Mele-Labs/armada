@@ -517,6 +517,9 @@ mod slots;
 
 /// What a narrowing comes to on the merge line. `src/tests/at_the_gate.rs`.
 mod at_the_gate;
+/// The machine's pool of compiler jobs. `src/tests/build_slots.rs`; its tests offer a
+/// pool process-wide, so each one is its own process, as `nextest` runs them.
+mod build_slots;
 /// At what priority a Check runs, read back from `ps`. `src/tests/priority.rs`.
 mod priority;
 

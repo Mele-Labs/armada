@@ -18,6 +18,7 @@
 mod answers;
 mod existing;
 mod git;
+mod handing;
 mod history;
 pub(crate) mod jobs;
 mod parking;
@@ -528,6 +529,18 @@ impl Pool {
     /// one, so a reader that also wants what the slot holds does not ask git
     /// for it again.
     fn probe_of(&self, number: usize) -> (SlotState, Option<Result<Vec<String>, String>>) {
+        self.probe_trusting(number, None)
+    }
+
+    /// [`probe_of`](Pool::probe_of), taking `trusted` as what `git status`
+    /// would say of a slot nobody holds, where the caller has a watch on its
+    /// work tree that vouches for it. Everything else is read as ever: the
+    /// record, HEAD and the refs, which are in-process and cheap.
+    fn probe_trusting(
+        &self,
+        number: usize,
+        trusted: Option<&Vec<String>>,
+    ) -> (SlotState, Option<Result<Vec<String>, String>>) {
         let path = self.path_of(number);
         if !path.exists() {
             return (SlotState::Unmade, None);
@@ -556,7 +569,10 @@ impl Pool {
         }
         // **Asked of a slot with no record too.** A record lost or cut short
         // must not make a tree holding work read as free.
-        let status = git::dirty(&path);
+        let status = match trusted {
+            Some(files) => Ok(files.clone()),
+            None => git::dirty(&path),
+        };
         let why = match &status {
             Err(why) => Some(why.clone()),
             Ok(files) if !files.is_empty() => {
@@ -711,7 +727,7 @@ impl Pool {
     /// and otherwise the one warmed last.
     fn warmest_base(&self) -> Option<String> {
         let root = self.root.to_string_lossy();
-        let head = git(&self.root, &["rev-parse", &self.base_ref()]).ok();
+        let head = git::read(&self.root, &["rev-parse", &self.base_ref()]).ok();
         let mut warm: Vec<(std::time::SystemTime, String)> =
             std::fs::read_dir(self.root.join(".armada/bases"))
                 .ok()?

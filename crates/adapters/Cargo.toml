@@ -14,6 +14,8 @@ adapter-traits = { path = "../adapter-traits" }
 # kinds are the domain's, so what `forge_node` hands back is the domain's own
 # content rather than a second spelling of the same three names — `#1394`.
 core-model = { path = "../core-model" }
+# `Priority`, for the `git` and `gh` Fleet runs on its own account: `background.rs`.
+checks-runner = { path = "../checks-runner" }
 git2 = { version = "0.19", default-features = false }
 # Which slots of a pool changed, so a reader reads those and not all of them —
 # `leasing/watching.rs`. Here and not in `fleet` because what to watch is git's

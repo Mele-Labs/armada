@@ -94,3 +94,39 @@ fn the_lowering_is_off_only_where_the_variable_says_normal() {
     assert_eq!(Priority::named(Some("normal")), Priority::Normal);
     assert_eq!(Priority::named(Some(" Normal\n")), Priority::Normal);
 }
+
+/// Fleet's own `git` and `gh` are started as a command, not through `run`: the
+/// clamp has to be on the command a caller then adds its arguments to.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_command_spawned_at_low_priority_runs_clamped_to_utility() {
+    let printed = Priority::Low
+        .spawning("/bin/sh")
+        .args(["-c", "ps -o pri= -p $$"])
+        .output()
+        .expect("sh runs");
+    let own: u32 = String::from_utf8_lossy(&printed.stdout)
+        .trim()
+        .parse()
+        .expect("ps printed a number");
+    assert!(own <= UTILITY, "{own}");
+}
+
+#[test]
+fn a_command_spawned_at_normal_priority_is_the_program_itself() {
+    let command = Priority::Normal.spawning("git");
+    assert_eq!(command.get_program(), "git");
+    assert_eq!(command.get_args().count(), 0);
+}
+
+/// Said by the operating system rather than by the wrapper exiting 66.
+#[test]
+fn a_command_spawned_at_low_priority_for_no_program_still_is_not_found() {
+    let spawned = Priority::Low
+        .spawning("armada-no-such-program-anywhere")
+        .output();
+    assert_eq!(
+        spawned.expect_err("nothing to run").kind(),
+        std::io::ErrorKind::NotFound
+    );
+}

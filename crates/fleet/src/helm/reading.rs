@@ -1,0 +1,231 @@
+//! What a shell segment names and does, read by [`super::deciding`]: the variables a line set,
+//! the files in the owner's home a read may touch, and the verbs that only look.
+
+use super::deciding::{reaches_outside, truncating_redirect, Slot};
+
+/// The segments with each variable the line assigned put back where it is used. `$$` is a
+/// process id and reads as a number. **A variable the line never set stays a `$`**, which no
+/// path check reads as inside anything, so `> $UNSET` is still refused. The last assignment wins,
+/// as it does in the shell.
+pub(super) fn with_variables(segments: Vec<&str>) -> Vec<String> {
+    let mut set: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut out = Vec::new();
+    for said in segments {
+        let said = said.replace("$$", "1");
+        let said = substituted(&said, &set);
+        let words: Vec<&str> = said.split_whitespace().collect();
+        let assignments = words.iter().take_while(|word| assignment(word).is_some()).count();
+        if assignments == words.len() {
+            for word in &words {
+                if let Some((name, value)) = assignment(word) {
+                    let value = value.trim_matches(|c| c == '\'' || c == '"');
+                    set.insert(name.to_string(), value.to_string());
+                }
+            }
+        }
+        out.push(said);
+    }
+    out
+}
+
+/// `NAME=value`, where `NAME` is a shell identifier.
+fn assignment(word: &str) -> Option<(&str, &str)> {
+    let (name, value) = word.split_once('=')?;
+    let mut chars = name.chars();
+    let first = chars.next()?;
+    (first.is_ascii_alphabetic() || first == '_')
+        .then_some(())
+        .filter(|_| chars.all(|c| c.is_ascii_alphanumeric() || c == '_'))?;
+    Some((name, value))
+}
+
+/// `said` with each `$name` and `${name}` that `set` holds replaced by its value.
+fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> String {
+    let mut out = String::new();
+    let mut rest = said;
+    while let Some(at) = rest.find('$') {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        let (name, used) = match after.strip_prefix('{') {
+            Some(braced) => match braced.split_once('}') {
+                Some((name, _)) => (name, name.len() + 2),
+                None => ("", 0),
+            },
+            None => {
+                let name: String = after
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                let used = name.len();
+                match set.get(&name) {
+                    Some(value) => {
+                        out.push_str(value);
+                        rest = &after[used..];
+                        continue;
+                    }
+                    None => ("", 0),
+                }
+            }
+        };
+        match set.get(name) {
+            Some(value) if used > 0 => {
+                out.push_str(value);
+                rest = &after[used..];
+            }
+            _ => {
+                out.push('$');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Whether one segment names the owner's own files, a read of his toolchain's config aside.
+/// **A `~` inside quotes and a `$` inside single quotes are text**, as the shell leaves them: an
+/// awk script's `$5 ~ /x$/` is no path.
+pub(super) fn reaches_into_owners_files(said: &str) -> bool {
+    let said = literal_text(said).replace("\\ ", "\u{0}");
+    let named: Vec<&str> = said.split_whitespace().filter(|word| reaches_outside(word)).collect();
+    if named.is_empty() {
+        return false;
+    }
+    !(only_reads(&said) && named.iter().all(|word| toolchain_config(word)))
+}
+
+/// `line` with each `~` inside quotes and each `$` inside single quotes turned to `_`.
+fn literal_text(line: &str) -> String {
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    line.chars()
+        .map(|c| {
+            if escaped {
+                escaped = false;
+                return c;
+            }
+            match quote {
+                Some(q) if c == q => {
+                    quote = None;
+                    c
+                }
+                Some('"') if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                Some(_) if c == '~' => '_',
+                Some('\'') if c == '$' => '_',
+                Some(_) => c,
+                None if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                None if c == '\'' || c == '"' => {
+                    quote = Some(c);
+                    c
+                }
+                None => c,
+            }
+        })
+        .collect()
+}
+
+/// A path in the owner's home that holds a toolchain's settings and nothing he keeps: no
+/// permission prompt stands in front of it, and reading it is how a session finds out why a
+/// build behaves as it does. Credentials (`.ssh`, `.aws`) and his folders are not on it.
+fn toolchain_config(word: &str) -> bool {
+    let word = word.rsplit('=').next().unwrap_or(word);
+    let word = word.trim_matches(|c| c == '\'' || c == '"');
+    let under = ["~/", "$HOME/", "${HOME}/"]
+        .iter()
+        .find_map(|home| word.strip_prefix(home));
+    under.is_some_and(|under| {
+        let mut parts = under.split('/');
+        matches!(parts.next(), Some(".cargo" | ".rustup")) && parts.all(|part| part != "..")
+    })
+}
+
+/// Whether a segment only reads: a program that reads, and no redirect into a file.
+fn only_reads(said: &str) -> bool {
+    const READERS: &[&str] = &[
+        "cat", "ls", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "stat", "file", "find",
+        "du", "tree", "realpath", "readlink", "diff", "cmp", "command", "which", "type",
+    ];
+    if truncating_redirect(said) || said.contains(">>") {
+        return false;
+    }
+    let Some((program, arguments)) = command_of(said) else {
+        return false;
+    };
+    // `find` writes with these, and runs anything with the others.
+    let find_acts = program == "find"
+        && arguments.iter().any(|word| {
+            matches!(*word, "-delete" | "-exec" | "-execdir" | "-ok" | "-okdir")
+                || word.starts_with("-fprint")
+                || *word == "-fls"
+        });
+    READERS.contains(&program) && !find_acts
+}
+
+/// The program a segment runs, and its arguments: the first word that is not an assignment, a
+/// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
+pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
+    const KEYWORDS: &[&str] = &[
+        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{",
+    ];
+    let mut rest = said
+        .split_whitespace()
+        .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))
+        .peekable();
+    let program = rest.next()?;
+    let program = program.rsplit('/').next().unwrap_or(program);
+    Some((program, rest.collect()))
+}
+
+/// `chmod` and `chown` naming only files in a slot the session holds, as `rm` does. The first
+/// operand is the mode or the owner, and is left out only where it cannot be a path.
+pub(super) fn changes_only_held(program: &str, arguments: &[&str], slot: Option<Slot>) -> bool {
+    let mut operands: Vec<&str> = arguments
+        .iter()
+        .copied()
+        .filter(|word| !word.starts_with('-'))
+        .collect();
+    let mode_like = |word: &str| {
+        !word.contains('/')
+            && word
+                .chars()
+                .all(|c| c.is_ascii_digit() || "ugoarwxXst+-=,".contains(c))
+    };
+    if operands.len() >= 2 {
+        let first = operands[0];
+        let spec = match program {
+            "chmod" => mode_like(first),
+            _ => !first.contains('/'),
+        };
+        if spec {
+            operands.remove(0);
+        }
+    }
+    slot.is_some_and(|slot| !operands.is_empty() && operands.iter().all(|word| slot.holds(word)))
+}
+
+/// A program asked a question that changes nothing: the verbs below read the service manager or
+/// the disks. Every other verb of these programs is as destructive as the program is.
+pub(super) fn queries(program: &str, arguments: &[&str]) -> bool {
+    let verbs: &[&str] = match program {
+        "launchctl" => &[
+            "print", "list", "blame", "print-cache", "print-disabled", "help", "version",
+            "managerpid", "manageruid", "managername", "error",
+        ],
+        "diskutil" => &["list", "info", "activity"],
+        "systemctl" => &[
+            "status", "show", "cat", "list-units", "list-unit-files", "is-active", "is-enabled",
+        ],
+        _ => return false,
+    };
+    arguments
+        .iter()
+        .find(|word| !word.starts_with('-'))
+        .is_some_and(|verb| verbs.contains(verb))
+}
+

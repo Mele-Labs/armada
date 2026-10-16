@@ -28,7 +28,7 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 |---|---|---|
 | Repository picker | Top of the left column. Narrows the list, the feed, the bays and the queue to one repository, or All repositories | |
 | Jobs and Sessions | One row for each: its kind, title, what it says, one glyph for the phase of its build and its state's mark | `l` |
-| Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved. While a Job or Session is open on the stage it tells of that one alone, a Session's subagents included, and tells of all again when it closes | |
+| Activity | What Fleet has done in the last hour, as a beeswarm with no words: a dot for each event at its time, the newest at the right, in the colour of its tone and smaller and fainter for the coalesced reads, edits and commands. Hovering a dot opens a card of the events near it, and a press picks the event and the map shows what moved. While a Job or Session is open on the stage it tells of that one alone, a Session's subagents included, and tells of all again when it closes | |
 | Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session as the panel the Sessions page draws (its head with the context figure and the rename, its thread and its box), a bay, a pull request, a call, Autopilot's lane | |
 | Merge queue | Main as one light, then each repository's pull requests on one line that scrolls across and never wraps: those in the forge's merge queue first, in its order, framed together with each one's place, then the rest past a rule. A press on a chip opens the pull request on the stage. A pull request the hub marks `merge_by_hand`, the one a Manifest form's save opened where the forge would not turn auto-merge on, carries a person's glyph after its number (`Needs merging by hand`), its pane has Merge and Review, and it is also a call in Incoming calls; the Manifest form shows the same line under Save. While a main is red, hovering or focusing the light opens a card holding the Merge line's red panel for each red repository: what failed, the merge that broke it, who is fixing it or holds the claim, and, where nobody has it, the acts to dispatch a Job or a Session on it, the same acts and routes the Merge line sends. A press on the light pins the card; Esc or a press outside closes it. Main's light also carries a small amber mark while a served repository's checkout is behind main and Fleet would not catch it up; its dot keeps meaning only main's CI. The card then opens on a green main too, and under main's state a section, Your checkout, names what holds it back and, where one press is safe, the command that brings it level, to run or copy. Run asks Fleet to do it, which reads the hold again and refuses if it is no longer that one; Copy gives the command for a terminal, and both show without the pointer over the block. Beside them a Pull request button sends the uncommitted files up as a pull request with auto-merge on, committed by Fleet without touching the checkout; the card then shows the pull request's chip with an auto-merge mark in place of the command, drawn from the hold Fleet publishes, and the files stay listed. Once the pull request is on main Fleet catches the checkout up by itself and the mark goes. Each uncommitted path is a button: a press opens that file's change under it, read by Fleet, and a second press folds it. A change past Fleet's bound is drawn as far as Fleet sent it, with one line after it, `First N lines`. A long list of uncommitted files scrolls inside the card, the files main also changed first. A green main with a level checkout has no card | `q` |
 | Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, with its ring above it where it has one, and the Bays return when it is closed | `b` |
@@ -43,7 +43,7 @@ The two side columns resize. A handle sits in the gap on each inner edge, drawn 
 
 ## The Session's flight controls
 
-While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `5`. When it closes the six return.
+While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `6`. When it closes the six return.
 
 | Key | Tile | Does | Through |
 |---|---|---|---|
@@ -52,6 +52,7 @@ While a Session is open on the stage the tiles are that Session's, in the same b
 | `3` | Compact | Runs the Session's `/compact` | A hosted Session is sent `/compact` as a message, as picking it from `/` does; a terminal Session is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
 | `4` | Report | Swaps the tiles for a box. What he types and sends starts a new Session in Armada's repository where Fleet serves it, else the reported Session's own, and tells it his words, verbatim, then plain labelled lines of what Bridge holds about the reported Session: its ids, transcript path, repository, branch and slot, state, model, context, Jobs and pull requests, what it waits on him for, its last messages, tool calls and timeline entries, and when and where Report was pressed. The new Session is opened on the stage. Esc closes the box and keeps the words. Empty words cannot be sent | `draft.start(undefined, reportRoot(...))` then `draft.send` (`deck/SessionTiles.tsx`, `deck/ReportBox.tsx`); the message is built by `reportBrief` in `deck/report-brief.ts` from the window's state, never by asking the agent. No Fleet operation. A Session that ended or went quiet can be reported |
 | `5` | Map | Closes the Session and shows the map | The stage's view switch, as tile 5 is |
+| `6` | Release | Opens a confirmation that names each slot, branch, open pull request, Job and need the Session holds, each a checkbox ticked when it opens, with a picker: Release, the default, or a live Session of the same repository to hand them to. The confirm key names the act, Release all, Release while some are unticked, or Hand to and the Session's title, is off while nothing is ticked, and sends only what is ticked. Cancel holds focus and changes nothing. Once Fleet answers, what moved stands in place of the tiles, then what is still held with why, the unticked among it, until Close | `draft.releaseHolds`, over `release_session_holds` ([Session](session.md), *Releasing what a Session holds*); `deck/ReleaseHolds.tsx`. Off where the Session holds nothing |
 
 A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening, except Report, which is off only where the Session's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
@@ -72,7 +73,7 @@ A Session that has built something has a ring lying on the ground under its dron
 | Survey | While the Session is scoping, a faint grid under the drone with a stake at each corner, and a small marker for each walk shown and each question asked |
 | Workers | A small drone for each subagent running. On the map it circles the ring and takes the loops the drones leave, so the field never loops more than the existing cap; one that has written pieces stands by its stretch and does not lap. In the column it sits inside the ring at the middle of its own stretch and is still, a step inward where neighbouring stretches are too close for the drones to clear each other. Its hover says what it was asked. It leaves when the subagent ends, and its pieces stay |
 | Stalled | Fleet's `stalled` draws the drone still under an amber ring. The unfinished segments dim from 0.3 at ten quiet minutes to 0.65 at forty, read from `quiet_since` |
-| Landed | The last arc closes, the capture flash plays at the flag, and the ring is gone a quarter hour later. What landed is in the Activity feed |
+| Landed | The last arc closes, the capture flash plays at the flag, and the ring is gone a quarter hour later. What landed is in Activity |
 
 A hover or focus on a segment or an arc says its task or stop and where it stands, and for a subagent's piece who wrote it. No count is drawn beside the items it counts. Pieces are static once placed; only a placed piece's one rise, the map's workers' laps and the scaffold's brace in the column move, and reduced motion holds all of them still.
 
@@ -97,7 +98,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a d` |
-| A flight control | `1` to `6`, or `1` to `5` while a Session is open |
+| A flight control | `1` to `6`, the Session's own while one is open |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
@@ -126,7 +127,7 @@ The deck stays quick by drawing less, not by drawing it faster. What is held bac
 
 | Held back | By | Why |
 |---|---|---|
-| The Activity feed draws the newest events only | `MOST_FEED` in `cockpit/Timeline.tsx`, cut before the lanes are built, after the filters narrow | A feed row costs a subtree, and Fleet holds far more events than a column shows |
+| Activity counts the newest events of the last hour only | `MOST_GRAPH` in `cockpit/ActivityChart.tsx`, cut before the lanes are built, after the filters narrow | A dot costs a button, and Fleet holds far more events than a column shows |
 | Ages move in whole minutes | `AGE_MS` in `cockpit/deck/clock.ts`; `CommandCentral` hands the deck the minute | A clock handed on each second drew the whole deck each second. A part that must move faster keeps a clock of its own: the field and the replay run on five seconds |
 | A burst of events tells its readers at most four times a second, and the last event always lands | `fleet-timeline.ts`, through `TICK_MS` | One event, one draw, was a draw for every append of a burst |
 | An idle drone runs no animation; a working or calling one does, and so does the one selected | `battlefield.css`, on `data-alive` | Any animation that runs forever forces a full frame of the map, whatever it moves. Reduced motion stays static |

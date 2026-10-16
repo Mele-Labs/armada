@@ -66,6 +66,16 @@ pub struct StartSession {
     /// by now starts as a plain start on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
+    /// The words the person dispatched with. Since 23.91.
+    ///
+    /// **Present, Fleet reads them once, with the Job proposer's model**, and fills in what the
+    /// person left unset: the title, the workflow, the model and the effort. The call is not
+    /// waited on here: the Session exists at once, carries `proposal.reading` while the call is
+    /// out, and starts its process on the answer. A first message sent meanwhile is held until
+    /// then. Whatever this start sets itself stands over the answer. Not read with `pilot`,
+    /// `fork` or `root`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<String>,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -173,6 +183,15 @@ pub struct TuneSession {
     pub mode: SessionMode,
 }
 
+/// `set_session_workflow`: a person picked the Session's workflow in a panel, or cleared it. Since 23.91.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetSessionWorkflow {
+    pub session_id: SessionId,
+    /// A workflow id the Session's repository holds. Absent clears it: a custom Session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+}
+
 /// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a
 /// terminal session's mod runs as typed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,6 +220,60 @@ pub struct MoveSession {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StopSession {
     pub session_id: SessionId,
+}
+
+/// `release_session_holds`: the person gives back everything a Session holds on the ledger, or
+/// hands it to another live Session of the same repository. `docs/concepts/session.md`,
+/// *Releasing what a Session holds*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReleaseSessionHolds {
+    pub session_id: SessionId,
+    /// Absent gives every row back. Present, each row is written standing for this Session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_session_id: Option<SessionId>,
+    /// The rows to act on, each the Session holds standing. Absent is every one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<ChosenHold>>,
+}
+
+/// One ledger row the person ticked, as the ledger keys it within the Session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChosenHold {
+    /// `slot`, `branch`, `pr`, `job` or `need`.
+    pub kind: String,
+    pub target: String,
+}
+
+/// What `release_session_holds` moved, and what stayed.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionHoldsReleased {
+    /// The Session that was handed them. Absent where they were given back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_session_id: Option<SessionId>,
+    /// Each row given back, or handed over.
+    pub moved: Vec<HoldMoved>,
+    /// Each row that stays the Session's, with why.
+    pub kept: Vec<HoldKept>,
+}
+
+/// One ledger row `release_session_holds` moved.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldMoved {
+    /// `slot`, `branch`, `pr`, `job` or `need`.
+    pub kind: String,
+    pub target: String,
+    /// For a slot given back: the branch its work is on, and what was committed to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub released: Option<crate::SlotReleased>,
+}
+
+/// One ledger row `release_session_holds` left where it was.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldKept {
+    pub kind: String,
+    pub target: String,
+    /// Why, in a sentence.
+    pub why: String,
 }
 
 /// A turn running, or none. **A message from another session starts one**, so
@@ -475,6 +548,24 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         via: Option<crate::Via>,
     },
+    /// The agent recorded a plan, or recorded it again. The plan itself is `SessionRecord::plan`;
+    /// this row is where in the thread it was recorded, which its card draws after.
+    Plan {
+        id: String,
+        at: Instant,
+        version: u32,
+    },
+    /// What the person sent the agent against a version of the plan, as Fleet worded it. The agent
+    /// is sent the same lines, and the plan does not change until it records it again.
+    PlanChanges {
+        id: String,
+        at: Instant,
+        version: u32,
+        /// The plan was approved with them.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        approved: bool,
+        lines: Vec<crate::session_plan::PlanChangeLine>,
+    },
 }
 
 /// The step a Job stopped on.
@@ -515,6 +606,8 @@ impl SessionRow {
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }
+            | SessionRow::Plan { id, .. }
+            | SessionRow::PlanChanges { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

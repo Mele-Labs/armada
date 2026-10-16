@@ -110,6 +110,61 @@ pub(crate) fn shipped() -> String {
     )
 }
 
+/// The block a Session's answer owes. **Three lines, once**: a Session is one conversation and
+/// is never split.
+///
+/// `none` for the workflow is a custom Session and a legitimate answer, not a failure: a
+/// Session started on a near miss would be held to steps that are not its work, so the format
+/// asks for the nearest fit to be refused exactly as the Job's does. A model is asked for by
+/// how hard the work reads, from the list the question carries.
+const SESSION_ANSWER_FORMAT: &str = "\
+Answer with nothing but the block below.
+
+    workflow: <the id, spelled exactly as it appears above, or `none`>
+    title: <what to call this Session, in a few of the words the request used>
+    settings: model=<one of the models listed above, spelled exactly>, \
+effort=<low, medium or high>
+
+Write the lines in the order above.
+
+Answer `workflow: none` where no workflow above fits the request. A Session with \
+no workflow works without steps laid out for it, and a near miss would hold it to \
+steps that are not its work.
+
+Pick the model and the effort by how hard the work reads. A small change to a \
+file the request names wants the lightest model and the lowest effort; work \
+across many files, a design or a hard diagnosis wants the strongest model and a \
+higher effort. Leave a pair out where you cannot tell.";
+
+/// The Session proposer's prompt as it ships. **Not an editable setting**: `prompts.proposer`
+/// is the Job's, and this reads the same three placeholders, so the one table that fills them
+/// serves both.
+pub(crate) fn session_shipped() -> String {
+    format!(
+        "You are deciding what kind of work a person just asked an agent to do, so \
+         that the agent starts on the right footing. Answer only the question at \
+         the end.\n\n\
+         The request, as the person wrote it:\n\n{{request}}\n\n\
+         The workflows this repository holds, and the steps each runs:\n\n{{workflows}}\n\n\
+         The models this machine can run the agent on:\n\n{{models}}\n\n{SESSION_ANSWER_FORMAT}"
+    )
+}
+
+/// What a Session's proposer picked. **Each field is absent where it picked nothing a Session
+/// can use**: a workflow nothing holds, a model this machine does not run and an effort the
+/// CLI does not take are all absent rather than refused, and an absent field is the machine's
+/// own default. No arm of this means "the usual workflow".
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SessionProposed {
+    pub title: Option<String>,
+    pub workflow: Option<WorkflowId>,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+}
+
+/// The longest title a proposer may give a Session, in characters.
+const MOST_TITLE: usize = 80;
+
 /// One Job a reading proposed, before Fleet has minted anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProposedJob {
@@ -332,6 +387,43 @@ impl Brief {
         models: &[String],
     ) -> Brief {
         Brief::worded(&shipped(), request, workflows, models)
+    }
+
+    /// The question for a Session: the same three inputs, a Session's answer format.
+    pub fn about_session(
+        request: &str,
+        workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Brief {
+        Brief::worded(&session_shipped(), request, workflows, models)
+    }
+
+    /// Read a Session's answer back. **Total except where it names no workflow line at all**,
+    /// which is an answer that did not follow the format and is `Err` for the caller to fall
+    /// back from. Everything else degrades one field at a time: `none`, a workflow this
+    /// repository does not hold, a model this machine does not run and an effort the CLI does
+    /// not take each leave that field absent.
+    pub fn read_session(
+        &self,
+        answer: &str,
+        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Result<SessionProposed, NotProposed> {
+        let Some(named) = field(answer, "workflow") else {
+            return Err(NotProposed::NamesNoWorkflow);
+        };
+        let workflow = Some(WorkflowId::carried(Ulid::carried(named)))
+            .filter(|id| held.contains_key(id));
+        Ok(SessionProposed {
+            title: field(answer, "title")
+                .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
+                .filter(|title| !title.trim().is_empty()),
+            workflow,
+            model: named_model(answer).filter(|named| models.iter().any(|held| held == named)),
+            effort: setting(answer, "effort")
+                .map(|said| said.to_ascii_lowercase())
+                .filter(|said| core_model::Effort::from_wire(said).is_some()),
+        })
     }
 
     /// The same question, in the words of `prompt`: `prompts.proposer` as it
