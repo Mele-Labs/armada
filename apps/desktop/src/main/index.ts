@@ -56,6 +56,7 @@ import { handleModelDownshift } from "./model-downshift-channels";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
+import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
 import { handleIssues } from "./issue-channels";
@@ -1061,6 +1062,7 @@ void app.whenReady().then(() => {
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
+  handleReviews({ ipc: ipcMain, connection: () => connection });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });

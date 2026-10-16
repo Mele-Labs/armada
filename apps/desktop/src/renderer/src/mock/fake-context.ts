@@ -61,6 +61,7 @@ export type SliceName =
   | "planUsage"
   | "modelDownshift"
   | "clashes"
+  | "reviews"
   | "territory"
   | "timeline"
   | "bayHistory"

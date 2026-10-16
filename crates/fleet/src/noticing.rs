@@ -145,6 +145,8 @@ pub(crate) struct Sweep {
     pub(crate) builds_told_last: Option<Timestamp>,
     pub(crate) build_told: Option<String>,
     pub(crate) main_next: usize,
+    /// How the forge answered each repository's last visit, by root. `crate::main_hub`.
+    pub(crate) forge_visits: BTreeMap<String, ForgeVisit>,
     /// The commits whose merging pull request was asked about, as `repository@commit`.
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,
     /// Each repository's open pull requests as last listed, by root. `crate::main_hub`.
@@ -170,6 +172,13 @@ pub(crate) struct Sweep {
     /// root, on a person's press. Kept with the hold and dropped with it, so a
     /// later hold starts without one. `crate::catching_up`.
     pub(crate) checkout_sent: BTreeMap<String, ipc::CheckoutPullRequest>,
+}
+
+/// When the forge last answered a repository's whole visit, and when it first stopped answering.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ForgeVisit {
+    pub(crate) read_at: Option<Timestamp>,
+    pub(crate) quiet_since: Option<Timestamp>,
 }
 
 /// What the record's state says on the wire, where it says anything.

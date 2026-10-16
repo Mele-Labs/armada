@@ -254,6 +254,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Main's chip: the Cockpit's own green with its glow, red when it is red. */
 .deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
 .deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+/* A forge that has stopped answering: the dot is what Fleet last read, so it is dimmed and hollow and gives up main's glow, and an unplugged glyph says since when. */
+.deck-chip__dot[data-stale] { opacity: 0.4; }
+.deck-chip[data-main] .deck-chip__dot[data-stale] { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip__quiet { display: inline-flex; flex: none; color: var(--status-escalated); }
 /* A red main's light opens a card, which says what the light's tooltip would. */
 .deck-chip[data-card] .armada-tooltip__bubble { display: none; }
 /* The queue's own tooltip stands down while a chip in it shows its card, which would sit on top of it. */
@@ -285,6 +289,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* The state of a green main at the head of its card, in the success hue, as the red band is in the failure's. */
 .deck-main-card__state { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); background: var(--status-completed-success-bg); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
 .deck-main-card__state .deck-chip__dot { --dot: var(--status-completed-success); background: var(--dot); }
+/* How old main's reading is, and the forge's silence, under the rest of main's card. */
+.deck-main-card__forge { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-4); color: var(--fg-muted); font-size: var(--text-xs); }
+.deck-main-card__quiet { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-escalated); }
 /* Your checkout, a section of main's card with the red band's own build: a band across the top in the caution hue, then rows
    with the label set back. */
 .deck-checkout { display: flex; flex-direction: column; border-bottom: var(--border-width) solid var(--border-default); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }

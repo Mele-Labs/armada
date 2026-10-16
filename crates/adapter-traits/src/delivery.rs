@@ -1003,6 +1003,27 @@ pub trait Delivery {
         write: &crate::PullRequestWrite,
     ) -> Result<(), String>;
 
+    /// One of the four lists of pull requests waiting on a person, across every repository named
+    /// in `ask`, newest-updated first and at most `ask.most` rows. **One forge call**, whoever
+    /// opened the pull requests and whether or not a Session holds them. `None` is the forge's
+    /// silence, for [`landed`](Delivery::landed)'s reason; an empty list is an answer.
+    fn pull_review_list(
+        &self,
+        in_repo: &str,
+        ask: &crate::ReviewListAsk<'_>,
+    ) -> Option<Vec<crate::ListedPull>>;
+
+    /// Resolve a conversation on a pull request's diff, or open it again. **A write to the forge,
+    /// taken at once and seen by everyone watching**, so only from a person's press. Answers
+    /// whether the thread is now resolved, as the forge holds it. `Err` is the forge's own
+    /// sentence.
+    fn resolve_review_thread(
+        &self,
+        in_repo: &str,
+        thread: &str,
+        resolved: bool,
+    ) -> Result<bool, String>;
+
     /// Land a Job's branch by making the `--no-ff` merge commit here and
     /// pushing the base, never forced — `merge_by: push`.
     ///
