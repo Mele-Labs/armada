@@ -389,7 +389,16 @@ export type SessionRow =
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };
 
 /** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
-export type SessionSubagent = { rows: SessionRow[]; finished: boolean; report?: string };
+export type SessionSubagent = {
+  rows: SessionRow[];
+  finished: boolean;
+  report?: string;
+  /** The model id its last answer was written under. Absent until it has answered. */
+  model?: string;
+  /** What that answer had in its window, and the window it is measured against. Absent until it has answered. */
+  context_tokens?: number;
+  context_window?: number;
+};
 
 /** `session.row`: one row appended, or replaced where `row.id` is held. */
 export type SessionRowChanged = { session_id: string; row: SessionRow };

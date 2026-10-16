@@ -89,6 +89,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
+export { ContextFigure } from "./ContextFigure";
 export type { ContextFill } from "./ContextFigure";
 export type { FreshStart } from "./FreshNudge";
 export { modelSaid } from "./model-said";

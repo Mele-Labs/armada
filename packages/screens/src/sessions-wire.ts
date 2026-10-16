@@ -267,6 +267,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           task: detail["task"] ?? detail["description"] ?? "Subagent",
           state: one.state === "standing" ? "running" : "done",
           ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
+          ...(detail["type"] === undefined || detail["type"] === "" ? {} : { agentType: detail["type"] }),
         });
         break;
       case "artifact": {
