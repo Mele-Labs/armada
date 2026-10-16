@@ -41,6 +41,9 @@ pub(crate) struct LedgerReads {
     context: Option<String>,
     /// What the build record is derived from.
     build: BuildReads,
+    /// The plan the Session recorded, and the files it and its subagents touched.
+    plan: Option<store::KeptPlan>,
+    touches: Vec<store::KeptTouch>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -329,6 +332,8 @@ where
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
+            plan: store.session_plan(&session.id).map_err(fault)?,
+            touches: store.session_touches(&session.id).map_err(fault)?,
         })
     }
 
@@ -393,6 +398,8 @@ where
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
+        record.plan = reads.plan.as_ref().map(crate::plan_record::wire);
+        record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record
     }
 
@@ -907,6 +914,25 @@ where
         self.sketch_shown(caller, show).await
     }
 
+    async fn record_plan(
+        &self,
+        caller: Option<api::Caller>,
+        record: ipc::RecordPlan,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_recorded(caller, record).await
+    }
+
+    async fn approve_plan(self: Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {
+        self.plan_approved(approve).await
+    }
+
+    async fn send_plan_changes(
+        self: Arc<Self>,
+        sent: ipc::SendPlanChanges,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_changes_sent(sent).await
+    }
+
     async fn ask_in_window(
         &self,
         caller: Option<api::Caller>,
@@ -1255,5 +1281,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         helm: false,
         activity: None,
         build: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }

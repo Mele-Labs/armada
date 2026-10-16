@@ -64,6 +64,8 @@ pub(crate) struct WaitingReads {
     pub(crate) done: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the first line of what the agent said.
     turn_end: Option<(String, String)>,
+    /// The version and recording time of the plan the person has not approved.
+    plan: Option<(u32, String)>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -82,6 +84,10 @@ pub(crate) fn waiting_reads(
         dismissed: store.dismissed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
+        plan: store
+            .session_plan(&session.id)?
+            .filter(|plan| plan.approved_at.is_none())
+            .map(|plan| (plan.version, plan.recorded_at)),
     })
 }
 
@@ -258,7 +264,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, plan } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -402,6 +408,11 @@ where
                         }),
                 );
             }
+            // A plan he has not approved is one of the Session's calls; nothing waits on it.
+            items.extend(
+                plan.map(|(version, since)| super::planning::plan_item(&session.id, version, &since))
+                    .filter(|item| !dismissed.contains(&item.id)),
+            );
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::WindowAsk {
                     id,
@@ -713,6 +724,10 @@ where
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "the first message is settled by sending it, from the Session's message box",
+            )),
+            WaitingSource::Plan => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a plan is approved, or sent changes, from its own card",
             )),
         };
         if let (Ok(record), false) = (
