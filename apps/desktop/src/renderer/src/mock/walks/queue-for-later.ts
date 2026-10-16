@@ -33,6 +33,7 @@ const queueForLater = walk("queue-for-later", [
   { hover: inside(cockpit, button(new RegExp(`^Start ${first}`))), say: "Start is a press beside the row, and ↵ on the row does the same" },
   { press: inside(cockpit, button(new RegExp(`^Start ${first}`))), say: "Start the first" },
   { look: role("textbox", "Message"), say: "It is a Session now, holding the idea's words" },
+  { look: inside(cockpit, role("heading", "armada")), say: "In armada's group, where the idea was" },
 ]);
 
 export { queueForLater as "queue-for-later" };

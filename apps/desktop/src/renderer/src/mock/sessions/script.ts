@@ -202,6 +202,8 @@ export function sessionsStore(
   more: readonly Session[] = [],
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
   arrivals: readonly (readonly [id: string, text: string])[] = [],
+  /** The Manifest id of each repository by its root, as Fleet names the repository a Session starts in. A root not here leaves the Session with none. */
+  owners: ReadonlyMap<string, string> = new Map(),
 ): SessionsStore {
   // A Session in `more` with a usual one's id stands in for it.
   let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
@@ -428,12 +430,14 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag, _root, _request, tuning) {
+    start(tag, root, _request, tuning) {
       made += 1;
       const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
+      const manifestId = root === undefined ? undefined : owners.get(root);
       set([
         {
           id,
+          ...(manifestId === undefined ? {} : { manifestId }),
           attachments: [],
           rows: [],
           turn: idle,
