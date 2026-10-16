@@ -5,20 +5,18 @@
 
 use std::path::Path;
 
-use super::git::{count, git, git_ok};
-use super::saving::commit_all;
+use super::git::{count, dirty, git, git_ok};
+use super::saving::{commit_all, cut_kept_branch};
 use super::strays;
 use super::{Holder, ParkRefused, Parked, Pool, Record};
 
 /// Whose rules a park follows.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tenant {
-    /// A Job, or a person's process: parked on the branch the lease names, and
-    /// refused on any other.
+    /// A Job, or a person's process.
     Job,
-    /// A session that has ended. It rewrites its own branch inside its slot, so
-    /// the work goes to the branch the checkout is on, and what it left running
-    /// in the slot is ended first.
+    /// A session that has ended: what it left running in the slot is ended
+    /// first.
     Session,
 }
 
@@ -47,8 +45,10 @@ impl Pool {
 
     /// Commit all of slot `number`'s uncommitted work, untracked files
     /// included and ignored ones not, to the branch it is on, and give the
-    /// slot back. `holder` must hold it. A clean slot is only released. Nothing
-    /// is pushed.
+    /// slot back. `holder` must hold it. A clean slot is only released. A
+    /// checkout on no branch or on the base, holding files or commits no
+    /// branch has, gets a `kept/` branch cut at `HEAD` for them. Nothing is
+    /// pushed.
     pub fn park(&self, number: usize, holder: &Holder) -> Result<Parked, ParkRefused> {
         self.park_named(number, holder, &holder.said())
     }
@@ -82,9 +82,8 @@ impl Pool {
     }
 
     /// [`park_named`](Pool::park_named) for a hosted session that has ended:
-    /// committed to whatever branch the slot is on, unless that is the base or
-    /// none, and with anything still running in the slot ended first. A refused
-    /// park ends nothing.
+    /// committed to whatever branch the slot is on, and with anything still
+    /// running in the slot ended first.
     pub fn park_session(
         &self,
         number: usize,
@@ -115,25 +114,27 @@ impl Pool {
             return Err(ParkRefused::HeldByAnother(record.holder.said()));
         }
         let on = git(&slot, &["branch", "--show-current"]).map_err(ParkRefused::Vcs)?;
-        if on.is_empty() {
-            return Err(ParkRefused::OnNoBranch);
-        }
-        if on == self.base {
-            return Err(ParkRefused::OnTheBase(on));
-        }
-        if tenant == Tenant::Job && on != record.branch {
-            return Err(ParkRefused::OnAnotherBranch {
-                leased: record.branch,
-                on,
-            });
-        }
         if tenant == Tenant::Session {
             strays::end_in(&slot);
         }
+        // Where the work goes. A branch of its own, whichever it is, takes it.
+        // None, or the base, which a WIP commit must not land on, gets a new
+        // branch only if there is something a detach would lose.
+        let target = if on.is_empty() || on == self.base {
+            let files = dirty(&slot).map_err(ParkRefused::Vcs)?;
+            if files.is_empty() && self.off_branch(&slot, &record.branch) == 0 {
+                None
+            } else {
+                let stem = format!("slot-{number}-{}", holder.short());
+                Some(cut_kept_branch(&slot, &stem).map_err(ParkRefused::Vcs)?)
+            }
+        } else {
+            Some(on)
+        };
         let message = format!("WIP: uncommitted files of {whose}, saved to free slot-{number}");
         let committed = commit_all(&slot, &message).map_err(ParkRefused::Vcs)?;
         let released = self
-            .give_back_locked(number, Some(holder), (tenant == Tenant::Session).then_some(&*on))
+            .give_back_locked(number, Some(holder), target.as_deref())
             .map_err(ParkRefused::Release)?;
         drop(lock);
         Ok(Parked {

@@ -260,6 +260,7 @@ mod waiting;
 /// What a person said while walking a Prototype's mock, kept on the Job.
 /// Since 23.18.
 mod walk_notes;
+mod walk_steps;
 /// The material a reviewing person reads, and what their note carries.
 mod work;
 /// A Job's plan and its tasks. **Not `work`'s `DeclaredPlan`**, which is where a
@@ -393,7 +394,8 @@ pub use judged::{
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
-    KitInventory, KitServerRow, KitServers, RemoveKitAllowedCommand, ServerAddress,
+    KitInventory, KitServerRow, KitServers, OutputStyleFacts, RemoveKitAllowedCommand,
+    ServerAddress,
     SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable,
     WhatWasRead,
 };
@@ -410,7 +412,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub, PullRequestOwner,
 };
@@ -511,7 +514,7 @@ pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
-    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed, WindowFailed,
 };
@@ -579,6 +582,7 @@ pub use waiting::{
     RedirectWaiting,
 };
 pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold};
+pub use walk_steps::{WalkPoint, WalkStep, WalkTarget};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

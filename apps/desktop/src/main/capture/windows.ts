@@ -6,9 +6,9 @@
 import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { CaptureOpened, SessionRecord, WindowTake } from "@armada/protocol";
+import type { CaptureOpened, SessionRecord, WalkStep, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
-import { isPinned, pinned, webOrigin } from "./address";
+import { isPinned, passThrough, pinned, webOrigin } from "./address";
 import { jobReadiness, sessionReadiness } from "./readiness";
 import type { PanelSubject } from "./layout";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
@@ -88,25 +88,40 @@ export class CaptureWindows {
    * server's window; the origin it is pinned to is the address's own, since the
    * Session named it and there is no live holder to resolve it against as a server's link has.
    * **`takes` are several pages of one change**, the first at `url`: the window swaps among exactly those.
+   * **`steps` are a scripted walk of the page**, which the window plays itself.
+   * **`origins` are the other origins it may pass through**, each held to a bare `http` or `https` origin
+   * here. **`signIn` are addresses it loads, in order, before the page**, in the repository's cookie jar;
+   * they are a secret and go no further than the window's own load.
    */
-  openForSession(sessionId: string, title: string, url: string, takes: readonly WindowTake[] = []): CaptureOpened {
+  openForSession(
+    sessionId: string,
+    title: string,
+    url: string,
+    takes: readonly WindowTake[] = [],
+    origins: readonly string[] = [],
+    signIn: readonly string[] = [],
+    steps: readonly WalkStep[] = [],
+  ): CaptureOpened {
     const origin = webOrigin(url);
     if (origin === null || takes.some((one) => webOrigin(one.url) === null)) return { ok: false, why: "no_address" };
+    const through = passThrough(origins);
     const key = `${SESSION_KEY}${sessionId}`;
     const standing = this.open.get(key);
     if (standing !== undefined && standing.open) {
-      if (standing.address === url && standing.showing(takes)) {
+      // A page shown again with a sign-in is a sign-in to run, so it opens afresh.
+      if (standing.address === url && standing.showing(takes, steps) && standing.passes(through) && signIn.length === 0) {
         standing.raise();
         return { ok: true };
       }
       standing.close();
     }
-    const pin = { run: key, name: title, origin, url, manifestId: null };
     // The Session by its own name, as the Sessions list calls it: `title` is the window's, and a
     // window shown with no title is titled by its address.
     const record = this.sessions?.find((one) => one.id === sessionId);
+    // One cookie jar per repository: a Session's sign-in, or the person's, holds for its later walks.
+    const pin = { run: key, name: title, origin, url, manifestId: record?.manifest_id ?? null, through };
     const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
-    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
+    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes, signIn, steps);
     this.open.set(key, window);
     window.setReadiness(sessionReadiness(record, url));
     this.board.windowsChanged?.();

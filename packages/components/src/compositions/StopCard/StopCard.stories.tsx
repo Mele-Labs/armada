@@ -4,7 +4,7 @@ import { expect } from "storybook/test";
 import { StopCard, StopCardList } from "./StopCard";
 
 /**
- * The card a metro stop opens in the Bays view and a plan meter opens in the title bar: a toned pill and a
+ * The card a metro stop opens in the Bays view and a Session's context figure opens: a toned pill and a
  * subtle place over a title, then facts. The tone is `--tone`, set by whoever draws it.
  */
 const meta: Meta<typeof StopCard> = {

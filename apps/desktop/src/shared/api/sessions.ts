@@ -4,6 +4,9 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  CheckoutCaughtUp,
+  CheckoutDiff,
+  CheckoutSentAsPullRequest,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -129,6 +132,15 @@ export type SessionsApi = {
     number: number,
     press: PullRequestPress,
   ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+  /**
+   * The same acts on a pull request no Session holds, such as a form edit's: the repository is named by its Manifest, and
+   * `review` dispatches its Code Review Job under no Session.
+   */
+  pressRepositoryPullRequest: (
+    manifestId: string,
+    number: number,
+    press: PullRequestPress,
+  ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
   /** What the panel's tabs and facts draw, read from the forge when the panel opens. Main names the repository from the Session. */
   readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
   /** One file of a pull request, read when a person opens it from the Files tab. Main names the repository from the Session. */
@@ -143,6 +155,23 @@ export type SessionsApi = {
   writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Tells a run's terminal its size in cells. */
   resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
+  /**
+   * Pulls a held checkout level with its base: the one press "Your checkout" offers. **Names the repository by
+   * its Manifest and no command**; Fleet reads the hold again, runs the pull it knows and answers with git's exit
+   * code and words, a refused or conflicted pull among them. A refusal in words is Fleet's own.
+   */
+  catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
+  /**
+   * Sends a held checkout's uncommitted files up as a pull request with auto-merge on, without touching the
+   * checkout. **Names the repository by its Manifest and no path**; Fleet reads the hold again, refuses what
+   * the pull would refuse and answers with the pull request's number. The hold then carries it.
+   */
+  sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
+  /**
+   * One uncommitted file of a held checkout, as a unified diff against HEAD. Names the repository by its Manifest
+   * and the path; Fleet refuses a path the hold does not list.
+   */
+  readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
   /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 };
@@ -197,6 +226,7 @@ export const SESSIONS_CHANNELS = {
   hideSessionPage: "bridge:hide-session-page",
   sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
+  pressRepositoryPullRequest: "bridge:press-repository-pull-request",
   readPullRequestPage: "bridge:read-pull-request-page",
   readPullRequestFile: "bridge:read-pull-request-file",
   writePullRequest: "bridge:write-pull-request",
@@ -205,4 +235,7 @@ export const SESSIONS_CHANNELS = {
   writeSessionRun: "bridge:write-session-run",
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
+  catchUpCheckout: "bridge:catch-up-checkout",
+  sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
+  readCheckoutDiff: "bridge:read-checkout-diff",
 } as const;

@@ -31,7 +31,7 @@ use crate::attention::{get_activity_feed, list_alerts, list_job_board, list_revi
 use crate::commands::{
     add_task, answer_command, answer_judge, answer_question, approve_dispatch, approve_review,
     ask_person_to_approve, change_slot_pool, delete_branch, dismiss_finding, drop_task,
-    examine_job, file_finding_issue, file_report, fix_main, forget_job, kill_drone, kill_job,
+    catch_up_checkout, checkout_to_pull_request, examine_job, file_finding_issue, file_report, fix_main, forget_job, kill_drone, kill_job,
     merge_pull_request, move_plan, override_verdict, park_job, propose_from_request, propose_job,
     queue_after_finding, raise_cost_cap, raise_turn_cap, reclaim_worktree, redirect_drone,
     redispatch_job, reject_job, request_changes, rerun_checks, rerun_gate, rescue_slot,
@@ -65,7 +65,7 @@ use crate::rehearsing::{
     undo_checkout_run, undo_run,
 };
 use crate::repositories::{
-    add_repository, clone_repository, get_merge_lines, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, get_merge_lines, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -264,6 +264,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::window_closed::<D>),
         )
         .route(
+            "/sessions/window/sign_in",
+            post(crate::sessions::take_window_sign_in::<D>),
+        )
+        .route(
             "/sessions/window/failed",
             post(crate::sessions::window_failed::<D>),
         )
@@ -382,10 +386,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
+        .route("/merge_lines/checkout_diff", get(checkout_diff::<D>))
         .route("/timeline", get(get_fleet_timeline::<D>))
         .route("/slot_history", get(get_slot_history::<D>))
         .route("/merge_lines/checks/observe", get(observe_land_check::<D>))
         .route("/merge_lines/fix", post(fix_main::<D>))
+        .route("/merge_lines/catch_up", post(catch_up_checkout::<D>))
+        .route("/merge_lines/checkout_to_pull_request", post(checkout_to_pull_request::<D>))
         .route("/models", get(list_models::<D>))
         .route("/capacity", get(get_capacity::<D>))
         .route("/fleet/build", get(get_fleet_build::<D>))

@@ -173,9 +173,42 @@ impl FakeVcs {
         self.delivery.lock().expect("not poisoned").checkout = Some(commit.to_string());
     }
 
+    /// Say whether the local base branch fast-forwards while another is checked out.
+    pub fn base_fast_forwards(&self, does: bool) {
+        self.delivery.lock().expect("not poisoned").base_fast_forwards = does;
+    }
+
     /// Say what asking why the served repository was held back comes to.
     pub fn held_back_by(&self, held: Option<adapter_traits::HeldBack>) {
         self.delivery.lock().expect("not poisoned").held_back = held;
+    }
+
+    /// Say what the one pull a held checkout is offered comes to.
+    pub fn pulling_comes_to(&self, pulled: adapter_traits::CheckoutPulled) {
+        self.delivery.lock().expect("not poisoned").pulled = pulled;
+    }
+
+    /// Say what reading a file's uncommitted change comes to.
+    pub fn uncommitted_change_is(&self, change: Result<String, String>) {
+        self.delivery.lock().expect("not poisoned").uncommitted_change = change;
+    }
+
+    /// The paths whose uncommitted change was read, in order.
+    pub fn uncommitted_changes_read(&self) -> Vec<String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .iter()
+            .filter_map(|it| match it {
+                Delivered::ReadAnUncommittedChange { path, .. } => Some(path.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// How many times the served checkout was asked to pull itself level.
+    pub fn times_the_checkout_was_pulled(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::PulledTheCheckout { .. }))
     }
 
     /// How many times a branch has been asked to be kept current against a

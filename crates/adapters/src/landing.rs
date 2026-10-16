@@ -26,7 +26,7 @@
 use std::path::Path;
 
 use adapter_traits::{
-    HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
+    CheckoutPulled, HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
     WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
@@ -399,19 +399,36 @@ fn why_not_to_touch_it(repo: &Repository, base: &str) -> Option<String> {
     }
 }
 
-/// Whether the checked-out commit already has `commit`. In process, so the
-/// reading of main can ask it every minute for nothing.
-pub(crate) fn checkout_has(in_repo: &str, commit: &str) -> bool {
+/// Whether `base` here already has `commit`: the checked-out commit where the
+/// base is checked out, the local base branch where it is not. In process, so
+/// the reading of main can ask it every minute for nothing.
+pub(crate) fn checkout_has(in_repo: &str, base: &str, commit: &str) -> bool {
     let Ok(repo) = Repository::open(in_repo) else {
         return false;
     };
-    let (Some(head), Ok(commit)) = (
-        repo.head().ok().and_then(|head| head.target()),
-        git2::Oid::from_str(commit),
-    ) else {
+    let (Some(ours), Ok(commit)) = (base_here(&repo, base), git2::Oid::from_str(commit)) else {
         return false;
     };
-    head == commit || repo.graph_descendant_of(head, commit).unwrap_or(false)
+    ours == commit || repo.graph_descendant_of(ours, commit).unwrap_or(false)
+}
+
+/// The commit that stands for `base` in this checkout: `HEAD` where the base is
+/// checked out, the local base branch where another is.
+pub(crate) fn base_here(repo: &Repository, base: &str) -> Option<git2::Oid> {
+    let head = repo.head().ok()?;
+    match head.is_branch() && head.shorthand() == Some(base) {
+        true => head.target(),
+        false => repo.refname_to_id(&format!("refs/heads/{base}")).ok(),
+    }
+}
+
+/// Fast-forward the local base branch while another is checked out. A refspec
+/// without `+`, so git itself refuses a history that is not a fast-forward,
+/// and a branch checked out in any worktree.
+pub(crate) fn base_fast_forwarded(in_repo: &str, base: &str) -> bool {
+    let refspec = format!("{base}:{base}");
+    run_in(in_repo, "git", &["fetch", "--quiet", "origin", &refspec])
+        .is_ok_and(|run| run.status.success())
 }
 
 /// What stops `in_repo` fast-forwarding to `base` on `origin`. One fetch of the
@@ -427,38 +444,179 @@ pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
         true => head.shorthand().map(str::to_string).filter(|on| on != base),
         false => Some(String::from("HEAD")),
     };
-    let ours = head.target()?;
+    let ours = base_here(&repo, base)?;
     let theirs = repo
         .refname_to_id(&format!("refs/remotes/origin/{base}"))
         .ok()?;
     let (ahead, behind) = repo.graph_ahead_behind(ours, theirs).ok()?;
+    // Another branch's uncommitted files are not on the base, and hold nothing back.
     let mut asking = git2::StatusOptions::new();
     asking.include_untracked(false).include_ignored(false);
-    let uncommitted: Vec<String> = repo
-        .statuses(Some(&mut asking))
-        .ok()?
-        .iter()
-        .filter_map(|entry| entry.path().map(str::to_string))
-        .collect();
-    let clashing = match uncommitted.is_empty() {
-        true => Vec::new(),
-        false => changed_between(&repo, ours, theirs)
-            .into_iter()
-            .filter(|path| uncommitted.contains(path))
+    let uncommitted: Vec<String> = match on {
+        Some(_) => Vec::new(),
+        None => repo
+            .statuses(Some(&mut asking))
+            .ok()?
+            .iter()
+            .filter_map(|entry| entry.path().map(str::to_string))
             .collect(),
+    };
+    // **A file main changed that already holds the owner's change is not a clash**: the change
+    // went up another road, and the pull over it takes nothing from anyone.
+    let (clashing, already_on_base): (Vec<String>, Vec<String>) = match uncommitted.is_empty() {
+        true => (Vec::new(), Vec::new()),
+        false => {
+            let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
+            let (here, tip) = (tree(ours)?, tree(theirs)?);
+            changed_between(&repo, ours, theirs)
+                .into_iter()
+                .filter(|path| uncommitted.contains(path))
+                .partition(|path| {
+                    !same_as_the_tree(&repo, &tip, path) && !held_by_the_tree(&repo, &here, &tip, path)
+                })
+        }
     };
     Some(HeldBack {
         base: base.to_string(),
         on,
         uncommitted,
         clashing,
+        already_on_base,
         behind,
         ahead,
     })
 }
 
+/// `git pull --ff-only --autostash` in `in_repo`: the command a held checkout
+/// offers its owner, run for them.
+///
+/// **A stash that would not go back on is not a success**, though git exits
+/// clean for it: the pull moved the branch, the owner's files are in conflict
+/// and their work is in the stash git left. That is a `1`, with git's own words,
+/// and nothing here drops or pops the stash.
+pub(crate) fn pulled_the_checkout(in_repo: &str) -> CheckoutPulled {
+    let run = match run_in(in_repo, "git", &["pull", "--ff-only", "--autostash"]) {
+        Ok(run) => run,
+        Err(why) => {
+            return CheckoutPulled {
+                code: -1,
+                output: why.to_string(),
+            }
+        }
+    };
+    let output = said(&run);
+    let code = run.status.code().unwrap_or(-1);
+    let conflicted = Repository::open(in_repo)
+        .and_then(|repo| repo.index())
+        .is_ok_and(|index| index.has_conflicts());
+    CheckoutPulled {
+        code: if code == 0 && conflicted { 1 } else { code },
+        output,
+    }
+}
+
+/// One tracked file's uncommitted change against `HEAD`, as `git diff` prints it.
+/// `--literal-pathspecs`, so a path with pathspec magic in its name is a file name.
+pub(crate) fn uncommitted_change_of(in_repo: &str, path: &str) -> Result<String, String> {
+    let run = run_in(
+        in_repo,
+        "git",
+        &["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "HEAD", "--", path],
+    )
+    .map_err(|why| why.to_string())?;
+    if !run.status.success() {
+        return Err(said(&run));
+    }
+    Ok(String::from_utf8_lossy(&run.stdout).into_owned())
+}
+
+/// What a path holds in the working tree of the checkout.
+pub(crate) enum Working {
+    /// Nothing is there: a deletion, where the tree has the path.
+    Gone,
+    /// A file, or a link whose target is the content.
+    File(Vec<u8>, git2::FileMode),
+    /// Something that is neither, or that would not be read: not ours to send or to call the same.
+    Unreadable,
+}
+
+pub(crate) fn working(repo: &Repository, path: &str) -> Working {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::PermissionsExt;
+    let Some(at) = repo.workdir().map(|root| root.join(path)) else {
+        return Working::Unreadable;
+    };
+    let meta = match std::fs::symlink_metadata(&at) {
+        Ok(meta) => meta,
+        Err(why) if why.kind() == std::io::ErrorKind::NotFound => return Working::Gone,
+        Err(_) => return Working::Unreadable,
+    };
+    if meta.file_type().is_symlink() {
+        return match std::fs::read_link(&at) {
+            Ok(target) => Working::File(target.as_os_str().as_bytes().to_vec(), git2::FileMode::Link),
+            Err(_) => Working::Unreadable,
+        };
+    }
+    if !meta.is_file() {
+        return Working::Unreadable;
+    }
+    let mode = match meta.permissions().mode() & 0o111 {
+        0 => git2::FileMode::Blob,
+        _ => git2::FileMode::BlobExecutable,
+    };
+    match std::fs::read(&at) {
+        Ok(content) => Working::File(content, mode),
+        Err(_) => Working::Unreadable,
+    }
+}
+
+/// Whether the working-tree file at `path` is, byte for byte and in mode, what
+/// `tree` holds there. A path gone from both is the same.
+pub(crate) fn same_as_the_tree(repo: &Repository, tree: &git2::Tree<'_>, path: &str) -> bool {
+    let held = tree.get_path(Path::new(path)).ok();
+    match (working(repo, path), held) {
+        (Working::Gone, None) => true,
+        (Working::File(content, mode), Some(entry)) => {
+            entry.filemode() == i32::from(mode)
+                && repo.find_blob(entry.id()).is_ok_and(|blob| blob.content() == content)
+        }
+        _ => false,
+    }
+}
+
+/// Whether `tip` already holds the owner's uncommitted change to `path`: their
+/// change, merged with main's over what `here` has, gives back main's file
+/// exactly. Main took the change and moved on (a comment reworded beside it), so
+/// the pull keeps everything of theirs.
+fn held_by_the_tree(repo: &Repository, here: &git2::Tree<'_>, tip: &git2::Tree<'_>, path: &str) -> bool {
+    let Working::File(content, mode) = working(repo, path) else {
+        return false;
+    };
+    let (Ok(was), Ok(main)) = (here.get_path(Path::new(path)), tip.get_path(Path::new(path))) else {
+        return false;
+    };
+    if main.filemode() != i32::from(mode) {
+        return false;
+    }
+    let (Some(root), Ok(owners)) = (repo.workdir(), repo.blob(&content)) else {
+        return false;
+    };
+    // `--object-id`, so nothing is written beside the owner's files.
+    let Ok(merged) = run_in(
+        &root.to_string_lossy(),
+        "git",
+        &["merge-file", "-p", "--object-id", &owners.to_string(), &was.id().to_string(), &main.id().to_string()],
+    ) else {
+        return false;
+    };
+    merged.status.success()
+        && repo
+            .find_blob(main.id())
+            .is_ok_and(|blob| blob.content() == merged.stdout.as_slice())
+}
+
 /// The paths `theirs` changed since it and `ours` parted.
-fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
+pub(crate) fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
     let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
     let Some(parted) = repo.merge_base(ours, theirs).ok() else {
         return Vec::new();

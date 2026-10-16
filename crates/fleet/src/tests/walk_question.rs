@@ -23,7 +23,7 @@ const TWO: &str = "http://localhost:5173/two";
 
 async fn show(rig: &Rig, id: &SessionId, url: &str) {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new() })
+        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() })
         .await
         .expect("shown");
 }
@@ -100,7 +100,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
     let rig = rig_placing(None);
     let id = rig.start().await;
     let mut watching = rig.fleet.events().subscribe();
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes(), ..Default::default() };
     let record = rig.fleet.show_window(None, shown).await.expect("shown");
 
     let kept = record
@@ -132,6 +132,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
         title: None,
         session_id: Some(id.clone()),
         variations,
+        ..Default::default()
     };
     let bad = |name: &str, url: &str| WindowTake { name: name.into(), url: url.into() };
     for (url, variations) in [
@@ -150,7 +151,7 @@ async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_ta
 async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_the_word_does_not() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes(), ..Default::default() };
     rig.fleet.show_window(None, shown).await.expect("shown");
 
     let waiting = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.len() };
@@ -171,7 +172,7 @@ async fn a_question_may_be_about_a_take_on_another_origin_than_the_first() {
         WindowTake { name: "A".into(), url: ONE.into() },
         WindowTake { name: "B".into(), url: other.into() },
     ];
-    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes };
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes, ..Default::default() };
     rig.fleet.show_window(None, shown).await.expect("shown");
     let ask = |url: &str| ipc::AskInWindow {
         question: "Beside or under?".into(),
@@ -219,6 +220,51 @@ async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_whe
     assert!(working().await, "a note taken in the window: it will change the page");
     rig.send(&id, "Looks fine").await;
     assert!(working().await, "a message that is no note changes nothing");
+}
+
+/// The session hands a note to a subagent and ends its turn: the page is still changing, so the
+/// window stays working until a turn ends with none standing. A server left running holds nothing.
+#[tokio::test]
+async fn a_window_stays_working_through_a_turn_that_ends_with_a_subagent_standing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let working = || async {
+        let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+        let window = kept.iter().find(|one| one.detail.get("form").map(String::as_str) == Some("window")).expect("shown");
+        window.detail.get("working").map(String::as_str) == Some("true")
+    };
+    let told = |fact| async {
+        let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact };
+        rig.fleet.report_session(report).await.expect("kept");
+    };
+    let attached = |kind: &str, target: &str| SessionFact::Attached {
+        attachment: ipc::AttachmentReport { kind: kind.into(), target: target.into(), detail: Default::default() },
+    };
+    let settled = |kind: &str, target: &str| SessionFact::Settled {
+        attachment: ipc::AttachmentNamed { kind: kind.into(), target: target.into() },
+        state: ipc::AttachmentState::Spent,
+    };
+    show(&rig, &id, ONE).await;
+
+    rig.send(&id, "Too slow\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("subagent", "a1")).await;
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(working().await, "its turn ended, but the subagent is still changing the page");
+
+    told(settled("subagent", "a1")).await;
+    assert!(working().await, "the subagent stopping alone does not say the page is done");
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(!working().await, "the turn that took its report ended with none standing");
+
+    rig.send(&id, "Still off\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("server", "5173")).await;
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(!working().await, "a dev server left running is no work on the page");
+
+    rig.send(&id, "Again\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("subagent", "a2")).await;
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "showing the page again says it is ready, subagent or not");
 }
 
 #[tokio::test]

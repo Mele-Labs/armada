@@ -1,19 +1,27 @@
-// The way into the dispatch panel: the one panel over the one draft (`dispatching.tsx`), grown down
-// from the title bar's field, and the strip a send leaves over that field.
+// The way into the dispatch panel: the one sheet over the one draft (`dispatching.tsx`), centred over the
+// window, and the strip a send leaves over the title bar's field.
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
+import { ONE_BAR } from "../one-bar";
 import { DispatchPanel, useHung } from "./DispatchPanel";
 import { DispatchedStrip } from "./DispatchedStrip";
-import { useDispatching } from "./dispatching";
+import { useDispatching, type Dispatching } from "./dispatching";
 
-/** The panel grown down from the title bar's field when the one bar chose to dispatch. */
-export function TitleDispatchPanel({ anchor }: { anchor?: string }) {
+/** The sheet, centred over the window, wherever an entry opened it. */
+export function DispatchSheet() {
   const dispatching = useDispatching();
-  const field = useRef<HTMLTextAreaElement>(null);
-  const shown = dispatching?.titled === true;
+  if (dispatching === undefined) return null;
+  return <Sheet dispatching={dispatching} />;
+}
 
-  // The cursor lands at the end of the words the one bar sent, so typing carries on from them.
+/** Holds the words and their reading, so a key typed draws this and not the window. */
+function Sheet({ dispatching }: { dispatching: Dispatching }) {
+  const panel = dispatching.usePanel();
+  const field = useRef<HTMLTextAreaElement>(null);
+  const shown = dispatching.sheet;
+
+  // The cursor lands at the end of the words the palette sent, so typing carries on from them.
   useEffect(() => {
     if (!shown) return;
     const end = field.current?.value.length ?? 0;
@@ -21,19 +29,19 @@ export function TitleDispatchPanel({ anchor }: { anchor?: string }) {
     field.current?.setSelectionRange(end, end);
   }, [shown]);
 
-  if (dispatching === undefined || !shown) return null;
-  return <DispatchPanel anchor={anchor} fieldRef={field} onDismiss={dispatching.closeTitled} {...dispatching.panel()} />;
+  if (!shown) return null;
+  return <DispatchPanel fieldRef={field} onDismiss={dispatching.closeSheet} {...panel} />;
 }
 
 /**
- * What a send from the title bar's panel leaves, laid over the one bar's field where the panel grew from.
+ * What a send from the sheet leaves, laid over the one bar's field.
  * The cursor lands on it, so ↵ opens what was sent, Esc dismisses it, and a key typed starts the next draft.
  */
-export function TitleDispatchedStrip({ anchor }: { anchor?: string }) {
+export function TitleDispatchedStrip({ anchor = ONE_BAR }: { anchor?: string }) {
   const dispatching = useDispatching();
   const root = useRef<HTMLDivElement>(null);
   const sent = dispatching?.sent;
-  const shown = sent !== undefined && dispatching?.titled === false;
+  const shown = sent !== undefined && dispatching?.sheet === false;
   const place = useHung(shown, anchor);
 
   useEffect(() => {
@@ -51,7 +59,7 @@ export function TitleDispatchedStrip({ anchor }: { anchor?: string }) {
       dispatching.openSent();
     } else if (event.key.length === 1 && event.key !== " " && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
-      dispatching.openTitled(event.key);
+      dispatching.openSheet(event.key);
     }
   };
 

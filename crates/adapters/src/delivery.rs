@@ -392,12 +392,24 @@ impl Delivery for GitVcs {
         crate::landing::caught_up(in_repo, base)
     }
 
-    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool {
-        crate::landing::checkout_has(in_repo, commit)
+    fn checkout_has(&self, in_repo: &str, base: &str, commit: &str) -> bool {
+        crate::landing::checkout_has(in_repo, base, commit)
+    }
+
+    fn base_fast_forwarded(&self, in_repo: &str, base: &str) -> bool {
+        crate::landing::base_fast_forwarded(in_repo, base)
     }
 
     fn held_back(&self, in_repo: &str, base: &str) -> Option<adapter_traits::HeldBack> {
         crate::landing::held_back(in_repo, base)
+    }
+
+    fn pulled_the_checkout(&self, in_repo: &str) -> adapter_traits::CheckoutPulled {
+        crate::landing::pulled_the_checkout(in_repo)
+    }
+
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
+        crate::landing::uncommitted_change_of(in_repo, path)
     }
 
     fn manifest_by_pull_request(&self, in_repo: &str, file: &str) -> bool {
@@ -419,6 +431,14 @@ impl Delivery for GitVcs {
         sending: &adapter_traits::ManifestEditToSend,
     ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
         crate::manifest_edit::send(in_repo, sending)
+    }
+
+    fn send_checkout_as_pull_request(
+        &self,
+        in_repo: &str,
+        sending: &adapter_traits::CheckoutToSend,
+    ) -> Result<adapter_traits::CheckoutSent, NotDelivered> {
+        crate::checkout_send::send(in_repo, sending)
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::{
-    decode, encode, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
+    decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -62,6 +63,7 @@ fn a_red_hub() -> MergeLineHub {
             additions: Some(120),
             deletions: Some(0),
             owner: None,
+            merge_by_hand: false,
         }],
         merged: vec![HubMerged {
             number: 1815,
@@ -272,6 +274,18 @@ fn a_pull_requests_owner_is_a_kind_an_id_a_machine_and_whether_it_is_this_one() 
 }
 
 #[test]
+fn a_pull_request_that_waits_for_a_person_says_so_and_any_other_leaves_the_key_out() {
+    let waiting = r#"{"number":7,"title":"t","branch":"b","url":"u","merge_by_hand":true}"#;
+    let read: HubPullRequest = decode("a pull request", waiting.as_bytes()).expect("reads");
+    assert!(read.merge_by_hand);
+    assert_eq!(encode(&read).unwrap(), waiting);
+    let other = r#"{"number":7,"title":"t","branch":"b","url":"u"}"#;
+    let read: HubPullRequest = decode("a pull request", other.as_bytes()).expect("reads");
+    assert!(!read.merge_by_hand);
+    assert!(!encode(&read).unwrap().contains("merge_by_hand"));
+}
+
+#[test]
 fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
     let line = a_line(Some(MergeLineHub {
         checkout: Some(HeldCheckout {
@@ -281,6 +295,7 @@ fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
             clashing: Vec::new(),
             behind: 880,
             ahead: 0,
+            pull_request: None,
         }),
         ..a_red_hub()
     }));
@@ -291,4 +306,79 @@ fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
     );
     let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
     assert_eq!(read, line);
+}
+
+#[test]
+fn a_held_checkouts_pull_request_is_spelled_when_there_is_one_and_absent_from_an_older_fleet() {
+    let sent = r#"{"base":"main","uncommitted":["armada.yml"],"behind":3,"ahead":0,"pull_request":{"number":2402,"auto_merge":true}}"#;
+    let read: HeldCheckout = decode("a held checkout", sent.as_bytes()).expect("reads");
+    assert_eq!(read.pull_request, Some(CheckoutPullRequest { number: 2402, auto_merge: true }));
+    assert_eq!(encode(&read).unwrap(), sent);
+
+    let older = r#"{"base":"main","uncommitted":["armada.yml"],"behind":3,"ahead":0}"#;
+    let read: HeldCheckout = decode("a held checkout", older.as_bytes()).expect("reads");
+    assert_eq!(read.pull_request, None);
+    assert_eq!(encode(&read).unwrap(), older, "none is not spelled");
+}
+
+#[test]
+fn sending_a_checkout_as_a_pull_request_names_a_repository_and_answers_with_the_number() {
+    let asked = CheckoutToPullRequest { manifest_id: crate::ManifestId::carried("shop") };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop"}"#);
+    let read: CheckoutToPullRequest = decode("a send", br#"{"manifest_id":"shop"}"#).expect("reads");
+    assert_eq!(read, asked);
+    // No path crosses: the type has nowhere to put one, so one sent anyway is not read.
+    let smuggled: CheckoutToPullRequest = decode("a send", br#"{"manifest_id":"shop","paths":["../../etc/passwd"]}"#).expect("reads");
+    assert_eq!(smuggled, asked);
+
+    let answer = CheckoutSentAsPullRequest { pull_request: 2402, auto_merge: false };
+    let spelled = encode(&answer).unwrap();
+    assert_eq!(spelled, r#"{"pull_request":2402,"auto_merge":false}"#);
+    let back: CheckoutSentAsPullRequest = decode("an answer", spelled.as_bytes()).expect("reads");
+    assert_eq!(back, answer);
+}
+
+#[test]
+fn a_catch_up_names_a_repository_and_carries_no_command() {
+    let asked = CatchUpCheckout { manifest_id: crate::ManifestId::carried("shop") };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop"}"#);
+    let read: CatchUpCheckout = decode("a catch-up", br#"{"manifest_id":"shop"}"#).expect("reads");
+    assert_eq!(read, asked);
+    // The type has nowhere to put a command, so one sent anyway is not read.
+    let smuggled: CatchUpCheckout = decode("a catch-up", br#"{"manifest_id":"shop","command":"rm -rf /"}"#).expect("reads");
+    assert_eq!(smuggled, asked);
+}
+
+#[test]
+fn what_a_pull_came_to_survives_the_wire_with_its_code_and_words() {
+    for answer in [
+        CheckoutCaughtUp { code: 0, output: "Fast-forward".to_string() },
+        CheckoutCaughtUp { code: 1, output: "Your local changes are stashed".to_string() },
+    ] {
+        let spelled = encode(&answer).expect("plain data");
+        let read: CheckoutCaughtUp = decode("a pull", spelled.as_bytes()).expect("reads");
+        assert_eq!(read, answer);
+    }
+    assert_eq!(
+        encode(&CheckoutCaughtUp { code: 0, output: "ok".to_string() }).unwrap(),
+        r#"{"code":0,"output":"ok"}"#
+    );
+}
+
+#[test]
+fn a_checkout_diff_is_asked_by_manifest_and_path_and_answers_with_the_text_unchanged() {
+    let asked = CheckoutDiffAsk { manifest_id: crate::ManifestId::carried("shop"), path: "src/a b.rs".to_string() };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop","path":"src/a b.rs"}"#);
+    let read: CheckoutDiffAsk = decode("a diff ask", encode(&asked).unwrap().as_bytes()).expect("reads");
+    assert_eq!(read, asked);
+
+    let answer = CheckoutDiff { diff: "diff --git a/f b/f\n@@ -1 +1 @@\n-a\n+b \"quoted\"\n".to_string(), cut: false };
+    assert!(!encode(&answer).unwrap().contains("cut"), "a whole diff says nothing of a cut");
+    let back: CheckoutDiff = decode("a diff", encode(&answer).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, answer);
+
+    let short = CheckoutDiff { diff: "diff --git a/f b/f\n".to_string(), cut: true };
+    assert_eq!(encode(&short).unwrap(), r#"{"diff":"diff --git a/f b/f\n","cut":true}"#);
+    let back: CheckoutDiff = decode("a cut diff", encode(&short).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, short);
 }

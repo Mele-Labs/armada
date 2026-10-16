@@ -217,10 +217,10 @@ export const DockClosedAtWidth: Story = {
   args: { ...shell, dock: { open: false, binding: "⌘J", onOpen: () => {} } },
   render: DockOverTheContent.render,
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.queryByLabelText("Helm")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("complementary", { name: "Helm" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: /Open Helm/ })).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Helm" }));
-    await expect(canvas.getByLabelText("Helm")).toBeVisible();
+    await expect(canvas.getByRole("complementary", { name: "Helm" })).toBeVisible();
   },
 };
 
@@ -244,7 +244,7 @@ export const DockTakesNoWidthFromTheContent: Story = {
     };
     const shut = panel();
     await userEvent.click(canvas.getByRole("button", { name: "Helm" }));
-    await expect(canvas.getByLabelText("Helm")).toBeVisible();
+    await expect(canvas.getByRole("complementary", { name: "Helm" })).toBeVisible();
     await expect(panel()).toBe(shut);
     await userEvent.click(canvas.getByRole("button", { name: /^Close/ }));
     await expect(panel()).toBe(shut);

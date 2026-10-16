@@ -107,7 +107,7 @@ fn a_branch_whose_every_commit_is_in_the_build_is_in_it() {
     let tip = child_of(&repo, &first, "the branch's");
     branch_at(&repo, "armada/work", &tip);
     let built = child_of(&repo, &tip, "a build holding it");
-    assert_eq!(branch_in_build(&repo.root_str(), &built, "armada/work"), Some(BranchInBuild::In));
+    assert_eq!(branch_in_build(&repo.root_str(), &built, "armada/work"), Some(BranchInBuild::In { tip }));
 }
 
 #[test]

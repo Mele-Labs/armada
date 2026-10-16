@@ -204,6 +204,49 @@
   white-space: nowrap;
 }
 
+/* A step whose target is not on the page. The words are its tooltip. */
+.armada-capture-bar__walk-stopped {
+  display: inline-flex;
+  flex: none;
+  color: var(--error);
+}
+
+/* The page is on a provider's, and the walk waits for it. The word is its tooltip. */
+.armada-capture-bar__walk-signing {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Autoplay stopped before a step that acts on a page off this machine: Next is the key waited on. */
+/* The halo is the focus ring, still, with its opacity pulsing, so the endless motion stays on the compositor. `::after` is the button's press line. */
+.armada-capture-bar__walk .armada-button[data-waiting]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  pointer-events: none;
+  animation: armada-capture-bar-waiting 1.2s ease-in-out infinite;
+}
+
+@keyframes armada-capture-bar-waiting {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-capture-bar__walk .armada-button[data-waiting]::before {
+    animation: none;
+  }
+}
+
 .armada-capture-bar__walk-said {
   flex: 1 1 auto;
   min-width: 0;

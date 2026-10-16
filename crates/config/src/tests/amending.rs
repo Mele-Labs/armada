@@ -154,7 +154,7 @@ fn forward() -> Vec<Edit> {
             }),
         ),
         port("storybook", PortEdit::Container(Some(6006))),
-        Edit::AutoMerge(Some(AutoMerge::ChecksPass)),
+        Edit::AutoMerge(Some(AutoMerge::Always)),
         Edit::ReviewGate(Some(ReviewGate::AutoIfJudgePasses)),
         Edit::CostCapMicrosPerJob(Some(2_000_000)),
         Edit::TurnCapPerJob(Some(40)),
@@ -183,7 +183,7 @@ fn back() -> Vec<Edit> {
         command("storybook_dev", CommandEdit::Links(vec![storybook_link()])),
         port("web", PortEdit::Remove),
         port("storybook", PortEdit::Container(None)),
-        Edit::AutoMerge(None),
+        Edit::AutoMerge(Some(AutoMerge::ChecksPass)),
         Edit::ReviewGate(None),
         Edit::CostCapMicrosPerJob(None),
         Edit::TurnCapPerJob(None),
@@ -204,11 +204,12 @@ fn every_edit_a_form_makes_round_trips_this_repositorys_manifest_byte_for_byte()
     assert!(comments.count() > 150, "the fixture is the commented file");
 
     let edited = amended(OWN, &forward());
-    // The three lines an edit rewrites in place; every other line stays.
+    // The four lines an edit rewrites in place; every other line stays.
     let named = [
         "    run: cargo build --workspace --locked --jobs ${width}",
         "    ready: curl -sf http://localhost:${port.storybook}",
         "  storybook: {}",
+        "auto_merge: checks-pass",
     ];
     let untouched: String = OWN
         .lines()
@@ -225,7 +226,7 @@ fn every_edit_a_form_makes_round_trips_this_repositorys_manifest_byte_for_byte()
         Some("lint")
     );
     assert_eq!(loaded.turn_cap(), Some(40));
-    assert_eq!(loaded.auto_merge(), AutoMerge::ChecksPass);
+    assert_eq!(loaded.auto_merge(), AutoMerge::Always);
 
     assert_eq!(amended(&edited, &back()), OWN, "taking every edit back");
 }

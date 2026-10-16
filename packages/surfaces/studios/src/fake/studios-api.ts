@@ -36,6 +36,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       walkBack: async () => {},
       walkAutoplay: async () => {},
       walkReplay: async () => {},
+      walkGuide: async () => {},
     },
     // The panel beside a walk window's page, which the mock has no window for either.
     walkPanel: {

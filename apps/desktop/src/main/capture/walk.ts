@@ -90,6 +90,15 @@ export function readWalk(answer: unknown): CaptureWalk | null {
   return { name: line(name, NAME_MAX), at, of, said: line(said, SAID_MAX), autoplay, ready, done };
 }
 
+/** Whether the ring and caption of the steps Bridge plays draw the same. */
+function sameGuide(a: CaptureWalk["guide"], b: CaptureWalk["guide"]): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  const at = a.box;
+  const to = b.box;
+  const same = at === null || to === null ? at === to : at.x === to.x && at.y === to.y && at.width === to.width && at.height === to.height;
+  return same && a.folded === b.folded && a.stopped === b.stopped && a.signingIn === b.signingIn && a.waiting === b.waiting;
+}
+
 /** Whether two states draw the same, so the bar is told only of a change. */
 export function sameWalk(a: CaptureWalk | null, b: CaptureWalk | null): boolean {
   if (a === null || b === null) return a === b;
@@ -100,6 +109,7 @@ export function sameWalk(a: CaptureWalk | null, b: CaptureWalk | null): boolean 
     a.said === b.said &&
     a.autoplay === b.autoplay &&
     a.ready === b.ready &&
-    a.done === b.done
+    a.done === b.done &&
+    sameGuide(a.guide, b.guide)
   );
 }

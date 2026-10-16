@@ -398,8 +398,8 @@ export const SignedOutAsleep: Story = {
 const inTwoHours = () => new Date(Date.now() + (2 * 60 + 14) * 60_000 + 30_000).toISOString();
 
 /**
- * The plan's limits as two fill meters beside Sleep. Hover or focus opens a card, a press keeps it open, and
- * Esc closes it. Each is named for what it is and how full it is.
+ * The plan's limits as one ring beside Sleep, the 5-hour limit outside and the week inside. Hover or focus opens
+ * one card of both, a press keeps it open, and Esc closes it. The ring is named for both and how full each is.
  */
 export const PlanUsage: Story = {
   args: {
@@ -412,19 +412,20 @@ export const PlanUsage: Story = {
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    const five = canvas.getByRole("button", { name: "5-hour limit 34%" });
-    await expect(canvas.getByRole("button", { name: "Weekly limit 61%" })).toBeVisible();
+    const ring = canvas.getByRole("button", { name: "5-hour limit 34%, Weekly limit 61%" });
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
 
-    await userEvent.hover(five);
-    const card = canvas.getByRole("dialog", { name: "5-hour limit" });
-    await expect(card).toHaveTextContent("34% used");
-    await expect(card).toHaveTextContent("Resets in");
-    await expect(card).toHaveTextContent("2h 14m");
+    await userEvent.hover(ring);
+    const card = canvas.getByRole("dialog", { name: "Plan limits" });
+    const five = within(card).getByRole("region", { name: "5-hour limit" });
+    await expect(five).toHaveTextContent("34%");
+    await expect(five).toHaveTextContent("Resets in");
+    await expect(five).toHaveTextContent("2h 14m");
+    await expect(within(card).getByRole("region", { name: "Weekly limit" })).toHaveTextContent("61%");
 
-    await userEvent.click(five);
-    await userEvent.unhover(five);
-    await expect(canvas.getByRole("dialog", { name: "5-hour limit" })).toBeVisible();
+    await userEvent.click(ring);
+    await userEvent.unhover(ring);
+    await expect(canvas.getByRole("dialog", { name: "Plan limits" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
   },
@@ -443,7 +444,7 @@ export const PlanUsageLevels: Story = {
   },
 };
 
-/** A limit with an offer standing: the bell on the meter, a fact under the reset, and the owner's two acts in the card. */
+/** A limit with an offer standing: the bell on the ring, a fact under the reset, and the owner's two acts in the card. */
 export const PlanUsageOffer: Story = {
   args: {
     repositoryPicker: picker,

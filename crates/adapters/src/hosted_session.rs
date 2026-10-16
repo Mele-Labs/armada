@@ -11,9 +11,9 @@
 //! **Added to the person's settings, never in place of them**: `--settings`
 //! carries two things, the switch that lets another session's message start a
 //! turn here and the hook that holds a write until the session has leased a
-//! slot. A fork's processes also carry `--append-system-prompt` with the note that
-//! says whose work the copied conversation describes, and Helm's carry the note that says what
-//! Helm is (`noting`).
+//! slot. Every process carries `--append-system-prompt` once, holding [`SESSION_RULES`], then
+//! Helm's note that says what Helm is (`noting`) where there is one, then a fork's note that says
+//! whose work the copied conversation describes.
 
 use std::error::Error;
 use std::fmt;
@@ -42,6 +42,11 @@ pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
 /// `activity`. Only a write or a `Bash` line is held on a lease, and a line is told read from write
 /// by [`reads_only`]; the gate lets every other call through.
 const GATED_TOOLS: &str = "*";
+
+/// Armada's rules for how a hosted session surfaces what it needs and how far it has got. Compiled
+/// in and appended to every process whatever output style the person has; no setting reaches it.
+/// `docs/contracts/agent-prompt.md`, *The session rules*.
+pub const SESSION_RULES: &str = include_str!("session_rules.md");
 
 /// Everything one process of a hosted session is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -263,14 +268,13 @@ impl HeadlessAgent {
             "--name".into(),
             hosted.name.clone(),
         ];
-        let told: Vec<&str> = [hosted.note.as_deref(), hosted.fork_note.as_deref()]
+        // One argument, since the CLI reads the last of several. The rules lead; a note adds to them.
+        let told: Vec<&str> = [Some(SESSION_RULES.trim()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()
             .flatten()
             .collect();
-        if !told.is_empty() {
-            args.push("--append-system-prompt".into());
-            args.push(told.join("\n\n"));
-        }
+        args.push("--append-system-prompt".into());
+        args.push(told.join("\n\n"));
         if let Some(model) = &hosted.model {
             args.push("--model".into());
             args.push(model.as_str().into());
@@ -309,7 +313,11 @@ impl HeadlessAgent {
             Prompt::assembled("carried on stdin").map_err(HostedRefused::Unassembled)?,
             hosted.door.clone(),
             Toolbelt::evidence_only(),
-            hosted.environment.clone(),
+            hosted
+                .environment
+                .clone()
+                .and(crate::conversing::TASK_TOOLS, "1")
+                .map_err(HostedRefused::Unassembled)?,
         );
         Ok(Launch::rendered(&borrowed, self.program(), args))
     }

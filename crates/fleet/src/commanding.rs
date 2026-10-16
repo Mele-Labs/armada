@@ -327,7 +327,8 @@ where
     }
 
     /// A corrected Manifest, written and nothing more —
-    /// [`editing`](mod@crate::editing).
+    /// [`editing`](mod@crate::editing). Where a form's edit is pending, the
+    /// text goes into its pull request instead.
     ///
     /// **Not `Arc`, because nothing outlives the call.** The bytes are on disk
     /// when this answers; what the re-read makes of them is the watch's, and
@@ -338,6 +339,7 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ManifestSaved, Refusal> {
         self.write_manifest_file(asked, &self.served_named(manifest_id.as_ref())?)
+            .await
     }
 
     /// A form's edits, placed and sent — [`amending`](mod@crate::amending).
@@ -398,6 +400,24 @@ where
         asked: ipc::ChangeFleetBuild,
     ) -> Result<ipc::FleetBuildChanging, Refusal> {
         self.change_fleet_build_now(&asked)
+    }
+
+    /// The one pull a held checkout is offered — `crate::catching_up`. **Not
+    /// `budgeted`**, `change_fleet_build`'s reason: no Job is touched.
+    async fn catch_up_checkout(
+        &self,
+        asked: ipc::CatchUpCheckout,
+    ) -> Result<ipc::CheckoutCaughtUp, Refusal> {
+        self.caught_up_checkout(asked).await
+    }
+
+    /// A held checkout's files sent up as a pull request —
+    /// `crate::catching_up`. **Not `budgeted`**, for the same reason.
+    async fn checkout_to_pull_request(
+        &self,
+        asked: ipc::CheckoutToPullRequest,
+    ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {
+        self.checkout_sent_as_pull_request(asked).await
     }
 
     /// Take back a rule a person always-allowed for this Manifest's

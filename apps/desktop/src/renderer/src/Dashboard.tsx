@@ -15,6 +15,7 @@ import {
   Clock,
   Cpu,
   Eye,
+  FolderGit2,
   GitMerge,
   GitPullRequest,
   Compass,
@@ -57,6 +58,9 @@ import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
+import { checkoutCall } from "./cockpit/checkout";
+import { MERGE_BY_HAND } from "./cockpit/horizon";
+import { ByHandActs } from "./merge-by-hand";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -536,8 +540,41 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
           ),
         });
       }
+      // A held checkout is told here and answered on the merge queue's checkout light, which opening the call pins.
+      if (view.hub?.checkout !== undefined) {
+        const held = checkoutCall(view.root, view.hub.checkout);
+        items.push({
+          key: `checkout:${view.root}`,
+          owner: "line",
+          icon: FolderGit2,
+          kind: "Checkout",
+          title: held.title,
+          fact: held.fact,
+          hue: "ask",
+          where,
+          body: held.facts.map((one) => [one.label, one.lines.map((line) => line.text).join("\n")] as const),
+          acts: () => null,
+        });
+      }
       for (const pull of view.hub?.pulls ?? []) {
-        if (pull.ci !== "failed" && pull.queue?.state !== "unmergeable") continue;
+        const failing = pull.ci === "failed" || pull.queue?.state === "unmergeable";
+        // A form edit the forge would not auto-merge waits for a person; opening the call opens its pull request.
+        if (!failing && pull.mergeByHand === true) {
+          items.push({
+            key: `pull:${pull.number}`,
+            owner: "line",
+            icon: GitPullRequest,
+            kind: "Pull request",
+            title: `armada.yml edit #${pull.number}`,
+            fact: MERGE_BY_HAND,
+            hue: "ask",
+            where,
+            body: [["Branch", pull.branch]],
+            acts: () => <ByHandActs root={view.root} number={pull.number} {...(pull.ci === undefined ? {} : { ci: pull.ci })} />,
+          });
+          continue;
+        }
+        if (!failing) continue;
         items.push({
           key: `pull:${pull.number}`,
           icon: GitPullRequest,

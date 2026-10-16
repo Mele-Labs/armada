@@ -19,7 +19,7 @@ import { openJobIn } from "@armada/jobs";
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
 import { useDebugBridgeAsked } from "../debug-bridge";
-import { askToOpenSession } from "../open-session";
+import { askToOpenSessionInCockpit } from "../open-session";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
 import { contextOf, type ContextState } from "./context";
@@ -107,7 +107,7 @@ const NO_SHOT = "No screenshot: on another screen";
 /** The same fact for a send of several, where only some of them go without one. */
 const noShot = (away: number, of: number): string => (away === of ? NO_SHOT : `No screenshot for ${away} of ${of}: on another screen`);
 
-export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
+export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCockpit, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
   const fleet: LayerFleet | undefined = given ?? window.armada;
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
@@ -386,6 +386,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
+      // The saved note stays up, so what is done with it is a press away.
+      setDeleting(false);
+      setOpened(note.id);
     } catch (cause) {
       fail("Saving", cause);
     } finally {
@@ -652,7 +655,31 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
             </p>
           )}
           {openNote.sent === undefined && cannotSend !== null && <p className="armada-annotate__meta">{cannotSend}</p>}
+          {/* The panel row's acts, so a note is acted on where it is pinned. */}
           <div className="armada-annotate__actions">
+            {openNote.sent === undefined && openNote.status === "open" && (
+              <>
+                <Tooltip label={cannotSend ?? "Send this note as a Job"} asChild>
+                  <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(openNote)}>
+                    {sending === openNote.id ? "Sending…" : "Dispatch job"}
+                  </Button>
+                </Tooltip>
+                {cannotSend === null && (
+                  <SplitButton
+                    size="sm"
+                    menuLabel="Send to a Session"
+                    disabled={sending !== null}
+                    onAction={() => void sendToSessionAs(openNote.id, [openNote], null)}
+                    items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(openNote.id, [openNote], one) }))}
+                  >
+                    Start session
+                  </SplitButton>
+                )}
+              </>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => void setStatus(openNote, openNote.status === "open" ? "done" : "open")}>
+              {openNote.status === "open" ? "Mark done" : "Reopen"}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -660,23 +687,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
             >
               {deleting ? "Press again to delete" : "Delete"}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void setStatus(openNote, openNote.status === "open" ? "done" : "open")}
-            >
-              {openNote.status === "open" ? "Mark done" : "Reopen"}
-            </Button>
-            {openNote.sent === undefined && openNote.status === "open" && (
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={cannotSend !== null || sending !== null}
-                onClick={() => void sendOne(openNote)}
-              >
-                {sending === openNote.id ? "Sending…" : "Send to Fleet"}
-              </Button>
-            )}
           </div>
         </Card>
       )}

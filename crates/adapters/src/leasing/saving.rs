@@ -1,7 +1,8 @@
 //! Committing uncommitted files to the branch they are on, so a checkout can be
 //! freed or removed without losing them. A park does it for a pool slot; a
 //! Clear does it for a Job's own worktree, which `git worktree remove` would
-//! otherwise empty. Nothing is pushed.
+//! otherwise empty. Nothing is pushed, and none is refused for where HEAD
+//! points: a checkout on no branch or on the base gets a branch of its own.
 
 use std::path::Path;
 
@@ -9,7 +10,7 @@ use git2::{Repository, WorktreeLockStatus};
 
 use adapter_traits::WorktreeSpec;
 
-use super::git::{dirty, git, is_checkout};
+use super::git::{count, dirty, git, git_ok, is_checkout, read};
 use super::Committed;
 
 /// Commit every uncommitted file in `at`, untracked in and ignored out. `None`
@@ -28,39 +29,44 @@ pub(super) fn commit_all(at: &Path, message: &str) -> Result<Option<Committed>, 
     Ok(Some(Committed { commit, files }))
 }
 
-/// Why a Job's own worktree was not saved. Nothing was committed.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum NotSaved {
-    /// Detached, so there is no branch to commit to.
-    OnNoBranch,
-    /// On a branch other than the Job's.
-    OnAnotherBranch { expected: String, on: String },
-    /// git refused, and this is what it said.
-    Vcs(String),
+/// What a Clear kept of a Job's own worktree: where, and what was committed.
+#[derive(Debug)]
+pub struct SavedWorktree {
+    /// The branch the files went to: the one the worktree was on, or a new one
+    /// where it was on none or on the base.
+    pub branch: String,
+    pub committed: Committed,
 }
 
-impl NotSaved {
-    pub fn said(&self) -> String {
-        match self {
-            NotSaved::OnNoBranch => String::from(
-                "the worktree is on a detached HEAD, so there is no branch to commit the \
-                 uncommitted files to",
-            ),
-            NotSaved::OnAnotherBranch { expected, on } => format!(
-                "the worktree is on branch {on}, not {expected}, so the uncommitted files were \
-                 not committed"
-            ),
-            NotSaved::Vcs(why) => why.clone(),
-        }
+/// Cut a branch at `at`'s `HEAD`, named `kept/<stem>` with a number after it
+/// where that name is taken, and switch to it. The files in the checkout come
+/// with the switch, so a commit made there holds them. The name of the branch.
+pub(super) fn cut_kept_branch(at: &Path, stem: &str) -> Result<String, String> {
+    let mut name = format!("kept/{stem}");
+    let mut n = 1;
+    while git_ok(at, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{name}")]) {
+        n += 1;
+        name = format!("kept/{stem}-{n}");
     }
+    git(at, &["switch", "--quiet", "--create", &name])?;
+    Ok(name)
 }
 
-/// Commit what is uncommitted in the Job's worktree to its branch, before the
-/// worktree is removed. `None` where the worktree is absent, not a checkout of its own, clean or
-/// locked:
-/// a lock is a person saying not yet, and the reclaim reports it without a
-/// commit having been made first.
-pub fn save_worktree(spec: &WorktreeSpec, job: &str) -> Result<Option<Committed>, NotSaved> {
+/// Whether `name` is the branch work is merged into, which a WIP commit must
+/// not land on: what the remote's head names, else `main` or `master`.
+fn is_a_base(at: &Path, name: &str) -> bool {
+    matches!(name, "main" | "master")
+        || read(at, &["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
+            .is_ok_and(|head| head == format!("origin/{name}"))
+}
+
+/// Commit what is uncommitted in the Job's worktree, before the worktree is
+/// removed. It goes to the branch the worktree is on. Where that is no branch
+/// or the base, a new `kept/job-<id>` branch is cut at `HEAD` for it, and for
+/// any commit no branch or remote holds. `None` where the worktree is absent,
+/// not a checkout of its own, clean or locked: a lock is a person saying not
+/// yet, and the reclaim reports it without a commit having been made first.
+pub fn save_worktree(spec: &WorktreeSpec, job: &str) -> Result<Option<SavedWorktree>, String> {
     let path = spec.worktree_path();
     let at = Path::new(&path);
     // A plain directory inside the repository answers git with the
@@ -78,19 +84,20 @@ pub fn save_worktree(spec: &WorktreeSpec, job: &str) -> Result<Option<Committed>
             return Ok(None);
         }
     }
-    let files = dirty(at).map_err(NotSaved::Vcs)?;
-    if files.is_empty() {
+    let on = git(at, &["branch", "--show-current"])?;
+    let detached = on.is_empty();
+    let files = dirty(at)?;
+    // Commits a detach would leave on no branch: only a detached HEAD has any.
+    let stranded = detached && count(at, &["HEAD", "--not", "--branches", "--remotes"]) > 0;
+    if files.is_empty() && !stranded {
         return Ok(None);
     }
-    let on = git(at, &["branch", "--show-current"]).map_err(NotSaved::Vcs)?;
-    if on.is_empty() {
-        return Err(NotSaved::OnNoBranch);
-    }
-    let expected = spec.branch();
-    if on != expected {
-        return Err(NotSaved::OnAnotherBranch { expected, on });
-    }
+    let branch = if detached || is_a_base(at, &on) {
+        cut_kept_branch(at, &format!("job-{job}"))?
+    } else {
+        on
+    };
     let message =
         format!("WIP: uncommitted files of job {job}, saved before its worktree was removed");
-    commit_all(at, &message).map_err(NotSaved::Vcs)
+    Ok(commit_all(at, &message)?.map(|committed| SavedWorktree { branch, committed }))
 }

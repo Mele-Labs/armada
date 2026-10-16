@@ -32,6 +32,8 @@ export type Pinned = {
   url: string;
   /** The repository the server runs in, which keys the session partition. */
   manifestId: string | null;
+  /** Other origins the window may pass through, such as a sign-in provider. Only a Session names any; a Run's is none. */
+  through: readonly string[];
 };
 
 /**
@@ -67,6 +69,7 @@ export function pinned(state: BridgeState, serverId: string, url: string): Pinne
     origin,
     url,
     manifestId: server.manifest_id ?? null,
+    through: [],
   };
 }
 
@@ -106,6 +109,27 @@ export function webOrigin(address: string): string | null {
 }
 
 /**
+ * The origins a Session let its window pass through, each as an origin: `http` or `https`, a host
+ * and a port, and **nothing else about an entry is read**, so a path, a query, a fragment or a
+ * sign-in of its own drops the entry rather than narrowing it. Fleet refuses the same at
+ * `show_window`; this is the window's own check of what it is told.
+ */
+export function passThrough(named: readonly string[]): string[] {
+  const origins: string[] = [];
+  for (const one of named) {
+    let parsed: URL;
+    try {
+      parsed = new URL(one);
+    } catch {
+      continue;
+    }
+    const bare = parsed.pathname === "/" && parsed.search === "" && parsed.hash === "" && parsed.username === "" && parsed.password === "";
+    if (bare && SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== "") origins.push(parsed.origin);
+  }
+  return origins;
+}
+
+/**
  * Whether an address is on the origin this window opened on.
  *
  * **Scheme, host and port together, and nothing matched by prefix, by suffix
@@ -121,6 +145,30 @@ export function onOrigin(origin: string, address: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Whether an address is on the origin the window is pinned to or on one a Session let it pass through. */
+export function onAnyOrigin(pin: Pinned, address: string): boolean {
+  return onOrigin(pin.origin, address) || pin.through.some((origin) => onOrigin(origin, address));
+}
+
+/**
+ * Whether an address is on a provider the Session named and not on the page it showed. **A page on
+ * one is a page being signed in on**, which the walk waits out rather than reading as a page that
+ * lacks its target.
+ */
+export function onNamedOrigin(pin: Pinned, address: string): boolean {
+  return !onOrigin(pin.origin, address) && pin.through.some((origin) => onOrigin(origin, address));
+}
+
+/**
+ * The user agent Electron carries, less the two tokens that name it: `Electron/x.y.z` and the app's
+ * own `Name/x.y.z`, which sits between `like Gecko)` and `Chrome/`. **What is left is the Chrome one**,
+ * since a provider that refuses a browser it cannot place refuses the first two tokens and reads the
+ * rest. Anything the fallback does not spell like Electron's is returned as it came.
+ */
+export function chromeAgent(fallback: string): string {
+  return fallback.replace(/\s+Electron\/\S+/g, "").replace(/(like Gecko\))\s+\S+\/\S+(\s+Chrome\/)/, "$1$2");
 }
 
 /**

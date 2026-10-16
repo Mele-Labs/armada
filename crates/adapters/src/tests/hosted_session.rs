@@ -6,7 +6,7 @@ use ipc::SessionMode;
 
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
-use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused};
+use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused, SESSION_RULES};
 use crate::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
@@ -72,6 +72,17 @@ fn a_session_holds_what_the_person_holds_and_is_told_its_id_and_its_name() {
 }
 
 #[test]
+fn a_session_has_the_task_tools_so_its_build_ring_has_pieces() {
+    let launch = HeadlessAgent::at("/usr/local/bin/agent")
+        .render_hosted_session(&launching(false, SessionMode::Auto))
+        .expect("renders");
+    assert_eq!(
+        launch.environment(),
+        &environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name")
+    );
+}
+
+#[test]
 fn the_next_process_resumes_by_the_same_id() {
     let args = rendered(&launching(true, SessionMode::Auto));
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(ID));
@@ -101,26 +112,66 @@ fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
 fn every_process_of_a_fork_is_told_it_is_one() {
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
-        assert_eq!(value_after(&args, "--append-system-prompt").as_deref(), Some(NOTE), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{NOTE}", rules()), "resuming: {resuming}");
     }
 }
 
-#[test]
-fn a_session_that_is_not_a_fork_is_told_nothing() {
-    let args = rendered(&launching(false, SessionMode::Auto));
-    assert!(!args.iter().any(|arg| arg == "--append-system-prompt"));
+/// The rules as they are appended: trimmed, so a note follows after one blank line.
+fn rules() -> &'static str {
+    SESSION_RULES.trim()
 }
 
-/// Helm's note is appended to every process of its Session, and a blank one is none at all.
+/// The one appended system prompt, asserting there is exactly one.
+fn appended(args: &[String]) -> String {
+    assert_eq!(args.iter().filter(|arg| *arg == "--append-system-prompt").count(), 1);
+    value_after(args, "--append-system-prompt").expect("appended")
+}
+
+/// Armada's rules ride every launch, plain, noted, forked or resuming, and are the whole of a
+/// plain one.
+#[test]
+fn every_launch_carries_the_session_rules_once() {
+    for resuming in [false, true] {
+        let plain = rendered(&launching(resuming, SessionMode::Auto));
+        assert_eq!(appended(&plain), rules(), "resuming: {resuming}");
+        let noted = rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm."));
+        assert_eq!(appended(&noted).matches(rules()).count(), 1, "resuming: {resuming}");
+        let forked = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
+        assert_eq!(appended(&forked).matches(rules()).count(), 1, "resuming: {resuming}");
+    }
+}
+
+/// The rules name the tools Fleet's door offers, so a rename there fails here.
+#[test]
+fn the_rules_name_the_tools_that_surface_a_need() {
+    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion"] {
+        assert!(rules().contains(named), "{named}");
+    }
+}
+
+/// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
+/// here. The rules' opening paragraph addresses a hosted session and the style has its own.
+#[test]
+fn the_output_style_carries_the_rules_verbatim() {
+    let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
+    let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
+    assert_eq!(blocks.len(), 3, "needs, progress, finishing");
+    for block in blocks {
+        assert!(style.contains(block), "the style has drifted from: {block}");
+    }
+}
+
+/// Helm's note is appended to every process of its Session after the rules, and a blank one is
+/// none at all.
 #[test]
 fn helms_note_is_appended_to_every_process_of_its_session() {
     let note = "You are Helm, docked in Armada over repository armada.";
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
-        assert_eq!(value_after(&args, "--append-system-prompt").as_deref(), Some(note), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{note}", rules()), "resuming: {resuming}");
     }
     let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
-    assert!(!blank.iter().any(|arg| arg == "--append-system-prompt"));
+    assert_eq!(appended(&blank), rules());
 }
 
 /// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
@@ -132,11 +183,7 @@ fn a_note_and_a_forks_note_are_one_appended_prompt() {
         .expect("portable")
         .noting("You are Helm.");
     let args = rendered(&launch);
-    assert_eq!(args.iter().filter(|arg| *arg == "--append-system-prompt").count(), 1);
-    assert_eq!(
-        value_after(&args, "--append-system-prompt").as_deref(),
-        Some(format!("You are Helm.\n\n{NOTE}").as_str())
-    );
+    assert_eq!(appended(&args), format!("{}\n\nYou are Helm.\n\n{NOTE}", rules()));
 }
 
 #[test]

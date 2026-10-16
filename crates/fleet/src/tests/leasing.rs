@@ -329,7 +329,7 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
         .keep_next_release("armada/1-x has 2 commits on neither the remote nor the base");
     fleet
         .vcs()
-        .refuse_next_park(adapter_traits::SlotParkRefused::OnNoBranch);
+        .refuse_next_park(adapter_traits::SlotParkRefused::Vcs(String::from("git said no")));
 
     let loaded = fleet.load(&job).await.expect("the Job");
     fleet
@@ -355,7 +355,7 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
     let said = std::fs::read_to_string(crate::transcript::log_of(&root(&home), &handle))
         .unwrap_or_default();
     assert!(
-        said.contains("HEAD is detached"),
+        said.contains("git said no"),
         "the Job's own log says why: {said}"
     );
 }
@@ -535,7 +535,7 @@ async fn a_slot_that_cannot_be_parked_stays_held_and_names_the_obstacle() {
     fleet.vcs().keep_next_release(DIRTY);
     fleet
         .vcs()
-        .refuse_next_park(adapter_traits::SlotParkRefused::OnNoBranch);
+        .refuse_next_park(adapter_traits::SlotParkRefused::Vcs(String::from("git said no")));
 
     let refused = Fleet::cleared_worktree(&fleet, &job)
         .await
@@ -544,7 +544,7 @@ async fn a_slot_that_cannot_be_parked_stays_held_and_names_the_obstacle() {
     let Adrift::SlotKept { why, .. } = refused else {
         panic!("{refused:?}");
     };
-    assert!(why.contains("HEAD is detached"), "{why}");
+    assert!(why.contains("git said no"), "{why}");
     assert!(!why.contains("Commit or remove"), "{why}");
     assert!(fleet.vcs().parked_slots().is_empty());
     assert_eq!(
