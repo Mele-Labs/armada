@@ -22,6 +22,9 @@ const script = walking === null ? undefined : EVERY_WALK.get(walking);
 const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
+// `?take=<name>` marks the document with a take of a change being walked, for the stylesheet to draw that take.
+const take = query.get("take");
+if (take !== null) document.documentElement.dataset.take = take;
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);

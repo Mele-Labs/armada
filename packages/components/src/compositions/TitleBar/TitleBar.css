@@ -213,8 +213,51 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-1);
+  /* Tight: the two lines read as one figure. */
+  gap: calc(var(--space-1) / 2);
   flex: none;
+}
+
+/* A stacked line is as tall as its letters, so the pair is one control's height. */
+.armada-title-bar__usage .armada-title-bar__usage-meter {
+  line-height: 1;
+}
+
+/* Take "one" (mock walk `places-narrow`, until the owner picks): both limits as one ring glyph, drawn only
+ * where the mock sets `data-take="one"` on the document. */
+.armada-title-bar__usage-ring {
+  position: relative;
+  display: none;
+}
+
+.armada-title-bar__usage-ring-track,
+.armada-title-bar__usage-ring-fill {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.armada-title-bar__usage-ring-track {
+  stroke: var(--bg-hover);
+}
+
+.armada-title-bar__usage-ring-fill {
+  stroke: var(--fg-muted);
+  stroke-linecap: round;
+}
+
+.armada-title-bar__usage-ring [data-level="warning"] .armada-title-bar__usage-ring-fill {
+  stroke: var(--status-awaiting-review);
+}
+
+.armada-title-bar__usage-ring [data-level="danger"] .armada-title-bar__usage-ring-fill {
+  stroke: var(--status-completed-failed);
+}
+
+/* Both limits' cards, one under the other, hanging under the ring. */
+.armada-title-bar__usage-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .armada-title-bar__usage-meter {

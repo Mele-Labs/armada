@@ -70,8 +70,6 @@ function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; na
   const { open, pinned, toggle, close, bind } = useCardOpen();
   const percent = Math.round(one.percentUsed);
   const level = usageLevel(percent);
-  const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
-  const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
   return (
     <span className="armada-title-bar__usage-limit" data-level={level} {...bind}>
       <button
@@ -92,35 +90,92 @@ function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; na
           </Tooltip>
         )}
       </button>
-      {open ? (
-        <StopCard
-          className="armada-title-bar__usage-card"
-          role="dialog"
-          aria-label={limit.name}
-          data-pinned={pinned || undefined}
-          pill={`${percent}% used`}
-          where={limit.short}
-          title={limit.name}
-          rows={[...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])]}
-        >
-          {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
-            <span className="armada-title-bar__usage-acts">
-              {one.offer.acts.map((act) => (
-                <Button
-                  key={act.label}
-                  variant={act.primary === true ? "primary" : "secondary"}
-                  size="sm"
-                  onClick={() => {
-                    act.onPress();
-                    if (act.stays !== true) close();
-                  }}
-                >
-                  {act.label}
-                </Button>
-              ))}
+      {open ? <LimitCard className="armada-title-bar__usage-card" one={one} limit={limit} pinned={pinned} close={close} /> : null}
+    </span>
+  );
+}
+
+/** One limit's card: how much is used, when it resets, and what is on offer. */
+function LimitCard({ one, limit, pinned, close, className }: { one: PlanUsage; limit: { short: string; name: string }; pinned: boolean; close: () => void; className?: string }) {
+  const percent = Math.round(one.percentUsed);
+  const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
+  const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
+  return (
+    <StopCard
+      {...(className === undefined ? {} : { className })}
+      role="dialog"
+      aria-label={limit.name}
+      data-pinned={pinned || undefined}
+      pill={`${percent}% used`}
+      where={limit.short}
+      title={limit.name}
+      rows={[...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])]}
+    >
+      {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
+        <span className="armada-title-bar__usage-acts">
+          {one.offer.acts.map((act) => (
+            <Button
+              key={act.label}
+              variant={act.primary === true ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                act.onPress();
+                if (act.stays !== true) close();
+              }}
+            >
+              {act.label}
+            </Button>
+          ))}
+        </span>
+      )}
+    </StopCard>
+  );
+}
+
+type Drawn = { one: PlanUsage; limit: { short: string; name: string } };
+
+/**
+ * Take "one" (mock walk `places-narrow`, until the owner picks): both limits as one glyph, the first limit the
+ * outer ring and the second the inner, each arc in its level's tone. One card holds both.
+ */
+function LimitRing({ drawn }: { drawn: readonly Drawn[] }) {
+  const { open, pinned, toggle, close, bind } = useCardOpen();
+  const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
+  return (
+    <span className="armada-title-bar__usage-ring" {...bind}>
+      <button
+        type="button"
+        className="armada-title-bar__usage-meter"
+        aria-label={drawn.map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`).join(", ")}
+        aria-expanded={open}
+        onClick={toggle}
+      >
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+          {drawn.map(({ one }, i) => {
+            const percent = Math.min(100, Math.max(0, Math.round(one.percentUsed)));
+            const r = 9 - i * 4;
+            return (
+              <g key={one.kind} data-level={usageLevel(percent)}>
+                <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
+                <circle className="armada-title-bar__usage-ring-fill" cx="11" cy="11" r={r} pathLength={100} strokeDasharray={`${percent} 100`} transform="rotate(-90 11 11)" />
+              </g>
+            );
+          })}
+        </svg>
+        {attention === undefined ? null : (
+          <Tooltip label={attention} beside>
+            <span className="armada-title-bar__usage-attention" role="img" aria-label={attention}>
+              <BellRing size={12} strokeWidth={2} aria-hidden />
             </span>
-          )}
-        </StopCard>
+          </Tooltip>
+        )}
+      </button>
+      {open ? (
+        <span className="armada-title-bar__usage-card armada-title-bar__usage-cards">
+          {drawn.map(({ one, limit }) => (
+            <LimitCard key={one.kind} one={one} limit={limit} pinned={pinned} close={close} />
+          ))}
+        </span>
       ) : null}
     </span>
   );
@@ -133,11 +188,14 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   });
   if (drawn.length === 0) return null;
   return (
-    <div className="armada-title-bar__usage">
-      {drawn.map(({ one, limit }) => (
-        <LimitMeter key={one.kind} one={one} limit={limit} />
-      ))}
-    </div>
+    <>
+      <div className="armada-title-bar__usage">
+        {drawn.map(({ one, limit }) => (
+          <LimitMeter key={one.kind} one={one} limit={limit} />
+        ))}
+      </div>
+      <LimitRing drawn={drawn} />
+    </>
   );
 }
 
