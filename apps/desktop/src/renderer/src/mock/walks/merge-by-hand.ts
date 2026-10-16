@@ -16,7 +16,9 @@ export const mergeByHand = walk("merge-by-hand", [
   { press: inside(incoming, button(call)), say: "A press on the call opens #2405 on the stage" },
   { look: inside(pane, text("Needs merging by hand")), say: "Merge: Needs merging by hand" },
   { press: button("Open the Manifest", { exact: true }), say: "The Manifest" },
+  { press: button("Choose a repository"), say: "Choose a repository" },
+  { press: role("menuitem", "armada"), say: "armada" },
   { press: tab("Edit"), say: "Edit, the form" },
   { look: inside(form, text("needs merging by hand")), say: "Under Save: #2405 needs merging by hand" },
-  { press: inside(form, button("#2405", { exact: true })), say: "#2405 opens the pull request" },
+  { look: inside(form, button("#2405", { exact: true })), say: "The number opens the pull request on the forge" },
 ]);
