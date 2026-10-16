@@ -248,3 +248,9 @@ fn git_pointed_at_a_held_slot_is_its_own_and_cd_out_of_it_is_not() {
         Because::Destructive,
     );
 }
+
+#[test]
+fn a_subshell_is_read_by_what_it_runs() {
+    ran(&["(cd /Users/someone/develop/other && git log --oneline -3)", "(cd /repo/.armada/slots/slot-3 && rm x)"]);
+    refused(&["(cd /etc && rm hosts)", "(rm /repo/a)"], Because::Destructive);
+}

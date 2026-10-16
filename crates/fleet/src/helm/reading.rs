@@ -180,13 +180,15 @@ fn only_reads(said: &str) -> bool {
 /// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
 pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
     const KEYWORDS: &[&str] = &[
-        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{",
+        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{", "(",
     ];
     let mut rest = said
         .split_whitespace()
         .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))
         .peekable();
     let program = rest.next()?;
+    // A subshell's `(` is not the program: `(cd x && ls)` runs `cd`.
+    let program = program.trim_start_matches('(');
     let program = program.rsplit('/').next().unwrap_or(program);
     Some((program, rest.collect()))
 }

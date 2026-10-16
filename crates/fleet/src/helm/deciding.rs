@@ -709,7 +709,8 @@ fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Option<Folders>)
     let slot = (!slots.is_empty()).then(|| Slot {
         slots,
         relative: segments.iter().all(|said| {
-            let mut words = said.split_whitespace();
+            // `(cd x && ...)` moves the subshell, so its `(` is not the program.
+            let mut words = said.split_whitespace().map(|word| word.trim_start_matches(['(', '{'])).filter(|word| !word.is_empty());
             match words.next() {
                 Some("cd" | "pushd") => words.next().is_some_and(|to| cd_stays(to, slots)),
                 Some("popd") => false,
