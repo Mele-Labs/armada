@@ -56,11 +56,11 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       };
       if (refuse && url.pathname.endsWith("/merge")) return answer(409, { code: "fleet.merge_checks_not_passed", message: "Checks have not passed: lint." });
       if (url.pathname === "/sessions") return answer(200, { sessions });
+      if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname === "/sessions/one") {
         const id = url.searchParams.get("session_id") ?? "";
         return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
       }
-      if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
     });
