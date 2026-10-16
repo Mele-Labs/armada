@@ -35,7 +35,7 @@ export const s257CheckoutHeldBack: Scenario = (() => {
           // The ship's own Session reply is not this story's.
           later: () => undefined,
           // Fleet reads a listed file's change from the checkout; the walk has these fixtures.
-          diffInRepository: async (_at, path) => ({ ok: true, diff: checkoutDiffOfWalk(path) }),
+          diffInRepository: async (_at, path) => ({ ok: true, ...checkoutDiffOfWalk(path) }),
           // Fleet commits the files to a branch, opens the pull request with auto-merge on and carries it on the hold.
           sendCheckoutAsPullRequest: (_at) =>
             new Promise((done) =>

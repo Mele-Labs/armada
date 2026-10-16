@@ -359,7 +359,13 @@ fn a_checkout_diff_is_asked_by_manifest_and_path_and_answers_with_the_text_uncha
     let read: CheckoutDiffAsk = decode("a diff ask", encode(&asked).unwrap().as_bytes()).expect("reads");
     assert_eq!(read, asked);
 
-    let answer = CheckoutDiff { diff: "diff --git a/f b/f\n@@ -1 +1 @@\n-a\n+b \"quoted\"\n".to_string() };
+    let answer = CheckoutDiff { diff: "diff --git a/f b/f\n@@ -1 +1 @@\n-a\n+b \"quoted\"\n".to_string(), cut: false };
+    assert!(!encode(&answer).unwrap().contains("cut"), "a whole diff says nothing of a cut");
     let back: CheckoutDiff = decode("a diff", encode(&answer).unwrap().as_bytes()).expect("reads");
     assert_eq!(back, answer);
+
+    let short = CheckoutDiff { diff: "diff --git a/f b/f\n".to_string(), cut: true };
+    assert_eq!(encode(&short).unwrap(), r#"{"diff":"diff --git a/f b/f\n","cut":true}"#);
+    let back: CheckoutDiff = decode("a cut diff", encode(&short).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, short);
 }

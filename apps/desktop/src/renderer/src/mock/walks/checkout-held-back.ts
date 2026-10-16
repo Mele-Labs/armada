@@ -3,7 +3,7 @@
 // Four holds in turn on one repository. The safe one offers Pull request, which sends the file up with auto-merge on, or runs from the
 // card and the checkout is level. The last is a long list of
 // uncommitted files, in a box that scrolls inside the card. An uncommitted file opens its change when pressed and folds it
-// when pressed again. Over `checkout-held-back`.
+// when pressed again; a change past Fleet's bound is sent cut and says how many lines are drawn. Over `checkout-held-back`.
 
 import { button, dialog, inside, region, role, text, walk, type Step } from "../walk";
 
@@ -20,6 +20,7 @@ const diverged = "5 commits behind main";
 const loose = "7 commits behind main";
 const firstClashing = "apps/desktop/src/renderer/src/Dashboard.tsx";
 const noticing = "crates/fleet/src/noticing.rs";
+const generated = "crates/fleet/src/generated/schema.rs";
 
 const steps: readonly Step[] = [
   { look: inside(queue, role("img", `Checkout ${safe}`)), say: "An amber mark on main: the checkout is 880 commits behind main" },
@@ -56,5 +57,8 @@ export const checkoutHeldBack = walk("checkout-held-back", [
   { press: inside(section(loose), button(noticing)), say: "A press on a file in the list opens its change inside the list" },
   { look: inside(section(loose), text("+        if self.seen.last() != Some(&seen) {")), say: "The change scrolls in the list and the card keeps its size" },
   { press: inside(section(loose), button(noticing)), say: "A second press folds it" },
+  { press: inside(section(loose), button(generated)), say: "A generated file's change is longer than Fleet sends" },
+  { look: inside(section(loose), text("First 1,996 lines")), say: "Fleet sent the start of it, and one line after it says where it ends" },
+  { press: inside(section(loose), button(generated)), say: "A second press folds it" },
   { look: inside(section(loose), text("7 commits behind main")), say: "There is no command, because the pull could stop on a conflict" },
 ]);

@@ -16,11 +16,18 @@ import type { HeldCheckout, MergeLines } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 
+/** A generated file in the long list, whose change Fleet answers cut at its line bound. */
+export const GENERATED = "crates/fleet/src/generated/schema.rs";
+const GENERATED_AT = 4;
+/** The most lines Fleet sends of one file's change (`CHECKOUT_DIFF_LINES` in `crates/fleet/src/catching_up.rs`). */
+const FLEET_LINES = 2000;
+
 /** 100 uncommitted files under crates/ and apps/, in the order git would list them, with three that main also changed placed through them. */
 const LOOSE_CLASHING: string[] = ["crates/fleet/src/noticing.rs", "apps/desktop/src/renderer/src/Dashboard.tsx", "crates/fleet/src/slots/lease.rs"];
 const LOOSE: string[] = (() => {
   const others = Array.from({ length: 97 }, (_, i) => {
     const n = String(i + 1).padStart(2, "0");
+    if (i === GENERATED_AT) return GENERATED;
     return i % 2 === 0 ? `crates/fleet/src/loose/part${n}.rs` : `apps/desktop/src/renderer/src/loose/part${n}.tsx`;
   });
   const [a, b, c] = LOOSE_CLASHING as [string, string, string];
@@ -64,8 +71,20 @@ const DIFFS: Record<string, string> = {
 const plainDiff = (path: string): string =>
   [`diff --git a/${path} b/${path}`, "index 5d1e8a4..c27b0f9 100644", `--- a/${path}`, `+++ b/${path}`, "@@ -1,3 +1,3 @@", " // loose", "-// before", "+// after", " // end", ""].join("\n");
 
-/** What the walk answers for one uncommitted file: its fixture diff, or the plain one. */
-export const checkoutDiffOfWalk = (path: string): string => DIFFS[path] ?? plainDiff(path);
+/** The generated file's change as Fleet sends it: a header, a hunk and added lines up to Fleet's bound. */
+const generatedDiff = (): string =>
+  [
+    `diff --git a/${GENERATED} b/${GENERATED}`,
+    "index 8e41c07..2b9f6d3 100644",
+    `--- a/${GENERATED}`,
+    `+++ b/${GENERATED}`,
+    "@@ -1,3 +1,4200 @@",
+    ...Array.from({ length: FLEET_LINES - 5 }, (_, i) => `+pub const FIELD_${String(i + 1).padStart(4, "0")}: u16 = ${i + 1};`),
+    "",
+  ].join("\n");
+
+/** What the walk answers for one uncommitted file: its fixture diff, or the plain one, and whether Fleet cut it. */
+export const checkoutDiffOfWalk = (path: string): { diff: string; cut?: true } => (path === GENERATED ? { diff: generatedDiff(), cut: true } : { diff: DIFFS[path] ?? plainDiff(path) });
 
 const HELD: readonly HeldCheckout[] = [
   { base: "main", uncommitted: ["armada.yml"], behind: 880, ahead: 0 },

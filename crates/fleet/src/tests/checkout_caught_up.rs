@@ -299,6 +299,52 @@ async fn a_path_the_hold_lists_answers_with_its_diff() {
     assert_eq!(fleet.vcs().uncommitted_changes_read(), ["armada.yml"]);
 }
 
+#[tokio::test]
+async fn a_change_past_the_line_bound_is_answered_cut_to_whole_lines() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let long: String = (0..2500).map(|n| format!("+line {n}\n")).collect();
+    fleet.vcs().uncommitted_change_is(Ok(long));
+
+    let read = fleet.checkout_diff(asking_for("armada.yml")).await.expect("read");
+
+    assert!(read.cut);
+    assert_eq!(read.diff.lines().count(), 2000);
+    assert!(read.diff.ends_with("+line 1999\n"));
+}
+
+/// A generated file is a few lines of megabytes each: the line bound alone would send them all.
+#[tokio::test]
+async fn a_change_past_the_byte_bound_is_answered_cut_without_splitting_a_character() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let kept = String::from("+short\n");
+    fleet.vcs().uncommitted_change_is(Ok(format!("{kept}+{}\n", "\u{00e9}".repeat(200_000))));
+
+    let read = fleet.checkout_diff(asking_for("armada.yml")).await.expect("read");
+
+    assert!(read.cut);
+    assert_eq!(read.diff, kept, "the one line past the bound is left off whole");
+
+    fleet.vcs().uncommitted_change_is(Ok(format!("+{}", "\u{00e9}".repeat(200_000))));
+    let read = fleet.checkout_diff(asking_for("armada.yml")).await.expect("read");
+    assert!(read.cut);
+    assert!(read.diff.len() <= 256 * 1024 && read.diff.starts_with("+\u{00e9}"));
+}
+
+#[tokio::test]
+async fn a_change_at_the_bounds_is_answered_whole() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let exact: String = (0..2000).map(|n| format!("+line {n}\n")).collect();
+    fleet.vcs().uncommitted_change_is(Ok(exact.clone()));
+
+    let read = fleet.checkout_diff(asking_for("armada.yml")).await.expect("read");
+
+    assert!(!read.cut);
+    assert_eq!(read.diff, exact);
+}
+
 /// Nothing outside the list is read, whatever the path says.
 #[tokio::test]
 async fn a_path_the_hold_does_not_list_is_refused_and_git_is_not_asked() {

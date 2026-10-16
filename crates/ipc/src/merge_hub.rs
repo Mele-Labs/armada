@@ -133,6 +133,10 @@ pub struct CheckoutDiffAsk {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckoutDiff {
     pub diff: String,
+    /// Set where Fleet cut `diff` short of what git printed, at a line or byte
+    /// bound. The text is still whole lines of the start of the change.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cut: bool,
 }
 
 /// Who holds main's red on another machine. **No title and no work**: the store

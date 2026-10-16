@@ -54,7 +54,7 @@ const fileRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestFile"]>>)
   answer.ok ? { ok: true, file: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
 /** A checkout's diff Fleet answered, or the words of its refusal. */
 const checkoutDiffRead = (answer: Awaited<ReturnType<BridgeApi["readCheckoutDiff"]>>): CheckoutDiffRead =>
-  answer.ok ? { ok: true, diff: answer.value.diff } : { ok: false, said: refusalWords(answer.outcome) };
+  answer.ok ? { ok: true, diff: answer.value.diff, ...(answer.value.cut === true ? { cut: true as const } : {}) } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
