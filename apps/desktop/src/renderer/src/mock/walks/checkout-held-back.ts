@@ -16,12 +16,12 @@ const diverged = "5 commits behind main";
 
 export const checkoutHeldBack = walk("checkout-held-back", [
   { look: light(safe), say: "Beside main on the merge queue, a light for the checkout" },
-  { hover: light(safe), say: "Hovering it opens the card: the checkout is 880 commits behind main" },
+  { press: light(safe), say: "A press opens the card: the checkout is 880 commits behind main" },
   { look: inside(card(safe), text("armada.yml")), say: "One file is uncommitted, and main never changed it" },
   { look: inside(card(safe), text("pull --ff-only --autostash")), say: "A pull that keeps the file is safe" },
   { look: inside(card(safe), button("Copy")), say: "Copy puts it on the clipboard" },
   { press: inside(card(safe), button("Run")), say: "Run plays it, exits 0, and the light goes" },
-  { later: places, say: "Fleet has the checkout level" },
+  { later: places, say: "The checkout has main's tip" },
   { later: places, say: "Main moves on and the checkout is held again" },
   { press: light(clashing), say: "A press pins the card: two files are uncommitted" },
   { hover: inside(card(clashing), role("img", "Also changed on main")), say: "A warning marks the file main also changed" },
