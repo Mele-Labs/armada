@@ -1,15 +1,14 @@
 // An idea saved to start later. A Session's dispatcher has Model and Effort beside the act and Queue for later next to Start,
-// ⌘⇧↵ on the request does the same, and the idea waits under Queued in the Sessions list with Start and Remove. Over
-// `queue-for-later`, where the 5-hour limit is nearly spent.
+// ⌘⇧↵ on the request does the same, and the idea waits under Queued at the head of the Cockpit's list with Start and Remove.
+// Over `queue-for-later`, where the 5-hour limit is nearly spent.
 
-import { button, inside, place, region, role, tab, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 
 const cockpit = region("Jobs and Sessions");
 const frame = role("region", "Dispatch", { exact: true });
 const request = inside(frame, role("textbox", "Request"));
 const repository = (name: string) => inside(frame, role("radio", `Repository ${name}`));
-const sessions = region("Sessions");
-const queued = inside(sessions, role("group", "Queued"));
+const queued = inside(cockpit, role("group", "Queued"));
 
 const first = "Make the Cleanup grid sortable by size";
 const second = "Draft the billing export notes";
@@ -28,10 +27,9 @@ const queueForLater = walk("queue-for-later", [
   { type: second, into: request, say: "A second idea" },
   { press: repository("billing"), say: "For billing" },
   { key: "Meta+Shift+Enter", on: request, say: "⌘⇧↵ on the request queues it" },
-  { press: place("Sessions"), say: "Sessions" },
-  { look: queued, say: "Both wait under Queued, above the live Sessions" },
+  { look: queued, say: "Both wait under Queued, at the head of the list" },
   { hover: inside(queued, role("img", "Model opus")), say: "The model is on the row" },
-  { hover: inside(queued, button(new RegExp(`^Start ${first}`))), say: "Start is a press on the row" },
+  { hover: inside(queued, button(new RegExp(`^Start ${first}`))), say: "Start is a press on the row, and ↵ on the row does the same" },
   { press: inside(queued, button(new RegExp(`^Start ${first}`))), say: "Start the first" },
   { look: role("textbox", "Message"), say: "It is a Session now, holding the idea's words" },
 ]);
