@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 import type { PullRequestPage } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
-import type { Anchor, Find, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
+import type { Anchor, Asked, Find, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
 import { bySession, idOfName } from "./tools";
 
 /** How long an agent runs in the mock before it has read the pull request. */
@@ -24,7 +24,7 @@ const withPush = (pr: ReviewPr, push: ReviewSeed["pushes"][string] | undefined):
     ? pr
     : { ...pr, head: push.sha, page: { ...pr.page, commits: [...pr.page.commits, { sha: push.sha, headline: push.headline, author: push.author, at: new Date().toISOString() }] } };
 
-const EMPTY: PrWork = { explains: {}, kind: undefined, view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
+const EMPTY: PrWork = { explains: {}, kind: undefined, asks: [], view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
 
 export type ToolIn = { kind: ToolDef["kind"]; name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
 
@@ -46,6 +46,12 @@ export type ReviewStore = {
   explain: (key: string, def: ToolDef) => void;
   /** Explains again, at the commit the pull request is at now. */
   explainAgain: (key: string, def: ToolDef) => void;
+  /** Shows a choice under the description: an explanation's id, `ask`, or one of his questions. Runs nothing. */
+  show: (key: string, kind: string) => void;
+  /** Asks a question about the pull request, in his words. Runs on send only, and is kept under them. */
+  ask: (key: string, words: string) => void;
+  askAgain: (key: string, id: string) => void;
+  removeAsk: (key: string, id: string) => void;
   /** Runs a tool for this pull request, or shows what it found last time. Comments runs nothing. */
   runTool: (key: string, tool: ToolDef) => void;
   /** Asks a tool again, for this pull request. */
@@ -73,6 +79,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     ...EMPTY,
     explains: pr.explainedBy === "session" ? { "how-it-works": { state: "done", at: Date.now(), head: pr.head }, why: { state: "done", at: Date.now(), head: pr.head } } : {},
     kind: pr.explainedBy === "session" ? "how-it-works" : undefined,
+    asks: pr.asked.map((words) => ({ id: nextId("ask"), words, run: { state: "done", at: Date.now(), head: pr.head } })),
     threads: pr.threads,
     review: pr.page.review,
   });
@@ -140,6 +147,12 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     timers.add(window.setTimeout(() => change(key, { explains: { ...work(key).explains, [def.id]: { state: "done", at: Date.now(), head } } }), AGENT_MS));
   };
 
+  const setAsk = (key: string, id: string, run: Asked["run"]) => change(key, { asks: work(key).asks.map((one) => (one.id === id ? { ...one, run } : one)) });
+  const answer = (key: string, id: string, head: string) => {
+    setAsk(key, id, { state: "running", since: Date.now() });
+    timers.add(window.setTimeout(() => setAsk(key, id, { state: "done", at: Date.now(), head }), AGENT_MS));
+  };
+
   return {
     get: () => snapshot,
     subscribe: (listener) => {
@@ -182,6 +195,22 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
       if (pr === undefined || bySession(pr, def) || work(key).explains[def.id]?.state === "running") return;
       read(key, def, pr.head);
     },
+    show: (key, kind) => change(key, { kind }),
+    ask: (key, words) => {
+      const pr = prOf(key);
+      const said = words.trim().replace(/\s+/g, " ");
+      if (pr === undefined || said === "") return;
+      const again = work(key).asks.find((one) => one.words.toLowerCase() === said.toLowerCase());
+      const id = again?.id ?? nextId("ask");
+      if (again === undefined) change(key, { asks: [...work(key).asks, { id, words: said, run: { state: "idle" } }] });
+      change(key, { kind: id });
+      if (again?.run.state !== "running") answer(key, id, pr.head);
+    },
+    askAgain: (key, id) => {
+      const pr = prOf(key);
+      if (pr !== undefined && work(key).asks.find((one) => one.id === id)?.run.state !== "running") answer(key, id, pr.head);
+    },
+    removeAsk: (key, id) => change(key, { asks: work(key).asks.filter((one) => one.id !== id), kind: work(key).kind === id ? "ask" : work(key).kind }),
     runTool: (key, tool) => {
       if (!tool.agent) return change(key, { view: tool.id });
       const run = work(key).runs[tool.id];

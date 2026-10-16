@@ -61,6 +61,9 @@ type Spec = {
   threads?: readonly { id: string; change: string; match?: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
   /** What each of the other explanations says, by the kind's id. */
   accounts?: Readonly<Record<string, Account>>;
+  /** What a question about it would come to, and the questions already asked of it. */
+  answers?: readonly { when: string; body: string }[];
+  asked?: readonly string[];
   /** What each tool finds, by the tool's id. */
   results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
@@ -127,6 +130,8 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     explanation: { summary: spec.summary, themes },
     explainedBy: spec.explainedBy,
     accounts: spec.accounts ?? {},
+    answers: spec.answers ?? [],
+    asked: spec.asked ?? [],
     threads,
   };
   return { pr, results: spec.results ?? {} };
@@ -169,6 +174,11 @@ const marta = build({
     ["f9b2e63", "Read the plan once a minute in Bridge", "marta", 196],
     ["02d7a8c", "Say when the windows were read", "marta", 150],
   ]),
+  asked: ["What happens to the cached read if Fleet restarts?"],
+  answers: [
+    { when: "restart", body: "It is lost. The cache is a `Held` in memory in `plan_usage.rs`, so the first read after a restart calls the provider, and the minute starts from there." },
+    { when: "gh|signed out|sign.?in", body: "No. The plan windows come from the provider, not from `gh`, so a signed out `gh` does not touch this cache. The pull request panel's own reads are unchanged." },
+  ],
   accounts: {
     "for-you": {
       shape: "change",
@@ -196,8 +206,6 @@ const marta = build({
         { label: "#1880 Sessions rate limited on 11 Oct", address: `${FORGE}/mele-labs/armada/issues/1880` },
       ],
     },
-    changelog: { shape: "text", body: "The plan meters in the title bar now refresh once a minute and say how old their figure is. Opening more windows no longer uses more of your plan's request allowance." },
-    "on-call": { shape: "text", body: "Nothing new pages. A provider that cannot be reached now leaves the meters on their last figure for a minute and then marks them stale.\n\nFleet logs `plan_usage: provider unreachable` once a minute, where it logged it every five seconds. A burst of those lines is the provider, not Fleet." },
   },
   summary:
     "The title bar's meters read the plan windows every five seconds, and every read called the provider. Fleet now keeps its last read for a minute and serves it again, Bridge asks once a minute, and each reading carries the instant it was taken so a meter can say how old its figure is.",
@@ -1213,14 +1221,12 @@ const armadaTools: ToolDef[] = [
 ];
 
 const kitTools: ToolDef[] = [
-  { id: "changelog", kind: "explanation", name: "For the changelog", source: "kit", mark: "custom", agent: true, checks: "The line that would go in the changelog, in the words a user would read." },
   { id: "test-gaps", kind: "tool", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
 ];
 
 /** `.armada/review-tools/` in the armada repository: one that is its own, and one that replaces the Kit's of the same name. */
 const repositoryTools: Record<string, ToolDef[]> = {
   armada: [
-    { id: "on-call", kind: "explanation", name: "What it changes for on-call", source: "repository", mark: "custom", agent: true, checks: "What a person on call sees differently: pages, logs, dashboards, and what to do when it misbehaves." },
     { id: "test-gaps", kind: "tool", name: "Test gaps", source: "repository", mark: "custom", agent: true, checks: "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it." },
     { id: "migration-safety", kind: "tool", name: "Migration safety", source: "repository", mark: "custom", agent: true, checks: "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice." },
   ],

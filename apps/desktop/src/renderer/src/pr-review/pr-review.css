@@ -133,6 +133,9 @@
 /* The choice of explanations, and the one chosen. A kind he added scrolls rather than wraps the strip. */
 .pr-explainer { display: flex; flex-direction: column; gap: var(--space-3); }
 .pr-explainer__pick { overflow-x: auto; }
+.pr-ask { flex-direction: row; align-items: flex-end; }
+.pr-ask .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+.pr-what__words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
 .pr-what[data-source="kit"] { border-color: color-mix(in srgb, var(--status-rejected) 45%, var(--border-default)); }
 .pr-what[data-source="repository"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
 

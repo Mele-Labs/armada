@@ -93,6 +93,12 @@ export type Account =
   | { shape: "reason"; problem: string; cost: string; links: { label: string; address: string }[] }
   | { shape: "text"; body: string };
 
+/** A question he asked about one pull request, in his own words. It is kept under them, for the commit it read. */
+export type Asked = { id: string; words: string; run: AgentRun };
+
+/** What a question would come to. The first whose pattern fits the words answers; one that fits none says nothing. */
+export type AnswerSeed = { when: string; body: string };
+
 /** Armada's own note on a change, from a tool he pressed. **Never posted to the forge.** */
 export type Finding = {
   id: string;
@@ -147,6 +153,10 @@ export type ReviewPr = {
   explainedBy: "session" | "agent";
   /** What the other explanations would say, by the id of the kind. A kind with none says nothing. */
   accounts: Readonly<Record<string, Account>>;
+  /** What a question he asks about it would come to. */
+  answers: readonly AnswerSeed[];
+  /** Questions already asked of it, and kept. */
+  asked: readonly string[];
   threads: Thread[];
 };
 
@@ -182,6 +192,8 @@ export type PrWork = {
   explains: Readonly<Record<string, AgentRun>>;
   /** The explanation shown under the description, if he has chosen one. */
   kind: string | undefined;
+  /** The questions he asked of this pull request, each kept under his words. */
+  asks: readonly Asked[];
   view: View;
   runs: Readonly<Record<string, AgentRun>>;
   /** Changes whose hunks are open. */

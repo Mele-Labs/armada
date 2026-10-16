@@ -3,39 +3,149 @@
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
-import { Bot, Check, ExternalLink, Eye, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal } from "lucide-react";
-import { Button, Prose, PrMark, Tabs, Tooltip, agoOf } from "@armada/components";
+import { useState } from "react";
+import { Bot, Check, ExternalLink, Eye, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal, X } from "lucide-react";
+import { Button, Prose, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { SOURCE_MARK } from "./marks";
-import type { Account, ReviewPr, ToolDef } from "./model";
+import type { Account, Asked, ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { ThemeBlock } from "./themes";
 import { bySession, onlyExplanations, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
-/** The choice and what was chosen, under the description. */
+const ASK = "ask";
+const SHORT = 28;
+const shortOf = (words: string): string => (words.length > SHORT ? `${words.slice(0, SHORT).trimEnd()}…` : words);
+
+/**
+ * The choice and what was chosen, under the description. **The strip is the explanations, then Ask**, which is not an
+ * explanation but a box for his own question, as Natural Search is on the left. A question he sent is kept as one more
+ * choice after Ask, under his words.
+ */
 export function Explainer({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; onOpenLink: (address: string) => void }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
   const kinds = onlyExplanations(toolsOf(reviews, pr.manifestId));
   const chosen = kinds.find((one) => one.id === work.kind);
+  const asked = work.asks.find((one) => one.id === work.kind);
   return (
     <section className="pr-explainer" aria-label="Explanation">
       <div className="pr-explainer__pick">
         <Tabs
-          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
+          items={[
+            ...kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks })),
+            { id: ASK, label: "Ask", hint: "Ask about this pull request in your own words" },
+            ...work.asks.map((one) => ({ id: one.id, label: shortOf(one.words), hint: one.words })),
+          ]}
           value={work.kind ?? ""}
           onChange={(id) => {
             const def = kinds.find((one) => one.id === id);
-            if (def !== undefined) store.explain(pr.key, def);
+            if (def === undefined) store.show(pr.key, id);
+            else store.explain(pr.key, def);
           }}
         />
       </div>
+      {work.kind === ASK ? <AskBox pr={pr} /> : null}
       {chosen === undefined ? null : <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />}
+      {asked === undefined ? null : <Answer pr={pr} asked={asked} />}
     </section>
+  );
+}
+
+/** His own question, written where the answer will be. It runs only when he sends, because it costs. */
+function AskBox({ pr }: { pr: ReviewPr }) {
+  const store = useReviewStore()!;
+  const keep = `pr-review:ask:${pr.key}`;
+  const [words, setWords] = useState("");
+  const send = () => {
+    if (words.trim() === "") return;
+    store.ask(pr.key, words);
+    forgetKept(keep);
+    setWords("");
+  };
+  return (
+    <form
+      className="pr-what pr-ask"
+      aria-label="Ask"
+      onSubmit={(event) => {
+        event.preventDefault();
+        send();
+      }}
+    >
+      <Textarea
+        rows={3}
+        autoFocus
+        keep={keep}
+        aria-label="Ask about this pull request"
+        value={words}
+        onChange={(event) => setWords(event.target.value)}
+        onKeyDown={(event) => {
+          if (sendsOn(event) && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            send();
+          }
+        }}
+      />
+      <Tooltip label="An agent reads this pull request and answers, once, when you send" asChild>
+        <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === ""}>
+          Ask
+        </Button>
+      </Tooltip>
+    </form>
+  );
+}
+
+/** What he asked, and what came back, kept for the commit it read. */
+function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
+  const store = useReviewStore()!;
+  const running = asked.run.state === "running";
+  const kept = asked.run.state === "done" ? asked.run : undefined;
+  const stale = kept !== undefined && kept.head !== pr.head;
+  const body = pr.answers.find((one) => new RegExp(one.when, "i").test(asked.words))?.body;
+  return (
+    <div className="pr-what" role="region" aria-label="Answer">
+      <header className="pr-what__head">
+        <h3 className="pr-what__title pr-what__words">{asked.words}</h3>
+        <span className="pr-what__source" data-by="agent">
+          <PrMark Glyph={Bot} said="Answered by an agent when you asked" />
+        </span>
+        <span className="pr-what__acts">
+          {kept === undefined ? null : (
+            <PrMark
+              Glyph={stale ? RefreshCw : History}
+              said={stale ? `Out of date. Answered on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Answered ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+            />
+          )}
+          <Tooltip label="Ask again, for this pull request">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.askAgain(pr.key, asked.id)}>
+              <RotateCw size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Tooltip label="Remove this question">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Remove this question" onClick={() => store.removeAsk(pr.key, asked.id)}>
+              <X size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </span>
+      </header>
+      {running ? (
+        <p className="pr-results__running">
+          <span className="pr-review__mark" data-checks="running">
+            <PrMark Glyph={LoaderCircle} said="Answering" tone="running" />
+          </span>
+        </p>
+      ) : kept === undefined ? null : body === undefined ? (
+        <p className="pr-results__clean">
+          <PrMark Glyph={Check} said="Nothing to add" tone="success" />
+        </p>
+      ) : (
+        <Prose text={body} />
+      )}
+    </div>
   );
 }
 
