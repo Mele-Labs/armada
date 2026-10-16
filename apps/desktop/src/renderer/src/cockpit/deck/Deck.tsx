@@ -8,7 +8,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
-import type { JobSummary, WorktreeSlot } from "@armada/protocol";
+import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
@@ -295,6 +295,17 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 
 // ---- The merge queue ----------------------------------------------------------------------------------
 
+/** The repository a Job, a Session, a pull request or a bay open on the stage belongs to, by the root its line is served under. */
+function queueRootOf(sel: DeckState["sel"], ship: Ship, repositories: readonly RepositorySummary[]): string | undefined {
+  if (sel?.kind === "slot") {
+    const manifest = sel.key.slice("slot:".length, sel.key.lastIndexOf("/"));
+    return repositories.find((one) => one.manifest?.id === manifest)?.root;
+  }
+  if (sel?.kind === "pr") return ship.prs.find((one) => one.key === sel.key)?.root;
+  if (sel?.kind === "job" || sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
+  return undefined;
+}
+
 /**
  * The merge queue: one row across the repositories, main first and then one chip for each pull request, each repository's
  * nearest main first. Main is one light, green while every main is and red if any is; a red one opens a card with the Merge line's
@@ -302,10 +313,36 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
  */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
-  const views = viewsOf(props.state);
+  const sel = useDeck((deck) => deck.sel);
+  const served = viewsOf(props.state);
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
-  if (views.length === 0 || !shown) return null;
+  if (served.length === 0 || !shown) return null;
+  // On All with several repositories served, the queue is the open Job's, Session's or pull request's repository, and nobody's with none.
+  const wide = props.picked === null && served.length > 1;
+  const root = wide ? queueRootOf(sel, ship, props.state.holds.repositories ?? []) : undefined;
+  const views = wide ? served.filter((view) => view.root === root) : served;
+  const merge =
+    props.onGoTo === undefined ? (
+      <GitMerge size={16} aria-hidden="true" />
+    ) : (
+      <Tooltip label="Merge line" asChild>
+        <Button variant="ghost" size="sm" iconOnly aria-label="Merge line" onClick={() => props.onGoTo?.(DECK_LINK.queue)}>
+          <GitMerge size={16} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+    );
+  if (views.length === 0) {
+    return (
+      <section className="deck-panel deck-queue" data-dim aria-label="Merge queue" tabIndex={-1}>
+        <div className="deck-queue__row">
+          {merge}
+          <span className="deck-queue__say">Select a repo to see PRs</span>
+          <PanelKey id="queue" />
+        </div>
+      </section>
+    );
+  }
   const reds = views.flatMap((view) =>
     view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
   );
@@ -372,15 +409,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
       <div className="deck-queue__row">
-        {props.onGoTo === undefined ? (
-          <GitMerge size={16} aria-hidden="true" />
-        ) : (
-          <Tooltip label="Merge line" asChild>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Merge line" onClick={() => props.onGoTo?.(DECK_LINK.queue)}>
-              <GitMerge size={16} aria-hidden="true" />
-            </Button>
-          </Tooltip>
-        )}
+        {merge}
         <ol className="deck-chips" onWheel={(event) => {
           // A wheel turned over the line moves it along, since it scrolls only across.
           if (event.deltaY !== 0 && event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
