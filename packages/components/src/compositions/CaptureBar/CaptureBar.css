@@ -204,6 +204,13 @@
   white-space: nowrap;
 }
 
+/* A step whose target is not on the page. The words are its tooltip. */
+.armada-capture-bar__walk-stopped {
+  display: inline-flex;
+  flex: none;
+  color: var(--error);
+}
+
 .armada-capture-bar__walk-said {
   flex: 1 1 auto;
   min-width: 0;
