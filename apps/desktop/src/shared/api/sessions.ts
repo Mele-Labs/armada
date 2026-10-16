@@ -4,6 +4,7 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  CheckoutCaughtUp,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -143,6 +144,12 @@ export type SessionsApi = {
   writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Tells a run's terminal its size in cells. */
   resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
+  /**
+   * Pulls a held checkout level with its base: the one press "Your checkout" offers. **Names the repository by
+   * its Manifest and no command**; Fleet reads the hold again, runs the pull it knows and answers with git's exit
+   * code and words, a refused or conflicted pull among them. A refusal in words is Fleet's own.
+   */
+  catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
   /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 };
@@ -205,4 +212,5 @@ export const SESSIONS_CHANNELS = {
   writeSessionRun: "bridge:write-session-run",
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
+  catchUpCheckout: "bridge:catch-up-checkout",
 } as const;

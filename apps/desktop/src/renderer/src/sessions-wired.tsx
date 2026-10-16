@@ -38,6 +38,7 @@ import type {
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { buildChangeOf, type BuildChange } from "./build-change";
+import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
 import { markViewed } from "./cockpit/viewed";
@@ -410,6 +411,9 @@ export class WiredStore {
     },
     run: (id, command, on, size) => this.running(id, command, on, size),
     terminalRuns: true,
+    // The card's command is Fleet's to run: the repository is named by its Manifest and the string is not sent.
+    runInRepository: (root, _command, on) =>
+      catchingUp((manifestId) => this.api.catchUpCheckout(manifestId), this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id, on),
     said: () => this.refusal,
     taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),

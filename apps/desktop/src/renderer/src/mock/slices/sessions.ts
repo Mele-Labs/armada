@@ -45,6 +45,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     readPullRequestFile: async () => ({ ok: false, outcome: unanswered("/pull_request_files") }),
     writePullRequest: async () => ({ ok: false, outcome: unanswered("/pull_request_writes") }),
     startSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/start") }),
+    catchUpCheckout: async () => ({ ok: false, outcome: unanswered("/merge_lines/catch_up") }),
     stopSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/stop") }),
     writeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/write") }),
     resizeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/resize") }),

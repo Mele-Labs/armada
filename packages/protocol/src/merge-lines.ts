@@ -110,6 +110,19 @@ export type FixMain = {
   take_over?: boolean;
 };
 
+/** `catch_up_checkout`'s body: pull a held checkout level with its base. Names the repository and no command: Fleet reads the hold again and runs the pull itself. */
+export type CatchUpCheckout = {
+  manifest_id: string;
+};
+
+/** `catch_up_checkout`'s answer. A pull git refused or left conflicted is still an answer, with a non-zero `code`. */
+export type CheckoutCaughtUp = {
+  /** git's exit code. `1` where git exited clean and the stashed work would not go back on; the work is in git's stash. */
+  code: number;
+  /** What git printed. */
+  output: string;
+};
+
 /** A job's part in main's red, on its row. `state` is `fixing` or `fixed`. Since 23.42. */
 export type FixesMain = {
   state: string;

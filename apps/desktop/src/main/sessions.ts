@@ -16,6 +16,8 @@ import WebSocket from "ws";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  CatchUpCheckout,
+  CheckoutCaughtUp,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -143,6 +145,14 @@ export class SessionsHost {
     const underway = answer.body as SessionRunUnderway;
     this.observeRun(port, underway.run_id);
     return { ok: true, value: underway };
+  }
+
+  /** The one pull a held checkout is offered. Fleet answers 200 with the code and words, even for a pull git refused. */
+  async catchUpCheckout(catchUp: CatchUpCheckout): Promise<SessionActed<CheckoutCaughtUp>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/merge_lines/catch_up", catchUp);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutCaughtUp } : { ok: false, outcome: answer.outcome };
   }
 
   async stopRun(stop: StopSessionRun): Promise<SessionActed<SessionRunUnderway>> {

@@ -32,7 +32,7 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -788,6 +788,9 @@ const api: BridgeApi = {
   // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
   startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command, cols, rows),
+  // The one pull a held checkout is offered: the repository's Manifest and no command.
+  catchUpCheckout: (manifestId: string): Promise<SessionActed<CheckoutCaughtUp>> =>
+    ipcRenderer.invoke(CHANNELS.catchUpCheckout, manifestId),
   stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
   writeSessionRun: (runId: string, data: string): Promise<SessionActed<SessionRunUnderway>> =>
