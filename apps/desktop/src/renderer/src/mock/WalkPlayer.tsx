@@ -20,7 +20,7 @@ import type { WalkHandle, WalkState } from "@armada/jobs/fake";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import "./mock.css";
-import { WALK_UI, act, arrive, stopped } from "./walk";
+import { WALK_UI, act, arrive, find, stopped, targetOf } from "./walk";
 import { keepInside, placeCard } from "./walk-card";
 import type { Walk as WalkScript } from "./walk";
 
@@ -133,7 +133,10 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
 
   const next = useCallback(() => {
     if (phase.is !== "ready") return;
-    act(steps[phase.at]!, phase.element);
+    // A bar that folds its tabs to icons as it measures replaces them after the step found its target, and a press on the
+    // old one reaches nothing. Looked for again, as `arrive` does for one that went while it was waited on.
+    const element = phase.element.isConnected ? phase.element : (find(targetOf(steps[phase.at]!)) ?? phase.element);
+    act(steps[phase.at]!, element);
     setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
   }, [phase, steps]);
 

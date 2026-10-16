@@ -70,6 +70,7 @@ import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
+import { useDispatchFailure } from "./failure-session";
 import { SketchSharing } from "./sketch-sharing";
 import {
   examine,
@@ -470,6 +471,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
+  const dispatchFailure = useDispatchFailure(repositories, openSession);
   useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
@@ -1275,6 +1277,7 @@ export function App({ draft }: AppProps = {}) {
           copied={copied}
           said={telling}
           onCopied={setCopied}
+          onDispatchSession={dispatchFailure}
         >
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
