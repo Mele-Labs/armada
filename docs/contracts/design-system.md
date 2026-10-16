@@ -1953,7 +1953,9 @@ panel wraps, but the places share one row with the title bar's sides, and a
 track on two or three lines read as broken there (the owner, 15 Oct 2026).
 `TitleBar` measures the room its sides and the search trigger leave, and where
 the labels are wider than that the places draw `iconsOnly`: each tab its
-surface's registry glyph, its name in the tooltip.
+surface's registry glyph, its name in the tooltip. Where even the glyphs do not
+fit, the row's start gives way, the repository's name truncating first; the
+places are never drawn over it.
 
 **Still the `tabs` primitive.** A segmented control is how the strip is
 painted, not a new base component — hard rule 2 stands.
