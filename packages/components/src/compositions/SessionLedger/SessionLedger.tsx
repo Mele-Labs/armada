@@ -319,18 +319,46 @@ export function SessionLedger({ entries, folded = false, keepKey, offers }: { en
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
       {SECTIONS.every(({ kind }) => rowsOf(entries, kind).length === 0) ? null : (
       <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
-        <Tooltip label="Search">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Search"
-            aria-pressed={finding}
-            onClick={() => (finding ? stopFinding() : setFinding(true))}
-          >
-            <Search size={12} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
+        <div className="armada-session-ledger__search" data-open={finding || undefined}>
+          <Tooltip label="Search">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Search"
+              aria-pressed={finding}
+              // Pressed again while open, it must not take the focus from the field first, or the blur would close it and this press open it again.
+              onMouseDown={finding ? (event) => event.preventDefault() : undefined}
+              onClick={() => (finding ? stopFinding() : setFinding(true))}
+            >
+              <Search size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          {finding ? (
+            <div className="armada-session-ledger__find">
+              <Textarea
+                autoFocus
+                rows={1}
+                keep={keep}
+                aria-label="Search the ledger"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onBlur={() => {
+                  if (query.trim() === "") stopFinding();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    stopFinding();
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
         {BAR.filter(({ kind }) => offers === undefined || offers.includes(kind)).map(({ kind, said, Glyph }) => {
           const pressed = chosen === kind;
           return (
@@ -349,27 +377,6 @@ export function SessionLedger({ entries, folded = false, keepKey, offers }: { en
             </Tooltip>
           );
         })}
-        {finding ? (
-          <div className="armada-session-ledger__find">
-            <Textarea
-              autoFocus
-              rows={1}
-              keep={keep}
-              aria-label="Search the ledger"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  stopFinding();
-                } else if (event.key === "Enter") {
-                  event.preventDefault();
-                }
-              }}
-            />
-          </div>
-        ) : null}
       </div>
       )}
       {sections.every((one) => one.all.length === 0) ? <EmptyLedger /> : null}
