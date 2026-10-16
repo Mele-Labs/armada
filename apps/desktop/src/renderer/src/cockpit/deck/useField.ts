@@ -74,7 +74,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
-  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr"), [ship.subjects]);
+  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined), [ship.subjects]);
   const ownerOf = (number: number) => {
     const pr = ship.prs.find((one) => one.number === number);
     return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;

@@ -91,6 +91,19 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
+/* The search and the scope over the rows: one field and one strip, on the panel's own padding. */
+.deck-list__find { display: flex; flex: none; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.deck-list__find .armada-tabs { align-self: stretch; }
+.deck-list__find .armada-tabs__tab { flex: 1 1 0; min-width: 0; justify-content: center; }
+/* A Session Fleet cannot reach, or that ended: read quieter than one in flight. */
+.deck-row[data-past] .deck-row__title { color: var(--fg-muted); }
+.deck-row[data-past][data-selected] .deck-row__title { color: var(--fg-default); }
+/* What a search matched, in the age's place: mono, cut with an ellipsis where it is long. */
+.deck-row__said[data-found] { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-default); }
+.deck-list__more { display: flex; justify-content: center; padding: var(--space-2); color: var(--fg-subtle); list-style: none; }
+.deck-list__more svg { animation: deck-spin 1s linear infinite; }
+@keyframes deck-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 .deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
 .deck-list__band { display: flex; flex-direction: column; gap: var(--space-1); }
 .deck-list__band + .deck-list__band { margin-top: var(--space-2); }

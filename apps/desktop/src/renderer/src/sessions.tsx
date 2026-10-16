@@ -114,9 +114,9 @@ import { PlanReview } from "./session-view/PlanReview";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
-/** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
-export function sessionsHidden(served: boolean): readonly string[] {
-  return served ? [] : [SURFACE.sessions];
+/** The surfaces the rail and the palette leave off: Sessions, which the Cockpit holds. ⌘3 and a link to a Session still arrive there. */
+export function sessionsHidden(): readonly string[] {
+  return [SURFACE.sessions];
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
@@ -1119,6 +1119,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             })}
       >
         <div ref={centre} className="armada-session-frame__centre">
+          <Refused />
           {origin === undefined || carried ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />

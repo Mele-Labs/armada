@@ -25,13 +25,14 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, showRows, toggleJobView, useDeck } from "./store";
+import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
 
-/** How long a Session asked for on the deck is waited on before it opens on its own page instead. */
+/** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
 
 type Where = {
@@ -97,9 +98,6 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
   onOpenSession: (sessionId: string) => void;
 }) {
   const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked, nowViews, nows }, false);
-  const only = useDeck((deck) => deck.only);
-  const needs = useDeck((deck) => deck.needs);
-  const checks = useDeck((deck) => deck.checks);
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
@@ -116,8 +114,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     return () => window.clearTimeout(timer);
   }, [held, ship.calls]);
 
-  // A Session asked for on the deck (a note sent to it) opens as its row does, once the ship holds it: a new one arrives a moment
-  // after Fleet answers. One the ship never holds, Helm's own or one the picked repository leaves out, opens on its own page.
+  // A Session asked for on the deck (a link to it, a note sent to it) opens as its row does, once the ship holds it: a new one arrives a
+  // moment after Fleet answers. There is no page for one the ship never holds, Helm's own or one the picked repository leaves out.
   const [awaited, setAwaited] = useState<{ id: string; since: number } | undefined>();
   useOpenSessionInCockpitAsked((id) => setAwaited({ id, since: Date.now() }));
   useEffect(() => {
@@ -129,14 +127,14 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       if (!deckNow().here) onGoTo(SURFACE.overview);
       return;
     }
-    const timer = window.setTimeout(() => (setAwaited(undefined), onOpenSession(awaited.id)), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
+    const timer = window.setTimeout(() => setAwaited(undefined), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [awaited, ship.subjects, onGoTo, onOpenSession]);
+  }, [awaited, ship.subjects, onGoTo]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
   const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
-  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
+  const { listed } = useListed(ship, state.jobs, banding);
   const queued = useQueued();
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
@@ -151,7 +149,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     moveCursor(key);
     const row = () => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`);
     if (row() !== null) row()!.focus();
-    else window.requestAnimationFrame(() => row()?.focus());
+    else {
+      // A row past the page drawn: the list draws up to it, and then it is focused.
+      showRows(walkOrder(listed, banding, queued, picked).indexOf(key));
+      window.requestAnimationFrame(() => row()?.focus());
+    }
   };
 
   const go = (place: (typeof PAGE_LETTERS)[PageLetter]) => {
@@ -279,6 +281,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       // The ideas saved for later sit in their repository's group, ahead of its rows, and the cursor walks them in that order.
       const order = walkOrder(listed, banding, queued, picked);
       const at = order.findIndex((one) => one === state.cursor);
+      // Up from the first row goes to the search over them.
+      if (!down && at === 0) {
+        document.querySelector<HTMLElement>(".deck-list__find input")?.focus();
+        return;
+      }
       const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? (down ? 0 : order.length - 1) : at + (down ? 1 : -1)))];
       if (next !== undefined) rowFocus(next);
       return;
