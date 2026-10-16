@@ -38,7 +38,7 @@ const battlefieldProgress = walk("battlefield-progress", [
   { later: places, say: "It merges" },
   { look: map, say: "Landed. The flag flashes and the last arc closes the circle. The ring goes after a moment" },
   { later: places, say: "Twenty-six minutes later" },
-  { look: map, say: "The plot is bare. What landed is in the Activity feed" },
+  { look: map, say: "The plot is bare. What landed is in Activity" },
   { press: deckRow("Rebuild the dock panel"), say: "Session page. Its row in the list carries one glyph for its phase, with a tooltip naming it" },
   { look: build, say: "Session page. The ring above the ledger, every arc lit: it has landed. Hover a segment for its task and state" },
   { hover: inside(build, role("img", /^Pull request opened/)), say: "An arc says its name and when it happened. A faint one says it is only what this repository usually does next" },

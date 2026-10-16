@@ -132,46 +132,10 @@
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 .deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
-/* ---- Activity: the Feed take, in the narrow column under the list ---------------------------------------- */
+/* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
 .deck-activity { flex: none; height: calc(var(--space-12) * 6); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
-.deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
-.deck-activity .armada-tl__block { padding: 0 var(--space-2) var(--space-1); }
-.deck-activity .armada-tl__part { padding: 0 var(--space-3); }
-/*
- * Two lines to a row, in the sans: the Job or Session in the body size and semibold over the event a step smaller and muted,
- * with its age at the right of the first line. The kind is a glyph in its own column; a mark closes the second line only where
- * the event is owed, failing or gone quiet. Rows are told apart by a hairline, the small radius, and no coloured edge.
- */
-.deck-activity .armada-tl__event {
-  display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: var(--space-3);
-  row-gap: 0;
-  min-height: 0;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: none;
-  box-shadow: none;
-  font-family: var(--font-sans);
-}
-.deck-activity .armada-tl__event:last-child { border-bottom-color: transparent; }
-.deck-activity .armada-tl__event[data-current] { background: none; box-shadow: none; }
-.deck-activity .armada-tl__event:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
-.deck-activity .armada-tl__glyph { grid-column: 1; grid-row: 1; color: var(--fg-subtle); }
-.deck-activity .armada-tl__who { grid-column: 2; grid-row: 1; overflow: hidden; font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
-.deck-activity .armada-tl__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deck-activity .armada-tl__age { grid-column: 3; grid-row: 1; width: auto; font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
-/* One line to an event, a step smaller, cut with an ellipsis: the whole of it is in the tooltip. */
-.deck-activity .armada-tl__says { grid-column: 2 / span 2; grid-row: 2; gap: var(--space-2); min-width: 0; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
-.deck-activity .armada-tl__what { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* A path or a branch is shown as it is, so it keeps the mono. */
-.deck-activity .armada-tl__says .armada-tl__detail { flex: 0 100 auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
-.deck-activity .armada-tl__flag { display: inline-flex; flex: none; margin-left: auto; color: var(--tone); }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
 
@@ -624,9 +588,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-keys .armada-keys__row { grid-template-columns: calc(var(--space-12) * 1.75) minmax(0, 1fr); }
 .deck-keys .armada-keys__row dt { flex-wrap: wrap; }
 
-/* The Activity row picked, or the one the playhead last passed, stays lit. */
-.deck-activity .armada-tl__event { cursor: pointer; }
-.deck-activity .armada-tl__event[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); border-bottom-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .deck-bay[data-bay="stranded"] .deck-bay__state,
   .deck-bay[data-live] .deck-bay__state { animation: none; }
@@ -679,9 +640,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-history__length { flex: none; font-variant-numeric: tabular-nums; }
 .deck-history__length { color: var(--fg-subtle); }
 .deck-history__who > .armada-tooltip:has(> .deck-history__title) { flex: 1 1 0; min-width: 0; }
-/* The activity row picked stays lit, and a stacked feed's rows are pressable. */
-.deck-activity .armada-tl__event[data-stacked] { cursor: pointer; }
-
 /* A mark: a state as its glyph, named by its tooltip. Gray except what he is owed and what is failing. */
 .deck-mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-subtle); }
 .deck-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
