@@ -156,6 +156,19 @@
   align-items: center;
 }
 
+/* With places, the centre never gives way: it floors at its content, and the start is what yields, the repository's
+ * name truncating first and the rest clipped. The places draw as glyphs before it comes to that (`usePlacesRoom`).
+ * The first column's floor is measured, `--armada-title-start-floor`: the start's whole width where the row holds
+ * it, what is left where it does not, and below the narrow breakpoint the centre's own content, which sits there. */
+.armada-title-bar[data-places] {
+  grid-template-columns: minmax(var(--armada-title-start-floor, 0px), 1fr) minmax(min-content, auto) minmax(max-content, 1fr);
+}
+
+.armada-title-bar[data-places] .armada-title-bar__start {
+  max-width: 100%;
+  overflow: hidden;
+}
+
 /* With places, the trigger is an icon and its key, right of them: glass, like the places beside it. Its
  * label is hidden and its tooltip names it. */
 .armada-title-bar[data-places] .armada-title-bar__search {

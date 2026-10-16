@@ -253,11 +253,16 @@ export function usePlacesRoom(): number | undefined {
   return useContext(PlacesRoom);
 }
 
-/** The sides are `max-content` and never give way (`TitleBar.css`), so the room is the row less them, the gaps and the trigger. */
+/**
+ * The room is the row less its sides, the gaps and the trigger, the start taken **at its whole width**, the
+ * repository's name untruncated: the places give up their labels before the name gives up any of itself.
+ */
 function useRoomForPlaces(on: boolean) {
   const bar = useRef<HTMLDivElement>(null);
   const start = useRef<HTMLDivElement>(null);
+  const repository = useRef<HTMLSpanElement>(null);
   const center = useRef<HTMLDivElement>(null);
+  const places = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLButtonElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState<number>();
@@ -271,14 +276,22 @@ function useRoomForPlaces(on: boolean) {
       const width = (part: HTMLElement | null) => part?.getBoundingClientRect().width ?? 0;
       const trigger = width(search.current);
       const between = center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
-      setRoom(Math.floor(inner - 2 * gap - width(start.current) - width(end.current) - (trigger > 0 ? trigger + between : 0)));
+      // Drawn, the start clips and the name truncates; what either hides is added back.
+      const name = repository.current;
+      const whole = (start.current?.scrollWidth ?? 0) + (name === null ? 0 : name.scrollWidth - name.clientWidth);
+      const searching = trigger > 0 ? trigger + between : 0;
+      const content = width(places.current) + searching;
+      const shown = start.current !== null && start.current.getClientRects().length > 0;
+      const left = inner - 2 * gap - width(end.current) - content;
+      row.style.setProperty("--armada-title-start-floor", `${Math.floor(shown ? Math.max(0, Math.min(whole, left)) : content)}px`);
+      setRoom(Math.floor(inner - 2 * gap - whole - width(end.current) - searching));
     };
     measure();
     const watch = new ResizeObserver(measure);
-    for (const part of [row, start.current, search.current, end.current]) if (part !== null) watch.observe(part);
+    for (const part of [row, start.current, places.current, search.current, end.current]) if (part !== null) watch.observe(part);
     return () => watch.disconnect();
   }, [on]);
-  return { bar, start, center, search, end, room };
+  return { bar, start, repository, center, places, search, end, room };
 }
 
 export function TitleBar({
@@ -307,7 +320,7 @@ export function TitleBar({
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repository === undefined ? null : (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
-          <span className="armada-title-bar__repository" title={repository}>
+          <span ref={parts.repository} className="armada-title-bar__repository" title={repository}>
             {repository}
           </span>
         )}
@@ -318,7 +331,7 @@ export function TitleBar({
 
       <div ref={parts.center} className="armada-title-bar__center">
         {places === undefined ? null : (
-          <div className="armada-title-bar__places">
+          <div ref={parts.places} className="armada-title-bar__places">
             <PlacesRoom.Provider value={parts.room}>{places}</PlacesRoom.Provider>
           </div>
         )}
