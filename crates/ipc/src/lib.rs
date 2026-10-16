@@ -506,7 +506,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use session_checks::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
+    SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};

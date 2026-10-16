@@ -31,6 +31,11 @@ export type LogSheetProps = {
    * control that is off.
    */
   goes?: { label: string; onGo: () => void };
+  /**
+   * Ending a run that is still going: Stop asks it to wind down, Force stop ends it at once. Absent
+   * draws neither. No confirm on Force stop, as nothing in Bridge confirms a kill.
+   */
+  stops?: { onStop: () => void; onForce: () => void };
   /** Bands under the head that stay while the log scrolls: the facts of what it is of. */
   bands?: ReactNode;
   /** The log's well runs edge to edge and fills the panel, as a console's does. */
@@ -46,7 +51,7 @@ export type LogSheetProps = {
   children: ReactNode;
 };
 
-export function LogSheet({ kind, title, about, live, grows, wrap, goes, bands, bleed, placement, floor, onClose, children }: LogSheetProps) {
+export function LogSheet({ kind, title, about, live, grows, wrap, goes, stops, bands, bleed, placement, floor, onClose, children }: LogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   // The tail, while it is written. A reader that follows its own (`DroneTurns`) is not moved by
   // this either way: it is already at the bottom.
@@ -73,11 +78,21 @@ export function LogSheet({ kind, title, about, live, grows, wrap, goes, bands, b
           ) : null}
         </>
       }
-      {...(wrap === undefined && goes === undefined
+      {...(wrap === undefined && goes === undefined && stops === undefined
         ? {}
         : {
             controls: (
               <>
+                {stops === undefined ? null : (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={stops.onStop}>
+                      Stop
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={stops.onForce}>
+                      Force stop
+                    </Button>
+                  </>
+                )}
                 {wrap === undefined ? null : <ConsoleWrapToggle wrap={wrap.wrap} onToggle={wrap.onToggle} />}
                 {goes === undefined ? null : (
                   // `chevron-right`'s goes-to, alone: the tooltip is its label.

@@ -6,12 +6,12 @@
 // lookup — `port` arrives as a function so this file never learns how a port
 // is found, only that one might not be.
 
-import type { BriefRead, CheckOutputRead, FrameRead, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead, LessonsRead, Outcome, RetroRead, RetroSubject } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
-import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf, sessionCheckOutputOf } from "./request";
+import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf, sessionCheckOutputOf, stopSessionCheck } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -80,6 +80,13 @@ export class JobReads {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     return await sessionCheckOutputOf(port, run);
+  }
+
+  /** Stop a Session's running Check, gracefully or by force. Answers the caller; the run's end arrives on the event stream. */
+  async stopSessionCheck(run: number, force: boolean): Promise<Outcome> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    return await stopSessionCheck(port, run, force);
   }
 
   /**

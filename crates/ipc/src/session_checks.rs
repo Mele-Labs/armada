@@ -31,7 +31,20 @@ impl SessionCheckState {
 #[serde(rename_all = "snake_case")]
 pub enum SessionCheckAct {
     Start,
+    /// What the run has printed since the last one. **Also the run's heartbeat**: Fleet answers it
+    /// with a stop where a person pressed one, and `armada check` has no other way to be told.
+    Chunk,
     End,
+}
+
+/// How a person asked a running Check to stop. `Force` outranks `Graceful`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionCheckStop {
+    /// `SIGTERM` to the Check's process group, then the usual `end`.
+    Graceful,
+    /// `SIGKILL` to the group.
+    Force,
 }
 
 /// `report_session_check`: `POST /sessions/checks`. `armada check` is the caller.
@@ -47,7 +60,7 @@ pub struct SessionCheckCall {
     /// since a `--changed` run only knows what it reached once it has resolved it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
-    /// The run `start` answered. Required on `end`.
+    /// The run `start` answered. Required on `chunk` and `end`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub run: Option<u64>,
     /// `passed` or `failed`. Required on `end`.
@@ -56,7 +69,7 @@ pub struct SessionCheckCall {
     /// How long it ran, in milliseconds. Only on `end`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub took_ms: Option<u64>,
-    /// What the Check printed. Only on `end`.
+    /// What the Check printed: all of it on `end`, what is new since the last one on `chunk`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log: Option<String>,
 }
@@ -67,4 +80,29 @@ pub struct SessionCheckCall {
 pub struct SessionCheckAnswer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub run: Option<u64>,
+    /// A stop a person asked for, answered to `chunk` and to the stop routes. Sticky until `end`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop: Option<SessionCheckStop>,
+}
+
+/// One message on a Session run's log socket, `observe_session_check`.
+///
+/// **`LandOutputMessage`'s shape**: the lines and the end are `OutputLines` and `OutputClosed`, so
+/// one reader draws a Job's Check, a merge line's and a Session's. An ended run is served too.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "message", rename_all = "snake_case")]
+pub enum SessionCheckOutputMessage {
+    Opened(SessionCheckOutputOpened),
+    Lines(crate::OutputLines),
+    Closed(crate::OutputClosed),
+}
+
+/// The first message: whose log this is, and what the first read left out.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionCheckOutputOpened {
+    pub protocol_id: crate::ProtocolId,
+    pub run: u64,
+    pub name: String,
+    /// Older lines the first read left out, because the window is bounded.
+    pub skipped: u64,
 }
