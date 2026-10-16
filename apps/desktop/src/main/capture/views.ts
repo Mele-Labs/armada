@@ -34,7 +34,10 @@ function sessionFor(manifestId: string | null): Session {
   const part = session.fromPartition(name);
   if (held.has(name)) return part;
   held.add(name);
-  part.setUserAgent(chromeAgent(app.userAgentFallback));
+  const agent = chromeAgent(app.userAgentFallback);
+  part.setUserAgent(agent);
+  // A popup's first request left with Electron's agent in the owner's walk: the header is set on every request too.
+  part.webRequest.onBeforeSendHeaders(({ requestHeaders }, done) => done({ requestHeaders: { ...requestHeaders, "User-Agent": agent } }));
   part.setPermissionRequestHandler((_contents, _permission, decide) => decide(false));
   part.setPermissionCheckHandler(() => false);
   part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });

@@ -790,7 +790,6 @@ export class CaptureWindow {
   private openPopup(allowed: (address: string) => boolean, options: Electron.BrowserWindowConstructorOptions): Electron.WebContents {
     const popup = openPopup(
       {
-        opener: this.page.webContents,
         parent: this.window,
         allowed,
         refuse: (address, what) => this.refuse(address, what),

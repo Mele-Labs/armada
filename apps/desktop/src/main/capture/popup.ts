@@ -6,10 +6,10 @@
 // preferences (no preload, sandboxed), held to the same origins as the page is. It closes when the page calls
 // `window.close()`, when the person closes it, and when the walk window does.
 
-import { BaseWindow, WebContentsView, type BrowserWindowConstructorOptions, type WebContents } from "electron";
+import { app, BaseWindow, WebContentsView, type BrowserWindowConstructorOptions, type WebContents } from "electron";
 
 import type { CaptureRefusedWhat } from "../../shared/capture-window";
-import { webOrigin } from "./address";
+import { chromeAgent, webOrigin } from "./address";
 
 /** What a provider's sign-in window is sized to: a column, as every provider draws one. */
 const WIDTH = 520;
@@ -17,8 +17,6 @@ const HEIGHT = 720;
 
 /** What the popup needs from the window around it. */
 export type PopupHold = {
-  /** The page that opened it, whose session it runs in. */
-  opener: WebContents;
   /** The walk window it is a child of. */
   parent: BaseWindow;
   /** Whether an address is on the shown origin or a named one, and the window is still serving. */
@@ -66,8 +64,9 @@ function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
   window.on("resize", fit);
 
   const contents = view.webContents;
-  // The page's agent, set before the first request leaves: a popup does not take the session's on its own.
-  contents.setUserAgent(hold.opener.getUserAgent());
+  // The partition's agent, for the popup's own `navigator.userAgent`: a popup does not take the session's on
+  // its own, and the opener's `getUserAgent()` answers Electron's. The header is rewritten in `views.ts`.
+  contents.setUserAgent(chromeAgent(app.userAgentFallback));
   contents.setWindowOpenHandler(({ url }) => {
     hold.refuse(url, "window");
     return { action: "deny" };
