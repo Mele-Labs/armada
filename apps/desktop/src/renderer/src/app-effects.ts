@@ -1,23 +1,9 @@
-// The window's own effects, out of `App.tsx`, which is at the length the gate refuses: the clock the
-// elapsed figures read, Escape out of a Job, the cursor's way back to its row, and where a pressed
+// The window's own effects, out of `App.tsx`, which is at the length the gate refuses: Escape out of a Job, the cursor's way back to its row, and where a pressed
 // notification lands. Each is App's, and each says why it is the way it is.
 
 import { useEffect, useRef, useState } from "react";
 import { isPressed } from "@armada/components";
 import { askToOpenSession } from "./open-session";
-
-/** How often the elapsed figures are redrawn. They are read, so they must move. */
-const TICK_MS = 1000;
-
-/** The time the window reads, moving once a second. */
-export function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(tick);
-  }, []);
-  return now;
-}
 
 /**
  * Escape closes the detail wherever the cursor is inside it, which is the one thing every reader

@@ -493,3 +493,4 @@ export * from "./compositions/ThoughtCard/ThoughtCard";
 // A write clash on a row, and the line it becomes in an open Job or Session.
 export * from "./compositions/ClashMark/ClashMark";
 export * from "./compositions/StopCard/StopCard";
+export * from "./clock";
