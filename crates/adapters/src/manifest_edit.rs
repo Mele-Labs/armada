@@ -93,7 +93,11 @@ pub(crate) fn send(
             auto_merge: Ok(()),
         }),
         PullRequestFor::Open { base } => {
-            let pull_request = opened(in_repo, base, &sending.branch, &sending.message, BODY)?;
+            // **A branch with no pull request on it is left on the remote by
+            // nobody's choice**, so a pull request that will not open takes
+            // the branch the push just made with it.
+            let pull_request = opened(in_repo, base, &sending.branch, &sending.message, BODY)
+                .inspect_err(|_| unpushed(in_repo, &sending.branch))?;
             let auto_merge = enable_auto_merge(in_repo, &pull_request);
             Ok(ManifestEditSent {
                 commit,
@@ -126,6 +130,17 @@ pub(crate) fn opened(
         return Err(NotDelivered::of("the pull request", said(&opened)));
     }
     Ok(last_line(&opened))
+}
+
+/// Delete `branch` from the remote. **Best effort**: the refusal this follows is
+/// what the caller reports, and a branch that will not go is no worse than it
+/// was.
+fn unpushed(in_repo: &str, branch: &str) {
+    let _ = run_in(
+        in_repo,
+        "git",
+        &["push", "--quiet", REMOTE, "--delete", branch],
+    );
 }
 
 /// The commit, made on `parent`'s tree with the one file replaced, and pushed
