@@ -892,7 +892,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 
 ## A Session's Checks
 
-**An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says. A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.
+**An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says, and **the pool's lease answers first**: the live Session the slot's lease names (a Session or its subagent leases more slots than the one its ledger `slot` row names), else the Session whose standing `slot` row the pool does not deny (`slot_holders::session_in_slot`). A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.
 
 | Where it shows | What |
 |---|---|
