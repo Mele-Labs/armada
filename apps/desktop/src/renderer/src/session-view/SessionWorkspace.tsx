@@ -37,7 +37,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
     );
   const right = (
     <>
-      <StatusPanel work={work} place="side" id={id} acts={acts} onStart={() => acts?.start(id)} />
+      <StatusPanel work={work} place="side" id={id} acts={acts} />
       <LedgerPanel session={session} entries={entries} place="side" />
       {work.plan === undefined ? null : <PlanPanel plan={work.plan} place="side" />}
     </>

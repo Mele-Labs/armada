@@ -138,8 +138,8 @@ export type WorkConcern = { id: string; step: string; judge: string; text: strin
 export type WorkflowChoice = { name: string; steps: readonly string[] };
 
 export type SessionWork = {
-  /** What the proposer read the request to be. Changeable until `started`, a settled record in the thread after. */
-  proposal?: { workflow: string | null; started?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
+  /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
+  proposal?: { workflow: string | null; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
   /** The workflow's steps and the index of the one the Session is at. Absent is a custom Session, which has no rail. */
   workflow?: { name: string; steps: readonly string[]; at: number };
   /** Absent until the agent records its plan after planning with the person. */
@@ -153,9 +153,8 @@ export type SessionWork = {
 /** The acts on a Session's work. Absent where nothing serves them. */
 export type SessionWorkActs = {
   workflows: readonly WorkflowChoice[];
-  /** Changes the workflow before the work starts; `null` is none, a custom Session. */
+  /** Changes the workflow at any time, from the next turn; `null` is none, a custom Session. */
   choose: (id: string, workflow: string | null) => void;
-  start: (id: string) => void;
   /** The person changed a value the proposer picked, so its mark goes. */
   unpick: (id: string, value: "workflow" | "model" | "effort") => void;
   approve: (id: string) => void;

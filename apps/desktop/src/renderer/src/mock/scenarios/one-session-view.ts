@@ -55,7 +55,7 @@ const dispatched: Session = {
   standing: "idle",
   rows: [you("v-1", "14:02:00", WORDS)],
   attachments: [],
-  work: { proposal: { workflow: FEATURE.name, picked: ["workflow", "model", "effort"] }, workflow: { ...FEATURE, at: -1 } },
+  work: { proposal: { workflow: FEATURE.name, picked: ["workflow", "model", "effort"] }, workflow: { ...FEATURE, at: 0 } },
 };
 
 const quiet: Session = {
@@ -274,8 +274,24 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
     }));
   };
 
+  // The agent begins as the proposal lands: the first step is lit, it reads, and it asks before it plans. It starts when the Session is first opened.
+  let begun = false;
+  const begin = () => {
+    if (begun) return;
+    begun = true;
+    works((work) => (work.workflow === undefined ? work : { ...work, workflow: { ...work.workflow, at: 0 } }));
+    fly(0);
+    push([tool("Read crates/fleet/src/lease.rs"), said("Two Sessions can ask for the same bay between the read and the write. One question before I plan.")], {
+      asked: { command: QUESTIONS[0]!.question, call: "v-q1", offers: ["allow_once", "refuse"], questions: QUESTIONS },
+    });
+  };
+
   return {
     ...base,
+    watch: (id) => {
+      base.watch?.(id);
+      if (id === MINE) begin();
+    },
     get: () => {
       const all = base.get();
       if (all !== from) {
@@ -293,21 +309,11 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         works((work) => {
           const { workflow, ...rest } = work;
           void workflow;
-          return { ...rest, proposal: { workflow: name, ...(work.proposal?.picked === undefined ? {} : { picked: work.proposal.picked.filter((one) => one !== "workflow") }) }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: -1 } }) };
+          return { ...rest, proposal: { workflow: name, ...(work.proposal?.picked === undefined ? {} : { picked: work.proposal.picked.filter((one) => one !== "workflow") }) }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: work.workflow?.at ?? 0 } }) };
         });
       },
       unpick: (_id, value) =>
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
-      // Start begins the work: the first step, and the agent reads and asks before it plans.
-      start: () => {
-        works((work) => {
-          return { ...work, ...(work.proposal === undefined ? {} : { proposal: { ...work.proposal, started: true } }), ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }) };
-        });
-        fly(0);
-        push([tool("Read crates/fleet/src/lease.rs"), said("Two Sessions can ask for the same bay between the read and the write. One question before I plan.")], {
-          asked: { command: QUESTIONS[0]!.question, call: "v-q1", offers: ["allow_once", "refuse"], questions: QUESTIONS },
-        });
-      },
       approve: () => {
         works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
         push(

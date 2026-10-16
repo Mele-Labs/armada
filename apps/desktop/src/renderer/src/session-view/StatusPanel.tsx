@@ -1,10 +1,10 @@
-// The Status area: where the Session's progress is read, in the place the status ring had. The workflow as a picker until the work
-// starts and its name after, over its steps down a column so a workflow of twelve reads as well as one of four, with the step the
+// The Status area: where the Session's progress is read, in the place the status ring had. The workflow as a picker, changeable at any time,
+// over its steps down a column so a workflow of twelve reads as well as one of four, with the step the
 // Session is at lit and kept in view. Soft: the steps show where the Session is and block nothing. The plan is a panel of its own.
 
 import { useEffect, useRef } from "react";
 import { CircleCheck, CircleDashed, CircleDot, Lightbulb } from "lucide-react";
-import { Button, Select, Tooltip } from "@armada/components";
+import { Select, Tooltip } from "@armada/components";
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { SvPanel } from "./SvPanel";
@@ -66,10 +66,10 @@ function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
 
 const NONE = "none";
 
-/** The workflow's name over its steps. Until the work starts it is a picker, and None is a custom Session with no steps. */
+/** The workflow as a picker, and None is a custom Session with no steps. A change applies from the next turn. */
 function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string }) {
   const proposal = work.proposal;
-  if (proposal === undefined || proposal.started === true || acts === undefined) {
+  if (proposal === undefined || acts === undefined) {
     return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;
   }
   return (
@@ -93,15 +93,9 @@ function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | u
   );
 }
 
-export function StatusPanel({ work, place, id, acts, onStart }: { work: SessionWork; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined; onStart: () => void }) {
-  const unstarted = work.proposal !== undefined && work.proposal.started !== true;
-  const start = unstarted ? (
-    <Button variant="primary" size="sm" onClick={onStart}>
-      Start
-    </Button>
-  ) : undefined;
+export function StatusPanel({ work, place, id, acts }: { work: SessionWork; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined }) {
   return (
-    <SvPanel label="Status" area="status" place={place} acts={start}>
+    <SvPanel label="Status" area="status" place={place}>
       <Flow work={work} acts={acts} id={id} />
       {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
     </SvPanel>
