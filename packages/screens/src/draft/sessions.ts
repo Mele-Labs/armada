@@ -257,6 +257,8 @@ export type SessionRow =
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
+  | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */

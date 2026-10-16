@@ -215,7 +215,7 @@ const big: Session = {
   turn: { state: "idle" },
   lastTurn: "14:05",
   lastTurnAt: ago(1),
-  standing: "replied",
+  standing: "idle",
   rows: [
     you("g-1", "14:03:00", "Fold Jobs into Sessions. A Session plans, he approves, and its work is the Job."),
     agent("g-2", "14:05:10", "The plan is recorded: twenty-five tasks in six groups. Approve it, or tell me what to change."),
@@ -402,6 +402,13 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
 
   // The agent begins as the proposal lands: the first step is lit, it reads, and it asks before it plans. It starts when the Session is first opened.
   let begun = false;
+  /** Model and effort changes in the composer wake nobody: they wait here and the next turn is told, as a row where it starts. */
+  const owed = new Map<string, { from: string; to: string }>();
+  const told = (): SessionRow[] => {
+    const rows = [...owed].map(([what, one]) => next((id, at): SessionRow => ({ id, at, kind: "change", what, from: one.from, to: one.to })));
+    owed.clear();
+    return rows;
+  };
   const begin = () => {
     if (begun) return;
     begun = true;
@@ -429,6 +436,17 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
 
   return {
     ...base,
+    tune: (id, tuning) => {
+      const now = id === MINE ? mine() : undefined;
+      if (now !== undefined) {
+        for (const [what, was, to] of [["Model", now.model ?? "default", tuning.model ?? "default"], ["Effort", now.effort ?? "default", tuning.effort ?? "default"]] as const) {
+          const first = owed.get(what)?.from ?? was;
+          if (first === to) owed.delete(what);
+          else owed.set(what, { from: first, to });
+        }
+      }
+      return base.tune(id, tuning);
+    },
     watch: (id) => {
       base.watch?.(id);
       if (id === MINE) begin();
@@ -447,11 +465,17 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       // The proposal is read again: a different workflow draws a different rail, and none draws no rail at all.
       choose: (_id, name) => {
         const chosen = WORKFLOWS.find((one) => one.name === name);
+        const was = mine()?.work?.proposal?.workflow ?? null;
         works((work) => {
           const { workflow, ...rest } = work;
           void workflow;
           return { ...rest, proposal: { workflow: name, ...(work.proposal?.picked === undefined ? {} : { picked: work.proposal.picked.filter((one) => one !== "workflow") }) }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: work.workflow?.at ?? 0 } }) };
         });
+        // The agent is told at once: a row in his colour, and it adjusts to the steps it will now follow.
+        if (begun && name !== was) {
+          push([next((id, at) => ({ id, at, kind: "change", what: "Workflow", from: was ?? "None", to: name ?? "None" }))]);
+          after(700, () => push([said(chosen === undefined ? "No workflow now." : `Following ${chosen.name}: ${chosen.steps.join(", ")}.`)]));
+        }
       },
       unpick: (_id, value) =>
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
@@ -494,13 +518,17 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         void was;
         return rest;
       });
-      if (answer === "refuse" || (answers ?? []).length === 0) return push([said("Taking three attempts.")], working());
-      push([asked(answers!.map((one) => `**${one.question}**\n${one.chosen.join(", ")}`).join("\n\n")), said(`${answers!.map((one) => one.chosen.join(" and ")).join(", ")} attempts. Writing the plan.`)], working());
+      if (answer === "refuse" || (answers ?? []).length === 0) return push([...told(), said("Taking three attempts.")], working());
+      push([...told(), asked(answers!.map((one) => `**${one.question}**\n${one.chosen.join(", ")}`).join("\n\n")), said(`${answers!.map((one) => one.chosen.join(" and ")).join(", ")} attempts. Writing the plan.`)], working());
     },
     // Words he types go to the agent, which answers in a line.
     send: (id, sent) => {
       const done = base.send(id, sent);
-      if (id === MINE) after(700, () => push([said("Noted.")], idle()));
+      if (id === MINE) {
+        const rows = told();
+        if (rows.length > 0) push(rows);
+        after(700, () => push([said("Noted.")], idle()));
+      }
       return done;
     },
     later() {

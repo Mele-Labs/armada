@@ -1,6 +1,6 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -80,6 +80,8 @@ export type SessionThreadRow =
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
+  | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
@@ -629,6 +631,19 @@ function Row({
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "change") {
+    return (
+      <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>
+        <span className="armada-session-lease__eyebrow">{row.what}</span>
+        <span className="armada-session-change__facts">
+          {row.from}
+          <ArrowRight size={12} strokeWidth={2} aria-hidden />
+          {row.to}
+        </span>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">
