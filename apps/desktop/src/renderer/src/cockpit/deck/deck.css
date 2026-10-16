@@ -245,6 +245,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
 /* A red main's light opens a card, which says what the light's tooltip would. */
 .deck-chip[data-card] .armada-tooltip__bubble { display: none; }
+/* The queue's own tooltip stands down while a chip in it shows its card, which would sit on top of it. */
+.armada-tooltip:has(.deck-queue__track .deck-chip:is(:hover, :focus-visible)) > .armada-tooltip__bubble { display: none; }
 .deck-main-light { display: contents; }
 /* The card is drawn on the page and placed by the light, so it is not inside the deck's panels (their glass would clip a dialog). */
 .deck-main-card {

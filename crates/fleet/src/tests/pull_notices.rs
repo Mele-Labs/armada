@@ -44,6 +44,7 @@ fn pull(number: u64, checks: Vec<WatchedCheck>) -> WatchedPull {
         number,
         branch: FromOutside::verbatim(format!("armada/{number}")),
         url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
+        author: None,
         head: Some(ONE.to_string()),
         conflicting: false,
         queue: PullQueue::Outside,
@@ -1136,4 +1137,108 @@ async fn a_branch_that_was_only_given_back_is_nobodys_to_attach_a_pull_request_t
     rig.reads().await;
 
     assert_eq!(rig.holders_of_pull(12).await, Vec::<String>::new());
+}
+
+fn written_by(mut pull: WatchedPull, login: &str) -> WatchedPull {
+    pull.author = Some(FromOutside::verbatim(login));
+    pull
+}
+
+#[tokio::test]
+async fn only_the_pull_requests_the_forge_login_opened_wake_their_owners() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    let theirs = rig.a_hosted_session_on(8).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.login_is(Some("Octocat"));
+    forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
+    forge.log_of("31", "FAIL tests::one\n");
+    forge.watched_are(Some(vec![
+        written_by(failing(7), "octocat"),
+        written_by(failing(8), "teammate"),
+    ]));
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else {
+        panic!("one turn started, for the pull request that is mine: {sent:?}")
+    };
+    assert!(line.contains("#7 failed its checks"), "{line}");
+    assert!(!rig.told(&format!("session:{theirs}"), 8, "checks_failed").await, "nothing was kept for the other");
+}
+
+#[tokio::test]
+async fn where_no_login_is_known_every_pull_request_is_told_as_before() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    rig.a_hosted_session_on(8).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.login_is(None);
+    forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
+    forge.log_of("31", "FAIL tests::one\n");
+    forge.watched_are(Some(vec![
+        written_by(failing(7), "octocat"),
+        written_by(failing(8), "teammate"),
+        failing(9),
+    ]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.runs_sent_to_the_session().len(), 2, "both sessions are held, and both told");
+}
+
+#[tokio::test]
+async fn a_pull_request_with_no_author_is_mine_and_one_by_another_leaves_the_queue_unremarked() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    rig.a_hosted_session_on(8).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.login_is(Some("octocat"));
+    let queued = |number, login: Option<&str>| {
+        let mut one = pull(number, Vec::new());
+        one.queue = PullQueue::Waiting;
+        one.author = login.map(FromOutside::verbatim);
+        one
+    };
+    forge.watched_are(Some(vec![queued(7, None), queued(8, Some("teammate"))]));
+    rig.reads().await;
+    // Both leave the queue.
+    forge.watched_are(Some(vec![pull(7, Vec::new()), written_by(pull(8, Vec::new()), "teammate")]));
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let [line] = sent.as_slice() else { panic!("only the one with no author is told: {sent:?}") };
+    assert!(line.contains("#7 left the merge queue"), "{line}");
+}
+
+#[tokio::test]
+async fn a_merge_of_another_authors_pull_request_is_not_told() {
+    let rig = a_rig();
+    let mine = rig.a_hosted_session_on(1).await;
+    let theirs = rig.a_hosted_session_on(2).await;
+    for (session, number) in [(&mine, "1"), (&theirs, "2")] {
+        rig.holds(Holder::session(session), "pr", number, AttachmentState::Spent).await;
+    }
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.login_is(Some("octocat"));
+    forge.watched_are(Some(Vec::new()));
+    let merged = |number: u64, login: &str| RecentlyMerged {
+        number,
+        title: FromOutside::verbatim("Fix the reader"),
+        branch: FromOutside::verbatim(format!("armada/{number}")),
+        url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
+        author: Some(FromOutside::verbatim(login)),
+        merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+        commit: None,
+    };
+    forge.recently_merged_are(Some(vec![merged(1, "OCTOCAT"), merged(2, "teammate")]));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_merged(&served).await;
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert!(sent.iter().any(|line| line.contains("#1 merged into")), "{sent:?}");
+    assert!(!sent.iter().any(|line| line.contains("#2 merged into")), "{sent:?}");
 }

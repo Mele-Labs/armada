@@ -27,7 +27,8 @@ function keep(narrow: boolean): Step[] {
   const { ledger, opened: inLedger, message } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
-    { look: prs, say: "Each pull request with its state and checks" },
+    { look: prs, say: "Each pull request with its state and checks; many scroll inside the callout" },
+    { look: inside(callout, button("End session")), say: "End session stays in view under them" },
     ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "The ledger's pull requests, with state and checks" }]),
     { press: inside(callout, button("Keep going")), say: "Keep going hides it" },
     { look: message, say: "The cursor is in the message box" },

@@ -23,6 +23,7 @@ use core_model::{
 
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
+use crate::my_pulls::Mine;
 use crate::pull_owners::Owner;
 use crate::redispatch::Carrying;
 use crate::repositories::Served;
@@ -159,8 +160,13 @@ where
             .await
             .pulls_seen_queued(&root)
             .unwrap_or_default();
+        // **Only the person's own**: another author's pull request is nobody here's to tell.
+        let mine = self.mine_in(&root).await;
         let mut queued = Vec::new();
-        for pull in &watched {
+        for pull in watched
+            .iter()
+            .filter(|pull| mine.owns(pull.author.as_ref().map(|it| it.as_written())))
+        {
             if pull.queue != PullQueue::Outside {
                 queued.push(pull.number);
             }
@@ -171,7 +177,7 @@ where
             }
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
-        self.merges_told(served, &base).await;
+        self.merges_told(served, &base, &mine).await;
         self.pulls_attached(served, &watched).await;
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
@@ -326,7 +332,7 @@ where
     }
 
     /// Pull requests that merged lately, told to the Sessions and Jobs that held them.
-    async fn merges_told(self: &Arc<Self>, served: &Served, base: &str) {
+    async fn merges_told(self: &Arc<Self>, served: &Served, base: &str, mine: &Mine) {
         let root = served.root().to_string();
         let merged = self
             .sweeping()
@@ -339,7 +345,9 @@ where
         let now = self.now();
         for one in merged {
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
-            if elapsed(&at, &now) > MERGE_IS_NEWS {
+            if elapsed(&at, &now) > MERGE_IS_NEWS
+                || !mine.owns(one.pull.author.as_ref().map(|it| it.as_written()))
+            {
                 continue;
             }
             let (url, branch) = (one.pull.url.as_written(), one.pull.branch.as_written());

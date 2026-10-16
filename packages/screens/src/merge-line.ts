@@ -6,7 +6,7 @@
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
 import type { HubPull, MainRed, PlaceRow, MainState, RecentSession, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
-import type { HubMerged, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { HubMerged, HubPullRequest as WireHubPull, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -158,7 +158,7 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
   const main = mainOf(hub);
   return {
     ...(main === undefined ? {} : { main }),
-    pulls: queueFirst(hub.pull_requests ?? []).map((pull) => ({
+    pulls: queueFirst((hub.pull_requests ?? []).filter((pull) => pull.mine !== false || inTheQueue(pull))).map((pull) => pull.mine === false ? quietOf(pull) : ({
       number: pull.number,
       url: pull.url,
       branch: pull.branch,
@@ -177,6 +177,27 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
     })),
     recent,
     ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
+  };
+}
+
+/** In the forge's merge queue now, rather than waiting for ci to join it. */
+function inTheQueue(pull: Pick<WireHubPull, "queue">): boolean {
+  return pull.queue !== undefined && pull.queue.state !== "waiting_for_ci";
+}
+
+/**
+ * Another author's pull request in the queue, as the panels draw it: its place and nothing that
+ * calls for anyone. **No checks, no conflict, no review and no hand**, and the queue state is the
+ * plain one, so nothing downstream of the hub can raise a card or an alarm for it. The pull
+ * requests of anyone else outside the queue are not drawn at all (`hubOf`).
+ */
+function quietOf(pull: WireHubPull): HubPull {
+  return {
+    number: pull.number,
+    url: pull.url,
+    branch: pull.branch,
+    ...(pull.author === undefined ? {} : { author: pull.author }),
+    queue: { state: "in_queue", ...(pull.queue?.position === undefined ? {} : { position: pull.queue.position }) },
   };
 }
 

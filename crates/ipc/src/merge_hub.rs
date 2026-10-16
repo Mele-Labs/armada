@@ -359,6 +359,21 @@ pub struct HubPullRequest {
     /// and one the forge is going to merge itself.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub merge_by_hand: bool,
+    /// Opened by the person using this Fleet: its author is the login Armada is signed in as for
+    /// the repository or the one the forge's command line is signed in as, or either is unknown.
+    /// **Fleet decides, and tells, checks and draws only the ones that are.** A pull request that
+    /// is not is shown only in the merge queue, quietly. Absent is mine, and what an older Fleet
+    /// always sends.
+    #[serde(default = "mine", skip_serializing_if = "is_mine")]
+    pub mine: bool,
+}
+
+fn mine() -> bool {
+    true
+}
+
+fn is_mine(it: &bool) -> bool {
+    *it
 }
 
 /// Who registered a pull request. **A kind, a short id and a machine's name, and nothing

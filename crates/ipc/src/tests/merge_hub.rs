@@ -64,6 +64,7 @@ fn a_red_hub() -> MergeLineHub {
             deletions: Some(0),
             owner: None,
             merge_by_hand: false,
+            mine: true,
         }],
         merged: vec![HubMerged {
             number: 1815,
@@ -283,6 +284,18 @@ fn a_pull_request_that_waits_for_a_person_says_so_and_any_other_leaves_the_key_o
     let read: HubPullRequest = decode("a pull request", other.as_bytes()).expect("reads");
     assert!(!read.merge_by_hand);
     assert!(!encode(&read).unwrap().contains("merge_by_hand"));
+}
+
+#[test]
+fn a_pull_request_is_mine_unless_it_says_otherwise_and_only_the_other_says_so() {
+    let mine = r#"{"number":7,"title":"t","branch":"b","url":"u"}"#;
+    let read: HubPullRequest = decode("a pull request", mine.as_bytes()).expect("reads");
+    assert!(read.mine);
+    assert_eq!(encode(&read).unwrap(), mine);
+    let theirs = r#"{"number":7,"title":"t","branch":"b","url":"u","mine":false}"#;
+    let read: HubPullRequest = decode("a pull request", theirs.as_bytes()).expect("reads");
+    assert!(!read.mine);
+    assert_eq!(encode(&read).unwrap(), theirs);
 }
 
 #[test]

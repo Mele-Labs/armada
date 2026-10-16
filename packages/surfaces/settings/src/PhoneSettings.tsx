@@ -1,7 +1,6 @@
 // Settings → Phone, over a `PhoneSource`. Draws nothing where the window has none.
 
-import { Card, CardContent, CardHeader, CardTitle, PhonePairing, type PhoneProblem } from "@armada/components";
-import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, PhonePairing, useNow, type PhoneProblem } from "@armada/components";
 
 import { usePhone } from "./phone-source";
 
@@ -15,19 +14,9 @@ function ago(at: number, now: number): string {
   return unit(Math.floor(seconds / 86400), "day");
 }
 
-/** The clock, once a second while a code is counting down and once a minute otherwise. */
-function useNow(every: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), every);
-    return () => clearInterval(id);
-  }, [every]);
-  return now;
-}
-
 export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void }) {
   const phone = usePhone();
-  const now = useNow(1000);
+  const now = useNow();
   if (phone === null) return null;
   const { source, state } = phone;
   const problem: PhoneProblem | undefined =

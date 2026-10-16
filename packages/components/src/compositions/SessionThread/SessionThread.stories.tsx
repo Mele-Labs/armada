@@ -109,6 +109,15 @@ export const AgentMessagesAreLeftAlignedWithNoFill: Story = {
   },
 };
 
+/** An agent message of several paragraphs keeps Prose's gap between them. */
+export const AgentParagraphsAreSpaced: Story = {
+  args: { rows: [{ id: "p1", at: "09:55:40", kind: "message", from: "agent", text: "The clock is pinned.\n\nThe store tests pass." }] },
+  play: async ({ canvas }) => {
+    const second = canvas.getByText("The store tests pass.");
+    await expect(getComputedStyle(second).marginTop).not.toBe("0px");
+  },
+};
+
 const YOURS: SessionThreadRow[] = [
   { id: "y1", at: "09:55:40", kind: "message", from: "agent", text: "The clock is pinned in the store tests." },
   { id: "y2", at: "09:56:12", kind: "message", from: "you", text: "Keep the pin in the test module." },
