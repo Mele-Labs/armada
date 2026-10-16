@@ -69,6 +69,7 @@ export * from "./scan";
 export * from "./needs";
 export * from "./piloting";
 export * from "./pull-requests";
+export * from "./pull-reviews";
 export * from "./issues";
 export * from "./autopilot";
 export * from "./servers";
