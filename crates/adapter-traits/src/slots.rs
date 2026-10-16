@@ -66,6 +66,20 @@ pub enum SlotLeased {
     Full,
 }
 
+/// What asking for a bay to read a pull request in came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReviewBay {
+    /// The holder has `slot`, at `path`, with the pull request's head checked out. `head` is the
+    /// whole commit the checkout is at, which is what a result read there is kept for.
+    Took {
+        slot: u32,
+        path: String,
+        head: String,
+    },
+    /// Every slot is held. It waits, and is not an error.
+    Full,
+}
+
 /// Where a slot a Job's record names stands now.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SlotStanding {

@@ -357,6 +357,30 @@ where
         self.review_lists_read().await
     }
 
+    async fn list_review_tools(&self, manifest_id: ManifestId) -> Result<ipc::ReviewTools, Refusal> {
+        self.review_tools_read(manifest_id).await
+    }
+
+    async fn save_review_tool(
+        &self,
+        manifest_id: ManifestId,
+        save: ipc::SaveReviewTool,
+    ) -> Result<ipc::ReviewTools, Refusal> {
+        self.review_tool_saved(manifest_id, save).await
+    }
+
+    async fn start_review_run(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        start: ipc::StartReviewRun,
+    ) -> Result<ipc::ReviewRun, Refusal> {
+        self.review_run_started(manifest_id, start).await
+    }
+
+    async fn get_review_runs(&self, manifest_id: ManifestId, number: u64) -> Result<ipc::ReviewRuns, Refusal> {
+        self.review_runs_read(manifest_id, number).await
+    }
+
     async fn resolve_review_thread(
         &self,
         manifest_id: ManifestId,

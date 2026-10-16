@@ -93,7 +93,7 @@ export type Event =
   /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 22.1. */
   | ({ kind: "merge_lines.changed" } & MergeLines)
   /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
-  | ({ kind: "review_run.changed" } & ReviewRun)
+  | { kind: "review_run.changed"; run: ReviewRun }
   /** The mods on this machine changed; the list now, whole, as `list_mods` answers. */
   | ({ kind: "mods.changed" } & ModList)
   /** settings.json changed, by a save or by hand; every setting now, whole, as `get_settings` answers. */

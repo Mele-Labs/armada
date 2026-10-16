@@ -140,7 +140,7 @@ export type ReviewResult =
   | { shape: "text"; body: string }
   | { shape: "findings"; findings: ReviewFinding[] };
 
-/** One run about one pull request at one commit, going or kept. Also the body of `review_run.changed`. */
+/** One run about one pull request at one commit, going or kept. Carried as `run` by `review_run.changed`. */
 export type ReviewRun = {
   manifest_id: string;
   number: number;

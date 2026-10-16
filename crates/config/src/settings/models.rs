@@ -7,6 +7,7 @@ use super::{Applies, Entry, Integer, Kind, List, Options, Section, Shipped, Word
 pub const MODELS_ROSTER: List = List("models.roster");
 pub const MODELS_DEFAULT: Words = Words("models.default");
 pub const MODELS_SESSION: Words = Words("models.session");
+pub const MODELS_REVIEW: Words = Words("models.review");
 pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
@@ -64,6 +65,19 @@ pub(super) const MODEL: &[Entry] = &[
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("session-model"),
+        env: None,
+    },
+    // Ships as the Session model, and is its own dial so a plan step down of Sessions leaves the
+    // read of a pull request where the owner put it.
+    Entry {
+        key: MODELS_REVIEW.0,
+        section: Section::Model,
+        title: "Review model",
+        description: "The model an agent run about a pull request in the Reviews tab runs on.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("review-model"),
         env: None,
     },
     // The cheapest in the roster: the Judge is the cheap one checking the work,

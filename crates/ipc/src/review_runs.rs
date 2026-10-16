@@ -174,7 +174,7 @@ pub struct ReviewImpact {
 pub enum ReviewStepSource {
     /// The author's own directions in the description, which come first.
     Description,
-    /// A README or an agent file such as `CLAUDE.md` or `AGENTS.md` found up the tree from a
+    /// A README or an `AGENTS.md` agent file found up the tree from a
     /// changed path. Fleet checks that the file exists at the pull request's head.
     Doc { path: String },
 }

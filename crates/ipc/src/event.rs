@@ -224,7 +224,7 @@ pub enum Event {
     // A run of an agent about one pull request moved: queued, running, done or failed, whole.
     // `docs/concepts/pull-review.md`, *Agent runs*.
     #[serde(rename = "review_run.changed")]
-    ReviewRunChanged(ReviewRun),
+    ReviewRunChanged { run: ReviewRun },
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),
