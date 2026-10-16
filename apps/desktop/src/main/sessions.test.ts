@@ -5,7 +5,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 
 import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
@@ -13,8 +13,11 @@ import type { BridgeState } from "../shared/bridge";
 import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
+/** What the Fleet answers a take of a window's sign-in with. */
+let held: string[] = [];
 
 afterEach(async () => {
+  held = [];
   const server = listening;
   listening = null;
   if (server === null) return;
@@ -60,6 +63,7 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
         const id = url.searchParams.get("session_id") ?? "";
         return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
       }
+      if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
     });
@@ -183,7 +187,42 @@ it("opens a window when a Session shows a page, once, and never for a row a thre
   expect(opened).toEqual([]);
   sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
   sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
-  expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
+  await vi.waitFor(() => expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]));
+  await new Promise((done) => setTimeout(done, 20));
+  expect(opened.length).toBe(1);
+});
+
+it("takes the sign-in addresses Fleet holds for a window once, and hands them to the window that opens, never to a row or the ledger", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const link = "https://staging.example.com/dev/login?token=abc";
+  held = [link];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, address, _takes, origins, signIn) => opened.push([id, address, origins, signIn]));
+  await sessions.again(port);
+  sessions.row({
+    session_id: "a",
+    row: { kind: "window", id: "w1", at: AT, title: "Staging", url, origins: ["https://login.example.org"] },
+  });
+  await vi.waitFor(() => expect(opened).toEqual([["a", url, ["https://login.example.org"], [link]]]));
+  expect(sent.filter((one) => one.path === "/sessions/window/sign_in")).toEqual([
+    { method: "POST", path: "/sessions/window/sign_in", body: { session_id: "a", url } },
+  ]);
+  expect(JSON.stringify(published)).not.toContain("token=abc");
+});
+
+it("opens a window with no sign-in where Fleet holds none or does not answer", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, _address, _takes, _origins, signIn) => opened.push([id, signIn]));
+  await sessions.again(port);
+  sessions.row({ session_id: "a", row: { kind: "window", id: "w1", at: AT, title: "Staging", url } });
+  await vi.waitFor(() => expect(opened).toEqual([["a", []]]));
 });
 
 it("opens the window with its takes, from the row that shows it and from the ledger that reopens it, and reads a ledger that is not takes as none", async () => {
@@ -207,9 +246,35 @@ it("opens the window with its takes, from the row that shows it and from the led
   sessions.onWindow((id, _title, address, withTakes) => opened.push([id, address, withTakes]));
   await sessions.again(port);
   sessions.row({ session_id: "a", row: { kind: "window", id: "w1", at: AT, title: "Findings", url, variations: takes } });
+  await vi.waitFor(() => expect(opened.length).toBe(1));
   expect(sessions.openWindow("a", url)).toEqual({ ok: true });
   expect(sessions.openWindow("b", url)).toEqual({ ok: true });
   expect(opened).toEqual([["a", url, takes], ["a", url, takes], ["b", url, []]]);
+});
+
+it("reopens a window from the ledger with the origins it may pass through and no sign-in, and reads origins that are not a list as none", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const attached = (origins: string) => ({
+    kind: "artifact",
+    target: url,
+    state: "standing" as const,
+    detail: { form: "window", title: "Staging", origins },
+    since: AT,
+    changed_at: AT,
+  });
+  const port = await fleet(sent, [
+    record("a", { attachments: [attached(JSON.stringify(["https://login.example.org"]))] }),
+    record("b", { attachments: [attached(`{"login":"https://login.example.org"}`)] }),
+  ]);
+  const { sessions } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, _address, _takes, origins, signIn) => opened.push([id, origins, signIn]));
+  await sessions.again(port);
+  expect(sessions.openWindow("a", url)).toEqual({ ok: true });
+  expect(sessions.openWindow("b", url)).toEqual({ ok: true });
+  expect(opened).toEqual([["a", ["https://login.example.org"], []], ["b", [], []]]);
+  expect(sent.some((one) => one.path === "/sessions/window/sign_in")).toBe(false);
 });
 
 it("brings the walk forward when a Session asks in it, once, and never for an answered question or one a read brought", async () => {
@@ -238,7 +303,9 @@ it("brings the walk forward when a Session asks in it, once, and never for an an
   expect(forward).toEqual([]);
   sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
   sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
-  expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]);
+  await vi.waitFor(() => expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]));
+  await new Promise((done) => setTimeout(done, 20));
+  expect(forward.length).toBe(1);
 });
 
 it("reopens only an address the ledger shows as a window", async () => {

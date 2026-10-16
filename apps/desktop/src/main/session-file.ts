@@ -122,6 +122,24 @@ export function stepsOfWindow(record: SessionRecord | undefined, url: string): W
   }
 }
 
+/**
+ * The origins the Session let the window at `url` pass through, as its ledger keeps them in the
+ * window's `detail`, or none. **Anything that is not a list of strings reads as none**; the window
+ * holds each to a bare origin before it trusts one with a navigation (`passThrough`).
+ */
+export function originsOfWindow(record: SessionRecord | undefined, url: string): string[] {
+  const kept = record?.attachments.find(
+    (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
+  )?.detail?.["origins"];
+  if (kept === undefined) return [];
+  try {
+    const read: unknown = JSON.parse(kept);
+    return Array.isArray(read) && read.every((one) => typeof one === "string") ? (read as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function openSessionFile(
   record: SessionRecord | undefined,
   path: string,

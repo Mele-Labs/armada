@@ -25,7 +25,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, shown, webOrigin, type Pinned } from "./address";
+import { isPinned, offerable, onAnyOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
@@ -101,6 +101,8 @@ const WALK_ASK_MS = 1000;
 const LOOK_MS = 2000;
 /** The longest a reload for a replayed walk waits for the page to load. */
 const RELOAD_MS = 15_000;
+/** The longest one sign-in address is waited on before the next. */
+const SIGN_IN_MS = 15000;
 
 /** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
 export type WalkSizes = { bar: number; panel: number; floor: number };
@@ -166,6 +168,8 @@ export class CaptureWindow {
   private readonly failures = new FailedLoads((address, why) => this.failed(address, why));
   private readonly lookTimer: ReturnType<typeof setInterval>;
   private looking = false;
+  /** Whether the Session's sign-in addresses are loading, which no failure is told to anyone for: their text is a secret. */
+  private signingIn = false;
 
   constructor(
     pin: Pinned,
@@ -174,6 +178,7 @@ export class CaptureWindow {
     sizes: WalkSizes,
     kept: PanelKept | null,
     takes: readonly WindowTake[] = [],
+    signIn: readonly string[] = [],
     steps: readonly WalkStep[] = [],
   ) {
     this.pin = pin;
@@ -233,9 +238,35 @@ export class CaptureWindow {
 
     this.holdThePage();
     this.lookTimer = setInterval(() => void this.lookAtThePage(), LOOK_MS);
-    void this.page.webContents.loadURL(pin.url);
+    void this.start(pin.url, signIn);
     this.window.show();
     this.follow();
+  }
+
+  /**
+   * Load the page, after the addresses a Session signs in with, each in the window's own cookie jar
+   * and in order. **They are a secret**: none is kept past this call, logged or told to anyone, and a
+   * load of one that fails says nothing (`signingIn`). Each is also held to the origins the window
+   * may be on, as Fleet held it when it was named. One that hangs is let go of after `SIGN_IN_MS`.
+   */
+  private async start(url: string, signIn: readonly string[]): Promise<void> {
+    const contents = this.page.webContents;
+    this.signingIn = signIn.length > 0;
+    for (const address of signIn) {
+      if (contents.isDestroyed()) return;
+      if (!onAnyOrigin(this.pin, address)) continue;
+      let giveUp: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          contents.loadURL(address).catch(() => undefined),
+          new Promise<void>((resolve) => (giveUp = setTimeout(resolve, SIGN_IN_MS))),
+        ]);
+      } finally {
+        clearTimeout(giveUp);
+      }
+    }
+    this.signingIn = false;
+    if (!contents.isDestroyed()) void contents.loadURL(url);
   }
 
   /** Make this window's Job Bridge's open Job, where it walks one. */
@@ -257,6 +288,11 @@ export class CaptureWindow {
   /** The origins a question about a place may be on: the page on screen's, and every take's. */
   get origins(): string[] {
     return [this.pin.origin, ...this.takes.flatMap((one) => webOrigin(one.url) ?? [])];
+  }
+
+  /** Whether the window may pass through exactly these origins, so a Session that shows the page again with them is raising it. */
+  passes(through: readonly string[]): boolean {
+    return through.length === this.pin.through.length && through.every((one, at) => one === this.pin.through[at]);
   }
 
   /** Whether this window shows exactly these takes and steps, so a Session that shows them again is raising it. */
@@ -668,7 +704,7 @@ export class CaptureWindow {
    */
   private holdThePage(): void {
     const contents = this.page.webContents;
-    const allowed = (address: string): boolean => this.serving && onOrigin(this.pin.origin, address);
+    const allowed = (address: string): boolean => this.serving && onAnyOrigin(this.pin, address);
 
     contents.setWindowOpenHandler(({ url }) => {
       this.refuse(url, "window");
@@ -708,17 +744,22 @@ export class CaptureWindow {
     // `dom-ready` is the new document's, so it is told to leave its card again; the walk itself mounts after it.
     contents.on("dom-ready", () => this.findWalk());
     contents.on("did-finish-load", () => this.findWalk());
-    // The steps Bridge plays begin on the first page that loads, and a load after that is theirs to wait out.
+    // The steps Bridge plays begin on the first load of the shown page: not a sign-in address, and not
+    // a provider's page the window passed through, whose words the steps were not written for.
     contents.on("did-finish-load", () => {
-      if (this.stepwalk === null || this.stepsBegun) return;
+      if (this.stepwalk === null || this.stepsBegun || this.signingIn || !onOrigin(this.pin.origin, contents.getURL())) return;
       this.stepsBegun = true;
       this.stepwalk.begin();
     });
-    contents.on("did-fail-load", (_event, code, description, address, mainFrame) =>
-      this.failures.failedLoad(code, description, address, mainFrame),
-    );
-    contents.on("did-navigate", (_event, address, status) => this.failures.navigated(address, status, this.pin.origin));
-    contents.on("render-process-gone", (_event, details) => this.failures.gone(contents.getURL(), details.reason));
+    contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
+      if (!this.signingIn) this.failures.failedLoad(code, description, address, mainFrame);
+    });
+    contents.on("did-navigate", (_event, address, status) => {
+      if (!this.signingIn) this.failures.navigated(address, status, this.pin.origin);
+    });
+    contents.on("render-process-gone", (_event, details) => {
+      if (!this.signingIn) this.failures.gone(contents.getURL(), details.reason);
+    });
   }
 
   /**
@@ -727,7 +768,7 @@ export class CaptureWindow {
    */
   private async lookAtThePage(): Promise<void> {
     // A Studio's window has nobody to tell.
-    if (this.subject === null || this.looking || this.readiness === "working" || this.page.webContents.isDestroyed() || this.page.webContents.isLoading()) return;
+    if (this.subject === null || this.looking || this.signingIn || this.readiness === "working" || this.page.webContents.isDestroyed() || this.page.webContents.isLoading()) return;
     this.looking = true;
     try {
       const address = this.page.webContents.getURL();

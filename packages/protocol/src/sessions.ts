@@ -265,7 +265,24 @@ export type WalkStep = { say: string } & (
  * change in the one window, each a page of its own, and `url` is the first's. Absent: one page.
  * `steps` is a scripted walk of the page that Bridge plays from outside it, on any page. Absent: none.
  */
-export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[]; steps?: WalkStep[] };
+export type ShowWindow = {
+  url: string;
+  title?: string;
+  session_id?: string;
+  variations?: WindowTake[];
+  /** A scripted walk of the page, played by Bridge from outside it. */
+  steps?: WalkStep[];
+  /** Other `http` or `https` origins, with no path, the window may pass through: a single sign-on provider. */
+  origins?: string[];
+  /** Addresses on the shown origin or one of `origins`, loaded in order before the page. A secret: Fleet keeps it in memory and writes it nowhere. */
+  sign_in?: string[];
+};
+
+/** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
+export type TakeWindowSignIn = { session_id: string; url: string };
+
+/** What it answers: the addresses, once. Empty where none are held. */
+export type WindowSignIn = { sign_in: string[] };
 
 /**
  * `POST /sessions/sketch`, the agent's: a diagram to draw. `scene` is the format `parseScene` reads

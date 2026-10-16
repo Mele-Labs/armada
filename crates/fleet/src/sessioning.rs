@@ -26,6 +26,7 @@ use crate::build_keeping::{build_heard, build_read, BuildReads};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
+use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
 use crate::timeline::{Act, Doer};
 
@@ -189,6 +190,33 @@ fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> 
         return Err(String::from("steps that weigh no more than 32 KiB written out"));
     }
     Ok(steps)
+}
+
+/// The origins a call named, trimmed, or why they cannot be passed through. **An origin only**:
+/// `http` or `https`, a host and an optional port, and no path, query, fragment or sign-in of its own.
+fn origins_named(named: Vec<String>) -> Result<Vec<String>, &'static str> {
+    let origins: Vec<String> = named.into_iter().map(|one| one.trim().to_string()).collect();
+    let bare = |one: &String| {
+        shows_a_page(one) && one.split_once("://").is_some_and(|(_, rest)| !rest.contains(['/', '?', '#', '@']))
+    };
+    if origins.iter().all(bare) {
+        Ok(origins)
+    } else {
+        Err("every `origins` entry to be an `http` or `https` origin with no path, such as https://login.example.com")
+    }
+}
+
+/// The sign-in addresses a call named, trimmed, or why they cannot be loaded. **Each is a page
+/// on the shown origin or on one of `origins`**, so a sign-in reaches nowhere the window may not.
+fn sign_in_named(url: &str, origins: &[String], named: Vec<String>) -> Result<Vec<String>, &'static str> {
+    let addresses: Vec<String> = named.into_iter().map(|one| one.trim().to_string()).collect();
+    let allowed: Vec<String> = std::iter::once(url).chain(origins.iter().map(String::as_str)).filter_map(origin_of).collect();
+    let on_one = |one: &String| shows_a_page(one) && origin_of(one).is_some_and(|origin| allowed.contains(&origin));
+    if addresses.iter().all(on_one) {
+        Ok(addresses)
+    } else {
+        Err("every `sign_in` entry to be an `http` or `https` address on the shown origin or one of `origins`")
+    }
 }
 
 /// The two kinds a session holds one of at a time. Every other kind is kept as
@@ -803,6 +831,8 @@ where
         }
         let variations = takes_shown(&url, show.variations).map_err(|what| self.ledger_unnamed(what))?;
         let steps = steps_shown(show.steps).map_err(|what| self.ledger_unnamed(&what))?;
+        let origins = origins_named(show.origins).map_err(|what| self.ledger_unnamed(what))?;
+        let sign_in = sign_in_named(&url, &origins, show.sign_in.0).map_err(|what| self.ledger_unnamed(what))?;
         let hosted = caller.and_then(|caller| self.session_holding(&caller));
         let id = hosted
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
@@ -838,12 +868,15 @@ where
                         .into_iter()
                         .chain((!variations.is_empty()).then(|| ("variations".to_string(), ipc::WindowTake::as_detail(&variations))))
                         .chain((!steps.is_empty()).then(|| ("steps".to_string(), ipc::WalkStep::as_detail(&steps))))
+                        .chain((!origins.is_empty()).then(|| ("origins".to_string(), ipc::origins_as_detail(&origins))))
                         .collect(),
                     },
                 },
             })
             .await?;
         self.walk_noted(&id, &record, &title);
+        // Held before the row goes out, which is what Bridge opens the window on and asks for it by.
+        self.window_sign_ins().hold(&id, &url, sign_in);
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -853,11 +886,17 @@ where
                 url,
                 variations,
                 steps,
+                origins,
                 ended_at: None,
             },
         )
         .await;
         Ok(record)
+    }
+
+    async fn take_window_sign_in(&self, take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {
+        let sign_in = self.window_sign_ins().take(take.session_id.as_str().trim(), take.url.trim());
+        Ok(ipc::WindowSignIn { sign_in: ipc::SignIn(sign_in) })
     }
 
     async fn show_sketch(

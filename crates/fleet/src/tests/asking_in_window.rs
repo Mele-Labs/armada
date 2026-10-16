@@ -32,7 +32,7 @@ fn asked(id: &ipc::SessionId, url: &str) -> AskInWindow {
 async fn walking(rig: &Rig) -> ipc::SessionId {
     let id = rig.start().await;
     rig.fleet
-        .show_window(None, ShowWindow { url: WALK.into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new(), steps: Vec::new() })
+        .show_window(None, ShowWindow { url: WALK.into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() })
         .await
         .unwrap();
     id

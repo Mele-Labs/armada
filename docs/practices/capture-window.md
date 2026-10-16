@@ -56,6 +56,30 @@ around `nodeIntegration: false`.
 > Why: the owner reviews a quick spike by walking it, and a Session in another repository (a web app
 > on a local dev server, or a deployed staging address) had no way to give him the same walk.
 
+> **Rule.** A Session's window may also pass through the origins the Session
+> names in `origins` (`show_window`): `http` or `https`, a host and an optional
+> port, no path. A top-level navigation, a redirect or a subframe to one of them
+> is followed, and nothing else changes: the window is pinned to the shown
+> origin and those, and every other address is refused as before. *Origins a
+> Session names* has the review.
+> Why: a deployed page behind single sign-on redirects to a provider and back,
+> and a window that refuses the first hop cannot show the page at all.
+
+> **Rule.** A Session's window is in a cookie jar of its own repository, keyed by
+> the Session's `manifest_id`. A Session with none shares one unnamed jar.
+> Why: a sign-in, the person's or the Session's, has to hold for the next walk,
+> and a jar shared across repositories would carry one repository's login into
+> another's page.
+
+> **Rule.** A Session may pass `sign_in`: addresses the window loads in order in
+> that jar before the page, each on the shown origin or a named one. They are a
+> secret. Fleet holds them in memory until Bridge takes them once, main holds
+> them for the loads and no longer, and none is written to a row, the ledger, the
+> timeline, a note, an event or a log. A load of one that fails is told to
+> nobody, and the page's own failure look waits until they are done.
+> Why: a magic link or a token address is a login. The failure notice carries
+> the address it failed on, and would put the login into the Session's thread.
+
 > **Rule.** A Session may show several takes of one change in its window
 > (`variations`). The window is pinned to the origin of the take on screen, and
 > that moves only on a press of a take on the bar, which names an index: main
@@ -97,22 +121,23 @@ around `nodeIntegration: false`.
 | What moves | Held by | What happens |
 |---|---|---|
 | The first load | The address main resolved | Nothing else opens a window |
-| Top-level navigation | `will-navigate` | Refused, address said |
-| A server redirect | `will-redirect` | Refused, address said |
-| A subframe | `will-frame-navigate` | Refused, counted on the bar |
+| Top-level navigation | `will-navigate` | Refused, address said, unless on a named origin |
+| A server redirect | `will-redirect` | Refused, address said, unless on a named origin |
+| A subframe | `will-frame-navigate` | Refused, counted on the bar, unless on a named origin |
 | A popup or new window | `setWindowOpenHandler` | Denied, address said |
 | A download | `will-download` | Refused |
 
 > **Rule.** A comparison is on the whole origin — scheme, host and port —
-> against the origin the window opened on. Nothing is matched by prefix, by
-> suffix or by hostname alone.
+> against the origin the window opened on, or one a Session named. Nothing is
+> matched by prefix, by suffix or by hostname alone.
 
 > **Rule.** A refused address is drawn in full and never followed. One act
 > offers it to the system browser, `http:` and `https:` only, on a person's
 > press.
 > Why: an app a person is building redirects to an auth provider, and the honest
 > answer is the browser they already use rather than a second browser inside
-> Armada.
+> Armada. A Session that wants the provider in the window names it in `origins`,
+> and then it is not refused.
 
 > **Rule.** Subresources are the page's own business and are not pinned to the
 > origin.
@@ -256,7 +281,7 @@ this window, and that is another security review. `#1294`.
 | A dialog that looks like Armada's | None | `disableDialogs` |
 
 > **Rule.** The window runs in a session partition of its own, persistent, one
-> per repository.
+> per repository. A Session's window is keyed by the Session's `manifest_id`.
 > Why: an app under development needs a login, and a window that forgot it every
 > time is a window used once. Bridge's own session holds none of it, and two
 > repositories share nothing.
@@ -445,6 +470,7 @@ this window, and what it adds is below.
 | Step | Held by | What happens |
 |---|---|---|
 | The steps arrive | Main, off the Session's `window` row or its ledger artifact | Re-read to Fleet's shape; anything else is no steps. The window is pinned to the origin it opened on, as always, and the steps are the window's and not a take's: another take starts them over |
+| The walk begins | Main, on the first load of the shown page | Not a `sign_in` address's load, and not a provider's page the window passed through (`origins`): the steps wait for a load on the origin the window is pinned to, and the finder is asked of no other |
 | The target is found | `finder.ts`, in an isolated world | `executeJavaScriptInIsolatedWorld`, a world of Bridge's own that shares the page's DOM and nothing else. `walk-find.ts` finds it, the code the mock's walks find theirs with. The page is scrolled to it, once, as a person's scroll would, and waited on until it holds still |
 | It is ringed | The bar's view over the page | Main sends the target's box and the caption; the bar draws the ring and the card, as a question's outline is drawn (`WalkGuide`). The page draws nothing |
 | The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between |
@@ -583,7 +609,7 @@ is that a second Bridge document sits beside it, with the bar's grant.
 
 | Refused | Rather than |
 |---|---|
-| Any origin but the Run's, or the one a Session's window opened on | An allowlist, a setting, or a trusted-host list |
+| Any origin but the Run's, or the one a Session's window opened on and the ones that Session named for this window | An allowlist, a setting, or a trusted-host list |
 | A non-loopback address a Manifest declares | Capture against staging or production |
 | A non-http(s) address a Session shows | `file:`, `javascript:` or any scheme but the web's |
 | Typing or pasting an address | A general browser inside Armada |
@@ -592,11 +618,44 @@ is that a second Bridge document sits beside it, with the bar's grant.
 | Any preload capability on this window | One small exception, then a second |
 | A page's `window.open`, downloads and dialogs | Filtering them |
 | Following a refused address in this window | A second browser nobody asked for |
+| A popup, even a sign-in provider's | Letting a page open a window of its own |
+| A `sign_in` address off the shown origin and the named ones | A Session loading a page it did not let the window reach |
 
 > **Rule.** A capability added to this window later is another security review,
 > on the same terms as the four protections.
 > Why: every guarantee above rests on the page holding nothing and reaching
 > nothing, which one addition ends.
+
+## Origins a Session names
+
+`show_window`'s `origins` widens where a Session's window may go, by named origins and nothing wider. This is the review of that allowance, and it is a capability added to this window.
+
+| Question | Answer |
+|---|---|
+| Who names an origin | The Session, in its call. Never the page, the bar or a redirect |
+| What may be named | `http` or `https`, a host and an optional port. Fleet refuses a path, query, fragment, sign-in of its own or another scheme with 422 and writes nothing. Main drops what is more than an origin again (`passThrough`), so a ledger read back is held to it too |
+| What it allows | A top-level navigation, a redirect or a subframe to that origin, compared on scheme, host and port whole |
+| What it does not allow | Any other origin. A redirect off the named ones is refused and said on the bar, as before |
+| Where main still runs a script | The shown origin only. Capture, a question's locate, the failure look and a walk's handle all wait for the page to be on it, so a provider's page is never asked anything |
+| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads and popups refused, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
+| What the Session can do with it | Reach a page it could already show with `show_window`. Naming an origin makes no page the window loads trusted; it lets a redirect there complete |
+
+> **Rule.** A named origin is allowed to be navigated to and nothing more.
+> Why: the allowance is the redirect to a provider and back. Everything the
+> window does to a page for the person's sake (capture, a question, a look,
+> a walk) stays on the origin the Session showed, so the injected layer's
+> guarantees are the ones already reviewed.
+
+> **Rule.** A `sign_in` address is loaded only if it is on the shown origin or a
+> named one, checked by Fleet when it is named and by main when it is loaded.
+> Why: a sign-in is a page load with a login in its address, and it should reach
+> no further than the window does.
+
+**Costs.** A provider that signs in through a popup, or one that refuses a
+browser whose user agent says Electron, cannot be walked in this window. The
+redirect form works, and the owner signs in on the provider's page once. A
+Bridge that is not connected when the page is shown opens no window, and
+`sign_in` is lost with the call.
 
 ## What this does not claim
 

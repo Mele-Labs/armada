@@ -373,6 +373,10 @@ pub enum SessionRow {
         /// takes are.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         steps: Vec<crate::WalkStep>,
+        /// The other web origins the window may pass through, such as a sign-in provider. **Kept
+        /// when the walk ends**, as `variations` are.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        origins: Vec<String>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]
