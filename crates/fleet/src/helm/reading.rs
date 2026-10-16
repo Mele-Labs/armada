@@ -155,7 +155,7 @@ fn only_reads(said: &str) -> bool {
     const READERS: &[&str] = &[
         "cat", "ls", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "stat", "file", "find",
         "du", "tree", "realpath", "readlink", "diff", "cmp", "command", "which", "type", "jq",
-        "strings", "cut", "nl", "shasum", "md5", "xxd", "od", "mdls",
+        "strings", "cut", "nl", "shasum", "md5", "xxd", "od", "mdls", "cd", "pushd",
     ];
     if truncating_redirect(said) || said.contains(">>") {
         return false;
