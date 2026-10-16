@@ -379,6 +379,26 @@ impl Delivery for FakeVcs {
         self.main_ci.watched()
     }
 
+    fn watched_pull(
+        &self,
+        _in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::WatchedPull> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.watched_one(number)
+    }
+
+    fn open_pull_request(
+        &self,
+        _in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::OpenPull> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.open_one(number)
+    }
+
     fn forge_login(&self, _in_repo: &str) -> Option<String> {
         self.main_ci.login()
     }

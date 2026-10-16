@@ -35,6 +35,33 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The pull requests someone holds that `listed` leaves out: a standing `pr` row of a Session
+    /// or a Job, or the pull request of a Job not yet settled. **What a forge's capped list
+    /// cannot be trusted to show**, read by number so their owners are still told.
+    pub(crate) async fn held_beyond(&self, served: &Served, listed: &[u64]) -> Vec<u64> {
+        let manifest = served.manifest().id().as_str().to_string();
+        let store = self.store().lock().await;
+        let mut held: Vec<u64> = store
+            .standing_in_order(PR, &manifest, None)
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|row| row.target.parse().ok())
+            .collect();
+        for unsettled in store.pull_requests_unsettled().unwrap_or_default() {
+            let ours = self
+                .served_by_id(&unsettled.job_id)
+                .is_ok_and(|it| it.root() == served.root());
+            let number = unsettled.url.rsplit_once("/pull/").and_then(|(_, n)| n.parse().ok());
+            if let (true, Some(number)) = (ours, number) {
+                held.push(number);
+            }
+        }
+        held.retain(|number| !listed.contains(number));
+        held.sort_unstable();
+        held.dedup();
+        held
+    }
+
     /// Who holds a pull request: the Sessions the pool confirms work its branch, else the one whose
     /// `pr` row is oldest (`crate::slot_holders`), and the Jobs whose pull request or branch it
     /// is. `spent` also takes a Session whose hold was used up by the merge.

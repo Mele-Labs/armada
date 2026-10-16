@@ -133,7 +133,18 @@ where
                 vcs.open_pull_requests(root, &gate)
             })
             .await;
-        let Some(listed) = listed else { return };
+        let Some(mut listed) = listed else { return };
+        // The list stops at 100: a pull request someone holds that it left out is read by number.
+        let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
+        for number in self.held_beyond(served, &shown).await {
+            let gate = served.manifest().ci_gate().to_string();
+            let one = self
+                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                    vcs.open_pull_request(root, &gate, number)
+                })
+                .await;
+            listed.extend(one);
+        }
         // **The same visit, not a call of its own**: one `owners` for the repository, and the
         // rows of what has left the list deleted.
         let numbers: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
