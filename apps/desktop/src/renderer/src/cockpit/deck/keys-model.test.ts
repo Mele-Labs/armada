@@ -8,7 +8,7 @@ import { PANELS, PANEL_SLOTS, keySheetOf, panelKey } from "./keys-model";
 
 test("each panel's key is its slot of deck_panel, and a panel with no slot has no key", () => {
   const slots = slotsOf("deck_panel").map(formatSlot);
-  expect(slots).toEqual(["l", "b", "c", "q", "f", "a"]);
+  expect(slots).toEqual(["l", "b", "c", "q", "f", "a", "d"]);
   expect(PANEL_SLOTS.map(panelKey)).toEqual(slots);
   expect(panelKey("activity")).toBe("");
   expect(panelKey("stage")).toBe("");

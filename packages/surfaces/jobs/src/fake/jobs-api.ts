@@ -79,7 +79,7 @@ export type JobsFleet = FleetHandle<JobsHeld> & {
   path: (jobId: string, route?: string) => string;
   failed: (jobId: string, route: string) => { state: "failed"; jobId: string; outcome: Outcome };
   refused: (route: string) => { ok: false; outcome: Outcome };
-  proposingRow: (request: string, at: string, jobs: readonly JobSummary[]) => JobSummary;
+  proposingRow: (request: string, at: string, jobs: readonly JobSummary[], manifestId?: string) => JobSummary;
 };
 
 const OK: Outcome = { ok: true };
@@ -148,9 +148,11 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       // plan, so there is nothing here to invent. The promise is left out because
       // the proposer never answers in the mock, which is what `in_code = "Not
       // yet"` means; nothing is waiting on it, since the press left the composer.
-      proposeFromRequest: (request) => {
+      proposeFromRequest: (request, _attachments, repository) => {
         const at = new Date().toISOString();
-        const row = proposingRow(request, at, state().jobs);
+        // The repository the dispatch named, by its Manifest: the Job lands on the one chosen, not on the first the Board lists.
+        const named = repository == null ? undefined : state().holds.repositories?.find((one) => one.root === repository)?.manifest?.id;
+        const row = proposingRow(request, at, state().jobs, named);
         // The call is named with the Job it is reading for, as main's arrival carries it, so the
         // window that dispatched learns the Job before anything answers.
         const proposing: ProposalInFlight = {

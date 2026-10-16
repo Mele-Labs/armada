@@ -1,4 +1,4 @@
-// Two repositories on All, each with a backlog in the composer: storefront's issues are on the forge
+// Two repositories on All, each with a backlog: storefront's issues are on the forge
 // and read #412; ops keeps them in Jira and reads ABC-123 and OPS-7. The walk `issue-backlogs` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
