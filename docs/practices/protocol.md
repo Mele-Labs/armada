@@ -3474,6 +3474,20 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Session. A Bridge before it never calls the route. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
+## Protocol 23.91: a Session's request is read, and its workflow is on the record
+
+`docs/concepts/session.md`, *A Session's proposal*, and `docs/concepts/job-proposer.md`, *A Session's request*. **Additive only**: one optional field on a request, one operation, two fields on a record, three timeline kinds.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession` gains optional `request` | The words the person dispatched. Fleet reads them once with the Job proposer's model and fills in the `title`, `model` and `effort` the start left unset, and the Session's `workflow`. **The answer is the `SessionRecord` at once**, with `proposal.reading` true and no process; the process starts when the answer lands. Not read with `pilot`, `fork` or `root`. A call that fails or cannot be read starts the Session on the machine's defaults and nothing is refused |
+| `set_session_workflow` (`POST /sessions/workflow`) | `SetSessionWorkflow`: `session_id`, `workflow?`. Answers 200 `SessionRecord` | Sets the workflow a hosted Session follows, or clears it (absent) so it is a custom Session. Fleet tells the agent at once and enters `session.workflow`. 422 `fleet.session_workflow_not_held` for an id the repository does not hold, 422 `fleet.session_command_refused` for a terminal Session, 409 `fleet.session_closed` for one that ended. `agent_access: No` |
+| `SessionRecord` | `workflow?`, `proposal?` | `workflow` is absent for a custom Session. `proposal` is `{ reading, picked }`, each skipped where false or empty; `picked` lists `title`, `workflow`, `model` and `effort` as the proposer filled them, and a field leaves it when the person sets it |
+| `timeline.entry` | `TimelineKind` gains `session.workflow`, `session.model`, `session.effort` | `says` is `workflow: <old> → <new>`, `model: <old> → <new>` or `effort: <old> → <new>`, naming a workflow by its name and none as `custom`, a model or effort not set as `the default` |
+| `tune_session` | Behaviour only | A changed `model` or `effort` is now told to the agent on the next turn that starts on it, and entered as above. No wake |
+
+**Skew.** A Fleet before 23.91 ignores `request` and answers 404 for `/sessions/workflow`; a Bridge before it never sends either. A Bridge before reads a `session.*` timeline kind it does not know and draws nothing or draws it badly, and ignores the two record fields. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{hosted-sessions,sessions,timeline}.ts`, written by hand like the rest.
+
 ## Protocol 23.89: a run's end is a row in the thread
 
 `docs/concepts/session.md`, *Running a block*. **Additive only**: one thread row, and no operation changes.

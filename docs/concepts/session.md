@@ -191,7 +191,8 @@ engine with a note and a few more tools, one per repository.
 > (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
- start ─▶ a row: no process, no slot, no branch
+ start ─▶ a row: no process, no slot, no branch (a start with a `request` is read first;
+          its process starts when the reading lands, see *A Session's proposal*)
  message ─▶ a live process, `--session-id`, the message on its input
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
                 both on the ledger, refuses the write and the turn ends; the
@@ -782,6 +783,29 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 **A Session's composer names the model it runs on.** Fleet launches `claude` with `--model` only where a person picked one, and the CLI's own default applies otherwise, so the pick alone says nothing. Fleet reads the model off each `init` line of the stream (`DroneEvent::Started`, one per turn) and carries it as `HostedFacts.resolved_model` (23.85): `claude-opus-5-5`, which Bridge names `Opus 5.5`. **It is cleared when the process is let go** and absent before the first turn, because the next process has not said. The composer's Model select reads it: the selected option, the picked alias or the default, is labelled `Opus 5.5` once the resolved model is of that option's family. Until it has, or after another model is picked, the select reads the alias or the default as it did, **never a guess**. The head draws no model. A terminal Session is named only where its mod reported a model.
 
 **Past 300k tokens of context or a day since it started, a quiet mark (`move-right`) sits after the context tank.** Hover or focus opens its card and a press keeps it open, as the context tank's does: `612k context`, `Started 3h ago`, and two acts. **Fork** forks the conversation at its latest row (`start_session` with `fork.at`, 23.79). **New Session** asks the old Session for its handoff, which is a message of the person's sent with `send_session_message`: the goal, where it stands, open pull requests and branches, and what is next. Its next reply, once the turn is over, is the handoff, and the new Session opens under the same title with `Handoff from <title>` and that reply as its first message, sent for the person. While the old Session writes it the mark pulses and New Session waits. **If it ended, the send was refused, or no reply came within 90 seconds**, the first message is the ledger's facts instead: the title, its slot, its branches and its open pull requests. Nothing is typed. Both are Bridge's alone (`session-handoff.ts`), over operations that already exist; the cost is one turn of the old Session, which re-reads its whole context once.
+
+## A Session's proposal
+
+**A Session started from the dispatch sheet is read once**, by the same model call that proposes a Job (`job-proposer.md`, *A Session's request*), and what the call settles is the Session's own. `StartSession.request` carries the words. The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled. A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came. A failed, late or unreadable call starts the Session on the machine's defaults.
+
+| On the record | Meaning |
+|---|---|
+| `workflow` | The one workflow the Session follows, or absent: **a custom Session**. Never a default |
+| `proposal.reading` | The call is still out |
+| `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
+
+**What a person sets wins, and an answer never overwrites it.** A field given on the start, or changed in a panel while the call was out, stays as set.
+
+**A change reaches the agent, because it cannot read the panel.**
+
+| Changed | What the agent is told | When | Timeline |
+|---|---|---|---|
+| The workflow (`set_session_workflow`) | A message from Fleet naming the workflow and its step labels, or saying it is now a custom Session | At once: mid-turn at the next tool call, and an idle Session wakes. A Session that has not run is told with its first turn | `workflow: <old> → <new>` |
+| The model or effort (`tune_session`) | A line ahead of the turn that starts on the new values: `from this turn your model is X, not Y` | On the next turn, with no wake | `model: <old> → <new>`, `effort: <old> → <new>`, entered when that turn starts |
+
+**An unchanged model tells nothing.** Fleet keeps the model and effort each turn ran on, and the first turn only sets the baseline, so a restart does not tell again. The three events are `session.workflow`, `session.model` and `session.effort` on the timeline, where committed and pushed rows come from.
+
+**Held turns are in memory.** A Fleet that restarts while a Session is still being read loses them; the message row stays on the thread.
 
 ## Stopping a turn
 
