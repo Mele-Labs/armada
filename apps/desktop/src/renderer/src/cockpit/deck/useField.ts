@@ -55,7 +55,8 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
   return plays;
 }
 
-export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[]) {
+/** `only` is the root of the one repository the map draws; none draws every one. */
+export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[], only?: string) {
   const answered = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const replay = useDeck((deck) => deck.replay);
@@ -68,13 +69,15 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   // The field moves in five-second steps whatever the deck is handed.
   const clock = useClock(CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
-  const slots = slotsOf(props.state, props.picked);
   const repositories = props.state.holds.repositories ?? [];
   const rootOfManifest = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  const slots = useMemo(() => slotsOf(props.state, props.picked).filter((one) => only === undefined || (rootOfManifest(one.manifest_id) ?? one.manifest_id) === only), [props.state, props.picked, only, repositories]);
   const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
-  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined), [ship.subjects]);
+  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && (only === undefined || one.root === only)), [ship.subjects, only]);
+  const mains = useMemo(() => ship.mains.filter((one) => only === undefined || one.root === only), [ship.mains, only]);
+  const shipPrs = useMemo(() => ship.prs.filter((one) => only === undefined || one.root === only), [ship.prs, only]);
   const ownerOf = (number: number) => {
     const pr = ship.prs.find((one) => one.number === number);
     return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
@@ -111,7 +114,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   }, [all, sessions, holder, props.state.jobs, answered, shown, touched, slotTouched]);
 
   const repos = useMemo<RepoIn[]>(() => {
-    const roots = [...new Set([...all.map((one) => one.root), ...ship.mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
+    const roots = [...new Set([...all.map((one) => one.root), ...mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
     return roots.map((root) => ({
       root,
       name: ship.repos.find((one) => one.root === root)?.name ?? all.find((one) => one.root === root)?.repo ?? root,
@@ -119,10 +122,10 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         .filter((one) => (rootOfManifest(one.manifest_id) ?? one.manifest_id) === root)
         .sort((a, b) => a.slot - b.slot)
         .map(slotKey),
-      goal: ship.mains.some((one) => one.root === root),
+      goal: mains.some((one) => one.root === root),
       areas: areasOf(root),
     }));
-  }, [all, ship.mains, ship.repos, slots, repositories, areasOf]);
+  }, [all, mains, ship.repos, slots, repositories, areasOf]);
 
   const bays = useBays(slots, events, replay?.at, clock);
   const pads = useMemo(() => {
@@ -146,16 +149,23 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     return out;
   }, [bays, repositories]);
 
-  const goals = useMemo(() => new Map<string, GoalIn>(ship.mains.map((main) => [main.root, { root: main.root, red: main.state === "red", said: main.state === "red" ? `Main is red in ${main.repo}` : `Main is green in ${main.repo}` }])), [ship.mains]);
-  const prs = useMemo<PrIn[]>(() => ship.prs.map((pr) => ({ key: pr.key, number: pr.number, stage: pr.stage, root: pr.root, ...(pr.owner === undefined ? {} : { owner: `${pr.owner.kind}:${pr.owner.id}` }) })), [ship.prs]);
-  const landed = useMemo(() => new Map(ship.prs.filter((pr) => pr.stage === "landed").map((pr) => [pr.number, pr.root] as const)), [ship.prs]);
+  const goals = useMemo(() => new Map<string, GoalIn>(mains.map((main) => [main.root, { root: main.root, red: main.state === "red", said: main.state === "red" ? `Main is red in ${main.repo}` : `Main is green in ${main.repo}` }])), [mains]);
+  const prs = useMemo<PrIn[]>(() => shipPrs.map((pr) => ({ key: pr.key, number: pr.number, stage: pr.stage, root: pr.root, ...(pr.owner === undefined ? {} : { owner: `${pr.owner.kind}:${pr.owner.id}` }) })), [shipPrs]);
+  // Of the events, only those that happen in the shown repository play on its map.
+  const here = useMemo(() => {
+    if (only === undefined) return () => true;
+    const keys = new Set(all.map((one) => one.key));
+    const numbers = new Set(shipPrs.map((one) => one.number));
+    return (play: Play) => (play.key !== undefined ? keys.has(play.key) : play.number !== undefined ? numbers.has(play.number) : play.root === undefined || play.root === only);
+  }, [only, all, shipPrs]);
   const candidates = useMemo(() => playsOf(events, clock, ownerOf, rootOfManifest), [events, clock, ship.prs, repositories]);
-  const trails = useMemo(() => trailsOf(events, clock, ownerOf), [events, clock, ship.prs]);
-  const plays = usePlays(
-    candidates,
-    useMemo(() => drones.map((one) => one.key), [drones]),
-    landed,
-  );
+  const keptTrails = (trails: ReadonlyMap<string, number>) => (only === undefined ? trails : new Map([...trails].filter(([key]) => all.some((one) => one.key === key))));
+  const trails = useMemo(() => keptTrails(trailsOf(events, clock, ownerOf)), [events, clock, ship.prs, only, all]);
+  // Arrivals are read off every repository's drones, so showing another repository does not stand its drones as newly arrived.
+  const everyone = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr").map((one) => one.key), [ship.subjects]);
+  const everyLanded = useMemo(() => new Map(ship.prs.filter((pr) => pr.stage === "landed").map((pr) => [pr.number, pr.root] as const)), [ship.prs]);
+  const arrived = usePlays(candidates, everyone, everyLanded);
+  const plays = useMemo(() => arrived.filter(here), [arrived, here]);
 
   // A picked event, and a replay: the field as it was at the playhead, from the events up to it. A replay is the window's: the last two hours.
   const window2h = useMemo(() => windowOf(events, clock), [events, clock]);
@@ -170,19 +180,19 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const flying = useMemo(() => withDoing(field?.drones ?? drones, before, replay?.at ?? clock, ownerOf, held), [field, drones, before, clock, held?.event.id]);
   // What each Session has built, as Fleet carries it now. A replay stands the field as it was, and a record of now is not that: it draws none.
   const built = useBuilds(clock);
-  const builds = useMemo(() => (replay === undefined ? [...built.values()] : []), [built, replay === undefined]);
+  const builds = useMemo(() => (replay === undefined ? [...built.values()].filter((one) => only === undefined || all.some((drone) => drone.key === one.key)) : []), [built, replay === undefined, only, all]);
   const shaped = useMemo(() => flying.map((one) => {
     const build = replay === undefined ? built.get(one.key) : undefined;
     return build === undefined ? one : shapedBy(one, build);
   }), [flying, built, replay === undefined]);
   const crates = field?.prs ?? prs;
-  const flightTrails = useMemo(() => (replay === undefined ? trails : trailsOf(before, replay.at, ownerOf)), [trails, replay === undefined, passed]);
+  const flightTrails = useMemo(() => (replay === undefined ? trails : keptTrails(trailsOf(before, replay.at, ownerOf))), [trails, replay === undefined, passed, only, all]);
   // The event's own effect, once, where it is picked.
   const focusPlays = useMemo(() => {
     const play = picked === undefined ? undefined : playOfEvent(picked, `focus:${picked.id}`, ownerOf, rootOfManifest);
-    return play === undefined ? [] : [play];
-  }, [focus]);
-  const drawn = replay === undefined ? [...plays, ...focusPlays] : replay.plays;
+    return play === undefined || !here(play) ? [] : [play];
+  }, [focus, here]);
+  const drawn = replay === undefined ? [...plays, ...focusPlays] : replay.plays.filter(here);
   const at = replay?.at ?? clock;
 
   // What each drone's callout says besides the drone: its state as the list draws it, the call it holds, its last event, the hour of events as bars.

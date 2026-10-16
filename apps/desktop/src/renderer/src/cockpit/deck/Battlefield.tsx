@@ -52,6 +52,8 @@ export type BattlefieldProps = {
   /** The drone a picked event is about. */
   focus?: string | undefined;
   selected: string | undefined;
+  /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
+  scope?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
   /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
@@ -68,7 +70,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -192,6 +194,14 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     first.current = false;
     go(lookingAt(at, Math.max(latest.current.eye, LOCK_EYE)), "ease");
   }, [layout]);
+
+  // Another repository drawn: the camera lets go of where it was and eases to the fit of the new field.
+  const was = useRef(scope);
+  useEffect(() => {
+    if (was.current === scope) return;
+    was.current = scope;
+    if (scene === undefined) homeAgain();
+  }, [scope]);
 
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
