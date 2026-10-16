@@ -50,6 +50,10 @@ export type MergeLineHub = {
   fixing_elsewhere?: FixingElsewhere;
   /** The checkout Fleet serves, where main moved past it and Fleet would not fast-forward it. Absent while it has main's tip. */
   checkout?: HeldCheckout;
+  /** When every forge call of Fleet's last visit to this repository was answered: how old the rest of the hub is. Absent until one visit has been. */
+  forge_read_at?: string;
+  /** When the forge first failed to answer a call of a visit, since the last visit answered whole. Absent while it answers. */
+  quiet_since?: string;
 };
 
 /** What stops the served checkout catching up to main. Fleet never forces, stashes or switches it. */

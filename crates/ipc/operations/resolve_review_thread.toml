@@ -1,0 +1,10 @@
+[operations.resolve_review_thread]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "A person resolves a conversation on a pull request's diff, or opens it again"
+notes = """
+`POST /review_threads/:repository`, `repository` a manifest id, body `ResolvePullThread`: `thread` the forge's id from `PullRequestPage.threads` and `resolved` false to open it again. Answers `PullThreadResolved`, the thread as the forge now holds it. The forge's `resolveReviewThread` and `unresolveReviewThread` mutations.
+
+**Not part of the pending review**: resolving is the forge's own act, taken at once and seen by everyone, so a person's Bridge does it only on a press. A 409 `fleet.review_thread_refused` carries the forge's own sentence where it would not take it, and a 422 for a repository Fleet does not serve.
+"""

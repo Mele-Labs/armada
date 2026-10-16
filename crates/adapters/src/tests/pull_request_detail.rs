@@ -212,3 +212,20 @@ fn the_body_goes_on_standard_input_and_never_in_the_arguments() {
         ["review", "7", "--request-changes", "--body-file", "-"]
     );
 }
+
+#[test]
+fn the_head_commit_and_the_description_ride_the_head_record() {
+    let page = folded(&lines(&[&format!(
+        "{}\t3f9c1d2e\tTakes a pull request\\nout of draft",
+        head("MERGEABLE", "")
+    )]))
+    .expect("a page");
+    assert_eq!(page.head.as_deref(), Some("3f9c1d2e"));
+    assert_eq!(page.body.as_deref(), Some("Takes a pull request\nout of draft"));
+    assert!(page.threads.is_empty(), "the threads are a second call");
+
+    let bare = folded(&lines(&[&head("MERGEABLE", "")])).expect("a page");
+    assert_eq!((bare.head, bare.body), (None, None));
+    let blank = folded(&lines(&[&format!("{}\tabc\t  ", head("MERGEABLE", ""))])).expect("a page");
+    assert_eq!(blank.body, None, "a description of spaces is none");
+}
