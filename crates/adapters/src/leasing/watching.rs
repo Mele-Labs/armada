@@ -3,7 +3,10 @@
 //!
 //! **What is watched, and what is not.** The repository's own git directory
 //! (every slot's `HEAD` and `index` live under `worktrees/<name>/`, and the refs
-//! every slot is measured against are shared), and the work tree of a slot
+//! every slot is measured against are shared), the lease records beside the
+//! slots (a lease moves the slot's branch first and writes its record last, so
+//! the read the branch move calls for finds a slot nobody holds, and only the
+//! record's own write says otherwise), and the work tree of a slot
 //! nobody holds, where an edit changes nothing under `.git`. A held slot's work
 //! tree is not watched: its reading never asks git for status, and a build
 //! there writes `target/` thousands of events a minute. Measured in
@@ -29,7 +32,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use adapter_traits::{SlotHeld, SlotReading};
+use adapter_traits::{SlotHeld, SlotReading, SLOT_ROOT};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
 use super::record::Record;
@@ -57,6 +60,8 @@ struct State {
     trees: Vec<(PathBuf, usize)>,
     /// Slots whose work tree edits count.
     free: BTreeSet<usize>,
+    /// The directory the lease records are in, once it is watched.
+    leases: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -84,6 +89,9 @@ enum Touched {
 
 impl State {
     fn classify(&self, common: &Path, base: &str, path: &Path) -> Touched {
+        if let Some(number) = self.lease_of(path) {
+            return Touched::Slot(number);
+        }
         if let Some((_, number)) = self.gitdirs.iter().find(|(dir, _)| path.starts_with(dir)) {
             return match is_lock(path) {
                 true => Touched::Nothing,
@@ -130,6 +138,21 @@ impl State {
             false => Touched::Slot(*number),
             true => Touched::Unwatched(*number, path.to_path_buf()),
         }
+    }
+}
+
+impl State {
+    /// The slot whose lease record `path` is.
+    fn lease_of(&self, path: &Path) -> Option<usize> {
+        if path.parent() != self.leases.as_deref() {
+            return None;
+        }
+        path.file_name()?
+            .to_str()?
+            .strip_prefix("slot-")?
+            .strip_suffix(".lease")?
+            .parse()
+            .ok()
     }
 }
 
@@ -203,6 +226,8 @@ struct PoolWatch {
     /// `None` where the file system would not be watched: every read is then whole.
     watcher: Option<RecommendedWatcher>,
     armed: BTreeSet<usize>,
+    /// The lease records are watched.
+    leases_watched: bool,
     kept: BTreeMap<usize, SlotReading>,
     /// What `git status` said of each free slot when it was last asked.
     statuses: BTreeMap<usize, Vec<String>>,
@@ -255,6 +280,7 @@ impl PoolWatch {
             shared,
             watcher,
             armed: BTreeSet::new(),
+            leases_watched: false,
             kept: BTreeMap::new(),
             statuses: BTreeMap::new(),
             distrust: BTreeSet::new(),
@@ -349,6 +375,19 @@ impl PoolWatch {
             return false;
         };
         let mut added = false;
+        // The directory is there once a slot has been leased, and not before.
+        if !self.leases_watched {
+            let dir = canonical(&pool.root.join(SLOT_ROOT));
+            if dir.is_dir() {
+                self.shared.state().leases = Some(dir.clone());
+                if watcher.watch(&dir, RecursiveMode::NonRecursive).is_ok() {
+                    self.leases_watched = true;
+                    added = true;
+                } else {
+                    self.shared.state().leases = None;
+                }
+            }
+        }
         let mut found = Vec::new();
         for &number in numbers {
             let path = canonical(&pool.path_of(number));
