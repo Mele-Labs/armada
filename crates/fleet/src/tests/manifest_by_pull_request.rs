@@ -12,7 +12,7 @@ use std::time::Duration;
 use adapter_traits::{Landing, PullRequestFor};
 use config::{Manifest, Reloads};
 use core_model::{AutoMerge, ReviewGate};
-use ipc::{EditManifest, ManifestEdit};
+use ipc::{EditManifest, ManifestEdit, SaveManifestFile};
 use testkit::{Delivered, FakeWorkProduct};
 
 use crate::noticing::Noticing;
@@ -274,4 +274,145 @@ async fn a_manifest_that_names_no_base_is_written_to_disk_as_before() {
 
     assert!(fleet.vcs().manifest_edits_sent().is_empty());
     assert_eq!(std::fs::read_to_string(&file).expect("reads"), edited.text);
+}
+
+/// A squash or rebase merge puts a different commit on the base, so the edit's
+/// own commit never reaches the checkout.
+#[tokio::test]
+async fn a_squash_merged_edit_is_dropped_once_the_checkout_has_the_base_it_merged_into() {
+    let home = TempDir::new();
+    let (fleet, file) = tracked(&home);
+    fleet.vcs().main_ci.head_is(Some(TWO));
+    fleet.vcs().checkout_on(ONE);
+    let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    fleet.vcs().now_landed(Landing::Merged { url: PULL.to_string() });
+    fleet.turn().await.expect("a turn");
+    assert_eq!(what_a_form_reads(&fleet), edited.text, "merged, and the checkout lacks it");
+    assert!(fleet.first().repository().pending_edit().standing().is_some());
+
+    std::fs::write(&file, &edited.text).expect("the merged file");
+    fleet.vcs().checkout_on(TWO);
+    fleet.turn().await.expect("a turn");
+
+    assert_eq!(fleet.first().repository().pending_edit().standing().map(|it| it.commit), None);
+    assert_eq!(fleet.first().manifest().auto_merge(), AutoMerge::ChecksPass);
+
+    // A hand edit afterwards is read, which the stuck edit would have hidden.
+    let by_hand = edited.text.replace("checks-pass", "never");
+    std::fs::write(&file, &by_hand).expect("a hand edit");
+    assert_eq!(what_a_form_reads(&fleet), by_hand);
+}
+
+#[tokio::test]
+async fn a_forge_that_will_not_turn_auto_merge_on_is_recorded_on_the_pending_edit() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    fleet.vcs().now_auto_merge(Err(String::from("auto-merge is not allowed")));
+
+    let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let held = fleet.first().repository().pending_edit().standing();
+    assert_eq!(
+        held.and_then(|it| it.merge_by_hand()),
+        Some(String::from("armada.yml edit #1 needs merging by hand")),
+    );
+
+    let gate = ManifestEdit::SetReviewGate {
+        review_gate: Some(String::from("auto_if_judge_passes")),
+    };
+    save(&fleet, edited.text, gate).await;
+    assert!(
+        fleet
+            .first()
+            .repository()
+            .pending_edit()
+            .standing()
+            .and_then(|it| it.merge_by_hand())
+            .is_some(),
+        "a second save on the same pull request does not forget it"
+    );
+}
+
+#[tokio::test]
+async fn a_forge_that_turns_auto_merge_on_records_nothing() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+
+    save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let held = fleet.first().repository().pending_edit().standing();
+    assert_eq!(held.and_then(|it| it.merge_by_hand()), None);
+}
+
+#[tokio::test]
+async fn a_raw_save_while_an_edit_is_pending_stacks_on_its_branch() {
+    let home = TempDir::new();
+    let (fleet, file) = tracked(&home);
+    let first = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let by_hand = format!("# by hand\n{}", first.text);
+    fleet
+        .write_manifest_file(
+            SaveManifestFile { read: first.text.clone(), text: by_hand.clone() },
+            &fleet.first(),
+        )
+        .await
+        .expect("the raw save is accepted");
+
+    let sent = fleet.vcs().manifest_edits_sent();
+    let [one, two] = sent.as_slice() else {
+        panic!("two commits sent, got {sent:?}")
+    };
+    assert_eq!(
+        two.to,
+        PullRequestFor::Update { branch: one.branch.clone(), pull_request: PULL.to_string() }
+    );
+    assert_eq!(two.parent, commit_of(1));
+    assert_eq!(two.text, by_hand, "the whole text, as typed");
+    assert_eq!(std::fs::read_to_string(&file).expect("reads"), KEPT);
+    assert_eq!(what_a_form_reads(&fleet), by_hand);
+    assert_eq!(fleet.first().manifest().auto_merge(), AutoMerge::ChecksPass);
+}
+
+#[tokio::test]
+async fn a_raw_save_drawn_before_the_pending_edit_is_refused() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let refused = fleet
+        .write_manifest_file(
+            SaveManifestFile { read: KEPT.to_string(), text: String::from("version: 1\n") },
+            &fleet.first(),
+        )
+        .await
+        .expect_err("the editor read the file under the edit");
+
+    assert_eq!(refused.status(), 409);
+    assert!(matches!(
+        refused.error().fields.get("on_disk"),
+        Some(ipc::WireValue::Str(text)) if *text == edited.text
+    ));
+    assert_eq!(fleet.vcs().manifest_edits_sent().len(), 1);
+}
+
+#[tokio::test]
+async fn a_raw_save_that_does_not_load_while_an_edit_is_pending_is_refused_and_sends_nothing() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let refused = fleet
+        .write_manifest_file(
+            SaveManifestFile { read: edited.text.clone(), text: String::from("version: 1\nchecks: [\n") },
+            &fleet.first(),
+        )
+        .await
+        .expect_err("an auto-merging pull request must not carry a file that does not load");
+
+    assert_eq!(refused.status(), 422);
+    assert_eq!(refused.error().code, "fleet.manifest_edit_refused");
+    assert_eq!(fleet.vcs().manifest_edits_sent().len(), 1, "only the form's edit went out");
+    assert_eq!(what_a_form_reads(&fleet), edited.text);
 }
