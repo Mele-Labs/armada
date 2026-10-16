@@ -13,9 +13,9 @@ export type Place = "left" | "side" | "foot" | "calls";
  * `empty` is a panel with nothing to show: it stands folded to its band and gives its height to the panels round it, and opens on
  * its own once there is something. A press on the band still opens it and folds it again, for as long as it stays empty.
  */
-export function SvPanel({ label, state, acts, place, area, empty = false, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; empty?: boolean; children?: ReactNode }) {
+export function SvPanel({ label, state, acts, place, area, empty = false, foldedAtFirst = false, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; empty?: boolean; foldedAtFirst?: boolean; children?: ReactNode }) {
   // Pressing the band folds the panel to it.
-  const { collapsed: kept, band: own } = useCollapse(area);
+  const { collapsed: kept, band: own } = useCollapse(area, foldedAtFirst);
   const [peek, setPeek] = useState(false);
   const collapsed = empty ? !peek : kept;
   const toggle = () => setPeek((was) => !was);

@@ -818,3 +818,32 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
 .deck-tile__done { color: var(--step-advanced); }
+
+/* ---- Takes on where a selected Session keeps Flight control and the Field (session-take.ts) --------------------------- */
+
+/* Right and Keys give the right column the Field, and Right the controls as well. The Plan, which takes the height that is left and scrolls
+   past it, stands last, so the two that keep a size are where they were left however long it grows. */
+.deck-grid[data-take="right"] .sv-side > .sv-panel[data-area="plan"],
+.deck-grid[data-take="keys"] .sv-side > .sv-panel[data-area="plan"] { order: 1; }
+/* With four panels and the controls in one column the Ledger keeps less than it does alone, so the column still fits the window at a laptop's height. */
+.deck-grid[data-take="right"] .sv-side > .sv-panel[data-area="ledger"] { min-height: calc(var(--space-12) * 3); }
+.sv-slot[data-place="rail"]:not(:empty) { display: contents; }
+.sv-slot[data-place="rail"] > .sv-panel[data-area="field"] { flex: 0 0 calc(var(--space-12) * 4); }
+
+/* The controls as one row of icon keys, a glyph over its key, the name in its tooltip. The row is the size its keys are, and what swaps in
+   for the tiles (Report's box, what Release answered) is the size it needs. */
+.deck-controls[data-row] { flex: 0 0 auto; }
+.deck-controls[data-row] > .deck-controls__block[data-subject="session"] { display: block; flex: none; container: none; min-height: 0; padding: var(--space-2) var(--space-3) var(--space-3); }
+.deck-controls[data-row] .deck-controls__tiles { height: auto; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: none; gap: var(--space-1); }
+.deck-controls[data-row] .deck-controls__tiles > .deck-tile { container: none; height: calc(var(--space-12) - var(--space-2)); gap: var(--space-1); }
+.deck-controls[data-row] .deck-controls__tiles > .deck-tile .deck-tile__text { display: none; }
+.deck-controls[data-row] .deck-controls__tiles > .deck-tile svg,
+.deck-controls[data-row] .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: var(--space-4); height: var(--space-4); }
+.deck-controls[data-row] .deck-tile__key { position: static; opacity: 0.75; }
+/* Under the composer the row is wide, so a glyph and its key stand side by side. */
+.deck-grid[data-take="keys"] .deck-controls[data-row] .deck-controls__tiles > .deck-tile { flex-direction: row; gap: var(--space-2); }
+.deck-grid[data-take="keys"] .deck-stage > .deck-controls[data-row] { flex: none; }
+
+/* Fold: the two panels of the bottom row folded side by side stand as tall as one another, the Field's band at the controls' height. */
+.deck-grid[data-take="fold"] .sv-slot[data-place="foot"] > .sv-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
+.deck-grid[data-take="fold"] .sv-slot[data-place="foot"] > .sv-panel > .sv-panel__band { min-height: var(--h-row-header); }

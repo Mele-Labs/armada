@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Kbd, Sheet, Tooltip } from "@armada/components";
 
 import { PANELS, keySheetOf, panelKey, type Panel, type PanelId } from "./keys-model";
+import { sessionTake } from "./session-take";
 
 const rootOf = (panel: Panel) => document.querySelector<HTMLElement>(panel.root) ?? undefined;
 const present = () => PANELS.filter((one) => one.aside !== true && rootOf(one) !== undefined);
@@ -26,11 +27,24 @@ export function remember(target: EventTarget | null): void {
   if (panel !== undefined && item !== null) last.set(panel.id, item);
 }
 
-/** Puts focus in a panel: the list on its cursor, the rest on what was last focused in them, else their first item. */
-export function focusPanel(id: PanelId, cursor?: string): void {
+/** Opens a panel folded to its band, by pressing the band, as a person would. */
+const open = (root: Element) => root.querySelector<HTMLElement>(":scope > [role='button'][aria-expanded='false']")?.click();
+
+/**
+ * Puts focus in a panel: the list on its cursor, the rest on what was last focused in them, else their first item. **A panel folded to
+ * its band is opened first**, since what is inside it cannot be focused; with a Session open and the bottom row folded (`session-take.ts`)
+ * the Field opens with Flight control, the row being one place.
+ */
+export function focusPanel(id: PanelId, cursor?: string, opened = false): void {
   const panel = PANELS.find((one) => one.id === id);
   const root = panel === undefined ? undefined : rootOf(panel);
   if (panel === undefined || root === undefined) return;
+  if (!opened && root.hasAttribute("data-collapsed")) {
+    open(root);
+    if (id === "controls" && sessionTake() === "fold") document.querySelectorAll(".deck-foot .sv-panel[data-collapsed]").forEach(open);
+    window.requestAnimationFrame(() => focusPanel(id, cursor, true));
+    return;
+  }
   const kept = last.get(id);
   const to =
     (panel.home === undefined ? undefined : root.querySelector<HTMLElement>(panel.home)) ??

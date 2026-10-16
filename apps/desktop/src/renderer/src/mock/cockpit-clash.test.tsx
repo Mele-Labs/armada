@@ -1,5 +1,6 @@
 // A write clash on the flight deck, through `App` on the ship scenario: both parties of a clash carry the mark on their list rows,
-// on the head of their pane and on their drone, the mark names the other party and opens it on the deck, and nothing is marked
+// on their drone, and on the head of a Job's pane, where a Session's pane names the Job in its Write clash bar instead. The mark names the
+// other party and opens it on the deck, and nothing is marked
 // where Fleet reports no clash. The ship holds a Job and a Session in one file, and a Session against a main that moved.
 // Hand-run with the rest of `mock/`.
 
@@ -52,11 +53,14 @@ test("a row of each party to a clash carries the mark, and the mark names the ot
   expect(said(rowMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
   expect(said(rowMarks(SESSION))).toEqual([`Conflicts with ${JOB} · ${FILE}`]);
 
-  // Pressed on the Job's row it opens the Session on the deck, whose head carries the mark back to the Job.
+  // Pressed on the Job's row it opens the Session on the deck, whose Write clash bar names the Job. The bar is a line of chips while it is
+  // folded, and the chip for the Job opens the Job's pane.
   rowMarks(JOB)[0]!.click();
   await expect.element(pane("Session", SESSION)).toBeVisible();
-  expect(said(headMarks(SESSION))).toEqual([`Conflicts with ${JOB} · ${FILE}`]);
-  headMarks(SESSION)[0]!.click();
+  const bar = pane("Session", SESSION).getByRole("region", { name: "Write clash" });
+  await expect.element(bar).toHaveTextContent(JOB);
+  // The first is the chip: the closed list of clashes under the chips names the Job again.
+  await bar.getByRole("button", { name: `Open ${JOB}` }).first().click();
   await expect.element(pane("Job", JOB)).toBeVisible();
   expect(said(headMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
 });

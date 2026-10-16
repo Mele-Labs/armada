@@ -22,8 +22,8 @@ import { PlanPanel } from "./PlanPanel";
 import { StatusPanel } from "./StatusPanel";
 import "./session-view.css";
 
-/** The deck's own places, as elements: `null` before the deck has drawn one. */
-export type Hosts = { side: HTMLElement | null; foot: HTMLElement | null };
+/** The deck's own places, as elements: `null` before the deck has drawn one. `foldField` has the Field stand folded to its band until it is opened. */
+export type Hosts = { side: HTMLElement | null; foot: HTMLElement | null; foldField?: boolean | undefined };
 
 export function SessionWorkspace({ session, entries, repositories, hosts, ed, onOpenSketch, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; onOpenSketch: (sketch: string) => void; children: ReactNode }) {
   const draft = useSessionsDraft();
@@ -42,7 +42,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, on
     <>
       {children}
       {hosts.side === null ? null : createPortal(right, hosts.side)}
-      {hosts.foot === null ? null : createPortal(<FieldPanel session={session} repositories={repositories} place="foot" />, hosts.foot)}
+      {hosts.foot === null ? null : createPortal(<FieldPanel session={session} repositories={repositories} place="foot" foldedAtFirst={hosts.foldField === true} />, hosts.foot)}
     </>
   );
 }

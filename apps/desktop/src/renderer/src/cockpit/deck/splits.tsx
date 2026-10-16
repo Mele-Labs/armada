@@ -28,7 +28,11 @@ const NAMES: Record<string, string> = { "deck-stage": "Thread", "deck-foot": "Fo
 
 const keyOf = (panel: HTMLElement) => panel.dataset.area ?? [...panel.classList].find((one) => !GENERIC.has(one)) ?? "panel";
 const nameOf = (panel: HTMLElement) => panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
-const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.matches(EMPTY_CALLS);
+/** Flight control as a row of icon keys keeps the height its keys have, wherever it stands in a column. */
+const pinned = (panel: HTMLElement) => panel.hasAttribute("data-pinned");
+/** A foot whose panels are all folded is a row of bands: nothing in it to give height to or take from. */
+const bands = (panel: HTMLElement) => panel.matches(".deck-foot") && panel.querySelector(".deck-panel:not([data-collapsed]), .sv-panel:not([data-collapsed])") === null;
+const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.matches(EMPTY_CALLS) || pinned(panel) || bands(panel);
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
   return [...column.querySelectorAll<HTMLElement>(PANELS)]
@@ -123,10 +127,12 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
       }
       const box = column.getBoundingClientRect();
       for (let at = 0; at + 1 < panels.length; at += 1) {
-        const above = panels[at]!;
+        // The gap under a pinned panel trades the height of the panels either side of it, which it leaves as it is.
+        let above = panels[at]!;
+        for (let back = at; pinned(above) && back > 0; ) above = panels[--back]!;
         const below = panels[at + 1]!;
         if (fixed(above) || fixed(below)) continue;
-        const top = above.getBoundingClientRect().bottom;
+        const top = panels[at]!.getBoundingClientRect().bottom;
         const space = below.getBoundingClientRect().top - top;
         if (space < 2) continue;
         next.push({ id: `${name}:${keyOf(above)}|${keyOf(below)}`, column: name, above: keyOf(above), below: keyOf(below), label: `${nameOf(above)} and ${nameOf(below)}`, x: Math.round(box.left - origin.left), y: Math.round(top - origin.top), w: Math.round(box.width), h: Math.round(space) });

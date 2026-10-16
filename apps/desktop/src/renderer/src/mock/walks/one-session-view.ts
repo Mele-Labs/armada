@@ -4,9 +4,24 @@
 // already live: the name in the header, the model and effort in the composer, the workflow over the steps in Status. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
+import type { Step } from "../walk";
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
+// The takes on where a Session keeps Flight control and the Field (`cockpit/deck/session-take.ts`) are the page's `?take=`, read here as the
+// steps are built: with the row of keys in a column there is no foot to drag, and with the bottom row folded it is opened before it is used.
+const take = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("take");
+const rail = take === "right" || take === "keys";
+const unfold: Step[] =
+  take === "fold"
+    ? [
+        { look: region("Flight controls"), say: "Flight control and the Field stand folded to their header bands while a Session is open, and the thread has the height. A press on a band opens that panel" },
+        { key: "f", on: region(/^Session: /), say: "F goes to Flight control, and opens it with the Field beside it" },
+      ]
+    : [];
+
 const places = role("navigation", "Places");
+// The gap that hands the Plan height: under the Ledger, or under the Field where the Field has come into the column.
+const planGap = rail ? role("separator", "Resize Field and Plan") : role("separator", "Resize Ledger and Plan");
 const stage = region(/^Session: /);
 const status = region("Status");
 const plan = region("Plan");
@@ -23,7 +38,8 @@ export const oneSessionView = walk("one-session-view", [
   { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
   { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the Field is in the foot" },
+  { press: deckRow("Retry the slot lease"), say: rail ? "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and Flight control and the Field are in the right column" : "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the Field is in the foot" },
+  ...unfold,
   { look: role("img", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. The clash is the notice under it, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Session is behind the three dots. The pull request chip is gone, since the Ledger has it" },
   { press: role("button", "More"), say: "Open the Session page, Retro and End session, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
@@ -86,7 +102,7 @@ export const oneSessionView = walk("one-session-view", [
   { later: places, say: "The first two tasks finish and two more start" },
   { look: region("Field"), say: "The rust subagent stays, the protocol one is done and a bridge one has joined" },
   { look: region("Incoming calls"), say: "Nothing is calling, so Incoming calls is still folded to its header and the list has the room" },
-  { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The new Judge tile is the sixth, on the 6 key, and Release is the seventh" },
+  { look: role("button", "Judge"), say: rail ? "Flight control's keys stand in one row of icon keys, a glyph each with its number, and a tooltip names it. The new Judge key is the sixth, on the 6 key, and Release is the seventh" : "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The new Judge tile is the sixth, on the 6 key, and Release is the seventh" },
   { press: role("button", "Judge"), say: "Judge. He thinks something is going sideways, so a judge reads the work so far against the plan" },
   { look: role("img", "Judge reading"), say: "While it reads, the tile shows the working mark and its tooltip says so" },
   { look: concern(/renewed after the retry/), say: "A concern arrives in the thread, as a card the way a question is: the concern, the file it cites, Send to session and Dismiss. Incoming calls stays folded: it is this Session's own" },
@@ -105,10 +121,12 @@ export const oneSessionView = walk("one-session-view", [
   { look: plan, say: "Every task is done and the Plan is framed in green" },
   { look: status, say: "The steps are at Pull request" },
   { look: region("Ledger"), say: "The Ledger keeps its place and its size. The branch and the bay are two chips in its band, and the draft pull request is its row" },
-  { drag: role("separator", "Resize Ledger and Plan"), by: { x: 0, y: -80 }, say: "With a Session selected the gaps in the right column and under the thread are handles too. The Ledger gives height to the Plan" },
-  { key: "Home", on: role("separator", "Resize Ledger and Plan"), say: "Home puts them back" },
-  { drag: role("separator", "Resize Thread and Foot"), by: { x: 0, y: -100 }, say: "The thread and the foot trade height, and the Field fills the foot" },
-  { key: "Home", on: role("separator", "Resize Thread and Foot"), say: "Back to default. A folded panel has no handle beside it, and its header still opens it" },
+  { drag: planGap, by: { x: 0, y: -80 }, say: rail ? "With a Session selected the gaps in the right column are handles too. The Field gives height to the Plan" : "With a Session selected the gaps in the right column and under the thread are handles too. The Ledger gives height to the Plan" },
+  { key: "Home", on: planGap, say: "Home puts them back" },
+  ...(rail ? [] : ([
+    { drag: role("separator", "Resize Thread and Foot"), by: { x: 0, y: -100 }, say: "The thread and the foot trade height, and the Field fills the foot" },
+    { key: "Home", on: role("separator", "Resize Thread and Foot"), say: "Back to default. A folded panel has no handle beside it, and its header still opens it" },
+  ] satisfies Step[])),
   { press: inside(status, role("button", /Status/)), say: "A press on a header folds the panel to it. Every panel in the view does this, the Plan, Field, Ledger, Incoming calls, Jobs and Sessions and Flight control too" },
   { press: inside(status, role("button", /Status/)), say: "A second press opens it. Which panels are folded is kept for each one in the window's storage, so they come back as left" },
   { press: deckRow("Rotate the audit log"), say: "Another Session, on a workflow of twelve steps" },

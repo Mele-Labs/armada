@@ -27,7 +27,7 @@ function narrowed(areas: Areas, paths: ReadonlySet<string>): Areas {
   });
 }
 
-export function FieldPanel({ session, repositories, place }: { session: Session; repositories: readonly RepositorySummary[]; place: Place }) {
+export function FieldPanel({ session, repositories, place, foldedAtFirst }: { session: Session; repositories: readonly RepositorySummary[]; place: Place; foldedAtFirst?: boolean | undefined }) {
   const source = useAreas();
   const work = session.work;
   // Before any drone has work the floor has the Session's own drone alone, at rest.
@@ -65,7 +65,7 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
   );
   const state: PanelState | undefined = drones === RESTING ? undefined : "live";
   return (
-    <SvPanel label="Field" area="field" place={place} state={state}>
+    <SvPanel label="Field" area="field" place={place} state={state} foldedAtFirst={foldedAtFirst}>
       <div className="sv-field">
           <Battlefield
             repos={repos}

@@ -6,30 +6,34 @@ import { useCallback, useState, type HTMLAttributes, type KeyboardEvent, type Mo
 
 const keyOf = (id: string) => `armada.panel-collapsed.${id}`;
 
-function read(id: string): boolean {
+/** What was left, or `undefined` where nothing was: the panel is then as its place says. */
+function read(id: string): boolean | undefined {
   try {
-    return localStorage.getItem(keyOf(id)) === "1";
+    const kept = localStorage.getItem(keyOf(id));
+    return kept === null ? undefined : kept === "1";
   } catch {
-    return false;
+    return undefined;
   }
 }
 
 /** What a press on one of these inside the band is for, and not for folding the panel. */
 const OWN_PRESS = "button, a, input, select, textarea, label";
 
-/** Whether the panel is folded, and what its band needs to fold it: pressed or with Enter or Space, and read as a button by a screen reader. */
-export function useCollapse(id: string): { collapsed: boolean; band: HTMLAttributes<HTMLElement> } {
-  const [collapsed, set] = useState(() => read(id));
+/**
+ * Whether the panel is folded, and what its band needs to fold it: pressed or with Enter or Space, and read as a button by a screen reader.
+ * `foldedAtFirst` is how it stands until it has been folded or opened once, after which what was left is kept.
+ */
+export function useCollapse(id: string, foldedAtFirst = false): { collapsed: boolean; band: HTMLAttributes<HTMLElement> } {
+  const [left, set] = useState(() => read(id));
+  const collapsed = left ?? foldedAtFirst;
   const toggle = useCallback(() => {
-    set((was) => {
-      try {
-        localStorage.setItem(keyOf(id), was ? "0" : "1");
-      } catch {
-        // Not kept: the panel is as it was left until the window closes.
-      }
-      return !was;
-    });
-  }, [id]);
+    set(!collapsed);
+    try {
+      localStorage.setItem(keyOf(id), collapsed ? "0" : "1");
+    } catch {
+      // Not kept: the panel is as it was left until the window closes.
+    }
+  }, [id, collapsed]);
   return {
     collapsed,
     band: {
