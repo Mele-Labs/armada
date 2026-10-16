@@ -80,7 +80,8 @@ export const GLYPH = { job: Box, session: SquareTerminal, main: GitMerge };
 const shapeOf = (event: FleetEvent): string => (event.pull === undefined ? event.subject.kind : "pull_request");
 
 export const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }) as CSSProperties;
-const clock = (at: string) => new Date(at).toLocaleTimeString([], { hour12: false });
+const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
+const clock = (at: string) => CLOCK.format(new Date(at));
 
 /** Where a subject opens: the Job or the Session. Main opens nothing. */
 type Open = (subject: Subject) => void;

@@ -12,7 +12,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     ManifestCheckLog, ManifestCheckRow, SessionCheckAct, SessionCheckAnswer, SessionCheckCall,
-    SessionCheckState, WireError,
+    SessionCheckState, SessionCheckStop, WireError,
 };
 use store::{AttachmentState, HolderKind, KeptSessionCheck};
 
@@ -22,6 +22,8 @@ use crate::sessioning::placed;
 
 /// A run that no Session kept, asked for by its id.
 const NO_SUCH_RUN: &str = "fleet.session_check_unknown";
+/// A stop asked of a run that is not out.
+const NOT_RUNNING: &str = "fleet.session_check_not_running";
 /// A call that cannot be a run's start or end.
 const UNNAMED: &str = "fleet.session_check_unnamed";
 
@@ -85,8 +87,20 @@ where
     ) -> Result<SessionCheckAnswer, Refusal> {
         match call.act {
             SessionCheckAct::Start => self.session_check_started(call).await,
+            SessionCheckAct::Chunk => self.session_check_heard(&call),
             SessionCheckAct::End => self.session_check_ended(call).await,
         }
+    }
+
+    /// What a run printed since its last call, and the stop a person asked for, answered. **A run
+    /// Fleet never heard begin is not made up**: an id that is not a running run answers nothing.
+    fn session_check_heard(&self, call: &SessionCheckCall) -> Result<SessionCheckAnswer, Refusal> {
+        let Some(run) = call.run else {
+            return Err(self.session_check_refusal(UNNAMED, "a chunk of a Check run needs its run"));
+        };
+        let id = i64::try_from(run).map_err(|_| self.session_check_refusal(UNNAMED, "no such run"))?;
+        let stop = self.session_check_live().run(id).heard(call.log.as_deref().unwrap_or_default());
+        Ok(SessionCheckAnswer { run: Some(run), stop })
     }
 
     async fn session_check_started(
@@ -100,7 +114,7 @@ where
         }
         let place = placed(&call.cwd, &self.ledger_roots());
         let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
-            return Ok(SessionCheckAnswer { run: None });
+            return Ok(SessionCheckAnswer { run: None, stop: None });
         };
         let at = self.clock().now().as_str().to_string();
         let mut store = self.store().lock().await;
@@ -112,7 +126,7 @@ where
             .find(|held| held.holder.kind == HolderKind::Session && held.state == AttachmentState::Standing)
             .map(|held| held.holder.id.clone())
         else {
-            return Ok(SessionCheckAnswer { run: None });
+            return Ok(SessionCheckAnswer { run: None, stop: None });
         };
         let run = store
             .start_session_check(&session, &manifest, slot, name, target, &at)
@@ -122,6 +136,7 @@ where
             .await?;
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
+            stop: None,
         })
     }
 
@@ -140,7 +155,7 @@ where
         let at = self.clock().now().as_str().to_string();
         let mut store = self.store().lock().await;
         let Some(kept) = store.session_check(run).map_err(|why| self.ledger_fault(why))? else {
-            return Ok(SessionCheckAnswer { run: None });
+            return Ok(SessionCheckAnswer { run: None, stop: None });
         };
         let ended = store
             .end_session_check(
@@ -153,6 +168,7 @@ where
             )
             .map_err(|why| self.ledger_fault(why))?;
         drop(store);
+        self.session_check_live().ended(run);
         if ended {
             let target = target.or(kept.target.as_deref());
             self.session_check_row(&kept.session_id, &kept.name, target, run, &kept.started_at, outcome)
@@ -160,6 +176,7 @@ where
         }
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
+            stop: None,
         })
     }
 
@@ -247,6 +264,43 @@ where
             whole: first == 1,
             lines: window.into(),
         })
+    }
+
+    /// `observe_session_check`: a run's log, live while it is out and whole once it is over.
+    pub(crate) async fn session_check_observed(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
+        let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Session ran a Check under that id");
+        let id = i64::try_from(run).map_err(|_| no_such())?;
+        let store = self.store().lock().await;
+        let Some(kept) = store.session_check(id).map_err(|why| self.ledger_fault(why))? else {
+            return Err(no_such());
+        };
+        let log = store.session_check_log(id).map_err(|why| self.ledger_fault(why))?;
+        drop(store);
+        let follow: std::sync::Arc<dyn api::Follow> = match (kept.state.as_str(), self.session_check_live().find(id)) {
+            ("running", Some(held)) => std::sync::Arc::new(crate::session_check_live::Live(held)),
+            _ => std::sync::Arc::new(crate::session_check_live::Kept(log.unwrap_or_default())),
+        };
+        Ok(api::SessionCheckLive { run, name: kept.name, follow })
+    }
+
+    /// `stop_session_check` and `force_stop_session_check`: held for the run's own `armada check`,
+    /// which asks on its next `chunk`.
+    pub(crate) async fn session_check_stopped(&self, run: u64, force: bool) -> Result<SessionCheckAnswer, Refusal> {
+        let not_running = || self.session_check_refusal(NOT_RUNNING, "that Check is not running");
+        let id = i64::try_from(run).map_err(|_| not_running())?;
+        let running = self
+            .store()
+            .lock()
+            .await
+            .session_check(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .is_some_and(|kept| kept.state == SessionCheckState::Running.as_wire());
+        if !running {
+            return Err(not_running());
+        }
+        let asked = if force { SessionCheckStop::Force } else { SessionCheckStop::Graceful };
+        let stop = self.session_check_live().run(id).asked(asked);
+        Ok(SessionCheckAnswer { run: Some(run), stop })
     }
 
     /// The Sessions' runs for the Checks page, narrowed to the named repository's.
