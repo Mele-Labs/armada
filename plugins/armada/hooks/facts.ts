@@ -320,8 +320,11 @@ export function artifactOf(
 export type Background = { target: string; detail: Record<string, string> }
 
 const SHELL_TASK = /running in background with ID:\s*([\w-]+)/
+// **No Monitor result has been recorded.** This pattern is tolerant on purpose ("ID: x" or "task x", an id of five or
+// more characters) and wants a real sample to tighten it. The shell's is verbatim (`background.fixture.ts`).
 const MONITOR_TASK = /(?:\bID:?|\btask)\s+([A-Za-z0-9][\w-]{4,})/
-const OUTPUT_FILE = /Output is being written to:\s*(\S+)/
+// The sentence ends the path with a full stop, which is not part of it.
+const OUTPUT_FILE = /Output is being written to:\s*(\S+?)\.?(?:\s|$)/
 
 /**
  * A background task, from the call that started it and the id its result gave back. **No id in the result, no
@@ -348,7 +351,7 @@ export function backgroundOf(tool: string, input: Record<string, unknown>, text:
 }
 
 /** How a background task ended, off the notification the engine queues for the session: the task's id, its word, and the exit code when the summary gives one. */
-export type BackgroundEnd = { target: string; status: string; exit?: string }
+export type BackgroundEnd = { target: string; status: string; exit?: string; output?: string }
 
 export function backgroundEndOf(text: string): BackgroundEnd | undefined {
   const field = (name: string) => new RegExp(`<${name}>\\s*([\\s\\S]*?)\\s*</${name}>`).exec(text)?.[1]
@@ -356,7 +359,9 @@ export function backgroundEndOf(text: string): BackgroundEnd | undefined {
   const status = field('status')
   if (target === undefined || status === undefined) return undefined
   const exit = /exit code\s+(-?\d+)/i.exec(field('summary') ?? '')?.[1]
-  return { target, status, ...(exit === undefined ? {} : { exit }) }
+  // The notice names the file the engine wrote the output to, which is better than any parsing of the launch.
+  const output = field('output-file')
+  return { target, status, ...(exit === undefined ? {} : { exit }), ...(output === undefined ? {} : { output }) }
 }
 
 /**

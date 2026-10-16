@@ -637,12 +637,12 @@ async function backgrounded(
  * A background task ended: by the engine's notice (`completed`, `failed`, or `killed` for one stopped), or
  * by a `TaskStop` the agent called. Only a task this load saw start is settled, and once.
  */
-async function backgroundEnded($: Dollar, target: string, word: string, exit?: string): Promise<void> {
+async function backgroundEnded($: Dollar, target: string, word: string, exit?: string, output?: string): Promise<void> {
   const [id, one] = await current($)
   const held = one.background.get(target)
   if (held === undefined || held.status !== undefined) return
   const status = word === 'completed' ? 'completed' : word === 'killed' || word === 'stopped' ? 'killed' : 'failed'
-  const detail = { ...held, status, ...(exit === undefined || status === 'killed' ? {} : { exit }) }
+  const detail = { ...held, status, ...(exit === undefined || status === 'killed' ? {} : { exit }), ...(output === undefined ? {} : { output }) }
   one.background.set(target, detail)
   say($, id, { kind: 'attached', attachment: { kind: 'background', target, detail } })
   settle($, id, 'background', target, 'spent')
@@ -935,7 +935,7 @@ export const register: Register = on => {
     void titled($, e.text).catch(() => undefined)
     void turnBegan($, e.text).catch(() => undefined)
     const ended = e.origin?.kind === 'task-notification' ? backgroundEndOf(e.text) : undefined
-    if (ended !== undefined) void backgroundEnded($, ended.target, ended.status, ended.exit).catch(() => undefined)
+    if (ended !== undefined) void backgroundEnded($, ended.target, ended.status, ended.exit, ended.output).catch(() => undefined)
     return out
   })
 

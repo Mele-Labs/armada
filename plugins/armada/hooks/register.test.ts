@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { MOD_VERSION } from './facts'
+import { BASH_LAUNCH, NOTICE_COMPLETED, NOTICE_KILLED, NOTICE_SUBAGENT, TASK_STOPPED } from './background.fixture'
 
 // Fleet as the mod meets it: a runtime file naming a port, and whatever answers
 // there. The engine's own `$` calls are what the test answers.
@@ -565,37 +566,45 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
 const background = (posts: Posted[]) =>
   facts(posts).filter(fact => (fact.kind === 'attached' || fact.kind === 'settled') && fact.attachment.kind === 'background')
 
-test('a command run in the background and a Monitor are told, and settled on the notice or a stop', async ($, on) => {
+test('a command run in the background and a Monitor are told, and settled on the notice or a stop, never on a subagent\'s', async ($, on) => {
   const { posts, clock } = world(on)
+  let launches = 0
   on('tool.call', (_$, e) => {
-    if (e.tool === 'Bash') {
-      return { result: {}, text: 'Command running in background with ID: b1. Output is being written to: /tmp/tasks/b1.output' }
-    }
+    if (e.tool === 'Bash' && e.run_in_background === true) return { result: {}, text: BASH_LAUNCH.replaceAll('b3wd556q5', `b${++launches}wd556q5`) }
     if (e.tool === 'Monitor') return { result: {}, text: 'Monitor started (task mon42, timeout 300000ms).' }
+    if (e.tool === 'TaskStop') return { result: {}, text: TASK_STOPPED }
     return { result: {}, text: 'ok' }
   })
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await clock.settle()
   const before = posts.length
 
+  // Three in the background; the notices name the engine's ids, so the launches are given theirs.
   await $.tool.call({ tool: 'Bash', command: 'pnpm build', description: 'Build the renderer', run_in_background: true })
   await $.tool.call({ tool: 'Bash', command: 'git status', description: 'Show status' })
   await $.tool.call({ tool: 'Monitor', command: 'gh run watch 9', description: 'Watch CI', timeout_ms: 60000 })
+  await $.tool.call({ tool: 'Bash', command: 'pnpm dev', description: 'Serve it', run_in_background: true })
   await clock.settle()
-  const notice = (status: string, summary: string) =>
-    `<task-notification>\n<task-id>b1</task-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`
-  await $.prompt.submit({ text: notice('completed', 'Background command "Build" completed (exit code 0)'), origin: { kind: 'task-notification' } } as never)
-  await $.prompt.submit({ text: notice('failed', 'again (exit code 1)'), origin: { kind: 'task-notification' } } as never)
+  const ended = (text: string) => $.prompt.submit({ text, origin: { kind: 'task-notification' } } as never)
+  await ended(NOTICE_COMPLETED.replace('byry3zett', 'b1wd556q5'))
+  await ended(NOTICE_SUBAGENT)
+  await ended(NOTICE_KILLED.replace('bdjviwn7c', 'b2wd556q5'))
   await $.tool.call({ tool: 'TaskStop', task_id: 'mon42' })
   await clock.settle()
 
-  const detail = { form: 'command', task: 'Build the renderer', command: 'pnpm build', output: '/tmp/tasks/b1.output' }
+  const path = (id: string) => `/private/tmp/claude-501/-Users-nickmele-Development-armada--armada-slots-slot-12/aa994f6f-56ce-4b09-9e06-66342d14548f/tasks/${id}wd556q5.output`
+  const build = { form: 'command', task: 'Build the renderer', command: 'pnpm build', output: path('b1') }
+  const serve = { form: 'command', task: 'Serve it', command: 'pnpm dev', output: path('b2') }
   const watch = { form: 'monitor', task: 'Watch CI', command: 'gh run watch 9' }
   expect(background(posts.slice(before)).map(fact => (fact.kind === 'attached' ? fact.attachment : [fact.attachment, fact.state]))).toEqual([
-    { kind: 'background', target: 'b1', detail },
+    { kind: 'background', target: 'b1wd556q5', detail: build },
     { kind: 'background', target: 'mon42', detail: watch },
-    { kind: 'background', target: 'b1', detail: { ...detail, status: 'completed', exit: '0' } },
-    [{ kind: 'background', target: 'b1' }, 'spent'],
+    { kind: 'background', target: 'b2wd556q5', detail: serve },
+    // The engine's own file replaces the one parsed from the launch.
+    { kind: 'background', target: 'b1wd556q5', detail: { ...build, status: 'completed', exit: '0', output: '/private/tmp/claude-501/.../tasks/byry3zett.output' } },
+    [{ kind: 'background', target: 'b1wd556q5' }, 'spent'],
+    { kind: 'background', target: 'b2wd556q5', detail: { ...serve, status: 'killed', output: '/private/tmp/claude-501/.../tasks/bdjviwn7c.output' } },
+    [{ kind: 'background', target: 'b2wd556q5' }, 'spent'],
     { kind: 'background', target: 'mon42', detail: { ...watch, status: 'killed' } },
     [{ kind: 'background', target: 'mon42' }, 'spent'],
   ])
