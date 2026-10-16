@@ -4,22 +4,23 @@
 // #1903 has neither and asks. The steps are written by hand, as the pull requests' hunks are, and name their targets
 // the way a `show_window` step does: by role and name.
 
-import type { ApiStep, WalkPlan, WalkSeed, WebStep } from "../pr-review/walk-model";
+import type { WalkStep } from "@armada/protocol";
+
+import type { ApiStep, WalkPlan, WalkSeed } from "../pr-review/walk-model";
 
 const KEY = "mele-labs/armada";
 
-const hubSteps: readonly WebStep[] = [
-  { id: "link", say: "The window is connected to Fleet", verb: "look", role: "status", name: "Fleet link" },
-  { id: "restart", say: "Restart Fleet with this window open", verb: "press", role: "button", name: "Restart Fleet" },
-  { id: "back", say: "The link reads reconnecting and then connected, with no reload", verb: "look", role: "status", name: "Fleet link" },
-  { id: "same", say: "The Cockpit is the page that was open, as it was", verb: "look", role: "region", name: "Jobs and Sessions" },
+// **The steps are `show_window` steps** (`WalkStep`). In the mock the page they play over is the mock's own Cockpit, since
+// the preview a pull request deployed is not reachable from a browser tab, so each names a part that page has.
+const hubSteps: readonly WalkStep[] = [
+  { say: "The window is connected to Fleet and lists its work", look: { role: "region", name: "Jobs and Sessions" } },
+  { say: "Restart Fleet now, with this window open. Activity keeps drawing", look: { role: "region", name: "Activity" } },
+  { say: "The same page is still open and the list is back, with no reload", look: { role: "region", name: "Jobs and Sessions" } },
 ];
 
-const bayHistorySteps: readonly WebStep[] = [
-  { id: "bay", say: "Open a bay's pane", verb: "press", role: "button", name: "Bay 3" },
-  { id: "history", say: "Open its history", verb: "press", role: "tab", name: "History" },
-  { id: "entries", say: "Leases and checkouts of this bay, newest first", verb: "look", role: "list", name: "History" },
-  { id: "cut", say: "A list cut at its limit says so", verb: "look", role: "note", name: "Older entries exist" },
+const bayHistorySteps: readonly WalkStep[] = [
+  { say: "The bays, each with its holder", look: { role: "region", name: "Bays" } },
+  { say: "A bay's pane draws its leases and checkouts, newest first", look: { role: "region", name: "Activity" } },
 ];
 
 const READ_AT = "2026-10-16T17:02:11Z";
@@ -66,7 +67,7 @@ const planUsageRequests: readonly ApiStep[] = [
 /** The walk the agent wrote for a pull request, by its key. A pull request with none has nothing to walk. */
 const plans: Readonly<Record<string, WalkPlan>> = {
   [`${KEY}#1907`]: { kind: "web", slot: 1, steps: hubSteps },
-  [`${KEY}#1899`]: { kind: "api", slot: 3, steps: planUsageRequests },
+  [`${KEY}#1899`]: { kind: "api", slot: 3, requests: planUsageRequests },
   [`${KEY}#1903`]: { kind: "web", slot: 2, steps: bayHistorySteps },
 };
 

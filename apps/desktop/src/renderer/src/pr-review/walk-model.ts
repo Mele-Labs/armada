@@ -3,7 +3,7 @@
 // itself (a preview link a deploy bot posted, or a deploy check's address), then what Armada remembers of this
 // repository and the area of code the pull request touches, and only then him. Mock only: nothing here is served.
 
-import type { PullRequestEntry } from "@armada/protocol";
+import type { PullRequestEntry, WalkStep, WalkTarget } from "@armada/protocol";
 
 import type { ReviewPr } from "./model";
 
@@ -29,9 +29,6 @@ export type SourceState = "looking" | "found" | "nothing" | "asking";
 /** One line of how the place was found: the source tried, what it came to, and the words. */
 export type Tried = { source: Source; state: SourceState; said: string; by?: string };
 
-/** One step of a web walk, in the shape `show_window` steps have: a verb on a target found by role and name. */
-export type WebStep = { id: string; say: string; verb: "press" | "look" | "hover" | "type" | "key"; role: string; name: string; with?: string };
-
 /** One request of an API walk, with the response the mock gets back and what to look for in it. */
 export type ApiStep = {
   id: string;
@@ -43,12 +40,32 @@ export type ApiStep = {
   look: string;
 };
 
-/** What the agent wrote from the pull request: its description, How to Test and its themes. */
+/**
+ * What the agent wrote from the pull request: its description, How to Test and its themes. **A web walk is `show_window`
+ * steps** (`WalkStep`, a verb on a target found by role and name) and an API walk is requests, which play in the same
+ * window as one step each over a page of Armada's that shows the request and its response.
+ */
 export type WalkPlan =
-  | { kind: "web"; steps: readonly WebStep[]; slot: number }
-  | { kind: "api"; steps: readonly ApiStep[]; slot: number };
+  | { kind: "web"; steps: readonly WalkStep[]; slot: number }
+  | { kind: "api"; requests: readonly ApiStep[]; slot: number };
 
-export type WalkSeed = { plans: Readonly<Record<string, WalkPlan>>; memory: readonly Remembered[] };
+/** What the walk window is asked to show: the page, the steps played over it, and where a note goes. */
+export type WalkShown = {
+  /** The pull request, as the window is titled. */
+  title: string;
+  /** Where the change runs, as the window's bar names it. */
+  address: string;
+  steps: readonly WalkStep[];
+  /** An API walk's page: the base address and the requests it can send. A web walk's page is the change itself. */
+  runner?: { base: string; requests: readonly ApiStep[] };
+  /** Sends a note taken in the window to the Session that holds the pull request, where one does. */
+  tell?: (text: string) => void;
+};
+
+/** Opens Armada's walk window on a walk. The mock's opens the same stand-in it opens for a Session's `show_window`. */
+export type WalkOpen = (shown: WalkShown) => void;
+
+export type WalkSeed = { plans: Readonly<Record<string, WalkPlan>>; memory: readonly Remembered[]; open?: WalkOpen };
 
 /** A state a setup line or a request can be in. */
 export type Phase = "pending" | "running" | "done" | "failed";
@@ -59,10 +76,6 @@ export type WalkState = {
   tried: readonly Tried[];
   place: Place | undefined;
   setup: readonly { id: string; said: string; code?: string; phase: Phase }[];
-  /** The requests that have been sent, by id. */
-  sent: Readonly<Record<string, Phase>>;
-  /** The walk window is up, and the step it is on. */
-  window: number | undefined;
 };
 
 /** The words of a place, for a line and a row. */
@@ -119,4 +132,32 @@ export function fromPullRequest(pr: ReviewPr): { address: string; said: string; 
     }
   }
   return undefined;
+}
+
+/** The name of the button that sends a request on the runner page, which is what its step presses. */
+export const sendName = (step: ApiStep, at: number): string => `Send ${at + 1}: ${step.method} ${step.path}`;
+
+/** An API walk as steps: one per request, pressing its send. **The step's words are what to look for**, and the page shows the request and its response. */
+export const stepsOfRequests = (requests: readonly ApiStep[]): WalkStep[] =>
+  requests.map((one, at) => ({ say: `Look for: ${one.look}`, press: { role: "button", name: sendName(one, at), exact: true } }));
+
+/** A step's verb, its target, and what it types or presses. */
+export function actOf(step: WalkStep): { verb: string; target: WalkTarget; with?: string } {
+  if ("press" in step) return { verb: "press", target: step.press };
+  if ("look" in step) return { verb: "look", target: step.look };
+  if ("hover" in step) return { verb: "hover", target: step.hover };
+  if ("later" in step) return { verb: "look", target: step.later };
+  if ("type" in step) return { verb: "type", target: step.into, with: step.type };
+  if ("key" in step) return { verb: "key", target: step.on, with: step.key };
+  if ("select" in step) return { verb: "select", target: step.in, with: step.select };
+  if ("paste" in step) return { verb: "paste", target: step.paste };
+  return { verb: "drag", target: step.drag };
+}
+
+/** What to show for a pull request whose place is known. */
+export function shownOf(pr: ReviewPr, plan: WalkPlan, place: Place): WalkShown {
+  const title = `#${pr.number} ${pr.title}`;
+  if (plan.kind === "web") return { title, address: place.address !== "" ? place.address : place.api, steps: plan.steps };
+  const base = place.api !== "" ? place.api : place.address;
+  return { title, address: base, steps: stepsOfRequests(plan.requests), runner: { base, requests: plan.requests } };
 }

@@ -1,22 +1,24 @@
 // The Walk tool's body and its two sheets. The body replaces the reader's, as every tool's results do: **how the place was
 // found, one line per source tried** (the pull request, what Armada remembers, then him), the setup a pulled-down change
-// needed, and the walk itself. A web walk is numbered steps with a walk window to play them in; an API walk is a card per
-// request that runs by key. The sheets ask where a change runs when nobody knows, and list the places Armada remembers.
-// Mock only: the window is drawn here and nothing is sent anywhere.
+// needed, and the walk as a preview: numbered steps for a web walk, the requests for an API walk. **"Walk it" opens
+// Armada's own walk window** (the one `show_window` opens for a Session), which plays either. The sheets ask where a change
+// runs when nobody knows, and list the places Armada remembers. Mock only: the opener is the mock's.
 
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, CircleHelp, Eye, Footprints, Globe, GitBranch, GitPullRequest, Hourglass, LoaderCircle, Minus, NotebookText, Pencil, Play, RefreshCw, RotateCw, Send, SquareDashed, SquareTerminal, Trash2, X } from "lucide-react";
-import { Badge, Button, Checkbox, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Tooltip, useKept } from "@armada/components";
+import { ArrowLeft, Check, CircleHelp, Footprints, Globe, GitBranch, GitPullRequest, Hourglass, LoaderCircle, Minus, NotebookText, Pencil, RefreshCw, RotateCw, Send, SquareDashed, SquareTerminal, Trash2, X } from "lucide-react";
+import { Button, Checkbox, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Tooltip, useKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
+
+import { useSessionsDraft } from "../sessions-draft";
 
 import { REVIEW_KEYS } from "./key-table";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { toolsOf } from "./tools";
-import { areaOf, areaShown, placeSaid } from "./walk-model";
-import type { ApiStep, Phase, Place, Remembered, Source, SourceState, WalkPlan, WalkState, WebStep } from "./walk-model";
+import { actOf, areaOf, areaShown, placeSaid } from "./walk-model";
+import type { Phase, Place, Remembered, Source, SourceState, WalkPlan, WalkState } from "./walk-model";
 import { useWalkState, useWalks } from "./walk-store";
 import "./walk.css";
 
@@ -112,7 +114,7 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
               <PrMark Glyph={Check} said="Nothing to walk" tone="success" />
             </p>
           ) : null}
-          {ready && plan !== undefined && state.place !== undefined ? <Walk pr={pr} plan={plan} place={state.place} state={state} /> : null}
+          {ready && plan !== undefined && state.place !== undefined ? <Walk pr={pr} plan={plan} place={state.place} /> : null}
         </>
       )}
     </div>
@@ -161,137 +163,64 @@ function Setup({ state }: { state: WalkState }) {
   );
 }
 
-function Walk({ pr, plan, place, state }: { pr: ReviewPr; plan: WalkPlan; place: Place; state: WalkState }) {
+/** The walk as a preview, and the one act that opens it in Armada's walk window. **There is one way to walk anything**: a web walk and an API walk play in the same window. */
+function Walk({ pr, plan, place }: { pr: ReviewPr; plan: WalkPlan; place: Place }) {
+  const walks = useWalks();
+  const draft = useSessionsDraft();
+  const holder = pr.holder;
   const base = plan.kind === "api" ? (place.api !== "" ? place.api : place.address) : place.address !== "" ? place.address : place.api;
+  // A note taken in the window goes to the Session that holds the pull request, where one does.
+  const tell = holder === undefined || draft === undefined ? undefined : (text: string) => void draft.send(holder.id, { text, files: [], sketches: [], tags: [] });
   return (
     <section className="pr-walk__body" aria-label={plan.kind === "web" ? "Web walk" : "API walk"}>
       <p className="pr-walk__against">
         <PrMark Glyph={plan.kind === "web" ? Globe : Send} said={plan.kind === "web" ? "Web address" : "API base address"} />
         <code className="pr-walk__code">{base}</code>
       </p>
-      {plan.kind === "web" ? <WebWalk pr={pr} steps={plan.steps} address={base} state={state} /> : <ApiWalk pr={pr} steps={plan.steps} state={state} />}
-    </section>
-  );
-}
-
-function WebWalk({ pr, steps, address, state }: { pr: ReviewPr; steps: readonly WebStep[]; address: string; state: WalkState }) {
-  const walks = useWalks();
-  return (
-    <>
-      <article className="pr-change pr-walk__card" tabIndex={0} data-stop aria-label="Walk window">
-        <Button variant="primary" size="sm" data-run="" onClick={() => walks.walkIt(pr.key)}>
+      <article className="pr-change pr-walk__card" tabIndex={0} data-stop aria-label="Walk it">
+        <Button variant="primary" size="sm" data-run="" onClick={() => walks.walkIt(pr, tell)}>
           <Footprints size={16} strokeWidth={2} aria-hidden />
           Walk it
           <Kbd aria-hidden="true">↵</Kbd>
         </Button>
-        {state.window === undefined ? null : <WalkWindow pr={pr} steps={steps} address={address} at={state.window} />}
       </article>
-      <ol className="pr-steps" aria-label="Steps">
-        {steps.map((step, at) => (
-          <li key={step.id} className="pr-steps__step" aria-label={`Walk step ${at + 1}`}>
-            <span className="pr-steps__n mono">{at + 1}</span>
-            <div className="pr-steps__body">
-              <p className="pr-steps__do">{step.say}</p>
-              <p className="pr-walk__act">
-                <code className="pr-walk__verb">{step.verb}</code>
-                <span className="pr-walk__target">{`${step.role} “${step.name}”`}</span>
-                {step.with === undefined ? null : <code className="pr-walk__code">{step.with}</code>}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </>
-  );
-}
-
-/** The window a walk plays in, drawn where it opens. Next moves along the steps, and the last one closes it. */
-function WalkWindow({ pr, steps, address, at }: { pr: ReviewPr; steps: readonly WebStep[]; address: string; at: number }) {
-  const walks = useWalks();
-  const step = steps[at];
-  const last = at >= steps.length - 1;
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".pr-walk__window [data-next]")?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-  if (step === undefined) return null;
-  return (
-    <div className="pr-walk__window" role="group" aria-label="Walk window frame">
-      <header className="pr-walk__window-head">
-        <Footprints size={16} strokeWidth={2} aria-hidden />
-        <code className="pr-walk__code">{address}</code>
-        <Tooltip label="Close the walk window">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Close the walk window" onClick={() => walks.closeWindow(pr.key)}>
-            <X size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-      </header>
-      <div className="pr-walk__window-card" role="note" aria-label={`Say: ${step.say}`}>
-        <p className="pr-steps__do">{step.say}</p>
-        <p className="pr-walk__act">
-          <code className="pr-walk__verb">{step.verb}</code>
-          <span className="pr-walk__target">{`${step.role} “${step.name}”`}</span>
-        </p>
-      </div>
-      <footer className="pr-walk__window-foot">
-        <Button variant="ghost" size="sm" disabled={at === 0} onClick={() => walks.moveWindow(pr.key, -1)}>
-          Back
-        </Button>
-        <Button variant="primary" size="sm" data-next="" onClick={() => (last ? walks.closeWindow(pr.key) : walks.moveWindow(pr.key, 1))}>
-          {last ? "Done" : "Next"}
-          <Kbd aria-hidden="true">↵</Kbd>
-        </Button>
-      </footer>
-    </div>
-  );
-}
-
-function ApiWalk({ pr, steps, state }: { pr: ReviewPr; steps: readonly ApiStep[]; state: WalkState }) {
-  const walks = useWalks();
-  return (
-    <ol className="pr-walk__requests" aria-label="Requests">
-      {steps.map((step, at) => {
-        const sent = state.sent[step.id];
-        const ok = step.response.status < 400;
-        return (
-          <li key={step.id}>
-            <article className="pr-change pr-walk__request" tabIndex={0} data-stop aria-label={`Request ${at + 1}: ${step.method} ${step.path}`}>
-              <header className="pr-change__head">
+      {plan.kind === "web" ? (
+        <ol className="pr-steps" aria-label="Steps">
+          {plan.steps.map((step, at) => {
+            const act = actOf(step);
+            return (
+              <li key={at} className="pr-steps__step" aria-label={`Walk step ${at + 1}`}>
                 <span className="pr-steps__n mono">{at + 1}</span>
-                <code className="pr-walk__verb">{step.method}</code>
-                <code className="pr-walk__path">{step.path}</code>
-                <span className="pr-change__marks">
-                  <Button variant="ghost" size="sm" data-run="" aria-label={`Run ${step.method} ${step.path}`} pending={sent === "running"} onClick={() => walks.send(pr.key, step.id)}>
-                    <Play size={16} strokeWidth={2} aria-hidden />
-                    {sent === "done" ? "Run again" : "Run"}
-                    <Kbd aria-hidden="true">↵</Kbd>
-                  </Button>
-                </span>
-              </header>
-              <p className="pr-change__why">{step.say}</p>
-              {step.body === undefined ? null : <pre className="pr-walk__json" aria-label="Request body">{step.body}</pre>}
-              {sent === "done" ? (
-                <div className="pr-walk__response" role="group" aria-label="Response">
-                  <p className="pr-walk__status">
-                    <Badge status={ok ? "completed-success" : "completed-failed"} icon={ok ? Check : X}>
-                      {String(step.response.status)}
-                    </Badge>
-                    <Tooltip label="Time the response took">
-                      <span className="pr-walk__ms mono">{`${step.response.ms} ms`}</span>
-                    </Tooltip>
+                <div className="pr-steps__body">
+                  <p className="pr-steps__do">{step.say}</p>
+                  <p className="pr-walk__act">
+                    <code className="pr-walk__verb">{act.verb}</code>
+                    <span className="pr-walk__target">{act.target.name === undefined ? act.target.role : `${act.target.role} “${act.target.name}”`}</span>
+                    {act.with === undefined ? null : <code className="pr-walk__code">{act.with}</code>}
                   </p>
-                  <pre className="pr-walk__json">{step.response.body}</pre>
                 </div>
-              ) : null}
-              <p className="pr-steps__look" role="note" aria-label={`Look for: ${step.look}`}>
-                <PrMark Glyph={Eye} said="Look for" />
-                {step.look}
-              </p>
-            </article>
-          </li>
-        );
-      })}
-    </ol>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <ol className="pr-steps" aria-label="Requests">
+          {plan.requests.map((step, at) => (
+            <li key={step.id} className="pr-steps__step" aria-label={`Request ${at + 1}: ${step.method} ${step.path}`}>
+              <span className="pr-steps__n mono">{at + 1}</span>
+              <div className="pr-steps__body">
+                <p className="pr-steps__do">{step.say}</p>
+                <p className="pr-walk__act">
+                  <code className="pr-walk__verb">{step.method}</code>
+                  <code className="pr-walk__path">{step.path}</code>
+                </p>
+                {step.body === undefined ? null : <pre className="pr-walk__json" aria-label="Request body">{step.body}</pre>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 import type { ReviewPr, ToolDef } from "./model";
 import { useReviewStore } from "./store";
 import type { ReviewStore } from "./store";
-import { areaOf, fromPullRequest, placeSaid, rememberedFor, waitsOn } from "./walk-model";
+import { areaOf, fromPullRequest, placeSaid, rememberedFor, shownOf, waitsOn } from "./walk-model";
 import type { Phase, Place, Remembered, Tried, WalkSeed, WalkState } from "./walk-model";
 
 /** How long one source takes to read, and one setup line to run, in the mock. */
@@ -38,12 +38,8 @@ export type WalkStore = {
   showPlaces: () => void;
   editPlace: (id: string, place: Place) => void;
   forgetPlace: (id: string) => void;
-  /** Sends one request of an API walk. */
-  send: (key: string, id: string) => void;
-  /** Puts the walk window up on its first step, or moves it by one, or takes it down. */
-  walkIt: (key: string) => void;
-  moveWindow: (key: string, by: 1 | -1) => void;
-  closeWindow: (key: string) => void;
+  /** Opens Armada's walk window on the walk kept for this pull request. `tell` is where a note taken in it goes. */
+  walkIt: (pr: ReviewPr, tell?: (text: string) => void) => void;
   plan: (key: string) => WalkSeed["plans"][string] | undefined;
 };
 
@@ -116,7 +112,7 @@ export function createWalkStore(reviews: ReviewStore, seed: WalkSeed): WalkStore
     },
     begin: (pr, tool) => {
       const again = snapshot.by[pr.key] !== undefined && reviews.get().work[pr.key]?.runs[tool.id] !== undefined;
-      set({ by: { ...snapshot.by, [pr.key]: { head: pr.head, tried: [{ source: "pr", state: "looking", said: "" }], place: undefined, setup: [], sent: {}, window: undefined } } });
+      set({ by: { ...snapshot.by, [pr.key]: { head: pr.head, tried: [{ source: "pr", state: "looking", said: "" }], place: undefined, setup: [] } } });
       reviews.setView(pr.key, tool.id);
       after(() => {
         const found = fromPullRequest(pr);
@@ -155,19 +151,12 @@ export function createWalkStore(reviews: ReviewStore, seed: WalkSeed): WalkStore
     showPlaces: () => set({ sheet: { kind: "places" } }),
     editPlace: (id, place) => set({ memory: snapshot.memory.map((one) => (one.id === id ? { ...one, place } : one)) }),
     forgetPlace: (id) => set({ memory: snapshot.memory.filter((one) => one.id !== id) }),
-    send: (key, id) => {
-      const was = snapshot.by[key];
-      if (was === undefined || was.sent[id] === "running") return;
-      change(key, { sent: { ...was.sent, [id]: "running" } });
-      after(() => change(key, { sent: { ...(snapshot.by[key]?.sent ?? {}), [id]: "done" } }), LOOK_MS * 2);
+    walkIt: (pr, tell) => {
+      const plan = seed.plans[pr.key];
+      const place = snapshot.by[pr.key]?.place;
+      if (plan === undefined || place === undefined) return;
+      seed.open?.({ ...shownOf(pr, plan, place), ...(tell === undefined ? {} : { tell }) });
     },
-    walkIt: (key) => change(key, { window: 0 }),
-    moveWindow: (key, by) => {
-      const at = snapshot.by[key]?.window;
-      const last = (seed.plans[key]?.steps.length ?? 1) - 1;
-      if (at !== undefined) change(key, { window: Math.min(last, Math.max(0, at + by)) });
-    },
-    closeWindow: (key) => change(key, { window: undefined }),
   };
   return store;
 }

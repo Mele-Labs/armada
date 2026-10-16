@@ -1,5 +1,5 @@
-// The Walk review tool: Armada plays the pull request's change where it runs, as a walk in a Bridge window or as a run of
-// requests. Where it runs is found in his order, one source at a time: the pull request, what Armada remembers of the
+// The Walk review tool: Armada plays the pull request's change where it runs, in its own walk window, as a walk of a page or
+// a run of requests. Where it runs is found in his order, one source at a time: the pull request, what Armada remembers of the
 // area, then him. Over the `pr-review` scenario, after `pr-review-tab`, which it extends nothing of.
 
 import { button, dialog, inside, place, region, role, text, walk } from "../walk";
@@ -12,7 +12,9 @@ const tool = inside(flight, button("Walk"));
 const results = region("Walk results");
 const fact = (words: string) => inside(inside(results, role("list", "Where it runs")), role("listitem", words));
 const setup = (words: RegExp) => inside(inside(results, role("list", "Setup")), role("listitem", words));
-const request = (n: number) => inside(inside(results, region("API walk")), role("article", new RegExp(`^Request ${n}:`)));
+const walkIt = (kind: "Web walk" | "API walk") => inside(inside(results, region(kind)), role("article", "Walk it"));
+const theWindow = (number: number) => dialog(new RegExp(`^Bridge's window on #${number} `));
+const bar = (number: number) => inside(theWindow(number), role("group", /^Walk /));
 const sheet = dialog("Where it runs");
 const places = dialog("Where changes run");
 const remembered = (area: string) => inside(places, role("article", `Remembered: ${area}`));
@@ -33,14 +35,15 @@ const fromThePullRequest: Step[] = [
   { look: inside(fact("From the pull request"), role("img", "Found")), say: "A deploy bot posted a preview link" },
   { look: inside(fact("From the pull request"), text("Preview ready: https://pr-1907.preview.armada.dev")), say: "The line it posted" },
   { hover: inside(fact("From the pull request"), role("img", /^From the pull request/)), say: "Each line names its source. Nothing further is tried once one finds it" },
-  { look: region("Web walk"), say: "The walk is written from the description, How to Test and the themes, and played in the reader" },
-  { look: inside(region("Web walk"), role("list", "Steps")), say: "Each step is what is said and what it acts on, found by role and name" },
-  { look: inside(region("Web walk"), role("listitem", "Walk step 2")), say: "The same verbs and targets a walk window plays" },
-  { key: "Enter", on: inside(region("Web walk"), role("article", "Walk window")), say: "↵ on the walk opens it in a Bridge walk window. Here it is drawn in place" },
-  { look: inside(region("Web walk"), role("group", "Walk window frame")), say: "The first step, with Next" },
-  { press: inside(region("Web walk"), button("Next")), say: "Next goes to the second step" },
-  { look: inside(region("Web walk"), role("note", /Say: Restart Fleet/)), say: "Press Restart Fleet, as the description's own testing says" },
-  { press: inside(region("Web walk"), button("Close the walk window")), say: "Closed" },
+  { look: region("Web walk"), say: "The walk is written from the description, How to Test and the themes" },
+  { look: inside(region("Web walk"), role("list", "Steps")), say: "A preview of its steps: what is said, and the part of the page each acts on, found by role and name" },
+  { look: inside(region("Web walk"), role("listitem", "Walk step 2")), say: "The same verbs and targets show_window steps have" },
+  { key: "Enter", on: walkIt("Web walk"), say: "↵ on Walk it opens it in Armada's own walk window, the one a Session's show_window opens" },
+  { look: theWindow(1907), say: "The same window: the page the change runs at, and the walk's controls" },
+  { look: inside(theWindow(1907), text("https://pr-1907.preview.armada.dev")), say: "The preview the bot posted is the page" },
+  { look: inside(bar(1907), button("Next")), say: "Next acts on the ringed target and goes on. Back, Autoplay and Replay are beside it" },
+  { look: inside(theWindow(1907), button("Capture")), say: "Notes are taken in it as in any walk window. Here they go to no Session, since none holds this pull request" },
+  { press: button("Close window"), say: "Closed" },
   { look: inside(tool, role("img", /^Kept/)), say: "The walk is kept for the commit it was written on, as a tool's result is" },
 ];
 
@@ -54,14 +57,13 @@ const fromMemory: Step[] = [
   { look: setup(/Run armada fleet --dev/), say: "The command it remembered" },
   { look: inside(setup(/Wait for http:\/\/localhost:7420/), role("img", "Done")), say: "It waits for the address to answer before it walks" },
   { look: region("API walk"), say: "This one is an API walk: requests, in order, against the API there" },
-  { look: request(1), say: "Each request is a card with its method, path and body" },
-  { key: "Enter", on: request(1), say: "↵ runs the request under focus" },
-  { look: inside(request(1), role("group", "Response")), say: "The response: status and a trimmed body" },
-  { look: inside(request(1), role("note", /Look for: read_at is there/)), say: "And what to look for in it" },
-  { key: "j", on: request(1), say: "J moves to the next request. K goes back" },
-  { key: "Enter", on: request(2), say: "↵ runs the second" },
-  { look: inside(request(2), role("note", /Look for: The same read_at/)), say: "The same read_at and a fast answer: Fleet served what it held" },
-  { look: inside(inside(request(2), role("group", "Response")), text("200")), say: "The status, as a badge" },
+  { look: inside(region("API walk"), role("listitem", /^Request 1: GET \/plan-usage/)), say: "Each request is a method, a path and a body where it has one" },
+  { look: inside(region("API walk"), role("listitem", /^Request 3:/)), say: "Read again after a minute has passed" },
+  { key: "Enter", on: walkIt("API walk"), say: "↵ on Walk it opens the same window. Each request is one step, and the page shows the request and its response" },
+  { look: theWindow(1899), say: "The same walk window as a web walk" },
+  { look: inside(theWindow(1899), text("http://localhost:7420")), say: "Against the API Armada pulled down and ran" },
+  { look: inside(bar(1899), button("Next")), say: "Next sends the request. The step's words are what to look for in the response" },
+  { press: button("Close window"), say: "Closed" },
 ];
 
 const asked: Step[] = [

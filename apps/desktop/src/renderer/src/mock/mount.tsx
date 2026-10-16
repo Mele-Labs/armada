@@ -46,6 +46,7 @@ import { PrOwnersFrom } from "./pr-owners";
 import { ReviewsFrom, createReviewStore } from "../pr-review/store";
 import { provideWalks } from "../pr-review/walk-store";
 import { walkSeed } from "./pr-review-walk-pages";
+import { openReviewWalk } from "./pr-review-walk-window";
 import type { Scenario } from "./scenario";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -130,7 +131,7 @@ export function mountApp(
   const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(chosen.draft.prReview);
   // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
   if (reviews !== undefined) forgetAllKept();
-  if (reviews !== undefined) provideWalks(reviews, walkSeed());
+  if (reviews !== undefined) provideWalks(reviews, { ...walkSeed(), open: openReviewWalk });
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {

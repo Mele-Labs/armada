@@ -59,6 +59,8 @@ export type WalkWindowOptions = {
   into?: "Job" | "Session";
   /** What the bar's name says: the window's own title. Absent is the `run`; `null` is a window titled by its address. */
   title?: string | null;
+  /** What the bar names as the page's address, where the page in the frame stands in for another. Absent: the page's own. */
+  address?: string;
   /** The press on the owner's name, after Bridge comes forward. Absent: Bridge comes forward on what it shows. */
   onOpenOwner?: () => void;
   onNote: (said: string, picked: Picked) => void;
@@ -140,7 +142,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -256,7 +258,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
       </div>
       <CaptureBar
         run={title === null ? undefined : (title ?? run)}
-        address={title === null ? url : new URL(url).origin}
+        address={address ?? (title === null ? url : new URL(url).origin)}
         studio={null}
         {...(into === "Session" ? { session: job } : { job })}
         // Bridge comes forward, as main raises its window over this one.
