@@ -157,6 +157,10 @@ export type SessionRow =
       sketches?: readonly { id: string; title: string }[];
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
       tags?: readonly SessionTag[];
+      /** A message of the person's that Fleet has not yet taken (`sending`) or did not (`failed`). Absent once it is Fleet's row. */
+      delivery?: "sending" | "failed";
+      /** What the row is drawn under while it changes from the message Bridge held to the row Fleet sent back, so it does not draw again. */
+      stableKey?: string;
     }
   /**
    * Words typed in Helm's box that went to a Session or a Job and never to Helm. Only Helm's own Session
@@ -515,6 +519,8 @@ export type SessionsDraft = {
    * Fleet**, which resolves to whether the message arrived; a refusal is already said as a toast.
    */
   send: (id: string, sent: SentMessage) => void | Promise<boolean>;
+  /** Sends a message that did not go again, by the id of the row that holds it. Present where `send` holds a message while it goes. */
+  retry?: (id: string, rowId: string) => void;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /**

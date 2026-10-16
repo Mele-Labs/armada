@@ -1,6 +1,6 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref, RefObject } from "react";
-import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, LoaderCircle, Play, Reply, Server, Smartphone, SquareTerminal, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -55,6 +55,10 @@ export type SessionThreadRow =
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly ComposerTag[];
+      /** The person's message while Fleet has not taken it (`sending`) or did not (`failed`, with a Retry). */
+      delivery?: "sending" | "failed";
+      /** The key the row keeps while Fleet's own row takes its place, so the message does not draw again. */
+      stableKey?: string;
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** Words typed in Helm's box that went to a Session or a Job and never to Helm: Helm's own thread has these, a Session's does not. */
@@ -140,6 +144,8 @@ export type QuestionAnswer = { question: string; chosen: string[] };
 
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
+  /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
+  onRetry?: (rowId: string) => void;
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
    * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
@@ -526,6 +532,20 @@ function Did({ act, at }: { act: Act; at: string }) {
   );
 }
 
+/** Where a message of the person's stands while Fleet has not taken it: turning while it goes, a cross where it did not. Nothing once it is Fleet's row. */
+function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
+  if (row.delivery === undefined) return null;
+  const sending = row.delivery === "sending";
+  const said = sending ? "Sending" : "Not sent";
+  return (
+    <Tooltip label={said}>
+      <span className="armada-session-you__delivery" data-state={row.delivery} role="img" aria-label={said}>
+        {sending ? <LoaderCircle size={12} strokeWidth={2} aria-hidden /> : <X size={12} strokeWidth={2} aria-hidden />}
+      </span>
+    </Tooltip>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -534,9 +554,11 @@ function Row({
   agentName = "Agent",
   onOpenRetro,
   onOpenSent,
+  onRetry,
   forkable,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
+  onRetry?: (rowId: string) => void;
   forkable: boolean;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
@@ -693,9 +715,10 @@ function Row({
     if (act !== null) return <Did act={act} at={row.at} />;
     const placed = placeTags(row.text, row.tags ?? [], openTag);
     return (
-      <li className="armada-session-you" role="region" aria-label="Your message">
+      <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
         <div className="armada-session-you__band">
           <span className="armada-session-you__who">You</span>
+          <Delivery row={row} />
           <span className="armada-session-you__at">{row.at}</span>
         </div>
         <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
@@ -710,6 +733,13 @@ function Row({
             </ProseRunner.Provider>
           )}
           <Sent row={row} tags={placed.loose} />
+          {row.delivery === "failed" && onRetry !== undefined ? (
+            <div className="armada-session-you__retry">
+              <Button size="sm" variant="secondary" onClick={() => onRetry(row.id)}>
+                Retry
+              </Button>
+            </div>
+          ) : null}
         </div>
       </li>
     );
@@ -815,7 +845,7 @@ function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: 
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -855,7 +885,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

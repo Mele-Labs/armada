@@ -182,14 +182,18 @@ enum Pass {
     Text,
 }
 
-/// Take the agent's task list into the plan: a plan task whose text an item of the list carries keeps
-/// that item's status. A task completed now is `edited` if an edit was seen under its group's paths
-/// since the group's last completion (or the version was recorded): those completing together share
-/// the window. A task that goes back to not completed loses its instant. A task no item matches keeps
-/// what it had. Whether the plan moved.
+/// Take the agent's task list into the plan: a plan task keeps the status of the item of the list that
+/// says it, the same words or reworded close enough (see `said`), one item to one task. A task
+/// completed now is `edited` if an edit was seen under its group's paths since the group's last
+/// completion (or the version was recorded): those completing together share the window. A task that
+/// goes back to not completed loses its instant. A task no item matches keeps what it had. Whether
+/// the plan moved.
 pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
     let recorded = plan.recorded_at.clone();
     let mut moved = false;
+    let texts: Vec<String> = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| cut_norm(&task.text)).collect();
+    let items: Vec<String> = list.iter().map(|item| cut_norm(&item.text)).collect();
+    let mut claims = claimed(&texts, &items).into_iter();
     for group in &mut plan.groups {
         let start = group
             .tasks
@@ -201,8 +205,7 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
             .to_string();
         let worked = group.worked_at.as_deref().is_some_and(|at| at > start.as_str());
         for task in &mut group.tasks {
-            let text = cut_norm(&task.text);
-            let Some(item) = list.iter().find(|item| cut_norm(&item.text) == text) else { continue };
+            let Some(item) = claims.next().flatten().map(|at| &list[at]) else { continue };
             let status = match item.status {
                 ReportedTaskStatus::Pending => "pending",
                 ReportedTaskStatus::InProgress => "in_progress",
@@ -223,6 +226,56 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
         }
     }
     moved
+}
+
+/// Words too common to say which task a line is.
+const FILLER: [&str; 14] = ["a", "an", "the", "to", "of", "in", "on", "for", "and", "with", "it", "is", "by", "at"];
+
+/// A line's words, lowercase, without filler or punctuation.
+fn words(text: &str) -> Vec<&str> {
+    text.split(|c: char| !c.is_alphanumeric()).filter(|word| !word.is_empty() && !FILLER.contains(word)).collect()
+}
+
+/// How well an item says a task, if it does. Both are `cut_norm`ed. The same text is the best; the
+/// task's words in a row inside the item's, or the item's inside the task's, come next, the closer in
+/// length the better; failing that, 0.6 of the longer line's words shared. Two words at least, so one
+/// word that two tasks share never says either.
+fn said(task: &str, item: &str) -> Option<f64> {
+    if task == item {
+        return Some(3.0);
+    }
+    let (task, item) = (words(task), words(item));
+    let (short, long) = if task.len() <= item.len() { (&task, &item) } else { (&item, &task) };
+    if short.len() < 2 {
+        return None;
+    }
+    if long.windows(short.len()).any(|run| run == short.as_slice()) {
+        return Some(1.0 + short.len() as f64 / long.len() as f64);
+    }
+    let shared = short.iter().filter(|word| long.contains(word)).count();
+    let share = shared as f64 / long.len() as f64;
+    (share >= 0.6).then_some(share)
+}
+
+/// For each plan task, the index of the list item that claims it. The pairs are taken best first, so
+/// an item says at most one task and a task is said by at most one item; ties go to the earlier task,
+/// then the earlier item. An item no task wants is left out.
+fn claimed(tasks: &[String], items: &[String]) -> Vec<Option<usize>> {
+    let mut pairs: Vec<(f64, usize, usize)> = tasks
+        .iter()
+        .enumerate()
+        .flat_map(|(task, text)| items.iter().enumerate().filter_map(move |(item, said_in)| said(text, said_in).map(|score| (score, task, item))))
+        .collect();
+    pairs.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+    let mut claims = vec![None; tasks.len()];
+    let mut taken = vec![false; items.len()];
+    for (_, task, item) in pairs {
+        if claims[task].is_none() && !taken[item] {
+            claims[task] = Some(item);
+            taken[item] = true;
+        }
+    }
+    claims
 }
 
 /// Whether `path` is one of `paths` or lies under it. A group that names none is scoped to the whole
