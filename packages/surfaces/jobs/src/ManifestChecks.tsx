@@ -68,6 +68,8 @@ export type ManifestChecksProps = {
   onReadCheckOutput: ReadCheckOutput;
   /** A Session's run, read by its id: it has no Job to read under. */
   onReadSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
+  /** Ask a Session's running Check to stop, gracefully or by force. */
+  onStopSessionCheck: (run: number, force: boolean) => Promise<unknown>;
   onFollowCheckOutput: FollowCheckOutput;
   followedLog: FollowedLog;
   /** A Job as a person names it, for the link to it. */
@@ -224,6 +226,14 @@ function ReportedLogPanel(
       log={{ name: log.check, kept: log.kept, live: entry.status === "running" }}
       outputs={outputs}
       following={following}
+      {...(run === undefined || entry.status !== "running"
+        ? {}
+        : {
+            stops: {
+              onStop: () => void props.onStopSessionCheck(run, false),
+              onForce: () => void props.onStopSessionCheck(run, true),
+            },
+          })}
       bands={
         <>
           {logs.length < 2 ? null : (

@@ -308,11 +308,14 @@ branch and the branches of slots it holds, once the base holds every commit on t
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
-off the machine unasked. A call that reaches into the owner's own files, or
+off the machine unasked. A call that writes into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
-`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
-and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+reason the agent reads and works around. **A read anywhere runs** (the owner, 16 Oct 2026),
+except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads, Pictures,
+Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`, `~/.config/gh`),
+another volume, or a search from `/`, `/Users` or his home (`fleet::helm::deciding::GUARDED`).
+`launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
+session's slot all run. `chmod` and `chown` in a
 held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
 variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
@@ -614,7 +617,7 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Session plans with him first, and w
 
 **His changes are proposals.** **`send_plan_changes`** (`session_id`, `version`, `marks`, `approve`) takes marks against the version he read: rename, remove, add task, add group, move task, change subagent, note. Fleet checks each against that version (a mark may name a group or task another mark of the same batch adds), words them as **one message** to the agent, with the ids so it can answer by them, and writes one `plan_changes` row to the thread in place of a Fleet message beside it. **The plan does not change**, whether it is pending or approved; it changes when the agent records it again. `approve: true` approves the version with them.
 
-**How far it got is observed.** A task is `open`, `working`, `handed_in`, `done` or `failed`. The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text, as `build_record` matches it. A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed. `failed` is not set by anything Fleet observes yet. An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
+**How far it got is observed.** A task is `open`, `working`, `handed_in`, `done` or `failed`. The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text. **The same words first; otherwise reworded close enough** (the task's words in a row inside the item's or the item's inside the task's, filler such as `the` and `to` left out, or at least 0.6 of the longer line's words shared, two words at least), **and an item says at most one task and a task is said by at most one item**, the best pairs taken first and an item no task wants ignored. **The agent is told its list is the plan**: the `record_plan` receipt (`task_list`), and the message for an approval (with or without marks), which lists the tasks verbatim, say `TASK_LIST_IS_THE_PLAN`, and the Planning prompt says it before the plan is recorded. A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed. `failed` is not set by anything Fleet observes yet. An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Session's recent file touches for the Field: the subagent (type and the call that started it, absent for the Session's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`. The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one. A hosted Session's touches are read off its process stream: the `Agent` call (once `Task`) names the type, and every line a subagent makes carries that call as `parent_tool_use_id`. A call whose start Fleet never heard (a Fleet that restarted) is named `subagent`. A terminal Session's come from the mod's `touched` fact, which carries the subagent's `agentId` (`by`) and the `act`; the type is read from the `subagent` attachment. A hosted Session loads the mod too, so only the stream is recorded for it. A removal is read from a plain `rm`, `git rm` or `unlink`; a command that removes by a pattern or a variable names nothing.
 
@@ -866,6 +869,8 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | A hosted Session's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Session is published whole each time |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
+
+**While it runs, its log is live and a person can stop it.** `armada check` tells Fleet what it printed in `chunk` calls on the same route, and the Check log panel follows it (`observe_session_check`). The panel's head holds Stop, which sends `SIGTERM` to the Check's process group and `SIGKILL` after a grace period, and Force stop, which sends `SIGKILL`. Fleet holds the ask and answers it to the next `chunk`; the process ends its own group and tells `end` as for any run.
 
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
 

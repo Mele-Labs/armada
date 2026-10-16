@@ -213,7 +213,6 @@ fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
     for line in [
         "find / -name pnpm -maxdepth 6 -type f 2>/dev/null | head -3",
         "ls ~/Documents",
-        "ls ~",
         "grep -r foo $HOME/Music",
         "cat /Users/someone/Desktop/notes.txt",
         "ls /Volumes/Backup",
@@ -225,6 +224,7 @@ fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
         "cat /Users/someone/Development/armada/README.md",
         "ls ~/.claude/projects/-Users-someone-Development-armada/memory",
         "ls /opt/homebrew/bin",
+        "ls ~",
         "cargo build 2>/dev/null",
         "cd /tmp && ls",
     ] {
@@ -235,6 +235,8 @@ fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
     assert!(bash("rm $HOME/x").is_some(), "outside the slot still asks");
     assert_eq!(read("/Users/someone/Desktop/shot.png"), Some(Because::ReachesOutside));
     assert_eq!(read(&format!("{SLOT}/src/lib.rs")), None);
+    assert_eq!(read("/Users/someone/develop/other/.scratch/HANDOFF.md"), None);
+    assert_eq!(read("/Users/someone/Documents/a.md"), Some(Because::ReachesOutside));
 }
 
 #[test]

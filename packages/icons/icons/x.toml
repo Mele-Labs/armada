@@ -22,6 +22,13 @@
     notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. The system said no and nobody decided, which is this glyph's claim as a badge. Tooltip `Refused`. `ban` stays a person's decision and is used for denied."
 
   [[icons.x.usage]]
+    means = "A message of the person's that Fleet did not take, on its band in a Session's thread, beside a Retry"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "Specified 16 Oct 2026 for the walk `session-message-sending`, which the owner walked and approved, tooltip `Not sent`. The system did not take it and nobody decided, which is this glyph's claim as a badge. The Retry beside it is a text button with no glyph."
+
+  [[icons.x.usage]]
     means = "A background command that exited with a non-zero code, on a Session's ledger row"
     group = "Session"
     size = "12px"

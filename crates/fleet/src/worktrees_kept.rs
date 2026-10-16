@@ -10,7 +10,9 @@
 //! adapter hears the file system (`docs/spikes/032-what-moves-when-a-slot-changes.md`) and keeps the
 //! rest of the pool as it read it. **Only the read every [`STALE_AFTER`] asks
 //! about every slot**, which is what a change nobody heard of waits for: the
-//! list is never wrong for longer than that.
+//! list is never wrong for longer than that. It reads HEAD and the refs of every
+//! slot and `git status` only of a free slot whose watch cannot vouch for the
+//! last answer: `adapters::leasing::watching` says when.
 //!
 //! **Only the list served to Bridge is kept.** The sweep, `armada clean`, a
 //! release and a rescue decide from a slot, and read git themselves.

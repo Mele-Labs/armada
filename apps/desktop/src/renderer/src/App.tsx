@@ -65,6 +65,7 @@ import { useManifestEditing, useManifestForm } from "@armada/manifest";
 import { startSetupSession, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
 import { said } from "@armada/screens/src/copy";
+import { share } from "@armada/screens/src/share";
 import { LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
@@ -330,8 +331,14 @@ export function App({ draft }: AppProps = {}) {
   // because the Job's detail is not where that panel lives.
   const [mainLog, setMainLog] = useState<LandCheckAt | null>(null);
   useEffect(() => {
-    void window.armada.state().then(setState);
-    return window.armada.subscribe(setState);
+    // Every publish arrives as new objects, equal or not. What did not change is kept as it was, so a publish that
+    // carries nothing new draws nothing, and one that moves a Job leaves every other part of the window alone.
+    // `readAt` moves on every Jobs poll and is read only to say how stale an unreachable Fleet's picture is, so while Fleet
+    // answers the window keeps the one it has: a poll that changed nothing else must not draw the whole window.
+    const take = (next: BridgeState) =>
+      setState((was) => share(was, next.connection.state === "connected" && was.readAt !== null && next.readAt !== null ? { ...next, readAt: was.readAt } : next));
+    void window.armada.state().then(take);
+    return window.armada.subscribe(take);
   }, []);
 
   // What main is asked to hold open for the Job being read: the Job itself, what
@@ -1160,6 +1167,7 @@ export function App({ draft }: AppProps = {}) {
                   onPickRepository={pick}
                   onAddRepository={locate.onOpen}
                   onGoTo={goTo}
+                  onOpenCheck={(sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run))}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   onRescueSlot={slotActs.onRescueSlot}
                   bayActs={bayActs}
@@ -1270,6 +1278,7 @@ export function App({ draft }: AppProps = {}) {
         >
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
+          {atCockpit && asked.checkFocus !== undefined ? (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : null}
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

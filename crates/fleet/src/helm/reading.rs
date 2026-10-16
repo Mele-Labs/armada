@@ -1,7 +1,7 @@
 //! What a shell segment names and does, read by [`super::deciding`]: the variables a line set,
 //! the files in the owner's home a read may touch, and the verbs that only look.
 
-use super::deciding::{reaches_outside, truncating_redirect, Slot};
+use super::deciding::{reaches_outside, read_refused, truncating_redirect, Slot};
 
 /// The segments with each variable the line assigned put back where it is used. `$$` is a
 /// process id and reads as a number. **A variable the line never set stays a `$`**, which no
@@ -82,16 +82,36 @@ fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> S
     out
 }
 
-/// Whether one segment names the owner's own files, a read of his toolchain's config aside.
-/// **A `~` inside quotes and a `$` inside single quotes are text**, as the shell leaves them: an
-/// awk script's `$5 ~ /x$/` is no path.
+/// Whether one segment names the owner's own files and is refused for it: anything but a read,
+/// and a read only where [`read_refused`] says so. **A `~` inside quotes and a `$` inside single
+/// quotes are text**, as the shell leaves them: an awk script's `$5 ~ /x$/` is no path.
 pub(super) fn reaches_into_owners_files(said: &str) -> bool {
     let said = literal_text(said).replace("\\ ", "\u{0}");
     let named: Vec<&str> = said.split_whitespace().filter(|word| reaches_outside(word)).collect();
     if named.is_empty() {
         return false;
     }
-    !(only_reads(&said) && named.iter().all(|word| toolchain_config(word)))
+    if !only_reads(&said) {
+        return true;
+    }
+    let walks = walks(&said);
+    named.iter().any(|word| read_refused(&word.replace('\u{0}', " "), walks))
+}
+
+/// Whether a reading segment searches below the paths it names, rather than looking at them.
+fn walks(said: &str) -> bool {
+    let Some((program, arguments)) = command_of(said) else {
+        return false;
+    };
+    let recursive = arguments.iter().any(|word| {
+        *word == "--recursive"
+            || (word.starts_with('-') && !word.starts_with("--") && word.contains(['r', 'R']))
+    });
+    match program {
+        "find" | "du" | "tree" | "rg" => true,
+        "grep" | "egrep" | "fgrep" | "ls" => recursive,
+        _ => false,
+    }
 }
 
 /// `line` with each `~` inside quotes and each `$` inside single quotes turned to `_`.
@@ -130,32 +150,19 @@ fn literal_text(line: &str) -> String {
         .collect()
 }
 
-/// A path in the owner's home that holds a toolchain's settings and nothing he keeps: no
-/// permission prompt stands in front of it, and reading it is how a session finds out why a
-/// build behaves as it does. Credentials (`.ssh`, `.aws`) and his folders are not on it.
-fn toolchain_config(word: &str) -> bool {
-    let word = word.rsplit('=').next().unwrap_or(word);
-    let word = word.trim_matches(|c| c == '\'' || c == '"');
-    let under = ["~/", "$HOME/", "${HOME}/"]
-        .iter()
-        .find_map(|home| word.strip_prefix(home));
-    under.is_some_and(|under| {
-        let mut parts = under.split('/');
-        matches!(parts.next(), Some(".cargo" | ".rustup")) && parts.all(|part| part != "..")
-    })
-}
-
 /// Whether a segment only reads: a program that reads, and no redirect into a file.
 fn only_reads(said: &str) -> bool {
     const READERS: &[&str] = &[
         "cat", "ls", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "stat", "file", "find",
-        "du", "tree", "realpath", "readlink", "diff", "cmp", "command", "which", "type",
+        "du", "tree", "realpath", "readlink", "diff", "cmp", "command", "which", "type", "jq",
+        "strings", "cut", "nl", "shasum", "md5", "xxd", "od", "mdls", "cd", "pushd",
     ];
     if truncating_redirect(said) || said.contains(">>") {
         return false;
     }
+    // `F=~/x` alone sets a name, which the segments after it are read with.
     let Some((program, arguments)) = command_of(said) else {
-        return false;
+        return said.split_whitespace().all(|word| assignment(word).is_some());
     };
     // `find` writes with these, and runs anything with the others.
     let find_acts = program == "find"

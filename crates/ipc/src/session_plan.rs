@@ -26,6 +26,12 @@ pub const MOST_TITLE_CHARS: usize = 160;
 pub const MOST_PATH_CHARS: usize = 200;
 pub const MOST_AGENT_CHARS: usize = 60;
 pub const MOST_ID_CHARS: usize = 40;
+/// What the agent is told, wherever it is given a plan, so its own task list is the plan's tasks and
+/// Fleet can read how far each got. The Planning prompt, the `record_plan` receipt and the message
+/// for an approved plan all say these words.
+pub const TASK_LIST_IS_THE_PLAN: &str =
+    "Your task list is this plan: TaskCreate each task word for word, and TaskUpdate it as you work.";
+
 /// Most marks one `send_plan_changes` carries.
 pub const MOST_MARKS: usize = 200;
 /// Problems listed in one refusal.

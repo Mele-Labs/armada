@@ -16,6 +16,7 @@ import {
   observeCheckoutRun,
   readCheckOutput,
   readSessionCheckOutput,
+  stopSessionCheck,
   readManifestChecks,
 } from "./commands";
 
@@ -68,6 +69,7 @@ export function useChecksHost(
     onReadChecks: readManifestChecks,
     onReadCheckOutput: readCheckOutput,
     onReadSessionCheckOutput: readSessionCheckOutput,
+    onStopSessionCheck: stopSessionCheck,
     onFollowCheckOutput: followCheckOutput,
     followedLog: state.followed,
     lines,

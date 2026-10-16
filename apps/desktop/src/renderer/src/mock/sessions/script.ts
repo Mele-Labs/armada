@@ -8,6 +8,7 @@
 
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
+import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
@@ -25,7 +26,12 @@ export type SessionsStore = SessionsDraft & {
   edit: (id: string, change: (one: Session) => Session) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
+  /** How Fleet takes a message from the person: held until the walk lets it go, and refused where `outcomes` says so. Taken at once where absent. */
+  delivery?: Delivery;
 };
+
+/** Each message waits on `gate`, then is taken or refused by the next of `outcomes`; with none left it is taken. */
+export type Delivery = { gate: Gate; outcomes: ("taken" | "refused")[] };
 
 /** Something a route waits on until it is let go: a walk's step, not a timer, so a person can sit on the wait. */
 export type Gate = { wait: () => Promise<void>; release: () => void };
@@ -828,6 +834,21 @@ export function sessionsStore(
       });
       if (stated !== undefined) addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: removedSaid(stated.text, reason) }))]);
     },
+  };
+  // A message goes through `delivery` where a scenario sets one: the thread then shows it going, and refused.
+  const sendNow = store.send;
+  store.send = (id, sent) => {
+    const held = store.delivery;
+    if (held === undefined) return sendNow(id, sent);
+    return held.gate.wait().then(() => {
+      if (held.outcomes.shift() === "refused") {
+        const title = now.find((one) => one.id === id)?.title ?? "the Session";
+        askToTell(`Message to ${title} not sent. Fleet did not take it`);
+        return false;
+      }
+      sendNow(id, sent);
+      return true;
+    });
   };
   return store;
 }

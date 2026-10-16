@@ -101,7 +101,7 @@ impl Sessions for FakeDaemon {
         &self,
         call: ipc::SessionCheckCall,
     ) -> Result<ipc::SessionCheckAnswer, Refusal> {
-        Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)) })
+        Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)), stop: None })
     }
 
     async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
@@ -115,6 +115,15 @@ impl Sessions for FakeDaemon {
             bytes: 3,
             whole: true,
         })
+    }
+
+    async fn observe_session_check(&self, _run: u64) -> Result<crate::SessionCheckLive, Refusal> {
+        self.runs_nothing_here()
+    }
+
+    async fn stop_session_check(&self, run: u64, force: bool) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        let stop = if force { ipc::SessionCheckStop::Force } else { ipc::SessionCheckStop::Graceful };
+        Ok(ipc::SessionCheckAnswer { run: Some(run), stop: Some(stop) })
     }
 
     async fn start_another_session(

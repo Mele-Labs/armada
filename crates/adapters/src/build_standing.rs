@@ -8,10 +8,10 @@
 //! merged branches and behind by whatever landed after it was cut.
 
 use std::io::Read;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-use crate::delivery::run_in;
+use crate::delivery::read_in;
 
 const POLL: Duration = Duration::from_millis(50);
 
@@ -20,12 +20,12 @@ const POLL: Duration = Duration::from_millis(50);
 pub fn position_against_main(root: &str, commit: &str) -> Option<(u32, u32)> {
     // `^{commit}` so a ref that is not a commit, and an empty string, are not counted.
     let named = format!("{commit}^{{commit}}");
-    let held = run_in(root, "git", &["rev-parse", "--verify", "--quiet", &named]).ok()?;
+    let held = read_in(root, "git", &["rev-parse", "--verify", "--quiet", &named]).ok()?;
     if !held.status.success() {
         return None;
     }
     let range = format!("origin/main...{commit}");
-    let counted = run_in(root, "git", &["rev-list", "--left-right", "--count", &range]).ok()?;
+    let counted = read_in(root, "git", &["rev-list", "--left-right", "--count", &range]).ok()?;
     if !counted.status.success() {
         return None;
     }
@@ -74,7 +74,7 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
 
 /// The lines git printed for these arguments in `root`, or `None` where it failed.
 fn commits(root: &str, args: &[&str]) -> Option<Vec<String>> {
-    let run = run_in(root, "git", args).ok().filter(|run| run.status.success())?;
+    let run = read_in(root, "git", args).ok().filter(|run| run.status.success())?;
     Some(String::from_utf8_lossy(&run.stdout).lines().map(str::to_string).collect())
 }
 
@@ -92,7 +92,7 @@ pub fn fetch_branch(root: &str, branch: &str, within: Duration) -> Result<(), St
 /// Run `git` with these arguments (a fetch) in `root`, stopped if it is still
 /// running after `within`. Errors with git's own sentence. **No prompt.**
 pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Result<(), String> {
-    let mut child = Command::new("git")
+    let mut child = crate::background::command("git")
         .args(args)
         .current_dir(root)
         .stdin(Stdio::null())
