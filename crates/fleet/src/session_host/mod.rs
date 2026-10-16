@@ -12,6 +12,7 @@ pub(crate) mod activity;
 mod agent_starting;
 mod annotating;
 mod asking;
+mod backgrounding;
 mod cut_off;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
@@ -391,6 +392,8 @@ pub(crate) struct State {
     pub spawns: crate::file_touching::Spawns,
     /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
     pub judging: u32,
+    /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
+    pub background: backgrounding::Calls,
 }
 
 impl State {
@@ -432,6 +435,7 @@ impl State {
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
             judging: 0,
+            background: backgrounding::Calls::default(),
         }
     }
 }

@@ -163,6 +163,30 @@ pub enum Speaker {
     Armada,
 }
 
+/// How a background task ended, in the words the ledger keeps.
+///
+/// **Three, and the harness's fourth spelling is folded in**: a task someone stopped is `killed`
+/// in one line and `stopped` in the other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TaskStatus {
+    /// It finished, and for a command that is exit code 0.
+    Completed,
+    /// It finished and failed.
+    Failed,
+    /// It was stopped before it finished.
+    Killed,
+}
+
+impl TaskStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TaskStatus::Completed => "completed",
+            TaskStatus::Failed => "failed",
+            TaskStatus::Killed => "killed",
+        }
+    }
+}
+
 /// One line of a Drone's output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DroneEvent {
@@ -265,6 +289,31 @@ pub enum DroneEvent {
     /// coming. `fleet::awaiting_background` is the reading and
     /// `fleet::silence` is what it does about it.
     BackgroundWork { outstanding: usize },
+    /// A task the harness started for a call: a shell command, a watch, a subagent.
+    ///
+    /// **The only line that names which call a task belongs to**, so it is what pairs a
+    /// background command with the call that asked for it. `backgrounded` is the harness's own
+    /// word for the task running beside the turn rather than inside it, and it is true for a call
+    /// a hook moved to the background as it is for one that asked, which the call's own arguments
+    /// do not show.
+    TaskStarted {
+        task: String,
+        call: String,
+        /// The call's `description`, else the command itself.
+        description: String,
+        backgrounded: bool,
+    },
+    /// A task ended. **Two lines say so and each is read as this**: the status change, which has
+    /// the status and nothing else, and the notice that follows it, which has where the output
+    /// went and, for a command, the exit code. A reader merges them by `task`.
+    TaskEnded {
+        task: String,
+        status: TaskStatus,
+        /// The file the task's output was written to. Only the notice carries it.
+        output: Option<String>,
+        /// The command's exit code, where it exited on its own and the notice said so.
+        exit: Option<i32>,
+    },
     /// The model is thinking, and how much it has thought so far.
     ///
     /// **An estimate, cumulative within one model call**, and the harness's
