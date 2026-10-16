@@ -96,6 +96,8 @@ fn long_lived() -> SessionRecord {
         helm: false,
         activity: None,
         build: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }
 
@@ -186,6 +188,43 @@ async fn show_sketch_answers_the_title_it_kept() {
     let said = through_the_door(&app, "show_sketch", SKETCH).await;
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(said, r#"{"session_id":"session-1","sketch":"Request flow"}"#);
+}
+
+const PLAN: &str = r#"{"groups":[{"title":"Rotate","agent":"rust-engineer","paths":["crates/store"],"tasks":[{"title":"Rotate at midnight"}]}]}"#;
+
+#[tokio::test]
+async fn record_plan_answers_the_version_and_each_id_fleet_gave() {
+    let plan = ipc::SessionPlan {
+        version: 2,
+        recorded_at: at(),
+        approved: false,
+        approved_at: None,
+        scope: vec!["crates/store".to_string()],
+        groups: vec![ipc::SessionPlanGroup {
+            id: "g1".to_string(),
+            agent: "rust-engineer".to_string(),
+            title: "Rotate".to_string(),
+            paths: vec!["crates/store".to_string()],
+            tasks: vec![ipc::SessionPlanTask {
+                id: "t1".to_string(),
+                text: "Rotate at midnight".to_string(),
+                state: ipc::PlanTaskState::Open,
+                seen: false,
+            }],
+            worked_at: None,
+        }],
+        changes: None,
+        sketch: None,
+    };
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") = Some(SessionRecord { plan: Some(plan), ..long_lived() });
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "record_plan", PLAN).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(
+        said,
+        r#"{"session_id":"session-1","plan":{"version":2,"groups":[{"id":"g1","title":"Rotate","tasks":[{"id":"t1","title":"Rotate at midnight"}]}]}}"#
+    );
 }
 
 #[tokio::test]

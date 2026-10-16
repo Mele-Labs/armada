@@ -253,6 +253,7 @@ mod session_annotation_done;
 mod session_done;
 mod session_finish_up;
 mod session_host;
+mod session_plan;
 mod session_keeper;
 mod session_piloting;
 mod session_setup;
