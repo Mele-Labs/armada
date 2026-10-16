@@ -146,8 +146,8 @@ const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
-  { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
+  { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "job", label: "Jobs", Glyph: Box },
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
