@@ -345,6 +345,23 @@ impl Delivery for GitVcs {
         crate::pull_request_writes::write(in_repo, pull_request, write)
     }
 
+    fn pull_review_list(
+        &self,
+        in_repo: &str,
+        ask: &adapter_traits::ReviewListAsk<'_>,
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        crate::pull_review_lists::read(in_repo, ask)
+    }
+
+    fn resolve_review_thread(
+        &self,
+        in_repo: &str,
+        thread: &str,
+        resolved: bool,
+    ) -> Result<bool, String> {
+        crate::pull_request_threads::resolve(in_repo, thread, resolved)
+    }
+
     fn merge_by_push(
         &self,
         in_repo: &str,

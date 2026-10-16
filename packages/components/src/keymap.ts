@@ -369,9 +369,11 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "call"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
+  // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
+  // list's `r` reviews a Job, and a pull request in it has none.
   list: ["board", "dashboard", "deck"],
   "list and detail": ["board", "detail", "dashboard"],
   detail: ["detail"],
@@ -384,6 +386,8 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // names while it is up, and the deck's handlers stand down for it: that is a state of the deck, which
   // the keymap's places do not hold, so `call` and `deck` do not overlap here.
   deck: ["deck"],
+  // The Reviews tab is a tab of the places bar, not the deck, so its letters do not meet the deck's.
+  review: ["review"],
   call: ["call"],
 };
 
@@ -433,6 +437,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "A Job", scopes: ["detail", "dispatch card", "piloted job"] },
   { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
+  { title: "Reviews", scopes: ["review"] },
   { title: "Studios", scopes: ["open studio"] },
 ];
 

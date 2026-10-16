@@ -1,5 +1,8 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
+import { MessageSquare } from "lucide-react";
+
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Unified diff — what moved inside the files, as the repository rendered it.
@@ -58,6 +61,13 @@ export type DiffFile = {
    */
   outsidePlan?: boolean;
   lines: DiffLine[];
+  /**
+   * The lines are put away behind the header. A reader that marks a file read folds it, and the
+   * header, which still names the file, is what stays.
+   */
+  folded?: boolean;
+  /** Controls at the header's trailing end, beside the plan mark. A review's Viewed mark sits here. */
+  actions?: ReactNode;
 };
 
 export type UnifiedDiffProps = {
@@ -80,12 +90,28 @@ export type UnifiedDiffProps = {
   note?: ReactNode;
   /** A clipboard write is silent, so the surface confirms it with a toast. */
   onCopied?: (value: string) => void;
+  /**
+   * What sits under a line: a review's threads and findings, which belong to a line by its place in
+   * `file.lines`. Absent draws nothing, and a line with nothing under it draws nothing.
+   */
+  under?: (file: DiffFile, index: number) => ReactNode;
+  /**
+   * A gutter press on a line, drawn on hover and focus, to start a comment there. **The only
+   * numbering the diff takes is its place in the list, and it is never drawn.** Absent draws no gutter.
+   */
+  onLine?: {
+    /** What a hover says. */
+    label: string;
+    /** What the button is called for a screen reader or a walk: the line it is on, since `label` is the same on every line. */
+    name?: (file: DiffFile, index: number) => string;
+    press: (file: DiffFile, index: number) => void;
+  };
 };
 
 /** What a drifted file says. `ChangedFiles`' wording, not a second one. */
 const OUTSIDE_PLAN = "outside plan";
 
-export function UnifiedDiff({ files, emptyNote, cut, note, onCopied }: UnifiedDiffProps) {
+export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLine }: UnifiedDiffProps) {
   const copy = useCallback(
     (event: MouseEvent<HTMLElement>, value: string) => {
       event.stopPropagation();
@@ -110,7 +136,7 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied }: UnifiedDi
         </p>
       )}
       {files.map((file) => (
-        <section className="armada-diff__file" key={file.path}>
+        <section className="armada-diff__file" key={file.path} role="group" aria-label={file.path} data-diff-path={file.path} data-folded={file.folded === true || undefined}>
           <header className="armada-diff__head" data-outside={file.outsidePlan === true || undefined}>
             {/* The title carries the whole path however narrow the pane gets,
                 and so does the clipboard: a copy that truncated with the
@@ -128,18 +154,36 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied }: UnifiedDi
             <span className="armada-diff__mark">
               {file.outsidePlan === true ? OUTSIDE_PLAN : null}
             </span>
+            {file.actions === undefined ? null : (
+              <span className="armada-diff__actions">{file.actions}</span>
+            )}
           </header>
           {/* `pre` per line rather than one block: a hunk header and a changed
               line take different surfaces, and a single block cannot carry
               them. Nothing wraps — a diff that reflowed would move a marker
               off the column it identifies the line by. */}
-          <ol className="armada-diff__lines">
-            {file.lines.map((line, i) => (
-              <li className="armada-diff__line" data-kind={line.kind} key={i}>
-                <pre className="armada-diff__text">{line.text}</pre>
-              </li>
-            ))}
-          </ol>
+          {file.folded === true ? null : (
+            <ol className="armada-diff__lines">
+              {file.lines.map((line, i) => (
+                <li className="armada-diff__line" data-kind={line.kind} key={i}>
+                  {onLine === undefined || line.kind === "hunk" ? null : (
+                    <Tooltip label={onLine.label} asChild>
+                      <button
+                        type="button"
+                        className="armada-diff__gutter"
+                        aria-label={onLine.name?.(file, i) ?? onLine.label}
+                        onClick={() => onLine.press(file, i)}
+                      >
+                        <MessageSquare size={12} strokeWidth={2} aria-hidden />
+                      </button>
+                    </Tooltip>
+                  )}
+                  <pre className="armada-diff__text">{line.text}</pre>
+                  {under?.(file, i)}
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
       ))}
       {note === undefined ? null : <p className="armada-diff__note">{note}</p>}

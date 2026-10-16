@@ -225,6 +225,15 @@ pub struct PullRequestPage {
     pub checks: Vec<PullRequestCheckRow>,
     pub files: Vec<PullRequestFile>,
     pub commits: Vec<PullRequestCommit>,
+    /// The commit the branch is at, whole. Absent where the forge did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head: Option<String>,
+    /// Its description, as Markdown. Absent where the author wrote none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    /// The conversations on its diff, resolved ones too: the forge's first 100, in its own order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub threads: Vec<crate::pull_reviews::PullReviewThread>,
     /// Who registered it in the central store, as the merge line's open pull requests carry
     /// it. Absent as `HubPullRequest::owner` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -270,6 +279,14 @@ pub struct WritePullRequest {
     /// `approve`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// The comments of the review, **posted with it as one review** and not as comments of their
+    /// own. With any, `body` may be empty for `comment`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub comments: Vec<crate::pull_reviews::PullReviewComment>,
+    /// The commit the person read, whole: their line comments land on it, whatever has been pushed
+    /// since. Absent reviews the branch as it stands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
     /// The Session the press came from. **Absent records no Session.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,

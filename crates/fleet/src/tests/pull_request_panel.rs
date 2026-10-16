@@ -5,13 +5,15 @@
 //! nothing was written says so by counting what the fake was asked to write.
 
 use adapter_traits::{
-    CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
-    PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
+    CheckRow, CheckStanding, CommitLine, DiffSide as FactSide, FileChange, FilePatch, Mergeability, Omitted,
+    PageFile, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewComment, ReviewSaid,
+    ReviewStanding, ReviewThreadFacts, Said, ThreadSaid,
 };
 use api::PullRequestPanel;
 use ipc::{
-    PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestMergeable,
-    PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, SessionId, WritePullRequest,
+    DiffSide, ManifestId, PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestMergeable,
+    PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, ResolvePullThread,
+    SessionId, WritePullRequest,
 };
 
 use super::pull_requesting::{
@@ -60,6 +62,36 @@ pub(super) fn a_page() -> PullRequestPageFacts {
             at: None,
         }],
         omitted: Omitted::default(),
+        head: Some("3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into()),
+        body: Some("Takes a draft out.".into()),
+        threads: vec![
+            ReviewThreadFacts {
+                id: "PRRT_1".into(),
+                path: "a.rs".into(),
+                line: Some(4),
+                side: FactSide::Left,
+                resolved: false,
+                comments: vec![ThreadSaid {
+                    id: "PRRC_1".into(),
+                    author: "ada".into(),
+                    at: "2026-10-15T09:00:00Z".into(),
+                    body: "why?".into(),
+                }],
+            },
+            ReviewThreadFacts {
+                id: "PRRT_2".into(),
+                path: "b.rs".into(),
+                line: None,
+                side: FactSide::Right,
+                resolved: true,
+                comments: vec![ThreadSaid {
+                    id: "PRRC_2".into(),
+                    author: "ghost".into(),
+                    at: "2026-10-15T09:30:00Z".into(),
+                    body: "done".into(),
+                }],
+            },
+        ],
     }
 }
 
@@ -68,6 +100,8 @@ fn writing(kind: PullRequestWriteKind, body: Option<&str>) -> WritePullRequest {
         pull_request: 12,
         kind,
         body: body.map(str::to_string),
+        comments: Vec::new(),
+        commit: None,
         session_id: None,
     }
 }
@@ -247,4 +281,185 @@ async fn a_write_lets_the_ledger_follow_the_forge() {
     let row = the_row(&fleet, "s1", "pr").await;
     assert_eq!(row.detail.get("title").map(String::as_str), Some("Take a draft out"));
     assert_eq!(row.detail.get("checks").map(String::as_str), Some("passed"));
+}
+
+fn a_line_comment() -> PullReviewComment {
+    PullReviewComment::Line {
+        path: "a.rs".into(),
+        line: 4,
+        side: DiffSide::Left,
+        body: "why?".into(),
+    }
+}
+
+#[tokio::test]
+async fn the_page_carries_the_head_the_description_and_the_threads() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
+    assert_eq!(page.head.as_deref(), Some("3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e"));
+    assert_eq!(page.body.as_deref(), Some("Takes a draft out."));
+    assert_eq!(page.threads.len(), 2);
+    let (open, resolved) = (&page.threads[0], &page.threads[1]);
+    assert_eq!((open.line, open.side, open.resolved), (Some(4), DiffSide::Left, false));
+    assert_eq!(open.comments[0].author, "ada");
+    assert_eq!((resolved.line, resolved.side, resolved.resolved), (None, DiffSide::Right, true));
+}
+
+#[tokio::test]
+async fn a_review_with_comments_reaches_the_forge_as_one_review_at_the_commit_read() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let reply = PullReviewComment::Reply {
+        thread: "PRRT_1".into(),
+        body: "because".into(),
+    };
+    let mut write = writing(PullRequestWriteKind::RequestChanges, Some("see the lines"));
+    write.comments = vec![a_line_comment(), reply];
+    write.commit = Some("c0ffee".into());
+    fleet.write_pull_request(id, write).await.expect("written");
+    assert_eq!(
+        fleet.vcs().pull_request_writes(),
+        [(
+            "12".to_string(),
+            PullRequestWrite::Review {
+                verdict: ReviewSaid::ChangesRequested,
+                body: Some("see the lines".into()),
+                comments: vec![
+                    ReviewComment::Line {
+                        path: "a.rs".into(),
+                        line: 4,
+                        side: FactSide::Left,
+                        body: "why?".into()
+                    },
+                    ReviewComment::Reply {
+                        thread: "PRRT_1".into(),
+                        body: "because".into()
+                    },
+                ],
+                commit: Some("c0ffee".into()),
+            }
+        )],
+        "one write, not a comment for each"
+    );
+}
+
+#[tokio::test]
+async fn a_blank_body_is_taken_only_where_comments_come_with_it() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    for kind in [PullRequestWriteKind::Comment, PullRequestWriteKind::RequestChanges] {
+        let refused = fleet
+            .write_pull_request(id.clone(), writing(kind, Some(" ")))
+            .await
+            .unwrap_err();
+        assert_eq!(code(&refused), "fleet.pull_request_write_blank");
+    }
+    assert!(fleet.vcs().pull_request_writes().is_empty());
+    for kind in [
+        PullRequestWriteKind::Comment,
+        PullRequestWriteKind::Approve,
+        PullRequestWriteKind::RequestChanges,
+    ] {
+        let mut write = writing(kind, None);
+        write.comments = vec![a_line_comment()];
+        fleet.write_pull_request(id.clone(), write).await.expect("written");
+    }
+    let writes = fleet.vcs().pull_request_writes();
+    assert_eq!(writes.len(), 3);
+    assert!(writes.iter().all(|(_, write)| matches!(write, PullRequestWrite::Review { body: None, .. })));
+}
+
+#[tokio::test]
+async fn a_review_the_forge_refuses_is_a_conflict_in_its_own_words() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet
+        .vcs()
+        .write_on_pull_request_refuses("Line must be part of the diff");
+    let mut write = writing(PullRequestWriteKind::Comment, None);
+    write.comments = vec![a_line_comment()];
+    let refused = fleet.write_pull_request(id, write).await.unwrap_err();
+    assert_eq!(refused.status(), 409);
+    assert_eq!(code(&refused), "fleet.pull_request_write_refused");
+    assert!(refused.error().message.contains("part of the diff"));
+}
+
+#[tokio::test]
+async fn a_thread_is_resolved_and_opened_again_as_the_forge_holds_it() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    for resolved in [true, false] {
+        let answered = fleet
+            .resolve_review_thread(id.clone(), ResolvePullThread { thread: "PRRT_1".into(), resolved })
+            .await
+            .expect("taken");
+        assert_eq!((answered.thread.as_str(), answered.resolved), ("PRRT_1", resolved));
+    }
+    assert_eq!(
+        fleet.vcs().review_thread_resolutions(),
+        [("PRRT_1".to_string(), true), ("PRRT_1".to_string(), false)]
+    );
+}
+
+#[tokio::test]
+async fn a_thread_the_forge_will_not_resolve_is_a_conflict_in_its_own_words() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet
+        .vcs()
+        .resolving_a_thread_refuses("Resource not accessible by personal access token");
+    let refused = fleet
+        .resolve_review_thread(id, ResolvePullThread { thread: "PRRT_1".into(), resolved: true })
+        .await
+        .unwrap_err();
+    assert_eq!(refused.status(), 409);
+    assert_eq!(code(&refused), "fleet.review_thread_refused");
+    assert!(refused.error().message.contains("not accessible"));
+}
+
+#[tokio::test]
+async fn a_thread_of_a_repository_fleet_does_not_serve_is_refused_before_the_forge() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let refused = fleet
+        .resolve_review_thread(
+            ManifestId::carried("01NOSUCHMANIFEST"),
+            ResolvePullThread { thread: "PRRT_1".into(), resolved: true },
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.status(), 422);
+    assert!(fleet.vcs().review_thread_resolutions().is_empty());
+}
+
+#[tokio::test]
+async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let blanks = [
+        PullReviewComment::Line { path: "a.rs".into(), line: 4, side: DiffSide::Left, body: " ".into() },
+        PullReviewComment::File { path: "a.rs".into(), body: String::new() },
+        PullReviewComment::Reply { thread: "PRRT_1".into(), body: "\n".into() },
+    ];
+    for blank in blanks {
+        let mut write = writing(PullRequestWriteKind::Approve, None);
+        // One good comment beside it: a review with a blank one in it is not posted at all.
+        write.comments = vec![a_line_comment(), blank];
+        let refused = fleet.write_pull_request(id.clone(), write).await.unwrap_err();
+        assert_eq!(code(&refused), "fleet.pull_request_write_blank");
+    }
+    assert!(fleet.vcs().pull_request_writes().is_empty());
 }

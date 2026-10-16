@@ -485,6 +485,23 @@ impl Delivery for FakeVcs {
         self.write_asked(pull_request, write)
     }
 
+    fn pull_review_list(
+        &self,
+        _in_repo: &str,
+        ask: &adapter_traits::ReviewListAsk<'_>,
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        self.review_list_read(ask)
+    }
+
+    fn resolve_review_thread(
+        &self,
+        _in_repo: &str,
+        thread: &str,
+        resolved: bool,
+    ) -> Result<bool, String> {
+        self.thread_resolution_asked(thread, resolved)
+    }
+
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
         // Recorded before the answer, because the forge is reached either way:
         // a refused merge is a call that happened and a test asserting nothing
