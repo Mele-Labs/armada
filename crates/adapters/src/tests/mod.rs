@@ -10,6 +10,7 @@
 //! captured — so the whole confinement posture is asserted without a
 //! credential, a network, or an agent.
 
+mod background_task;
 mod basing;
 mod build_standing;
 mod deleting_merged_branch;

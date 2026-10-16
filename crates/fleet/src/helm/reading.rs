@@ -84,18 +84,20 @@ fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> S
 
 /// Whether one segment names the owner's own files and is refused for it: anything but a read,
 /// and a read only where [`read_refused`] says so. **A `~` inside quotes and a `$` inside single
-/// quotes are text**, as the shell leaves them: an awk script's `$5 ~ /x$/` is no path.
-pub(super) fn reaches_into_owners_files(said: &str) -> bool {
+/// quotes are text**, as the shell leaves them: an awk script's `$5 ~ /x$/` is no path. The words
+/// refused, in the order the segment names them; empty where it runs.
+pub(super) fn reaches_into_owners_files(said: &str) -> Vec<String> {
     let said = literal_text(said).replace("\\ ", "\u{0}");
-    let named: Vec<&str> = said.split_whitespace().filter(|word| reaches_outside(word)).collect();
-    if named.is_empty() {
-        return false;
-    }
-    if !only_reads(&said) {
-        return true;
+    let named: Vec<String> = said
+        .split_whitespace()
+        .filter(|word| reaches_outside(word))
+        .map(|word| word.replace('\u{0}', " "))
+        .collect();
+    if named.is_empty() || !only_reads(&said) {
+        return named;
     }
     let walks = walks(&said);
-    named.iter().any(|word| read_refused(&word.replace('\u{0}', " "), walks))
+    named.into_iter().filter(|word| read_refused(word, walks)).collect()
 }
 
 /// Whether a reading segment searches below the paths it names, rather than looking at them.

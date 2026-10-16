@@ -525,7 +525,7 @@ export class WiredStore {
     },
     answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) =>
       this.plain(this.api.answerWaiting({ session_id: id, item_id: itemId, ...given })),
-    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
+    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;
       void this.plain(
@@ -534,6 +534,7 @@ export class WiredStore {
           call,
           answer: answer ?? "allow_once",
           ...(answers === undefined ? {} : { answers }),
+          ...(folder === undefined ? {} : { folder }),
         }),
       );
     },

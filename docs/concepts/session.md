@@ -81,6 +81,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `job` | the Job's id | nothing settles it yet |
 | `need` | the path, repository-relative | its holder's work merges (`spent`), or the holder is gone or releases it (`given_back`). Not exclusive: `docs/capabilities/needs.md` |
 | `subagent` | the agent's id | it stops (`spent`) or its process is cut off (`given_back`); more work after either holds it again, *A terminal session's thread* |
+| `background` | the task id the harness gave a shell command the agent ran beside its turn (`run_in_background`) or a `Monitor` watch; `detail.form` is `command` or `monitor`, `task` its description, `command` the command, and once it ends `status` (`completed`, `failed` or `killed`), `output` (the file its output went to) and `exit` (the code, for a command that exited on its own) | the task ends (`spent`, with `status`), or the process that ran it is replaced (`given_back`). Several stand at once, and a hosted Session's only; *Background tasks* |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
 | `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back. A move's pair carries `detail.moved`, *A moved session* |
@@ -306,19 +307,27 @@ nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of it
 branch and the branches of slots it holds, once the base holds every commit on them, and
 `rm` under `$TMPDIR` as under `/tmp`.
 
-**In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
-Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
-off the machine unasked. A call that writes into the owner's own files, or
-removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. **A read anywhere runs** (the owner, 16 Oct 2026),
-except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads, Pictures,
-Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`, `~/.config/gh`),
-another volume, or a search from `/`, `/Users` or his home (`fleet::helm::deciding::GUARDED`).
+**In `auto` a session waits on the person only for a call past its slots** (the owner, 16 Oct
+2026, reversing 8 Oct's "never waits" for these calls). Inside its slots and `/tmp` it runs,
+rewrites its own branch, pushes and reaches off the machine unasked. **A read anywhere runs**
+(16 Oct 2026), except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads,
+Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`,
+`~/.config/gh`), another volume, or a search from `/`, `/Users` or his home
+(`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
+`Edit` anywhere outside its slots and `/tmp` are put to him on a card in the session's thread:
+Allow once, Reject once, Always allow and Always block, the last two over the path the guard named
+first, drawn as its folders so a press on `Documents` chooses everything under it. **The folder
+list answers before a card is drawn** (`features.reachFolders` in settings.json, shown and edited
+in Settings, Features): a path in a blocked folder is refused with no card, one in an allowed
+folder runs, and the deeper entry wins, a block winning a tie. Nobody answering inside the hold is
+a refusal, so a session never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
+`chmod`, `chown` or a truncating redirect outside the slots and `/tmp` is refused with a reason the
+agent reads and works around, whatever folder he allowed, and `sudo` and `kill -9 -1` stay refused.
 `launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
-session's slot all run. `chmod` and `chown` in a
-held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
-variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
-is put to the person; `ask` and `acceptEdits` still put calls to him.
+session's slot all run. `chmod` and `chown` in a held slot are the session's work as `rm` is, and a
+redirect into `/tmp` runs however `$$` or a variable the line set spells it. Writing another
+session's slot stays refused. A question (`AskUserQuestion`) is put to him in every mode; `ask` and
+`acceptEdits` still put every call to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a
 restart of the process or of Fleet is not the session ending. **So is every
@@ -440,10 +449,22 @@ working. When Fleet starts a process for a session that has run, every `subagent
 row still `standing` whose transcript shows no finished turn was cut off. Fleet
 gives those rows back, keeps their type, description and id in the restart's
 note (so the retro lists them), and puts the same list ahead of the agent's next
-turn, once, so it can start again what it still needs.
+turn, once, so it can start again what it still needs. **Background tasks go the same way**: a `background` row still `standing` when the new process starts is given back, and is in the same list.
 
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.
+
+### Background tasks
+
+**A hosted Session's ledger shows what its agent runs beside its turn, and Fleet detects it.** A `Bash` call run in the background and a `Monitor` watch each become one `background` row, read off the Session's own stream, so no tool call of the agent's is involved (the owner, 14 Oct 2026: Fleet detects state and does not rely on a tool call). The call is remembered when it is heard; the harness's `task_started` line names the task, the call that asked for it and whether it runs beside the turn, which is true for a call a hook moved to the background as it is for one that asked. A task whose call was not a shell command or a watch (a subagent) has no row, a command that ran in the foreground has none, and an end for an id that never started here settles nothing. A subagent's backgrounded command is the Session's row, heard the same way.
+
+| Line | Gives the row |
+|---|---|
+| `task_started` | `target` (the task id), `detail.task` (its description), and from the call, `detail.form` and `detail.command` (the whole command) |
+| `task_updated` with a final status | `spent`, and `detail.status`: `completed`, `failed` or `killed` |
+| `task_notification` | `detail.output` (the file its output went to), `detail.exit`, and the same `status` (`stopped` is `killed`) |
+
+The two ending lines each fill in what they have, in either order. **The exit code is the one fact read out of prose:** no key carries it, so only the end of the notice's `summary` is read, in the two forms the harness writes (`completed (exit code 0)`, `failed with exit code 3`). A summary in neither form has no `exit`. `detail.output` is only known once the task ends. A terminal Session's `background` rows are not kept: its mod does not report them.
 
 ## Showing a window
 
@@ -512,7 +533,7 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 | `standing` | Read from | Item in `waiting_for` |
 |---|---|---|
-| `working` | a turn is running and something was heard from it within the bound, or, between turns, a `subagent` row of it stands: a parent that ended its turn to wait on its subagents read as idle while they ran (14 Oct 2026) | none |
+| `working` | a turn is running and something was heard from it within the bound, or, between turns, a `subagent` row of it stands: a parent that ended its turn to wait on its subagents read as idle while they ran (14 Oct 2026). A `background` row does not count: the agent is woken when its command ends, and the person has nothing to wait on | none |
 | `stuck` | a turn is running, nothing has been heard from it for **ten minutes**, and it is not held on a question or a permission | none |
 | `done` | `done_since` stands (the agent said nothing is left) | `done:<done_since>`, text `Done` |
 | `replied` | the last turn ended on a message to the person, and he has not written since | none: a reply asks nothing of him |
