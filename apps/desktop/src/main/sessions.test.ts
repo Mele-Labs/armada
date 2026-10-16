@@ -60,6 +60,7 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
         const id = url.searchParams.get("session_id") ?? "";
         return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
       }
+      if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
     });
@@ -301,6 +302,17 @@ it("claims a pull request on its own route with the session named, and holds not
   expect(sent[0]!.body).toEqual({ number: 1823, session_id: "a" });
   expect(published).toEqual([]);
   expect(await host(null).sessions.claimPullRequest({ number: 1823, session_id: "a" })).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+// Fleet answers `{ told }` here, not the record: folded, it sat in the list with no `attachments` and broke every redraw.
+it("tells Fleet a window could not show its page, and folds nothing of the answer", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const told = await sessions.windowFailed({ session_id: "a", url: "http://localhost:5173/", why: "refused" });
+  expect(told).toEqual({ ok: true, value: { told: true } });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/window/failed"]);
+  expect(published).toEqual([]);
 });
 
 it("writes a Session's retro on its own route and answers when it is written", async () => {

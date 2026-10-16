@@ -43,6 +43,7 @@ import type {
   StopSessionRun,
   TuneSession,
   WindowClosed,
+  WalkTold,
   WindowFailed,
   WindowTake,
   WriteSessionRun,
@@ -323,9 +324,12 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/window/closed", closed);
   }
 
-  /** A window a Session showed could not show its page: Fleet tells the Session. */
-  async windowFailed(failed: WindowFailed): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/window/failed", failed);
+  /** A window a Session showed could not show its page: Fleet tells the Session. Fleet answers `WalkTold`, not the record, so nothing is folded. */
+  async windowFailed(failed: WindowFailed): Promise<SessionActed<WalkTold>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/window/failed", failed);
+    return answer.ok === true ? { ok: true, value: answer.body as WalkTold } : { ok: false, outcome: answer.outcome };
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {
