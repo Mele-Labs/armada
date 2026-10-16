@@ -13,7 +13,7 @@
 
 use adapter_traits::{HeldBack, Rendering, RepositoryStanding};
 
-use crate::landing::{caught_up, checkout_has, fields, held_back, rendering};
+use crate::landing::{base_fast_forwarded, caught_up, checkout_has, fields, held_back, rendering};
 use crate::tests::repo::TempRepo;
 
 // ------------------------------------------------------- one line, four fields
@@ -279,12 +279,9 @@ fn a_checkout_has_its_own_head_and_its_ancestors_and_nothing_newer() {
     let repo = TempRepo::with_a_commit();
     let first = repo.head_str();
     repo.commit_one("src/next.rs", "next", "the next commit");
-    assert!(checkout_has(&repo.root_str(), &first));
-    assert!(checkout_has(&repo.root_str(), &repo.head_str()));
-    repo.git(&["checkout", "--quiet", &first]);
-    let newer = repo.git(&["rev-parse", "main"]);
-    assert!(!checkout_has(&repo.root_str(), &newer));
-    assert!(!checkout_has(&repo.root_str(), "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"));
+    assert!(checkout_has(&repo.root_str(), "main", &first));
+    assert!(checkout_has(&repo.root_str(), "main", &repo.head_str()));
+    assert!(!checkout_has(&repo.root_str(), "main", "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"));
 }
 
 #[test]
@@ -317,14 +314,43 @@ fn an_uncommitted_file_main_also_changed_is_named_as_clashing() {
 }
 
 #[test]
-fn a_checkout_on_another_branch_with_its_own_commit_names_both() {
+fn a_checkout_on_another_branch_is_counted_by_its_local_base() {
     let repo = a_repository_behind_its_remote();
     repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
-    repo.commit_one("src/mine.rs", "mine", "my own commit");
+    repo.commit_one("mine.rs", "mine", "my own commit");
+    repo.write("mine.rs", "half a thought");
 
     let held = held_back(&repo.root_str(), "main").expect("read");
     assert_eq!(held.on.as_deref(), Some("something-of-my-own"));
-    assert_eq!((held.ahead, held.behind), (1, 1));
+    assert_eq!((held.ahead, held.behind), (0, 1), "main's, not the branch's");
+    assert!(held.uncommitted.is_empty(), "the branch's files are not main's");
+}
+
+/// The owner is not called for a checkout on another branch: its `main` moves and nothing checked out does.
+#[test]
+fn the_local_base_fast_forwards_under_another_branch_and_nothing_checked_out_moves() {
+    let repo = a_repository_behind_its_remote();
+    repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
+    repo.write("mine.rs", "half a thought");
+    let mine = repo.head_str();
+    repo.git(&["fetch", "--quiet", "origin"]);
+    let tip = repo.git(&["rev-parse", "origin/main"]);
+
+    assert!(!checkout_has(&repo.root_str(), "main", &tip));
+    assert!(base_fast_forwarded(&repo.root_str(), "main"));
+    assert!(checkout_has(&repo.root_str(), "main", &tip));
+    assert_eq!(repo.head_str(), mine);
+    assert_eq!(repo.git(&["branch", "--show-current"]), "something-of-my-own");
+    assert!(repo.status().iter().any(|line| line.contains("mine.rs")));
+}
+
+#[test]
+fn a_local_base_with_its_own_commit_does_not_fast_forward() {
+    let repo = a_repository_behind_its_remote();
+    repo.commit_one("mine.rs", "mine", "a commit on main only here");
+    repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
+
+    assert!(!base_fast_forwarded(&repo.root_str(), "main"));
 }
 
 /// **A repository takes every directory it made with it.**

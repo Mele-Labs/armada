@@ -210,9 +210,12 @@ where
             return;
         };
         let commit = pending.commit.clone();
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return;
+        };
         let landed_here = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
-                vcs.checkout_has(root, &commit)
+                vcs.checkout_has(root, &base, &commit)
             })
             .await;
         if landed_here {

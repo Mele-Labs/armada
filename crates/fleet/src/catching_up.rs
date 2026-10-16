@@ -3,8 +3,11 @@
 //! **Off the reading of main, not off a Job's merge.** Sessions and the merge
 //! queue land most pull requests, and a catch-up that waited for a Job's left
 //! the owner's checkout 880 commits behind for two days (15 Oct 2026). The
-//! same refusals hold: another branch, uncommitted work or a diverged history
-//! is never moved, and what stood in the way is kept for a person to see.
+//! same refusals hold: uncommitted work or a diverged history is never moved,
+//! and what stood in the way is kept for a person to see. **A checkout on
+//! another branch is not a refusal**: its local base branch is fast-forwarded,
+//! and nothing checked out moves. The owner is called only for uncommitted
+//! work on the base and for conflicts (16 Oct 2026).
 
 use std::sync::Arc;
 
@@ -31,7 +34,8 @@ where
         let has_it = self
             .forge_asked(&root, {
                 let head = head.to_string();
-                move |vcs: &V, root: &str| vcs.checkout_has(root, &head)
+                let base = base.to_string();
+                move |vcs: &V, root: &str| vcs.checkout_has(root, &base, &head)
             })
             .await;
         if has_it {
@@ -47,7 +51,7 @@ where
                 .await
                 .expect("git panicked bringing the checkout up to date")
         };
-        let held = match &standing {
+        let mut held = match &standing {
             RepositoryStanding::LeftAlone { .. } => {
                 self.forge_asked(&root, {
                     let base = base.to_string();
@@ -57,6 +61,18 @@ where
             }
             RepositoryStanding::MovedOn { .. } | RepositoryStanding::AlreadyHadIt { .. } => None,
         };
+        // **On another branch the base is Fleet's to move, and nobody is told**:
+        // the local base branch fast-forwards and what is checked out stays.
+        if held.as_ref().is_some_and(|held| held.on.is_some()) {
+            let _at_the_merge_end = self.merge_end().lock().await;
+            let (vcs, root, base) = (Arc::clone(self.vcs()), root.clone(), base.to_string());
+            let moved = tokio::task::spawn_blocking(move || vcs.base_fast_forwarded(&root, &base))
+                .await
+                .expect("git panicked bringing the base up to date");
+            if moved {
+                held = None;
+            }
+        }
         self.told_servers_the_checkout_moved(&root, &standing);
         let mut sweep = self.sweeping().lock().await;
         match held {
