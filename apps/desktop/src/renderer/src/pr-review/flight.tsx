@@ -120,6 +120,8 @@ function SpendConfirm() {
       const target = event.target instanceof Element ? event.target : null;
       if (target === null || target.closest(".armada-dialog") === null) return;
       const onButton = target.closest("button") !== null;
+      // In a walk window his Enter is the card's Next; the walk's own Enter on the dialog is the one that runs it.
+      if (event.isTrusted && window.__armadaWalk !== undefined && event.key === "Enter") return;
       if (event.key === "Enter" && !(onButton && target.closest("button")?.textContent?.startsWith("Cancel"))) {
         event.preventDefault();
         event.stopPropagation();

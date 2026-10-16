@@ -8,7 +8,7 @@ import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider } from "@armada/components";
+import { HapticsProvider, forgetAllKept } from "@armada/components";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
@@ -126,6 +126,8 @@ export function mountApp(
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
   // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
   const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(chosen.draft.prReview);
+  // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
+  if (reviews !== undefined) forgetAllKept();
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
