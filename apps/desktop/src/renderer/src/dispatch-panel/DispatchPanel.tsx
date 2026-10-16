@@ -12,7 +12,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -119,6 +119,9 @@ export type PanelProps = {
   disabled?: boolean;
 };
 
+/** `dispatch-panel.css` lifts the menus portalled onto the body above the panel while it is open. */
+const DISPATCHING: readonly Mark[] = [{ of: "body", as: "data-dispatching" }];
+
 export function DispatchPanel({
   open,
   words,
@@ -147,6 +150,7 @@ export function DispatchPanel({
   autoFocus = false,
   disabled = false,
 }: PanelProps) {
+  const dispatching = useMarking(DISPATCHING);
   const field = useRef<HTMLTextAreaElement | null>(null);
   const row = useRef<HTMLDivElement>(null);
   const asked = useRef(false);
@@ -349,6 +353,7 @@ export function DispatchPanel({
 
   return (
     <div
+      ref={dispatching}
       className="armada-dispatch-panel"
       data-settles
       role="dialog"

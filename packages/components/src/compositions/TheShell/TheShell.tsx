@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
 import { HelmSheet } from "./HelmSheet";
+import { useMarking, type Mark } from "../../marking";
 import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
 
 /**
@@ -190,6 +191,9 @@ export function clampDockWidth(width: number, availableWidth: number): number {
   return clampToRange(width, dockWidthBounds(availableWidth));
 }
 
+/** `TheShell.css` gives the shell Helm's glow while a dock is drawn. */
+const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
+
 function Dock({
   open,
   folded = false,
@@ -201,6 +205,7 @@ function Dock({
   children,
 }: TheShellDock) {
   const availableWidth = useWindowWidth();
+  const docked = useMarking(DOCKED);
   const body = children ?? (
     <BoardEmptyState quiet>Questions waiting on you, and Helm, will be here.</BoardEmptyState>
   );
@@ -218,7 +223,7 @@ function Dock({
     // content would move by that much on every open — the same defect as the
     // dock's own 380, one order of magnitude down and harder to see.
     return (
-      <div className="armada-shell__dock-layer">
+      <div ref={docked} className="armada-shell__dock-layer">
         {onResize === undefined ? null : (
           <DockHandle
             width={restingWidth}
