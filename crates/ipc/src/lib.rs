@@ -530,6 +530,7 @@ pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark, PlanMoved,
     PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
+    TASK_LIST_IS_THE_PLAN,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,
