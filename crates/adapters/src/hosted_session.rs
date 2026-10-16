@@ -309,7 +309,11 @@ impl HeadlessAgent {
             Prompt::assembled("carried on stdin").map_err(HostedRefused::Unassembled)?,
             hosted.door.clone(),
             Toolbelt::evidence_only(),
-            hosted.environment.clone(),
+            hosted
+                .environment
+                .clone()
+                .and(crate::conversing::TASK_TOOLS, "1")
+                .map_err(HostedRefused::Unassembled)?,
         );
         Ok(Launch::rendered(&borrowed, self.program(), args))
     }
