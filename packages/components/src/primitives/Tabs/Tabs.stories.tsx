@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Box, LayoutDashboard } from "lucide-react";
 import { expect, waitFor } from "storybook/test";
 import { Tabs } from "./Tabs";
 
@@ -116,5 +117,35 @@ export const WithAnAlert: Story = {
     await expect(move.querySelector('[role="img"]')).toHaveAccessibleName("Needs you");
     await expect(move.textContent).not.toMatch(/\d/);
     await expect(canvas.getByRole("tab", { name: "Active" }).querySelector('[role="img"]')).toBeNull();
+  },
+};
+
+/**
+ * **Where the strip has no room for its words, each tab is its glyph.** The label stays the tab's name and moves
+ * into its tooltip; a tab with no glyph keeps its word. The title row's places draw this way on a narrow window.
+ */
+export const IconsOnly: Story = {
+  args: {
+    defaultValue: "jobs",
+    iconsOnly: true,
+    items: [
+      { id: "cockpit", label: "Cockpit", icon: LayoutDashboard },
+      { id: "jobs", label: "Jobs", icon: Box },
+      { id: "retros", label: "Retros" },
+    ],
+  },
+  play: async ({ canvas, userEvent }) => {
+    const cockpit = canvas.getByRole("tab", { name: "Cockpit" });
+    await expect(cockpit.querySelector("svg")).not.toBeNull();
+    // The word is the tooltip's, kept in the document while closed, so it is there and not seen.
+    await expect(canvas.getByText("Cockpit")).not.toBeVisible();
+    await expect(canvas.getByRole("tab", { name: "Retros" })).toHaveTextContent("Retros");
+
+    await userEvent.hover(cockpit);
+    await waitFor(() => expect(canvas.getByText("Cockpit")).toBeVisible());
+
+    await userEvent.click(cockpit);
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName("Jobs");
   },
 };
