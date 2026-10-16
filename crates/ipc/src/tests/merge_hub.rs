@@ -94,6 +94,8 @@ fn a_red_hub() -> MergeLineHub {
             since: Instant::carried("2026-10-06T09:40:00Z"),
         }),
         checkout: None,
+        forge_read_at: None,
+        quiet_since: None,
     }
 }
 
@@ -180,6 +182,8 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         fixing_session: None,
         fixing_elsewhere: None,
         checkout: None,
+        forge_read_at: None,
+        quiet_since: None,
     };
     let spelled = encode(&a_line(Some(green))).expect("plain data");
     assert!(!spelled.contains("null"), "{spelled}");

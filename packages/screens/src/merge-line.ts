@@ -177,6 +177,8 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
     })),
     recent,
     ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
+    ...(hub.forge_read_at === undefined ? {} : { readAt: hub.forge_read_at }),
+    ...(hub.quiet_since === undefined ? {} : { quietSince: hub.quiet_since }),
   };
 }
 
