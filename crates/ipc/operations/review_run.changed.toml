@@ -1,0 +1,10 @@
+[operations."review_run.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A review run moved: queued, running, done or failed, with its result once it has one"
+notes = """
+Carries `ReviewRun` whole, so a reader replaces the run it holds for that key and head. Names a repository and a pull request and no Job, Drone or step. **Three small events a run and nothing between**: the text of an answer is never streamed, so this adds no per-token load to the stream that the WebSocket sink could not push back on.
+
+Not replayed on a resync. A client that reconnects asks `get_review_runs` again.
+"""

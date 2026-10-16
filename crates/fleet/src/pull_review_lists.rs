@@ -63,6 +63,7 @@ fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow> {
         author: pull.author,
         updated_at: pull.updated_at,
         team: pull.team,
+        holder: None,
     })
 }
 

@@ -14,6 +14,7 @@ import type { LineCount } from "./footprint";
 import type { JobForgotten, JobList, JobSummary, Reason } from "./protocol";
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
+import type { ReviewRun } from "./review-runs";
 import type { ModList } from "./mods";
 import type { SettingsList } from "./settings";
 import type { ProposalInFlight } from "./proposing";
@@ -91,6 +92,8 @@ export type Event =
   | ({ kind: "repositories.changed" } & RepositoryList)
   /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 22.1. */
   | ({ kind: "merge_lines.changed" } & MergeLines)
+  /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
+  | ({ kind: "review_run.changed" } & ReviewRun)
   /** The mods on this machine changed; the list now, whole, as `list_mods` answers. */
   | ({ kind: "mods.changed" } & ModList)
   /** settings.json changed, by a save or by hand; every setting now, whole, as `get_settings` answers. */
