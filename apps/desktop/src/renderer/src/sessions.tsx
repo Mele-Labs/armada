@@ -985,6 +985,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
         }
       : undefined;
+  /** The Cockpit draws this Session's panels itself, the Ledger among them, so no second one is drawn beside the thread or in the deck's right column. */
+  const workspace = deck?.hosts !== undefined && session.work !== undefined;
   const planNow = session.work?.plan;
   const planEditing: PlanEditing | undefined =
     planNow === undefined
@@ -1092,7 +1094,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 </>
               ),
             }}
-        {...(narrow || minimized || deck !== undefined || session.work !== undefined
+        {...(narrow || minimized || deck !== undefined
           ? {}
           : {
               aside: (
@@ -1230,7 +1232,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
       {session.work?.plan === undefined ? null : (
         <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
-      {deck?.ledger == null || session.work !== undefined ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
+      {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
       {released.dialog}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

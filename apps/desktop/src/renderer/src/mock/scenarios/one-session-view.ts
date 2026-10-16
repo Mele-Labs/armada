@@ -258,7 +258,11 @@ const live: Session = {
     agent("l-2", "14:05:10", "The plan is recorded: ten tasks in four groups. Approve it, or tell me what to change."),
     you("l-3", "14:08:40", "Update the plan: the queue should survive a restart, and say so in the first group."),
   ],
-  attachments: [],
+  attachments: [
+    { kind: "slot", slot: 9 },
+    { kind: "branch", name: "bridge/queue-for-later", slot: 9 },
+    { kind: "artifact", form: "window", id: "http://localhost:40108/?walk=queue-for-later", title: "Queue for later walk" },
+  ],
   work: {
     workflow: { ...FEATURE, at: 0 },
     plan: {

@@ -33,11 +33,15 @@ export function LedgerPanel({ session, entries, place }: { session: Session; ent
       )}
     </>
   );
+  // The branch and the bay are in the band and the subagents on the Field: with nothing else held the body is nothing, and the panel is its band.
+  const rest = entries.filter((one) => !SHOWN_ELSEWHERE.has(one.kind));
   return (
-    <SvPanel label="Ledger" area="ledger" place={place} acts={acts}>
-      <div className="sv-ledger">
-        <SessionLedger entries={entries.filter((one) => !SHOWN_ELSEWHERE.has(one.kind))} />
-      </div>
+    <SvPanel label="Ledger" area="ledger" place={place} acts={acts} empty={rest.length === 0}>
+      {rest.length === 0 ? null : (
+        <div className="sv-ledger">
+          <SessionLedger entries={rest} />
+        </div>
+      )}
     </SvPanel>
   );
 }

@@ -123,6 +123,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: plan, say: "The Fleet group is nearly through, the wire done, the judge group started" },
   { press: deckRow("Queue session for later"), say: "A plan pending with four groups, ten tasks and ten scope paths, and his own message last" },
   { look: text(/^Update the plan: the queue should survive a restart/), say: "His message and the agent's replies stay in view: what waits on him sits in one region under the thread, two fifths of it at most, and scrolls" },
+  { look: inside(region("Ledger"), text("Queue for later walk")), say: "The Ledger lists what the Session holds beside the branch and the bay in its band: the page it showed" },
   { press: inside(stage, button("Plan")), say: "The plan card folds on its header to one line" },
   { look: inside(stage, role("img", "Plan waiting for approval")), say: "The plan glyph, Plan, its version and its state, with Approve still on the line" },
 ]);
