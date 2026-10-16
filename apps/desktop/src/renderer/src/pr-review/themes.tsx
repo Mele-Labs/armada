@@ -43,7 +43,26 @@ export function ThemeBlock({ pr, theme, number, mode, tool, send, quiet }: { pr:
   );
 }
 
-function ChangeBlock({ pr, change, number, mode, tool, send }: { pr: ReviewPr; change: Change; number: number; mode: ChangeMode; tool?: string; send: Send }) {
+/**
+ * The changes of a pull request nobody has explained: no themes and no why, only where each one is, in file order. A tool
+ * pressed here pins its findings to the path and the lines, with the hunk one press away.
+ */
+export function BareChanges({ pr, mode, tool, send, quiet }: { pr: ReviewPr; mode: ChangeMode; tool?: string; send: Send; quiet?: (change: Change) => boolean }) {
+  const all = pr.explanation.themes.flatMap((theme) => theme.changes);
+  const shown = [...all].sort((a, b) => (a.hunks[0]?.path ?? "").localeCompare(b.hunks[0]?.path ?? "")).filter((one) => quiet === undefined || !quiet(one));
+  if (shown.length === 0) return null;
+  return (
+    <ol className="pr-bare">
+      {shown.map((one, at) => (
+        <li key={one.id}>
+          <ChangeBlock pr={pr} change={one} number={at + 1} mode={mode} bare {...(tool === undefined ? {} : { tool })} send={send} />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { pr: ReviewPr; change: Change; number: number; mode: ChangeMode; tool?: string; send: Send; bare?: boolean }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
@@ -60,6 +79,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send }: { pr: ReviewPr; c
   const shown = auto ? !work.opened.includes(change.id) : work.opened.includes(change.id);
   const marked = [...new Set(findings.map((one) => tools.find((def) => def.id === one.tool)?.mark ?? "custom"))];
   const open = threads.some((one) => !one.resolved) || drafts.length > 0;
+  const place = change.hunks[0]?.path ?? change.title;
 
   const cards = (here: (one: Anchor) => boolean) => {
     const ts = threads.filter(here);
@@ -90,10 +110,12 @@ function ChangeBlock({ pr, change, number, mode, tool, send }: { pr: ReviewPr; c
   };
 
   return (
-    <article className="pr-change" aria-label={`Change: ${change.title}`} data-mode={mode}>
+    <article className="pr-change" aria-label={`Change: ${bare ? place : change.title}`} data-mode={mode} data-bare={bare || undefined}>
       <header className="pr-change__head">
-        <span className="pr-change__n mono">{number}</span>
-        <h4 className="pr-change__title">{change.title}</h4>
+        {bare ? null : <span className="pr-change__n mono">{number}</span>}
+        <h4 className="pr-change__title" data-mono={bare || undefined}>
+          {bare ? place : change.title}
+        </h4>
         <span className="pr-change__marks">
           {marked.map((one) => (
             <PrMark key={one} Glyph={TOOL_MARK[one].Glyph} said={TOOL_MARK[one].said} />
@@ -102,14 +124,14 @@ function ChangeBlock({ pr, change, number, mode, tool, send }: { pr: ReviewPr; c
         </span>
         {mode === "comments" ? (
           <Tooltip label="Comment on this change">
-            <Button variant="ghost" size="sm" aria-label={`Comment on ${change.title}`} onClick={() => setComposing({ change: change.id, hunk: 0 })}>
+            <Button variant="ghost" size="sm" aria-label={`Comment on ${bare ? place : change.title}`} onClick={() => setComposing({ change: change.id, hunk: 0 })}>
               Comment
             </Button>
           </Tooltip>
         ) : null}
       </header>
-      <p className="pr-change__path mono">{change.hunks.map((one) => one.path).filter((one, at, all) => all.indexOf(one) === at).join("  ")}</p>
-      {mode === "explain" ? (
+      <p className="pr-change__path mono">{bare ? (change.hunks[0]?.lines[0]?.text ?? "") : change.hunks.map((one) => one.path).filter((one, at, all) => all.indexOf(one) === at).join("  ")}</p>
+      {mode === "explain" && !bare ? (
         <div className="pr-change__why">
           <Prose text={change.why} />
         </div>

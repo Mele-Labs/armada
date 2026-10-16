@@ -1,6 +1,6 @@
 // What a tool found, in the stage's body: each finding pinned to the theme and the change it is about, under the
 // change's own title, with the hunk one press away. Armada's alone, hatched, and never posted. Where a Session of his
-// holds the pull request, a finding can be sent to it. A way back to the explanation is always at the head.
+// holds the pull request, a finding can be sent to it. A way back to the overview is always at the head.
 
 import { ArrowLeft, Check, LoaderCircle, RotateCw } from "lucide-react";
 import { Button, PrMark, Tooltip } from "@armada/components";
@@ -9,7 +9,7 @@ import type { useSendFindings } from "./acts";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { ThemeBlock } from "./themes";
+import { BareChanges, ThemeBlock } from "./themes";
 
 export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; send: ReturnType<typeof useSendFindings> }) {
   const store = useReviewStore()!;
@@ -22,8 +22,8 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   return (
     <div className="pr-results" aria-label={`${tool.name} results`} role="region">
       <header className="pr-results__head">
-        <Tooltip label="Back to the explanation">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Back to the explanation" onClick={() => store.setView(pr.key, "explanation")}>
+        <Tooltip label="Back to the overview">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Back to the overview" onClick={() => store.setView(pr.key, "explanation")}>
             <ArrowLeft size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -50,9 +50,13 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
         </p>
       ) : (
         <div className="pr-results__themes">
-          {pr.explanation.themes.map((theme, at) => (
-            <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
-          ))}
+          {work.explain.state === "done" ? (
+            pr.explanation.themes.map((theme, at) => (
+              <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
+            ))
+          ) : (
+            <BareChanges pr={pr} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
+          )}
         </div>
       )}
     </div>

@@ -18,7 +18,7 @@ import { ThemeBlock } from "./themes";
 import { toolsOf } from "./tools";
 
 const TABS = [
-  { id: "explanation", label: "Explanation" },
+  { id: "explanation", label: "Overview" },
   { id: "checks", label: "Checks" },
   { id: "commits", label: "Commits" },
 ];
@@ -125,32 +125,42 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
 function Explanation({ pr, send }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings> }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
-  if (work.explain.state !== "done") {
-    return (
-      <div className="pr-explain">
-        <Tooltip label="An agent reads this pull request, once, when you press" asChild>
-          <Button variant="secondary" pending={work.explain.state === "running"} disabled={work.explain.state === "running"} onClick={() => store.explain(pr.key)}>
-            {work.explain.state === "running" ? "Explaining" : "Explain"}
-          </Button>
-        </Tooltip>
-      </div>
-    );
-  }
+  const explained = work.explain.state === "done";
+  const running = work.explain.state === "running";
   const by = pr.explainedBy === "session" ? { Glyph: SquareTerminal, said: "Written by the Session that made this pull request" } : { Glyph: Bot, said: "Explained by an agent when you pressed Explain" };
   return (
     <div className="pr-explain">
-      <section className="pr-what" aria-label="What this does">
+      <section className="pr-what pr-desc" aria-label="Description">
         <header className="pr-what__head">
-          <h3 className="pr-what__title">What this does</h3>
-          <PrMark Glyph={by.Glyph} said={by.said} />
+          <h3 className="pr-what__title">Description</h3>
+          {explained ? null : (
+            <span className="pr-what__acts">
+              <Tooltip label="An agent reads this pull request, once, and adds what it does and its themes" asChild>
+                <Button variant="secondary" size="sm" pending={running} disabled={running} onClick={() => store.explain(pr.key)}>
+                  {running ? "Explaining" : "Explain"}
+                </Button>
+              </Tooltip>
+            </span>
+          )}
         </header>
-        <Prose text={pr.explanation.summary} />
+        <Prose text={pr.body} />
       </section>
-      <div className="pr-themes">
-        {pr.explanation.themes.map((theme, at) => (
-          <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="explain" send={send} />
-        ))}
-      </div>
+      {explained ? (
+        <>
+          <section className="pr-what" aria-label="What this does">
+            <header className="pr-what__head">
+              <h3 className="pr-what__title">What this does</h3>
+              <PrMark Glyph={by.Glyph} said={by.said} />
+            </header>
+            <Prose text={pr.explanation.summary} />
+          </section>
+          <div className="pr-themes">
+            {pr.explanation.themes.map((theme, at) => (
+              <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="explain" send={send} />
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

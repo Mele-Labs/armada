@@ -32,7 +32,7 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
   const [adding, setAdding] = useState(false);
 
   const press = (tool: ToolDef) => {
-    if (pr === undefined || (tool.agent && work.explain.state !== "done")) return;
+    if (pr === undefined) return;
     store.runTool(pr.key, tool);
   };
 
@@ -58,11 +58,11 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
         {tools.map((tool, at) => {
           const run = work.runs[tool.id];
           const running = run?.state === "running";
-          const blocked = pr === undefined || (tool.agent && work.explain.state !== "done");
+          const blocked = pr === undefined;
           const mark = TOOL_MARK[tool.mark];
           const source = SOURCE_MARK[tool.source];
           return (
-            <Tooltip key={tool.id} label={blocked && pr !== undefined ? "Explain the pull request first" : tool.name} shortcut={String(at + 1)} asChild>
+            <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
               <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-source={tool.source} onClick={() => press(tool)}>
                 {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>

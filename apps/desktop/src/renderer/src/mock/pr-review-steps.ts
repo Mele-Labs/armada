@@ -16,20 +16,38 @@ const finding = (title: string) => role("article", `Finding: ${title}`);
 const tool = (name: string) => inside(flight, button(name));
 const results = (name: string) => region(`${name} results`);
 
+const pick = (name: string | RegExp) => role("menuitem", name);
+const lists = inside(list, button("List"));
+
 export const toTheList: Step[] = [
   { look: list, say: "The pull requests waiting on him, fetched as the view opened" },
   { hover: inside(list, button("Refresh")), say: "Refresh names when the list was last fetched. Nothing is watched in between" },
-  { look: inside(list, tab("Review requested")), say: "Review requested: pull requests someone asked him to review" },
-  { press: inside(list, tab("Mine")), say: "Mine: pull requests his own agents opened" },
-  { press: inside(list, tab("Review requested")), say: "Back to review requested" },
+  { press: lists, say: "One dropdown chooses the list" },
+  { press: pick("Mine"), say: "Mine: pull requests his own agents opened" },
+  { press: lists, say: "Back to the dropdown" },
+  { press: pick("Review requested"), say: "Review requested: pull requests someone asked him to review" },
+  { press: lists, say: "Find is the last entry. It is not a box on the list" },
+  { press: pick(/Find pull requests/), say: "Choosing it puts the box in place of the list" },
+  { type: "PRs that touch files I've touched", into: inside(list, role("textbox", "Find pull requests")), say: "What he wants, in his own words" },
+  { press: inside(list, button("Find")), say: "A Drone looks only when he sends, because it costs" },
+  { look: inside(list, role("img", "Looking")), say: "Running, in the list" },
+  { look: inside(list, role("note", /which you changed on 14 Oct/)), say: "What it found, each with one line on why it matched" },
+  { press: lists, say: "The find is saved in the dropdown under his words" },
+  { look: pick(/files I've touched/), say: "Run again and Remove are on the list's head" },
+  { press: pick("Review requested"), say: "Back to review requested" },
 ];
 
-/** A teammate's pull request: nobody of his wrote it, so an agent explains it when he presses. */
+/** A teammate's pull request: its description comes first, and Explain is the optional deeper step. */
 export const theExplanation: Step[] = [
   { press: inside(list, button(/#1899/)), say: "Open one a teammate asked for" },
-  { look: tool("Risks"), say: "The review tools are tiles in the Flight control. They wait until the pull request is explained" },
-  { press: inside(reader(1899), button("Explain")), say: "Nobody of his wrote this one, so an agent explains it, once, when he presses" },
-  { look: inside(reader(1899), region("What this does")), say: "What it does, in a few plain sentences" },
+  { look: inside(reader(1899), region("Description")), say: "The author's own description comes first" },
+  { look: tool("Risks"), say: "The review tools are tiles in the Flight control, and they work on any pull request" },
+  { hover: inside(tool("Risks"), role("img", "Armada's tool")), say: "A tool shows where it is defined. This one is Armada's" },
+  { press: tool("Risks"), say: "Risks runs for this pull request only when pressed" },
+  { look: inside(results("Risks"), finding("A second watch loses the first interval")), say: "Not explained yet, so a result is pinned to a file and its lines" },
+  { press: inside(results("Risks"), button("Back to the overview")), say: "Back to the overview" },
+  { press: inside(reader(1899), button("Explain")), say: "Explain is optional. An agent adds what it does and its themes, once, when he presses" },
+  { look: inside(reader(1899), region("What this does")), say: "What it does, in a few plain sentences, under the description" },
   { hover: inside(reader(1899), role("img", "Explained by an agent when you pressed Explain")), say: "Where the explanation came from" },
   { look: theme("Fleet keeps the last read"), say: "Its changes by what they make happen, with the order they were made in" },
   { look: inside(theme("Fleet keeps the last read"), change("Hold the last read for a minute")), say: "Each change says why it was made" },
@@ -38,11 +56,9 @@ export const theExplanation: Step[] = [
 ];
 
 export const theTools: Step[] = [
-  { hover: inside(tool("Risks"), role("img", "Armada's tool")), say: "A tool shows where it is defined. This one is Armada's" },
-  { press: tool("Risks"), say: "Risks runs for this pull request only when pressed" },
-  { look: inside(results("Risks"), finding("A second watch loses the first interval")), say: "Each result is pinned to the change it is about" },
-  { look: inside(results("Risks"), theme("Bridge asks once a minute")), say: "Under the theme, then the change" },
-  { press: inside(results("Risks"), button("Back to the explanation")), say: "Back to the explanation" },
+  { press: tool("Risks"), say: "Risks again, now that it is explained" },
+  { look: inside(results("Risks"), theme("Bridge asks once a minute")), say: "The same result sits under its theme and then its change" },
+  { press: inside(results("Risks"), button("Back to the overview")), say: "Back to the overview" },
   { press: tool("Possible bugs"), say: "Possible bugs" },
   { look: inside(results("Possible bugs"), finding("A reset inside the minute is served late")), say: "One bug, on the change that serves the read" },
   { press: tool("Comments"), say: "Comments is the forge's conversation and line comments. It runs no agent" },
@@ -60,15 +76,22 @@ export const theTools: Step[] = [
 
 /** One of his Sessions holds the pull request, so it knows why and the explanation is there at open. */
 export const theSessionsOwn: Step[] = [
-  { press: inside(list, tab("Mine")), say: "Mine" },
+  { press: lists, say: "The dropdown again" },
+  { press: pick("Mine"), say: "Mine" },
   { press: inside(list, button(/#1896/)), say: "One his Session holds" },
   { look: inside(reader(1896), button("Session: Fix the reconnect wait")), say: "The Session that holds it is in the head" },
-  { look: inside(reader(1896), region("What this does")), say: "The explanation is already there" },
+  { look: inside(reader(1896), region("Description")), say: "The description is first here too" },
+  { look: inside(reader(1896), region("What this does")), say: "The Session's explanation is already under it" },
   { hover: inside(reader(1896), role("img", "Written by the Session that made this pull request")), say: "The Session that wrote it knows why, so nothing is run to get it" },
   { press: tool("Possible bugs"), say: "Possible bugs" },
   { look: inside(results("Possible bugs"), finding("The attempt count is never reset")), say: "A bug, on the change it is in" },
   { press: inside(finding("The attempt count is never reset"), button(/Send to Session/)), say: "Send to Session is there because a Session holds it" },
   { look: inside(finding("The attempt count is never reset"), role("img", "Sent to the Session")), say: "Sent once" },
+  { press: tool("Comments"), say: "Request changes on a pull request a Session holds reaches the Session too" },
+  { type: "The count has to reset when the socket opens. Cap the jitter too.", into: inside(yours, role("textbox", "Summary")), say: "The review" },
+  { press: inside(yours, tab("Request changes")), say: "Request changes" },
+  { press: inside(yours, button("Submit review")), say: "Submit records it, and sends it to the Session with the review" },
+  { look: inside(yours, role("note", /Sent to Fix the reconnect wait/)), say: "It names the Session it went to" },
 ];
 
 export const theNewTool: Step[] = [

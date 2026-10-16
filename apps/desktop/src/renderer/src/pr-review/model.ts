@@ -10,8 +10,20 @@
 import type { DiffLine } from "@armada/components";
 import type { PullRequestPage } from "@armada/protocol";
 
-/** The two tabs that narrow the list. */
-export type ReviewTab = "requested" | "mine";
+/** Which of his two lists a pull request is on, or neither: found only by a find. */
+export type PrTab = "requested" | "mine" | "other";
+
+/** The list the stage's left column shows: `requested`, `mine`, or the id of a find he saved. */
+export type ReviewTab = string;
+
+/** A pull request a find turned up, and the one line that says why it matched. */
+export type FindHit = { key: string; reason: string };
+
+/** What he asked a Drone to look for, in his own words, saved as a list of its own. */
+export type Find = { id: string; words: string; run: AgentRun; hits: readonly FindHit[] };
+
+/** What a find would come to. The first whose pattern fits the words answers; one that fits none finds nothing. */
+export type FindSeed = { when: string; hits: readonly FindHit[] };
 
 /** One hunk of one file: the evidence for a change. */
 export type Hunk = { path: string; lines: DiffLine[] };
@@ -76,7 +88,8 @@ export type Finding = {
 
 export type Verdict = "comment" | "approve" | "request_changes";
 
-export type Submission = { verdict: Verdict; body: string; comments: number; at: string };
+/** `told` is the Session a Request changes went to as well, by title. */
+export type Submission = { verdict: Verdict; body: string; comments: number; at: string; told?: string };
 
 /** A run of an agent: asked for, underway, or read. */
 export type AgentRun = { state: "idle" } | { state: "running"; since: number } | { state: "done"; at: number };
@@ -94,7 +107,7 @@ export type ReviewPr = {
   draft: boolean;
   checks: "passed" | "failed" | "running";
   /** Which list it is on: someone asked for his review, or an agent of his opened it. */
-  tab: ReviewTab;
+  tab: PrTab;
   /** The Session that holds it, where one of his does. */
   holder?: { id: string; title: string };
   /** The description, as Markdown. */
@@ -128,6 +141,7 @@ export type ReviewSeed = {
   tools: ToolDefs;
   /** What each tool comes to, by pull request. A tool with none for a pull request reads clean. */
   results: Readonly<Record<string, Readonly<Record<string, readonly FindingSeed[]>>>>;
+  finds: readonly FindSeed[];
 };
 
 /** What the stage is showing: the explanation, a page of the forge's, or a tool's results. */
@@ -154,6 +168,8 @@ export type ReviewSnapshot = {
   fetchedAt: number | undefined;
   fetching: boolean;
   tab: ReviewTab;
+  /** The finds he asked a Drone for, each a list in the dropdown. */
+  finds: readonly Find[];
   /** `key` of the pull request open in the reader. */
   open: string | undefined;
   /** The Cockpit has swapped into review mode. */

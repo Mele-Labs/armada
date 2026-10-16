@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 import type { PullRequestPage } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
-import type { Anchor, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
+import type { Anchor, Find, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
 import { idOfName } from "./tools";
 
 /** How long an agent runs in the mock before it has read the pull request. */
@@ -27,7 +27,12 @@ export type ReviewStore = {
   subscribe: (listener: () => void) => () => void;
   /** The list, fetched when the review view opens and again on Refresh. Nothing polls. */
   fetch: () => void;
+  /** Chooses the list: `requested`, `mine`, or a saved find's id. */
   setTab: (tab: ReviewTab) => void;
+  /** Asks a Drone to look for what he described. Runs on send only, since it costs, and the find is saved as a list. */
+  find: (words: string) => void;
+  rerunFind: (id: string) => void;
+  removeFind: (id: string) => void;
   open: (key: string | undefined) => void;
   setMode: (on: boolean) => void;
   setView: (key: string, view: View) => void;
@@ -43,7 +48,8 @@ export type ReviewStore = {
   resolve: (key: string, thread: string, resolved: boolean) => void;
   dismiss: (key: string, finding: string) => void;
   sent: (key: string, findings: readonly string[]) => void;
-  submit: (key: string, verdict: Verdict, body: string) => void;
+  /** `told` is the Session a Request changes was sent to as well, by title. */
+  submit: (key: string, verdict: Verdict, body: string, told?: string) => void;
   /** Records a tool he wrote, in his Kit or in the repository. Nothing is written to a file in the mock. */
   addTool: (one: ToolIn) => void;
 };
@@ -66,6 +72,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     fetchedAt: undefined,
     fetching: false,
     tab: "requested",
+    finds: [],
     open: undefined,
     mode: false,
     armada: seed.tools.armada,
@@ -89,6 +96,17 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
       fetching: false,
       work: Object.fromEntries(seed.prs.map((one) => [one.key, kept[one.key] ?? initialWork(one)])),
     });
+  };
+
+  const setFind = (id: string, by: Partial<Find>) => set({ finds: snapshot.finds.map((one) => (one.id === id ? { ...one, ...by } : one)) });
+  const look = (id: string, words: string) => {
+    setFind(id, { run: { state: "running", since: Date.now() }, hits: [] });
+    timers.add(
+      window.setTimeout(() => {
+        const hits = seed.finds.find((one) => new RegExp(one.when, "i").test(words))?.hits ?? [];
+        setFind(id, { run: { state: "done", at: Date.now() }, hits });
+      }, AGENT_MS + 600),
+    );
   };
 
   const start = (key: string, tool: ToolDef) => {
@@ -117,6 +135,20 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
       timers.add(window.setTimeout(arrive, snapshot.fetchedAt === undefined ? 0 : 600));
     },
     setTab: (tab) => set({ tab }),
+    find: (words) => {
+      const said = words.trim().replace(/\s+/g, " ");
+      if (said === "") return;
+      const again = snapshot.finds.find((one) => one.words.toLowerCase() === said.toLowerCase());
+      const id = again?.id ?? nextId("find");
+      if (again === undefined) set({ finds: [...snapshot.finds, { id, words: said, run: { state: "idle" }, hits: [] }] });
+      set({ tab: id });
+      if (again?.run.state !== "running") look(id, said);
+    },
+    rerunFind: (id) => {
+      const one = snapshot.finds.find((one) => one.id === id);
+      if (one !== undefined && one.run.state !== "running") look(id, one.words);
+    },
+    removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
     open: (open) => set({ open }),
     setMode: (mode) => set({ mode }),
     setView: (key, view) => change(key, { view }),
@@ -145,7 +177,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     resolve: (key, thread, resolved) => change(key, { threads: work(key).threads.map((one) => (one.id === thread ? { ...one, resolved } : one)) }),
     dismiss: (key, finding) => change(key, { findings: work(key).findings.map((one) => (one.id === finding ? { ...one, dismissed: true } : one)) }),
     sent: (key, findings) => change(key, { findings: work(key).findings.map((one) => (findings.includes(one.id) ? { ...one, sent: true } : one)) }),
-    submit: (key, verdict, body) => {
+    submit: (key, verdict, body, told) => {
       const pr = prOf(key);
       if (pr === undefined) return;
       const now = new Date().toISOString();
@@ -165,7 +197,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
         threads,
         drafts: [],
         review,
-        submissions: [...current.submissions, { verdict, body: body.trim(), comments: current.drafts.length, at: now }],
+        submissions: [...current.submissions, { verdict, body: body.trim(), comments: current.drafts.length, at: now, ...(told === undefined ? {} : { told }) }],
       });
     },
     addTool: ({ name, checks, scope, manifestId }) => {
@@ -187,7 +219,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", open: undefined, mode: false, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

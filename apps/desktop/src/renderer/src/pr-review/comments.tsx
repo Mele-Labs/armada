@@ -3,14 +3,15 @@
 // pending review and leave only with Submit, which records Comment, Approve or Request changes. Nothing is posted in the mock.
 
 import { useMemo, useState } from "react";
-import { Ban, Check, ScrollText, X } from "lucide-react";
+import { Ban, Check, ScrollText, SquareTerminal, X } from "lucide-react";
 import { Button, PrConversation, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, mayWrite } from "@armada/components";
 import type { PullRequestEntry } from "@armada/protocol";
 
 import type { useSendFindings } from "./acts";
+import { useSessionsDraft } from "../sessions-draft";
 import type { ReviewPr, Verdict } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { ThemeBlock } from "./themes";
+import { BareChanges, ThemeBlock } from "./themes";
 
 const KINDS = [
   { id: "comment", label: "Comment" },
@@ -37,9 +38,11 @@ export function CommentsView({ pr, send }: { pr: ReviewPr; send: ReturnType<type
     <div className="pr-comments">
       <YourReview pr={pr} />
       <PrConversation page={{ ...pr.page, conversation }} description={pr.body} />
-      {pr.explanation.themes.map((theme, at) => (
-        <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="comments" send={send} />
-      ))}
+      {work.explain.state === "done" ? (
+        pr.explanation.themes.map((theme, at) => <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="comments" send={send} />)
+      ) : (
+        <BareChanges pr={pr} mode="comments" send={send} />
+      )}
     </div>
   );
 }
@@ -53,9 +56,17 @@ function YourReview({ pr }: { pr: ReviewPr }) {
   const ready = work.drafts.length > 0 || mayWrite(kind, text);
   const keep = `pr-review:${pr.key}:summary`;
   const where = (change: string) => pr.explanation.themes.flatMap((one) => one.changes).find((one) => one.id === change)?.title ?? "";
+  const draft = useSessionsDraft();
+  const holder = pr.holder;
   const submit = () => {
     if (!ready) return;
-    store.submit(pr.key, kind, text);
+    // **Request changes on a pull request one of his Sessions holds goes to that Session too**, with the review, so the Drone has it.
+    const told = kind === "request_changes" && holder !== undefined && draft !== undefined;
+    if (told) {
+      const lines = work.drafts.map((one) => `${where(one.change)}: ${one.body}`);
+      void draft.send(holder.id, { text: [`Changes requested on #${pr.number}`, text.trim(), ...lines].filter((one) => one !== "").join("\n\n"), files: [], sketches: [], tags: [] });
+    }
+    store.submit(pr.key, kind, text, told ? holder.title : undefined);
     forgetKept(keep);
     setText("");
     setKind("comment");
@@ -104,6 +115,12 @@ function YourReview({ pr }: { pr: ReviewPr }) {
                 <Tooltip label="Submitted">
                   <span className="pr-yours__ago">{agoOf(one.at)}</span>
                 </Tooltip>
+                {one.told === undefined ? null : (
+                  <span className="pr-yours__told" role="note" aria-label={`Sent to ${one.told}`}>
+                    <PrMark Glyph={SquareTerminal} said="Sent to the Session" />
+                    {`Sent to ${one.told}`}
+                  </span>
+                )}
               </li>
             );
           })}

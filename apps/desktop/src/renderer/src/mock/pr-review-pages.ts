@@ -984,6 +984,153 @@ const pause = build({
   },
 });
 
+// ---- Found by a find, on neither of his lists ------------------------------------------------------------
+
+const quick = (spec: { number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+  build({
+    repository: "mele-labs/armada",
+    manifestId: "armada",
+    number: spec.number,
+    title: spec.title,
+    branch: spec.branch,
+    author: spec.author,
+    tab: "other",
+    opened: spec.opened,
+    body: spec.body,
+    checks: "passed",
+    review: "none",
+    conversation: [],
+    checkRows: checks("mele-labs/armada", spec.number, [
+      ["build", "passed", 120],
+      ["test · rust", "passed", 230],
+    ]),
+    commits: commits([[`${spec.number.toString(16)}a01c3`.slice(0, 7), spec.title, spec.author, spec.opened - 3]]),
+    summary: spec.summary,
+    explainedBy: "agent",
+    themes: [spec.theme],
+  });
+
+const hub = quick({
+  number: 1907,
+  title: "Name the hub's ports",
+  branch: "priya/hub-ports",
+  author: "priya",
+  opened: 300,
+  body: "The hub bound whatever port the operating system gave it and logged it once. A restart on a new port left every window reading the old one.\n\nThe hub now asks for the port in the runtime file and falls back to a free one only if it is taken.",
+  summary: "The hub took a random port on every start, so a window that survived a restart read a stale one. It now asks for the port in the runtime file first.",
+  theme: {
+    id: "ports",
+    title: "The hub keeps its port",
+    purpose: "A restart lands on the port the runtime file names, so a window reconnects without reading anything new.",
+    changes: [
+      {
+        id: "bind",
+        title: "Ask for the recorded port",
+        why: "The runtime file already says which port the last hub used. Asking for it first keeps windows connected across a restart.",
+        hunks: [
+          [
+            "crates/fleet/src/main_hub.rs",
+            [
+              "@@ -52,8 +52,14 @@ pub async fn bind(runtime: &Runtime) -> io::Result<TcpListener> {",
+              "-    TcpListener::bind((LOCALHOST, 0)).await",
+              "+    let wanted = runtime.port().unwrap_or(0);",
+              "+    match TcpListener::bind((LOCALHOST, wanted)).await {",
+              "+        Ok(listener) => Ok(listener),",
+              "+        Err(_) if wanted != 0 => TcpListener::bind((LOCALHOST, 0)).await,",
+              "+        Err(error) => Err(error),",
+              "+    }",
+              " }",
+            ],
+          ],
+        ],
+      },
+      {
+        id: "record",
+        title: "Write the port back",
+        why: "A fallback port has to be the one recorded, or the next start asks for the old one again.",
+        hunks: [
+          ["crates/fleet/src/main_hub.rs", ["@@ -80,6 +86,7 @@ pub async fn serve(runtime: &Runtime) -> io::Result<()> {", "     let listener = bind(runtime).await?;", "+    runtime.record_port(listener.local_addr()?.port())?;", "     accept(listener).await"]],
+        ],
+      },
+    ],
+  },
+});
+
+const totals = quick({
+  number: 1905,
+  title: "Round invoice totals once",
+  branch: "marek/invoice-rounding",
+  author: "marek",
+  opened: 410,
+  body: "Line items were rounded one by one and then summed, so an invoice could be a cent off the sum of its lines.\n\nTotals are now summed in minor units and rounded once at the end.",
+  summary: "An invoice total was the sum of rounded lines, which drifts by a cent. It is now the rounded sum of the lines.",
+  theme: {
+    id: "rounding",
+    title: "A total is rounded once",
+    purpose: "The total comes from unrounded lines, so it matches what a customer adds up.",
+    changes: [
+      {
+        id: "sum",
+        title: "Sum before rounding",
+        why: "Rounding each line first loses up to half a cent a line.",
+        hunks: [
+          [
+            "services/billing/src/totals.rs",
+            [
+              "@@ -14,9 +14,8 @@ pub fn total(lines: &[Line]) -> Money {",
+              "-    lines.iter().map(|line| line.amount().round()).sum()",
+              "+    let sum: Decimal = lines.iter().map(|line| line.amount()).sum();",
+              "+    Money::from_minor(sum.round_dp(2).mantissa())",
+              " }",
+            ],
+          ],
+        ],
+      },
+    ],
+  },
+});
+
+const webhook = quick({
+  number: 1908,
+  title: "Retry the webhook on a 5xx",
+  branch: "devon/webhook-retry",
+  author: "devon",
+  opened: 180,
+  body: "A customer's endpoint that answered 502 once was never told about the payment.\n\nThe billing service now retries a webhook on any 5xx, three times, with a growing wait.",
+  summary: "A webhook that got a 5xx was dropped. The billing service now tries it three more times with a growing wait.",
+  theme: {
+    id: "retry",
+    title: "A webhook that failed is tried again",
+    purpose: "A customer's endpoint that blinks does not miss a payment.",
+    changes: [
+      {
+        id: "retry",
+        title: "Retry on a server error",
+        why: "A 5xx says the endpoint failed, not that the payment did not happen.",
+        hunks: [
+          [
+            "services/billing/src/webhook.rs",
+            [
+              "@@ -31,6 +31,16 @@ pub async fn deliver(hook: &Hook, event: &Event) -> Result<(), Undelivered> {",
+              "-    send(hook, event).await",
+              "+    let mut wait = Duration::from_secs(2);",
+              "+    for attempt in 0..=RETRIES {",
+              "+        match send(hook, event).await {",
+              "+            Err(Failure::Server(_)) if attempt < RETRIES => sleep(wait).await,",
+              "+            other => return other.map_err(Undelivered::from),",
+              "+        }",
+              "+        wait *= 2;",
+              "+    }",
+              "+    unreachable!()",
+              " }",
+            ],
+          ],
+        ],
+      },
+    ],
+  },
+});
+
 // ---- The tools ------------------------------------------------------------------------------------------------
 
 const armadaTools: ToolDef[] = [
@@ -1007,11 +1154,28 @@ const repositoryTools: Record<string, ToolDef[]> = {
 
 /** Every pull request the mock forge holds, the tools a repository has, and what each tool finds on each pull request. */
 export function reviewSeed(): ReviewSeed {
-  const all = [marta, devon, mia, reconnect, pause];
+  const all = [marta, devon, mia, reconnect, pause, hub, totals, webhook];
   return {
     me: "nick",
     prs: all.map((one) => one.pr),
     tools: { armada: armadaTools, kit: kitTools, repository: repositoryTools },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
+    finds: [
+      {
+        when: "touch.*files.*touched|files i.?ve (touched|changed)",
+        hits: [
+          { key: hub.pr.key, reason: "touches crates/fleet/src/main_hub.rs, which you changed on 14 Oct" },
+          { key: marta.pr.key, reason: "touches crates/fleet/src/lib.rs, which you changed on 14 Oct" },
+          { key: devon.pr.key, reason: "touches apps/desktop/src/renderer/src/cockpit/deck/bay-history.tsx, which you changed on 9 Oct" },
+        ],
+      },
+      {
+        when: "billing",
+        hits: [
+          { key: webhook.pr.key, reason: "touches services/billing/src/webhook.rs" },
+          { key: totals.pr.key, reason: "touches services/billing/src/totals.rs" },
+        ],
+      },
+    ],
   };
 }
