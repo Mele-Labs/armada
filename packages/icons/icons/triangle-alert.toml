@@ -25,4 +25,4 @@
   group = "Cockpit"
   size = "12px"
   status = "Proposed"
-  notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Beside a path in the Uncommitted row of the checkout light's card, tooltip `Also changed on main`, in the awaiting review hue. The registry has no other warning glyph, and the Worktree slot's Unreadable row already takes this one at 12px for a fact about a checkout."
+  notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Beside a path in the Uncommitted row of the Your checkout section on main's card, tooltip `Also changed on main`, in the awaiting review hue. The registry has no other warning glyph, and the Worktree slot's Unreadable row already takes this one at 12px for a fact about a checkout."

@@ -1,5 +1,5 @@
 // The shell of a light on the merge queue that opens a card: hovering or focusing the light opens it, a press pins it, and Esc or a
-// press outside puts it away. The card is drawn on the page, placed by the light. Main's red and a held checkout are two lights in it. #2301.
+// press outside puts it away. The card is drawn on the page, placed by the light. Main's light is the one in it: its card holds main's red and the checkout it carries. #2301.
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +13,7 @@ export function LightCard({
   chip,
   mark,
   summoned = false,
+  to,
   onSummoned,
   children,
 }: {
@@ -22,8 +23,9 @@ export function LightCard({
   chip: ReactNode;
   /** Attributes the chip's styling reads: main's, or a tone. */
   mark: Record<string, string | true>;
-  /** A call asked for the card to open: it is pinned, and `onSummoned` lets go of the ask. */
+  /** A call asked for the card to open: it is pinned and focus goes to the part of it `to` names, and `onSummoned` lets go of the ask. */
   summoned?: boolean;
+  to?: string;
   onSummoned?: () => void;
   /** The card's body, given the way to put the card away. */
   children: (away: () => void) => ReactNode;
@@ -50,6 +52,8 @@ export function LightCard({
     if (!summoned) return;
     setPinned(true);
     onSummoned?.();
+    // The card is drawn once it is pinned, so what it is asked to show is looked for on the next frame.
+    if (to !== undefined) window.requestAnimationFrame(() => card.current?.querySelector<HTMLElement>(to)?.focus());
   }, [summoned]);
 
   // Where the card sits: above the light, which lives low on the deck, and below it where there is no room above.

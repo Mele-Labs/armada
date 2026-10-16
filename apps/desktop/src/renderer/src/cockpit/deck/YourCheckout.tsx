@@ -1,16 +1,14 @@
-// The checkout's light on the merge queue, beside main's, while a served repository's checkout is behind main and Fleet would not
-// catch it up. Hovering or focusing it opens a card with what holds the checkout back and, where one press is safe, the command
-// that brings it level; a press pins the card, and so does opening the call that told him. Run is the Session band's own
-// runnable block, played where something runs a command in the repository, and Copy where nothing does.
+// "Your checkout", the section of main's card for a served repository whose checkout is behind main and Fleet would not catch it
+// up: what holds it back and, where one press is safe, the command that brings it level. Run is the Session band's own runnable
+// block, played where something runs a command in the repository, and Copy where nothing does.
 
+import { Fragment } from "react";
 import { FolderGit2, TriangleAlert } from "lucide-react";
 import { CopyAct, RunnableBlock, Tooltip, type CodeRunner } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 
 import { checkoutCall, type CheckoutCall } from "../checkout";
 import { useSessionsDraft } from "../../sessions-draft";
-import { LightCard } from "./LightCard";
-import { lightPinned, useDeck } from "./store";
 
 export type Held = { root: string; name: string; call: CheckoutCall };
 
@@ -47,17 +45,29 @@ function Command({ root, command }: { root: string; command: string }) {
   );
 }
 
-function Hold({ held, named }: { held: Held; named: boolean }) {
+/** What the chip's mark and the light say of the holds: `Checkout 880 commits behind main`, and the repository after each where there are several. */
+export function checkoutSaid(held: readonly Held[]): string {
+  return held.map((one) => `Checkout ${one.call.title}${held.length > 1 ? ` in ${one.name}` : ""}`).join(", ");
+}
+
+/** One repository's section: a band in the warning hue like the red band's, then its reason and rows, then the command. */
+export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
   const { call } = held;
   return (
-    <section className="deck-checkout" aria-label={held.name}>
-      {named ? <h3 className="deck-main-card__name">{held.name}</h3> : null}
-      <h2 className="deck-checkout__title">{call.title}</h2>
+    <section className="deck-checkout" aria-label={named ? `Your checkout in ${held.name}` : "Your checkout"} tabIndex={-1}>
+      <div className="deck-checkout__head">
+        <span className="deck-checkout__glyph" aria-hidden="true">
+          <FolderGit2 size={12} />
+        </span>
+        <span className="deck-checkout__heading">Your checkout</span>
+        {named ? <span className="deck-checkout__repo mono">{held.name}</span> : null}
+      </div>
+      <p className="deck-checkout__title">{call.title}</p>
       {call.fact === "" ? null : <p className="deck-checkout__fact">{call.fact}</p>}
       {call.facts.length === 0 ? null : (
-        <dl className="deck-checkout__facts" aria-label="Checkout">
+        <dl className="deck-checkout__rows mono" aria-label="Checkout">
           {call.facts.map((one) => (
-            <div key={one.label} className="deck-checkout__row">
+            <Fragment key={one.label}>
               <dt>{one.label}</dt>
               <dd>
                 {one.lines.map((line) => (
@@ -73,34 +83,15 @@ function Hold({ held, named }: { held: Held; named: boolean }) {
                   </span>
                 ))}
               </dd>
-            </div>
+            </Fragment>
           ))}
         </dl>
       )}
-      {call.command === undefined ? null : <Command root={held.root} command={call.command} />}
+      {call.command === undefined ? null : (
+        <div className="deck-checkout__command">
+          <Command root={held.root} command={call.command} />
+        </div>
+      )}
     </section>
-  );
-}
-
-export function CheckoutLight({ held }: { held: readonly Held[] }) {
-  const summoned = useDeck((deck) => deck.light === "checkout");
-  const said = held.map((one) => `Checkout ${one.call.title}${held.length > 1 ? ` in ${one.name}` : ""}`).join(", ");
-  return (
-    <LightCard
-      said={said}
-      mark={{ "data-tone": "warn" }}
-      summoned={summoned}
-      onSummoned={lightPinned}
-      chip={
-        <>
-          <span className="deck-chip__glyph" aria-hidden="true">
-            <FolderGit2 size={12} />
-          </span>
-          <span>checkout</span>
-        </>
-      }
-    >
-      {() => held.map((one) => <Hold key={one.root} held={one} named={held.length > 1} />)}
-    </LightCard>
   );
 }
