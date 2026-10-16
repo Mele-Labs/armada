@@ -64,7 +64,7 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
           return (
             <Tooltip key={tool.id} label={blocked && pr !== undefined ? "Explain the pull request first" : tool.name} shortcut={String(at + 1)} asChild>
               <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-source={tool.source} onClick={() => press(tool)}>
-                {running ? <LoaderCircle size={20} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={20} aria-hidden="true" />}
+                {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
                   {at + 1}
@@ -78,7 +78,7 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
         })}
         <Tooltip label="Add a tool" shortcut={String(tools.length + 1)} asChild>
           <button type="button" className="deck-tile pr-tool" aria-label="Add a tool" onClick={() => setAdding(true)}>
-            <SquarePlus size={20} aria-hidden="true" />
+            <SquarePlus size={16} aria-hidden="true" />
             <span className="deck-tile__text pr-tool__text">Add a tool</span>
             <Kbd className="deck-tile__key" aria-hidden="true">
               {tools.length + 1}
