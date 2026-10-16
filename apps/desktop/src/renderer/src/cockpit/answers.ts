@@ -10,7 +10,7 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, isPressed, keyFor, useCodeRun, type CodeRun, type CodeRunner, type Press } from "@armada/components";
+import { actionOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -209,26 +209,15 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   // A command a Session waits on is run here, where the Session works, by the path its ledger runs it by.
   // A clean exit stays on the card for a beat, then the card goes and the item is settled and the agent told.
   const home = sessions.find((one) => one.id === item.waiting?.sessionId);
-  // A repository's call has no Session: whatever serves a command in the repository runs it, and a clean exit lets the card go.
-  const repo = item.key.startsWith("checkout:") ? item.key.slice("checkout:".length) : undefined;
-  const inRepository = draft?.runInRepository;
-  const runner: CodeRunner | undefined =
-    repo !== undefined
-      ? inRepository === undefined
-        ? undefined
-        : (command, on) =>
-            inRepository(repo, command, (event) => {
-              on(event);
-              if (event.kind === "end" && event.code === 0) window.setTimeout(finish, PASSED_FOR);
-            })
-      : draft === undefined || home === undefined
-        ? undefined
-        : runnerOf(draft, home, (settle) => {
-            window.setTimeout(() => {
-              finish();
-              window.setTimeout(settle, LEAVES);
-            }, PASSED_FOR);
-          });
+  const runner =
+    draft === undefined || home === undefined
+      ? undefined
+      : runnerOf(draft, home, (settle) => {
+          window.setTimeout(() => {
+            finish();
+            window.setTimeout(settle, LEAVES);
+          }, PASSED_FOR);
+        });
   const ran = useCodeRun(runner);
   // Nothing starts it again while it runs or has passed and the card is about to go, from the block's play control or the key.
   const guarded: CodeRun = { ...ran, start: (command) => (ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0) ? undefined : ran.start(command)) };
@@ -390,16 +379,6 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
       return [];
     }
-    // A held checkout offers the one command that is safe to press, to run where something runs it, and to copy. Without one it only states the facts.
-    if (repo !== undefined) {
-      const command = item.command;
-      if (command === undefined) return [];
-      const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
-      return [
-        ...(runner === undefined ? [] : [answer("Run", () => guarded.start(command), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
-        oneTap("Copy", () => copy(command)),
-      ];
-    }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
     if ((item.key.startsWith("main:") || item.key.startsWith("pull:")) && pull !== undefined) {
       if (owner !== undefined) {
@@ -466,7 +445,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   return {
     ask: decision?.question ?? item.fact,
-    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : repo !== undefined && item.command !== undefined ? { target: item.command } : {}),
+    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : {}),
     answers,
     picked: chosen,
     pick,
@@ -493,7 +472,6 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
     ...(waiting?.item.act?.kind === "run" && runner !== undefined && restart === undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
-    ...(repo !== undefined && item.command !== undefined && runner !== undefined ? { run: guarded } : {}),
     pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
     dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),

@@ -39,6 +39,7 @@ import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./pa
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
+import { CheckoutLight, heldOf } from "./CheckoutLight";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
@@ -303,6 +304,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   const reds = views.flatMap((view) =>
     view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
   );
+  const held = heldOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
   const red = reds.map((one) => one.name);
   const mainSaid = red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green";
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
@@ -383,6 +385,11 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               </Tooltip>
             )}
           </li>
+          {held.length === 0 ? null : (
+            <li>
+              <CheckoutLight held={held} />
+            </li>
+          )}
           {marks}
         </ol>
         <PanelKey id="queue" />

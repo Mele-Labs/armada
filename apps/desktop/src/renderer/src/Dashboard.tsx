@@ -58,7 +58,7 @@ import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
-import { checkoutCall, type Fact } from "./cockpit/checkout";
+import { checkoutCall } from "./cockpit/checkout";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -125,10 +125,6 @@ export type Item = {
   served?: true;
   /** Who holds the pull request or red main the call is about, where somebody does: the card draws what they are doing. */
   ownedBy?: Owner;
-  /** A repository's call laid out as rows under its question. */
-  facts?: readonly Fact[];
-  /** The one command the call offers to run or copy, where a single press is safe. */
-  command?: string;
 };
 
 /** What the Dashboard knows of each Job's Now, by Job id: the draft's, else what Fleet serves for the active Jobs. */
@@ -542,6 +538,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
           ),
         });
       }
+      // A held checkout is told here and answered on the merge queue's checkout light, which opening the call pins.
       if (view.hub?.checkout !== undefined) {
         const held = checkoutCall(view.root, view.hub.checkout);
         items.push({
@@ -554,8 +551,6 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
           hue: "ask",
           where,
           body: held.facts.map((one) => [one.label, one.lines.map((line) => line.text).join("\n")] as const),
-          facts: held.facts,
-          ...(held.command === undefined ? {} : { command: held.command }),
           acts: () => null,
         });
       }
