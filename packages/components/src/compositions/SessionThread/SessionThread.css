@@ -814,6 +814,29 @@
   line-height: var(--leading-2xs);
 }
 
+/* Where the message stands while Fleet has not taken it. Turning is something under way and a cross is a failure,
+   both read off the band's own ink, so neither adds a colour to it. */
+.armada-session-you__delivery {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-session-you__delivery[data-state="sending"] > svg {
+  animation: armada-session-you-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-session-you-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-you__delivery[data-state="sending"] > svg { animation: none; }
+}
+
+.armada-session-you__retry {
+  display: flex;
+}
+
 .armada-session-you__body {
   display: flex;
   flex-direction: column;
