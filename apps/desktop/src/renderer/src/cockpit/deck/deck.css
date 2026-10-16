@@ -503,7 +503,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
 .deck-ledger__body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
 .deck-ledger__body > .armada-session-ledger { flex: 1 1 0; width: auto; }
-.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; }
+.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; overflow-x: hidden; }
 .deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
 
 /* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
@@ -537,6 +537,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
    reach as that shadow did, one --space-4 past each edge: the card is its own inline-size container so the scale
    can be read from its width (the container is the content box, so the card's padding and border go back on), and its
    height is the control height. */
+/* The front card's ring grows past the card into the list's side padding, and a scroller's overflow moves with it: its layers were made and
+   dropped on every beat of the ring. The ring was already clipped there, so a list that cannot scroll sideways draws the same. */
 .deck-hail { position: relative; container-type: inline-size; }
 .deck-hail[data-first]::after {
   content: "";
