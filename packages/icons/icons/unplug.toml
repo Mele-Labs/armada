@@ -38,3 +38,10 @@
     size = "16px"
     status = "Specified"
     notes = "Proposed 16 Oct 2026 for the walk `cockpit-release-holds`, and kept by the owner the same day. Cleanup's slot Release already draws this glyph for taking a checkout from a session. Tooltip `Release or hand over everything the Session holds`, and `The Session holds nothing` where it is off. Refused: `hand`, reserved to a slot a piloted Job handed over; `door-open`, a free slot only; `key-round`, a slot held."
+
+  [[icons.unplug.usage]]
+    means = "Release on one held row of a Session's ledger, and the mark of a row given back from there"
+    group = "Session"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 16 Oct 2026 for the walk `session-ledger-release-row`, after the owner asked to release ledger items one by one, and approved on its walk the same day. The same glyph as the flight control's Release, so the act reads the same in both places. Tooltip `Release <item>` on the act, shown on the row's hover or focus, and `Given back` on the mark. The row carries no reservation."

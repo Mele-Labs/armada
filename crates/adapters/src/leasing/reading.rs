@@ -1,6 +1,7 @@
 //! The pool as Fleet serves it to Bridge: `--status`'s reading, plus whether
 //! each slot is warm and how far behind the base it is.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use adapter_traits::{SlotHeld, SlotReading};
@@ -9,6 +10,15 @@ use crate::concurrently::concurrently;
 
 use super::record::Record;
 use super::{git, Holder, Pool, Slot, SlotState};
+
+/// One slot's reading, and the `git status` it was made from.
+pub(super) struct Read {
+    pub(super) reading: SlotReading,
+    /// `None` where the slot is held, or not a checkout: nothing asked.
+    pub(super) status: Option<Result<Vec<String>, String>>,
+    /// Git was asked for `status`, rather than it being trusted.
+    pub(super) asked_git: bool,
+}
 
 impl Pool {
     /// Every slot, read the way [`Pool::status`] reads it.
@@ -22,11 +32,26 @@ impl Pool {
 
     /// [`readings`](Pool::readings) of the slots in `numbers` alone.
     pub(super) fn readings_of(&self, numbers: &[usize]) -> Vec<SlotReading> {
+        self.readings_trusting(numbers, &BTreeMap::new())
+            .into_iter()
+            .map(|read| read.reading)
+            .collect()
+    }
+
+    /// [`readings_of`](Pool::readings_of), asking git for `status` of a slot
+    /// nobody holds only where `trusted` has no answer for it, and handing
+    /// back the answer each slot's reading was made from.
+    pub(super) fn readings_trusting(
+        &self,
+        numbers: &[usize],
+        trusted: &BTreeMap<usize, Vec<String>>,
+    ) -> Vec<Read> {
         let shape = self.shape();
         let base = self.base_ref();
         concurrently(numbers, |&number| {
-            let (state, status) = self.probe_of(number);
-            self.reading(
+            let (state, status) = self.probe_trusting(number, trusted.get(&number));
+            let kept = status.clone();
+            let reading = self.reading(
                 Slot {
                     number,
                     path: self.path_of(number),
@@ -35,7 +60,12 @@ impl Pool {
                 },
                 &base,
                 status,
-            )
+            );
+            Read {
+                reading,
+                status: kept,
+                asked_git: !trusted.contains_key(&number),
+            }
         })
     }
 

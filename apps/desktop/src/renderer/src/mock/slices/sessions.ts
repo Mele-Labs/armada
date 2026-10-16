@@ -29,6 +29,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     retroSession: async () => unanswered("/sessions/:session_id/retro"),
     closeSession: async () => ({ ok: false, outcome: unanswered("/sessions/close") }),
     stopSession: async () => ({ ok: false, outcome: unanswered("/sessions/stop") }),
+    setSessionWorkflow: async () => ({ ok: false, outcome: unanswered("/sessions/workflow") }),
     releaseSessionHolds: async () => ({ ok: false, outcome: unanswered("/sessions/release_holds") }),
     moveSession: async () => ({ ok: false, outcome: unanswered("/sessions/move") }),
     watchSession: async () => undefined,

@@ -42,6 +42,8 @@ impl Sessions for FakeDaemon {
             helm: false,
             activity: None,
             build: None,
+            workflow: None,
+            proposal: None,
             plan: None,
             touches: Vec::new(),
         })

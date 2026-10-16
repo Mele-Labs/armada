@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-import { handTargets, heldOf, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot } from "./session-tiles";
+import { handTargets, heldKey, heldOf, heldOfAttachment, nameOfHeldRow, offeredOf, releaseKeyOf, reportRoot } from "./session-tiles";
 
 const served = (root: string, id?: string, repository = id): RepositorySummary =>
   ({ root, records_root: `${root}/.records`, ...(id === undefined ? {} : { manifest: { id, repository } }) }) as unknown as RepositorySummary;
@@ -74,4 +74,11 @@ test("Release is off where the Session holds nothing or nothing serves it", () =
   expect(offeredOf(held(), draft, "/code").off.release).toBeUndefined();
   expect(offeredOf(held({ attachments: [], needs: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
   expect(offeredOf(held(), { commands: [] } as unknown as SessionsDraft, "/code").off.release).toBe("Fleet does not offer this");
+});
+
+test("a ledger row's Release names the row as the tile's confirmation does, and a spent pull request or an artifact has none", () => {
+  expect(heldOfAttachment({ kind: "slot", slot: 7, handed: { job: 83 } } as never)).toEqual({ kind: "slot", target: "7", name: "slot-7", said: "Slot of piloted Job #83" });
+  expect(heldKey({ kind: "branch", target: "fix/a" })).toBe("branch:fix/a");
+  expect(heldOfAttachment({ kind: "pull_request", number: 4, title: "A", state: "merged" } as never)).toBeUndefined();
+  expect(heldOfAttachment({ kind: "artifact", id: "x", title: "X", form: "page" } as never)).toBeUndefined();
 });

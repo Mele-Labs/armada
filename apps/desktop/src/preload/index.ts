@@ -722,7 +722,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root),
+  startSession: (title?: string, root?: string, request?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
@@ -742,6 +742,7 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
     ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),
   moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>

@@ -257,6 +257,7 @@ mod session_host;
 mod session_plan;
 mod session_keeper;
 mod session_piloting;
+mod session_proposal;
 mod session_setup;
 mod session_queue;
 mod session_question;

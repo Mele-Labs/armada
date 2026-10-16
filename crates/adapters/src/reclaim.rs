@@ -252,7 +252,7 @@ fn worktree_standing(repo: &Repository, spec: &WorktreeSpec) -> WorktreeStanding
 /// **Anything that is not a clean answer is [`WorktreeStanding::Unreadable`]**,
 /// never `Clean`. git missing from `PATH` must not read as an empty tree.
 fn porcelain(path: &str) -> WorktreeStanding {
-    let run = std::process::Command::new("git")
+    let run = crate::background::command("git")
         .args(["status", "--porcelain"])
         .current_dir(path)
         // A daemon has no terminal for git to ask at. `crate::delivery` says

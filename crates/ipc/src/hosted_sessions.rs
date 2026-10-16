@@ -66,6 +66,16 @@ pub struct StartSession {
     /// by now starts as a plain start on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
+    /// The words the person dispatched with. Since 23.91.
+    ///
+    /// **Present, Fleet reads them once, with the Job proposer's model**, and fills in what the
+    /// person left unset: the title, the workflow, the model and the effort. The call is not
+    /// waited on here: the Session exists at once, carries `proposal.reading` while the call is
+    /// out, and starts its process on the answer. A first message sent meanwhile is held until
+    /// then. Whatever this start sets itself stands over the answer. Not read with `pilot`,
+    /// `fork` or `root`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<String>,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -171,6 +181,15 @@ pub struct TuneSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
     pub mode: SessionMode,
+}
+
+/// `set_session_workflow`: a person picked the Session's workflow in a panel, or cleared it. Since 23.91.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetSessionWorkflow {
+    pub session_id: SessionId,
+    /// A workflow id the Session's repository holds. Absent clears it: a custom Session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
 }
 
 /// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a

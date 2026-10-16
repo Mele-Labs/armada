@@ -202,9 +202,11 @@ export function pastRunOf(record: RunRecord, onOpen: (id: string) => void): RunS
   };
 }
 
+const CLOCK_OF = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
 /** `HH:MM:SS`, off an ISO instant — the sheet's own run rows carry no date. */
 function clockOf(at: string): string {
-  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return CLOCK_OF.format(new Date(at));
 }
 
 /**

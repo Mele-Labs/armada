@@ -17,7 +17,7 @@
 
 use adapter_traits::Remark;
 
-use crate::delivery::{run_in, FORGE};
+use crate::delivery::{read_in, FORGE};
 use crate::under_review::as_written;
 
 /// The fields one inline comment is read for, reduced to one `@tsv` line each.
@@ -47,7 +47,7 @@ const REDUCTION: &str = "\
 pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<Vec<Remark>> {
     let number = number_of(pull_request)?;
     let path = format!("repos/{{owner}}/{{repo}}/pulls/{number}/comments");
-    let run = run_in(
+    let run = read_in(
         in_repo,
         FORGE,
         &["api", "--paginate", &path, "--jq", REDUCTION],

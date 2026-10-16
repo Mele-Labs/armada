@@ -30,10 +30,10 @@ const cells = (value: unknown): value is number => Number.isInteger(value) && (v
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string) => {
     const fleet = connection();
     if (fleet === null) return unsent;
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined);
   });
   ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
     text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
@@ -94,6 +94,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
+    text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
     if (!text(sessionId)) return unsent;

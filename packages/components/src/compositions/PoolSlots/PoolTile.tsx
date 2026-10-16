@@ -117,7 +117,8 @@ function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob: (jobId: string) =
 }
 
 /** A time of day as the limit mark says it: `10:42 AM`, in local time. */
-const clock = (instant: string) => new Date(instant).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+const clock = (instant: string) => CLOCK.format(new Date(instant));
 
 /**
  * Who held a stranded slot last, under its branch: the mark of what it was and

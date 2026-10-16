@@ -70,7 +70,7 @@ impl Tracker for IssueTracker {
             return Ok(None);
         };
         let number = number.to_string();
-        let run = Command::new(FORGE)
+        let run = crate::background::command(FORGE)
             .args(["issue", "view", number.as_str(), "--json", "number,title,url,state"])
             .args(["--jq", READ_ISSUE])
             .current_dir(in_repo)
@@ -170,7 +170,7 @@ fn listed(in_repo: &str, with_links: bool) -> Result<Output, std::io::Error> {
     let jq = OPEN_ISSUES
         .replace("EXCERPT", &EXCERPT.to_string())
         .replace("LINKED", &linked);
-    Command::new(FORGE)
+    crate::background::command(FORGE)
         .args(["issue", "list", "--state", "open", "--limit", LISTED, "--json"])
         .args([fields.as_str(), "--jq", jq.as_str()])
         .current_dir(in_repo)

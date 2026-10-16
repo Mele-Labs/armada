@@ -51,9 +51,10 @@ export type SessionsApi = {
    * A blank session on the repository this window picked. **Main reads the pick**, so the renderer
    * never names a repository: the one repository Fleet serves where the window is on All, and a
    * refusal in words where there are several. **`root` names the repository instead** of the pick: the
-   * annotation layer starts on the notes' own, whatever the window has picked.
+   * annotation layer starts on the notes' own, whatever the window has picked. **`request` is the words the person
+   * dispatched**, which Fleet reads once to fill in the title, workflow, model and effort; the answer is not waited on.
    */
-  startSession: (title?: string, root?: string) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string, request?: string) => Promise<SessionActed>;
   /**
    * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
    * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
@@ -102,6 +103,11 @@ export type SessionsApi = {
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
+  /**
+   * Sets the workflow a Session follows, or clears it with no `workflow` so it is a custom Session. Fleet tells the
+   * agent at once. Answers the Session's record.
+   */
+  setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
   /**
    * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
    * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
@@ -227,6 +233,7 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  setSessionWorkflow: "bridge:set-session-workflow",
   releaseSessionHolds: "bridge:release-session-holds",
   moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",

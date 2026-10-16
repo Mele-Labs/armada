@@ -55,7 +55,8 @@ export function spanOf(ms: number): string {
 }
 
 /** A time of day, `10:02`, in local time. */
-export const clockOf = (at: number): string => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const CLOCK = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+export const clockOf = (at: number): string => CLOCK.format(new Date(at));
 
 /** An id cut to what a person can tell it by. */
 export const shortOf = (id: string): string => (id.length > 10 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id);

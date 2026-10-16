@@ -428,7 +428,7 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag, _root, tuning) {
+    start(tag, _root, _request, tuning) {
       made += 1;
       const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
       set([
@@ -454,7 +454,7 @@ export function sessionsStore(
     startQueued(id) {
       const idea = queued.find((one) => one.id === id);
       if (idea === undefined) return Promise.resolve(undefined);
-      const session = store.start(undefined, idea.root, { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) });
+      const session = store.start(undefined, idea.root, idea.text, { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) });
       if (typeof session !== "string") return session;
       store.dropQueued!(id);
       store.send(session, { text: idea.text, files: [], sketches: [], tags: [] });

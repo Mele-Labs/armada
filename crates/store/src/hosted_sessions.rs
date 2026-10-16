@@ -31,11 +31,21 @@ pub struct KeptHosting {
     /// Started by Setup (`start_session`'s `root`), so it keeps writing the repository's
     /// setup files in the checkout after its Manifest is served.
     pub setup: bool,
+    /// The workflow id the Session runs under. `None` is a custom Session.
+    pub workflow: Option<String>,
+    /// The fields the proposer picked and the person has not changed since, comma separated:
+    /// `title`, `workflow`, `model`, `effort`. Empty when none.
+    pub proposed: String,
+    /// The model the last turn started on, as that turn resolved it. `None` until a turn has
+    /// started, so the first turn compares against nothing and tells nothing.
+    pub turn_model: Option<String>,
+    /// The effort the last turn started on. `None` is the CLI's own; read only where `turn_model` is.
+    pub turn_effort: Option<String>,
 }
 
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm, \
-     setup";
+     setup, workflow, proposed, turn_model, turn_effort";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -50,6 +60,10 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         fork_of: row.get(8)?,
         helm: row.get::<_, i64>(9)? != 0,
         setup: row.get::<_, i64>(10)? != 0,
+        workflow: row.get(11)?,
+        proposed: row.get(12)?,
+        turn_model: row.get(13)?,
+        turn_effort: row.get(14)?,
     })
 }
 
@@ -59,7 +73,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"
                 ),
                 params![
                     hosting.session_id,
@@ -73,6 +87,10 @@ impl Store {
                     hosting.fork_of,
                     i64::from(hosting.helm),
                     i64::from(hosting.setup),
+                    hosting.workflow,
+                    hosting.proposed,
+                    hosting.turn_model,
+                    hosting.turn_effort,
                 ],
             )
             .map(|_| ())
