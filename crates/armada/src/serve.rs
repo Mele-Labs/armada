@@ -679,10 +679,10 @@ fn assemble(
         // in Kit — `#1491`. **It reads and cannot write**, and nothing it
         // returns can reach a Drone: `adapters::mcp` writes a Drone's servers
         // from `core_model::a_drone_resolves` and from nothing else.
-        setup: Arc::new(adapters::ExistingSetup::over(
-            adapters::Home::at(&home),
-            &home,
-        )),
+        setup: Arc::new(
+            adapters::ExistingSetup::over(adapters::Home::at(&home), &home)
+                .in_repositories(|root| Box::new(adapters::Home::at(root))),
+        ),
         port_range,
         run_log_retention: days(shipped.get(keys::RUN_LOG_DAYS)),
         helm_authority: match shipped.get(keys::HELM_CAN_ACT) {
