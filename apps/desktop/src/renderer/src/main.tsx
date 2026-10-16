@@ -26,6 +26,9 @@ import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
+import { ReviewsFrom, createReviewStore } from "./pr-review/store";
+import { reviewSourceOf } from "./pr-review/source";
+import { NO_FIXTURES } from "./pr-review/tools";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
 import { AccountFromFleet } from "./account-fleet";
@@ -69,6 +72,8 @@ const TIMELINE = createFleetTimeline(window.armada);
 const CLASHES = createFleetClashes(window.armada);
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
 const TERRITORY = createFleetTerritory(window.armada);
+/** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens. The agent half is fixtures until wave 2. */
+const REVIEWS = createReviewStore(reviewSourceOf(window.armada), NO_FIXTURES);
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
 const ACCOUNT = createFleetAccount(window.armada);
 
@@ -98,12 +103,14 @@ function Root() {
                 <WiredNumbered>
                   <PlanUsageSourceProvider value={PLAN_USAGE}>
                     <DownshiftSourceProvider value={DOWNSHIFT}>
-                      <WiredSessions>
+                      <WiredSessions events={TIMELINE}>
                         <ClashesFromFleet source={CLASHES}>
                           <TerritoryFromFleet source={TERRITORY}>
                             <AccountFromFleet source={ACCOUNT}>
                               <FleetEventsOver source={TIMELINE}>
-                                <App />
+                                <ReviewsFrom store={REVIEWS}>
+                                  <App />
+                                </ReviewsFrom>
                               </FleetEventsOver>
                             </AccountFromFleet>
                           </TerritoryFromFleet>

@@ -22,7 +22,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use config::ResolvedWorkflow;
-use core_model::{Ulid, WorkflowId};
+use core_model::{Component, Envelope, FieldValue, Level, Ulid, WorkflowId};
 use ipc::{ManifestId, ProposedField, SessionRecord, SetSessionWorkflow, StartSession};
 use ipc::{TimelineKind, TimelineTone};
 use store::{KeptHosting, KeptSession, Store};
@@ -36,6 +36,9 @@ use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
 const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
+
+/// A workflow set while `features.workflows` is off. A 422.
+const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
 
 /// A Session whose proposal call is out. In memory: a Fleet that restarts reads nothing.
 #[derive(Debug, Default)]
@@ -195,7 +198,8 @@ where
         let served = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
-        let workflows = served.workflows();
+        // With workflows off the proposer is shown none, so it never picks one.
+        let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
         let brief = Brief::about_session(request, &workflows, &proposing.choices);
         let ask = Ask::put(
             proposing.model.clone(),
@@ -325,8 +329,17 @@ where
         }
     }
 
+    /// A warning in the envelope on Fleet's standard error, about a Session. A Session has no Job log to
+    /// write into, and what failed here raises nothing for the person.
+    pub(crate) fn session_warned(&self, session: &str, msg: &str, why: impl std::fmt::Display) {
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("session", FieldValue::Str(session.to_string()))
+            .with_field("why", FieldValue::Str(why.to_string()));
+        crate::transcript::note_aloud(&envelope);
+    }
+
     /// An entry on the Session's timeline, for the thread to draw.
-    fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
+    pub(crate) fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),
@@ -349,7 +362,7 @@ where
     /// on it, and the turn that starts then tells.
     pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
-        if !hosting.ran {
+        if !hosting.ran && self.workflows_on() {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
                 said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false));
             }
@@ -429,6 +442,12 @@ where
             .workflow
             .map(|named| named.trim().to_string())
             .filter(|named| !named.is_empty());
+        if workflow.is_some() && !self.workflows_on() {
+            return Err(self.hosted_refusal(
+                WORKFLOWS_OFF,
+                "workflows are switched off in Settings, so every Session is a plain one",
+            ));
+        }
         if let Some(named) = &workflow {
             if !held.contains_key(&WorkflowId::carried(Ulid::carried(named.as_str()))) {
                 return Err(self.hosted_refusal(

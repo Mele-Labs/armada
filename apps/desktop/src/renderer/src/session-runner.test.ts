@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-import { runnerOf } from "./session-runner";
+import { bangOf, runnerOf } from "./session-runner";
 
 const asking = { id: "i", act: { kind: "run", target: "/update-armada" } };
 const session = { id: "s", terminal: true, commands: [{ name: "update-armada" }], waitingFor: [asking] } as unknown as Session;
@@ -41,5 +41,19 @@ describe("runnerOf", () => {
     expect(on).toHaveBeenCalledWith({ kind: "end", code: 0 });
     expect(answerWaiting).not.toHaveBeenCalled();
     expect(settle).not.toHaveBeenCalled();
+  });
+});
+
+describe("bangOf", () => {
+  it("reads one line after a ! as a shell command", () => {
+    expect(bangOf("! rbenv install 4.0.6")).toBe("rbenv install 4.0.6");
+    expect(bangOf("  !pwd ")).toBe("pwd");
+  });
+
+  it("leaves a bare !, a block and plain words to be sent as a message", () => {
+    expect(bangOf("!")).toBeUndefined();
+    expect(bangOf("!  ")).toBeUndefined();
+    expect(bangOf("!ls\nrm x")).toBeUndefined();
+    expect(bangOf("hello !")).toBeUndefined();
   });
 });

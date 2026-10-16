@@ -18,7 +18,7 @@ import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
-import { sessionIdOf } from "../waiting";
+import { callKindOf, sessionIdOf, waitingOf } from "../waiting";
 
 /** What the ship reads: the window's state and the hosts `useItems` raises its calls through, so the title bar can read it without the Cockpit's other props. */
 export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "nowViews" | "nows" | "onWantHeld"> & Hosts;
@@ -362,11 +362,14 @@ export function shipOf(input: Inputs): Ship {
   for (const subject of subjects) {
     if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
     const job = subject.kind === "job" ? jobs.find((one) => one.id === subject.id) : undefined;
-    const at = subject.kind === "session" ? sessions.find((one) => one.id === subject.id)?.lastTurnAt : undefined;
+    const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
+    const at = session?.lastTurnAt;
+    // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
+    const waits = session === undefined ? undefined : waitingOf(session).filter((one) => one.source !== "replied").sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
     const item: Item = {
       key: `${subject.kind}:${subject.id}:needs:${at ?? job?.status ?? ""}`,
       icon: subject.mark.Glyph,
-      kind: subject.mark.said,
+      kind: waits === undefined ? subject.mark.said : callKindOf(waits.source),
       title: subject.title,
       fact: subject.mark.said,
       at,

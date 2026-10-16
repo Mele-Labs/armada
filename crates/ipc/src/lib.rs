@@ -170,6 +170,8 @@ mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
+/// The pull requests waiting on a person as four lists, and the acts of a review on one.
+mod pull_reviews;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
@@ -238,6 +240,8 @@ mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
 mod session_build;
 mod session_plan;
+/// A Session's workflow rail and its judges: the step it is on, and the concerns a judge raises.
+mod session_rail;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -374,9 +378,9 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds, RunSessionCommand,
-    SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode, SessionRow,
-    SessionRowChanged, SessionTag, SetSessionWorkflow,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
+    SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
@@ -453,6 +457,10 @@ pub use pull_requests::{
     PullRequestFile, PullRequestFileOf, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
     PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
+};
+pub use pull_reviews::{
+    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow,
+    PullReviewThread, PullReviewThreadComment, PullThreadResolved, ResolvePullThread, MOST_PER_LIST,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{
@@ -534,6 +542,10 @@ pub use session_plan::{
     PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
     TASK_LIST_IS_THE_PLAN,
+};
+pub use session_rail::{
+    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading, JudgeSession, WaitingCite,
+    SendConcern,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,

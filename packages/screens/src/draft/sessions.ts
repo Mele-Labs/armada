@@ -110,6 +110,92 @@ export type SessionSketch = {
 /** A sketch drawn for a message, the one the pad was left holding. */
 export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 
+// ---- What a Session works to ---------------------------------------------------------------------------
+// The plan, the workflow, the subagents on the field and the judges' concerns, drawn in the Session's own view on
+// the Cockpit and on the Sessions page alike, from the record's plan, workflow, proposal and touches (`session-work.ts`). Progress is the agent's
+// task states with what Fleet observed beside them (`seen`), and a status ring no longer stands for it.
+
+export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed";
+
+/** One task the agent recorded. `seen` is whether Fleet observed edits for it. */
+export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
+
+/** Tasks one subagent takes, by the type of subagent. */
+export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; tasks: readonly WorkTask[] };
+
+/** The scope as paths, the groups, and whether the person has approved it. */
+/** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
+export type WorkSketch = { id: string; title: string; scene: Scene };
+
+/**
+ * What he marked on the plan before it goes to the agent: renamed, removed, added, moved, a group's subagent type changed, or a
+ * note pinned to a group or a task. Nothing is changed until he sends them; they ride on the plan as marks. `group` is a group's id and
+ * `task` a task's id; an `add` with no `task` is a group.
+ */
+export type PlanMark =
+  | { kind: "rename"; group: string; task?: string; from: string; to: string }
+  | { kind: "remove"; group: string; task?: string }
+  | { kind: "add"; group: string; task?: string; id: string; text: string }
+  | { kind: "move"; task: string; from: string; to: string }
+  | { kind: "agent"; group: string; from: string; to: string }
+  | { kind: "note"; id: string; group: string; task?: string; text: string };
+
+/** One line of what he sent, against the group or task it is about. */
+export type SuggestLine = { verb: "Renamed" | "Removed" | "Added" | "Moved" | "Subagent" | "Note"; where: string; text?: string; from?: string };
+
+/** What the agent changed in the plan it recorded again: ids of what is new, what was renamed and what it was, and what is gone. */
+export type PlanChanges = { added: readonly string[]; renamed: readonly { id: string; from: string }[]; removed: readonly { group: string; text: string }[] };
+
+export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+
+/** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
+export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
+
+/** A file of the repository as the Field draws it, a bar on the plot of its directory. `act` is what is being done to it now: made, changed or taken away. */
+export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
+
+/** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
+export type WorkConcern = { id: string; /** The step it was raised after, where a boundary judge raised it; the Judge tile's carry none. */ step?: string; judge?: string; text: string; /** The refusal in its parts, which `text` joins: what should be seen, what was seen instead, and what the difference does. Absent on a concern kept before they were. */ expected?: string; produced?: string; consequence?: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
+
+/** A workflow a Session may follow: its steps in order. */
+export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
+
+export type SessionWork = {
+  /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
+  proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
+  /** The workflow's steps and the index of the one the Session is at, where Fleet says. Absent is a custom Session, which has no rail; `at` absent draws the steps unlit. */
+  workflow?: { name: string; steps: readonly string[]; at?: number };
+  /** Absent until the agent records its plan after planning with the person. */
+  plan?: WorkPlan;
+  field?: readonly WorkDrone[];
+  /** The files the Field draws as bars on its plots. */
+  files?: readonly WorkFile[];
+  concerns?: readonly WorkConcern[];
+  /** A judge is reading the work now. */
+  judging?: true;
+  /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */
+  judged?: { at: string; concerns: number };
+  /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
+  railOff?: true;
+};
+
+/** The acts on a Session's work. Absent where nothing serves them. */
+export type SessionWorkActs = {
+  workflows: readonly WorkflowChoice[];
+  /** Changes the workflow at any time, from the next turn; `null` is none, a custom Session. */
+  choose: (id: string, workflow: string | null) => void;
+  /** The person changed a value the proposer picked, so its mark goes. */
+  unpick: (id: string, value: "workflow" | "model" | "effort") => void;
+  approve: (id: string) => void;
+  /** Sends the marks he put on the plan to the agent as one message, which answers and may record the plan again. `approving` is Approve pressed with marks on: the plan is approved with them. */
+  suggest: (id: string, marks: readonly PlanMark[], approving?: boolean) => void;
+  /** Sends the concern to the Session as a message to the agent. */
+  sendConcern: (id: string, concern: string) => void;
+  dismissConcern: (id: string, concern: string) => void;
+  /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
+  judge?: (id: string) => Promise<void>;
+};
+
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
@@ -177,6 +263,8 @@ export type SessionRow =
       files?: readonly SentFile[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly SessionTag[];
+      /** What the row is drawn under in place of the words Bridge held while they went, so it does not draw again. */
+      stableKey?: string;
     }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
@@ -203,6 +291,12 @@ export type SessionRow =
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
+  | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
+  /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
+  | { id: string; at: string; kind: "concern"; step: string; text: string }
+  /** The changes and notes he sent on the plan, one message with a line for each. */
+  | { id: string; at: string; kind: "suggest"; lines: readonly SuggestLine[] }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
@@ -324,6 +418,8 @@ export type Session = {
   effort?: string;
   /** The permission mode. **A Session runs in auto**, so absent is auto. */
   mode?: SessionMode;
+  /** The plan, workflow, subagents and concerns the view draws round the thread. Absent draws the thread and its ledger as before. */
+  work?: SessionWork;
 };
 
 /**
@@ -623,6 +719,8 @@ export type SessionsDraft = {
    * `session_host/serving.rs`).
    */
   command?: (id: string, text: string) => void;
+  /** The acts on a Session's `work`. */
+  work?: SessionWorkActs;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };

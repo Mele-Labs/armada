@@ -47,8 +47,11 @@ export function waitingOf(session: Session): WaitingItem[] {
   return [{ id: `perm:${asked.call ?? session.id}`, text: asked.command, since, source: "permission", options: offers.map((one) => ({ label: PERMISSION[one] })) }];
 }
 
-/** What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask"]);
+/**
+ * What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. A recorded plan and a
+ * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
+ */
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {
@@ -81,6 +84,9 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
     })
     .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
 }
+
+/** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
+export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Session question" : source === "walk" ? "Session walk" : "Session");
 
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
 export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);

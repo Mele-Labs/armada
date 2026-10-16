@@ -337,6 +337,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
       if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
+      // A plan is approved from its own call: the version is the one in the item's id. Sending changes needs the plan, so that is in the Session.
+      if (given.source === "plan") return draft?.work === undefined ? [] : [oneTap("Approve", () => draft.work?.approve(waiting.sessionId))];
+      // A judge's concern reaches the agent only on his press; dismissing it tells the agent nothing.
+      if (given.source === "judge") {
+        const work = draft?.work;
+        return work === undefined ? [] : [oneTap("Send to session", () => work.sendConcern(waiting.sessionId, given.id)), oneTap("Dismiss", () => work.dismissConcern(waiting.sessionId, given.id))];
+      }
       // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
       if (given.source === "done") {
         return [

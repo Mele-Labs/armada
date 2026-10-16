@@ -242,6 +242,10 @@ export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, num
     });
 }
 
+/** The calls without the open Session's own: what it needs of him is a card in its thread, and nothing shows twice. */
+export const withoutOpenSession = (calls: readonly Item[], sel: { kind: string; key: string } | undefined): Item[] =>
+  sel?.kind === "session" ? calls.filter((one) => callOwnerOf(one) !== sel.key) : [...calls];
+
 /** The Jobs and Sessions waiting on the person's answer, by the key `callOwnerOf` gives their calls: seeing their call does not end it. */
 export const needingOf = (ship: Pick<Ship, "asking">): ReadonlySet<string> => ship.asking;
 

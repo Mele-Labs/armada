@@ -365,6 +365,8 @@ export function PlanTaskSheet({
               onSend={redirect.onSend}
               disabled={redirect.disabled}
               disabledReason={redirect.disabledReason}
+              sent={redirect.sent}
+              onRetry={redirect.onRetry}
               waiting={redirect.waiting}
             />
           </section>

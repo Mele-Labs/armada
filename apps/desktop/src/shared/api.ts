@@ -29,6 +29,7 @@ import type { AccountsApi } from "./api/accounts";
 import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
 import type { ClashesApi } from "./api/clashes";
+import type { ReviewsApi } from "./api/reviews";
 import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
 import type { BayHistoryApi } from "./api/bay-history";
@@ -63,6 +64,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   PlanUsageApi &
   ModelDownshiftApi &
   ClashesApi &
+  ReviewsApi &
   TerritoryApi &
   TimelineApi &
   BayHistoryApi &

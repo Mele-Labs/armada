@@ -3591,6 +3591,8 @@ The agent is sent the same words as before (the command, `Exit <code>.` or `Stop
 
 **Skew.** A Fleet before 23.83 answers 404 to both, so a Bridge that opens the panel draws its tabs empty and cannot write.
 
+The page's `head`, `body` and `threads`, the write's `comments` and `commit`, and the two operations the Reviews tab adds are in *The Reviews tab* below.
+
 ## Protocol 23.81: write clashes between agents
 
 `docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one fact a terminal reports, and one new reach for `leave_note`.
@@ -4062,6 +4064,24 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *The plan*. **Additive.** No prot
 
 **Skew.** A Fleet before 23.91 ignores `request` and answers 404 for `/sessions/workflow`; a Bridge before it never sends either. A Bridge before reads a `session.*` timeline kind it does not know and draws nothing or draws it badly, and ignores the two record fields. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{hosted-sessions,sessions,timeline}.ts`, written by hand like the rest.
 
+## A Session's rail and its judges
+
+Since 16 Oct 2026. `docs/concepts/session.md`, *The rail* and *The judges*. **Additive only**: three operations, four fields on a record, two on a waiting item, one source and one timeline kind. The protocol ID is derived from the wire files and needs no bump.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `SessionRecord` | `workflow_step?`, `judging?`, `judge?`, `settled?` | `workflow_step` is the index of the step Fleet observed the Session on; absent for a custom Session, past the last step, and while `features.workflows` is off. `judging` is a judge reading now (in memory). `judge` is `{ at, concerns }` of the last reading, `concerns` 0 being *No concerns*. `settled` is the concerns the person settled, oldest first, at most 40, each a `judge` item with `concern.settled` |
+| `WaitingItem` | `concern?`, `cites?` | `concern` is `{ from, settled?, expected?, produced?, consequence? }`, `from` being `{ kind: "tile" }` or `{ kind: "step", index, label }`; `settled` is `{ how: "sent" or "dismissed", at }`; the three parts are the judge's refusal, each one short sentence, which `text` joins for the agent, and are absent on a concern kept before they were. `cites` is `[{ path, line? }]`, the files of the diff the judge's quotation landed on |
+| `WaitingSource` | `judge` | id `judge:<n>`, `act` a `message` naming the Session. Sent or dismissed from its own card; `answer_waiting` and `dismiss_waiting` refuse it with `fleet.session_waiting_empty` |
+| `judge_session` (`POST /sessions/judge`) | `JudgeSession`: `session_id`. Answers 200 `SessionRecord` | Answers at once with `judging` true; the reading runs in a task and the row is published when it ends. 409 `fleet.session_closed`, 422 `fleet.session_command_refused` for a terminal Session. `agent_access: No` |
+| `send_concern` (`POST /sessions/judge/send`) | `SendConcern`: `session_id`, `item_id`. Answers 200 `SessionRecord` | The concern becomes the person's message to the agent, sent before it is settled. 409 `fleet.session_waiting_unheld` for an item not waiting. `agent_access: No` |
+| `dismiss_concern` (`POST /sessions/judge/dismiss`) | `DismissConcern`: `session_id`, `item_id`. Answers 200 `SessionRecord` | Settled; the agent is told nothing. Same 409 |
+| `timeline.entry` | `TimelineKind` gains `session.step` | `says` is `step: <old> → <new>` by label, `start` before the first and `done` past the last |
+| `set_session_workflow` | Behaviour only | 422 `fleet.session_workflows_off` to set a workflow while `features.workflows` is off; clearing one still works |
+| Settings | `features.workflows` (boolean, live, shipped on) | Served with the rest; Bridge hides the workflow picker and the steps when it is off |
+
+**Skew.** A Fleet before this answers 404 for the three routes; a Bridge before it ignores the record fields and draws a `judge` source as an item it has no card for. The IDs differ, so the two are refused regardless and the lifeboat serves. Bridge's half is `packages/protocol/src/{session-rail,sessions,timeline}.ts`, written by hand like the rest.
+
 ## A terminal's permission prompt is a call
 
 Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*; measured in `docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`. **Additive only**: two `SessionFact` variants a terminal's mod reports, an optional `tool` on the mod's `asks`, and a `WaitingItem` with the existing `permission` source. No operation, event kind or error is new. Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item and the open ask are existing shapes.
@@ -4209,6 +4229,24 @@ Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `docs/pra
 **Why a call and not the row.** The row is stored, replayed to every viewer that reads a thread, and folded into the state Bridge's renderer holds, so a login on it would be kept and shown far from the window that needs it. The call hands it to main once.
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. A Bridge that predates the row field opens the window with no origins, as it has no word for them. The migration is none: the ledger's `detail` holds strings and `origins` is one more.
+
+## The Reviews tab: the lists waiting on a person, a page's threads and a review's comments
+
+`docs/concepts/pull-review.md`. Bridge reads the pull requests waiting on a person from the forge through Fleet, opens any pull request of a served repository, and posts a review as one call with its line comments. **Additive**: two operations, new DTOs in `ipc::pull_reviews`, and optional fields on the page and the write of *Protocol 23.83* above. Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`, written by hand like the rest.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `get_review_lists` (`GET /review_lists`) | Bridge reads | `PullReviewLists`: `me`, `fetched_at`, and `requested[]`, `team[]`, `assigned[]`, `mine[]` of `PullReviewRow`, each capped at `MOST_PER_LIST`. `Bridge only` |
+| `PullReviewLists.silent` | Fleet writes, Bridge reads | `Vec<PullReviewList>`, left out when empty: a list the forge would not answer, so Bridge keeps what it held. All four silent is a 500 `fleet.review_lists_unreadable` |
+| `PullReviewRow.team` | Fleet writes, Bridge reads | The team asked, left out off the Team list |
+| `PullRequestPage.head`, `.body` | Fleet writes, Bridge reads | The whole head commit and the description, left out where the forge gave none |
+| `PullRequestPage.threads` | Fleet writes, Bridge reads | `Vec<PullReviewThread>`, left out when empty: `id`, `path`, `line?`, `side`, `resolved`, `comments[]`. A page whose threads the forge would not give is a 500 `fleet.pull_request_unreadable`, not a page |
+| `WritePullRequest.comments` | Bridge writes, Fleet reads | `Vec<PullReviewComment>`, left out when empty: `kind` `line` (path, line, side), `file` (path) or `reply` (thread), each with `body`. Set, the write is one review with `kind` as the verdict, and `body` may be empty |
+| `WritePullRequest.commit` | Bridge writes, Fleet reads | The commit the person read, left out for the branch as it stands |
+| Fleet's check (`pull_request_panel.rs`, `write_of`) | Fleet refuses | 422 `fleet.pull_request_write_blank` for a comment with a blank `body`, as for a plain comment, nothing sent to the forge |
+| `resolve_review_thread` (`POST /review_threads/:repository`) | Bridge writes | `ResolvePullThread` (`thread`, `resolved`), answers `PullThreadResolved`. A 409 `fleet.review_thread_refused` carries the forge's sentence. `Bridge only` |
+
+**Additive.** Every new field is optional and left out when empty. The IDs differ, so a Bridge and a Fleet that differ are refused regardless.
 
 ## A Session's running Check: its log live, and a stop
 

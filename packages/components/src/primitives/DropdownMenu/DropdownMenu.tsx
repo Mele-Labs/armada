@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
 import { Input } from "../Input/Input";
+import { Tooltip } from "../Tooltip/Tooltip";
 
 /**
  * The row menu, and the one place besides a dialog, sheet, popover, tooltip
@@ -17,9 +18,10 @@ import { Input } from "../Input/Input";
  * `aria-current` carries the fact for anyone not reading the glyph — a chosen
  * item never also has a shortcut.
  *
- * No glyphs otherwise: icons stay on ghost/icon-only row actions, confirmation
- * dialogs and toolbars, per iconography; one drawing in the sheet disagrees,
- * see the report.
+ * No glyphs by default: icons stay on ghost/icon-only row actions, confirmation
+ * dialogs and toolbars, per iconography. **An item may carry its act's glyph**
+ * (`icon`), leading its label, for a menu that gathers a header's acts (the
+ * owner, 16 Oct 2026): the same glyph the act wore as a button.
  */
 export type DropdownMenuEntry =
   | {
@@ -28,12 +30,16 @@ export type DropdownMenuEntry =
       label: string;
       shortcut?: string;
       danger?: boolean;
+      /** The act's glyph, before the label. */
+      icon?: LucideIcon;
       selected?: boolean;
       /**
        * Listed and not choosable: `aria-disabled`, `--fg-subtle`, and a press
        * does nothing. It stays in the arrow order so a person can read why.
        */
       disabled?: boolean;
+      /** What a hover on a disabled item says, where it is listed and not choosable. */
+      hint?: string;
       /**
        * How many rows the item holds, where the menu is a panel's filters (the
        * owner, 29 Sep 2026). Tabs' count rule: trailing mono. Zero draws nothing.
@@ -307,7 +313,7 @@ export function DropdownMenu({
                 </div>
               );
             }
-            return (
+            const item = (
               <button
                 key={entry.id}
                 type="button"
@@ -325,6 +331,7 @@ export function DropdownMenu({
                   onSelect?.(entry.id);
                 }}
               >
+                {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
                 <span className="armada-dropdown-menu__text">
                   {entry.label}
                   <Count of={entry.count} />
@@ -335,6 +342,13 @@ export function DropdownMenu({
                   <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
                 ) : null}
               </button>
+            );
+            return entry.disabled === true && entry.hint !== undefined ? (
+              <Tooltip key={entry.id} label={entry.hint} asChild>
+                {item}
+              </Tooltip>
+            ) : (
+              item
             );
           })}
         </div>

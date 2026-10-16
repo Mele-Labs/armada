@@ -219,6 +219,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_request_writes/:repository",
             post(crate::pull_request_panel::write_pull_request::<D>),
         )
+        .route("/review_lists", get(crate::pull_request_panel::get_review_lists::<D>))
+        .route(
+            "/review_threads/:repository",
+            post(crate::pull_request_panel::resolve_review_thread::<D>),
+        )
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
@@ -258,6 +263,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
+        .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
+        .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
+        .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),

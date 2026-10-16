@@ -59,6 +59,10 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         proposal: None,
         plan: None,
         touches: Vec::new(),
+        workflow_step: None,
+        judging: false,
+        judge: None,
+        settled: Vec::new(),
     }
 }
 

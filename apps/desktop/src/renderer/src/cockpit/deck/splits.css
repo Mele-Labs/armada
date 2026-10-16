@@ -1,0 +1,37 @@
+/* The handles between a column's panels, and the shares they draw the panels at (`splits.tsx`). */
+
+.deck-grid { position: relative; }
+
+/* A handle fills its gap and shows a line in it only when pointed at, focused or held. */
+.deck-split { position: absolute; z-index: 2; margin: 0; cursor: row-resize; touch-action: none; }
+.deck-split::before {
+  content: "";
+  position: absolute;
+  inset-inline: var(--space-3);
+  top: 50%;
+  height: calc(var(--border-width) * 2);
+  translate: 0 -50%;
+  border-radius: var(--border-width);
+  background: transparent;
+}
+.deck-split:hover::before,
+.deck-split:focus-visible::before { background: var(--border-default); }
+.deck-split[data-held]::before { background: var(--accent); }
+.deck-split:focus-visible { outline: none; }
+
+/* While one is held the panels follow it with no easing, and the cursor stays what it is wherever the pointer goes. */
+.deck-grid[data-splitting] .deck-panel,
+.deck-grid[data-splitting] .sv-panel,
+.deck-grid[data-splitting] .deck-stage,
+.deck-grid[data-splitting] .deck-foot { transition: none; }
+
+/* A dragged panel shares its column by the share it was left at. Specific enough to stand over each panel's own size, and a panel
+   folded or empty keeps the size it has. */
+.deck-grid [data-sized][data-sized][data-sized]:not([data-collapsed], .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty)))) {
+  flex: var(--w) 1 0;
+  max-height: none;
+}
+
+/* The foot draws its Field to the foot's height when the foot has been dragged. */
+.deck-foot[data-sized] { min-height: calc(var(--space-12) * 3.5); }
+.deck-foot[data-sized] .sv-slot[data-place="foot"] > .sv-panel[data-area="field"] { flex: 1 1 0; }

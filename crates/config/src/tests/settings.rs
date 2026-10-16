@@ -178,6 +178,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::HELM_CAN_ACT,
         s::DRAFT_PULL_REQUESTS,
         s::OPEN_GUIDES_FIRST_TIME,
+        s::WORKFLOWS,
         s::WHERE_THINGS_ARE_OPEN,
     ] {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
@@ -226,7 +227,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 15 + 4 + 23 + 2 + 3 + s::prompt_keys().count();
+    let handles = 22 + 15 + 5 + 23 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
