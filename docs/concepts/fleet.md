@@ -588,6 +588,18 @@ write thousands of events a minute), and for every slot every 10 seconds. **The 
 wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026); a change an event
 announces shows in under three. What no event announces is a holder dying, another process
 changing the pool's size, and a branch deleted from under a free slot's commits.
+
+**The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
+the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute
+per repository here, and up to 71% of a core each in `lendinghome-monolith`. HEAD, the refs and
+the record are read in process every time. A free slot's status is asked again where its work
+tree was not watched before this read, or its watch heard it, or events were lost (an error, or
+a rescan flag), or the stream restarted (a slot was added to it or let go of, and the events of
+that moment are the ones it drops), or something changed under `target`, `.gitnexus` or
+`node_modules` that the repository does not ignore, or the repository's `info/exclude` changed,
+or this adapter acted on the pool. A pool the file system would not be watched for asks every
+time. Nothing is asked on a timer beyond these, so a watch that silently stopped reporting would
+leave a free slot reading as it did until one of them; the global ignore file is not watched.
 `docs/spikes/032-what-moves-when-a-slot-changes.md` has the measurements.
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
