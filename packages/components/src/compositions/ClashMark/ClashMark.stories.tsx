@@ -128,6 +128,28 @@ export const WithManyFiles: Story = {
   },
 };
 
+/** The header hides the whole list and shows it again; the holder's own button opens the holder and leaves the panel as it is. */
+export const Collapsed: Story = {
+  render: () => (
+    <ClashesProvider value={holding(opened, SESSION)}>
+      <ClashNotice kind="job" id="j1" />
+    </ClashesProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    opened.mockClear();
+    const header = canvas.getByRole("button", { name: "Conflicts with" });
+    await expect(header).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Open Retry tuning" }));
+    await expect(opened).toHaveBeenCalledTimes(1);
+    await expect(header).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(header);
+    await expect(header).toHaveAttribute("aria-expanded", "false");
+    await expect(canvas.queryByRole("list", { name: "Conflicting files" })).toBeNull();
+    await userEvent.click(header);
+    await expect(canvas.getByRole("list", { name: "Conflicting files" })).toHaveTextContent("retry.rs");
+  },
+};
+
 /** Four files are drawn whole, with no chip. */
 export const WithFourFiles: Story = {
   render: () => (

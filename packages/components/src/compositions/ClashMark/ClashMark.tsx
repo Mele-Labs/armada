@@ -1,6 +1,6 @@
 import { createContext, useContext, useId, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { SquareTerminal, Swords, Workflow } from "lucide-react";
+import { ChevronDown, ChevronRight, SquareTerminal, Swords, Workflow } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PathChip } from "../PathChip/PathChip";
@@ -113,29 +113,38 @@ export function ClashNotice({ kind, id }: { kind: "job" | "session"; id: string 
 
 function ClashRow({ clash }: { clash: ClashView }) {
   const held = useContext(Held);
-  const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(true);
+  const [all, setAll] = useState(false);
   const listId = useId();
   const Glyph = clash.with.kind === "job" ? Workflow : SquareTerminal;
   const folds = clash.paths.length > SHOWN + 1;
-  const drawn = folds && !open ? clash.paths.slice(0, SHOWN) : clash.paths;
+  const drawn = folds && !all ? clash.paths.slice(0, SHOWN) : clash.paths;
+  const Fold = shown ? ChevronDown : ChevronRight;
+  const holder = clash.with.kind === "main" ? (
+    <span className="armada-clash-notice__with" data-main>
+      {clash.with.label}
+    </span>
+  ) : (
+    // Beside the toggle and not in it: a press opens the holder and leaves the panel as it is.
+    <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
+      <Glyph size={14} strokeWidth={2} aria-hidden="true" />
+      {clash.with.label}
+    </button>
+  );
   return (
     <div className="armada-clash-notice__row">
-      <Tooltip label="Write clash">
-        <span className="armada-clash-mark" role="img" aria-label="Write clash">
-          <Swords size={16} strokeWidth={2} aria-hidden="true" />
-        </span>
-      </Tooltip>
-      {clash.with.kind === "main" ? (
-        <span className="armada-clash-notice__with" data-main>
-          {clash.with.label}
-        </span>
-      ) : (
-        <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
-          <Glyph size={14} strokeWidth={2} aria-hidden="true" />
-          {clash.with.label}
+      <div className="armada-clash-notice__head">
+        <button type="button" className="armada-clash-notice__toggle" aria-expanded={shown} aria-controls={listId} onClick={() => setShown(!shown)}>
+          <Fold size={12} strokeWidth={2} aria-hidden="true" />
+          <span className="armada-clash-mark" aria-hidden="true">
+            <Swords size={16} strokeWidth={2} />
+          </span>
+          Conflicts with
+          {clash.with.kind === "main" ? <> {holder}</> : null}
         </button>
-      )}
-      <ul className="armada-clash-notice__paths" id={listId} aria-label="Conflicting files">
+        {clash.with.kind === "main" ? null : holder}
+      </div>
+      <ul className="armada-clash-notice__paths" id={listId} aria-label="Conflicting files" hidden={!shown}>
         {drawn.map((path) => {
           const cut = path.lastIndexOf("/") + 1;
           return (
@@ -146,8 +155,8 @@ function ClashRow({ clash }: { clash: ClashView }) {
         })}
         {folds ? (
           <li>
-            <button type="button" className="armada-path armada-clash-notice__fold" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
-              <span className="armada-path__base">{open ? "Fewer" : `${clash.paths.length - SHOWN} more`}</span>
+            <button type="button" className="armada-path armada-clash-notice__fold" aria-expanded={all} onClick={() => setAll(!all)}>
+              <span className="armada-path__base">{all ? "Fewer" : `${clash.paths.length - SHOWN} more`}</span>
             </button>
           </li>
         ) : null}
