@@ -3,9 +3,8 @@
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
-import { useState } from "react";
 import { Bot, BookOpen, Check, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal, X } from "lucide-react";
-import { Button, Kbd, Prose, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import { Button, Kbd, Prose, PrMark, SessionComposer, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { SOURCE_MARK } from "./marks";
@@ -17,12 +16,10 @@ import { bySession, onlyExplanations, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
-const ASK = "ask";
-
 /**
- * The quick actions, above the description: one bar of the four explanations and Ask. **Ask is not an explanation** but a box
- * for his own question, as Natural Search is on the left. **A question he sent is kept in a small panel under the bar**, an
- * index of what he asked of this pull request, and is not drawn where he asked none. An action with no kept result asks
+ * The quick actions, above the description: one bar of the four explanations. **A question he sent from the composer at the foot
+ * of the reader is kept in a small panel under the bar**, an index of what he asked of this pull request, and is not drawn where
+ * he asked none. An action with no kept result asks
  * first, since it spends tokens (`store.spend`), and a kept one opens at once.
  */
 export function QuickActions({ pr }: { pr: ReviewPr }) {
@@ -40,13 +37,12 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
       </h3>
       <div className="pr-explainer__pick">
         <Tabs
-          items={[...kinds, { id: ASK, name: "Ask", checks: "Ask about this pull request in your own words" }].map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
+          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
           value={work.kind ?? ""}
           onChange={(id) => chooseQuick(store, pr, id)}
         />
       </div>
       {work.asks.length === 0 ? null : <Asks pr={pr} />}
-      {work.kind === ASK ? <AskBox pr={pr} /> : null}
     </section>
   );
 }
@@ -114,53 +110,6 @@ function Asks({ pr }: { pr: ReviewPr }) {
         );
       })}
     </ul>
-  );
-}
-
-/** His own question, written where the answer will be. It runs only when he sends, because it costs. */
-function AskBox({ pr }: { pr: ReviewPr }) {
-  const store = useReviewStore()!;
-  const keep = `pr-review:ask:${pr.key}`;
-  const [words, setWords] = useState("");
-  const send = () => {
-    if (words.trim() === "") return;
-    const said = words;
-    // The words stay in the box until he has said Run, so Cancel loses nothing.
-    store.spend("Ask", () => {
-      store.ask(pr.key, said);
-      forgetKept(keep);
-      setWords("");
-    });
-  };
-  return (
-    <form
-      className="pr-what pr-ask"
-      aria-label="Ask"
-      onSubmit={(event) => {
-        event.preventDefault();
-        send();
-      }}
-    >
-      <Textarea
-        rows={3}
-        autoFocus
-        keep={keep}
-        aria-label="Ask about this pull request"
-        value={words}
-        onChange={(event) => setWords(event.target.value)}
-        onKeyDown={(event) => {
-          if (sendsOn(event) && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            send();
-          }
-        }}
-      />
-      <Tooltip label="An agent reads this pull request and answers, once, when you send" asChild>
-        <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === ""}>
-          Ask
-        </Button>
-      </Tooltip>
-    </form>
   );
 }
 
@@ -322,6 +271,46 @@ function AccountView({ account, onOpenLink }: { account: Account; onOpenLink: (a
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+const NOBODY = () => undefined;
+const NONE: readonly never[] = [];
+
+/**
+ * His own question about the open pull request, in a compact box at the foot of the reader: **the Sessions box** (`SessionComposer`),
+ * text only and on one row, as a Job's Commander has it. ↵ sends and ⇧↵ breaks the line. What is typed is kept per pull request
+ * until it is sent. **It asks first**, since an answer spends tokens, and Cancel gives the words back.
+ */
+export function AskComposer({ pr }: { pr: ReviewPr }) {
+  const store = useReviewStore()!;
+  return (
+    <div className="pr-ask-bar">
+      <Tooltip label="Ask about this pull request" shortcut={capOf(REVIEW_KEYS.ask)}>
+        <Kbd>{capOf(REVIEW_KEYS.ask)}</Kbd>
+      </Tooltip>
+      <SessionComposer
+        working={false}
+        bare
+        label="Ask about this PR"
+        send="secondary"
+        slim
+        model={null}
+        effort={null}
+        models={NONE}
+        efforts={NONE}
+        onTune={NOBODY}
+        commands={NONE}
+        taggable={NONE}
+        tags={NONE}
+        onTags={NOBODY}
+        drawn={NONE}
+        onDraw={NOBODY}
+        onRemoveDrawn={NOBODY}
+        draftKey={`pr-review:${pr.key}`}
+        onSend={(sent) => new Promise<boolean>((resolve) => store.spend("Ask", () => (store.ask(pr.key, sent.text), resolve(true)), () => resolve(false)))}
+      />
     </div>
   );
 }

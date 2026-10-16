@@ -10,7 +10,7 @@ import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, Prose, Tabs, Tooltip
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
-import { Explained, QuickActions } from "./explain";
+import { AskComposer, Explained, QuickActions } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
@@ -122,6 +122,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
         {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
       </div>
+      <AskComposer pr={pr} />
     </section>
   );
 }
@@ -129,7 +130,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
 function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
   // **The description tucks away once an explanation is shown**, into one row that opens it again. With nothing chosen it is open.
-  const shown = work.kind !== undefined && work.kind !== "ask";
+  const shown = work.kind !== undefined;
   const [chosen, setChosen] = useState<boolean | undefined>(undefined);
   const open = chosen ?? !shown;
   return (

@@ -146,8 +146,10 @@
 .pr-asked__words:hover { color: var(--fg-default); }
 .pr-asked__words:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 .pr-asked__row[data-selected] .pr-asked__words { color: var(--fg-default); }
-.pr-ask { flex-direction: row; align-items: flex-end; }
-.pr-ask .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+/* The composer at the foot of the reader: his own question about this pull request, on one row that grows as he types. */
+.pr-ask-bar { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-top: var(--border-width) solid var(--border-subtle); }
+.pr-ask-bar > kbd { margin-bottom: var(--space-2); }
+.pr-ask-bar .armada-session-composer { flex: 1 1 0; min-width: 0; }
 .pr-what__words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
 .pr-what[data-source="kit"] { border-color: color-mix(in srgb, var(--status-rejected) 45%, var(--border-default)); }
 .pr-what[data-source="repository"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }

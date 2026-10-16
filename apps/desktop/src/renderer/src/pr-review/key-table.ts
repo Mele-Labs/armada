@@ -9,6 +9,7 @@ export const REVIEW_KEYS = {
   lists: "L",
   search: "/",
   quick: "Q",
+  ask: "A",
   description: "D",
 } as const;
 

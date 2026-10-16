@@ -145,6 +145,10 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       take();
       return focusBar();
     }
+    if (event.key === REVIEW_KEYS.ask) {
+      take();
+      return document.querySelector<HTMLElement>('.pr-ask-bar [role="textbox"]')?.focus();
+    }
     if (event.key === REVIEW_KEYS.description) {
       take();
       return document.querySelector<HTMLElement>(".pr-desc > header button")?.click();

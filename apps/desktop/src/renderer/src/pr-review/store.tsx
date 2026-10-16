@@ -45,7 +45,7 @@ export type ReviewStore = {
    * **Everything that spends tokens goes through here**: the quick actions, the review tools and Natural Search. It runs
    * at once where he turned the question off, and otherwise waits on a confirmation.
    */
-  spend: (what: string, run: () => void) => void;
+  spend: (what: string, run: () => void, cancelled?: () => void) => void;
   /** Run, from the confirmation. `again` is its box, "Don't ask again". */
   confirmSpend: (again: boolean) => void;
   cancelSpend: () => void;
@@ -164,6 +164,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
   };
 
   let waiting: (() => void) | undefined;
+  let declined: (() => void) | undefined;
 
   return {
     get: () => snapshot,
@@ -193,20 +194,25 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
     open: (open) => set({ open }),
     setSearching: (searching) => set({ searching }),
-    spend: (what, run) => {
+    spend: (what, run, cancelled) => {
       if (!snapshot.askFirst) return run();
       waiting = run;
+      declined = cancelled;
       set({ spending: what });
     },
     confirmSpend: (again) => {
       const run = waiting;
       waiting = undefined;
+      declined = undefined;
       set({ spending: undefined, ...(again ? { askFirst: false } : {}) });
       run?.();
     },
     cancelSpend: () => {
+      const no = declined;
       waiting = undefined;
+      declined = undefined;
       set({ spending: undefined });
+      no?.();
     },
     setView: (key, view) => change(key, { view }),
     explain: (key, def) => {
@@ -237,7 +243,7 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
       const pr = prOf(key);
       if (pr !== undefined && work(key).asks.find((one) => one.id === id)?.run.state !== "running") answer(key, id, pr.head);
     },
-    removeAsk: (key, id) => change(key, { asks: work(key).asks.filter((one) => one.id !== id), kind: work(key).kind === id ? "ask" : work(key).kind }),
+    removeAsk: (key, id) => change(key, { asks: work(key).asks.filter((one) => one.id !== id), kind: work(key).kind === id ? undefined : work(key).kind }),
     runTool: (key, tool) => {
       if (!tool.agent) return change(key, { view: tool.id });
       const run = work(key).runs[tool.id];
