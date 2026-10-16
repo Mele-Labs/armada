@@ -1,6 +1,6 @@
 // The served checkout is behind main and Fleet would not catch it up, so main's light on the merge queue carries an amber mark
 // and its card a section, "Your checkout": what holds it back, and the one command that is safe to press, where there is one.
-// Four holds in turn on one repository. The safe one runs from the card and the checkout is level. Over `checkout-held-back`.
+// Three holds in turn on one repository. The safe one runs from the card and the checkout is level. Over `checkout-held-back`.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -13,7 +13,6 @@ const section = (title: string) => inside(card(title), region("Your checkout"));
 
 const safe = "880 commits behind main";
 const clashing = "12 commits behind main";
-const branch = "40 commits behind main";
 const diverged = "5 commits behind main";
 
 export const checkoutHeldBack = walk("checkout-held-back", [
@@ -30,10 +29,6 @@ export const checkoutHeldBack = walk("checkout-held-back", [
   { press: light(clashing), say: "A press pins the card: two files are uncommitted" },
   { hover: inside(section(clashing), role("img", "Also changed on main")), say: "A warning marks the file main also changed" },
   { look: section(clashing), say: "There is no command, because the pull could stop on a conflict" },
-  { later: places, say: "Another branch is checked out, with nothing uncommitted" },
-  { look: inside(section(branch), text("fix/slot-lease")), say: "It is on fix/slot-lease, with 3 commits that are not on main" },
-  { look: inside(section(branch), text("switch main")), say: "One command is safe: switch back to main" },
-  { look: inside(section(branch), button("Run")), say: "Run plays it in the repository" },
   { later: places, say: "On main, with 2 commits main lacks" },
   { look: inside(section(diverged), text("2 commits not on main")), say: "The history diverged, so there is no command" },
 ]);

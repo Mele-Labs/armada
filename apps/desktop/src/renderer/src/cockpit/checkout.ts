@@ -1,6 +1,7 @@
 // A held checkout as a call: what the card says and the one command that is safe to press. Pure, so
-// the rule is read without drawing a card. Fleet never forces, stashes or switches the served
-// checkout, so the call is how the owner does it where one press cannot hurt (`HeldCheckout`).
+// the rule is read without drawing a card. Fleet fast-forwards a clean checkout itself and never
+// forces or stashes the served one, so the call is how the owner does it where one press cannot hurt
+// (`HeldCheckout`). `on` reaches Bridge only when Fleet could not move the base ref, and has no command.
 
 import type { HeldCheckout } from "@armada/protocol";
 
@@ -26,24 +27,21 @@ const word = (text: string): string => (/^[\w./@:+=,-]+$/.test(text) ? text : `'
 function commandOf(root: string, held: HeldCheckout): string | undefined {
   const uncommitted = held.uncommitted ?? [];
   const clashing = held.clashing ?? [];
-  if (held.on === undefined) {
-    return uncommitted.length > 0 && clashing.length === 0 && held.ahead === 0 ? `git -C ${word(root)} pull --ff-only --autostash` : undefined;
-  }
-  return uncommitted.length === 0 ? `git -C ${word(root)} switch ${word(held.base)}` : undefined;
+  return held.on === undefined && uncommitted.length > 0 && clashing.length === 0 && held.ahead === 0 ? `git -C ${word(root)} pull --ff-only --autostash` : undefined;
 }
 
 export function checkoutCall(root: string, held: HeldCheckout): CheckoutCall {
   const uncommitted = held.uncommitted ?? [];
   const clashing = new Set(held.clashing ?? []);
   const fact =
-    held.on !== undefined
-      ? `On ${held.on}`
-      : clashing.size > 0
-        ? "Uncommitted changes main also changed"
-        : uncommitted.length > 0
-          ? "Uncommitted changes"
-          : held.ahead > 0
-            ? `${commits(held.ahead)} not on ${held.base}`
+    clashing.size > 0
+      ? "Uncommitted changes main also changed"
+      : uncommitted.length > 0
+        ? "Uncommitted changes"
+        : held.ahead > 0
+          ? `${commits(held.ahead)} not on ${held.base}`
+          : held.on !== undefined
+            ? `On ${held.on}`
             : "";
   const command = commandOf(root, held);
   return {
