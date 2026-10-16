@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use ipc::SessionRow;
 
-use super::{drawn, fold_subagent, whole_lines};
+use super::{drawn, fold_subagent, whole_lines, Gauge};
 
 pub struct Followed {
     file: PathBuf,
@@ -20,6 +20,7 @@ pub struct Followed {
     rows: Vec<SessionRow>,
     inside_agent: bool,
     done: Option<Option<String>>,
+    gauge: Gauge,
 }
 
 impl Followed {
@@ -41,6 +42,7 @@ impl Followed {
             rows: Vec::new(),
             inside_agent,
             done: None,
+            gauge: Gauge::default(),
         };
         one.catch_up()?;
         Ok(one)
@@ -66,6 +68,11 @@ impl Followed {
         }
     }
 
+    /// The model a subagent runs on and what it had read at its last answer.
+    pub fn gauge(&self) -> &Gauge {
+        &self.gauge
+    }
+
     /// Draw what the file gained since the last call. **A file that is shorter than what was
     /// drawn, or is another file, is drawn again from the start.**
     pub fn catch_up(&mut self) -> std::io::Result<()> {
@@ -82,7 +89,7 @@ impl Followed {
             self.restart(identity);
         }
         if self.inside_agent {
-            fold_subagent(&text, &mut self.rows, &mut self.done);
+            fold_subagent(&text, &mut self.rows, &mut self.done, &mut self.gauge);
         } else {
             self.rows.extend(text.lines().flat_map(|line| drawn(line, false)));
         }
@@ -95,5 +102,6 @@ impl Followed {
         self.next = 0;
         self.rows.clear();
         self.done = None;
+        self.gauge = Gauge::default();
     }
 }

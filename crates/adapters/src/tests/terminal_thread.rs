@@ -431,3 +431,41 @@ fn an_unchanged_subagent_file_is_served_from_the_cache() {
     std::fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
     assert!(!crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"), "a changed file is read again");
 }
+
+fn answered(uuid: &str, model: &str, usage: &str) -> String {
+    format!(
+        r#"{{"type":"assistant","uuid":"{uuid}","isSidechain":true,"agentId":"x1","timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"assistant","model":"{model}","stop_reason":"tool_use","usage":{usage},"content":[{{"type":"tool_use","id":"t1","name":"Read","input":{{"file_path":"/a"}}}}]}}}}"#
+    )
+}
+
+/// A subagent's model and window come from its last answer that read anything, as the input side of
+/// that answer's usage; the CLI's synthetic answers say nothing, and the cached read agrees.
+#[test]
+fn a_subagent_says_its_model_and_what_its_last_answer_had_in_its_window() {
+    let first = answered("s1", "claude-opus-5-5", r#"{"input_tokens":6,"cache_creation_input_tokens":1000,"cache_read_input_tokens":10000,"output_tokens":90}"#);
+    let last = answered("s2", "claude-sonnet-5-5", r#"{"input_tokens":4,"cache_creation_input_tokens":200,"cache_read_input_tokens":41796,"output_tokens":7}"#);
+    let synthetic = answered("s3", "<synthetic>", r#"{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}"#);
+    let (_home, _root, file) = subagent_file(&[first.clone()]);
+    let seen = crate::terminal_thread::read_subagent(&file).expect("readable");
+    assert_eq!(seen.gauge.model.as_deref(), Some("claude-opus-5-5"));
+    assert_eq!(seen.gauge.tokens, Some(11_006));
+
+    std::fs::write(&file, [first, last, synthetic].join("\n") + "\n").unwrap();
+    let seen = crate::terminal_thread::read_subagent(&file).expect("readable");
+    assert_eq!(seen.gauge.model.as_deref(), Some("claude-sonnet-5-5"), "the last answer, not a synthetic one");
+    assert_eq!(seen.gauge.tokens, Some(42_000));
+    let followed = crate::terminal_thread::Followed::subagent(&file).expect("followed");
+    assert_eq!(followed.gauge(), &seen.gauge, "the cache reads what the file reads");
+
+    let none = vec![in_agent("user", "u1", "null", r#""Read the CI history""#)];
+    let (_home, _root, file) = subagent_file(&none);
+    assert_eq!(crate::terminal_thread::read_subagent(&file).unwrap().gauge, crate::terminal_thread::Gauge::default());
+}
+
+/// The usual window holds until a subagent has read more than it, which only the long one can.
+#[test]
+fn a_window_is_the_usual_one_until_the_tokens_outgrow_it() {
+    assert_eq!(crate::terminal_thread::window_for(42_000), 200_000);
+    assert_eq!(crate::terminal_thread::window_for(200_000), 200_000);
+    assert_eq!(crate::terminal_thread::window_for(200_001), 1_000_000);
+}

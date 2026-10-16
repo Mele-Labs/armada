@@ -91,6 +91,18 @@ fn title_of(text: &str) -> Option<String> {
     Some(line.chars().take(60).collect())
 }
 
+/// A subagent's transcript as the wire has it. The window follows the tokens: see `window_for`.
+fn subagent_read(thread: adapters::terminal_thread::Subagent) -> SessionSubagent {
+    SessionSubagent {
+        rows: thread.rows,
+        finished: thread.finished,
+        report: thread.report,
+        model: thread.gauge.model,
+        context_tokens: thread.gauge.tokens,
+        context_window: thread.gauge.tokens.map(adapters::terminal_thread::window_for),
+    }
+}
+
 impl<H, V, W> HostedSessions for Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -426,17 +438,9 @@ where
                         },
                     })
                     .await;
-                Ok(SessionSubagent {
-                    rows: thread.rows,
-                    finished: true,
-                    report: thread.report,
-                })
+                Ok(subagent_read(thread))
             }
-            Some(Ok(thread)) => Ok(SessionSubagent {
-                rows: thread.rows,
-                finished: thread.finished,
-                report: thread.report,
-            }),
+            Some(Ok(thread)) => Ok(subagent_read(thread)),
             Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
             None => {
                 Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent"))
