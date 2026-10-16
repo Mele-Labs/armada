@@ -77,6 +77,7 @@ Model selection and budget, which are per-step configuration.
 | --- | --- | --- | --- |
 | **Drone** | `fleet` | At spawn, which is once per workflow step | Specified — section 5 |
 | **Helm** | `fleet` | Per Helm Session start, as a note appended to its system prompt | Drafted — section 5a |
+| **Session rules** | `adapters` | Every process of a hosted session, appended to its system prompt ahead of Helm's note and a fork's | Drafted, compiled in: section 5f |
 | **Commander** | `fleet` | At the start of a Job's Commander session, then a line per turn | Drafted — section 5e |
 | **Thought reader** | `fleet` | When a person sends a message from Helm's box that is not plainly a question | Specified by `prompts.helmRoute`; what it is told is below |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |
@@ -2097,6 +2098,50 @@ redirect a Drone a fourth time on the same problem.
 
 **Pinned** by `crates/fleet/src/helm/commander_brief.rs`'s own test, so an edit
 here lands there in the same change.
+
+---
+
+# 5f. The session rules
+
+**Armada's rules for how a hosted session surfaces what it needs and how far it
+has got.** `crates/adapters/src/session_rules.md`, read at build by `include_str!`
+into `hosted_session::SESSION_RULES`, which `render_hosted_session` puts first in
+the one `--append-system-prompt` argument of every process: plain, Helm, fork,
+move and resuming alike. Helm's note (5a) and a fork's note follow it.
+
+**Compiled in, and no settings key.** Layer 1 is unreachable from config, and so
+is this. A text a person can edit away is a rule the session can fall back out
+of, which is what the rules exist to prevent. The same text is the body of the
+`Armada` output style (`plugins/armada/output-styles/armada.md`), which carries
+it for a terminal session whose person has no style; the two are kept by hand.
+
+**Added to the person's style, never in place of it.** Claude Code runs one output
+style at a time, and a style that asks for every action in a table leaves
+`waiting_for`, the task list and `all_done` uncalled, so Bridge's Needs you band
+stays empty. The rules ride the system prompt, which no style replaces.
+
+| Block | Action it names | Why it is in the rules |
+| --- | --- | --- |
+| **Needs** | Put anything the person must do, decide, run or approve in `waiting_for`; a restart is an item with `act` of `run`; ask a decision in the prompt or in `waiting_for`, never both; remove an item once settled | Bridge reads needs from `waiting_for` and not from a reply. Asked both ways, a decision is two cards. The call replaces the whole list, so the rule says to state every item still open |
+| **Progress** | Keep multi-step work in the task list with TaskCreate and TaskUpdate | The mod reports the list's items for the build ring (`docs/concepts/session.md`, *The build record*) |
+| **Finishing** | `finish_up`, then `all_done`; never idle without `waiting_for` naming what it waits on or `all_done` | A session that neither waits nor is done reads as stuck to the person |
+| **Order of authority** | None. The person's style governs tone, length and format; these rules win on surfacing | Without it a model reads the two as a conflict and keeps the style |
+
+**Pinned** by `crates/adapters/src/tests/hosted_session.rs`: every launch carries
+the rules once, and the rules name the tools above, so a rename at the door fails
+there.
+
+**Drafted wording. Not sanctioned.**
+
+```
+You work in a session Armada hosts. Armada's Bridge shows the person what each session needs from them and how far its work has got, and it reads that from the tools below and from nothing else. These rules cover how needs and progress are surfaced. The person's own output style still sets tone, length and format. Where it conflicts with these rules on surfacing, these rules win.
+
+Needs. Anything the person must do, decide, run or approve goes in `waiting_for`, as an item with its own id and one short line of text. A restart they must run is an item with `act` of `run`. A need is never only a row in a table, a list or a sentence in your reply. Your reply may still summarise an item, but the tool call is what counts. Ask a decision one way: in the prompt with AskUserQuestion, or as a `waiting_for` item, never both. `waiting_for` replaces the whole list on every call, so state every item still open. Remove an item once it is settled.
+
+Progress. Keep your own multi-step work in your task list with TaskCreate and TaskUpdate, so the person sees how far it has got.
+
+Finishing. When the work is done, call `finish_up`, then `all_done`. Never leave a session idle without either naming in `waiting_for` what it waits on or calling `all_done`.
+```
 
 ---
 

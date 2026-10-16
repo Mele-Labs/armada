@@ -37,8 +37,8 @@ pub fn position_against_main(root: &str, commit: &str) -> Option<(u32, u32)> {
 /// Where a session's branch stands against a build.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BranchInBuild {
-    /// Every commit on the branch is in the build.
-    In,
+    /// Every commit on the branch is in the build, up to its `tip`.
+    In { tip: String },
     /// None of the branch's own commits are.
     NotIn,
     /// Some are: `newest` is the newest of the branch's own commits the build holds, and
@@ -64,7 +64,7 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     // Past `origin/main` too, so a newer main merged into the branch is not counted as its own.
     let lacking = commits(root, &["rev-list", &tip, &format!("^{build}"), "^origin/main"])?;
     if lacking.is_empty() {
-        return Some(BranchInBuild::In);
+        return Some(BranchInBuild::In { tip });
     }
     Some(match own.iter().find(|one| !lacking.contains(one)) {
         None => BranchInBuild::NotIn,

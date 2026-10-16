@@ -71,6 +71,12 @@ export function holderOf(slot: WorktreeSlot): Holder | undefined {
   return undefined;
 }
 
+/** The Job or Session a bay is lit with in the list: its holder, or a stranded bay's last holder, by the key the list's rows carry. */
+export function holderKeyOf(view: BayView): string | undefined {
+  const holder = view.holder ?? view.last;
+  return holder === undefined ? undefined : `${holder.kind}:${holder.id}`;
+}
+
 /** The slot each Job or hosted Session holds now, by the subject key the drones carry. A drone's pad, and so its arc, comes from here. */
 export function holdersOf(slots: readonly WorktreeSlot[]): Map<string, WorktreeSlot> {
   return new Map(

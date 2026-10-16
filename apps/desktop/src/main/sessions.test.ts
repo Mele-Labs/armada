@@ -412,6 +412,18 @@ it("presses a pull request against the session's own repository", async () => {
   expect(sent[4]!.body).toEqual({ pull_request: "1847", session_id: "a" });
 });
 
+it("presses a pull request no Session holds by its repository's Manifest, and a review names no Session", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, []);
+  const { sessions } = host(port);
+  sent.length = 0;
+  await sessions.pressInRepository("storefront", 2405, "merge");
+  await sessions.pressInRepository("storefront", 2405, "review");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /pull_requests/storefront/2405/merge", "POST /pull_request_reviews/storefront"]);
+  expect(sent[1]!.body).toEqual({ pull_request: "2405" });
+  expect(await host(null).sessions.pressInRepository("storefront", 2405, "merge")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+});
+
 it("hands Fleet's refusal of a merge back with its words", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")], {}, true);
