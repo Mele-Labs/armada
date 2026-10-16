@@ -14,6 +14,8 @@
 import WebSocket from "ws";
 
 import type {
+  ReleaseSessionHolds,
+  SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
   CatchUpCheckout,
@@ -463,6 +465,14 @@ export class SessionsHost {
 
   async stop(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
+  }
+
+  /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/release_holds", release);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHoldsReleased } : { ok: false, outcome: answer.outcome };
   }
 
   /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */

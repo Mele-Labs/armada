@@ -4,12 +4,13 @@
 // Armada's own repository where Fleet serves it, else the reported one's (`report-brief.ts`, `ReportBox.tsx`), so it is off
 // only where the reported Session's repository is not known; Map is the stage's switch. **What is offered is read from what
 // Fleet holds** (whether the Session can be spoken to, which commands its agent listed), never from a report by the agent.
-// The owner's ask of 15 Oct 2026.
+// The owner's ask of 15 Oct 2026. **Release** gives back everything the Session holds on the ledger, or hands it to another live
+// Session of its repository, behind a confirmation that names each thing (`ReleaseHolds.tsx`); the owner's ask of 16 Oct 2026.
 
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "release";
 
 const ARMADA = "armada";
 
@@ -30,6 +31,7 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "compact", label: "Compact session context", text: "Compact" },
   { id: "report", label: "Report issue with session", text: "Report" },
   { id: "map", label: "Map", text: "Map" },
+  { id: "release", label: "Release everything the Session holds", text: "Release" },
 ];
 
 export const LAND_ON_TEXT = "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main.";
@@ -55,9 +57,56 @@ export type Offered = {
   compact?: CompactRoute;
 };
 
+/** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
+export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; name: string; said: string };
+
+/**
+ * Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, Jobs, needs. A merged pull request
+ * is spent and a release leaves it, so it is not named.
+ */
+export function heldOf(session: Session): Held[] {
+  const held: Held[] = [];
+  for (const kind of ["slot", "branch", "pull_request", "job"] as const) {
+    for (const one of session.attachments) {
+      if (one.kind !== kind) continue;
+      if (one.kind === "slot") held.push({ kind: "slot", name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` });
+      else if (one.kind === "branch") held.push({ kind: "branch", name: one.name, said: "Branch" });
+      else if (one.kind === "pull_request" && one.state !== "merged") held.push({ kind: "pr", name: `#${one.number} ${one.title}`.trim(), said: "Pull request" });
+      else if (one.kind === "job") held.push({ kind: "job", name: `#${one.number} ${one.title}`, said: "Job" });
+    }
+  }
+  for (const need of session.needs ?? []) held.push({ kind: "need", name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
+  return held;
+}
+
+/** A row Fleet answered, named as `heldOf` named it, off the Session as it stood before the release. */
+export function nameOfHeldRow(session: Session, row: { kind: string; target: string }): string {
+  if (row.kind === "slot") return `slot-${row.target}`;
+  if (row.kind === "pr") {
+    const pr = session.attachments.find((one) => one.kind === "pull_request" && String(one.number) === row.target);
+    return pr?.kind === "pull_request" ? `#${pr.number} ${pr.title}`.trim() : `#${row.target}`;
+  }
+  if (row.kind === "job") {
+    const job = session.attachments.find((one) => one.kind === "job" && one.id === row.target);
+    return job?.kind === "job" ? `#${job.number} ${job.title}` : row.target;
+  }
+  return row.target;
+}
+
+/** The Sessions a release may hand to: live, of the same repository, and not this one. */
+export function handTargets(session: Session, all: readonly Session[]): Session[] {
+  if (session.manifestId === undefined) return [];
+  return all.filter((one) => one.id !== session.id && one.dead === undefined && one.manifestId === session.manifestId);
+}
+
+/** The confirm key: the act it sends, named. */
+export const releaseKeyOf = (to: Session | undefined): string => (to === undefined ? "Release all" : `Hand to ${to.title ?? to.address ?? to.id}`);
+
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
 export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
+  if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
+  else if (heldOf(session).length === 0) off.release = "The Session holds nothing";
   const silent = mute(session);
   if (silent !== undefined) {
     off.ask = silent;

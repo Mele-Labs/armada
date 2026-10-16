@@ -32,3 +32,9 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walks `sign-in-ended` and `sign-out`. A connection that is gone is what this glyph already says. Tooltips `Not reached` on the sign-in, and Fleet's own sentence on the store row."
+  [[icons.unplug.usage]]
+    means = "Release, the tile on an open Session's flight controls that gives back or hands over everything the Session holds"
+    group = "Flight control"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `cockpit-release-holds`, for the owner to rule on. Cleanup's slot Release already draws this glyph for taking a checkout from a session. Tooltip `Release or hand over everything the Session holds`, and `The Session holds nothing` where it is off. Refused: `hand`, reserved to a slot a piloted Job handed over; `door-open`, a free slot only; `key-round`, a slot held."

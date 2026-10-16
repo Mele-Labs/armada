@@ -1,0 +1,18 @@
+[operations.release_session_holds]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Give back everything a session holds on the ledger, or hand it to another live session of the same repository"
+notes = """
+`POST /sessions/release_holds`, body `ReleaseSessionHolds`: `session_id`, and an optional `to_session_id`. Answered with `SessionHoldsReleased`: `moved`, each row given back or handed over (a slot given back carries `released`, the branch and what was committed to it), and `kept`, each row that stayed with why. `docs/concepts/session.md`, *Releasing what a Session holds*.
+
+**It acts on every `standing` `slot`, `branch`, `pr`, `job` and `need` row the Session holds.** Artifacts, messages, subagents and the links between Sessions are left alone. A hosted Session whose turn is running is stopped first, as `stop_session` stops it; the Session stays live and its next message resumes it. Nothing is deleted: no branch and no file.
+
+**With no `to_session_id`, each row is given back.** Each slot the pool holds for the Session is released as `change_slot_pool`'s `release` releases it: what is uncommitted is committed to the slot's branch and the slot is freed. A slot that release refuses stays held and is named in `kept`.
+
+**With one, each row is given back by the Session and written standing for the target**, `detail.handed` reading `session <id>`, as `take_over` writes `job <id>`. Each slot's lease moves to the target as it stands, with nothing committed; the target holds it as a Job of its own id, as a hosted Session holds its own. Refused with a 409 and nothing changed where the target is the Session itself (`fleet.hand_to_itself`), has ended (`fleet.hand_to_ended`) or is of another repository (`fleet.hand_to_other_repository`). A target Fleet has no row for is a 422.
+
+**A piloted Job's slot, branch and Job row stay**: the lease is the Job's, and the pilot's exit gives them back. A Session Fleet has no row for is a 422, `fleet.no_such_session`.
+
+`agent_access` is `No`: it is the person's act from Bridge, for when an agent cannot give back what it holds.
+"""

@@ -9,6 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
+import type { SlotReleased } from "./holding";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 
@@ -129,6 +130,22 @@ export type MoveSession = { session_id: string; manifest_id: string };
 
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
+
+/** `POST /sessions/release_holds`: give back every slot, branch, pull request, Job and need a Session holds, or hand them to `to_session_id`. */
+export type ReleaseSessionHolds = { session_id: string; to_session_id?: string };
+
+/** What `release_session_holds` moved, and what stayed with why. */
+export type SessionHoldsReleased = {
+  to_session_id?: string;
+  moved: HoldMoved[];
+  kept: HoldKept[];
+};
+
+/** One row given back or handed over. `released` is a slot's branch and what was committed to it. */
+export type HoldMoved = { kind: string; target: string; released?: SlotReleased };
+
+/** One row that stayed the Session's. */
+export type HoldKept = { kind: string; target: string; why: string };
 
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =

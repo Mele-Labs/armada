@@ -222,6 +222,17 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `job`, `need`) and its target. */
+export type HeldRow = {
+  kind: string;
+  target: string;
+  /** A slot given back: the branch its work is on, and the WIP commit and files where something was uncommitted. */
+  saved?: { branch: string; commit?: string; files: readonly string[] };
+};
+
+/** What a release gave back or handed over, and what stayed with why. `to` is the Session handed them. */
+export type HoldsReleased = { to?: string; moved: readonly HeldRow[]; kept: readonly (HeldRow & { why: string })[] };
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -260,6 +271,8 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
+  /** The needs it holds standing, by repository-relative path and the words it declared each in. Absent is none. */
+  needs?: readonly { path: string; what: string }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
@@ -444,6 +457,12 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /**
+   * Gives back every slot, branch, pull request, Job and need a Session holds, or hands them to the live Session
+   * `to` of the same repository. A running turn is stopped first and the Session stays live. Resolves to what moved
+   * and what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
+   */
+  releaseHolds?: (id: string, to?: string) => Promise<HoldsReleased | undefined>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

@@ -2,23 +2,25 @@
 // ones, with the Session's own acts. What each does and why one is off is in `session-tiles.ts`. A refusal from Fleet is the
 // toast the Session's composer shows, since the same `draft.send` carries it. **Report** swaps the tiles for a box (`ReportBox`);
 // sending starts a Session in Armada's repository where Fleet serves it (`reportRoot`), tells it the owner's words and what Bridge holds about this one
-// (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026.
+// (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
+// holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 
 import { useRef, useState } from "react";
-import { Bug, FoldVertical, MessageCircleMore, Orbit, PlaneLanding } from "lucide-react";
+import { Bug, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Unplug } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { setAutoLand, useAutoLand } from "./auto-land";
 import { askForUpdate } from "./acts";
+import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { reportBrief } from "./report-brief";
-import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, offeredOf, plain, type SessionTileId } from "./session-tiles";
+import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 
-const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit } as const;
+const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, release: Unplug } as const;
 
 /** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
@@ -27,6 +29,9 @@ export type ReportRepository = { root: string; name?: string };
 export function SessionTiles({ session, draft, repository, startIn }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string }) {
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  /** What Fleet answered, with the Session as it stood before, which names each row. */
+  const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session } | undefined>();
   /** The Session a report started, kept while its message is refused so a second press tells the same one. */
   const started = useRef<string | undefined>(undefined);
   const events = useFleetEvents();
@@ -55,6 +60,15 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     },
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
+    release: () => setReleasing(true),
+  };
+  const release = async (to: Session | undefined): Promise<boolean> => {
+    const before = session;
+    const answer = await draft.releaseHolds?.(session.id, to?.id);
+    if (answer === undefined) return false;
+    setReleasing(false);
+    setReleased({ answer, to, before });
+    return true;
   };
   const report = async (words: string): Promise<boolean> => {
     if (repository === undefined) return false;
@@ -73,7 +87,14 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     compact: "Compact the Session's context",
     report: "Report an issue with the Session",
     map: "Map",
+    release: "Release or hand over everything the Session holds",
   };
+  const dialog = releasing ? (
+    <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
+  ) : null;
+  if (released !== undefined) {
+    return <HoldsReleasedBox released={released.answer} to={released.to} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
+  }
   if (reporting) {
     return (
       <ReportBox
@@ -87,30 +108,33 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     );
   }
   return (
-    <div className="deck-controls__block" data-subject="session">
-      {SESSION_TILES.map((tile, at) => {
-        const Glyph = GLYPH[tile.id];
-        const why = off[tile.id];
-        return (
-          <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
-            <button
-              type="button"
-              className="deck-tile"
-              aria-label={tile.label}
-              aria-pressed={tile.id === "map" ? false : pending === tile.id || (tile.id === "land" && on)}
-              aria-busy={pending === tile.id || undefined}
-              aria-disabled={why !== undefined || undefined}
-              onClick={() => why === undefined && press[tile.id]()}
-            >
-              <Glyph size={20} aria-hidden="true" />
-              <span className="deck-tile__text">{tile.text}</span>
-              <Kbd className="deck-tile__key" aria-hidden="true">
-                {at + 1}
-              </Kbd>
-            </button>
-          </Tooltip>
-        );
-      })}
-    </div>
+    <>
+      {dialog}
+      <div className="deck-controls__block" data-subject="session">
+        {SESSION_TILES.map((tile, at) => {
+          const Glyph = GLYPH[tile.id];
+          const why = off[tile.id];
+          return (
+            <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
+              <button
+                type="button"
+                className="deck-tile"
+                aria-label={tile.label}
+                aria-pressed={tile.id === "map" || tile.id === "release" ? false : pending === tile.id || (tile.id === "land" && on)}
+                aria-busy={pending === tile.id || undefined}
+                aria-disabled={why !== undefined || undefined}
+                onClick={() => why === undefined && press[tile.id]()}
+              >
+                <Glyph size={20} aria-hidden="true" />
+                <span className="deck-tile__text">{tile.text}</span>
+                <Kbd className="deck-tile__key" aria-hidden="true">
+                  {at + 1}
+                </Kbd>
+              </button>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </>
   );
 }
