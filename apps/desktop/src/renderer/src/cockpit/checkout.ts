@@ -30,9 +30,15 @@ function commandOf(root: string, held: HeldCheckout): string | undefined {
   return held.on === undefined && uncommitted.length > 0 && clashing.length === 0 && held.ahead === 0 ? `git -C ${word(root)} pull --ff-only --autostash` : undefined;
 }
 
+/** The uncommitted paths with the clashing ones first, each group in path order, so a long list opens on the files that matter. */
+function inOrder(paths: readonly string[], clashing: ReadonlySet<string>): string[] {
+  const byPath = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...paths.filter((path) => clashing.has(path)).sort(byPath), ...paths.filter((path) => !clashing.has(path)).sort(byPath)];
+}
+
 export function checkoutCall(root: string, held: HeldCheckout): CheckoutCall {
-  const uncommitted = held.uncommitted ?? [];
   const clashing = new Set(held.clashing ?? []);
+  const uncommitted = inOrder(held.uncommitted ?? [], clashing);
   const fact =
     clashing.size > 0
       ? "Uncommitted changes main also changed"

@@ -1,8 +1,10 @@
 // The served checkout is behind main and Fleet would not catch it up, so main's light on the merge queue carries an amber mark
 // and its card a section, "Your checkout": what holds it back, and the one command that is safe to press, where there is one.
-// Three holds in turn on one repository. The safe one runs from the card and the checkout is level. Over `checkout-held-back`.
+// Four holds in turn on one repository. The safe one runs from the card and the checkout is level. The last is a long list of
+// uncommitted files, held two ways: `checkoutHeldBack` on `?take=scroll` (the default), the list in a box that scrolls inside the
+// card, and `checkoutHeldBackReveal` on `?take=reveal`, the first few lines and Show all. Over `checkout-held-back`.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, text, walk, type Step } from "../walk";
 
 const queue = region("Merge queue");
 const places = role("navigation", "Places");
@@ -14,8 +16,10 @@ const section = (title: string) => inside(card(title), region("Your checkout"));
 const safe = "880 commits behind main";
 const clashing = "12 commits behind main";
 const diverged = "5 commits behind main";
+const loose = "7 commits behind main";
+const firstClashing = "apps/desktop/src/renderer/src/Dashboard.tsx";
 
-export const checkoutHeldBack = walk("checkout-held-back", [
+const steps: readonly Step[] = [
   { look: inside(queue, role("img", `Checkout ${safe}`)), say: "An amber mark on main: the checkout is 880 commits behind main" },
   { press: light(safe), say: "A press pins main's card" },
   { look: section(safe), say: "Under main's state, your checkout" },
@@ -31,4 +35,26 @@ export const checkoutHeldBack = walk("checkout-held-back", [
   { look: section(clashing), say: "There is no command, because the pull could stop on a conflict" },
   { later: places, say: "On main, with 2 commits main lacks" },
   { look: inside(section(diverged), text("2 commits not on main")), say: "The history diverged, so there is no command" },
+];
+
+const looseHold: readonly Step[] = [
+  { later: places, say: "An agent left a long list of files uncommitted" },
+];
+
+/** The same walk with the last hold's list held by scrolling. */
+export const checkoutHeldBack = walk("checkout-held-back", [
+  ...steps,
+  ...looseHold,
+  { look: inside(section(loose), role("group", "Uncommitted files")), say: "The list stays inside the card and scrolls there" },
+  { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first" },
+  { look: inside(section(loose), text("7 commits behind main")), say: "There is no command, because the pull could stop on a conflict" },
+]);
+
+/** And held by folding: the first few lines, Show all, and Show fewer. */
+export const checkoutHeldBackReveal = walk("checkout-held-back", [
+  ...steps,
+  ...looseHold,
+  { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first, and the list stops after a few lines" },
+  { press: inside(section(loose), button("Show all")), say: "Show all opens the row in place" },
+  { press: inside(section(loose), button("Show fewer")), say: "Show fewer folds it again" },
 ]);

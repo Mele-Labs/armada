@@ -2,12 +2,13 @@
 // up: what holds it back and, where one press is safe, the command that brings it level. Run is the Session band's own runnable
 // block, played where something runs a command in the repository, and Copy where nothing does.
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { FolderGit2, TriangleAlert } from "lucide-react";
-import { CopyAct, RunnableBlock, Tooltip, type CodeRunner } from "@armada/components";
+import { Button, CopyAct, RunnableBlock, Tooltip, type CodeRunner } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 
-import { checkoutCall, type CheckoutCall } from "../checkout";
+import { checkoutCall, type CheckoutCall, type Fact } from "../checkout";
+import { checkoutTake } from "../checkout-take";
 import { useSessionsDraft } from "../../sessions-draft";
 
 export type Held = { root: string; name: string; call: CheckoutCall };
@@ -45,6 +46,54 @@ function Command({ root, command }: { root: string; command: string }) {
   );
 }
 
+/** Lines a row shows before it scrolls or folds. */
+const SHOWN = 6;
+
+function Line({ line }: { line: Fact["lines"][number] }) {
+  return (
+    <span className="deck-checkout__line">
+      {line.text}
+      {line.note === undefined ? null : (
+        <Tooltip label={line.note}>
+          <span role="img" aria-label={line.note} className="deck-checkout__note">
+            <TriangleAlert size={12} aria-hidden="true" />
+          </span>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
+/** A row's lines: all of them, or past `SHOWN` in a box that scrolls inside the card, or the first few with Show all. Clashing lines come first. */
+function Lines({ fact }: { fact: Fact }) {
+  const [all, setAll] = useState(false);
+  const take = checkoutTake();
+  if (fact.lines.length <= SHOWN) return <>{fact.lines.map((line) => <Line key={line.text} line={line} />)}</>;
+  if (take === "scroll") {
+    return (
+      <div className="deck-checkout__files" role="group" aria-label={`${fact.label} files`} tabIndex={0}>
+        {fact.lines.map((line) => (
+          <Line key={line.text} line={line} />
+        ))}
+      </div>
+    );
+  }
+  // A clashing line is never folded away.
+  const shown = Math.max(SHOWN, fact.lines.filter((line) => line.note !== undefined).length);
+  return (
+    <>
+      {(all ? fact.lines : fact.lines.slice(0, shown)).map((line) => (
+        <Line key={line.text} line={line} />
+      ))}
+      <span className="deck-checkout__more">
+        <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : "Show all"}
+        </Button>
+      </span>
+    </>
+  );
+}
+
 /** What the chip's mark and the light say of the holds: `Checkout 880 commits behind main`, and the repository after each where there are several. */
 export function checkoutSaid(held: readonly Held[]): string {
   return held.map((one) => `Checkout ${one.call.title}${held.length > 1 ? ` in ${one.name}` : ""}`).join(", ");
@@ -70,18 +119,7 @@ export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
             <Fragment key={one.label}>
               <dt>{one.label}</dt>
               <dd>
-                {one.lines.map((line) => (
-                  <span key={line.text} className="deck-checkout__line">
-                    {line.text}
-                    {line.note === undefined ? null : (
-                      <Tooltip label={line.note}>
-                        <span role="img" aria-label={line.note} className="deck-checkout__note">
-                          <TriangleAlert size={12} aria-hidden="true" />
-                        </span>
-                      </Tooltip>
-                    )}
-                  </span>
-                ))}
+                <Lines fact={one} />
               </dd>
             </Fragment>
           ))}

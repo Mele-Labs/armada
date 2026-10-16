@@ -1,5 +1,5 @@
 // The served checkout is behind main and Fleet would not catch it up: the light it raises beside main on the merge queue, over
-// the flight deck's ship, in three holds. Each is its own moment on one repository's hub, so the light's card changes in place;
+// the flight deck's ship, in four holds. Each is its own moment on one repository's hub, so the light's card changes in place;
 // the safe one is run from the card and the checkout is level. Drawn ahead of Fleet in `checkout-held-hub.ts`; the walk
 // `checkoutHeldBack` plays it.
 
@@ -20,7 +20,7 @@ function held(): Scenario {
   return {
     ...ship,
     name: "checkout-held-back",
-    says: "The flight deck with the served checkout behind main, held by uncommitted files or a diverged history",
+    says: "The flight deck with the served checkout behind main, held by uncommitted files, a long list of them or a diverged history",
     state: { ...ship.state, ...first },
     later,
     draft: {
