@@ -475,6 +475,24 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         via: Option<crate::Via>,
     },
+    /// The agent recorded a plan, or recorded it again. The plan itself is `SessionRecord::plan`;
+    /// this row is where in the thread it was recorded, which its card draws after.
+    Plan {
+        id: String,
+        at: Instant,
+        version: u32,
+    },
+    /// What the person sent the agent against a version of the plan, as Fleet worded it. The agent
+    /// is sent the same lines, and the plan does not change until it records it again.
+    PlanChanges {
+        id: String,
+        at: Instant,
+        version: u32,
+        /// The plan was approved with them.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        approved: bool,
+        lines: Vec<crate::session_plan::PlanChangeLine>,
+    },
 }
 
 /// The step a Job stopped on.
@@ -515,6 +533,8 @@ impl SessionRow {
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }
+            | SessionRow::Plan { id, .. }
+            | SessionRow::PlanChanges { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }
@@ -555,6 +575,28 @@ pub struct SessionGate {
     pub tool_name: String,
     #[serde(default)]
     pub tool_input: serde_json::Value,
+    /// Present only when a subagent made the call, and absent for the session's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+}
+
+/// The Bash call's field that runs it in the background; the harness wakes the session when it ends.
+const IN_BACKGROUND: &str = "run_in_background";
+
+impl SessionGate {
+    /// Whether the call already runs in the background.
+    pub fn in_background(&self) -> bool {
+        self.tool_input.get(IN_BACKGROUND).and_then(serde_json::Value::as_bool) == Some(true)
+    }
+
+    /// The call's input as it was asked, set to run in the background.
+    pub fn backgrounded(&self) -> serde_json::Value {
+        let mut input = self.tool_input.clone();
+        if let Some(fields) = input.as_object_mut() {
+            fields.insert(IN_BACKGROUND.into(), serde_json::Value::Bool(true));
+        }
+        input
+    }
 }
 
 /// What the `armada` mod in a terminal session asks: has anyone written to this
@@ -645,6 +687,24 @@ pub enum GateAnswer {
         #[serde(rename = "hookSpecificOutput")]
         held: GateHold,
     },
+    /// The call runs, with this input in place of what was asked. #2415.
+    Rewrite {
+        #[serde(rename = "hookSpecificOutput")]
+        rewritten: GateRewrite,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct GateRewrite {
+    #[serde(rename = "hookEventName")]
+    pub event: &'static str,
+    /// `allow`, or `ask` where the person is asked about every call.
+    #[serde(rename = "permissionDecision")]
+    pub decision: &'static str,
+    #[serde(rename = "permissionDecisionReason")]
+    pub reason: String,
+    #[serde(rename = "updatedInput")]
+    pub input: serde_json::Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -668,6 +728,19 @@ impl GateAnswer {
                 event: "PreToolUse",
                 decision: "deny",
                 reason: reason.into(),
+            },
+        }
+    }
+
+    /// Run the call with `input` instead. `asks` keeps the person's say where
+    /// they are asked about every call; otherwise it is allowed.
+    pub fn rewrite(input: serde_json::Value, asks: bool, reason: impl Into<String>) -> GateAnswer {
+        GateAnswer::Rewrite {
+            rewritten: GateRewrite {
+                event: "PreToolUse",
+                decision: if asks { "ask" } else { "allow" },
+                reason: reason.into(),
+                input,
             },
         }
     }

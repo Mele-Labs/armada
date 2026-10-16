@@ -234,6 +234,7 @@ pub(super) fn denied(answer: &GateAnswer) -> bool {
 pub(super) fn reason(answer: &GateAnswer) -> String {
     match answer {
         GateAnswer::Hold { held } => held.reason.clone(),
+        GateAnswer::Rewrite { rewritten } => rewritten.reason.clone(),
         GateAnswer::Pass {} => String::new(),
     }
 }
@@ -525,7 +526,7 @@ async fn a_subagents_edit_is_the_hosted_sessions_work_in_its_build() {
         call: "toolu_9".into(),
         detail: CallDetail::of(detail),
     };
-    rig.stand_in.hears(0, Heard::Subagent(vec![call(testkit::EDITS, "/repo/src/clock.rs")]));
+    rig.stand_in.hears(0, Heard::Subagent { events: vec![call(testkit::EDITS, "/repo/src/clock.rs")], call: None });
     eventually(|| async {
         let listed = rig.fleet.list_sessions(None, None, None).await.unwrap();
         listed.sessions[0].build.as_ref().is_some_and(|build| build.phase == ipc::BuildPhase::Implement)

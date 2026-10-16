@@ -286,8 +286,8 @@ hold, is held if it then runs anything that is not a read. `cd <slot> && git sta
 read and runs. **A relative `cd` after another is read from where the first left the line**,
 and so is a `..` path after it, never from where the call began. Every part of a line is told
 read from write before the slot rule applies, and `git worktree list`, `git stash list`,
-`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
-substitution, a file a script opens by a name the line does not spell, and anything a build
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a substitution or a variable the line did
+not set (one it set, `out=/tmp/x; : > $out`, is read as the path it holds), a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 **The permission door reads the same ledger.** In `auto` it refuses a call that removes or
@@ -295,7 +295,8 @@ overwrites something outside the slots the session holds and `/tmp`: **every** s
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
 written at all is the gate's. **What the session started or made is its own to remove**
-(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree, or running a file from a slot it holds (a dev Fleet
+its subagent started leaves the tree by `setsid`), and of
 nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
 branch and the branches of slots it holds, once the base holds every commit on them, and
 `rm` under `$TMPDIR` as under `/tmp`.
@@ -304,7 +305,11 @@ branch and the branches of slots it holds, once the base holds every commit on t
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
 off the machine unasked. A call that reaches into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. Only a question (`AskUserQuestion`)
+reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
+`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
+and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
+variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a
@@ -561,7 +566,7 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 ## The build record
 
-**`SessionRecord.build` says how far a Session has got, read from what Fleet observed.** It asks the model for nothing: there is no tool for the agent to call and no line in any prompt. The agent states a plan with the task tools it already uses, the mod hears those calls, and Fleet checks the plan against the edits it saw. Bridge draws the record as a ring under the Session's drone (the decision of 14 Oct 2026, *A Session builds a ring*). The field is absent for a Session that has done nothing Fleet observed.
+**`SessionRecord.build` says how far a Session has got, read from what Fleet observed.** It asks the model for nothing: there is no tool for the agent to call and no line in any prompt. (That was the rule of 14 Oct 2026. The owner, 15 Oct 2026, wanted a plan he approves before the work, so a Session now has `record_plan`; *The plan* has it. The ring still asks nothing: it is read from the same observations.) The agent states a plan with the task tools it already uses, the mod hears those calls, and Fleet checks the plan against the edits it saw. Bridge draws the record as a ring under the Session's drone (the decision of 14 Oct 2026, *A Session builds a ring*). The field is absent for a Session that has done nothing Fleet observed.
 
 **What the mod tells.** `TodoWrite`, `TaskCreate` and `TaskUpdate` become one fact, `tasks`, holding the whole list after the call. `ExitPlanMode` becomes `plan_left`. A successful `git commit` and `git push` become `committed` and `pushed`, read from what git printed and not from the command alone, so a commit with nothing staged, a push with nothing to send, a rejected push and a `--dry-run` tell nothing. **A subagent's `TaskCreate` and `TaskUpdate` are the Session's list too** (the owner, 15 Oct 2026: *"An entire session contributes to the workload for that session from a scope/plan to implementation"*). The task tools are shared: a subagent's `TaskCreate` takes the next id of the parent's list and its `TaskList` shows the parent's tasks (measured on claude 2.1.300, headless with the task tools on), so the mod hears them into the one list and marks each task with the `agentId` of the subagent that made it. Whoever updates a task, it stays its maker's. A subagent's `TodoWrite` is a list of its own (the older generation) and is not told. **Its reads, edits, commands, commits and pushes are the Session's work**: in a terminal Session the mod's hooks fire inside subagents and report under the parent, and a hosted Session's process stream carries a subagent's tool calls, which Fleet hears without drawing its words. A hosted Session feeds the same path from its gate (`TodoWrite`, `ExitPlanMode`) and from its process's tool events. **A hosted Session is started with `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`**: a headless process has no task tools without it, so until 15 Oct 2026 its agent could write no list and its build record never had pieces.
 
@@ -591,6 +596,22 @@ Capture and Approve keep working while the card is open. The card folds into the
 **The forecast rule.** For the Session's repository, read the pull requests that merged most recently and that a Session held, up to ten. For each, take the stops reached between that Session's previous landing and this one, in the order they were reached. The forecast is the most common whole sequence among them, and a tie goes to the more recent. A landing with no stop observed takes no part, and a repository with no history has no forecast. A stop already reached is not drawn faint twice.
 
 **What is not observed, and left absent.** A Session resumed in a terminal after its mod restarted does not know the ids of tasks it made earlier, so a `TaskUpdate` for one tells nothing until the list is written again. Edits made through a shell command (`sed`, a redirect) are not edits, though the commit that follows them is the first edit if none was heard, and nor are files outside the Session's directory. A task completed before its edits were filled in from the timeline stays hollow, and a seeded last edit is only as exact as the timeline's bursts. A Session with no new fact since a Fleet restart keeps the row it had until its next tool call. A task the agent never marks completed is never solid or hollow. Auto-merge set through the forge's page, and checks Fleet's merge line read only after the merge, may have no stop.
+
+## The plan
+
+Since 16 Oct 2026. The owner, 15 Oct 2026: a Session plans with him first, and what he approves is what gets built. **Nothing in a plan is the agent's word about progress**: the plan is its statement of the work, and how far it got is Fleet's observation, as for the build record.
+
+**`record_plan`** is a tool on the agent's door, for Sessions and not Jobs. It carries `groups` in order, each with a `title`, an `agent` (the subagent type that takes it, one word, free text such as `rust-engineer`), `paths` (from the repository's root; an edit under one marks the group worked) and `tasks` (titles), and an optional `sketch` (`title` and `scene`), checked by the code `show_sketch` uses, so a scene that would draw as an empty frame is refused with the part at fault. A group or task may send back the `id` Fleet gave it. Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan. The agent gets back the version and each id Fleet gave.
+
+**Recording again replaces the plan as a new version.** Fleet keeps the current version and the diff from the one before: a group or task is matched to the old one by its id, then by its text with case and spacing ignored, and what differs is `added`, `renamed`, `moved` (to another group) or `removed`. An id the old version never held is not an id. The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps it, and the plan names it.
+
+**A recorded plan is pending until the owner approves it, and pending is one of the Session's calls.** It is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go. Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Session rules will say to keep it, in a paragraph that lands with Bridge's view of the plan (`docs/contracts/agent-prompt.md`, 5f). Sleep mode leaves it for the morning, and `answer_waiting` refuses it: a plan is approved, or sent changes, from its own card. **`approve_plan`** (`session_id`, `version`) is a Bridge route. It sets `approved` and sends the agent one message, before it settles, so a failed send leaves the plan to approve again. A version that is not the current one is refused (409, `fleet.plan_version_stale`), a Session with no plan too (`fleet.plan_none`). A second press tells the agent nothing.
+
+**His changes are proposals.** **`send_plan_changes`** (`session_id`, `version`, `marks`, `approve`) takes marks against the version he read: rename, remove, add task, add group, move task, change subagent, note. Fleet checks each against that version (a mark may name a group or task another mark of the same batch adds), words them as **one message** to the agent, with the ids so it can answer by them, and writes one `plan_changes` row to the thread in place of a Fleet message beside it. **The plan does not change**, whether it is pending or approved; it changes when the agent records it again. `approve: true` approves the version with them.
+
+**How far it got is observed.** A task is `open`, `working`, `handed_in`, `done` or `failed`. The agent's task list (the `tasks` fact, from the mod and from the hosted gate, through the one funnel `build_heard`) is matched to plan tasks by text, as `build_record` matches it. A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`, claimed and not observed. `failed` is not set by anything Fleet observes yet. An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
+
+**Who touched which file.** `SessionRecord.touches` is a bounded window of the Session's recent file touches for the Field: the subagent (type and the call that started it, absent for the Session's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`. The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one. A hosted Session's touches are read off its process stream: the `Agent` call (once `Task`) names the type, and every line a subagent makes carries that call as `parent_tool_use_id`. A call whose start Fleet never heard (a Fleet that restarted) is named `subagent`. A terminal Session's come from the mod's `touched` fact, which carries the subagent's `agentId` (`by`) and the `act`; the type is read from the `subagent` attachment. A hosted Session loads the mod too, so only the stream is recorded for it. A removal is read from a plain `rm`, `git rm` or `unlink`; a command that removes by a pattern or a variable names nothing.
 
 ## What fills the context window
 

@@ -31,7 +31,7 @@ use std::error::Error;
 use std::fmt;
 
 use adapter_traits::{
-    AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Effort, Grant, Launch, Prompting,
+    AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Effort, FileAct, Grant, Launch, Prompting,
     Repair, ToolUse,
 };
 
@@ -337,6 +337,13 @@ impl AgentHarness for HeadlessAgent {
             return None;
         };
         crate::conversing::tool_use(tool, detail.whole().unwrap_or(detail.shown()))
+    }
+
+    fn edit_act(&self, event: &DroneEvent) -> FileAct {
+        match event {
+            DroneEvent::Called { tool, .. } if tool == "Write" => FileAct::Write,
+            _ => FileAct::Edit,
+        }
     }
 }
 

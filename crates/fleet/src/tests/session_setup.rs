@@ -121,11 +121,12 @@ async fn a_setup_session_writes_only_its_setup_files_under_its_root() {
         rig.gate_in(&root, &id, "Edit", gitignore).await,
         GateAnswer::pass()
     );
-    assert_eq!(
+    // Let through, in the background (#2415).
+    assert!(matches!(
         rig.gate_in(&root, &id, "Bash", r#"{"command":"armada check test"}"#)
             .await,
-        GateAnswer::pass()
-    );
+        GateAnswer::Rewrite { .. }
+    ));
 
     let source = rig
         .gate_in(&root, &id, "Write", &write(&format!("{root}/src/x.ts")))

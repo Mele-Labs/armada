@@ -135,16 +135,16 @@ where
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
-                    let held: Vec<&str> = held.iter().map(String::as_str).collect();
+                    let named: Vec<&str> = held.iter().map(String::as_str).collect();
                     // A branch is looked up only for a line that names one.
                     let merged = match (asking.detail().is_some_and(|line| line.contains("branch")), &served) {
                         (true, Ok(served)) => self.own_merged_branches(id, served, &hosting).await,
                         _ => Vec::new(),
                     };
                     let merged: Vec<&str> = merged.iter().map(String::as_str).collect();
-                    let started = self.started_by(id);
+                    let started = self.started_by(id, &held);
                     let own = Own { started: Some(&started), merged_branches: &merged };
-                    match because_in_a_session_owning(&asking, &held, own) {
+                    match because_in_a_session_owning(&asking, &named, own) {
                         Some(Because::ReachesOutside) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(

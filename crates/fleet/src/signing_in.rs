@@ -283,6 +283,19 @@ impl SigningIn {
         }
     }
 
+    /// The login of the profile `repo` is bound to, **the account its pull requests are mine by**.
+    /// `None` as [`profile_for`](Self::profile_for) is.
+    pub fn login_for(&self, repo: &Repo) -> Option<String> {
+        let joined = self.inner.profiles.list().ok()?;
+        let choices = self.inner.choices.all().ok()?;
+        match binding(&joined, choices.get(&repo.root), repo) {
+            Binding::Bound { account_id, .. } => {
+                joined.iter().find(|one| one.account_id == account_id).map(|one| one.login.clone())
+            }
+            Binding::Unbound { .. } => None,
+        }
+    }
+
     /// Bind the repository at `root` to the profile `account_id`, or to none.
     /// **A choice wins over a match.** Refused for a root that is not among
     /// `repositories` and for an account this machine has not joined.

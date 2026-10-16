@@ -185,8 +185,15 @@ pub enum SessionFact {
     },
     /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
     /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    /// `by` is the id of the subagent that wrote them, absent for the session's own agent, and `act`
+    /// whether the call made the file or changed it; both feed the Field (`docs/concepts/session.md`,
+    /// *Who touched which file*).
     Touched {
         paths: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        by: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        act: Option<crate::session_plan::TouchAct>,
     },
     /// A file the session read, relative to its `cwd`. **A path and nothing else**, and only one under
     /// it. Counted for the Fleet's timeline (`docs/practices/protocol.md`, *The Fleet's timeline*).
@@ -546,6 +553,9 @@ pub enum WaitingSource {
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
     Done,
+    /// Fleet: the plan the agent recorded is not approved yet. Derived on every read: id
+    /// `plan:<version>`. It is settled by `approve_plan` or `send_plan_changes`.
+    Plan,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -761,6 +771,14 @@ pub struct SessionRecord {
     /// nothing Fleet observed. `docs/concepts/session.md`, *The build record*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<crate::session_build::SessionBuild>,
+    /// The plan the agent recorded, with what Fleet saw of it carried out. Absent until it records
+    /// one. `docs/concepts/session.md`, *The plan*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<crate::session_plan::SessionPlan>,
+    /// The latest files the Session and its subagents wrote, newest last, for the Field. Absent
+    /// until one is seen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub touches: Vec<crate::session_plan::FileTouch>,
 }
 
 /// `list_sessions`: the most recently seen first.

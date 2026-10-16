@@ -66,6 +66,14 @@ mod build_facts;
 mod build_record;
 /// Where the build record meets the store.
 mod build_keeping;
+/// Which files a Session and its subagents touched, read off the tool calls Fleet hears.
+mod file_touching;
+/// A Session's changes marked by the person, checked against its plan and worded for the agent.
+mod plan_marks;
+/// A Session's plan: versions, the diff between them, task progress and groups worked.
+mod plan_record;
+/// Where a Session's plan meets the store.
+mod plan_keeping;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
@@ -283,6 +291,8 @@ mod pull_notices;
 /// A pull request nobody reported, attached to the Session that worked its branch.
 mod claiming;
 mod pull_attaching;
+/// Whose pull requests Fleet watches: the signed-in account's and the forge command line's.
+mod my_pulls;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
 /// Which Session or Job claimed a pull request, kept in the central store for the other machines.

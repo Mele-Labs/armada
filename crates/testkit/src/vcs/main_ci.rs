@@ -28,6 +28,7 @@ struct Script {
     gates: Vec<String>,
     statuses: Vec<CommitStatus>,
     status_refused: Option<String>,
+    login: Option<String>,
 }
 
 /// Unscripted is the forge's silence: no head, no runs, no log, no pull request, no listing.
@@ -88,6 +89,12 @@ impl MainCiScript {
     /// Every status published so far, in order.
     pub fn statuses(&self) -> Vec<CommitStatus> {
         self.with(|it| it.statuses.clone())
+    }
+
+    /// The login the forge's command line is signed in as on this machine; `None`, the default, is
+    /// one that would not say.
+    pub fn login_is(&self, login: Option<&str>) {
+        self.with(|it| it.login = login.map(str::to_string));
     }
 
     /// The forge refuses a status with this sentence, as it does with no token.
@@ -167,6 +174,10 @@ impl MainCiScript {
 
     pub(super) fn merge_queue(&self) -> Option<MergeQueue> {
         self.with(|it| it.queue.clone())
+    }
+
+    pub(super) fn login(&self) -> Option<String> {
+        self.with(|it| it.login.clone())
     }
 
     pub(super) fn gated_by(&self, gate: &str) {
