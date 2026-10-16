@@ -40,7 +40,6 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const host = useRef<HTMLSpanElement>(null);
-  const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,7 +70,8 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
       event.preventDefault();
       event.stopPropagation();
       setOpen(false);
-      button.current?.focus();
+      // Not a ref on the button: the Tooltip clones it with a ref of its own, which replaces ours.
+      host.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.focus();
       return;
     }
     if (!open || panel.current?.contains(document.activeElement) !== true) return;
@@ -86,7 +86,7 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
   return (
     <span ref={host} className="armada-session-frame__checks-host" onKeyDown={onKeyDown}>
       <Tooltip asChild label={said}>
-        <button ref={button} type="button" className="armada-session-frame__checks" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
+        <button type="button" className="armada-session-frame__checks" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
           <span className="armada-session-mark">
             <CircleDot size={16} strokeWidth={2} aria-hidden />
           </span>

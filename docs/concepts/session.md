@@ -936,6 +936,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | Where it shows | What |
 |---|---|
 | A hosted Session's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Session is published whole each time |
+| The Session's header | The running glyph and a count of the `check` rows that are `running`, named `2 checks running`. A press lists them, each with its key, its `target` and how long it has run, and a press on one opens its run's log over the Session. Nothing is drawn at none, and the list closes with the last |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
 
