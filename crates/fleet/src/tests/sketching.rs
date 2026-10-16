@@ -189,7 +189,7 @@ async fn a_sketch_of_another_artifact_form_is_not_an_earlier_sketch() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet
-        .show_window(None, ipc::ShowWindow { url: "http://localhost:5173/".into(), title: Some("Before".into()), session_id: Some(id.clone()), variations: Vec::new() })
+        .show_window(None, ipc::ShowWindow { url: "http://localhost:5173/".into(), title: Some("Before".into()), session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() })
         .await
         .unwrap();
     let Err(Refusal::Unacceptable(refused)) =
