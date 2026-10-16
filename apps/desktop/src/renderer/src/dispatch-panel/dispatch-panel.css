@@ -161,9 +161,30 @@
 .armada-dispatch-panel__send {
   display: inline-flex;
   align-items: center;
+  flex: 0 1 auto;
   gap: var(--space-2);
+  min-width: 0;
   margin-left: auto;
 }
+
+/* A Session's Model and Effort, the composer's pair: a glyph inside each select, at the band's own height. */
+.armada-dispatch-panel__picks {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-dispatch-panel__picks .armada-select {
+  height: var(--h-control-sm);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+}
+
+.armada-dispatch-panel__picks .armada-session-composer__pick { min-width: calc(var(--space-12) * 1.5); }
 
 /* ---- The repository row: every set-up repository a chip, each with its key --------------------- */
 

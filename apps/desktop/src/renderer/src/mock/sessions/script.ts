@@ -453,7 +453,7 @@ export function sessionsStore(
     },
     startQueued(id) {
       const idea = queued.find((one) => one.id === id);
-      if (idea === undefined) return undefined;
+      if (idea === undefined) return Promise.resolve(undefined);
       const session = store.start(undefined, idea.root, { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) });
       if (typeof session !== "string") return session;
       store.dropQueued!(id);
