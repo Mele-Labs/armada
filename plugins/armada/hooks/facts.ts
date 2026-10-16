@@ -654,3 +654,28 @@ export function withReplyNeeds(items: WaitingItem[], needs: string[]): WaitingIt
   const missing = needs.filter(need => !isCovered([need], items))
   return [...items, ...missing.map((need, at) => ({ id: `reply:${at + 1}`, text: `${FROM_REPLY}${need}` }))]
 }
+
+/**
+ * The agent's own items in the list Fleet holds, from `GET /sessions/one` (`SessionThread`). Items Fleet
+ * raised itself (a walk, a question card, a permission) are left out: Fleet keeps those apart and would
+ * read them posted back as the agent's. Nothing where the answer is not a session.
+ */
+export function agentItemsIn(thread: string): WaitingItem[] | undefined {
+  let read: unknown
+  try {
+    read = JSON.parse(thread)
+  } catch {
+    return undefined
+  }
+  const list = (read as { session?: { waiting_for?: unknown } } | null)?.session?.waiting_for
+  if (!Array.isArray(list)) return undefined
+  return list
+    .filter(item => item?.source === 'agent' && typeof item.id === 'string' && typeof item.text === 'string')
+    .map(({ id, text, act, options, steps }) => ({
+      id,
+      text,
+      ...(act === undefined ? {} : { act }),
+      ...(options === undefined ? {} : { options }),
+      ...(steps === undefined ? {} : { steps }),
+    }))
+}

@@ -27,6 +27,7 @@ import {
   transcriptPath,
   updatedTask,
   usedFact,
+  agentItemsIn,
   isCovered,
   needsSaidIn,
   sentBackReason,
@@ -453,4 +454,21 @@ test('what the session is sent back with names each line, and the list adds only
     { id: 'merge', text: 'Approve PR #2415' },
     { id: 'reply:1', text: 'From the reply: Restart Fleet' },
   ])
+})
+
+test("the agent's own items are read from the session Fleet holds, and the ones Fleet raised are left out", () => {
+  const thread = JSON.stringify({
+    session: {
+      waiting_for: [
+        { id: 'pick', text: 'Pick the slot pool', since: 'x', source: 'agent', steps: ['Open Kit'] },
+        { id: 'ask:7', text: 'Which branch?', since: 'x', source: 'ask_card' },
+        { id: 'perm:3', text: 'Allow cargo build', since: 'x', source: 'permission' },
+      ],
+    },
+    rows: [],
+  })
+  expect(agentItemsIn(thread)).toEqual([{ id: 'pick', text: 'Pick the slot pool', steps: ['Open Kit'] }])
+  expect(agentItemsIn(JSON.stringify({ session: { waiting_for: [] }, rows: [] }))).toEqual([])
+  expect(agentItemsIn('{}')).toBeUndefined()
+  expect(agentItemsIn('not json')).toBeUndefined()
 })

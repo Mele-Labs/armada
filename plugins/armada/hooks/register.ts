@@ -47,6 +47,7 @@ import {
   modeOf,
   modelName,
   MOD_VERSION,
+  agentItemsIn,
   isCovered,
   needsSaidIn,
   sentBackReason,
@@ -86,8 +87,9 @@ type Known = {
   tuned?: Tuning
   // The terminal's permission prompts open now, oldest first. Fleet is told of the first.
   prompts: Prompt[]
-  /** What the session's last `waiting_for` call set. */
+  /** What the session's last `waiting_for` call set, and whether this mod load saw one. */
   waiting: WaitingItem[]
+  sawWaiting: boolean
   turn: Turn
 }
 
@@ -463,7 +465,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [], waiting: [], turn: freshTurn() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -818,11 +820,23 @@ async function sendBack($: Dollar, answer: string, stopActive: boolean): Promise
   return undefined
 }
 
-/** The session's list with the reply's lines added, set through the route the `waiting_for` tool posts to. */
+/**
+ * The session's list with the reply's lines added, set through the route the `waiting_for` tool posts to.
+ * **The post replaces the list, so it starts from the one Fleet holds**; where that cannot be read, from
+ * the mod's own copy only if this load saw the agent set it, and otherwise nothing is posted.
+ */
 async function putInWaiting($: Door, id: string, one: Known, needs: string[]): Promise<void> {
   const port = await portOf($)
   if (port === undefined) return
-  const items = withReplyNeeds(one.waiting, needs)
+  const read = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/one?session_id=${encodeURIComponent(id)}`),
+    $.clock.sleep(WAIT_MS).then(() => undefined),
+  ]).catch(() => undefined)
+  const held = read?.ok === true ? agentItemsIn(read.text) : undefined
+  const base = held ?? (one.sawWaiting ? one.waiting : undefined)
+  if (base === undefined) return
+  const items = withReplyNeeds(base, needs)
+  if (items.length === base.length) return
   const sent = await Promise.race([
     $.http.fetch(`http://127.0.0.1:${port}/sessions/waiting`, {
       method: 'POST',
@@ -1135,6 +1149,7 @@ export const register: Register = on => {
       const one = known.get(await $.session.id())
       if (items !== undefined && one !== undefined) {
         one.waiting = items
+        one.sawWaiting = true
         one.turn.setWaiting = true
       }
     }
