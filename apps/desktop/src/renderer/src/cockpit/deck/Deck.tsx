@@ -163,7 +163,7 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
  * Activity and Incoming calls stand as tall as the merge queue and the flight controls beside them: from the queue's top to the foot's
  * bottom. Each is in a side column, so the height is set on the grid and both read it. A size he has dragged to takes over from it.
  */
-function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
+export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
   useEffect(() => {
     const root = grid.current;
     if (root === null || typeof ResizeObserver === "undefined") return;
