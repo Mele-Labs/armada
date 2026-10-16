@@ -1,5 +1,5 @@
 /**
- * A path drawn as its folders, each one a press: `Users › a › Documents › notes`. Pressing a part
+ * A path drawn as its folders, each one a press: `Users › user › Documents › notes`. Pressing a part
  * chooses that folder and everything under it. **A control, not a breadcrumb**: nothing here
  * navigates, and the design system's rule against breadcrumb trails is about where a screen is.
  *

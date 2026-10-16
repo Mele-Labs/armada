@@ -179,8 +179,8 @@ pub enum HelmCallAnswer {
     /// Do not run it. The session is told, and goes on without it.
     Refuse,
     /// Run it, and let every session reach the folder the answer names, and everything under it,
-    /// with no card. **Armada's folder list, never a Claude Code rule**: the rule matches a command,
-    /// and the guard that drew the card runs before Claude Code's settings are read. Offered only on
+    /// with no card. **Armada's folder list, never the agent CLI's rule**: the rule matches a command,
+    /// and the guard that drew the card runs before the CLI's settings are read. Offered only on
     /// a call that names [`HelmCallInFlight::reaches`].
     AlwaysAllow,
     /// Do not run it, and refuse every session the folder the answer names, with no card.

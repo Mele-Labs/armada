@@ -13,7 +13,7 @@ const meta: Meta<typeof PathPicker> = {
 };
 export default meta;
 
-const PATH = "/Users/a/Documents/my/folder/notes.md";
+const PATH = "/Users/user/Documents/my/folder/notes.md";
 
 function Picking({ opens }: { opens: string }) {
   const [chosen, setChosen] = useState(opens);
@@ -39,6 +39,6 @@ export const AFolderAbove: StoryObj = {
     await userEvent.click(canvas.getByRole("button", { name: "Documents" }));
     await expect(canvas.getByRole("button", { name: "Documents" })).toHaveAttribute("aria-pressed", "true");
     await expect(canvas.getByRole("button", { name: "notes.md" })).toHaveAttribute("aria-pressed", "false");
-    await expect(canvas.getByRole("status", { name: "Chosen" })).toHaveTextContent("/Users/a/Documents");
+    await expect(canvas.getByRole("status", { name: "Chosen" })).toHaveTextContent("/Users/user/Documents");
   },
 };

@@ -7,7 +7,7 @@ use ipc::AskingToRun;
 use crate::helm::{guarded_in_a_session, Because, Folders, Guarded, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
-const HOME: &str = "/Users/someone";
+const HOME: &str = "/Users/user";
 
 fn call(tool: &str, input: &str) -> AskingToRun {
     let body = format!(r#"{{"tool_name":"{tool}","input":{input}}}"#);
@@ -35,27 +35,27 @@ fn asks(because: Because, at: &str) -> Option<Guarded> {
 
 #[test]
 fn a_guarded_read_is_put_to_the_owner_with_the_path_it_named() {
-    assert_eq!(listed(&read("~/Documents/x.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/someone/Documents/x.md"));
-    assert_eq!(listed(&bash("cat ~/Documents/a/../b.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/someone/Documents/b.md"));
-    assert_eq!(listed(&bash("ls $HOME/Desktop && cat ~/.ssh/config"), &[], &[]), asks(Because::ReachesOutside, "/Users/someone/Desktop"));
+    assert_eq!(listed(&read("~/Documents/x.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/Documents/x.md"));
+    assert_eq!(listed(&bash("cat ~/Documents/a/../b.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/Documents/b.md"));
+    assert_eq!(listed(&bash("ls $HOME/Desktop && cat ~/.ssh/config"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/Desktop"));
 }
 
 #[test]
 fn an_allowed_folder_runs_and_a_blocked_one_is_refused_with_no_card() {
-    let documents = "/Users/someone/Documents";
+    let documents = "/Users/user/Documents";
     assert_eq!(listed(&read("~/Documents/x.md"), &[documents], &[]), None);
     assert_eq!(listed(&bash("grep -rn todo ~/Documents/notes"), &[documents], &[]), None);
     assert_eq!(
-        listed(&read("/Users/someone/Documents/x.md"), &[], &[documents]),
+        listed(&read("/Users/user/Documents/x.md"), &[], &[documents]),
         Some(Guarded::Blocked { folder: documents.to_string() })
     );
     // Another folder is still asked about.
-    assert_eq!(listed(&read("~/Desktop/x.md"), &[documents], &[]), asks(Because::ReachesOutside, "/Users/someone/Desktop/x.md"));
+    assert_eq!(listed(&read("~/Desktop/x.md"), &[documents], &[]), asks(Because::ReachesOutside, "/Users/user/Desktop/x.md"));
 }
 
 #[test]
 fn the_deeper_entry_wins_and_a_block_wins_a_tie() {
-    let (documents, private) = ("/Users/someone/Documents", "/Users/someone/Documents/private");
+    let (documents, private) = ("/Users/user/Documents", "/Users/user/Documents/private");
     assert_eq!(
         listed(&read("~/Documents/private/a.md"), &[documents], &[private]),
         Some(Guarded::Blocked { folder: private.to_string() })
@@ -67,17 +67,17 @@ fn the_deeper_entry_wins_and_a_block_wins_a_tie() {
         Some(Guarded::Blocked { folder: documents.to_string() })
     );
     // A folder is matched a part at a time: `Desk` does not hold `Desktop`.
-    assert_eq!(listed(&read("~/Desktop/a.md"), &["/Users/someone/Desk"], &[]), asks(Because::ReachesOutside, "/Users/someone/Desktop/a.md"));
+    assert_eq!(listed(&read("~/Desktop/a.md"), &["/Users/user/Desk"], &[]), asks(Because::ReachesOutside, "/Users/user/Desktop/a.md"));
 }
 
 #[test]
 fn a_write_outside_the_slots_is_put_to_the_owner_and_the_list_lets_it_in() {
     let write = |path: &str| call("Write", &format!(r#"{{"file_path":"{path}","content":"x"}}"#));
     // The write tools take an absolute path.
-    assert_eq!(listed(&write("/Users/someone/notes-2441.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/someone/notes-2441.md"));
+    assert_eq!(listed(&write("/Users/user/notes-2441.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/notes-2441.md"));
     assert_eq!(listed(&write("/opt/armada-2441/new.md"), &[], &[]), asks(Because::ReachesOutside, "/opt/armada-2441/new.md"));
-    assert_eq!(listed(&write("/Users/someone/notes-2441.md"), &[HOME], &[]), None);
-    assert_eq!(listed(&bash("echo x > ~/notes.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/someone/notes.md"));
+    assert_eq!(listed(&write("/Users/user/notes-2441.md"), &[HOME], &[]), None);
+    assert_eq!(listed(&bash("echo x > ~/notes.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/notes.md"));
     assert_eq!(listed(&bash("echo x > ~/notes.md"), &[HOME], &[]), None);
     // Inside the slot and scratch, nothing is asked.
     assert_eq!(listed(&write(&format!("{SLOT}/a.md")), &[], &[]), None);
@@ -86,7 +86,7 @@ fn a_write_outside_the_slots_is_put_to_the_owner_and_the_list_lets_it_in() {
 
 #[test]
 fn an_allowed_folder_never_lets_a_removal_or_a_refusal_with_no_folder_run() {
-    let everything = ["/Users/someone", "/repo"];
+    let everything = ["/Users/user", "/repo"];
     for line in [
         "rm -rf ~/Documents/x",
         "mv ~/Documents/a ~/Documents/b",
