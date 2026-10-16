@@ -103,7 +103,34 @@ pub struct Subagent {
     pub finished: bool,
     /// What it said last, once it has finished.
     pub report: Option<String>,
+    /// The model it runs on and how much it had read at its last answer.
+    pub gauge: Gauge,
 }
+
+/// What a subagent's last answer says about itself. Each is absent until an answer carried it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Gauge {
+    /// The model id the CLI wrote on the answer, as written.
+    pub model: Option<String>,
+    /// The input side of the answer's usage: what it sent, read from cache and wrote to it. **What
+    /// that answer had in its window**, which is how the parent's figure is counted.
+    pub tokens: Option<u64>,
+}
+
+/// The window a subagent's figure is drawn against. **The transcript names the model and never its
+/// window**, so where the parent Session runs on the same model id and has reported a window, that
+/// is the one. Otherwise a guess: the usual window, until the tokens outgrow it, which only the
+/// long one can.
+pub fn window_for(tokens: u64, model: Option<&str>, parent: Option<(&str, u64)>) -> u64 {
+    match (model, parent) {
+        (Some(model), Some((same, window))) if model == same => window,
+        _ if tokens > USUAL_WINDOW => LONG_WINDOW,
+        _ => USUAL_WINDOW,
+    }
+}
+
+const USUAL_WINDOW: u64 = 200_000;
+const LONG_WINDOW: u64 = 1_000_000;
 
 /// Subagent `agent` of session `id`: the file the CLI keeps at
 /// `<project>/<id>/subagents/agent-<agent>.jsonl`. **Only that path is ever read**; both names are
@@ -145,22 +172,26 @@ pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
     let text = String::from_utf8_lossy(&bytes[..whole]);
     let mut rows = Vec::new();
     let mut done = None;
-    fold_subagent(&text, &mut rows, &mut done);
+    let mut gauge = Gauge::default();
+    fold_subagent(&text, &mut rows, &mut done, &mut gauge);
     Ok(match done {
-        Some(report) => Subagent { rows, finished: true, report },
-        None => Subagent { rows, finished: false, report: None },
+        Some(report) => Subagent { rows, finished: true, report, gauge },
+        None => Subagent { rows, finished: false, report: None, gauge },
     })
 }
 
-/// Draw the whole lines of a subagent's transcript onto `rows`, carrying `done` from one call to
-/// the next: it is the only thing that crosses a line.
-fn fold_subagent(text: &str, rows: &mut Vec<SessionRow>, done: &mut Option<Option<String>>) {
+/// Draw the whole lines of a subagent's transcript onto `rows`, carrying `done` and `gauge` from one
+/// call to the next: they are the only things that cross a line.
+fn fold_subagent(text: &str, rows: &mut Vec<SessionRow>, done: &mut Option<Option<String>>, gauge: &mut Gauge) {
     // **Finished where the last thing it did was finish**: a turn ended, or a hand-back. A
     // background subagent ends on `SubagentHandback` and never on `end_turn`, so a ledger read
     // only the one kept every finished subagent "running" (8 Oct 2026). A run cut off ends on the
     // CLI's interrupt line. Work after any of them, a resumed subagent, makes it running again.
     for line in text.lines() {
         let drew = drawn(line, true);
+        if let Some(read) = gauged(line) {
+            *gauge = read;
+        }
         if let Some(said) = handed_back(line) {
             *done = Some(Some(said));
         } else if ended(line) {
@@ -208,6 +239,50 @@ struct TurnPart {
 struct HandedBack {
     #[serde(default)]
     message: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Answer {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    message: Option<AnswerMessage>,
+}
+
+#[derive(Deserialize)]
+struct AnswerMessage {
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    usage: Option<Usage>,
+}
+
+#[derive(Deserialize)]
+struct Usage {
+    #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    cache_creation_input_tokens: u64,
+    #[serde(default)]
+    cache_read_input_tokens: u64,
+}
+
+/// What an assistant line says of the model and its window. **None for a line that read nothing**:
+/// the CLI's own synthetic answers carry a zero usage and no model worth showing.
+fn gauged(line: &str) -> Option<Gauge> {
+    // Every line of a subagent passes here, and a user line has no usage.
+    if !line.contains("\"usage\"") {
+        return None;
+    }
+    let answer = ipc::decode::<Answer>("a transcript line", line.as_bytes()).ok()?;
+    let message = answer.message.filter(|_| answer.kind == "assistant")?;
+    let usage = message.usage?;
+    let tokens = usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens;
+    if tokens == 0 {
+        return None;
+    }
+    let model = message.model.filter(|model| !model.is_empty() && !model.starts_with('<'));
+    Some(Gauge { model, tokens: Some(tokens) })
 }
 
 /// The report a subagent handed back, where this line is its `SubagentHandback` call.
