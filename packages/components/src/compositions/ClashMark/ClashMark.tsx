@@ -95,6 +95,9 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "job" | "session"; id
 /** Paths drawn while a long list is folded. A list of one more than this is drawn whole: "1 more" saves nothing. */
 const SHOWN = 3;
 
+/** The clashes whose rows he opened, by owner and holder. A clash not here starts folded, so a new one folds again. */
+const opened = new Set<string>();
+
 /**
  * The clash in an open Job or Session: the other holder, linked, and the paths that conflict.
  * A long list folds to its first few paths and one chip to open the rest. Nothing where there is none.
@@ -105,15 +108,21 @@ export function ClashNotice({ kind, id }: { kind: "job" | "session"; id: string 
   return (
     <section className="armada-clash-notice" aria-label="Write clash">
       {clashes.map((clash) => (
-        <ClashRow key={`${clash.with.kind}:${clash.with.id}`} clash={clash} />
+        <ClashRow key={`${clash.with.kind}:${clash.with.id}`} clash={clash} owner={`${kind}:${id}`} />
       ))}
     </section>
   );
 }
 
-function ClashRow({ clash }: { clash: ClashView }) {
+function ClashRow({ clash, owner }: { clash: ClashView; owner: string }) {
   const held = useContext(Held);
-  const [shown, setShown] = useState(true);
+  const remembered = `${owner}>${clash.with.kind}:${clash.with.id}`;
+  const [shown, setShown] = useState(opened.has(remembered));
+  const toggle = () => {
+    if (shown) opened.delete(remembered);
+    else opened.add(remembered);
+    setShown(!shown);
+  };
   const [all, setAll] = useState(false);
   const listId = useId();
   const Glyph = clash.with.kind === "job" ? Workflow : SquareTerminal;
@@ -133,18 +142,19 @@ function ClashRow({ clash }: { clash: ClashView }) {
   );
   return (
     <div className="armada-clash-notice__row">
-      <div className="armada-clash-notice__head">
-        <button type="button" className="armada-clash-notice__toggle" aria-expanded={shown} aria-controls={listId} onClick={() => setShown(!shown)}>
+      {/* The whole line folds and opens; the holder's own link, beside it, only opens the holder. */}
+      <div className="armada-clash-notice__head" onClick={(event) => { if ((event.target as Element).closest("button.armada-clash-notice__with") === null) toggle(); }}>
+        <button type="button" className="armada-clash-notice__toggle" aria-expanded={shown} aria-controls={listId}>
           <Fold size={12} strokeWidth={2} aria-hidden="true" />
           <span className="armada-clash-mark" aria-hidden="true">
             <Swords size={16} strokeWidth={2} />
           </span>
-          Conflicts with
-          {clash.with.kind === "main" ? <> {holder}</> : null}
+          Write clash
         </button>
-        {clash.with.kind === "main" ? null : holder}
+        {holder}
       </div>
-      <ul className="armada-clash-notice__paths" id={listId} aria-label="Conflicting files" hidden={!shown}>
+      <div className="armada-clash-notice__fold-box" data-open={shown || undefined} inert={!shown}>
+      <ul className="armada-clash-notice__paths" id={listId} aria-label="Conflicting files">
         {drawn.map((path) => {
           const cut = path.lastIndexOf("/") + 1;
           return (
@@ -161,6 +171,7 @@ function ClashRow({ clash }: { clash: ClashView }) {
           </li>
         ) : null}
       </ul>
+      </div>
     </div>
   );
 }
