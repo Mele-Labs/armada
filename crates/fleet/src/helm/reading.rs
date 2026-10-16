@@ -152,6 +152,11 @@ fn literal_text(line: &str) -> String {
         .collect()
 }
 
+/// [`only_reads`] for a segment as it was written, read as [`reaches_into_owners_files`] reads it.
+pub(super) fn segment_only_reads(said: &str) -> bool {
+    only_reads(&literal_text(said).replace("\\ ", "\u{0}"))
+}
+
 /// Whether a segment only reads: a program that reads, and no redirect into a file.
 fn only_reads(said: &str) -> bool {
     const READERS: &[&str] = &[

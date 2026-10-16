@@ -2,7 +2,7 @@
 //! with no card, an allowed one runs, and anything else is put to him with the path it named.
 //! `#2441`.
 
-use ipc::AskingToRun;
+use ipc::{AskingToRun, ReachesTo};
 
 use crate::helm::{guarded_in_a_session, Because, Folders, Guarded, Own};
 
@@ -15,9 +15,14 @@ fn call(tool: &str, input: &str) -> AskingToRun {
 }
 
 fn listed(call: &AskingToRun, allow: &[&str], block: &[&str]) -> Option<Guarded> {
-    let allow: Vec<String> = allow.iter().map(|one| one.to_string()).collect();
-    let block: Vec<String> = block.iter().map(|one| one.to_string()).collect();
-    let folders = Folders { allow: &allow, block: &block, home: HOME };
+    listed_with(call, allow, block, &[])
+}
+
+/// [`listed`], and the folders this session alone was allowed.
+fn listed_with(call: &AskingToRun, allow: &[&str], block: &[&str], session: &[&str]) -> Option<Guarded> {
+    let owned = |list: &[&str]| -> Vec<String> { list.iter().map(|one| one.to_string()).collect() };
+    let (allow, block, session) = (owned(allow), owned(block), owned(session));
+    let folders = Folders { allow: &allow, block: &block, session: &session, home: HOME };
     guarded_in_a_session(call, &[SLOT], Own::default(), folders)
 }
 
@@ -30,7 +35,11 @@ fn bash(line: &str) -> AskingToRun {
 }
 
 fn asks(because: Because, at: &str) -> Option<Guarded> {
-    Some(Guarded::Because { because, reaching: Some(at.to_string()) })
+    asks_to(because, at, ReachesTo::Read)
+}
+
+fn asks_to(because: Because, at: &str, to: ReachesTo) -> Option<Guarded> {
+    Some(Guarded::Because { because, reaching: Some(at.to_string()), to: Some(to) })
 }
 
 #[test]
@@ -74,10 +83,10 @@ fn the_deeper_entry_wins_and_a_block_wins_a_tie() {
 fn a_write_outside_the_slots_is_put_to_the_owner_and_the_list_lets_it_in() {
     let write = |path: &str| call("Write", &format!(r#"{{"file_path":"{path}","content":"x"}}"#));
     // The write tools take an absolute path.
-    assert_eq!(listed(&write("/Users/user/notes-2441.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/notes-2441.md"));
-    assert_eq!(listed(&write("/opt/armada-2441/new.md"), &[], &[]), asks(Because::ReachesOutside, "/opt/armada-2441/new.md"));
+    assert_eq!(listed(&write("/Users/user/notes-2441.md"), &[], &[]), asks_to(Because::ReachesOutside, "/Users/user/notes-2441.md", ReachesTo::Write));
+    assert_eq!(listed(&write("/opt/armada-2441/new.md"), &[], &[]), asks_to(Because::ReachesOutside, "/opt/armada-2441/new.md", ReachesTo::Write));
     assert_eq!(listed(&write("/Users/user/notes-2441.md"), &[HOME], &[]), None);
-    assert_eq!(listed(&bash("echo x > ~/notes.md"), &[], &[]), asks(Because::ReachesOutside, "/Users/user/notes.md"));
+    assert_eq!(listed(&bash("echo x > ~/notes.md"), &[], &[]), asks_to(Because::ReachesOutside, "/Users/user/notes.md", ReachesTo::Write));
     assert_eq!(listed(&bash("echo x > ~/notes.md"), &[HOME], &[]), None);
     // Inside the slot and scratch, nothing is asked.
     assert_eq!(listed(&write(&format!("{SLOT}/a.md")), &[], &[]), None);
@@ -97,8 +106,45 @@ fn an_allowed_folder_never_lets_a_removal_or_a_refusal_with_no_folder_run() {
     ] {
         assert_eq!(
             listed(&bash(line), &everything, &[]),
-            Some(Guarded::Because { because: Because::Destructive, reaching: None }),
+            Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None }),
             "{line}"
         );
     }
+}
+
+#[test]
+fn a_card_says_whether_the_call_reads_or_writes() {
+    let edit = call("Edit", r#"{"file_path":"/Users/user/Documents/x.md","old_string":"a","new_string":"b"}"#);
+    let documents = "/Users/user/Documents/x.md";
+    assert_eq!(listed(&edit, &[], &[]), asks_to(Because::ReachesOutside, documents, ReachesTo::Write));
+    assert_eq!(listed(&bash("cat ~/Documents/x.md"), &[], &[]), asks_to(Because::ReachesOutside, documents, ReachesTo::Read));
+    assert_eq!(
+        listed(&bash("echo x >> ~/Documents/x.md"), &[], &[]),
+        asks_to(Because::ReachesOutside, documents, ReachesTo::Write)
+    );
+}
+
+#[test]
+fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
+    let documents = "/Users/user/Documents";
+    assert_eq!(listed_with(&read("~/Documents/x.md"), &[], &[], &[documents]), None);
+    assert_eq!(listed_with(&bash("echo x > ~/Documents/x.md"), &[], &[], &[documents]), None);
+    // Its own list holds only what it was allowed.
+    assert_eq!(
+        listed_with(&read("~/Desktop/x.md"), &[], &[], &[documents]),
+        asks(Because::ReachesOutside, "/Users/user/Desktop/x.md")
+    );
+    assert_eq!(
+        listed_with(&read("~/Documents/private/x.md"), &[], &["/Users/user/Documents/private"], &[documents]),
+        Some(Guarded::Blocked { folder: "/Users/user/Documents/private".to_string() })
+    );
+    assert_eq!(
+        listed_with(&read("~/Documents/x.md"), &[], &[HOME], &[documents]),
+        Some(Guarded::Blocked { folder: HOME.to_string() })
+    );
+    // Never a removal.
+    assert_eq!(
+        listed_with(&bash("rm -rf ~/Documents/x"), &[], &[], &[documents]),
+        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None })
+    );
 }

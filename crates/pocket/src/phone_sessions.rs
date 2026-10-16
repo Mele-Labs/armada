@@ -107,7 +107,10 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
                 HelmCallAnswer::AllowOnce => Some("allow_once"),
                 HelmCallAnswer::Refuse => Some("refuse"),
                 // The phone has no folder picker.
-                HelmCallAnswer::AllowAndRemember | HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock => None,
+                HelmCallAnswer::AllowAndRemember
+                | HelmCallAnswer::AlwaysAllow
+                | HelmCallAnswer::AlwaysBlock
+                | HelmCallAnswer::AllowForSession => None,
             })
             .collect(),
     }

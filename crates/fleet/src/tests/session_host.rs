@@ -786,7 +786,13 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
     let ask = asked().await;
     assert_eq!(
         ask.offers,
-        vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse, HelmCallAnswer::AlwaysAllow, HelmCallAnswer::AlwaysBlock]
+        vec![
+            HelmCallAnswer::AllowOnce,
+            HelmCallAnswer::Refuse,
+            HelmCallAnswer::AlwaysAllow,
+            HelmCallAnswer::AllowForSession,
+            HelmCallAnswer::AlwaysBlock,
+        ]
     );
     assert_eq!(ask.reaches, Some(format!("{home}/Documents/notes-2441/x.md")));
     // An "always" answer names a folder that holds the path, or it is refused and the card stays.
@@ -821,6 +827,74 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
         .expect("no card is drawn")
         .unwrap();
     assert!(matches!(next, ipc::RunOrNot::Deny { message } if message.contains("blocked")));
+}
+
+/// A card says whether the call reads or writes, and "Always allow for this session" lets this
+/// session's next call under the folder run while nothing is written and another session still asks.
+#[tokio::test]
+async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes() {
+    let rig = rig();
+    let id = rig.start().await;
+    let other = rig.start().await;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let read = |path: &str| -> ipc::AskingToRun {
+        let body = format!(r#"{{"tool_name":"Read","input":{{"file_path":"{path}"}}}}"#);
+        ipc::decode("an ask", body.as_bytes()).expect("an ask")
+    };
+    let card = |session: &SessionId, path: &'static str| {
+        let fleet = Arc::clone(&rig.fleet);
+        let session = session.as_str().to_string();
+        tokio::spawn(async move { fleet.session_permission(&session, read(path)).await })
+    };
+    let asked = |session: &SessionId| {
+        let (fleet, session) = (Arc::clone(&rig.fleet), session.clone());
+        async move {
+            let seen = Mutex::new(None);
+            eventually(|| async {
+                let now = Arc::clone(&fleet).get_session(session.clone()).await.unwrap().session.hosted.unwrap().asked;
+                let some = now.is_some();
+                *seen.lock().unwrap() = now;
+                some
+            })
+            .await;
+            seen.into_inner().unwrap().unwrap()
+        }
+    };
+    let answer = |session: &SessionId, call: &str, answer: HelmCallAnswer, folder: Option<String>| AnswerSessionAsk {
+        session_id: session.clone(),
+        call: call.to_string(),
+        answer,
+        note: None,
+        answers: Vec::new(),
+        folder,
+    };
+
+    let waiting = card(&id, "~/Music/a-2441.mp3");
+    let ask = asked(&id).await;
+    assert_eq!(ask.reaches_to, Some(ipc::ReachesTo::Read));
+    assert!(ask.offers.contains(&HelmCallAnswer::AllowForSession), "{:?}", ask.offers);
+    rig.fleet
+        .answer_session_ask(answer(&id, &ask.call, HelmCallAnswer::AllowForSession, Some(format!("{home}/Music"))))
+        .await
+        .unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Ask { state: SessionAskState::AllowedForSession, .. })));
+    assert!(rig.fleet.reach_folders().allow.is_empty(), "nothing is written to the folder list");
+
+    let next = tokio::time::timeout(Duration::from_secs(5), rig.fleet.session_permission(id.as_str(), read("~/Music/b.mp3")))
+        .await
+        .expect("no card is drawn")
+        .unwrap();
+    assert!(matches!(next, ipc::RunOrNot::Allow { .. }));
+
+    // Another session is still asked.
+    let theirs = card(&other, "~/Music/b.mp3");
+    let ask = asked(&other).await;
+    rig.fleet.answer_session_ask(answer(&other, &ask.call, HelmCallAnswer::Refuse, None)).await.unwrap();
+    assert!(matches!(theirs.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
+
+    rig.fleet.close_session(CloseSession { session_id: id.clone() }).await.unwrap();
+    assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_folders.is_empty());
 }
 
 #[tokio::test]

@@ -349,6 +349,9 @@ pub(crate) struct State {
     /// The door the answer to `asked` came through, set by the request that
     /// answers and taken by the ask that was waiting, which is another task.
     pub answered_via: Option<ipc::Via>,
+    /// Folders past its slots the owner allowed for this session alone. In memory, never written,
+    /// and cleared when the session is closed.
+    pub allowed_folders: Vec<String>,
     pub last_active: Instant,
     /// A tune arrived while a turn was running: end the process after it.
     pub restart_after_turn: bool,
@@ -414,6 +417,7 @@ impl State {
             fleet_told: 0,
             asked: None,
             answered_via: None,
+            allowed_folders: Vec::new(),
             last_active: Instant::now(),
             restart_after_turn: false,
             directory: String::new(),
