@@ -54,6 +54,6 @@ checks:
   # by `packages/**` above. `cargo` finds the workspace from any directory in
   # it, and `xtask` finds the tree from its own manifest.
   xtask_test:
-    run: cargo nextest run -p xtask --build-jobs ${width} --test-threads ${width}
+    run: cargo nextest run -p xtask --test-threads ${width}
     one_test:
-      run: cargo nextest run -p xtask --build-jobs ${width} --test-threads ${width} -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run -p xtask --test-threads ${width} -E test(/(^|::){}(::|$)/)

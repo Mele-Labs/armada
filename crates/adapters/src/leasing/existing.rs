@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use super::git::{git, git_ok};
+use super::git::{git, git_ok, read};
 use super::{Full, Holder, Lease, LeaseRefused, Leased, Pool, Seed};
 
 /// Where a lease puts the branch.
@@ -92,7 +92,7 @@ impl Pool {
     pub(super) fn checked_out(&self, branch: &str) -> Result<Option<PathBuf>, LeaseRefused> {
         let named = local(branch);
         let listed =
-            git(&self.root, &["worktree", "list", "--porcelain"]).map_err(LeaseRefused::Vcs)?;
+            read(&self.root, &["worktree", "list", "--porcelain"]).map_err(LeaseRefused::Vcs)?;
         let mut at = "";
         for line in listed.lines() {
             if let Some(path) = line.strip_prefix("worktree ") {

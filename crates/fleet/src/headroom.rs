@@ -273,17 +273,23 @@ impl TheMachine {
 
 impl Machine for TheMachine {
     fn read(&self) -> Option<Reading> {
-        let cpu = load_in_use(&said(&mut Command::new("uptime"))?, self.cores)?;
-        let memory = memory_in_use(&said(Command::new("ps").args(["-A", "-o", "%mem="]))?)?;
+        let cpu = load_in_use(&said(&mut low("uptime"))?, self.cores)?;
+        let memory = memory_in_use(&said(low("ps").args(["-A", "-o", "%mem="]))?)?;
         let free = disk_free(&said(
-            Command::new("df").args(["-P", "-k"]).arg(&self.volume),
+            low("df").args(["-P", "-k"]).arg(&self.volume),
         )?)?;
         Some(Reading::of(cpu, memory, free))
     }
 
     fn disk_free_at(&self, path: &Path) -> Option<Bytes> {
-        disk_free(&said(Command::new("df").args(["-P", "-k"]).arg(path))?)
+        disk_free(&said(low("df").args(["-P", "-k"]).arg(path))?)
     }
+}
+
+/// `program` at utility priority: the owner's run from Bridge goes first, and
+/// this reads the machine on a timer.
+fn low(program: &str) -> Command {
+    checks_runner::Priority::Low.spawning(program)
 }
 
 /// What a command said, or nothing where it did not run or did not succeed.

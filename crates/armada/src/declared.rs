@@ -233,7 +233,10 @@ pub async fn execute(
         }
         _ => None,
     };
-    let env = [(HELD_ENV.to_string(), String::from("1"))];
+    // Outside a Fleet's pool, with a width instead: `build_cap` says nothing
+    // where this process inherited a jobserver, as an agent's `armada check` does.
+    let mut env = vec![(HELD_ENV.to_string(), String::from("1"))];
+    env.extend(checks_runner::build_cap(width));
     let (env, priority): (&[(String, String)], _) = match registry {
         Registry::Checks => (&env, priority),
         Registry::Commands => (&[], Priority::Normal),
