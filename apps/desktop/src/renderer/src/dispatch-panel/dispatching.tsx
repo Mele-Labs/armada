@@ -4,7 +4,7 @@
 //
 //   Job        needs a repository: read from the words by Fleet, else the row of chips takes the keys. Sends `proposeFrom`.
 //   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session, on the model and effort
-//              picked beside the act. Queue for later (⌘⇧↵) saves the idea in the Sessions list instead and opens nothing.
+//              picked beside the act. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Jobs and Sessions list instead and opens nothing.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
@@ -226,7 +226,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     });
   }
 
-  /** Saves the idea in the Sessions list and lets the sheet go. Nothing is started and nothing opens. */
+  /** Saves the idea in the Cockpit's Jobs and Sessions list and lets the sheet go. Nothing is started and nothing opens. */
   function queueSession(at: string) {
     if (draft?.queue === undefined) return;
     recall(at);

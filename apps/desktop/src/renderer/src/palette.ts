@@ -150,6 +150,9 @@ export function dormantIn(where: {
     // focus, and opening the palette took that focus away. The row is drawn so
     // the binding is discovered, and it says what it needs.
     send_message: "type in a message box first",
+    // The same shape: ⇧⌘Enter saves what the Session dispatcher holds, and
+    // only that sheet has a draft to save.
+    queue_session: "in a Session's dispatcher",
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",

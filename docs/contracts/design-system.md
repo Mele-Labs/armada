@@ -1408,13 +1408,15 @@ Esc      close an overlay, or return to the list from a detail route
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
 ```
 
-**`⌘Enter` is the one Global binding that needs a focused field**, and it is
-in this tier because it is modified rather than because it fires from
-nowhere. `⇧⌘Enter` is its twin in the Dispatch panel's request: it saves a
-Session's idea for later where `⌘Enter` starts one. Plain `Enter` in the drone message box is a new line — a redirect to a
+**`⌘Enter` and `⇧⌘Enter` are the Global bindings that need a focused field**, and
+they are in this tier because they are modified rather than because they fire
+from nowhere. Plain `Enter` in the drone message box is a new line — a redirect to a
 drone is prose — so the key that sends there has to carry a modifier, and a
 single-key binding would be suppressed inside a field anyway by the rule below.
-It is drawn on that Send button only while `⌘` is held, per `kbd` below.
+`⌘Enter` is drawn on that Send button only while `⌘` is held, per `kbd` below.
+`⇧⌘Enter` is its twin in the Dispatch panel's request: it saves a Session's
+idea for later where `⌘Enter` starts one.
+
 **Helm's box and a Session's are one box**: `Enter` sends and `⇧Enter` breaks
 the line, and `⌘Enter` sends there too. In that box a `#` that starts a word
 opens the repository's open issues and pull requests, and a number typed after
