@@ -118,14 +118,22 @@ where
                     self.hear(id, &runtime, event).await;
                 }
             }
-            Heard::Subagent(events) => {
+            Heard::Spawned(calls) => {
+                let mut state = runtime.state();
+                for (call, kind) in calls {
+                    state.spawns.told(&call, &kind);
+                }
+            }
+            Heard::Subagent { events, call } => {
                 {
                     let mut state = runtime.state();
                     state.last_active = std::time::Instant::now();
                     state.reattached_busy = false;
                 }
+                // A subagent line that names no call is still a subagent's, not the agent's own.
+                let call = call.unwrap_or_default();
                 for event in &events {
-                    self.work_heard(id, event).await;
+                    self.work_heard(id, event, Some(&call)).await;
                 }
             }
         }
@@ -168,7 +176,8 @@ where
 
     /// A tool call of the session's, or of a subagent in it: entered on the timeline and heard by the
     /// build record, whichever tool made it.
-    async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent) {
+    async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
+        self.touch_heard(id, event, subagent).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
         if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), event) {
             let doer = match self.store().lock().await.session(id) {
@@ -185,8 +194,37 @@ where
         }
     }
 
+    /// The files a tool call changed, kept for the Field and the plan: who made the edit is the
+    /// subagent whose call the line sat under, else the Session's own agent. Throttled as a call is.
+    async fn touch_heard(self: &Arc<Self>, id: &str, event: &DroneEvent, subagent: Option<&str>) {
+        let touched = crate::file_touching::touches_of(&**self.harness(), event);
+        if touched.is_empty() {
+            return;
+        }
+        let by = subagent.map(|call| {
+            let kind = self.hosts().of(id).state().spawns.kind_of(call).unwrap_or("subagent").to_string();
+            (kind, call.to_string())
+        });
+        let now = self.now().as_str().to_string();
+        let home = self.host().home.clone();
+        let shown = {
+            let mut store = self.store().lock().await;
+            let Ok(Some(session)) = store.session(id) else { return };
+            let mut shown = false;
+            for (path, act) in touched {
+                let Some(path) = crate::file_touching::rooted(&session.cwd, &home, &path) else { continue };
+                shown |= crate::plan_keeping::touch_kept(&mut store, id, by.clone(), &path, act, &now).unwrap_or(false);
+            }
+            shown
+        };
+        if shown {
+            let step = self.hosts().of(id).state().activity.changed(self.hosts().activity_every());
+            self.publish_step(id.to_string(), step);
+        }
+    }
+
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
-        self.work_heard(id, &event).await;
+        self.work_heard(id, &event, None).await;
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;

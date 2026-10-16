@@ -144,7 +144,7 @@ fn every_launch_carries_the_session_rules_once() {
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {
-    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion"] {
+    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
         assert!(rules().contains(named), "{named}");
     }
 }

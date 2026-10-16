@@ -609,9 +609,14 @@ async function made(
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
 
-async function used($: Dollar, act: 'touched' | 'read' | 'ran', input: Record<string, unknown>): Promise<void> {
+async function used(
+  $: Dollar,
+  act: 'touched' | 'read' | 'ran',
+  input: Record<string, unknown>,
+  by?: { how?: 'write' | 'edit'; agent?: string },
+): Promise<void> {
   const [id, one] = await current($)
-  const fact = usedFact(act, one.cwd, input)
+  const fact = usedFact(act, one.cwd, input, by)
   if (fact !== undefined) say($, id, fact)
 }
 
@@ -987,7 +992,8 @@ export const register: Register = on => {
     on('tool.call', { tool }, async ($, e, next) => {
       const ran = await next(e)
       if (ran.deny === undefined && ran.isError !== true) {
-        void used($, 'touched', e as Record<string, unknown>).catch(() => undefined)
+        const by = { how: tool === 'Write' ? ('write' as const) : ('edit' as const), agent: e.agentId }
+        void used($, 'touched', e as Record<string, unknown>, by).catch(() => undefined)
       }
       return ran
     })

@@ -185,8 +185,15 @@ pub enum SessionFact {
     },
     /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
     /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    /// `by` is the id of the subagent that wrote them, absent for the session's own agent, and `act`
+    /// whether the call made the file or changed it; both feed the Field (`docs/concepts/session.md`,
+    /// *Who touched which file*).
     Touched {
         paths: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        by: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        act: Option<crate::session_plan::TouchAct>,
     },
     /// A file the session read, relative to its `cwd`. **A path and nothing else**, and only one under
     /// it. Counted for the Fleet's timeline (`docs/practices/protocol.md`, *The Fleet's timeline*).

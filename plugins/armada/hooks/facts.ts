@@ -336,14 +336,26 @@ export function touchedOf(cwd: string, input: Record<string, unknown>): string |
  * session's directory, or a shell command, as its first line. **Never content.** Fleet cuts a command
  * further and hides what looks like a secret in it (`crates/fleet/src/timeline/tools.rs`).
  */
-export function usedFact(act: 'touched' | 'read' | 'ran', cwd: string, input: Record<string, unknown>): Fact | undefined {
+export function usedFact(
+  act: 'touched' | 'read' | 'ran',
+  cwd: string,
+  input: Record<string, unknown>,
+  by?: { how?: 'write' | 'edit'; agent?: string },
+): Fact | undefined {
   if (act === 'ran') {
     const line = typeof input.command === 'string' ? (input.command.trim().split('\n')[0] ?? '') : ''
     return line === '' ? undefined : { kind: 'ran', command: line.slice(0, COMMAND_MOST) }
   }
   const path = touchedOf(cwd, input)
   if (path === undefined) return undefined
-  return act === 'read' ? { kind: 'read', path } : { kind: 'touched', paths: [path] }
+  if (act === 'read') return { kind: 'read', path }
+  // Which subagent wrote it, by the id its `subagent` attachment carries, and whether it made the file.
+  return {
+    kind: 'touched',
+    paths: [path],
+    ...(by?.how === undefined ? {} : { act: by.how }),
+    ...(by?.agent === undefined ? {} : { by: by.agent }),
+  }
 }
 
 /**

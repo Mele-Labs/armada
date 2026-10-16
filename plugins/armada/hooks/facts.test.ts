@@ -243,6 +243,12 @@ test('a read is told as a path, a command as its first line, and a write as befo
   expect(usedFact('read', '/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toEqual({ kind: 'read', path: 'src/a.rs' })
   expect(usedFact('read', '/repos/armada', { file_path: '/etc/hosts' })).toBeUndefined()
   expect(usedFact('touched', '/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toEqual({ kind: 'touched', paths: ['src/a.rs'] })
+  expect(usedFact('touched', '/repos/armada', { file_path: '/repos/armada/src/a.rs' }, { how: 'write', agent: 'a1' })).toEqual({
+    kind: 'touched',
+    paths: ['src/a.rs'],
+    act: 'write',
+    by: 'a1',
+  })
   expect(usedFact('ran', '/repos/armada', { command: '\n cargo test\nand more' })).toEqual({ kind: 'ran', command: 'cargo test' })
   expect(usedFact('ran', '/repos/armada', { command: 'x'.repeat(500) })).toEqual({ kind: 'ran', command: 'x'.repeat(300) })
   expect(usedFact('ran', '/repos/armada', { command: '  ' })).toBeUndefined()

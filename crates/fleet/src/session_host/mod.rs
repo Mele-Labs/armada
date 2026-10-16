@@ -356,6 +356,8 @@ pub(crate) struct State {
     pub polled: Option<ipc::EventsSince>,
     /// What its tool calls show it doing. In memory.
     pub activity: activity::Activity,
+    /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
+    pub spawns: crate::file_touching::Spawns,
 }
 
 impl State {
@@ -394,6 +396,7 @@ impl State {
             helm: false,
             polled: None,
             activity: activity::Activity::default(),
+            spawns: crate::file_touching::Spawns::default(),
         }
     }
 }

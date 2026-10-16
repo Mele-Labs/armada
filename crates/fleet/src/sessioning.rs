@@ -707,11 +707,29 @@ where
                     .map_err(fault)?;
             }
             // For the check of who else writes these files; nothing on the ledger changes.
-            SessionFact::Touched { paths } => {
+            SessionFact::Touched { paths, by, act } => {
                 self.session_wrote(&session, &roots, &paths);
                 // A hosted session is heard from its own process, which enters the same acts.
                 if terminal {
                     self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
+                    // The Field and the plan: the subagent is named by the type its attachment carries.
+                    let by = by.map(|agent| {
+                        let held = store.attachments_of(&Holder::session(&id)).unwrap_or_default();
+                        let kind = held
+                            .iter()
+                            .find(|one| one.kind == "subagent" && one.target == agent)
+                            .and_then(|one| one.detail.get("type").cloned())
+                            .unwrap_or_else(|| String::from("subagent"));
+                        (kind, agent)
+                    });
+                    let act = match act {
+                        Some(ipc::TouchAct::Write) => "write",
+                        _ => "edit",
+                    };
+                    for path in &paths {
+                        changed |= crate::plan_keeping::touch_kept(&mut store, &id, by.clone(), path, act, &now)
+                            .map_err(fault)?;
+                    }
                 }
                 if !paths.is_empty() {
                     changed |= build_heard(&mut store, &id, &Observed::Edited, &now).map_err(fault)?;
