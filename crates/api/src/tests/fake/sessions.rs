@@ -46,7 +46,7 @@ impl Sessions for FakeDaemon {
             proposal: None,
             plan: None,
             touches: Vec::new(),
-            step: None,
+            workflow_step: None,
             judging: false,
             judge: None,
             settled: Vec::new(),

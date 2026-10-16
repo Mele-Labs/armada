@@ -533,7 +533,7 @@ pub use session_plan::{
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
 };
 pub use session_rail::{
-    ConcernCite, ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading, JudgeSession,
+    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading, JudgeSession, WaitingCite,
     SendConcern,
 };
 pub use session_build::{

@@ -5,8 +5,8 @@
 //! observed and nudges when one is skipped; nothing blocks. A judge's concern is a call in the
 //! Session's thread, and reaches the agent only if the person sends it.
 //!
-//! The wire additions live here and in `SessionRecord::{step, judging, judge, settled}` and
-//! `WaitingItem::concern`, so a change to one does not touch the rest of the record.
+//! The wire additions live here and in `SessionRecord::{workflow_step, judging, judge, settled}` and
+//! `WaitingItem::{concern, cites}`, so a change to one does not touch the rest of the record.
 
 use serde::{Deserialize, Serialize};
 
@@ -19,20 +19,17 @@ use crate::sessions::SessionId;
 pub enum ConcernFrom {
     /// The person pressed the tile.
     Tile,
-    /// The Session moved past the step at `index` (counted from zero, as `SessionRecord::step`).
+    /// The Session moved past the step at `index` (counted from zero, as `SessionRecord::workflow_step`).
     Step { index: u32, label: String },
 }
 
-/// Where a concern points. **The part of the brief and the lines of it**, as every Judge citation
-/// is; `path` is the file when the part is the diff and the lines fall under one file's header.
+/// A place a concern points at: a file and, where the judge's quotation lands on a line of it, the line as
+/// the change leaves the file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConcernCite {
-    /// `request`, `plan`, `diff`, or `brief` for a line under no part. Rendered and never matched on.
-    pub region: String,
+pub struct WaitingCite {
+    pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<String>,
-    pub from_line: u32,
-    pub to_line: u32,
+    pub line: Option<u32>,
 }
 
 /// How the person settled a concern.
@@ -56,8 +53,6 @@ pub struct ConcernSettled {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JudgeConcern {
     pub from: ConcernFrom,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cites: Vec<ConcernCite>,
     /// Absent while the concern waits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settled: Option<ConcernSettled>,

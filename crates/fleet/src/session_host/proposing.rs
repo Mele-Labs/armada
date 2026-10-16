@@ -326,7 +326,7 @@ where
     }
 
     /// An entry on the Session's timeline, for the thread to draw.
-    fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
+    pub(crate) fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),

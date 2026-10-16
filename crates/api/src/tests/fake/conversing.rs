@@ -329,7 +329,7 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         proposal: None,
         plan: None,
         touches: Vec::new(),
-        step: None,
+        workflow_step: None,
         judging: false,
         judge: None,
         settled: Vec::new(),

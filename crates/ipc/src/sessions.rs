@@ -603,6 +603,9 @@ pub struct WaitingItem {
     /// What a `judge` item carries beside its text. Present only on that source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub concern: Option<crate::session_rail::JudgeConcern>,
+    /// Where a `judge` item points: the files its quotation lands in, as the change leaves them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cites: Vec<crate::session_rail::WaitingCite>,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.
@@ -796,7 +799,7 @@ pub struct SessionRecord {
     /// from the agent's word. Absent for a custom Session, and once the delivering step's pull request
     /// has merged with no step after it. `docs/concepts/session.md`, *The rail*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step: Option<u32>,
+    pub workflow_step: Option<u32>,
     /// A judge is reading the work now. Held in memory: a Fleet that restarts reads nothing as reading.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub judging: bool,
