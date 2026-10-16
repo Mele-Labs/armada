@@ -1160,6 +1160,7 @@ export function App({ draft }: AppProps = {}) {
                   onPickRepository={pick}
                   onAddRepository={locate.onOpen}
                   onGoTo={goTo}
+                  onOpenCheck={(sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run))}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   onRescueSlot={slotActs.onRescueSlot}
                   bayActs={bayActs}
@@ -1270,6 +1271,7 @@ export function App({ draft }: AppProps = {}) {
         >
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
+          {atCockpit && asked.checkFocus !== undefined ? (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : null}
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>
