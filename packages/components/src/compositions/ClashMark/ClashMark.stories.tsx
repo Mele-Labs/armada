@@ -116,6 +116,9 @@ export const WithManyFiles: Story = {
   play: async ({ canvas, userEvent }) => {
     const list = canvas.getByRole("list", { name: "Conflicting files" });
     await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
+    await expect(list).toHaveTextContent("0003_clock.rs");
+    await expect(list).not.toHaveTextContent("0004_clock.rs");
+    await expect(canvas.getByRole("button", { name: "Conflicts with main" })).toBeVisible();
     const more = canvas.getByRole("button", { name: "34 more" });
     await expect(more).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(more);
@@ -159,6 +162,7 @@ export const WithFourFiles: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
-    await expect(canvas.queryByRole("button")).toBeNull();
+    await expect(canvas.getByRole("list", { name: "Conflicting files" })).toHaveTextContent("0004_clock.rs");
+    await expect(canvas.queryByRole("button", { name: /more$|^Fewer$/ })).toBeNull();
   },
 };
