@@ -1,18 +1,13 @@
-// The Status area: where the Session's plan and progress are read, in the place the status ring had. The workflow's steps with the
-// one the Session is at lit, the scope as paths, and the task groups with the type of subagent that takes each. The agent records
-// the plan after planning with the person and it arrives with Approve; he can answer in the thread to change it.
-// Edits Fleet saw are marked on the group. Soft: the steps show where the Session is and block nothing.
-// Both draw the steps down a column, so a workflow of twelve reads as well as one of four, and the one the Session is at is kept in
-// view. Take A keeps the steps in a list of their own with the plan as a section under it. Take B draws one outline, the plan hung
-// under the step that builds it.
+// The Status area: where the Session's progress is read, in the place the status ring had. The workflow as a picker until the work
+// starts and its name after, over its steps down a column so a workflow of twelve reads as well as one of four, with the step the
+// Session is at lit and kept in view. Soft: the steps show where the Session is and block nothing. The plan is a panel of its own.
 
 import { useEffect, useRef } from "react";
-import { BadgeCheck, Bot, CircleCheck, CircleDashed, CircleDot, Lightbulb, PencilLine } from "lucide-react";
-import { Button, Select, TaskMark, Tooltip } from "@armada/components";
-import type { SessionWork, SessionWorkActs, WorkPlan } from "@armada/screens/src/draft/sessions";
+import { CircleCheck, CircleDashed, CircleDot, Lightbulb } from "lucide-react";
+import { Button, Select, Tooltip } from "@armada/components";
+import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
-import { SvPanel, type PanelState } from "./SvPanel";
-import type { Take } from "./take";
+import { SvPanel } from "./SvPanel";
 
 const MARK = {
   done: { Glyph: CircleCheck, said: "Done" },
@@ -47,7 +42,7 @@ function useKeepNow(at: number) {
   return list;
 }
 
-/** Take A: the steps as a list of their own, scrolling to the lit one. The plan is a section under it. */
+/** The steps as a list, scrolling to the lit one. */
 function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
   const list = useKeepNow(at);
   return (
@@ -66,85 +61,6 @@ function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
         })}
       </ol>
     </div>
-  );
-}
-
-function Scope({ plan }: { plan: WorkPlan }) {
-  return (
-    <ul className="sv-scope" aria-label="Scope">
-      {plan.scope.map((path) => (
-        <li key={path}>
-          <code>{path}</code>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Groups({ plan }: { plan: WorkPlan }) {
-  return (
-    <>
-      {plan.groups.map((group) => {
-        const live = group.tasks.some((task) => task.state === "working");
-        const complete = group.tasks.every((task) => task.state === "done");
-        return (
-          <section key={group.id} className="sv-group" data-state={complete ? "done" : live ? "live" : undefined} aria-label={group.title}>
-            <header className="sv-group__head">
-              <Tooltip label="Subagent type">
-                <span className="sv-group__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
-                  <Bot size={12} strokeWidth={2} aria-hidden />
-                  <code>{group.agent}</code>
-                </span>
-              </Tooltip>
-              {group.tasks.some((task) => task.seen === true) ? (
-                <Tooltip label="Edits seen">
-                  <span className="sv-group__seen" role="img" aria-label="Edits seen">
-                    <PencilLine size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              ) : null}
-            </header>
-            <h4 className="sv-group__title">{group.title}</h4>
-            <ul className="sv-tasks">
-              {group.tasks.map((task) => (
-                <li key={task.id} className="sv-task" data-state={task.state}>
-                  <TaskMark state={task.state} />
-                  <span>{task.text}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </>
-  );
-}
-
-/** Take B: one outline. Steps in a column; the plan hangs under the step that builds, which is the lit one while it runs. */
-function Outline({ work, plan }: { work: SessionWork; plan: WorkPlan | undefined }) {
-  const flow = work.workflow!;
-  const builds = Math.max(flow.steps.indexOf("Build"), 0);
-  const list = useKeepNow(flow.at);
-  return (
-    <ol ref={list} className="sv-outline" aria-label="Workflow">
-      {flow.steps.map((step, i) => {
-        const state = stateOf(i, flow.at);
-        return (
-          <li key={step} className="sv-step" data-state={state} data-open={(i === builds && plan !== undefined) || undefined} aria-current={state === "now" ? "step" : undefined}>
-            <div className="sv-step__row">
-              <StepMark state={state} />
-              <span className="sv-step__name">{step}</span>
-            </div>
-            {i === builds && plan !== undefined ? (
-              <div className="sv-step__plan">
-                <Scope plan={plan} />
-                <Groups plan={plan} />
-              </div>
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -177,43 +93,17 @@ function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | u
   );
 }
 
-export function StatusPanel({ work, take, place, id, acts: workActs, onStart, onApprove }: { work: SessionWork; take: Take; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined; onStart: () => void; onApprove: () => void }) {
-  const plan = work.plan;
-  const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
-  const state: PanelState | undefined = plan === undefined ? undefined : !plan.approved ? "asks" : finished ? "done" : "live";
+export function StatusPanel({ work, place, id, acts, onStart }: { work: SessionWork; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined; onStart: () => void }) {
   const unstarted = work.proposal !== undefined && work.proposal.started !== true;
-  const acts =
-    unstarted ? (
-      <Button variant="primary" size="sm" onClick={onStart}>
-        Start
-      </Button>
-    ) : plan === undefined ? undefined : plan.approved ? (
-      <Tooltip label="Plan approved">
-        <span className="sv-panel__mark" role="img" aria-label="Plan approved">
-          <BadgeCheck size={16} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-    ) : (
-      <Button variant="primary" size="sm" onClick={onApprove}>
-        Approve
-      </Button>
-    );
+  const start = unstarted ? (
+    <Button variant="primary" size="sm" onClick={onStart}>
+      Start
+    </Button>
+  ) : undefined;
   return (
-    <SvPanel label="Status" area="status" place={place} state={state} acts={acts}>
-      <Flow work={work} acts={workActs} id={id} />
-      {work.workflow !== undefined && take === "b" ? (
-        <Outline work={work} plan={plan} />
-      ) : (
-        <>
-          {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
-          {plan === undefined ? null : (
-            <section className="sv-plan" aria-label="Plan">
-              <Scope plan={plan} />
-              <Groups plan={plan} />
-            </section>
-          )}
-        </>
-      )}
+    <SvPanel label="Status" area="status" place={place} acts={start}>
+      <Flow work={work} acts={acts} id={id} />
+      {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
     </SvPanel>
   );
 }

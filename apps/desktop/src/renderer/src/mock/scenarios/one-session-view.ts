@@ -278,6 +278,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       }
       return only;
     },
+    cockpitOnly: true,
     work: {
       workflows: WORKFLOWS,
       // The proposal is read again: a different workflow draws a different rail, and none draws no rail at all.

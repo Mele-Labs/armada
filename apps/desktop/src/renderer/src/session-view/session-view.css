@@ -130,7 +130,6 @@
 .sv-outline > .sv-step[data-state="now"] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
 .sv-step__row { display: flex; align-items: center; gap: var(--space-2); }
 .sv-outline .sv-step__name { font-size: var(--text-xs); }
-.sv-step__plan { display: flex; flex-direction: column; gap: var(--space-2); padding-left: var(--space-6); font-weight: var(--weight-body); }
 
 .sv-scope { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-scope code {
@@ -180,6 +179,18 @@
 .sv-concern__text { margin: 0; font-family: var(--font-sans); }
 .sv-concern__acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* ---- Proposal ------------------------------------------------------------------------------------------- */
+
+.sv-plan { display: flex; flex-direction: column; gap: var(--space-3); }
+.sv-plan__groups { display: flex; flex-direction: column; gap: var(--space-3); }
+/* In the foot, a wide place, the Plan lies across: the scope in a column, then each group as a card, scrolling across. The Field there
+   has a height of its own, so the foot is as tall as the Flight control beside it needs and no taller than this. */
+.sv-slot[data-place="foot"] > .sv-panel[data-area="plan"],
+.sv-slot[data-place="foot"] > .sv-panel[data-area="field"] { flex: 0 0 calc(var(--space-12) * 4.5); }
+.sv-panel[data-place="foot"][data-area="plan"] > .sv-panel__body { overflow-x: auto; }
+.sv-panel[data-place="foot"] .sv-plan { flex-direction: row; align-items: flex-start; }
+.sv-panel[data-place="foot"] .sv-scope { flex: 0 0 calc(var(--space-12) * 2.5); flex-direction: column; flex-wrap: nowrap; }
+.sv-panel[data-place="foot"] .sv-plan__groups { flex-direction: row; }
+.sv-panel[data-place="foot"] .sv-group { flex: 0 0 calc(var(--space-12) * 4.5); }
 
 /* The workflow's name over its steps: a picker until the work starts, then its name. */
 .sv-flow { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-sans); }

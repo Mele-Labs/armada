@@ -42,6 +42,7 @@ import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } 
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
+import { select as selectOnDeck } from "./cockpit/deck/store";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -246,7 +247,7 @@ export function App({ draft }: AppProps = {}) {
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [sessioning, setSessioning] = useState(false); const [jobbing, setJobbing] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined)]; // Left off the rail and the palette.
+  const sessionsServed = useSessionsDraft(); const hidden = [...hiddenSurfaces(state), ...sessionsHidden(sessionsServed !== undefined && sessionsServed.cockpitOnly !== true)]; // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -505,6 +506,12 @@ export function App({ draft }: AppProps = {}) {
     if (helm !== undefined) {
       if (helm.manifestId !== undefined) pointHelm(helm.manifestId);
       askToOpenHelm();
+      return;
+    }
+    // With no Sessions page, a Session is opened on the Cockpit, selected on the deck.
+    if (sessionsServed?.cockpitOnly === true) {
+      goTo(SURFACE.overview);
+      selectOnDeck({ kind: "session", key: `session:${id}` });
       return;
     }
     goTo(SURFACE.sessions);

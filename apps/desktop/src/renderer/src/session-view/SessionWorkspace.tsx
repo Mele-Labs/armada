@@ -7,10 +7,9 @@
 // picked by the proposer, and the workflow is a picker over the steps in Status. On the Cockpit those places are the deck's own and the panels are drawn into them (`hosts`). On the Sessions
 // page there is no deck, so the same places are drawn round the thread: left of it, in the right column, and under it.
 //
-// **Two takes** (`take.ts`) differ in where Concerns stand and in how the Status area draws the plan.
-// A: Concerns as cards in Incoming calls, and the steps in a list of their own with the plan a section under it.
-// B: Concerns in the foot, in Autopilot's place, and one outline with the plan hung under its step.
-// The Field is on the left in both. The Sessions page has no Incoming calls, so A draws its Concerns in the foot there too.
+// **Two takes** (`take.ts`) place the Plan and the Field in the two places that give way, the other way about. A: the Field in
+// Activity's place (left) and the Plan in Autopilot's (the foot). B: the Plan left and the Field in the foot. Judge concerns are cards
+// in Incoming calls in both. The Sessions page has no Incoming calls, so its concerns are not drawn there.
 
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
@@ -22,6 +21,7 @@ import { useSessionsDraft } from "../sessions-draft";
 import { ConcernsPanel } from "./ConcernsPanel";
 import { FieldPanel } from "./FieldPanel";
 import { LedgerPanel } from "./LedgerPanel";
+import { PlanPanel } from "./PlanPanel";
 import { StatusPanel } from "./StatusPanel";
 import { takeOf } from "./take";
 import "./session-view.css";
@@ -36,15 +36,19 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
   const take = takeOf();
   const acts = draft.work;
   const { id } = session;
-  const field = work.field === undefined || work.field.length === 0 ? null : <FieldPanel session={session} repositories={repositories} place="left" />;
-  const concern = (place: "calls" | "foot") =>
+  // The two takes put Plan and the Field in the two places that give way on the left and in the foot, the other way about.
+  const [fieldAt, planAt] = take === "a" ? (["left", "foot"] as const) : (["foot", "left"] as const);
+  const field = work.field === undefined || work.field.length === 0 ? null : <FieldPanel session={session} repositories={repositories} place={fieldAt} />;
+  const plan = work.plan === undefined ? null : <PlanPanel plan={work.plan} place={planAt} onApprove={() => acts?.approve(id)} />;
+  const concerns =
     work.concerns === undefined || work.concerns.length === 0 ? null : (
-      <ConcernsPanel concerns={work.concerns} place={place} onSend={(one) => acts?.sendConcern(id, one)} onDismiss={(one) => acts?.dismissConcern(id, one)} />
+      <ConcernsPanel concerns={work.concerns} place="calls" onSend={(one) => acts?.sendConcern(id, one)} onDismiss={(one) => acts?.dismissConcern(id, one)} />
     );
-  const foot = concern("foot");
+  const left = fieldAt === "left" ? field : plan;
+  const foot = fieldAt === "foot" ? field : plan;
   const right = (
     <>
-      <StatusPanel work={work} take={take} place="side" id={id} acts={acts} onStart={() => acts?.start(id)} onApprove={() => acts?.approve(id)} />
+      <StatusPanel work={work} place="side" id={id} acts={acts} onStart={() => acts?.start(id)} />
       <LedgerPanel session={session} entries={entries} place="side" />
     </>
   );
@@ -52,15 +56,16 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
     return (
       <>
         {children}
-        {hosts.left === null || field === null ? null : createPortal(field, hosts.left)}
+        {hosts.left === null || left === null ? null : createPortal(left, hosts.left)}
         {hosts.side === null ? null : createPortal(right, hosts.side)}
-        {take === "a" ? (hosts.calls === null ? null : createPortal(concern("calls"), hosts.calls)) : hosts.foot === null ? null : createPortal(concern("foot"), hosts.foot)}
+        {hosts.foot === null || foot === null ? null : createPortal(foot, hosts.foot)}
+        {hosts.calls === null ? null : createPortal(concerns, hosts.calls)}
       </>
     );
   }
   return (
     <div className="sv" data-take={take}>
-      {field === null ? null : <div className="sv__left">{field}</div>}
+      {left === null ? null : <div className="sv__left">{left}</div>}
       <div className="sv__centre">
         <div className="sv__thread">{children}</div>
         {foot === null ? null : <div className="sv__foot">{foot}</div>}

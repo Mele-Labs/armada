@@ -594,6 +594,8 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
+  /** Mock only: there is no Sessions page, so the tab is left off and a Session is opened on the Cockpit. */
+  cockpitOnly?: boolean;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };
