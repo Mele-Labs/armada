@@ -13,10 +13,12 @@ import {
   debugInfo,
   envelopeOf,
   FailureNotice,
-  FileAnIssue,
+  FILE_AN_ISSUE,
   isPressed,
   NOT_OFFERED,
+  SplitButton,
   Toast,
+  useFileAnIssue,
 } from "@armada/components";
 import type { Filing } from "@armada/components";
 
@@ -107,9 +109,10 @@ export type FailureBlockProps = {
 /**
  * One failure, with something to do about it.
  *
- * Ghost controls, because none of them is a decision Armada participates in:
- * reloading redraws a window, and copying puts the machine's own record of the
- * failure onto the clipboard so nobody retypes a stack.
+ * One split control and a ghost Dismiss, because none of the acts is a decision
+ * Armada participates in: reloading redraws a window, and copying puts the
+ * machine's own record of the failure onto the clipboard so nobody retypes a
+ * stack. The split is what keeps the row inside a toast.
  *
  * **Copying and filing are two acts and the second one has a review.** Copying
  * stays on the machine; an issue is public and permanent, so `File an issue`
@@ -132,6 +135,7 @@ export function FailureBlock({
   onDispatchSession,
 }: FailureBlockProps) {
   const [dispatching, setDispatching] = useState(false);
+  const filing = useFileAnIssue({ compose: () => filingFor(failure), onCopied });
   const dispatch = async () => {
     if (onDispatchSession === undefined || dispatching) return;
     setDispatching(true);
@@ -162,39 +166,37 @@ export function FailureBlock({
       actions={
         <>
           {acts}
-          {reloadable ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              ground="sunken"
+          {/* One split control, because four ghost buttons in a row were wider
+              than a toast. **The face is the act the failure calls for:**
+              handing it to a Session where the app can, and copying it where
+              it cannot. Copy debug info is the face or the first entry, never
+              neither, and every other act is one entry behind the caret. The
+              label is the key map's verb, as it was on its own control, and no
+              glyph is drawn but the caret the split button owns — the error
+              treatment carries none. */}
+          <SplitButton
+            variant="secondary"
+            ground="sunken"
+            size="sm"
+            items={[
+              ...(onDispatchSession === undefined ? [] : [{ label: COPY_DEBUG_INFO, onSelect: () => copyDebugInfoFor(failure, onCopied) }]),
+              // Beside copying, never instead of it. **Copying stays on the
+              // machine and filing leaves it**, so the two are different acts
+              // and only one of them takes a review: this opens it and sends
+              // nothing, and the review is what makes send never one press
+              // from the error.
+              { label: FILE_AN_ISSUE, onSelect: filing.open },
               // Bridge and Fleet have independent lifetimes: this drops a
               // window, not a daemon, and the running jobs never notice.
-              onClick={() => window.location.reload()}
-            >
-              Reload Bridge
-            </Button>
-          ) : null}
-          {/* No glyph and no kbd on the control. The error treatment carries
-              no glyph at all, and a binding is discovered in the palette and
-              the tooltip — the two surfaces the contract gives a kbd to. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            ground="sunken"
-            onClick={() => copyDebugInfoFor(failure, onCopied)}
+              ...(reloadable ? [{ label: "Reload Bridge", onSelect: () => window.location.reload() }] : []),
+            ]}
+            menuLabel="More ways to act on this failure"
+            pending={dispatching}
+            onAction={onDispatchSession === undefined ? () => copyDebugInfoFor(failure, onCopied) : () => void dispatch()}
           >
-            {COPY_DEBUG_INFO}
-          </Button>
-          {/* Beside copying, never instead of it. **Copying stays on the
-              machine and filing leaves it**, so the two are different acts and
-              only one of them takes a review — and the review is what makes
-              send never one press from the error. */}
-          <FileAnIssue compose={() => filingFor(failure)} onCopied={onCopied} />
-          {onDispatchSession === undefined ? null : (
-            <Button variant="ghost" size="sm" ground="sunken" pending={dispatching} onClick={() => void dispatch()}>
-              Dispatch session
-            </Button>
-          )}
+            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch session"}
+          </SplitButton>
+          {filing.review}
           {onDismiss === undefined ? null : (
             <Button variant="ghost" size="sm" ground="sunken" onClick={onDismiss}>
               Dismiss

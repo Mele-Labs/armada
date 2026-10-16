@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -86,7 +87,30 @@ export type FileAnIssueProps = {
  * The confirm copies. `issue.ts` carries why there is no transport, and what
  * the drawing asked for that therefore is not built.
  */
-export function FileAnIssue({ compose, onCopied }: FileAnIssueProps) {
+export function FileAnIssue(props: FileAnIssueProps) {
+  const { open, review } = useFileAnIssue(props);
+  return (
+    <>
+      {/* Ghost, like every other control in the error treatment: none of them
+          is a decision Armada participates in. No glyph, for the reason the
+          treatment gives — it carries none, and both alarm marks are spoken
+          for. No kbd, because a binding is discovered in the palette and the
+          tooltip, and this act is deliberately bound to no key. */}
+      <Button variant="ghost" size="sm" ground="sunken" onClick={open}>
+        {FILE_AN_ISSUE}
+      </Button>
+      {review}
+    </>
+  );
+}
+
+/**
+ * The review without its control, for a surface that offers filing from
+ * somewhere else — a menu entry. `open` composes the filing and opens the
+ * review, and does nothing else; `review` is the dialog, to be drawn wherever
+ * it stays mounted once the entry that opened it has closed.
+ */
+export function useFileAnIssue({ compose, onCopied }: FileAnIssueProps): { open: () => void; review: ReactNode } {
   /**
    * What is under review, frozen at the moment the control was pressed. `null`
    * is closed — one piece of state rather than a flag beside a value, so there
@@ -106,16 +130,9 @@ export function FileAnIssue({ compose, onCopied }: FileAnIssueProps) {
     setRemoved(new Set());
   }
 
-  return (
-    <>
-      {/* Ghost, like every other control in the error treatment: none of them
-          is a decision Armada participates in. No glyph, for the reason the
-          treatment gives — it carries none, and both alarm marks are spoken
-          for. No kbd, because a binding is discovered in the palette and the
-          tooltip, and this act is deliberately bound to no key. */}
-      <Button variant="ghost" size="sm" ground="sunken" onClick={() => setOffered(compose())}>
-        {FILE_AN_ISSUE}
-      </Button>
+  return {
+    open: () => setOffered(compose()),
+    review: (
       <FilingReview
         offered={offered}
         removed={removed}
@@ -133,8 +150,8 @@ export function FileAnIssue({ compose, onCopied }: FileAnIssueProps) {
           close();
         }}
       />
-    </>
-  );
+    ),
+  };
 }
 
 /** What the dialog asks, named once so nothing retypes it. */
