@@ -23,6 +23,7 @@ import type {
   CheckoutToPullRequest,
   ApprovePlan,
   ClaimPullRequest,
+  DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -31,9 +32,11 @@ import type {
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
+  JudgeSession,
   RenameSession,
   RunSessionCommand,
   ReviewDispatched,
+  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   SessionList,
@@ -439,6 +442,21 @@ export class SessionsHost {
   /** The marks he made on a plan, sent to the agent as one message. */
   async sendPlanChanges(changes: SendPlanChanges): Promise<SessionActed> {
     return await this.act("POST", "/sessions/plan/changes", changes);
+  }
+
+  /** The person asked for a judge to read the work now. Fleet answers the record with `judging` set; the reading lands on it. */
+  async judgeSession(judge: JudgeSession): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge", judge);
+  }
+
+  /** A judge's concern, sent to the agent as the person's message and settled. */
+  async sendConcern(send: SendConcern): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge/send", send);
+  }
+
+  /** A judge's concern, settled with the agent told nothing. */
+  async dismissConcern(dismiss: DismissConcern): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge/dismiss", dismiss);
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */

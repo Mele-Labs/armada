@@ -11,6 +11,7 @@ import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { PlanWindow } from "./plan-usage";
 import type { FileTouch, SessionPlan } from "./session-plan";
+import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -123,6 +124,21 @@ export type SessionRecord = {
   plan?: SessionPlan;
   /** The files it and its subagents last touched, oldest first, a bounded window. Absent while there are none. */
   touches?: FileTouch[];
+  /**
+   * The index of the workflow step the Session is on, read by Fleet from what it observed and never from the
+   * agent's word. Absent for a custom Session, once the delivering step's pull request merged with no step
+   * after it, and while `features.workflows` is off. Since 23.92.
+   */
+  workflow_step?: number;
+  /** A judge is reading the work now. Held in memory in Fleet. Absent when none is. Since 23.92. */
+  judging?: boolean;
+  /** The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns". Since 23.92. */
+  judge?: JudgeReading;
+  /**
+   * Concerns the person has settled, oldest first, a bounded window: each a `judge` item with
+   * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 23.92.
+   */
+  settled?: WaitingItem[];
 };
 
 /** A value of a Session the proposer can pick. */
@@ -149,10 +165,11 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
- * person has not approved; it is approved, or sent changes, from its own card. `replied` is no longer served: a reply is the
+ * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
+ * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card. `replied` is no longer served: a reply is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -200,6 +217,10 @@ export type WaitingItem = {
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;
+  /** Present only on a `judge` item: what produced it, and how it was settled once it is. */
+  concern?: JudgeConcern;
+  /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
+  cites?: WaitingCite[];
 };
 
 /**
