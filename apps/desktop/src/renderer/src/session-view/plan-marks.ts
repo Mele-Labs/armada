@@ -113,7 +113,12 @@ let made = 0;
 /** An id for what he adds, which the agent does not know yet. */
 export const newId = (prefix: string): string => `${prefix}-new-${(made += 1)}`;
 
-export const addTask = (marks: readonly PlanMark[], group: string, text: string): PlanMark[] => (text.trim() === "" ? [...marks] : [...marks, { kind: "add", group, id: newId("t"), text: text.trim() }]);
+export const addTask = (marks: readonly PlanMark[], group: string, text: string): PlanMark[] => {
+  if (text.trim() === "") return [...marks];
+  // `task` names the new task, which is what tells it from a group: an add with none is a group.
+  const id = newId("t");
+  return [...marks, { kind: "add", group, task: id, id, text: text.trim() }];
+};
 export const addGroup = (marks: readonly PlanMark[], title: string): PlanMark[] => {
   if (title.trim() === "") return [...marks];
   const id = newId("g");

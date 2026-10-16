@@ -40,8 +40,11 @@ export function waitingOf(session: Session): WaitingItem[] {
   return [{ id: `perm:${asked.call ?? session.id}`, text: asked.command, since, source: "permission", options: offers.map((one) => ({ label: PERMISSION[one] })) }];
 }
 
-/** What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask"]);
+/**
+ * What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. A recorded plan and a
+ * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
+ */
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {

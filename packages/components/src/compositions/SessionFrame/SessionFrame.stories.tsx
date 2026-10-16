@@ -26,7 +26,7 @@ type Story = StoryObj<typeof SessionFrame>;
 export const Blank: Story = {
   args: { state: "blank", said: "Blank: no slot, no branch" },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Blank: no slot, no branch" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: /^Blank: no slot, no branch/ })).toBeInTheDocument();
   },
 };
 
@@ -79,7 +79,7 @@ export const Untitled: Story = {
 export const Limited: Story = {
   args: { state: "limited", said: "Limit reached · resumes 6:40 PM", title: "Invoice PDF layout" },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Limit reached · resumes 6:40 PM" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: /^Limit reached · resumes 6:40 PM/ })).toBeInTheDocument();
   },
 };
 
@@ -142,8 +142,8 @@ export const ContextWithoutBreakdown: Story = {
 const LONG = "How does armada interface with GitHub (PRs, Issues, Projects)";
 
 /**
- * The head is one row. The address is in the terminal glyph's tooltip and the model is not drawn here (the composer's
- * Model select reads it). The title keeps to one line, the whole of it in its tooltip, and nothing overlaps.
+ * The head is one row. The state glyph leads it and its tooltip carries the address; the model is not drawn here (the
+ * composer's Model select reads it). The title keeps to one line, the whole of it in its tooltip, and nothing overlaps.
  */
 export const HeadOneRow: Story = {
   args: {
@@ -168,8 +168,7 @@ export const HeadOneRow: Story = {
     ),
   ],
   play: async ({ canvas }) => {
-    const glyph = canvas.getByRole("img", { name: "s-e07cfe09" });
-    await expect(glyph.parentElement).toHaveAccessibleDescription("s-e07cfe09");
+    const glyph = canvas.getByRole("img", { name: "Working · s-e07cfe09" });
     await expect(canvas.queryByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
 
     const title = canvas.getByRole("button", { name: `${LONG}, rename` });
@@ -178,12 +177,12 @@ export const HeadOneRow: Story = {
     await expect(title.getBoundingClientRect().height).toBeLessThan(line * 1.5);
     await expect(title.scrollWidth).toBeGreaterThan(title.clientWidth);
 
-    // One row: the glyph, the title, the act, the figure and the state mark share a centre line.
+    // One row: the state glyph, the title, the act and the figure share a centre line.
     const centre = (one: Element) => {
       const box = one.getBoundingClientRect();
       return box.top + box.height / 2;
     };
-    const row = [glyph, title, canvas.getByRole("button", { name: "End session" }), canvas.getByRole("button", { name: "Context 5%" }), canvas.getByRole("img", { name: "Working" })];
+    const row = [glyph, title, canvas.getByRole("button", { name: "End session" }), canvas.getByRole("button", { name: "Context 5%" })];
     for (const one of row) await expect(Math.abs(centre(one) - centre(glyph))).toBeLessThan(8);
   },
 };
