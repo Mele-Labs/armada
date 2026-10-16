@@ -13,14 +13,13 @@
 }
 .sv-slot:empty { display: none; }
 .sv-slot[data-place="left"] { flex: none; flex-direction: column; max-height: calc(var(--space-12) * 7); }
-.sv-slot[data-place="foot"] { flex: 4 1 0; flex-direction: column; }
+.sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); min-width: calc(var(--space-12) * 7); flex-direction: column; }
 .sv-side {
-  flex: 1 1 0;
+  flex: 5 1 0;
   flex-direction: column;
   gap: var(--space-3);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
+.deck-right:has(> .sv-side) > .deck-incoming { flex: 1 1 0; min-height: calc(var(--space-12) * 2); }
 
 /* On the Sessions page: the same places round the thread, left of it, under it, and in a column to its right. */
 .sv {
@@ -48,11 +47,13 @@
 
 /* A panel keeps its own height in a stack that scrolls; the ledger takes what is left. */
 .sv-side > .sv-panel,
-.sv__right > .sv-panel { flex: 0 0 auto; }
+.sv__right > .sv-panel { flex: 0 1 calc(var(--space-12) * 4.5); }
+.sv-side > .sv-panel[data-area="status"],
+.sv__right > .sv-panel[data-area="status"] { flex: 1 1 auto; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="ledger"],
-.sv__right > .sv-panel[data-area="ledger"] { flex: 1 0 calc(var(--space-12) * 3); }
+.sv__right > .sv-panel[data-area="ledger"] { flex: 0 1 calc(var(--space-12) * 3.5); min-height: calc(var(--space-12) * 2.5); }
 .sv-panel[data-area="field"][data-place="left"] { height: calc(var(--space-12) * 6); }
-.sv-panel[data-area="field"][data-place="side"] { height: calc(var(--space-12) * 4.5); }
+.sv-panel[data-area="field"][data-place="side"] { height: calc(var(--space-12) * 4.5); flex-shrink: 0; }
 .sv-slot[data-place="left"] > .sv-panel { flex: 1 1 auto; min-height: 0; }
 
 /* ---- A panel -------------------------------------------------------------------------------------------- */
@@ -100,7 +101,7 @@
 .sv-panel__mark { display: inline-flex; color: var(--step-advanced); }
 .sv-panel__body {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
@@ -219,14 +220,8 @@
 .sv-concern__judge { display: inline-flex; }
 .sv-concern__text { margin: 0; font-family: var(--font-sans); }
 .sv-concern__acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-/* In the foot a concern is a row of cards, the words beside the two acts. */
-.sv-panel[data-place="foot"] .sv-concerns { flex-direction: row; overflow-x: auto; }
-.sv-panel[data-place="foot"] .sv-concern { flex: 1 1 0; flex-direction: row; align-items: center; min-width: calc(var(--space-12) * 6); }
-.sv-panel[data-place="foot"] .sv-concern__text { flex: 1 1 0; }
-.sv-panel[data-place="foot"] .sv-concern__acts { flex: none; flex-wrap: nowrap; }
-
 /* ---- Proposal ------------------------------------------------------------------------------------------- */
 
 .sv-proposal { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-sans); }
-.sv-panel[data-place="foot"] .sv-proposal { flex-direction: row; align-items: flex-end; }
-.sv-panel[data-place="foot"] .sv-proposal > * { flex: 1 1 0; min-width: 0; }
+.sv-proposal[data-compact] { flex-direction: row; align-items: center; gap: var(--space-2); }
+.sv-proposal[data-compact] > * { flex: 1 1 0; min-width: 0; }

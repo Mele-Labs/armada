@@ -7,8 +7,9 @@
 // no deck, so the same places are drawn round the thread: left of it, in the right column, and under it.
 //
 // **Two takes** (`take.ts`) differ in which panel goes to which place and in how the Status area draws the plan.
-// A: Field left, Concerns right, Proposal in the foot, and the steps a strip over the plan.
-// B: Proposal left, Field right, Concerns in the foot, and one outline with the plan hung under its step.
+// A: Field left, Concerns right, and the steps a strip over the plan.
+// B: Concerns left, Field right, and one outline with the plan hung under its step.
+// The Proposal is in the foot in both: the foot has room for one compact row and nothing taller, and it is empty once the work starts.
 
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
@@ -38,12 +39,12 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
   const field = work.field === undefined || work.field.length === 0 ? null : <FieldPanel session={session} repositories={repositories} place={take === "a" ? "left" : "side"} />;
   const concerns =
     work.concerns === undefined || work.concerns.length === 0 ? null : (
-      <ConcernsPanel concerns={work.concerns} place={take === "a" ? "side" : "foot"} onSend={(concern) => acts?.sendConcern(id, concern)} onDismiss={(concern) => acts?.dismissConcern(id, concern)} />
+      <ConcernsPanel concerns={work.concerns} place={take === "a" ? "side" : "left"} onSend={(concern) => acts?.sendConcern(id, concern)} onDismiss={(concern) => acts?.dismissConcern(id, concern)} />
     );
-  const proposal = work.proposal === undefined ? null : <ProposalPanel session={session} draft={draft} place={take === "a" ? "foot" : "left"} />;
-  const left = take === "a" ? field : proposal;
+  const proposal = work.proposal === undefined ? null : <ProposalPanel session={session} draft={draft} place="foot" />;
+  const left = take === "a" ? field : concerns;
   const side = take === "a" ? concerns : field;
-  const foot = take === "a" ? proposal : concerns;
+  const foot = proposal;
   const right = (
     <>
       <StatusPanel work={work} take={take} place="side" onApprove={() => acts?.approve(id)} />

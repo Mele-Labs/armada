@@ -12,7 +12,7 @@ export function ConcernsPanel({ concerns, place, onSend, onDismiss }: { concerns
     <SvPanel label="Concerns" area="concerns" place={place} state="asks">
       <ul className="sv-concerns">
         {concerns.map((one) => (
-          <li key={one.id} className="sv-concern">
+          <li key={one.id} className="sv-concern" role="group" aria-label={one.text}>
             <header className="sv-concern__head">
               <Tooltip label="Judge">
                 <span className="sv-concern__judge" role="img" aria-label={`Judge on ${one.step}`}>
