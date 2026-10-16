@@ -475,6 +475,18 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **A Session counts only where the pool agrees (decided for #2239, 13 Oct 2026).** Among the Sessions, the owner is the one the pool confirms works the branch: it stands in a slot whose lease is its own, the branch is checked out there, and the branch row stands. Where several are confirmed, the one whose `pr` row holds the number. Where none is, the Session whose standing `pr` row is oldest, else the one whose standing `branch` row is. One Session, not every row: a Session that read the pull request from a directory in a slot it had left was told its checks failed while another Session worked it. `docs/concepts/session.md`, *Whose slot it is*.
 
+### Whose pull requests Fleet reads
+
+**Fleet tells, checks and draws a call for the person's own pull requests, and for no one else's.** Mine is the pull request's author login equalling, in any case, either the GitHub login Armada is signed in as for the repository (the profile bound to it, `SigningIn::login_for`) or the login the forge's command line is signed in as on this machine (`gh api user`, asked until it answers and then kept). **Where neither login is known every pull request is mine**, and so is one whose forge named no author: a rule that cannot be read does not go quiet. Fleet puts the result on each open pull request in the hub as `mine`, absent meaning mine.
+
+| Pull request | Merge line | Call cards | Messages to owners, merged notices | `needs` status and timeline |
+|---|---|---|---|---|
+| Mine | As ever | As ever | As ever | As ever |
+| Not mine, in the merge queue | Shown quietly: its place, a neutral tone, never the ask or bad tone | None | None | None |
+| Not mine, not in the queue | Not shown | None | None | None |
+
+**The queue is where a team shares a line, so it stays whole.** Someone else's pull request in the queue is a fact about when yours lands. Outside it, it is theirs to watch. The pull watch reads every open pull request with its author on one call, so the rule costs no second ask.
+
 ### Telling sessions the build they now run
 
 **One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.

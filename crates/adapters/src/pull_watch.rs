@@ -13,13 +13,14 @@ const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
 const QUERY: &str = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){\
     pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{\
-    number headRefName url headRefOid mergeable mergeQueueEntry{state} \
+    number headRefName url headRefOid mergeable author{login} mergeQueueEntry{state} \
     commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
     ... on CheckRun{name status conclusion detailsUrl startedAt completedAt} \
     ... on StatusContext{context state targetUrl}}}}}}}}}}}";
 
 /// One pull request a line: number, branch, address, head, mergeability, queue state, then its
-/// checks (RS apart) of name, status, conclusion, address and seconds it ran (US apart).
+/// checks (RS apart) of name, status, conclusion, address and seconds it ran (US apart), then the
+/// author's login.
 const LINES: &str = "\
     .data.repository.pullRequests.nodes[]? | [(.number | tostring), (.headRefName // \"\"), \
     (.url // \"\"), (.headRefOid // \"\"), (.mergeable // \"\"), (.mergeQueueEntry.state // \"\"), \
@@ -28,7 +29,7 @@ const LINES: &str = "\
     (.detailsUrl // .targetUrl // \"\"), \
     (if .startedAt and .completedAt then ((.completedAt | fromdateiso8601) - \
     (.startedAt | fromdateiso8601)) else 0 end | tostring)] | join(\"\\u001f\")] \
-    | join(\"\\u001e\"))] | @tsv";
+    | join(\"\\u001e\")), (.author.login // \"\")] | @tsv";
 
 /// Every open pull request, `None` where the forge would not answer.
 pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
@@ -68,6 +69,7 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     let mergeable = field.next().unwrap_or_default();
     let queue = field.next().unwrap_or_default();
     let rollup = field.next().unwrap_or_default();
+    let author = field.next().unwrap_or_default();
     let mut checks: Vec<WatchedCheck> = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
@@ -98,6 +100,7 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
         number,
         branch: FromOutside::verbatim(as_written(branch)),
         url: FromOutside::verbatim(as_written(url)),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
         head: is_a_commit(head).then(|| head.to_string()),
         conflicting: mergeable.eq_ignore_ascii_case("conflicting"),
         queue: queue_of(queue),
@@ -158,6 +161,15 @@ mod tests {
             Some("http://l/1")
         );
         assert!(gate.log_url.is_none());
+    }
+
+    #[test]
+    fn the_author_is_the_last_field_and_a_line_without_one_names_none() {
+        let by = pull_of_line(&format!("7\tb\tu\t{SHA}\t\t\tci\u{1f}COMPLETED\u{1f}SUCCESS\u{1f}\u{1f}0\tOctoCat"), "ci").unwrap();
+        assert_eq!(by.author.as_ref().map(|it| it.as_written()), Some("OctoCat"));
+        let none = pull_of_line(&format!("7\tb\tu\t{SHA}\t\t\t\t"), "ci").unwrap();
+        assert!(none.author.is_none());
+        assert!(pull_of_line("8\tc\tu2\tdef\t\t\tci\u{1f}COMPLETED\u{1f}SUCCESS\u{1f}\u{1f}0", "ci").unwrap().author.is_none());
     }
 
     #[test]

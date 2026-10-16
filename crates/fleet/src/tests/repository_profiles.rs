@@ -36,7 +36,7 @@ fn sign_in(home: &TempDir, store: &Arc<Enrolled>, forge: FakeSignIn) -> SigningI
 }
 
 /// Two accounts that share the organisation `shared-co`; each has one of its own.
-fn two_profiles(home: &TempDir) -> SigningIn {
+pub(super) fn two_profiles(home: &TempDir) -> SigningIn {
     let store = Arc::new(Enrolled::new());
     sign_in(
         home,
@@ -54,7 +54,7 @@ fn two_profiles(home: &TempDir) -> SigningIn {
     )
 }
 
-fn repo(slug: &str) -> Repo {
+pub(super) fn repo(slug: &str) -> Repo {
     Repo::new(&format!("/work/{}", slug.replace('/', "-")), Some(slug.to_string()))
 }
 

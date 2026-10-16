@@ -134,3 +134,34 @@ async fn a_forge_that_refuses_is_carried_on_from_and_the_next_sweep_heals_it() {
     fleet.notice_pulls(&served).await;
     assert_eq!(on(&forge.statuses(), FIRST).len(), 1);
 }
+
+#[tokio::test]
+async fn needs_is_put_only_on_the_pull_requests_the_forge_login_opened_and_on_all_where_none_is_known() {
+    let home = TempDir::new();
+    let fleet = holding_under(&home, "forge");
+    git(home.path(), &["branch", "first"]);
+    git(home.path(), &["branch", "second"]);
+    let by = |mut one: OpenPull, login: &str| {
+        one.author = Some(FromOutside::verbatim(login));
+        one
+    };
+    let forge = &fleet.vcs().main_ci;
+    forge.pulls_are(Some(vec![
+        by(pull(1, "first", FIRST), "Octocat"),
+        by(pull(2, "second", SECOND), "teammate"),
+    ]));
+    let served = fleet.repositories().served()[0].clone();
+
+    forge.login_is(Some("octocat"));
+    fleet.notice_pulls(&served).await;
+    assert_eq!(on(&forge.statuses(), FIRST).len(), 1, "mine");
+    assert!(on(&forge.statuses(), SECOND).is_empty(), "another author's gets none");
+    let flags: Vec<bool> = fleet.sweeping().lock().await.pulls[served.root()].iter().map(|it| it.mine).collect();
+    assert_eq!(flags, [true, false]);
+
+    // Signed out of the forge's command line: nothing says whose, so all are.
+    fleet.sweeping().lock().await.local_login = None;
+    forge.login_is(None);
+    fleet.notice_pulls(&served).await;
+    assert_eq!(on(&forge.statuses(), SECOND).len(), 1);
+}
