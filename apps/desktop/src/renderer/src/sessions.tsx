@@ -105,6 +105,7 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -687,6 +688,7 @@ export function entriesOf(
   known: Known,
   runner: Runner | undefined,
   removeWaiting?: (itemId: string, reason: string) => void,
+  release?: LedgerRelease["rowOf"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
@@ -742,7 +744,13 @@ export function entriesOf(
       },
     };
   });
-  return [...waiting, ...session.attachments.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
+  return [
+    ...waiting,
+    ...session.attachments.map((one): LedgerEntry => {
+      const entry = entryOf(one);
+      return { ...entry, ...release?.(one, entry), card: cardOf(one, session, sessions, known) };
+    }),
+  ];
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
@@ -885,6 +893,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const { onWant } = held;
   const { id } = session;
   const thread = useBackfilled(threadRows, id);
+  const released = useLedgerRelease(session, draft);
   const watch = draft?.watch;
   const refresh = draft?.refresh;
   // A real Fleet reads a thread when it is opened and follows it from there.
@@ -961,7 +970,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     else setReading(one);
   };
   const entries = entriesOf(
-    session,
+    released.shown,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
@@ -978,6 +987,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
+    released.rowOf,
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -1163,6 +1173,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         </div>
       </SessionFrame>
       {deck?.ledger == null ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
+      {released.dialog}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
           <SessionLedger entries={ledger} folded />
