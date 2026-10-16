@@ -61,15 +61,27 @@ fn a_path_with_a_space_is_refused_because_makeflags_splits_on_it() {
 }
 
 #[test]
-fn a_fifo_left_by_a_fleet_that_crashed_is_kept_with_what_builds_still_hold() {
+fn a_fifo_left_by_a_fleet_that_crashed_is_kept_while_builds_still_hold_tokens() {
     let path = fifo_for("crash");
     let first = BuildSlots::open(&path, 12).expect("opens");
     take(&first, 4);
+    // A running build's open descriptor is what keeps the fifo's contents.
+    let _build = OpenOptions::new().read(true).write(true).open(&path).expect("opens");
     drop(first);
-    let mut again = BuildSlots::open(&path, 12).expect("opens again");
+    let mut again = BuildSlots::open_asking(&path, 12, || true).expect("opens again");
     // Four are held by builds this Fleet did not start: handing them out again
     // would put 15 jobs on 12 cores.
     assert_eq!(again.settle(|| true).expect("settles").free, 7);
+}
+
+#[test]
+fn a_fifo_found_with_no_build_running_is_filled_whatever_it_held() {
+    let path = fifo_for("quiet");
+    let first = BuildSlots::open(&path, 12).expect("opens");
+    take(&first, 4);
+    drop(first);
+    let mut again = BuildSlots::open_asking(&path, 12, || false).expect("opens again");
+    assert_eq!(again.settle(|| true).expect("settles").free, 11);
 }
 
 #[test]

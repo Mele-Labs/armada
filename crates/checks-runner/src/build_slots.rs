@@ -91,7 +91,19 @@ impl BuildSlots {
     /// **A fifo already there is kept**, with what builds still running hold
     /// of it: a Fleet that crashed leaves its Drones building, and a fresh pool
     /// would hand their share out twice. Anything else at the path is replaced.
+    ///
+    /// **A fifo nobody has open loses what it held**, so a Fleet that died with
+    /// no build running leaves an empty one. Where no compiler runs, nothing
+    /// holds a token and the pool is filled whatever it found.
     pub fn open(path: &Path, cores: u32) -> io::Result<BuildSlots> {
+        BuildSlots::open_asking(path, cores, compiler_running)
+    }
+
+    pub(crate) fn open_asking(
+        path: &Path,
+        cores: u32,
+        compiler_running: impl FnOnce() -> bool,
+    ) -> io::Result<BuildSlots> {
         if path.to_string_lossy().contains(char::is_whitespace) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -107,7 +119,8 @@ impl BuildSlots {
             held,
             short_looks: AtomicU32::new(0),
         };
-        if !reused {
+        if !reused || !compiler_running() {
+            slots.take_all()?;
             slots.put(tokens)?;
         }
         Ok(slots)
