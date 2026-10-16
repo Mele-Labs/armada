@@ -176,7 +176,8 @@ function MoreRows() {
     if (at === null || typeof IntersectionObserver === "undefined") return;
     const seen = new IntersectionObserver((entries) => {
       if (entries.some((one) => one.isIntersecting)) showMoreRows();
-    });
+      // Drawn a little before the end is reached, so a row just above it comes with its next page.
+    }, { root: at.closest(".deck-list__rows"), rootMargin: "0px 0px 120px 0px" });
     seen.observe(at);
     return () => seen.disconnect();
   }, []);

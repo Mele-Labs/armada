@@ -11,7 +11,8 @@ const search = inside(list, role("searchbox", "Search Jobs and Sessions"));
 export const cockpitSessionsList = walk("cockpit-sessions-list", [
   { look: places, say: "There is no Sessions tab. A Session is viewed on the Cockpit, and its list is the one on the left. ⌘3 and a link to a Session arrive here" },
   { press: inside(list, tab("Ended")), say: "Active, Quiet, Ended and All. Ended lists the Sessions that ended in the last week, newest first. Quiet lists the ones Fleet cannot reach, and All adds both to the live ones" },
-  { look: inside(list, role("status", "Loading more Sessions")), say: "Fifty rows are drawn, and fifty more each time the end of the list comes into view. j and k walk past the page and draw what they need" },
+  { look: deckRow("Trim the retry loop 49"), say: "Fifty rows are drawn at first, and this is the last of them" },
+  { look: deckRow("Draft the release notes 63"), say: "Fifty more are drawn each time the end of the list comes into view. j and k walk past a page and draw what they need" },
   { type: "1702", into: search, say: "The search finds a Session by its title, id, pull request, branch, slot or Job. An ended Session older than a week is listed only by a search" },
   { key: "ArrowDown", on: search, say: "↓ or Enter goes to the first row, and ↑ from the first row comes back to the field. The row says what matched in the place of its age" },
   { press: deckRow("Backfill the audit log"), say: "An ended Session opens on the stage like a live one: its thread and its Ledger, with no box to answer in" },
