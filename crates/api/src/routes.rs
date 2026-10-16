@@ -301,6 +301,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::get_session_check_output::<D>),
         )
         .route(
+            "/sessions/checks/:run/observe",
+            get(crate::sessions::observe_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/stop",
+            post(crate::sessions::stop_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/force_stop",
+            post(crate::sessions::force_stop_session_check::<D>),
+        )
+        .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),
         )

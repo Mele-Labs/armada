@@ -86,6 +86,21 @@ pub async fn execute(
     slots: Option<&CheckSlots>,
     priority: Priority,
 ) -> Result<Ran, NotDeclared> {
+    execute_told(root, registry, name, asked, budget, slots, priority, None).await
+}
+
+/// [`execute`], with a Session's run told to Fleet as it prints and open to a stop from there.
+#[allow(clippy::too_many_arguments)]
+pub async fn execute_told(
+    root: &Path,
+    registry: Registry,
+    name: &str,
+    asked: Asked<'_>,
+    budget: Duration,
+    slots: Option<&CheckSlots>,
+    priority: Priority,
+    told: Option<&crate::session_checks::Told>,
+) -> Result<Ran, NotDeclared> {
     let test = match asked {
         Asked::OneTest(test) => Some(test),
         _ => None,
@@ -239,7 +254,7 @@ pub async fn execute(
         Registry::Commands => (&[], Priority::Normal),
     };
 
-    if let Some(blocked) = first_unmet(requires, root, budget, width, env, priority).await {
+    if let Some(blocked) = first_unmet(requires, root, budget, width, env, priority, told).await {
         return Ok(Ran {
             name: key.to_string(),
             command,
@@ -252,7 +267,7 @@ pub async fn execute(
         });
     }
 
-    let attempt = run_at(&command, root, budget, env, priority).await;
+    let attempt = run_at(&command, root, budget, env, priority, told).await;
     Ok(Ran {
         name: key.to_string(),
         command,
@@ -323,10 +338,11 @@ async fn first_unmet(
     width: CheckWidth,
     env: &[(String, String)],
     priority: Priority,
+    told: Option<&crate::session_checks::Told>,
 ) -> Option<Attempt> {
     for needed in requires {
         let run = resolve_width(needed.run(), width);
-        let attempt = run_at(&run, root, budget, env, priority).await;
+        let attempt = run_at(&run, root, budget, env, priority, told).await;
         if attempt.exit != Exit::Code(0) {
             return Some(Attempt {
                 exit: Exit::NeverRan(NeverRan::PrerequisiteFailed {
@@ -348,7 +364,11 @@ async fn run_at(
     budget: Duration,
     env: &[(String, String)],
     priority: Priority,
+    told: Option<&crate::session_checks::Told>,
 ) -> Attempt {
+    if let Some(told) = told {
+        return told.run(command, root, budget, env, priority).await;
+    }
     let stop = std::future::pending();
     checks_runner::run_until(command, root, budget, Writing::Nowhere, env, stop, priority).await
 }

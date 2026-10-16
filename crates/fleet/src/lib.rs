@@ -377,6 +377,7 @@ pub mod serving;
 pub mod session;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
+mod session_check_live;
 mod session_checking;
 mod session_running;
 mod sessioning;

@@ -179,6 +179,39 @@ pub async fn run_until<S: std::future::Future<Output = ()>>(
     stop: S,
     priority: Priority,
 ) -> Attempt {
+    let stop = async move {
+        stop.await;
+        Stop::Force
+    };
+    run_stoppable(command, worktree, budget, writing, env, stop, priority, GRACE).await
+}
+
+/// How a stop ends a run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stop {
+    /// `SIGTERM` to the group, then `SIGKILL` if it is still there after the grace period.
+    Graceful,
+    /// `SIGKILL` to the group at once.
+    Force,
+}
+
+/// How long a graceful stop waits for the group to go before it is killed.
+pub const GRACE: Duration = Duration::from_secs(5);
+
+/// [`run_until`] with a stop that says how: a person's Stop asks the group to end, and Force Stop
+/// does not ask. **What printed while the group wound down is kept**, and a group that ends on
+/// `SIGTERM` is the exit it reports.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_stoppable<S: std::future::Future<Output = Stop>>(
+    command: &str,
+    worktree: &Path,
+    budget: Duration,
+    writing: Writing<'_>,
+    env: &[(String, String)],
+    stop: S,
+    priority: Priority,
+    grace: Duration,
+) -> Attempt {
     let Some((program, args)) = split(command) else {
         return Attempt::never(NeverRan::NothingToRun);
     };
@@ -223,17 +256,25 @@ pub async fn run_until<S: std::future::Future<Output = ()>>(
         Writing::Appending(path) => Live::append(path),
     });
     let finished = {
-        let reading = async {
+        let mut reading = std::pin::pin!(async {
             let (_, _, status) = tokio::try_join!(
                 pumped(&mut stdout, &mut out, &live),
                 pumped(&mut stderr, &mut err, &live),
                 child.wait(),
             )?;
             Ok::<std::process::ExitStatus, std::io::Error>(status)
-        };
+        });
         tokio::select! {
-            ran = tokio::time::timeout(budget, reading) => Some(ran),
-            () = stop => None,
+            ran = tokio::time::timeout(budget, &mut reading) => Some(ran),
+            how = stop => match how {
+                Stop::Force => None,
+                // Asked to go: the group is told, and what it prints on the way out is kept.
+                // A group still there after the grace period is ended as a forced stop is.
+                Stop::Graceful => {
+                    signal_group(group, libc::SIGTERM);
+                    tokio::time::timeout(grace, &mut reading).await.ok().map(Ok)
+                }
+            },
         }
     };
 
@@ -388,12 +429,18 @@ pub(crate) fn ended(status: &std::process::ExitStatus) -> Exit {
 /// graceful shutdown window would be a second budget nobody configured.
 #[allow(unsafe_code)]
 pub(crate) fn end_the_group(group: Option<u32>) {
+    signal_group(group, libc::SIGKILL);
+}
+
+/// Send `signal` to the child's whole process group.
+#[allow(unsafe_code)]
+fn signal_group(group: Option<u32>, signal: libc::c_int) {
     let Some(group) = group else { return };
     // SAFETY: `killpg` is a plain system call taking two integers. The group
     // id is the child's own pid, made a group leader by `process_group(0)`
     // above, so the signal reaches the Check's processes and nothing else.
     unsafe {
-        libc::killpg(group as libc::pid_t, libc::SIGKILL);
+        libc::killpg(group as libc::pid_t, signal);
     }
 }
 

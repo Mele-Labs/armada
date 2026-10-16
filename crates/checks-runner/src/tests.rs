@@ -523,3 +523,50 @@ mod priority;
 /// Running only the members a name is in and the tests a change touched.
 /// `src/tests/touching.rs`.
 mod touching;
+
+/// What `armada check` runs a person's Stop and Force Stop through: `Stop` picks the signal, and
+/// a group that ignores `SIGTERM` is killed once the grace period is out.
+async fn stopped_as(how: crate::Stop, command: &str, grace: Duration) -> (verification::Exit, Duration) {
+    let began = Instant::now();
+    let ran = crate::run_stoppable(
+        command,
+        anywhere(),
+        Duration::from_secs(60),
+        crate::run::Writing::Nowhere,
+        &[],
+        async move {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            how
+        },
+        crate::Priority::Normal,
+        grace,
+    )
+    .await;
+    (ran.exit, began.elapsed())
+}
+
+#[tokio::test]
+async fn a_graceful_stop_ends_the_group_on_sigterm() {
+    let (exit, took) = stopped_as(crate::Stop::Graceful, "/bin/sleep 30", Duration::from_secs(5)).await;
+    assert_eq!(exit, Exit::Signalled { signal: libc::SIGTERM });
+    assert!(took < Duration::from_secs(4), "it waited out the grace period: {took:?}");
+}
+
+#[tokio::test]
+async fn a_force_stop_ends_the_group_on_sigkill_at_once() {
+    let (exit, took) = stopped_as(crate::Stop::Force, "/bin/sleep 30", Duration::from_secs(5)).await;
+    assert_eq!(exit, Exit::Signalled { signal: libc::SIGKILL });
+    assert!(took < Duration::from_secs(4));
+}
+
+#[tokio::test]
+async fn a_graceful_stop_that_is_ignored_is_killed_after_the_grace_period() {
+    let (exit, took) = stopped_as(
+        crate::Stop::Graceful,
+        "/bin/sh -c 'trap \"\" TERM; while true; do sleep 1; done'",
+        Duration::from_millis(700),
+    )
+    .await;
+    assert_eq!(exit, Exit::Signalled { signal: libc::SIGKILL });
+    assert!(took >= Duration::from_millis(900), "killed before the grace period: {took:?}");
+}

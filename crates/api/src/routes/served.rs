@@ -423,6 +423,21 @@ const ROUTES: &[Route] = &[
         path: "/sessions/checks/:run/output",
     },
     Route {
+        operation: "observe_session_check",
+        method: "GET",
+        path: "/sessions/checks/:run/observe",
+    },
+    Route {
+        operation: "stop_session_check",
+        method: "POST",
+        path: "/sessions/checks/:run/stop",
+    },
+    Route {
+        operation: "force_stop_session_check",
+        method: "POST",
+        path: "/sessions/checks/:run/force_stop",
+    },
+    Route {
         operation: "ask_in_window",
         method: "POST",
         path: "/sessions/window/ask",

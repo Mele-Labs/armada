@@ -53,6 +53,7 @@ export function JobCheckLogSheet({
   floor,
   onOpenRecord,
   bands,
+  stops,
   onClose,
 }: {
   log: JobCheckLog;
@@ -63,6 +64,8 @@ export function JobCheckLogSheet({
   onOpenRecord?: () => void;
   /** Facts of the Check, held under the head while the log scrolls. */
   bands?: ReactNode;
+  /** Ending the run, where a person may: drawn only while the log is live. */
+  stops?: { onStop: () => void; onForce: () => void };
   onClose: () => void;
 }) {
   const { follow, reading } = following;
@@ -100,6 +103,7 @@ export function JobCheckLogSheet({
     <CheckLogPanel
       about={log.name}
       live={ours?.state === "following" && ended === undefined}
+      {...(stops === undefined ? {} : { stops })}
       rows={liveRowsOf(reading, log.kept)}
       {...(note === undefined ? {} : { emptyNote: note })}
       {...(onOpenRecord === undefined ? {} : { onOpenRecord })}
@@ -167,11 +171,13 @@ function CheckLogPanel({
   emptyNote,
   onOpenRecord,
   bands,
+  stops,
   floor,
   onClose,
 }: {
   about: string;
   live: boolean;
+  stops?: { onStop: () => void; onForce: () => void };
   rows: ConsoleRow[];
   emptyNote?: string;
   /** A merge line Check has no Record row, so it never passes one. */
@@ -192,6 +198,7 @@ function CheckLogPanel({
       bleed
       wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
       {...(onOpenRecord === undefined ? {} : { goes: { label: TO_THE_RECORD, onGo: onOpenRecord } })}
+      {...(stops === undefined ? {} : { stops })}
       {...(bands === undefined ? {} : { bands })}
       floor={floor}
       onClose={onClose}

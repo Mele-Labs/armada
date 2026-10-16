@@ -427,6 +427,7 @@ where
             helm,
             sessions,
             session_runs: Default::default(),
+            session_check_live: Default::default(),
             window_sign_ins: Default::default(),
             scouts,
             inbox: EvidenceInbox::new(),
@@ -502,6 +503,10 @@ where
     ) -> Fleet<H, V, W> {
         self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.helm.hold());
         self
+    }
+
+    pub(crate) fn session_check_live(&self) -> &crate::session_check_live::SessionCheckLive {
+        &self.session_check_live
     }
 
     pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {
