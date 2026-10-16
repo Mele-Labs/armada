@@ -222,3 +222,15 @@ fn another_tool_with_a_title_and_a_scene_keeps_its_own_reading() {
         "mcp__armada-fleet__show_window "
     );
 }
+
+/// A `sign_in` is a login, so the line a thread keeps of the call never carries it.
+#[test]
+fn a_show_window_call_keeps_nothing_of_its_sign_in() {
+    assert_eq!(
+        row_of(
+            "mcp__armada-fleet__show_window",
+            r#"{"body":{"url":"https://staging.example.com/","sign_in":["https://staging.example.com/dev/login?token=abc"]}}"#
+        ),
+        "mcp__armada-fleet__show_window "
+    );
+}

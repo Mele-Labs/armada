@@ -47,6 +47,7 @@ import type {
   TuneSession,
   WindowClosed,
   WindowFailed,
+  WindowSignIn,
   WindowTake,
   WriteSessionRun,
 } from "@armada/protocol";
@@ -54,7 +55,7 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import { openSessionFile, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
+import { openSessionFile, originsOfWindow, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 
@@ -93,11 +94,20 @@ export class SessionsHost {
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
-  private shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void = () => {};
+  private shown: (
+    sessionId: string,
+    title: string,
+    url: string,
+    takes: readonly WindowTake[],
+    origins: readonly string[],
+    signIn: readonly string[],
+  ) => void = () => {};
   /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
   private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
+  /** A window row waits on Fleet for its sign-in, so a window and a question about it are acted on in the order their rows came. */
+  private turn: Promise<void> = Promise.resolve();
   /** Where a run's messages go: main's, set once, since windows are not a thing this host holds. */
   private ran: (runId: string, message: SessionRunMessage) => void = () => {};
   /** The socket each running block is read on, by run id. */
@@ -212,7 +222,16 @@ export class SessionsHost {
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */
-  onWindow(shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void): void {
+  onWindow(
+    shown: (
+      sessionId: string,
+      title: string,
+      url: string,
+      takes: readonly WindowTake[],
+      origins: readonly string[],
+      signIn: readonly string[],
+    ) => void,
+  ): void {
     this.shown = shown;
   }
 
@@ -229,8 +248,26 @@ export class SessionsHost {
     const record = this.sessions?.find((one) => one.id === sessionId);
     const title = titleOfWindow(record, url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url, takesOfWindow(record, url));
+    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), []);
     return { ok: true };
+  }
+
+  /**
+   * The addresses Fleet held for a window to sign in with, once, or none. **A secret**: it goes to the
+   * window that loads it and is neither kept nor logged here, and a Fleet that does not answer, or has
+   * none, gives none.
+   */
+  private async signInFor(sessionId: string, url: string): Promise<string[]> {
+    const port = this.port();
+    if (port === null) return [];
+    const answer = await ask(port, "POST", "/sessions/window/sign_in", { session_id: sessionId, url });
+    if (answer.ok !== true) return [];
+    const held = (answer.body as Partial<WindowSignIn> | null)?.sign_in;
+    return Array.isArray(held) ? held.filter((one) => typeof one === "string") : [];
+  }
+
+  private inOrder(act: () => void | Promise<void>): void {
+    this.turn = this.turn.then(act).catch(() => {});
   }
 
   /** `session.row`: one row of a thread, appended or replaced by its id. */
@@ -239,14 +276,19 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      this.shown(change.session_id, change.row.title, change.row.url, change.row.variations ?? []);
+      const { title, url, variations, origins } = change.row;
+      this.inOrder(async () => {
+        const signIn = await this.signInFor(change.session_id, url);
+        this.shown(change.session_id, title, url, variations ?? [], origins ?? [], signIn);
+      });
     }
     // A question asked in the walk takes the person there, once, when it is asked.
     if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
       const record = this.sessions?.find((one) => one.id === change.session_id);
       const title = titleOfWindow(record, change.row.window) ?? change.row.window;
-      this.askedIn(change.session_id, title, change.row.window, change.row.place.url);
+      const { window, place } = change.row;
+      this.inOrder(() => this.askedIn(change.session_id, title, window, place.url));
     }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {

@@ -264,6 +264,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::window_closed::<D>),
         )
         .route(
+            "/sessions/window/sign_in",
+            post(crate::sessions::take_window_sign_in::<D>),
+        )
+        .route(
             "/sessions/window/failed",
             post(crate::sessions::window_failed::<D>),
         )

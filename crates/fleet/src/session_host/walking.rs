@@ -72,10 +72,10 @@ where
             return;
         };
         let open = rows.into_iter().rev().find_map(|row| match row {
-            SessionRow::Window { id, at, title, url: shown, variations, ended_at: None }
+            SessionRow::Window { id, at, title, url: shown, variations, origins, ended_at: None }
                 if shown == url || variations.iter().any(|take| take.url == url) =>
             {
-                Some(SessionRow::Window { id, at, title, url: shown, variations, ended_at: Some(self.instant()) })
+                Some(SessionRow::Window { id, at, title, url: shown, variations, origins, ended_at: Some(self.instant()) })
             }
             _ => None,
         });

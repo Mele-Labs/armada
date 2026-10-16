@@ -265,7 +265,17 @@ export type SessionRow =
    * approval or the window closing; absent while it is open. `variations` are the takes it shows
    * when it shows several, `url` the first's; absent for one page.
    */
-  | { kind: "window"; id: string; at: string; title: string; url: string; variations?: WindowTake[]; ended_at?: string }
+  | {
+      kind: "window";
+      id: string;
+      at: string;
+      title: string;
+      url: string;
+      variations?: WindowTake[];
+      /** The other origins the window may pass through, such as a sign-in provider. */
+      origins?: string[];
+      ended_at?: string;
+    }
   /**
    * This session's agent started a session, or forked its own conversation into one, when the person
    * asked it to. Written in the starting session's thread; `session` is the new one.
