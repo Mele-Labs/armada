@@ -145,23 +145,23 @@
   box-shadow: none;
 }
 
-/* The plan: its groups under an eyebrow, each the subagent type and the title over its tasks, as a question's card holds its choices. */
+/* The plan: a compact card. Its groups are closed rows under an eyebrow, a small thumbnail of its sketch beside them, and Approve. A press on it opens the plan in full. */
+.armada-session-thread__plan[data-reviewable] { cursor: pointer; transition: border-color var(--duration-fast) var(--ease); }
+.armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
+.armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
 .armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
-.armada-session-thread__groups,
-.armada-session-thread__tasks { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.armada-session-thread__groups { gap: var(--space-3); }
-.armada-session-thread__tasks { gap: var(--space-1); padding-inline-start: var(--space-4); }
-.armada-session-thread__group { display: flex; flex-direction: column; gap: var(--space-1); }
-.armada-session-thread__group-head { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-heading); }
-.armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); font-weight: var(--weight-body); }
-.armada-session-thread__tasks > li { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
-.armada-session-thread__record { list-style: none; }
+.armada-session-thread__groups { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__group { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.armada-session-thread__group-title { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); }
+.armada-session-thread__marks { display: flex; flex: none; gap: var(--space-1); }
 .armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }
-/* The groups and, where the agent drew one, its sketch beside them. */
-.armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
-.armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 6); }
+.armada-session-thread__record { list-style: none; }
+.armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
+.armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.armada-session-thread__plan .armada-session-sketch__band { display: none; }
+.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 3); }
 
 /* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
 .armada-session-done {

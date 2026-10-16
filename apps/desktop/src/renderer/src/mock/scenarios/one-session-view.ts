@@ -335,7 +335,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
             tool("Edit crates/fleet/src/lease.rs"),
             next((id, at) => ({ id, at, kind: "lease", slot: 3, branch: BRANCH })),
           ],
-          { ...working(), attachments: [{ kind: "branch", name: BRANCH, slot: 3 }] },
+          { ...working(), attachments: [...(mine()?.attachments ?? []), { kind: "branch", name: BRANCH, slot: 3 }] },
         );
         building(1);
       },
@@ -399,6 +399,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
           {
             ...idle(),
             attachments: [
+              ...(now.attachments ?? []).filter((one) => one.kind === "sketch"),
               { kind: "branch", name: BRANCH, slot: 3 },
               {
                 kind: "pull_request",

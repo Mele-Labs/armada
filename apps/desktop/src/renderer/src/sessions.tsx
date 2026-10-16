@@ -105,6 +105,7 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import { PlanReview } from "./session-view/PlanReview";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -866,6 +867,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const numbered = useNumbered(session.manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
+  /** The plan opened in full to review. */
+  const [reviewing, setReviewing] = useState(false);
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
@@ -1075,7 +1078,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
-              : { approval: { groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: () => draft.work?.approve(session.id) } })}
+              : { approval: { groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: () => { setReviewing(false); draft.work?.approve(session.id); }, onReview: () => setReviewing(true) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1176,6 +1179,9 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         </div>
       </SessionFrame>
       </SessionWorkspace>
+      {session.work?.plan === undefined ? null : (
+        <PlanReview open={reviewing} plan={session.work.plan} onApprove={() => { setReviewing(false); draft.work?.approve(session.id); }} onClose={() => setReviewing(false)} />
+      )}
       {deck?.ledger == null || session.work !== undefined ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

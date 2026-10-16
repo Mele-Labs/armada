@@ -31,8 +31,6 @@
   flex: var(--w) 1 0;
   max-height: none;
 }
-/* Focused, Incoming calls lies over the list by the same extra basis and the same margin it has unsized, so the shares do not move. */
-.deck-grid .deck-incoming.deck-incoming[data-sized][data-sized][data-sized]:not([data-collapsed]):focus-within { flex-basis: calc(var(--space-12) * 4.5); }
 
 /* The foot draws its Field to the foot's height when the foot has been dragged. */
 .deck-foot[data-sized] { min-height: calc(var(--space-12) * 3.5); }

@@ -173,14 +173,6 @@
 .deck-left > .deck-list { min-height: calc(var(--space-12) * 3); }
 .deck-left > .deck-incoming { position: relative; flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 .deck-left > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
-/* Focused, by its key or by a press inside it, it opens further and lies over the Jobs and Sessions list, and settles back when focus
-   goes. Its extra size is taken from the margin above it, so the list is not pushed and only covered. */
-.deck-left > .deck-incoming:not([data-collapsed]):has(.deck-incoming__cards > li:not(:empty)):focus-within {
-  z-index: 3;
-  flex: 2 1 calc(var(--space-12) * 4.5);
-  margin-top: calc(var(--space-12) * -4.5);
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 var(--space-3) var(--space-8) color-mix(in srgb, var(--bg-base) 70%, transparent);
-}
 
 /* A panel that scrolls rests with a whole row at its top, and a row it was moved to is never left half under the band. */
 .sv-panel__body { scroll-snap-type: y proximity; scroll-padding-top: var(--space-2); }
@@ -188,3 +180,13 @@
 .sv-plan > *,
 .sv-outline > .sv-step,
 .sv-step__plan > * { scroll-snap-align: start; }
+
+/* ---- The plan opened to review ---------------------------------------------------------------------------------- */
+
+.sv-review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-4); height: 100%; min-height: 0; padding: var(--space-4); }
+.sv-review:not(:has(.sv-review__sketch)) { grid-template-columns: minmax(0, 1fr); }
+.sv-review__groups { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
+.sv-review__group .sv-group__row { cursor: default; }
+.sv-review__group .sv-group__row:hover { background: none; }
+.sv-review__sketch { display: flex; min-width: 0; min-height: 0; }
+.sv-review__sketch > * { flex: 1 1 0; min-width: 0; }
