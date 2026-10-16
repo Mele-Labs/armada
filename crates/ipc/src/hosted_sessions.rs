@@ -494,6 +494,24 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         via: Option<crate::Via>,
     },
+    /// The agent recorded a plan, or recorded it again. The plan itself is `SessionRecord::plan`;
+    /// this row is where in the thread it was recorded, which its card draws after.
+    Plan {
+        id: String,
+        at: Instant,
+        version: u32,
+    },
+    /// What the person sent the agent against a version of the plan, as Fleet worded it. The agent
+    /// is sent the same lines, and the plan does not change until it records it again.
+    PlanChanges {
+        id: String,
+        at: Instant,
+        version: u32,
+        /// The plan was approved with them.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        approved: bool,
+        lines: Vec<crate::session_plan::PlanChangeLine>,
+    },
 }
 
 /// The step a Job stopped on.
@@ -534,6 +552,8 @@ impl SessionRow {
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }
+            | SessionRow::Plan { id, .. }
+            | SessionRow::PlanChanges { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

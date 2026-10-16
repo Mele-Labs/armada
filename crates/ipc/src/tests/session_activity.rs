@@ -35,6 +35,8 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         build: None,
         workflow: None,
         proposal: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }
 

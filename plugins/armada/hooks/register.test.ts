@@ -576,8 +576,8 @@ test('a file written is told as its path from the session directory, and never i
 
   const touched = facts(posts.slice(before)).filter(fact => fact.kind === 'touched')
   expect(touched).toEqual([
-    { kind: 'touched', paths: ['src/a.rs'] },
-    { kind: 'touched', paths: ['src/b.rs'] },
+    { kind: 'touched', paths: ['src/a.rs'], act: 'edit' },
+    { kind: 'touched', paths: ['src/b.rs'], act: 'edit' },
   ])
   expect(JSON.stringify(posts)).not.toContain('secret')
 })

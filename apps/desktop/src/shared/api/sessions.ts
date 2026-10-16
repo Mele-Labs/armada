@@ -4,6 +4,7 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  ApprovePlan,
   CheckoutCaughtUp,
   CheckoutDiff,
   CheckoutSentAsPullRequest,
@@ -19,6 +20,7 @@ import type {
   PullRequestState,
   RenameSession,
   ReviewDispatched,
+  SendPlanChanges,
   SendSessionMessage,
   SessionRecord,
   SessionRow,
@@ -80,6 +82,10 @@ export type SessionsApi = {
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+  /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
+  approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
+  /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
+  sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -211,6 +217,8 @@ export const SESSIONS_CHANNELS = {
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
   dismissWaiting: "bridge:dismiss-waiting",
+  approvePlan: "bridge:approve-plan",
+  sendPlanChanges: "bridge:send-plan-changes",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

@@ -113,6 +113,7 @@ pub mod territory;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
 mod tracker_providers;
+mod subagent_lines;
 mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
@@ -160,6 +161,7 @@ pub use scouting::{
     checkout_as_it_stands, denied_to_a_scout, files_a_search_showed, no_servers, CheckoutRead,
     Looked, ScoutRefused, Scouting, Shown,
 };
+pub use subagent_lines::{subagent_calls, subagent_parent, SubagentCall};
 pub use transcript::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
 pub use sign_in::ForgeSignIn;

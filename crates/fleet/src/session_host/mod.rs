@@ -26,6 +26,7 @@ pub mod keeper;
 pub(crate) mod kept;
 mod pilot_words;
 mod piloting;
+pub(crate) mod planning;
 pub(crate) use pilot_words::{
     PILOT_CHANGED, PILOT_CHECKS_FAILED, PILOT_FOR_GOOD, PILOT_JUDGE_REFUSED, PILOT_NARRATIVE,
     PILOT_OPENING, PILOT_OUTSIDE_PLAN, PILOT_RECORD, PILOT_RESTART, PILOT_STOPPED, PILOT_WORKTREE,
@@ -383,6 +384,8 @@ pub(crate) struct State {
     /// Whether the proposer is reading the request it was dispatched with, and the turns that
     /// wait for the answer. In memory.
     pub proposal: proposing::ProposalState,
+    /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
+    pub spawns: crate::file_touching::Spawns,
 }
 
 impl State {
@@ -422,6 +425,7 @@ impl State {
             polled: None,
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
+            spawns: crate::file_touching::Spawns::default(),
         }
     }
 }

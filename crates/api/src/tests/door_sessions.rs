@@ -95,6 +95,8 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         build: None,
         workflow: None,
         proposal: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }
 

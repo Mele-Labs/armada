@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -63,6 +63,14 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
+  });
+  ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
+    if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unsent;
+    return connection()?.sessions.approvePlan({ session_id: approve.session_id, version: approve.version }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.sendPlanChanges, (_event, changes: SendPlanChanges) => {
+    if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unsent;
+    return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;

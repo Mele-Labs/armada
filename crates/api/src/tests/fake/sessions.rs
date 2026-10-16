@@ -44,6 +44,8 @@ impl Sessions for FakeDaemon {
             build: None,
             workflow: None,
             proposal: None,
+            plan: None,
+            touches: Vec::new(),
         })
     }
 
@@ -191,6 +193,33 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: show.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
+    async fn record_plan(&self, _caller: Option<crate::Caller>, plan: ipc::RecordPlan) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: plan.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
+    async fn approve_plan(self: std::sync::Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: approve.session_id,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
+    async fn send_plan_changes(self: std::sync::Arc<Self>, changes: ipc::SendPlanChanges) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: changes.session_id,
             fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
