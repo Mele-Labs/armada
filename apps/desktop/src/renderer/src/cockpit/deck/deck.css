@@ -233,6 +233,9 @@
 .deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
 .deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
+/* On All with nothing open the line says so in the subtle ink, as a disabled thing does, and draws no chip. */
+.deck-queue__say { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.deck-queue[data-dim] .armada-button { color: var(--fg-subtle); }
 .deck-queue__gap { flex: none; width: var(--space-4); }
 
 .deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
