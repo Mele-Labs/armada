@@ -833,20 +833,8 @@
   .armada-session-you__delivery[data-state="sending"] > svg { animation: none; }
 }
 
-/* Two takes of a message still going, for the owner to pick between (`data-take` on the root, set by the mock's `?take=`).
-   The mark stays in both. A: a dotted edge and a dimmed eyebrow. B: the whole message breathes, on opacity alone. */
-:root[data-take="dotted"] .armada-session-you[data-delivery="sending"] {
-  border-style: dotted;
-  border-width: calc(var(--border-width) * 2);
-  border-color: var(--you);
-}
-
-:root[data-take="dotted"] .armada-session-you[data-delivery="sending"] .armada-session-you__who,
-:root[data-take="dotted"] .armada-session-you[data-delivery="sending"] .armada-session-you__at {
-  opacity: 0.55;
-}
-
-:root[data-take="pulse"] .armada-session-you[data-delivery="sending"] {
+/* A message still going breathes, on opacity alone so the compositor draws it. Held static and dimmed under reduced motion. */
+.armada-session-you[data-delivery="sending"] {
   animation: armada-session-you-pulse calc(var(--duration-pulse) * 1.6) ease-in-out infinite;
 }
 
@@ -856,7 +844,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-take="pulse"] .armada-session-you[data-delivery="sending"] {
+  .armada-session-you[data-delivery="sending"] {
     animation: none;
     opacity: 0.6;
   }

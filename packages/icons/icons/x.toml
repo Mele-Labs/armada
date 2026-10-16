@@ -25,5 +25,5 @@
     means = "A message of the person's that Fleet did not take, on its band in a Session's thread, beside a Retry"
     group = "Session"
     size = "12px"
-    status = "Proposed"
-    notes = "Proposed 16 Oct 2026 for the walk `session-message-sending`, tooltip `Not sent`. The system did not take it and nobody decided, which is this glyph's claim as a badge. The Retry beside it is a text button with no glyph."
+    status = "Specified"
+    notes = "Specified 16 Oct 2026 for the walk `session-message-sending`, which the owner walked and approved, tooltip `Not sent`. The system did not take it and nobody decided, which is this glyph's claim as a badge. The Retry beside it is a text button with no glyph."

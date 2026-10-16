@@ -44,5 +44,5 @@
     means = "A message of the person's that Fleet has not yet taken, on its band in a Session's thread"
     group = "Session"
     size = "12px"
-    status = "Proposed"
-    notes = "Proposed 16 Oct 2026 for the walk `session-message-sending`, tooltip `Sending`. The message is in the thread the moment it is sent, and an open ring turning is something under way, which is what every use of it says. It goes when Fleet takes the message. Spins, and holds still under reduced motion."
+    status = "Specified"
+    notes = "Specified 16 Oct 2026 for the walk `session-message-sending`, which the owner walked and approved, tooltip `Sending`. The message is in the thread the moment it is sent, and an open ring turning is something under way, which is what every use of it says. It goes when Fleet takes the message. Spins, and holds still under reduced motion."
