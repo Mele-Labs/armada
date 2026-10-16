@@ -165,6 +165,9 @@ impl SigningIn {
     /// The profiles joined with the `repositories` each is bound to, those bound
     /// to none, and the sign-in in flight.
     pub fn accounts(&self, repositories: &[Repo]) -> Result<Accounts, Refused> {
+        // The flow before the profiles: a sign-in joins its profile and then goes idle, so an idle
+        // read first always lists the profile it joined.
+        let flow = self.flow();
         let profiles = self.inner.profiles.list().map_err(Refused::Fault)?;
         let choices = self.inner.choices.all().map_err(Refused::Fault)?;
         let mut wired: Vec<Profile> = profiles.iter().cloned().map(wire).collect();
@@ -184,8 +187,12 @@ impl SigningIn {
                 }),
             }
         }
+        Ok(Accounts { profiles: wired, unmatched, flow })
+    }
+
+    fn flow(&self) -> AccountFlow {
         let state = self.state();
-        let flow = match &state.flow {
+        match &state.flow {
             Flow::Idle => AccountFlow::Idle { ended: state.ended.clone() },
             Flow::Code { code, address, expires } => AccountFlow::Code {
                 code: code.clone(),
@@ -198,9 +205,7 @@ impl SigningIn {
                 repository: String::new(),
                 steps: *steps,
             },
-        };
-        drop(state);
-        Ok(Accounts { profiles: wired, unmatched, flow })
+        }
     }
 
     /// Begin a sign-in and answer with the code to type. **Refused while either
