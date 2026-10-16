@@ -54,6 +54,13 @@ export function useLedgerRelease(session: Session, draft: SessionsDraft | undefi
     setAsking(undefined);
     return true;
   };
+  // A branch row carries its slot's chip, and the slot has no row of its own, so its Release gives back the slot, which takes the branch.
+  const carriedSlot = (one: SessionAttachment): Held | undefined => {
+    if (one.kind !== "branch" || one.slot === undefined) return undefined;
+    const slot = session.attachments.find((it) => it.kind === "slot" && it.slot === one.slot);
+    const held = slot === undefined ? undefined : heldOfAttachment(slot);
+    return held === undefined ? undefined : { ...held, name: `${one.name} in ${held.name}` };
+  };
   const live = new Set(session.attachments.map((one) => heldOfAttachment(one)).flatMap((one) => (one === undefined ? [] : [heldKey(one)])));
   const gone = [...rows.entries()].filter(([key, one]) => one.kept === undefined && !live.has(key)).map(([, one]) => one.attachment);
   return {
@@ -61,11 +68,12 @@ export function useLedgerRelease(session: Session, draft: SessionsDraft | undefi
     rowOf: (one, entry) => {
       const held = heldOfAttachment(one);
       if (held === undefined) return {};
-      const was = rows.get(heldKey(held));
+      const asked = carriedSlot(one) ?? held;
+      const was = rows.get(heldKey(held)) ?? rows.get(heldKey(asked));
       if (was !== undefined && was.kept === undefined) return { released: {} };
       const offered = send !== undefined && session.dead !== "ended" && entry.finished !== true;
       return {
-        ...(offered ? { release: { name: held.name, onPress: () => setAsking(held) } } : {}),
+        ...(offered ? { release: { name: held.name, onPress: () => setAsking(asked) } } : {}),
         ...(was?.kept === undefined ? {} : { released: { kept: was.kept } }),
       };
     },

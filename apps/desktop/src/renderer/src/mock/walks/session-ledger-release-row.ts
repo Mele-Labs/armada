@@ -1,27 +1,26 @@
-// Release on one row of a Session's ledger: hovering a held row shows it, a confirm names the row, Cancel changes nothing, and Release
+// Release on one row of a Session's ledger: hovering a held row shows it, a confirm names the row (a branch row with the slot it carries), Cancel changes nothing, and Release
 // gives it back and leaves it drawn given back. A row a piloted Job handed over is kept, and says why. Over `session-ledger-release-row`.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
 const ledger = region("Attachments");
-const slot4 = inside(ledger, role("listitem", "Worktree slot 4"));
+const branch = inside(ledger, role("listitem", "Branch fix/pin-store-clock"));
 const slot7 = inside(ledger, role("listitem", "Worktree slot 7"));
-const release4 = inside(slot4, button("Release slot-4"));
+const release4 = inside(branch, button("Release fix/pin-store-clock"));
 const release7 = inside(slot7, button("Release slot-7"));
-const asked4 = dialog("Release slot-4");
+const asked4 = dialog("Release fix/pin-store-clock in slot-4");
 const asked7 = dialog("Release slot-7");
 
 const sessionLedgerReleaseRow = walk("session-ledger-release-row", [
   { press: deckRow("Pin the store clock"), say: "A Session open on the stage, working, its ledger at the side" },
-  { hover: slot4, say: "Hovering a held row shows Release at its end, the unplug glyph" },
-  { hover: release4, say: "Its tooltip names the row: Release slot-4" },
-  { press: release4, say: "A confirm names the one row and says what happens to it" },
+  { hover: branch, say: "Hovering a held row shows Release at its end, the unplug glyph. This branch row carries slot 4" },
+  { hover: release4, say: "Its tooltip names the row: Release fix/pin-store-clock" },
+  { press: release4, say: "A confirm names the branch and the slot it carries, and says what happens to them" },
   { press: inside(asked4, button("Cancel")), say: "Cancel closes it and changes nothing" },
   { look: release4, say: "The row is held as it was" },
   { press: release4, say: "Release again" },
   { press: inside(asked4, button("Release", { exact: true })), say: "Fleet gives the slot back, with the branch it has checked out" },
-  { look: inside(slot4, role("img", "Given back")), say: "The row stays, given back, with no Release on it" },
-  { look: inside(ledger, role("listitem", "Branch fix/pin-store-clock")), say: "Its branch went with it and reads given back too" },
+  { look: inside(branch, role("img", "Given back")), say: "The row stays, given back, with no Release on it" },
   { hover: slot7, say: "A slot a piloted Job handed over" },
   { press: release7, say: "Release on it" },
   { press: inside(asked7, button("Release", { exact: true })), say: "Fleet keeps it" },
