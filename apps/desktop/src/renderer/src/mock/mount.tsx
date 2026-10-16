@@ -43,6 +43,7 @@ import { mockThemes } from "./themes";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
+import { ReviewsFrom, createReviewStore } from "../pr-review/store";
 import type { Scenario } from "./scenario";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -123,6 +124,8 @@ export function mountApp(
   const planUsage = createFleetPlanUsage(api);
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
+  // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
+  const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(chosen.draft.prReview);
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -153,7 +156,9 @@ export function mountApp(
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                          <ReviewsFrom store={reviews}>
+                                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                          </ReviewsFrom>
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>
                                     </AccountFrom>

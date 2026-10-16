@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
+import { Box, ChartNoAxesGantt, Eye, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -17,6 +17,10 @@ import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { ReviewList } from "../../pr-review/list";
+import { ReviewReader } from "../../pr-review/reader";
+import { ReviewSide } from "../../pr-review/side";
+import { useReviewStore, useReviews } from "../../pr-review/store";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
@@ -47,6 +51,7 @@ import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAuto
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
+import "../../pr-review/pr-review.css";
 
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
@@ -450,19 +455,32 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
+  // PR Review is a mode, not a filter: it swaps the panels and a second press puts them back. Drawn only where reviews are served.
+  const reviews = useReviewStore();
+  const reviewing = useReviews().mode;
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
       <header className="deck-band">
         Flight control
         <PanelKey id="controls" />
       </header>
-      {session !== undefined && draft !== undefined ? (
+      {session !== undefined && draft !== undefined && !reviewing ? (
         <SessionTiles session={session} draft={draft} repository={repository} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
-        <div className="deck-controls__block">
+        <div className="deck-controls__block" data-review={reviews === undefined ? undefined : ""}>
           {TILES.map((tile, at) => (
             <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
+              <button
+                type="button"
+                className="deck-tile"
+                aria-label={tile.label}
+                aria-pressed={tile.pressed(deck)}
+                onClick={() => {
+                  // A filter or the stage's view is the work's, so pressing one puts the work back first.
+                  if (reviewing) reviews?.setMode(false);
+                  tile.press();
+                }}
+              >
                 <tile.Glyph size={20} aria-hidden="true" />
                 <span className="deck-tile__text">{tile.text}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
@@ -471,6 +489,14 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
               </button>
             </Tooltip>
           ))}
+          {reviews === undefined ? null : (
+            <Tooltip label="PR Review" asChild>
+              <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={reviewing} onClick={() => reviews.setMode(!reviewing)}>
+                <Eye size={20} aria-hidden="true" />
+                <span className="deck-tile__text">PR Review</span>
+              </button>
+            </Tooltip>
+          )}
         </div>
       )}
     </section>
@@ -704,6 +730,16 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
+  // Review mode swaps the three columns' panels and leaves the work's state exactly as it was.
+  const reviewing = useReviews().mode;
+  // A Session that holds a pull request opens on the stage, as the work view opens it: review mode is left first.
+  const reviews = useReviewStore();
+  const openHolder = (id: string) => {
+    const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
+    if (held === undefined) return props.onOpenSession(id);
+    reviews?.setMode(false);
+    select(selOfSubject(held));
+  };
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
@@ -717,14 +753,26 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
-          <Activity props={props} listed={listed} ship={ship} />
+          {reviewing ? (
+            <ReviewList picked={props.picked} />
+          ) : (
+            <>
+              <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
+              <Activity props={props} listed={listed} ship={ship} />
+            </>
+          )}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading ? ledgerHost : null} />
-            <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
+            {reviewing ? (
+              <ReviewReader onOpenLink={props.onOpenLink} onOpenSession={openHolder} />
+            ) : (
+              <>
+                <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading ? ledgerHost : null} />
+                <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
+              </>
+            )}
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
@@ -734,13 +782,19 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         </div>
         <div className="deck-right">
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {reading ? (
+          {reviewing ? (
+            <ReviewSide />
+          ) : (
             <>
-              {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
-              <LedgerPanel host={setLedgerHost} />
+              {reading ? (
+                <>
+                  {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
+                  <LedgerPanel host={setLedgerHost} />
+                </>
+              ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
+              <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
             </>
-          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          )}
         </div>
       </div>
     </div>

@@ -1,0 +1,39 @@
+// The Reviews page: the review surface in a frame of its own. The list is the left column, the reader the stage
+// and the agent's findings and his review the right column, in the Cockpit's own grid, so the page and the
+// Cockpit's review mode are one set of parts in two places. Only the way in and the frame differ.
+
+import { useRef } from "react";
+import { DockHandle } from "@armada/components";
+import type { RepositorySummary } from "@armada/protocol";
+
+import { useColumns } from "../cockpit/deck/columns";
+import { ReviewList } from "./list";
+import { ReviewReader } from "./reader";
+import { ReviewSide } from "./side";
+import "../cockpit/cockpit.css";
+import "../cockpit/deck/deck.css";
+import "./pr-review.css";
+
+export function ReviewsSurface({ picked, onOpenLink, onOpenSession }: { picked: RepositorySummary | null; onOpenLink: (address: string) => void; onOpenSession: (id: string) => void }) {
+  const grid = useRef<HTMLDivElement>(null);
+  const { columns, resize, reset } = useColumns(grid);
+  return (
+    <div className="armada-cockpit deck pr-surface">
+      <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as React.CSSProperties)}>
+        <div className="deck-left">
+          <ReviewList picked={picked} />
+          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
+        </div>
+        <div className="deck-centre">
+          <div className="deck-stage">
+            <ReviewReader onOpenLink={onOpenLink} onOpenSession={onOpenSession} />
+          </div>
+        </div>
+        <div className="deck-right">
+          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
+          <ReviewSide />
+        </div>
+      </div>
+    </div>
+  );
+}
