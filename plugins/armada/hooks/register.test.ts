@@ -562,6 +562,45 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
   ])
 })
 
+const background = (posts: Posted[]) =>
+  facts(posts).filter(fact => (fact.kind === 'attached' || fact.kind === 'settled') && fact.attachment.kind === 'background')
+
+test('a command run in the background and a Monitor are told, and settled on the notice or a stop', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', (_$, e) => {
+    if (e.tool === 'Bash') {
+      return { result: {}, text: 'Command running in background with ID: b1. Output is being written to: /tmp/tasks/b1.output' }
+    }
+    if (e.tool === 'Monitor') return { result: {}, text: 'Monitor started (task mon42, timeout 300000ms).' }
+    return { result: {}, text: 'ok' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Bash', command: 'pnpm build', description: 'Build the renderer', run_in_background: true })
+  await $.tool.call({ tool: 'Bash', command: 'git status', description: 'Show status' })
+  await $.tool.call({ tool: 'Monitor', command: 'gh run watch 9', description: 'Watch CI', timeout_ms: 60000 })
+  await clock.settle()
+  const notice = (status: string, summary: string) =>
+    `<task-notification>\n<task-id>b1</task-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`
+  await $.prompt.submit({ text: notice('completed', 'Background command "Build" completed (exit code 0)'), origin: { kind: 'task-notification' } } as never)
+  await $.prompt.submit({ text: notice('failed', 'again (exit code 1)'), origin: { kind: 'task-notification' } } as never)
+  await $.tool.call({ tool: 'TaskStop', task_id: 'mon42' })
+  await clock.settle()
+
+  const detail = { form: 'command', task: 'Build the renderer', command: 'pnpm build', output: '/tmp/tasks/b1.output' }
+  const watch = { form: 'monitor', task: 'Watch CI', command: 'gh run watch 9' }
+  expect(background(posts.slice(before)).map(fact => (fact.kind === 'attached' ? fact.attachment : [fact.attachment, fact.state]))).toEqual([
+    { kind: 'background', target: 'b1', detail },
+    { kind: 'background', target: 'mon42', detail: watch },
+    { kind: 'background', target: 'b1', detail: { ...detail, status: 'completed', exit: '0' } },
+    [{ kind: 'background', target: 'b1' }, 'spent'],
+    { kind: 'background', target: 'mon42', detail: { ...watch, status: 'killed' } },
+    [{ kind: 'background', target: 'mon42' }, 'spent'],
+  ])
+})
+
 test('a file written is told as its path from the session directory, and never its content', async ($, on) => {
   const { posts, clock } = world(on)
   on('tool.call', () => ({ result: {}, text: 'ok' }))

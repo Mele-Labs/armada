@@ -48,6 +48,8 @@ import {
   modelName,
   MOD_VERSION,
   agentItemsIn,
+  backgroundEndOf,
+  backgroundOf,
   isCovered,
   needsSaidIn,
   sentBackReason,
@@ -82,6 +84,8 @@ type Known = {
   needs: Map<string, Record<string, string>>
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
+  /** The tasks the agent started in the background, by task id, with the detail last told (`status` once ended). */
+  background: Map<string, Record<string, string>>
   /** The agent's task list as its tools last left it, in order. */
   tasks: Task[]
   tuned?: Tuning
@@ -128,6 +132,10 @@ function everything(): Report[] {
     ...[...one.artifacts].map(([target, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
     ),
+    ...[...one.background].flatMap(([target, detail]) => [
+      told(id, { kind: 'attached', attachment: { kind: 'background', target, detail } }),
+      ...(detail.status === undefined ? [] : [told(id, { kind: 'settled', attachment: { kind: 'background', target }, state: 'spent' as const })]),
+    ]),
     ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
     ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
   ])
@@ -465,7 +473,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -606,6 +614,38 @@ async function spawned(
   const [id] = await current($)
   const detail = { type, description: description.slice(0, 80) }
   say($, id, { kind: 'attached', attachment: { kind: 'subagent', target, detail } })
+}
+
+/**
+ * A shell command run in the background, or a Monitor, as the call's own result names it. **Told on the
+ * call and settled on the engine's notice**, and never on what the agent says of it.
+ */
+async function backgrounded(
+  $: Dollar,
+  tool: string,
+  input: Record<string, unknown>,
+  text: string,
+): Promise<void> {
+  const task = backgroundOf(tool, input, text)
+  if (task === undefined) return
+  const [id, one] = await current($)
+  one.background.set(task.target, task.detail)
+  say($, id, { kind: 'attached', attachment: { kind: 'background', target: task.target, detail: task.detail } })
+}
+
+/**
+ * A background task ended: by the engine's notice (`completed`, `failed`, or `killed` for one stopped), or
+ * by a `TaskStop` the agent called. Only a task this load saw start is settled, and once.
+ */
+async function backgroundEnded($: Dollar, target: string, word: string, exit?: string): Promise<void> {
+  const [id, one] = await current($)
+  const held = one.background.get(target)
+  if (held === undefined || held.status !== undefined) return
+  const status = word === 'completed' ? 'completed' : word === 'killed' || word === 'stopped' ? 'killed' : 'failed'
+  const detail = { ...held, status, ...(exit === undefined || status === 'killed' ? {} : { exit }) }
+  one.background.set(target, detail)
+  say($, id, { kind: 'attached', attachment: { kind: 'background', target, detail } })
+  settle($, id, 'background', target, 'spent')
 }
 
 /**
@@ -894,6 +934,8 @@ export const register: Register = on => {
     if (one !== undefined) one.turn = freshTurn()
     void titled($, e.text).catch(() => undefined)
     void turnBegan($, e.text).catch(() => undefined)
+    const ended = e.origin?.kind === 'task-notification' ? backgroundEndOf(e.text) : undefined
+    if (ended !== undefined) void backgroundEnded($, ended.target, ended.status, ended.exit).catch(() => undefined)
     return out
   })
 
@@ -914,6 +956,26 @@ export const register: Register = on => {
     if (ran.deny === undefined) void used($, 'ran', e as Record<string, unknown>).catch(() => undefined)
     if (ran.deny === undefined && ran.isError !== true) {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
+      void backgrounded($, 'Bash', e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
+    }
+    return ran
+  })
+
+  // A Monitor watch is a background task as a command run in the background is.
+  on('tool.call', { tool: 'Monitor' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) {
+      void backgrounded($, 'Monitor', e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
+    }
+    return ran
+  })
+
+  // Stopped by the agent: the notice that follows says so too, and settles nothing twice.
+  on('tool.call', { tool: 'TaskStop' }, async ($, e, next) => {
+    const ran = await next(e)
+    const target = (e as { task_id?: string; shell_id?: string }).task_id ?? (e as { shell_id?: string }).shell_id
+    if (ran.deny === undefined && ran.isError !== true && target !== undefined) {
+      void backgroundEnded($, target, 'killed').catch(() => undefined)
     }
     return ran
   })

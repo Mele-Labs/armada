@@ -628,7 +628,7 @@ export function ReadingSheet({
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
       ) : one?.kind === "background" ? (
         // The output is a file the agent's shell wrote, read as an artifact file is.
-        <ArtifactBody draft={draft} sessionId={sessionId} form="file" id={one.output} title={one.task} onClose={onClose} />
+        one.output === undefined ? null : <ArtifactBody draft={draft} sessionId={sessionId} form="file" id={one.output} title={one.task} onClose={onClose} />
       ) : one?.kind === "artifact" ? (
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}

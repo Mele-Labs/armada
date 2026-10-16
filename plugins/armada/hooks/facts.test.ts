@@ -3,6 +3,8 @@ import { expect, test } from 'claude-code/testing'
 import {
   promptDetail,
   artifactOf,
+  backgroundEndOf,
+  backgroundOf,
   commitIn,
   effortOf,
   ghAct,
@@ -477,4 +479,26 @@ test("the agent's own items are read from the session Fleet holds, and the ones 
   expect(agentItemsIn(JSON.stringify({ session: { waiting_for: [] }, rows: [] }))).toEqual([])
   expect(agentItemsIn('{}')).toBeUndefined()
   expect(agentItemsIn('not json')).toBeUndefined()
+})
+
+test('a background command is the call with the id its result gave, and a call without one is not', () => {
+  const text = 'Command running in background with ID: b9k2. Output is being written to: /tmp/t/b9k2.output'
+  expect(backgroundOf('Bash', { command: 'pnpm dev\nmore', description: 'Serve it', run_in_background: true }, text)).toEqual({
+    target: 'b9k2',
+    detail: { form: 'command', task: 'Serve it', command: 'pnpm dev', output: '/tmp/t/b9k2.output' },
+  })
+  expect(backgroundOf('Bash', { command: 'pnpm dev' }, text)).toBeUndefined()
+  expect(backgroundOf('Bash', { command: 'pnpm dev', run_in_background: true }, 'refused')).toBeUndefined()
+  expect(backgroundOf('Monitor', { description: 'Watch', command: 'tail -f x', timeout_ms: 1 }, 'Monitor started (task mon42)')?.detail).toEqual({
+    form: 'monitor',
+    task: 'Watch',
+    command: 'tail -f x',
+  })
+})
+
+test('a task notice names the task, its word and the exit code the summary gives', () => {
+  const notice = (status: string, summary: string) => `<task-notification>\n<task-id>b1</task-id>\n<status>${status}</status>\n<summary>${summary}</summary>\n</task-notification>`
+  expect(backgroundEndOf(notice('completed', 'done (exit code 0)'))).toEqual({ target: 'b1', status: 'completed', exit: '0' })
+  expect(backgroundEndOf(notice('killed', 'Stopped'))).toEqual({ target: 'b1', status: 'killed' })
+  expect(backgroundEndOf('Just a prompt')).toBeUndefined()
 })

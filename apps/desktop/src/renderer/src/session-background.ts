@@ -12,7 +12,7 @@ export type Background = Extract<SessionAttachment, { kind: "background" }>;
 export function backgroundMarkOf(one: Background): NonNullable<LedgerEntry["mark"]> {
   if (one.state === "running") return { glyph: "running", said: "Running" };
   if (one.state === "stopped") return { glyph: "stopped", said: "Stopped" };
-  return one.exit === undefined || one.exit === 0 ? { glyph: "done", said: "Exit 0" } : { glyph: "failed", said: `Exit ${one.exit}` };
+  return one.state === "done" ? { glyph: "done", said: `Exit ${one.exit ?? 0}` } : { glyph: "failed", said: one.exit === undefined ? "Failed" : `Exit ${one.exit}` };
 }
 
 /** The row, minus its card. An ended one is `finished`, so it is drawn under All only. */
@@ -39,7 +39,7 @@ export function backgroundCardOf(one: Background, now: number = Date.now()): Ses
       { label: "Command", value: one.command, mono: true },
       { label: "Started", value: clock(one.started) },
       one.ended === undefined ? { label: "Running for", value: span(one.started, now) ?? "" } : { label: "Ended", value: clock(one.ended) },
-      ...(one.state === "running" ? [] : [{ label: "Exit", value: one.state === "stopped" ? "Stopped" : String(one.exit ?? 0), tone: mark.glyph }]),
+      ...(one.state === "running" ? [] : [{ label: "Exit", value: one.state === "stopped" ? "Stopped" : one.exit === undefined ? (one.state === "done" ? "0" : "Failed") : String(one.exit), tone: mark.glyph }]),
     ],
   };
 }

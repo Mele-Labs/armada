@@ -74,8 +74,9 @@ export type SessionAttachment =
   /**
    * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
    * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
-   * its output is written to, read as an artifact file is. `exit` is present once a `done` command ended.
-   * **Stopped is a command the agent or a person killed**, which has no exit of its own.
+   * its output is written to, read as an artifact file is; absent where Fleet was not told it. `exit` is
+   * the code a `done` or `failed` command ended on, absent where it was not told.
+   * **Stopped is a command the agent or a person killed**, or one whose process went with the Session, and has no exit of its own.
    */
   | {
       kind: "background";
@@ -86,9 +87,9 @@ export type SessionAttachment =
       /** RFC 3339 instants. */
       started: string;
       ended?: string;
-      state: "running" | "done" | "stopped";
+      state: "running" | "done" | "failed" | "stopped";
       exit?: number;
-      output: string;
+      output?: string;
     }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
