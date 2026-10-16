@@ -100,44 +100,48 @@ function Swarm({ events, now, lit, onPick }: { events: readonly FleetEvent[]; no
   const ordered = useMemo(() => [...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)), [events]);
   const laid = useMemo(() => {
     const margin = 6;
-    const xs = ordered.map((event) => margin + (1 - Math.min(HOUR, Math.max(0, now - Date.parse(event.at))) / HOUR) * (w - 2 * margin));
+    // Half a pixel is the finest a screen draws, so a dot that has drifted less keeps the style it has instead of being rewritten.
+    const xs = ordered.map((event) => Math.round((margin + (1 - Math.min(HOUR, Math.max(0, now - Date.parse(event.at))) / HOUR) * (w - 2 * margin)) * 2) / 2);
     // The dots shrink until they fit the height; below the smallest they are laid as close as they go.
     for (let d = 6; d >= 2; d *= 0.85) {
       const ys = pack(xs, d, h / 2 - d / 2);
-      if (ys !== undefined) return { d, xs, ys };
+      if (ys !== undefined) return { d, xs, ys, packed: true };
     }
-    return { d: 2, xs, ys: pack(xs, 2, 4000)!.map((y) => Math.max(-h / 2 + 1, Math.min(h / 2 - 1, y))) };
+    return { d: 2, xs, ys: pack(xs, 2, 4000)!.map((y) => Math.max(-h / 2 + 1, Math.min(h / 2 - 1, y))), packed: false };
   }, [ordered, now, w, h]);
   const held = ordered.find((event) => event.id === hot);
   const cluster = held === undefined ? [] : [held, ...near(events, Date.parse(held.at), NEAR).filter((event) => event.id !== held.id)];
   const over = (event: { target: EventTarget }) => setHot((event.target as HTMLElement).closest<HTMLElement>("[data-id]")?.dataset.id);
   const step = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    const from = Number((event.target as HTMLElement).closest<HTMLElement>("[data-i]")?.dataset.i ?? ordered.length - 1);
-    const to = Math.min(ordered.length - 1, Math.max(0, from + (event.key === "ArrowLeft" ? -1 : 1)));
+    // By place in the field rather than a number on each dot, which every dot would be rewritten to keep as events come and go.
+    const dots = [...event.currentTarget.querySelectorAll<HTMLElement>(".armada-tl__dot")];
+    const at = dots.indexOf((event.target as HTMLElement).closest<HTMLElement>(".armada-tl__dot")!);
+    const from = at === -1 ? dots.length - 1 : at;
+    const to = Math.min(dots.length - 1, Math.max(0, from + (event.key === "ArrowLeft" ? -1 : 1)));
     event.preventDefault();
-    event.currentTarget.querySelector<HTMLElement>(`[data-i="${to}"]`)?.focus();
+    dots[to]?.focus();
   };
   return (
     <div className="armada-tl__sized" ref={plot}>
       <Tooltip label={<Hour events={cluster} now={now} lit={lit} />} card beside asChild>
-        <div className="armada-tl__field" onPointerOver={over} onFocusCapture={over} onKeyDown={step}>
+        <div className="armada-tl__field" style={{ ["--d" as string]: `${laid.d}px` }} onPointerOver={over} onFocusCapture={over} onKeyDown={step}>
           <i className="armada-tl__axis-line" aria-hidden="true" />
           {ordered.map((event, i) => {
             const quiet = QUIET_KINDS.has(event.kind);
-            const size = laid.d * (quiet ? 0.7 : 1);
+            // The size and the row are the field's `--d` and a whole number of half-dots, so a dot is rewritten only where it moves along.
+            const row = laid.ys[i]! / (laid.d * 0.5);
             return (
               <button
                 key={event.id}
                 type="button"
                 className="armada-tl__dot"
                 data-id={event.id}
-                data-i={i}
                 data-weight={quiet ? "quiet" : undefined}
                 data-lit={lit === event.id || undefined}
                 tabIndex={i === ordered.length - 1 ? 0 : -1}
                 aria-label={`${titleOf(event.subject)}: ${event.says}`}
-                style={{ ...toneOf(event.tone), left: laid.xs[i]!, top: h / 2 + laid.ys[i]!, width: size, height: size }}
+                style={{ ...toneOf(event.tone), left: laid.xs[i]!, ...(laid.packed ? { ["--row" as string]: Math.round(row) } : { top: h / 2 + laid.ys[i]! }) }}
                 onClick={() => onPick(event)}
               />
             );
