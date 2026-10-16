@@ -27,9 +27,10 @@ pub enum Because {
     PushesToShared,
     /// It writes to something that is not this machine.
     WritesOffMachine,
-    /// A session reaches past its slot into the owner's own files or the
-    /// whole disk. **macOS asks him about those folders on Fleet's behalf**,
-    /// so the card comes first (the owner, 8 Oct 2026, after a `find /`).
+    /// A session writes past its slot into the owner's own files, or reads a
+    /// folder macOS asks him about, his credentials or the whole disk. **macOS
+    /// asks him about those folders on Fleet's behalf** (the owner, 8 Oct 2026,
+    /// after a `find /`); any other read runs (16 Oct 2026).
     ReachesOutside,
     /// Its shape could not be read. **The one reason about this module rather
     /// than about the call**: `eval`, a backtick and a command substitution can
@@ -44,7 +45,7 @@ impl Because {
             Because::Destructive => "it removes or overwrites something",
             Because::PushesToShared => "it sends code where other people read it",
             Because::WritesOffMachine => "it writes to something off this machine",
-            Because::ReachesOutside => "it reaches into your files outside its slot",
+            Because::ReachesOutside => "it writes to your files outside its slot, or reads what macOS guards",
             Because::Unreadable => "what this line does cannot be read from it",
         }
     }
@@ -133,7 +134,12 @@ pub fn because_in_a_session_owning(
     let named = ["file_path", "path"]
         .iter()
         .filter_map(|key| asking.input.get(*key)?.as_str());
-    if named.into_iter().any(reaches_outside) {
+    let reads = matches!(tool, "Read" | "Grep" | "Glob" | "LS");
+    let walks = matches!(tool, "Grep" | "Glob");
+    if named
+        .into_iter()
+        .any(|path| reaches_outside(path) && (!reads || read_refused(path, walks)))
+    {
         return Some(Because::ReachesOutside);
     }
     because(asking)
@@ -180,13 +186,71 @@ pub(super) fn reaches_outside(word: &str) -> bool {
         return false;
     }
     let root = word.trim_end_matches('/');
-    (root.is_empty() && word.starts_with('/'))
+    // Only `/` itself: jq's `//` is an operator, not the disk.
+    word == "/"
         || matches!(root, "/Users" | "/Volumes")
         || word.starts_with('~')
         || word.contains("$HOME")
         || word.contains("${HOME}")
         || word.starts_with("/Users/")
         || word.starts_with("/Volumes/")
+}
+
+/// Folders under the owner's home that macOS puts a privacy prompt in front of, and the ones
+/// holding his credentials. Compared without case, as the disk does.
+const GUARDED: &[&str] = &[
+    "desktop",
+    "documents",
+    "downloads",
+    "pictures",
+    "movies",
+    "music",
+    "library/mobile documents",
+    "library/mail",
+    "library/messages",
+    "library/safari",
+    "library/calendars",
+    "library/application support/addressbook",
+    "library/keychains",
+    ".ssh",
+    ".aws",
+    ".gnupg",
+    ".netrc",
+    ".config/gh",
+];
+
+/// Whether a read of `word`, a path [`reaches_outside`] named, is still refused: a folder
+/// [`GUARDED`] names, another volume, or a search (`walks`) from the root, `/Users` or the
+/// home, which reaches every one of them. **Every other read outside the slots runs** (the
+/// owner, 16 Oct 2026: "reads are fine, writes are the ones we need to be careful of").
+pub(super) fn read_refused(word: &str, walks: bool) -> bool {
+    let word = word.rsplit('=').next().unwrap_or(word);
+    let word = word.trim_matches(|c| c == '\'' || c == '"');
+    if word.to_lowercase().contains("armada") {
+        return false;
+    }
+    if word == "/Volumes" || word.starts_with("/Volumes/") {
+        return true;
+    }
+    let under = ["~", "$HOME", "${HOME}"]
+        .iter()
+        .find_map(|home| word.strip_prefix(home))
+        .map(str::to_string)
+        .or_else(|| {
+            let rest = word.strip_prefix("/Users/")?;
+            Some(rest.find('/').map_or(String::new(), |at| rest[at..].to_string()))
+        });
+    let Some(under) = under else {
+        return walks && matches!(word.trim_end_matches('/'), "" | "/Users");
+    };
+    let under = under.trim_matches('/').to_lowercase();
+    if under.split('/').any(|part| part == "..") {
+        return true;
+    }
+    (walks && under.is_empty())
+        || GUARDED
+            .iter()
+            .any(|guarded| under == *guarded || under.starts_with(&format!("{guarded}/")))
 }
 
 /// The directories of `held` that are slots. Before its first lease a session runs in
