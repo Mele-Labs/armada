@@ -32,7 +32,9 @@
  * being asked, so no card is drawn over one and the answer had nothing to
  * appear on.
  */
-export type HelmCallAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block";
+/** Every answer, for a process that checks one before sending it on. */
+export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "always_block"] as const;
+export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
 
 /**
  * One call a helm session is waiting on a person to answer, right now. Since

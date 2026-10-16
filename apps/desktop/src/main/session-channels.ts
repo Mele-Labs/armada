@@ -6,6 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -20,7 +21,9 @@ type Hosts = {
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge", "review"];
 const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];
-const ANSWERS = ["allow_once", "allow_and_remember", "refuse"];
+// **From the protocol, not retyped**: a list kept here missed `always_allow` and `always_block`,
+// and the card's press came back as Fleet not connected (16 Oct 2026).
+const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
 const OUTCOMES = ["take_over", "restart_step"];
 const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
