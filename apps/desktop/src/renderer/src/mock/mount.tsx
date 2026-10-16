@@ -44,6 +44,7 @@ import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
 import type { Scenario } from "./scenario";
+import { withState } from "../state-feed";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
 export type Mounted = {
@@ -120,7 +121,7 @@ export function mountApp(
   if (shared === undefined) forgetDeck();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
-  const planUsage = createFleetPlanUsage(api);
+  const planUsage = createFleetPlanUsage(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
   const root = createRoot(host);

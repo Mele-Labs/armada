@@ -298,12 +298,24 @@ file per surface in `apps/desktop/src/shared/api/`: `core`, `studios`,
 `<X>_CHANNELS`; `shared/api.ts` and `shared/bridge.ts` intersect and spread them
 under the old names, so no importer changes. **A slice imports protocol, screens
 and the shared helper types beside it, never another slice.** Core's `state` and
-`subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
+`syncState` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
 typecheck if the composition drifts from them. A slice moves into its surface
 package as `/api`, as above; every surface with one has. **A type another
 package reads stays where they can reach it**: Overview's `overview-reads` (Settings and
 the wire types read it) and `recent` (`Row` reads it) stayed in screens.
+
+### What main sends a window when the state moves
+
+**A change, not the state.** Electron clones what main sends and the preload copies it again into the
+page, both in proportion to the whole state however little moved, and a busy Fleet publishes about once
+a second. `main/state-sends.ts` keeps the last state it sent each window and `shared/state-change.ts`
+turns the next into a patch: changed keys, and for a list whose rows all have an `id`, the rows kept,
+changed and new in their new order. A publish that moved nothing sends nothing. The window folds it in
+`renderer/src/state-feed.ts`, the one holder of the state, which keeps whatever the patch left alone as
+the same object; surfaces read `stateOf(window.armada)` or `withState(window.armada)`, never
+`subscribeChanges`. A patch names the send it applies to, and a window that holds another asks for the
+whole state again with `syncState`.
 
 ### Desktop's own tests, split by whether they reach a surface
 

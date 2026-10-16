@@ -45,6 +45,7 @@ import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
 import { markViewed } from "./cockpit/viewed";
+import { stateOf } from "./state-feed";
 
 const NONE: readonly never[] = [];
 
@@ -84,8 +85,9 @@ export class WiredStore {
   /** Read the state and follow it. Returns the way to stop. */
   attach(): () => void {
     let live = true;
-    void this.api.state().then((state) => live && this.take(state));
-    const off = this.api.subscribe((state) => this.take(state));
+    const source = stateOf(this.api);
+    void source.state().then((state) => live && this.take(state));
+    const off = source.subscribe((state) => this.take(state));
     return () => {
       live = false;
       off();
