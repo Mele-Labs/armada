@@ -542,7 +542,8 @@ void app.whenReady().then(() => {
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
   connection.sessions.onWindow(
-    (sessionId, title, url, takes, origins, signIn) => void captureWindows.openForSession(sessionId, title, url, takes, origins, signIn),
+    (sessionId, title, url, takes, origins, signIn, steps) =>
+      void captureWindows.openForSession(sessionId, title, url, takes, origins, signIn, steps),
   );
   // A Session asked about a place on its walk: the window comes forward and goes there.
   connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));

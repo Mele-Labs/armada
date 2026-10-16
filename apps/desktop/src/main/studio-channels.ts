@@ -233,6 +233,10 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowWalkAutoplay, async (event, on: unknown) => {
     if (typeof on === "boolean") await barred(event)?.walkAct(on ? "autoplay_on" : "autoplay_off");
   });
+  // Put the ring and caption of the steps Bridge plays away, or draw them again: a boolean, and the page takes presses when it is away.
+  ipc.handle(CHANNELS.captureWindowWalkGuide, (event, shown: unknown) => {
+    if (typeof shown === "boolean") barred(event)?.walkGuide(shown);
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

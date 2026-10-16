@@ -1,4 +1,5 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { build } from 'vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -63,6 +64,44 @@ function appIcon(): Plugin {
   }
 }
 
+// What the capture window runs in a page to play a walk's steps, built into one string.
+//
+// `src/renderer/src/walk-find-page.ts` shares its finding with the mock's walks and needs
+// `dom-accessibility-api`, so it cannot be stringified like `capture/layer.ts`'s functions. Main
+// imports `virtual:armada-walk-finder` and evaluates it in an isolated world of the page, where the
+// page's own scripts cannot see it. Built here, in the main build, so there is no second file to keep
+// in step and nothing checked in.
+function walkFinder(): Plugin {
+  const id = 'virtual:armada-walk-finder'
+  const resolved = `\0${id}`
+  const entry = resolve(__dirname, 'src/renderer/src/walk-find-page.ts')
+  return {
+    name: 'armada-walk-finder',
+    resolveId(source) {
+      return source === id ? resolved : null
+    },
+    async load(file) {
+      if (file !== resolved) return null
+      this.addWatchFile(entry)
+      const built = await build({
+        configFile: false,
+        logLevel: 'silent',
+        build: {
+          write: false,
+          minify: true,
+          target: 'es2022',
+          lib: { entry, name: 'ArmadaFinder', formats: ['iife'] },
+        },
+      })
+      const chunk = (Array.isArray(built) ? built : [built])
+        .flatMap((one) => ('output' in one ? one.output : []))
+        .find((one) => one.type === 'chunk')
+      if (chunk === undefined || chunk.type !== 'chunk') throw new Error('the walk finder built to nothing')
+      return `export default ${JSON.stringify(chunk.code)}`
+    },
+  }
+}
+
 /* Every workspace package, read off this app's own dependencies rather than
    listed here. A package added to `package.json` is bundled from the day it is
    added, with nothing to keep in step. */
@@ -102,7 +141,7 @@ export default defineConfig({
     // It cost a broken `pnpm dev` to learn where the seam is. `bridge_build`
     // was green throughout, because building the main bundle never resolves
     // what it externalised — only running it does.
-    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE }), appIcon()],
+    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE }), appIcon(), walkFinder()],
   },
   // The preload externalises by default too, and gets the same treatment for
   // the same reason: it imports the wire's channel names, and a `require` for
