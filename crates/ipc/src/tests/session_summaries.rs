@@ -55,6 +55,8 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         helm: false,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
     }
 }
 

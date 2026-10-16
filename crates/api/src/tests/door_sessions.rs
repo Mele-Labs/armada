@@ -93,6 +93,8 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         helm: false,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
     }
 }
 

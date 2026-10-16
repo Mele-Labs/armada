@@ -378,6 +378,13 @@ where
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
         }
+        if let Some(hosting) = &reads.hosting {
+            record.workflow = hosting.workflow.clone();
+            let reading = self.hosts().of(&session.id).state().proposal.reading.is_some();
+            let picked = crate::session_host::proposing::picked_of(&hosting.proposed);
+            record.proposal = (reading || !picked.is_empty())
+                .then_some(ipc::SessionProposal { reading, picked });
+        }
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
@@ -1050,6 +1057,10 @@ where
         store
             .keep_session(&session)
             .map_err(|why| self.ledger_fault(why))?;
+        if changed {
+            // A name the person gave is theirs, and a proposal still being read leaves it be.
+            self.person_changed(&mut store, &session.id, ipc::ProposedField::Title);
+        }
         let record = self.ledger_row(&store, &session)?;
         drop(store);
         if changed {
@@ -1255,5 +1266,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         helm: false,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
     }
 }

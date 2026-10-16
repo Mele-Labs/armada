@@ -353,6 +353,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::stop_session::<D>),
         )
         .route(
+            "/sessions/workflow",
+            post(crate::hosted_sessions::set_session_workflow::<D>),
+        )
+        .route(
             "/sessions/one",
             get(crate::hosted_sessions::get_session::<D>),
         )

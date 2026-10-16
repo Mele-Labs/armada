@@ -371,7 +371,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HostedFacts, MessagesHeld, MoveSession, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
+    HeldCommand, HostedFacts, MessagesHeld, MoveSession, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile, SetSessionWorkflow,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
@@ -513,7 +513,7 @@ pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, Ses
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
-    SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
+    SessionFact, SessionId, SessionList, SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed, WindowFailed,

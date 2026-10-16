@@ -84,7 +84,7 @@ pub(crate) fn mode_of(text: &str) -> SessionMode {
 }
 
 /// The first line of a message, as the title of a session that has none.
-fn title_of(text: &str) -> Option<String> {
+pub(super) fn title_of(text: &str) -> Option<String> {
     let line = text.lines().map(str::trim).find(|line| !line.is_empty())?;
     Some(line.chars().take(60).collect())
 }
@@ -100,6 +100,8 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     async fn start_session(&self, mut start: StartSession) -> Result<SessionRecord, Refusal> {
+        // Read only through `start_session_reading`, which holds the Fleet a task needs.
+        start.request = None;
         if let Some(from) = start.pilot.take() {
             return self.start_piloted(start, from).await;
         }
@@ -107,6 +109,13 @@ where
             return self.start_forked(start, from).await;
         }
         self.started_hosted(start, false).await
+    }
+
+    async fn start_session_reading(
+        self: Arc<Self>,
+        start: StartSession,
+    ) -> Result<SessionRecord, Refusal> {
+        self.started_reading(start).await
     }
 
     async fn send_session_message(
@@ -230,14 +239,25 @@ where
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
-        hosting.model = tuned.model.filter(|model| !model.trim().is_empty());
-        hosting.effort = tuned.effort.filter(|effort| !effort.trim().is_empty());
+        let model = tuned.model.filter(|model| !model.trim().is_empty());
+        let effort = tuned.effort.filter(|effort| !effort.trim().is_empty());
+        let (model_changed, effort_changed) = (hosting.model != model, hosting.effort != effort);
+        hosting.model = model;
+        hosting.effort = effort;
         hosting.mode = mode_text(tuned.mode).to_string();
-        self.store()
-            .lock()
-            .await
-            .keep_hosting(&hosting)
-            .map_err(|why| self.ledger_fault(why))?;
+        {
+            let mut store = self.store().lock().await;
+            store
+                .keep_hosting(&hosting)
+                .map_err(|why| self.ledger_fault(why))?;
+            // What the person changed is theirs now, and a proposal still being read leaves it be.
+            if model_changed {
+                self.person_changed(&mut store, &id, ipc::ProposedField::Model);
+            }
+            if effort_changed {
+                self.person_changed(&mut store, &id, ipc::ProposedField::Effort);
+            }
+        }
         // A process runs on what it was started with, so a running one ends
         // once its turn is over and the next message resumes on the new ones.
         let runtime = self.hosts().of(&id);
@@ -356,6 +376,13 @@ where
             state.woken_by.clear();
         }
         self.published_hosted(&id).await
+    }
+
+    async fn set_session_workflow(
+        self: Arc<Self>,
+        set: ipc::SetSessionWorkflow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.workflow_set(set).await
     }
 
     async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
@@ -532,6 +559,22 @@ where
             .title
             .map(|title| title.trim().to_string())
             .filter(|title| !title.is_empty());
+        // A start with a request is being read: what the person set on it stands over the answer.
+        // Marked before the row is published, so the first record already says so.
+        if start.request.take().is_some() {
+            let set = |value: &Option<String>| value.as_ref().is_some_and(|one| !one.trim().is_empty());
+            let mut person = Vec::new();
+            for (field, given) in [
+                (ipc::ProposedField::Title, title.is_some()),
+                (ipc::ProposedField::Model, set(&start.model)),
+                (ipc::ProposedField::Effort, set(&start.effort)),
+            ] {
+                if given {
+                    person.push(field);
+                }
+            }
+            self.hosts().of(&id).state().proposal = super::proposing::ProposalState::begin(person);
+        }
         {
             let mut store = self.store().lock().await;
             store
@@ -566,6 +609,10 @@ where
                     fork_of: None,
                     helm,
                     setup,
+                    workflow: None,
+                    proposed: String::new(),
+                    turn_model: None,
+                    turn_effort: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
@@ -780,7 +827,7 @@ where
         ahead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
-        let (session, hosting) = self.session_and_hosting(&id).await?;
+        let (session, _) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
@@ -819,19 +866,64 @@ where
             self.first_message_sent(&id).await;
         }
 
+        let held = super::proposing::Held {
+            text,
+            kept,
+            addressed,
+            ahead,
+        };
+        // A Session whose request is still being read starts on the answer, and this turn with it.
         let runtime = self.hosts().of(&id);
-        self.ensure_process(&id, &hosting)
+        let held = {
+            let mut state = runtime.state();
+            match state.proposal.holds_back() {
+                true => {
+                    state.proposal.held.push_back(held);
+                    None
+                }
+                false => Some(held),
+            }
+        };
+        if let Some(held) = held {
+            self.deliver_turn(&id, held).await?;
+        }
+        self.published_hosted(&id).await
+    }
+
+    /// Start the process if it has none, and write the turn to it.
+    pub(crate) async fn deliver_turn(
+        self: &Arc<Self>,
+        id: &str,
+        held: super::proposing::Held,
+    ) -> Result<(), Refusal> {
+        let super::proposing::Held {
+            text,
+            kept,
+            addressed,
+            ahead,
+        } = held;
+        let (session, hosting) = self.session_and_hosting(id).await?;
+        // A session closed while its turn was held takes nothing more.
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(id));
+        }
+        let runtime = self.hosts().of(id);
+        self.ensure_process(id, &hosting)
             .await
             .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
         if !hosting.ran {
-            if let Some(preface) = self.handoff_preface(&id).await {
+            if let Some(preface) = self.handoff_preface(id).await {
                 turn.push_str(&preface);
                 turn.push_str("\n\nThe person's first message:\n\n");
             }
         }
         if let Some(line) = &ahead {
             turn.push_str(line);
+            turn.push_str("\n\n");
+        }
+        if let Some(line) = self.turn_told(id, &hosting).await {
+            turn.push_str(&line);
             turn.push_str("\n\n");
         }
         if let Some(line) = mention_line(&addressed) {
@@ -864,9 +956,9 @@ where
             }
         };
         if !lost.is_empty() {
-            self.send_again(&id, &runtime, lost).await;
+            self.send_again(id, &runtime, lost).await;
         }
-        self.published_hosted(&id).await
+        Ok(())
     }
 
     /// Each session a message names, with the address another session writes
@@ -920,7 +1012,9 @@ where
                 )
                 .map_err(|why| self.ledger_fault(why))?;
         }
-        if session.title.is_none() {
+        // A title the proposer is about to give is not made from the first message first.
+        let reading = self.hosts().of(&session.id).state().proposal.reading.is_some();
+        if session.title.is_none() && !reading {
             if let Some(title) = title_of(text) {
                 let mut row = session.clone();
                 row.title = Some(title);

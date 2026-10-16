@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, MoveSession, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionSubagent, SessionThread, StartSession, StopSession, TuneSession,
+    SessionRecord, SessionSubagent, SessionThread, SetSessionWorkflow, StartSession, StopSession, TuneSession,
 };
 
 use crate::daemon::Refusal;
@@ -30,6 +30,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         start: StartSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `start_session`, as the route calls it: **a start that carries a `request` is read by the
+    /// proposer in a task**, which needs the Arc a plain `&self` call does not have. The default
+    /// is a start that reads nothing, for a daemon with no proposer.
+    fn start_session_reading(
+        self: Arc<Self>,
+        start: StartSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        async move { self.start_session(start).await }
+    }
 
     /// `send_session_message`. **Answers at once**, with the turn taken: the
     /// reply is the thread's, as Helm's is.
@@ -128,6 +138,13 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn stop_session(
         &self,
         stopped: StopSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `set_session_workflow`: the person picked the Session's workflow in a panel, or cleared
+    /// it. A Session that has run is told at once.
+    fn set_session_workflow(
+        self: Arc<Self>,
+        set: SetSessionWorkflow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `get_session`: the row and its thread.

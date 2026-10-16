@@ -32,6 +32,7 @@ pub(crate) use pilot_words::{
 };
 mod places;
 mod process;
+pub(crate) mod proposing;
 pub mod queueing;
 pub(crate) mod releasing;
 mod rows;
@@ -355,6 +356,9 @@ pub(crate) struct State {
     pub polled: Option<ipc::EventsSince>,
     /// What its tool calls show it doing. In memory.
     pub activity: activity::Activity,
+    /// Whether the proposer is reading the request it was dispatched with, and the turns that
+    /// wait for the answer. In memory.
+    pub proposal: proposing::ProposalState,
 }
 
 impl State {
@@ -393,6 +397,7 @@ impl State {
             helm: false,
             polled: None,
             activity: activity::Activity::default(),
+            proposal: proposing::ProposalState::default(),
         }
     }
 }

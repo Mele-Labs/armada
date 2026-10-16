@@ -43,6 +43,7 @@ async fn a_session(fleet: &Arc<Rescued>) -> String {
             pilot: None,
             root: None,
             fork: None,
+            request: None,
         })
         .await
         .expect("started")

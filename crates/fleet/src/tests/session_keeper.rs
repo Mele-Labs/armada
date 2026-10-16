@@ -215,6 +215,7 @@ fn a_fleet_restart_leaves_the_agent_running_and_the_thread_continues() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -379,6 +380,7 @@ fn a_message_after_the_process_was_let_go_starts_a_new_one() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -425,6 +427,7 @@ fn a_process_let_go_with_a_subagent_working_says_it_was_cut_off() {
                 pilot: None,
                 root: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -497,6 +500,7 @@ fn a_subagents_words_are_not_in_the_sessions_thread() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -535,6 +539,7 @@ fn a_process_that_dies_says_why_in_the_thread() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -592,6 +597,7 @@ fn a_message_to_an_agent_that_died_unattended_starts_another_and_is_not_lost() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
@@ -694,6 +700,7 @@ fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")

@@ -68,3 +68,23 @@ fn the_road_kinds_are_spelt_as_the_timeline_keeps_them() {
     assert_eq!(TimelineKind::from_wire("session.committed"), Some(TimelineKind::SessionCommitted));
     assert_eq!(TimelineKind::from_wire("session.pushed"), Some(TimelineKind::SessionPushed));
 }
+
+#[test]
+fn the_changes_a_person_makes_in_a_panel_are_spelt_as_the_timeline_keeps_them() {
+    for (kind, spelling) in [
+        (TimelineKind::SessionWorkflow, "session.workflow"),
+        (TimelineKind::SessionModel, "session.model"),
+        (TimelineKind::SessionEffort, "session.effort"),
+    ] {
+        assert_eq!(kind.as_wire(), spelling);
+        assert_eq!(TimelineKind::from_wire(spelling), Some(kind));
+    }
+}
+
+#[test]
+fn a_start_without_a_request_and_a_record_without_a_proposal_read_as_they_did() {
+    let start = br#"{"manifest_id":"m"}"#;
+    assert_eq!(crate::decode::<crate::StartSession>("a start", start).expect("old start").request, None);
+    let proposal = crate::SessionProposal { reading: false, picked: vec![crate::ProposedField::Model] };
+    assert_eq!(encode(&proposal).expect("plain data"), r#"{"picked":["model"]}"#);
+}
