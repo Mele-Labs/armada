@@ -727,3 +727,19 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .sv-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); min-height: 0; height: auto; max-height: var(--folded); }
 /* In the foot, a row, it keeps its width and gives up its height. */
 .deck-foot > .deck-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 1 1 auto; align-self: flex-start; height: var(--folded); }
+
+/* ---- A Session's flight controls fill the panel ------------------------------------------------------------- */
+
+/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. One row of six where
+   the block is wide and low, two rows of three where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
+   its word from its own box. */
+.deck-controls__block[data-subject="session"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
+.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+@container tiles (min-aspect-ratio: 39 / 10) {
+  .deck-controls__tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+}
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
+.deck-controls__tiles > .deck-tile svg,
+.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
+.deck-tile__done { color: var(--step-advanced); }

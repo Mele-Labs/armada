@@ -4,8 +4,8 @@
 // sending starts a Session in Armada's repository where Fleet serves it (`reportRoot`), tells it the owner's words and what Bridge holds about this one
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026.
 
-import { useRef, useState } from "react";
-import { Bug, FoldVertical, MessageCircleMore, Orbit, PlaneLanding } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bug, CircleCheck, CircleDot, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Scale } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -18,7 +18,10 @@ import { reportBrief } from "./report-brief";
 import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, offeredOf, plain, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 
-const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit } as const;
+const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale } as const;
+
+/** How long a judge that found nothing is shown as done. */
+const CLEAR_MS = 2400;
 
 /** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
@@ -27,6 +30,13 @@ export type ReportRepository = { root: string; name?: string };
 export function SessionTiles({ session, draft, repository, startIn }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string }) {
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
+  /** A judge read the work and found nothing: its tile shows done for a moment. */
+  const [clear, setClear] = useState(false);
+  useEffect(() => {
+    if (!clear) return;
+    const handle = window.setTimeout(() => setClear(false), CLEAR_MS);
+    return () => window.clearTimeout(handle);
+  }, [clear]);
   /** The Session a report started, kept while its message is refused so a second press tells the same one. */
   const started = useRef<string | undefined>(undefined);
   const events = useFleetEvents();
@@ -55,6 +65,12 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     },
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
+    judge: () =>
+      void run("judge", async () => {
+        if (draft.work?.judge === undefined) return;
+        setClear(false);
+        if (!(await draft.work.judge(session.id))) setClear(true);
+      }),
   };
   const report = async (words: string): Promise<boolean> => {
     if (repository === undefined) return false;
@@ -73,6 +89,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     compact: "Compact the Session's context",
     report: "Report an issue with the Session",
     map: "Map",
+    judge: pending === "judge" ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
   };
   if (reporting) {
     return (
@@ -88,29 +105,43 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
   }
   return (
     <div className="deck-controls__block" data-subject="session">
-      {SESSION_TILES.map((tile, at) => {
-        const Glyph = GLYPH[tile.id];
-        const why = off[tile.id];
-        return (
-          <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
-            <button
-              type="button"
-              className="deck-tile"
-              aria-label={tile.label}
-              aria-pressed={tile.id === "map" ? false : pending === tile.id || (tile.id === "land" && on)}
-              aria-busy={pending === tile.id || undefined}
-              aria-disabled={why !== undefined || undefined}
-              onClick={() => why === undefined && press[tile.id]()}
-            >
-              <Glyph size={20} aria-hidden="true" />
-              <span className="deck-tile__text">{tile.text}</span>
-              <Kbd className="deck-tile__key" aria-hidden="true">
-                {at + 1}
-              </Kbd>
-            </button>
-          </Tooltip>
-        );
-      })}
+      <div className="deck-controls__tiles">
+        {SESSION_TILES.map((tile, at) => {
+          const Glyph = GLYPH[tile.id];
+          const why = off[tile.id];
+          const reading = tile.id === "judge" && pending === "judge";
+          const cleared = tile.id === "judge" && clear && !reading;
+          return (
+            <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
+              <button
+                type="button"
+                className="deck-tile"
+                aria-label={tile.label}
+                aria-pressed={tile.id === "map" ? false : pending === tile.id || (tile.id === "land" && on)}
+                aria-busy={pending === tile.id || undefined}
+                aria-disabled={why !== undefined || undefined}
+                onClick={() => why === undefined && press[tile.id]()}
+              >
+                {reading ? (
+                  <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+                    <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                ) : cleared ? (
+                  <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+                    <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                ) : (
+                  <Glyph size={20} aria-hidden="true" />
+                )}
+                <span className="deck-tile__text">{tile.text}</span>
+                <Kbd className="deck-tile__key" aria-hidden="true">
+                  {at + 1}
+                </Kbd>
+              </button>
+            </Tooltip>
+          );
+        })}
+      </div>
     </div>
   );
 }

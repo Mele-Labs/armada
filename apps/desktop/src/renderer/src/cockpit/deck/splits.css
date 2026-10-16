@@ -35,5 +35,5 @@
 .deck-grid .deck-incoming.deck-incoming[data-sized][data-sized][data-sized]:not([data-collapsed]):focus-within { flex-basis: calc(var(--space-12) * 4.5); }
 
 /* The foot draws its Field to the foot's height when the foot has been dragged. */
-.deck-foot[data-sized] { min-height: calc(var(--space-12) * 3); }
+.deck-foot[data-sized] { min-height: calc(var(--space-12) * 3.5); }
 .deck-foot[data-sized] .sv-slot[data-place="foot"] > .sv-panel[data-area="field"] { flex: 1 1 0; }

@@ -176,6 +176,10 @@ const CONCERNS: WorkConcern[] = [
   { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling." },
 ];
 
+/** What a judge sent by hand finds the first time: one concern on the build so far. A second read finds nothing. */
+const SENT_CONCERN: WorkConcern = { id: "j1", step: "Build", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it." };
+const READ_MS = 2200;
+
 const REPLIES: Record<string, string> = {
   c1: "The read now happens under the lease lock.",
   c2: "The back off stops at two seconds.",
@@ -205,6 +209,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   let only: readonly Session[] = [];
   let stage = 0;
   let rowId = 0;
+  /** How many times a judge has been sent by hand. */
+  let judged = 0;
   let clock = 2 * 60 + 2;
   const timers = new Set<number>();
   const stamp = () => {
@@ -322,6 +328,15 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         push([asked(`${one.step}: ${one.text}`)], working());
         after(700, () => push([tool("Edit crates/fleet/src/lease.rs"), said(REPLIES[concern] ?? "Noted.")], idle()));
       },
+      judge: () =>
+        new Promise<boolean>((resolve) =>
+          after(READ_MS, () => {
+            const found = judged === 0;
+            judged += 1;
+            if (found) works((work) => ({ ...work, concerns: [...(work.concerns ?? []), SENT_CONCERN] }));
+            resolve(found);
+          }),
+        ),
       dismissConcern: (_id, concern) => works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) })),
     },
     // The question the agent asked is answered, and it goes on to record the plan.

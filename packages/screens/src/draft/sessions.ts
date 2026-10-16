@@ -162,6 +162,8 @@ export type SessionWorkActs = {
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
+  /** Sends a judge to read the Session's work so far against its plan. Resolves with whether it raised concerns, which arrive as `concerns`. */
+  judge?: (id: string) => Promise<boolean>;
 };
 
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
