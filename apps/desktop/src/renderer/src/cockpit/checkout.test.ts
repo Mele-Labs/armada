@@ -5,7 +5,7 @@ import type { HeldCheckout } from "@armada/protocol";
 
 import { checkoutCall } from "./checkout";
 
-const ROOT = "/Users/me/armada";
+const ROOT = "/Users/user/armada";
 const SAFE = `git -C ${ROOT} pull --ff-only --autostash`;
 
 /** A checkout held by one uncommitted file, which is the shape the pull is safe for. */
@@ -17,8 +17,8 @@ describe("the one command a held checkout offers", () => {
   });
 
   it("quotes a root that is not a plain word", () => {
-    expect(checkoutCall("/Users/me/my repo", held()).command).toBe("git -C '/Users/me/my repo' pull --ff-only --autostash");
-    expect(checkoutCall("/Users/me/it's", held()).command).toBe(`git -C '/Users/me/it'\\''s' pull --ff-only --autostash`);
+    expect(checkoutCall("/Users/user/my repo", held()).command).toBe("git -C '/Users/user/my repo' pull --ff-only --autostash");
+    expect(checkoutCall("/Users/user/it's", held()).command).toBe(`git -C '/Users/user/it'\\''s' pull --ff-only --autostash`);
   });
 
   it("is absent when a file main also changed is uncommitted, because the stash could stop on a conflict", () => {

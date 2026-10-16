@@ -529,7 +529,9 @@ export type SessionsDraft = {
   terminalRuns?: true;
   /**
    * As `run`, for a call about a repository's served checkout, which has no Session: the command runs in
-   * the repository at `root`. Absent where nothing serves it, and the card offers Copy alone.
+   * the repository at `root`. A real Fleet is asked by the repository's Manifest (`catch_up_checkout`) and
+   * runs the one pull it knows after reading the hold again, so `command` is what the card showed and is not
+   * sent. Absent where nothing serves it, and the card offers Copy alone.
    */
   runInRepository?: (root: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
   /**
