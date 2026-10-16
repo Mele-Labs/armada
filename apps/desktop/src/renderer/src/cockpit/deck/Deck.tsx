@@ -32,7 +32,7 @@ import { BuildColumn } from "./BuildColumn";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
-import { useBays, slotKey } from "./bays";
+import { holderKeyOf, useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
@@ -43,7 +43,7 @@ import { checkoutSaid, heldOf } from "./YourCheckout";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
@@ -110,13 +110,14 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
 
 function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
+  const hover = useDeck((deck) => deck.hover);
   const row = (one: Subject) => {
     const Kind = one.kind === "job" ? Box : SquareTerminal;
     const quiet = one.since ?? one.step?.label ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     return (
       <li key={one.key} className="deck-list__item">
-        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
+        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
           <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
             <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
               <Kind size={14} aria-hidden="true" />
@@ -401,10 +402,10 @@ function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; shi
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
   const shown = bays.map((one) => one.view).filter((view) => {
     if (picked === undefined) return true;
-    const holder = view.holder ?? view.last;
-    return holder !== undefined && `${holder.kind}:${holder.id}` === picked;
+    return holderKeyOf(view) === picked;
   });
-  return <Bays views={shown} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
+  const hovered = useDeck((deck) => deck.hover);
+  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */

@@ -1,5 +1,5 @@
-// The Cockpit's Bays panel, each bay drawn as a bay. Three looks are on trial in the mock, `?bayTake=a|b|c`; this walk stands on the
-// panel and reads each state in turn. Over `bays-look-like-bays`.
+// The Cockpit's Bays panel, each bay drawn as a berth under a heading for its repository. The walk stands on the panel and reads each
+// state in turn, then lights a bay and its holder's row from either end. Over `bays-look-like-bays`.
 
 import { button, inside, region, role, walk } from "../walk";
 
@@ -8,7 +8,8 @@ const list = region("Jobs and Sessions");
 const bay = (name: RegExp) => inside(bays, role("button", name));
 
 const baysLookLikeBays = walk("bays-look-like-bays", [
-  { look: bays, say: "The Bays panel, each bay drawn as a bay: its number painted, its state as the frame and a glyph, who holds it inside" },
+  { look: bays, say: "The Bays panel: the bays grouped under a heading for each repository, each a berth with its state glyph and its number in a door down the left, and who holds it to the right" },
+  { look: inside(bays, role("heading", "armada", { exact: true })), say: "A repository is a heading, as in the Jobs and Sessions list. The bay carries no repository of its own" },
   { look: bay(/^slot-4, armada, Held/), say: "A bay a Session holds and is working in: the state glyph pulses" },
   { hover: inside(bay(/^slot-4, armada, Held/), role("img", "Held", { exact: true })), say: "Held" },
   { look: bay(/^slot-2, armada, Held/), say: "A bay a Job holds, idle: the holder, its branch and how long it has held it" },
@@ -20,9 +21,11 @@ const baysLookLikeBays = walk("bays-look-like-bays", [
   { hover: inside(bay(/^slot-6, armada, Stranded/), role("img", "2 files uncommitted", { exact: true })), say: "Files uncommitted" },
   { hover: inside(bay(/^slot-6, armada, Stranded/), role("img", "1 commit not pushed", { exact: true })), say: "Commits not pushed" },
   { look: bay(/^slot-2, pocket, Closed/), say: "A closed bay, shuttered and faint" },
+  { hover: bay(/^slot-3, armada, Held/), say: "The pointer on a held bay lights the row of the Job that holds it in the list, with the quiet tint a row takes under the pointer, not the selection's" },
+  { hover: inside(list, button("Pin the store clock", { exact: true })), say: "And on a row, the bays it holds are lit" },
   { press: bay(/^slot-3, armada, Held/), say: "A press selects a bay, and its pane opens" },
   { look: bay(/^slot-3, armada, Held/), say: "The selected bay is framed in the accent" },
-  { press: inside(list, button("Shorten the reconnect wait")), say: "A Job picked in the list narrows the Bays to the ones it holds" },
+  { press: inside(list, button("Shorten the reconnect wait", { exact: true })), say: "A Job picked in the list narrows the Bays to the ones it holds" },
   { look: bay(/^slot-3, armada, Held/), say: "Only its bay is left, and the other Jobs' and Sessions' bays are out of the list" },
   { press: inside(region(/^Job: Shorten the reconnect wait/), button("Back", { exact: true })), say: "Back lets go of the Job" },
   { look: bay(/^slot-5, armada, Free/), say: "Nothing picked, so every bay is drawn again" },

@@ -119,6 +119,7 @@
   cursor: pointer;
 }
 .deck-row:hover,
+.deck-row[data-hover],
 .deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
@@ -346,7 +347,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 
 .deck-bays__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; }
 .deck-bays__rows > li { display: flex; flex: none; min-width: 0; }
-/* A bay is drawn as a bay. The state is the frame's: the hue, and the edge it is drawn in. Three looks are on trial, `data-take` on the panel. */
+/* A bay is drawn as a bay. The state is the frame's: the hue, and the edge it is drawn in. */
 .deck-bay {
   --hue: var(--fg-subtle);
   display: flex;
@@ -390,7 +391,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bay__who[data-gone] { flex: 1 1 auto; color: var(--fg-muted); font-weight: var(--weight-body); }
 .deck-bay__branch { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted); }
 .deck-bay__foot { margin-top: auto; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-subtle); }
-.deck-bay__repo { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--fg-subtle); text-overflow: ellipsis; white-space: nowrap; }
 .deck-bay__time { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .deck-bay__line > .armada-tooltip:has(> .deck-bay__time) { flex: none; margin-left: auto; }
 .deck-bay__foot > .armada-tooltip:has(> .deck-bay__time) { flex: none; }
@@ -402,51 +402,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bay[data-bay="closed"] .deck-bay__who,
 .deck-bay[data-bay="closed"] .deck-bay__name { color: var(--fg-muted); }
 
-/* ---- Takes A and D: a bay card, calm. The frame is the state's hue, and the band over a dark body says the bay, its repo and the state in type.
-   A tints the band faintly in the hue; D leaves it bare and rules it off. Held, the common bay, is a hairline; stranded alone is drawn heavier. ---- */
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay {
-  flex-direction: column;
-  border: var(--border-width) var(--edge-style, solid) color-mix(in srgb, var(--hue) 60%, var(--border-subtle));
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  overflow: hidden;
-}
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-bay="free"] { background: var(--bg-sunken); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-bay="closed"] { border-color: color-mix(in srgb, var(--hue) 30%, var(--border-subtle)); background: var(--hatch), var(--bg-sunken); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-bay="stranded"] { border-width: calc(var(--border-width) * 2); border-color: var(--hue); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-bay="stranded"] .deck-bay__body { background: var(--hatch); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay:hover { border-color: var(--hue); background-color: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  color: var(--hue);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay__word { flex: none; }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay__repo { flex: 1 1 0; color: var(--fg-subtle); font-weight: var(--weight-body); letter-spacing: 0; text-transform: none; }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay__body { padding: var(--space-2) var(--space-3); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay__name { color: var(--fg-default); font-weight: var(--weight-medium); }
-.deck-bays:is([data-take="a"], [data-take="d"]) .deck-bay[data-bay="closed"] .deck-bay__name { color: var(--fg-muted); }
-/* A: the band is a faint tint of the hue. Free keeps its dashed rule, and stranded's tint is the strongest. */
-.deck-bays[data-take="a"] .deck-bay__band { background: color-mix(in srgb, var(--hue) 12%, transparent); }
-.deck-bays[data-take="a"] .deck-bay[data-bay="stranded"] .deck-bay__band { background: color-mix(in srgb, var(--hue) 22%, transparent); }
-.deck-bays[data-take="a"] .deck-bay[data-bay="free"] .deck-bay__band { background: none; border-bottom: var(--border-width) dashed color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); }
-.deck-bays[data-take="a"] .deck-bay[data-bay="closed"] .deck-bay__band { background: var(--slot-closed-bg); }
-/* D: no band background, a hairline under it, the state in the frame and the type alone. */
-.deck-bays[data-take="d"] .deck-bay__band { border-bottom: var(--border-width) solid var(--border-subtle); }
-.deck-bays[data-take="d"] .deck-bay[data-bay="free"] .deck-bay__band { border-bottom: var(--border-width) dashed color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); }
-.deck-bays[data-take="d"] .deck-bay[data-bay="stranded"] .deck-bay__band { border-bottom-color: var(--hue); }
-
-/* ---- Take B: a berth. A thick door in the state's hue, the number painted large beside it, the holder to the right. ---- */
-.deck-bays[data-take="b"] .deck-bay {
+/* A berth. A door in the state's hue down the left, carrying the glyph and the bay's number; the holder, its branch and the time to the right. */
+.deck-bay {
   align-items: stretch;
   min-height: calc(var(--h-row) * 2);
   border: calc(var(--border-width) * 2) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
@@ -454,52 +411,32 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   background: var(--bg-raised);
   overflow: hidden;
 }
-.deck-bays[data-take="b"] .deck-bay[data-bay="free"] { background: var(--bg-sunken); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="stranded"] { border-color: var(--hue); background: var(--hatch), var(--bg-raised); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="closed"] { border-color: color-mix(in srgb, var(--hue) 25%, var(--border-subtle)); background: var(--hatch), var(--bg-sunken); }
-.deck-bays[data-take="b"] .deck-bay:hover { border-color: var(--hue); }
-.deck-bays[data-take="b"] .deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
-.deck-bays[data-take="b"] .deck-bay__door { display: flex; flex: none; align-items: center; justify-content: center; width: var(--space-8); background: var(--hue); color: var(--fg-inverse); }
-.deck-bays[data-take="b"] .deck-bay__door .deck-bay__state { color: var(--fg-inverse); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="free"] .deck-bay__door { background: none; border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="free"] .deck-bay__door .deck-bay__state { color: var(--hue); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="closed"] .deck-bay__door { background: var(--slot-closed-bg); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__state { color: var(--slot-closed); }
-.deck-bays[data-take="b"] .deck-bay__floor { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; width: calc(var(--space-12) + var(--space-6)); padding: 0 var(--space-2); }
-.deck-bays[data-take="b"] .deck-bay__floor .deck-bay__repo { flex: none; max-width: 100%; }
-.deck-bays[data-take="b"] .deck-bay__name { font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: var(--weight-heading); color: var(--hue); }
-.deck-bays[data-take="b"] .deck-bay[data-bay="closed"] .deck-bay__name { color: var(--fg-subtle); }
-.deck-bays[data-take="b"] .deck-bay__prefix { display: none; }
-.deck-bays[data-take="b"] .deck-bay__body { justify-content: center; padding: var(--space-2) var(--space-3) var(--space-2) 0; }
-.deck-bays[data-take="b"] .deck-bay__foot { margin-top: 0; }
-.deck-bays[data-take="b"] .deck-bay__foot > .armada-tooltip:has(> .deck-bay__time) { margin-left: auto; }
-
-/* ---- Take C: a hangar grid. Two columns of marked bays seen from above, painted open at the front, each with its number big. ---- */
-.deck-bays[data-take="c"] .deck-bays__rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
-.deck-bays[data-take="c"] .deck-bays__rows > li { display: flex; }
-.deck-bays[data-take="c"] .deck-bay {
-  flex-direction: column;
-  gap: var(--space-1);
-  min-height: calc(var(--h-row) * 2.5);
-  padding: var(--space-2) var(--space-2) var(--space-3);
-  border: calc(var(--border-width) * 3) var(--edge-style, solid) var(--hue);
-  border-bottom: 0;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: var(--bg-sunken);
-  box-shadow: inset 0 calc(var(--space-1) * -1) 0 0 var(--hue);
-}
-.deck-bays[data-take="c"] .deck-bay[data-bay="free"] { border-color: color-mix(in srgb, var(--hue) 60%, var(--border-subtle)); box-shadow: inset 0 calc(var(--space-1) * -1) 0 0 transparent; }
-.deck-bays[data-take="c"] .deck-bay[data-bay="stranded"] { background: var(--hatch), var(--bg-sunken); }
-.deck-bays[data-take="c"] .deck-bay[data-bay="closed"] { border-color: color-mix(in srgb, var(--hue) 30%, var(--border-subtle)); background: var(--hatch), var(--bg-sunken); box-shadow: none; }
-.deck-bays[data-take="c"] .deck-bay:hover { background-color: color-mix(in srgb, var(--hue) 10%, var(--bg-sunken)); }
-.deck-bays[data-take="c"] .deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 calc(var(--space-1) * -1) 0 0 var(--accent); background-color: var(--accent-muted); }
-.deck-bays[data-take="c"] .deck-bay__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
-.deck-bays[data-take="c"] .deck-bay__name { display: flex; align-items: baseline; font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: var(--weight-heading); color: var(--hue); }
-.deck-bays[data-take="c"] .deck-bay[data-bay="closed"] .deck-bay__name { color: var(--fg-subtle); }
-.deck-bays[data-take="c"] .deck-bay__prefix { font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-subtle); }
-.deck-bays[data-take="c"] .deck-bay__foot { margin-top: auto; }
-.deck-bays[data-take="c"] .deck-bay__repo { flex: 1 0 auto; }
-.deck-bays[data-take="c"] .deck-bay__foot { flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.deck-bay[data-bay="free"] { background: var(--bg-sunken); }
+.deck-bay[data-bay="stranded"] { border-color: var(--hue); background: var(--hatch), var(--bg-raised); }
+.deck-bay[data-bay="closed"] { border-color: color-mix(in srgb, var(--hue) 25%, var(--border-subtle)); background: var(--hatch), var(--bg-sunken); }
+/* A bay the pointer or the keys are on, or whose holder is lit in the list: the same quiet tint a row takes, never the selection's accent. */
+.deck-bay:hover,
+.deck-bay[data-hover] { border-color: var(--hue); background-color: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
+.deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
+.deck-bay__door { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); background: var(--hue); color: var(--fg-inverse); }
+.deck-bay__door .deck-bay__state,
+.deck-bay__door .deck-bay__name { color: var(--fg-inverse); }
+.deck-bay[data-bay="free"] .deck-bay__door { background: none; border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
+.deck-bay[data-bay="free"] .deck-bay__door .deck-bay__state,
+.deck-bay[data-bay="free"] .deck-bay__door .deck-bay__name { color: var(--hue); }
+.deck-bay[data-bay="closed"] .deck-bay__door { background: var(--slot-closed-bg); }
+.deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__state,
+.deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__name { color: var(--slot-closed); }
+.deck-bay__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
+.deck-bay__prefix { display: none; }
+.deck-bay__body { justify-content: center; padding: var(--space-2) var(--space-3); }
+.deck-bay__foot { margin-top: 0; }
+.deck-bay__foot > .armada-tooltip:has(> .deck-bay__time) { margin-left: auto; }
+/* The bays of a repository, under its heading as the Jobs and Sessions list draws its own. */
+.deck-bays__rows .deck-list__band { gap: var(--space-2); }
+.deck-bays__rows .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
+.deck-bays__rows .deck-list__group { gap: var(--space-2); }
+.deck-bays__rows .deck-list__group > li { display: flex; min-width: 0; }
 
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 

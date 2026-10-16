@@ -1,13 +1,14 @@
 // The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
-// holds it, and the facts behind the state, each with its tooltip. Four looks are on trial, `?bayTake=a|b|c|d` in the mock. Nothing
-// is worded beyond the facts and nothing is counted beside the list. The states are the pool's own (`bays.ts`). #2301.
+// holds it, and the facts behind the state, each with its tooltip, grouped under a heading for each repository. A bay and the row of
+// the Job or Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
+// beside the list. The states are the pool's own (`bays.ts`). #2301.
 
 import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, Tooltip } from "@armada/components";
 
 import { PanelKey } from "./keys";
-import { clockOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
+import { clockOf, holderKeyOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
 
 export const kindGlyph = (kind: Holder["kind"], size = 12) => (kind === "job" ? <Box size={size} aria-hidden /> : <SquareTerminal size={size} aria-hidden />);
 
@@ -133,7 +134,7 @@ function State({ view, size }: { view: BayView; size: number }) {
   );
 }
 
-/** The bay's number, painted: `slot-` small, the figure large where a take sets it so. */
+/** The bay's number, painted large in the door. */
 const Name = ({ view }: { view: BayView }) => (
   <span className="deck-bay__name">
     <span className="deck-bay__prefix">slot-</span>
@@ -152,48 +153,13 @@ function Lead({ view }: { view: BayView }) {
   );
 }
 
-type Take = "a" | "b" | "c" | "d";
-
-/** Mock only: which of four looks the bays are drawn in, `?bayTake=a|b|c|d`. No param is the first. */
-const takeOf = (): Take => {
-  const asked = new URLSearchParams(window.location.search).get("bayTake");
-  return asked === "b" || asked === "c" || asked === "d" ? asked : "a";
-};
-
-/** Takes A and D: a small card, a band naming the bay and its state over a dark body. A tints the band, D leaves it bare. */
-function Card({ view, repo }: { view: BayView; repo: string }) {
-  return (
-    <>
-      <span className="deck-bay__band">
-        <State view={view} size={16} />
-        <Name view={view} />
-        <span className="deck-bay__repo">{repo}</span>
-        <span className="deck-bay__word">{view.word}</span>
-      </span>
-      <span className="deck-bay__body">
-        <span className="deck-bay__line">
-          <Kind view={view} />
-          <Who view={view} />
-          <Marks view={view} />
-          <Warmth view={view} />
-          {timeOf(view)}
-        </span>
-        <Branch view={view} />
-      </span>
-    </>
-  );
-}
-
-/** Take B: a berth, a door in the state's hue, the number painted beside it like a floor marking. */
-function Berth({ view, repo }: { view: BayView; repo: string }) {
+/** A berth: a door in the state's hue carrying the glyph and the bay's number, and to its right the holder, its branch and the time. */
+function Berth({ view }: { view: BayView }) {
   return (
     <>
       <span className="deck-bay__door">
         <State view={view} size={16} />
-      </span>
-      <span className="deck-bay__floor">
         <Name view={view} />
-        <span className="deck-bay__repo">{repo}</span>
       </span>
       <span className="deck-bay__body">
         <Lead view={view} />
@@ -208,32 +174,11 @@ function Berth({ view, repo }: { view: BayView; repo: string }) {
   );
 }
 
-/** Take C: a marked bay seen from above, its number big, a lane painted in the state's hue, who is parked in it inside. */
-function Tile({ view, repo }: { view: BayView; repo: string }) {
+/** The bays panel: every slot of the pool, a bay each, under a heading for its repository. A press selects the slot. */
+export function Bays({ views, repoName, working, selected, hovered, onHover, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; hovered: string | undefined; onHover: (holder: string | undefined) => void; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
+  const groups = [...new Set(views.map((view) => view.slot.manifest_id))].map((manifest) => ({ manifest, views: views.filter((view) => view.slot.manifest_id === manifest) }));
   return (
-    <>
-      <span className="deck-bay__top">
-        <Name view={view} />
-        <State view={view} size={16} />
-      </span>
-      <Lead view={view} />
-      <Branch view={view} />
-      <span className="deck-bay__foot">
-        <Warmth view={view} />
-        <Marks view={view} />
-        <span className="deck-bay__repo">{repo}</span>
-        {timeOf(view)}
-      </span>
-    </>
-  );
-}
-
-/** The bays panel: every slot of the pool, a row each. A press selects the slot. */
-export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
-  const take = takeOf();
-  const Cell = take === "a" || take === "d" ? Card : take === "b" ? Berth : Tile;
-  return (
-    <section className="deck-panel deck-bays" aria-label="Bays" data-take={take} tabIndex={-1}>
+    <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <header className="deck-band">
         Bays
         {onOpenSlots === undefined ? null : (
@@ -246,23 +191,38 @@ export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots
         <PanelKey id="bays" />
       </header>
       <ul className="deck-bays__rows">
-        {views.map((view) => {
-          const repo = repoName(view.slot.manifest_id);
-          const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
+        {groups.map((group) => {
+          const repo = repoName(group.manifest);
           return (
-            <li key={view.key}>
-              <button
-                type="button"
-                className="deck-bay"
-                data-bay={view.state}
-                data-kept={view.kept !== undefined || undefined}
-                data-live={live || undefined}
-                data-selected={selected === view.key || undefined}
-                aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
-                onClick={() => onSelect(view.key)}
-              >
-                <Cell view={view} repo={repo} />
-              </button>
+            <li key={group.manifest} className="deck-list__band">
+              <h3 className="deck-list__repository">{repo}</h3>
+              <ul className="deck-list__group">
+                {group.views.map((view) => {
+                  const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
+                  const holder = holderKeyOf(view);
+                  return (
+                    <li key={view.key}>
+                      <button
+                        type="button"
+                        className="deck-bay"
+                        data-bay={view.state}
+                        data-kept={view.kept !== undefined || undefined}
+                        data-live={live || undefined}
+                        data-hover={(holder !== undefined && holder === hovered) || undefined}
+                        data-selected={selected === view.key || undefined}
+                        aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
+                        onClick={() => onSelect(view.key)}
+                        onMouseEnter={() => onHover(holder)}
+                        onMouseLeave={() => onHover(undefined)}
+                        onFocus={() => onHover(holder)}
+                        onBlur={() => onHover(undefined)}
+                      >
+                        <Berth view={view} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           );
         })}
