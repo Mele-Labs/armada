@@ -119,6 +119,37 @@ fn fleet_names_every_variable_a_drone_gets() {
     );
 }
 
+/// **The pool replaces the width, it does not sit beside it**: cargo ignores
+/// `CARGO_BUILD_JOBS` once it inherits a jobserver, so naming both would read as
+/// a ceiling that is not one. Offers a pool process-wide, so it is its own
+/// process under `nextest`.
+#[test]
+fn a_drones_builds_take_the_machines_pool_instead_of_a_width() {
+    checks_runner::offer("-j --jobserver-auth=fifo:/pool".to_string());
+    let built = environment(
+        HostPaths {
+            path: "/usr/bin:/bin",
+            home: "/Users/user",
+            user: "someone",
+            width: checks_runner::CheckWidth::of(2),
+        },
+        &[],
+    )
+    .expect("a legal environment");
+
+    assert_eq!(
+        built.names(),
+        vec!["PATH", "HOME", "LANG", "TERM", "USER", "MAKEFLAGS"]
+    );
+    assert_eq!(
+        built.vars().last(),
+        Some(&(
+            "MAKEFLAGS".to_string(),
+            "-j --jobserver-auth=fifo:/pool".to_string()
+        ))
+    );
+}
+
 /// A declared port rides in beside the guaranteed five, so a Command a Drone
 /// runs from its own shell sees `ARMADA_PORT_<NAME>` without Fleet touching
 /// the command string at all.

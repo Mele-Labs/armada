@@ -106,6 +106,21 @@ fn model_at(name: String, effort: String) -> Result<Model, Box<dyn Error>> {
     Model::named_at(&name, fleet::tuning::effort_of(&effort)).map_err(|refused| refused.said().into())
 }
 
+/// How often the pool is looked at for tokens a killed build took with it.
+const BUILD_SLOTS_LOOK: Duration = Duration::from_secs(15);
+
+fn start_build_slots(machine: &std::path::Path) {
+    let cores = std::thread::available_parallelism().map_or(2, |cores| cores.get() as u32);
+    match checks_runner::BuildSlots::open(&machine.join("build-slots.fifo"), cores) {
+        Ok(slots) => {
+            println!("build slots: {cores} compiler jobs for the machine");
+            checks_runner::offer(slots.flags());
+            checks_runner::keep(slots, BUILD_SLOTS_LOOK);
+        }
+        Err(why) => eprintln!("build slots: not made, builds keep their own width: {why}"),
+    }
+}
+
 /// Serve until a signal says stop, adding `repository` first where one is given.
 ///
 /// **The one argument is added, as `add_repository` would add it**, and kept
@@ -174,6 +189,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // process binds is claimed out of it, and a claim needs a store to be made
     // in. Everything above this line refuses without having taken anything.
     std::fs::create_dir_all(&machine)?;
+    // **Before anything that can start a build**: every Drone, Session, scout,
+    // Check and seed warm-up Fleet spawns from here takes its compiler jobs
+    // from this one pool. A Fleet that cannot make it builds as it did, at a
+    // width each, and says so.
+    start_build_slots(&machine);
     let mut store = Store::open(&machine.join(STORE_FILE))?;
     if !store.unknown_migrations().is_empty() {
         println!(
