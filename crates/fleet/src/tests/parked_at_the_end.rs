@@ -108,7 +108,7 @@ async fn a_job_that_completed_keeps_its_slot_and_its_uncommitted_files() {
 async fn a_park_git_refuses_leaves_the_killed_job_s_slot_kept_with_the_reason() {
     let home = TempDir::new();
     let (fleet, job) = a_dirty_job(&home).await;
-    fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
 
     ended_as(&fleet, &job, Target::Killed, Actor::Human).await;
 
@@ -120,7 +120,7 @@ async fn a_park_git_refuses_leaves_the_killed_job_s_slot_kept_with_the_reason() 
     let log = log_of(&fleet, &home, &job).await;
     assert!(
         log.contains("its uncommitted files could not be committed")
-            && log.contains("HEAD is detached"),
+            && log.contains("git said no"),
         "{log}"
     );
 }

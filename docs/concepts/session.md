@@ -308,8 +308,9 @@ slot held under the id: what is in each is committed and nothing is pushed.
 
 **It is committed to the branch the slot is on, not the one it was leased on.** A
 session rewrites its own branch inside its slot, so it may have moved to another.
-Only the base and a detached head are refused, as for a Job. A Job's park still
-refuses a slot on another branch than its lease names. **What the session left
+On a detached head or on the base it is committed to a new `kept/slot-<n>-<id>`
+branch cut at `HEAD`, and a clean slot holding nothing a detach would lose is
+only released, as for a Job. **What the session left
 running in the slot ends first**: every process whose working directory is the
 slot or inside it (a backgrounded `pnpm mock`, a Check's process, a subagent's
 agent), found by working directory and never outside the slot. This process and

@@ -176,7 +176,8 @@ pub struct BranchKept(pub String);
 /// What parking a Job's slot kept and freed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotParked {
-    /// The branch the work is on, and stays on.
+    /// The branch the work is on, and stays on. A new `kept/` one where the
+    /// checkout was on none or on the base and had something to keep.
     pub branch: String,
     /// The WIP commit, where there was uncommitted work to keep; `None` where
     /// the slot was clean and was only released.
@@ -190,12 +191,6 @@ pub struct SlotParked {
 /// Job keeps its slot in every case and the commit, where one was made, stays.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SlotParkRefused {
-    /// The checkout is detached, so there is no branch to park onto.
-    OnNoBranch,
-    /// The checkout is on the base itself.
-    OnTheBase(String),
-    /// The checkout is on a branch other than the one the lease names.
-    OnAnotherBranch { leased: String, on: String },
     /// Somebody else holds the slot, named for a person.
     HeldByAnother(String),
     /// A lease or a release is under way on it.
@@ -227,17 +222,6 @@ impl SlotParkRefused {
     /// One sentence, for a person.
     pub fn said(&self) -> String {
         match self {
-            SlotParkRefused::OnNoBranch => String::from(
-                "HEAD is detached, so there is no branch to commit the uncommitted files to",
-            ),
-            SlotParkRefused::OnTheBase(base) => format!(
-                "the worktree is on {base}, the base branch, so the uncommitted files were not \
-                 committed there"
-            ),
-            SlotParkRefused::OnAnotherBranch { leased, on } => format!(
-                "the worktree is on branch {on}, not {leased}, so the uncommitted files were not \
-                 committed"
-            ),
             SlotParkRefused::HeldByAnother(who) => format!("{who} holds it"),
             SlotParkRefused::Busy => String::from("a lease or a release is under way on it"),
             SlotParkRefused::HolderChanged(now) => {

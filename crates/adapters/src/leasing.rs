@@ -45,7 +45,7 @@ use git::{count, git, git_ok};
 pub use history::{checkouts_in, checkouts_of, turns_of, Checkout, Turn, KEPT_DAYS};
 pub use record::Holder;
 use record::Record;
-pub use saving::{save_worktree, NotSaved};
+pub use saving::{save_worktree, SavedWorktree};
 pub use shape::Unshaped;
 pub(crate) use watching::acted;
 pub use trim::{sweep_repository, trim_target, Trim, Trimmed, CEILING_GIB, TRIM_AFTER_DAYS};

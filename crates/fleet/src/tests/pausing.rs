@@ -198,12 +198,6 @@ async fn a_pause_the_record_refuses_changes_nothing() {
 
     // git refusing the park, for each reason the pool has.
     for why in [
-        SlotParkRefused::OnNoBranch,
-        SlotParkRefused::OnTheBase(String::from("main")),
-        SlotParkRefused::OnAnotherBranch {
-            leased: String::from("armada/a"),
-            on: String::from("armada/b"),
-        },
         SlotParkRefused::HeldByAnother(String::from("somebody")),
         SlotParkRefused::Busy,
         SlotParkRefused::Vcs(String::from("git said no")),
@@ -258,7 +252,7 @@ async fn a_running_jobs_drone_is_gone_when_the_pool_refuses_and_the_job_is_escal
     let home = TempDir::new();
     let fleet = a_pool_of_one(&home);
     let job = running(&fleet, &home, "fix the reader").await;
-    fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
 
     let refused = fleet.pause_job(&job).await.expect_err("the pool refuses");
 
@@ -575,7 +569,7 @@ async fn each_refusal_over_the_wire_is_a_409_with_its_own_code() {
     refused(acted(&app, &job, "park_job").await, "fleet.checks_running");
     drop(rerun);
 
-    fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
     let (status, body) = acted(&app, &job, "park_job").await;
     refused((status, body.clone()), "fleet.pause_refused");
     let error: WireError = ipc::decode("a wire error", &body).unwrap();
