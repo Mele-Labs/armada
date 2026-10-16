@@ -183,9 +183,14 @@ impl BuildSlots {
     }
 }
 
-/// Settle `slots` every `every` until the runtime ends. The pool is owned by
-/// the task, so nothing else can write to it between looks.
-pub fn keep(mut slots: BuildSlots, every: std::time::Duration) -> tokio::task::JoinHandle<()> {
+/// Settle `slots` every `every` until the runtime ends, telling `said` what a
+/// look repaired. The pool is owned by the task, so nothing else can write to
+/// it between looks.
+pub fn keep(
+    mut slots: BuildSlots,
+    every: std::time::Duration,
+    said: impl Fn(Settled) + Send + 'static,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(every).await;
@@ -200,13 +205,7 @@ pub fn keep(mut slots: BuildSlots, every: std::time::Duration) -> tokio::task::J
             slots = held;
             if let Ok(done) = settled {
                 if done.restored + done.trimmed > 0 || done.recreated {
-                    eprintln!(
-                        "build slots: {} free, {} restored, {} trimmed{}",
-                        done.free,
-                        done.restored,
-                        done.trimmed,
-                        if done.recreated { ", fifo recreated" } else { "" }
-                    );
+                    said(done);
                 }
             }
         }
@@ -231,10 +230,20 @@ pub fn compiler_running() -> bool {
     if !listing.status.success() {
         return true;
     }
-    String::from_utf8_lossy(&listing.stdout)
+    names_a_compiler(&String::from_utf8_lossy(&listing.stdout))
+}
+
+/// Whether a `ps -o comm=` listing names a compiler, by the last part of its path.
+fn names_a_compiler(listing: &str) -> bool {
+    listing
         .lines()
         .filter_map(|line| line.trim().rsplit('/').next())
         .any(|name| COMPILERS.contains(&name))
+}
+
+#[cfg(test)]
+pub(crate) fn names_a_compiler_for_test(listing: &str) -> bool {
+    names_a_compiler(listing)
 }
 
 fn is_fifo(path: &Path) -> bool {

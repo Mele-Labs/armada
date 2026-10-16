@@ -115,7 +115,15 @@ fn start_build_slots(machine: &std::path::Path) {
         Ok(slots) => {
             println!("build slots: {cores} compiler jobs for the machine");
             checks_runner::offer(slots.flags());
-            checks_runner::keep(slots, BUILD_SLOTS_LOOK);
+            checks_runner::keep(slots, BUILD_SLOTS_LOOK, |done| {
+                eprintln!(
+                    "build slots: {} free, {} restored, {} trimmed{}",
+                    done.free,
+                    done.restored,
+                    done.trimmed,
+                    if done.recreated { ", fifo recreated" } else { "" }
+                );
+            });
         }
         Err(why) => eprintln!("build slots: not made, builds keep their own width: {why}"),
     }

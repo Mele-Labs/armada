@@ -177,3 +177,14 @@ fn a_build_with_no_pool_gets_a_width_and_one_with_a_pool_gets_nothing() {
     crate::offer("-j --jobserver-auth=fifo:/nowhere".to_string());
     assert_eq!(crate::build_cap(width), None);
 }
+
+#[test]
+fn a_listing_names_a_compiler_by_the_last_part_of_its_path() {
+    let named = crate::build_slots::names_a_compiler_for_test;
+    assert!(named("/bin/zsh\n/Users/me/.rustup/toolchains/stable/bin/rustc\n"));
+    assert!(named("cargo\n"));
+    // A tool of cargo's that holds no token of its own, and a path that only
+    // passes through a directory of the name.
+    assert!(!named("/Users/me/.cargo/bin/cargo-nextest\n/Users/me/cargo/bin/ls\n"));
+    assert!(!named(""));
+}
