@@ -155,7 +155,8 @@ pub(crate) fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Res
 }
 
 /// The one message the agent gets for the marks. `approve` says the plan is approved with them.
-pub(crate) fn message(version: u32, approve: bool, said: &[Said]) -> String {
+pub(crate) fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
+    let version = plan.version;
     let head = match approve {
         true => format!("The owner approved plan v{version} with changes marked on it."),
         false => format!("The owner marked changes on plan v{version}."),
@@ -166,10 +167,22 @@ pub(crate) fn message(version: u32, approve: bool, said: &[Said]) -> String {
         (false, false) => "\nThey are proposals. Weigh each, say where you disagree, and record the plan again if you take any. The plan stays as recorded until you do.".to_string(),
     };
     let lines: String = said.iter().map(|one| format!("\n- {}", one.agent)).collect();
-    format!("{head}{how}{lines}")
+    // Approved with marks, the plan as recorded is what is built: its tasks are the agent's list.
+    let build = if approve { format!("\n\n{}", the_tasks(plan)) } else { String::new() };
+    format!("{head}{how}{lines}{build}")
+}
+
+/// The plan's tasks, verbatim and in order, with what the agent does with them.
+fn the_tasks(plan: &KeptPlan) -> String {
+    let tasks: String = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| format!("\n- {}", task.text)).collect();
+    format!("{} The tasks:{tasks}", ipc::TASK_LIST_IS_THE_PLAN)
 }
 
 /// The one message for an approval with no marks.
-pub(crate) fn approved_message(version: u32) -> String {
-    format!("The owner approved plan v{version}. Build it as recorded, and record it again if the work shows it is wrong.")
+pub(crate) fn approved_message(plan: &KeptPlan) -> String {
+    format!(
+        "The owner approved plan v{}. Build it as recorded, and record it again if the work shows it is wrong.\n\n{}",
+        plan.version,
+        the_tasks(plan)
+    )
 }
