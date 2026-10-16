@@ -18,3 +18,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Bare check in `--step-advanced`, tooltip `Done` on a set-up row and `Active` beside a profile's login."
+
+[[icons.check.usage]]
+  means = "An output style that is active"
+  group = "Kit"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 16 Oct 2026 for the walk `output-styles`. Bare check in `--fg-default`, tooltip `Active`, beside the one style in force. The active name is also heavier, so the mark is not the only carrier."

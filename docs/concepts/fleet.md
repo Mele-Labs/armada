@@ -482,9 +482,10 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | A live session in a served repository | Told |
 |---|---|
 | Waits on the person to run `scripts/preview --restart` or `scripts/restart --main`, and that is the build now running | The build, and for each branch it holds whether it is in it, as the answer to that wait, so it wakes once |
-| Anything else, a held branch or a wait for the other build included | Nothing |
+| Holds a branch the build newly holds, holds newer commits of, or dropped after it was told it was in | The build, and those branches only |
+| Anything else: a branch where it was at the last notice, a branch git cannot place in this build, a wait for the other build | Nothing |
 
-**Only a session that asked is told.** Every branch-holder was told until 15 Oct 2026, and the notice arrived as input, so each session spent a turn answering "no action needed" — in another repository's sessions too, where nothing it held could be in the build.
+**A rebuild that leaves a session's branches where they were says nothing.** Every branch-holder was told on every rebuild until 15 Oct 2026, and the notice arrives as input, so each session spent a turn answering "no action needed", in other repositories' sessions too. What each session was last told of each branch is kept in `build_branch_notices`: the newest commit of it the build held, or `out`.
 
 **The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
 

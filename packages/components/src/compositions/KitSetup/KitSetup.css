@@ -328,3 +328,76 @@
   outline: var(--focus-ring);
   outline-offset: calc(var(--focus-ring-offset) * -1);
 }
+
+/* ---- Output styles --------------------------------------------------------------------------- */
+
+/* A style: the name and its mark on the first line, what it says under it, where it came from last. */
+.armada-kit-setup__style {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border-top: var(--border-width) solid
+    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-kit-setup__style > .armada-kit-setup__item-name {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.armada-kit-setup__style > .armada-kit-setup__item-says {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.armada-kit-setup__style-mark {
+  grid-column: 2;
+  grid-row: 1;
+  display: inline-flex;
+  color: var(--fg-default);
+}
+
+.armada-kit-setup__style-from {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Weight carries the choice: the active style is the heaviest line in the tile. */
+.armada-kit-setup__style[data-applied="active"] > .armada-kit-setup__item-name {
+  font-weight: var(--weight-heading);
+}
+
+/* The session rules, ruled off from the styles they sit on top of. */
+.armada-kit-setup__always {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: calc(var(--border-width) * 2) solid var(--border-subtle);
+}
+
+.armada-kit-setup__always-name {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-kit-setup__always .armada-kit-setup__style {
+  border-top: 0;
+  padding-top: 0;
+}

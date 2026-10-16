@@ -319,3 +319,45 @@ export const ALongListScrollsInsideItsTile: Story = {
     await expect(plugins.contains(document.activeElement)).toBe(false);
   },
 };
+
+/**
+ * Output styles. **Each says where it came from in words, the active one carries a mark, and
+ * Armada's session rules stand apart** as always applied, never as a style to pick.
+ */
+export const OutputStylesRead: Story = {
+  name: "Output styles",
+  args: {
+    setup: {
+      ...FULL,
+      kinds: [
+        {
+          kind: "output_styles",
+          read: {
+            what: "read",
+            items: [
+              { name: "bluf", says: "Bottom line first.", source: "/Users/user/.agent/output-styles/bluf.md", style: { from: "person", applied: "active" } },
+              { name: "Armada", says: "Facts, no filler.", source: "/p/Armada.md", style: { from: "plugin", applied: "available", plugin: "armada" } },
+              { name: "terse-review", says: "One line each.", source: "/r/terse-review.md", style: { from: "repository", applied: "available" } },
+              { name: "Explanatory", says: "Explains its choices.", source: "built in", style: { from: "built_in", applied: "available" } },
+              { name: "Armada session rules", says: "On top of the active style.", source: "Armada", style: { from: "armada", applied: "always" } },
+            ],
+            unreadable: [],
+          },
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const styles = within(within(canvasElement).getByRole("region", { name: "Output styles" }));
+    await expect(styles.getByText("Yours")).toBeVisible();
+    await expect(styles.getByText("This repository")).toBeVisible();
+    await expect(styles.getByText("Built in")).toBeVisible();
+    await expect(styles.getByText("armada")).toBeVisible();
+    // One mark, on the style in force, and none on the rules.
+    await expect(styles.getAllByRole("img", { name: "Active" })).toHaveLength(1);
+    const rules = within(styles.getByRole("region", { name: "Always applied" }));
+    await expect(rules.getByText("Armada session rules")).toBeVisible();
+    await expect(rules.queryByRole("img")).toBeNull();
+    await expect(canvasElement.querySelector(".armada-kit-setup__count")).toBeNull();
+  },
+};

@@ -1,13 +1,14 @@
-// The bays as the flight deck lists them: two lines a row, in the list's own row system. Line one is the bay, the state it is in as
-// a glyph, and the kind of whoever holds it; line two is the facts behind the state, in muted sans, each with its tooltip. Nothing is
-// worded beyond the facts and nothing is counted beside the list. The states are the pool's own (`bays.ts`). #2301.
+// The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
+// holds it, and the facts behind the state, each with its tooltip, grouped under a heading for each repository. A bay and the row of
+// the Job or Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
+// beside the list. The states are the pool's own (`bays.ts`). #2301.
 
 import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, Tooltip } from "@armada/components";
 
 import { PanelKey } from "./keys";
-import { clockOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
+import { clockOf, holderKeyOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
 
 export const kindGlyph = (kind: Holder["kind"], size = 12) => (kind === "job" ? <Box size={size} aria-hidden /> : <SquareTerminal size={size} aria-hidden />);
 
@@ -44,76 +45,138 @@ function timeOf(view: BayView): ReactNode {
   );
 }
 
-/** Line two: what stands behind the state. */
-export function BayFacts({ view }: { view: BayView }) {
+/** Whoever holds the bay, or held it last. */
+function Who({ view }: { view: BayView }) {
   if (view.state === "leased" && view.holder !== undefined) {
-    const who = view.holder.title ?? shortOf(view.holder.id);
     return (
-      <>
-        <Cut full={view.holder.title ?? view.holder.id} className="deck-bay__who">
-          {who}
-        </Cut>
-        {view.branch === undefined ? null : (
-          <Cut full={view.branch} className="deck-bay__branch">
-            {view.branch}
-          </Cut>
-        )}
-      </>
+      <Cut full={view.holder.title ?? view.holder.id} className="deck-bay__who">
+        {view.holder.title ?? shortOf(view.holder.id)}
+      </Cut>
     );
   }
-  if (view.state === "stranded") {
-    const last = view.last;
-    return (
-      <>
-        {last === undefined ? (
-          <span className="deck-bay__who" data-gone>
-            holder gone
-          </span>
-        ) : (
-          <Cut full={last.title ?? last.id} className="deck-bay__who">
-            {last.title ?? shortOf(last.id)}
-          </Cut>
-        )}
-        <span className="deck-bay__marks">
-          {(view.dirty ?? 0) > 0 ? (
-            <Mark said={`${plural(view.dirty!, "file", "files")} uncommitted`}>
-              <FilePenLine size={12} aria-hidden />
-            </Mark>
-          ) : null}
-          {(view.unpushed ?? 0) > 0 ? (
-            <Mark said={`${plural(view.unpushed!, "commit", "commits")} not pushed`}>
-              <ArrowUpFromLine size={12} aria-hidden />
-            </Mark>
-          ) : null}
-          {view.told === undefined ? null : (
-            <Mark said={`Holder told at ${clockOf(view.told)}`}>
-              <Mail size={12} aria-hidden />
-            </Mark>
-          )}
-          {last === undefined || last.open ? null : (
-            <Mark said={last.kind === "job" ? "Job ended" : "Session closed"}>
-              <Unplug size={12} aria-hidden />
-            </Mark>
-          )}
-        </span>
-      </>
-    );
-  }
-  if (view.state === "free" || view.state === "closed") {
-    const Warmth = view.warm ? Flame : Snowflake;
-    return (
-      <>
-        <Mark said={view.warm ? "Warm" : "Cold"}>
-          <Warmth size={12} aria-hidden />
-        </Mark>
-      </>
-    );
-  }
-  return null;
+  if (view.state !== "stranded") return null;
+  const last = view.last;
+  return last === undefined ? (
+    <span className="deck-bay__who" data-gone>
+      holder gone
+    </span>
+  ) : (
+    <Cut full={last.title ?? last.id} className="deck-bay__who">
+      {last.title ?? shortOf(last.id)}
+    </Cut>
+  );
 }
 
-/** The bays panel: every slot of the pool, a row each. A press selects the slot. */
-export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
+/** The branch the bay is on now, where there is one to name. */
+function Branch({ view }: { view: BayView }) {
+  if (view.state !== "leased" || view.holder === undefined || view.branch === undefined) return null;
+  return (
+    <Cut full={view.branch} className="deck-bay__branch">
+      {view.branch}
+    </Cut>
+  );
+}
+
+/** What is left on a stranded bay, and whether its holder was told or is gone. */
+function Marks({ view }: { view: BayView }) {
+  if (view.state !== "stranded") return null;
+  const last = view.last;
+  return (
+    <span className="deck-bay__marks">
+      {(view.dirty ?? 0) > 0 ? (
+        <Mark said={`${plural(view.dirty!, "file", "files")} uncommitted`}>
+          <FilePenLine size={12} aria-hidden />
+        </Mark>
+      ) : null}
+      {(view.unpushed ?? 0) > 0 ? (
+        <Mark said={`${plural(view.unpushed!, "commit", "commits")} not pushed`}>
+          <ArrowUpFromLine size={12} aria-hidden />
+        </Mark>
+      ) : null}
+      {view.told === undefined ? null : (
+        <Mark said={`Holder told at ${clockOf(view.told)}`}>
+          <Mail size={12} aria-hidden />
+        </Mark>
+      )}
+      {last === undefined || last.open ? null : (
+        <Mark said={last.kind === "job" ? "Job ended" : "Session closed"}>
+          <Unplug size={12} aria-hidden />
+        </Mark>
+      )}
+    </span>
+  );
+}
+
+/** A free or closed bay: warm or cold. */
+function Warmth({ view }: { view: BayView }) {
+  if (view.state !== "free" && view.state !== "closed") return null;
+  const Glyph = view.warm ? Flame : Snowflake;
+  return (
+    <Mark said={view.warm ? "Warm" : "Cold"}>
+      <Glyph size={12} aria-hidden />
+    </Mark>
+  );
+}
+
+/** The kind of whoever holds a leased bay. */
+function Kind({ view }: { view: BayView }) {
+  return view.state === "leased" && view.holder !== undefined ? <Mark said={view.holder.kind === "job" ? "Job" : "Session"}>{kindGlyph(view.holder.kind)}</Mark> : null;
+}
+
+/** The state as a glyph, its word in the tooltip. */
+function State({ view, size }: { view: BayView; size: number }) {
+  return (
+    <Tooltip label={view.said ?? view.word}>
+      <span className="deck-bay__state" role="img" aria-label={view.word}>
+        <view.Glyph size={size} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** The bay's number, painted large in the door. */
+const Name = ({ view }: { view: BayView }) => (
+  <span className="deck-bay__name">
+    <span className="deck-bay__prefix">slot-</span>
+    {view.slot.slot}
+  </span>
+);
+
+/** The bay's headline: the holder and its kind, where a bay has one. */
+function Lead({ view }: { view: BayView }) {
+  if (view.state !== "leased" && view.state !== "stranded") return null;
+  return (
+    <span className="deck-bay__line">
+      <Kind view={view} />
+      <Who view={view} />
+    </span>
+  );
+}
+
+/** A berth: a door in the state's hue carrying the glyph and the bay's number, and to its right the holder, its branch and the time. */
+function Berth({ view }: { view: BayView }) {
+  return (
+    <>
+      <span className="deck-bay__door">
+        <State view={view} size={16} />
+        <Name view={view} />
+      </span>
+      <span className="deck-bay__body">
+        <Lead view={view} />
+        <Branch view={view} />
+        <span className="deck-bay__foot">
+          <Warmth view={view} />
+          <Marks view={view} />
+          {timeOf(view)}
+        </span>
+      </span>
+    </>
+  );
+}
+
+/** The bays panel: every slot of the pool, a bay each, under a heading for its repository. A press selects the slot. */
+export function Bays({ views, repoName, working, selected, hovered, onHover, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; hovered: string | undefined; onHover: (holder: string | undefined) => void; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
+  const groups = [...new Set(views.map((view) => view.slot.manifest_id))].map((manifest) => ({ manifest, views: views.filter((view) => view.slot.manifest_id === manifest) }));
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <header className="deck-band">
@@ -128,37 +191,38 @@ export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots
         <PanelKey id="bays" />
       </header>
       <ul className="deck-bays__rows">
-        {views.map((view) => {
-          const repo = repoName(view.slot.manifest_id);
-          const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
+        {groups.map((group) => {
+          const repo = repoName(group.manifest);
           return (
-            <li key={view.key}>
-              <button
-                type="button"
-                className="deck-bay"
-                data-bay={view.state}
-                data-live={live || undefined}
-                data-selected={selected === view.key || undefined}
-                aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
-                onClick={() => onSelect(view.key)}
-              >
-                <span className="deck-bay__head">
-                  <Tooltip label={view.said ?? view.word}>
-                    <span className="deck-bay__state" role="img" aria-label={view.word}>
-                      <view.Glyph size={16} aria-hidden />
-                    </span>
-                  </Tooltip>
-                  <span className="deck-bay__name">slot-{view.slot.slot}</span>
-                  {view.state === "leased" && view.holder !== undefined ? (
-                    <Mark said={view.holder.kind === "job" ? "Job" : "Session"}>{kindGlyph(view.holder.kind)}</Mark>
-                  ) : null}
-                  <span className="deck-bay__repo">{repo}</span>
-                  {timeOf(view)}
-                </span>
-                <span className="deck-bay__facts">
-                  <BayFacts view={view} />
-                </span>
-              </button>
+            <li key={group.manifest} className="deck-list__band">
+              <h3 className="deck-list__repository">{repo}</h3>
+              <ul className="deck-list__group">
+                {group.views.map((view) => {
+                  const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
+                  const holder = holderKeyOf(view);
+                  return (
+                    <li key={view.key}>
+                      <button
+                        type="button"
+                        className="deck-bay"
+                        data-bay={view.state}
+                        data-kept={view.kept !== undefined || undefined}
+                        data-live={live || undefined}
+                        data-hover={(holder !== undefined && holder === hovered) || undefined}
+                        data-selected={selected === view.key || undefined}
+                        aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
+                        onClick={() => onSelect(view.key)}
+                        onMouseEnter={() => onHover(holder)}
+                        onMouseLeave={() => onHover(undefined)}
+                        onFocus={() => onHover(holder)}
+                        onBlur={() => onHover(undefined)}
+                      >
+                        <Berth view={view} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           );
         })}
