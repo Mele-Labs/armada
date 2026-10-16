@@ -1,109 +1,116 @@
-// The review surface's state, held outside React so what was open, run or drafted stays as it was when the Reviews
-// tab is left and come back to. **Built per window from a seed**, as Sessions are, and handed
-// down by `ReviewsFrom`. Nothing is served yet, so every act is recorded here and goes no further.
+// The review surface's state, held outside React so what was open, read or drafted stays as it was when the Reviews
+// tab is left and come back to. **Built per window**, as Sessions are, and handed down by `ReviewsFrom`.
 //
-// **An agent runs only when he presses**, and asks first: a quick action, Ask, a tool, or Natural Search. Each runs for
-// this pull request alone, and a result stands until he asks again.
+// Two halves with a seam between them. **Fleet's** (this file): the four lists read from the forge when the tab opens
+// and on Refresh and never polled, a pull request's page read when it is opened, its patches read when a change is
+// shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the quick actions,
+// Ask, the tools and Natural Search, which are fixtures for now and which wave 2 replaces without touching this half.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { PullRequestPage } from "@armada/protocol";
+import type { PullRequestPage, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
-import type { Anchor, Asked, Find, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
-import { bySession, idOfName } from "./tools";
+import type { AgentFixtures, AgentPr, Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
+import { linesOfPatch } from "./patch";
+import type { ReviewSource } from "./source";
+import { createAgentActs, type AgentActs } from "./store-agent";
 
-/** How long an agent runs in the mock before it has read the pull request. */
-export const AGENT_MS = 2200;
+export { AGENT_MS } from "./store-agent";
 
-/** A pull request with the commit pushed to it since: its head moves, and the page lists it. */
-const withPush = (pr: ReviewPr, push: ReviewSeed["pushes"][string] | undefined): ReviewPr =>
-  push === undefined
-    ? pr
-    : { ...pr, head: push.sha, page: { ...pr.page, commits: [...pr.page.commits, { sha: push.sha, headline: push.headline, author: push.author, at: new Date().toISOString() }] } };
-
-const EMPTY: PrWork = { explains: {}, kind: undefined, asks: [], view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
+const EMPTY: PrWork = {
+  page: { state: "unread" },
+  patches: {},
+  refused: undefined,
+  submitting: false,
+  explains: {},
+  kind: undefined,
+  asks: [],
+  view: "explanation",
+  runs: {},
+  opened: [],
+  drafts: [],
+  threads: [],
+  findings: [],
+  submissions: [],
+  review: "none",
+};
 
 export type ToolIn = { kind: ToolDef["kind"]; name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
 
-export type ReviewStore = {
+export type ReviewStore = AgentActs & {
   get: () => ReviewSnapshot;
   subscribe: (listener: () => void) => () => void;
-  /** The list, fetched when the review view opens and again on Refresh. Nothing polls. */
+  /** The lists, read from the forge when the review view opens and again on Refresh. Nothing polls. */
   fetch: () => void;
   /** Chooses the list: `requested`, `mine`, or a saved find's id. */
   setTab: (tab: ReviewTab) => void;
-  /** Asks a Drone to look for what he described. Runs on send only, since it costs, and the find is saved as a list. */
-  find: (words: string) => void;
-  rerunFind: (id: string) => void;
-  removeFind: (id: string) => void;
+  /** Opens a pull request in the reader, and reads its page from the forge. */
   open: (key: string | undefined) => void;
   /** Puts the Natural Search box up in place of the list, or takes it down. */
   setSearching: (on: boolean) => void;
-  /**
-   * **Everything that spends tokens goes through here**: the quick actions, the review tools and Natural Search. It runs
-   * at once where he turned the question off, and otherwise waits on a confirmation.
-   */
-  spend: (what: string, run: () => void, cancelled?: () => void) => void;
-  /** Run, from the confirmation. `again` is its box, "Don't ask again". */
-  confirmSpend: (again: boolean) => void;
-  cancelSpend: () => void;
   setView: (key: string, view: View) => void;
-  /** Chooses an explanation. An agent reads the pull request the first time only, unless a Session of his already knows. A kept one shows at once. */
-  explain: (key: string, def: ToolDef) => void;
-  /** Explains again, at the commit the pull request is at now. */
-  explainAgain: (key: string, def: ToolDef) => void;
-  /** Shows a choice under the description: an explanation's id, `ask`, or one of his questions. Runs nothing. */
-  show: (key: string, kind: string) => void;
-  /** Asks a question about the pull request, in his words. Runs on send only, and is kept under them. */
-  ask: (key: string, words: string) => void;
-  askAgain: (key: string, id: string) => void;
-  removeAsk: (key: string, id: string) => void;
-  /** Runs a tool for this pull request, or shows what it found last time. Comments runs nothing. */
-  runTool: (key: string, tool: ToolDef) => void;
-  /** Asks a tool again, for this pull request. */
-  rerun: (key: string, tool: ToolDef) => void;
   toggleOpen: (key: string, change: string) => void;
-  addDraft: (key: string, at: Anchor, body: string, thread?: string) => void;
+  /** Reads one file's patch from the forge, the first time its change is shown. */
+  readFile: (key: string, path: string) => void;
+  addDraft: (key: string, draft: Omit<Draft, "id">) => void;
   removeDraft: (key: string, id: string) => void;
-  resolve: (key: string, thread: string, resolved: boolean) => void;
-  dismiss: (key: string, finding: string) => void;
-  sent: (key: string, findings: readonly string[]) => void;
-  /** `told` is the Session a Request changes was sent to as well, by title. */
-  submit: (key: string, verdict: Verdict, body: string, told?: string) => void;
-  /** Records a tool he wrote, in his Kit or in the repository. Nothing is written to a file in the mock. */
-  addTool: (one: ToolIn) => void;
+  /** Resolves a thread, or opens it again, at the forge. Answers whether the forge took it; a refusal is in `refused`. */
+  resolve: (key: string, thread: string, resolved: boolean) => Promise<boolean>;
+  /**
+   * Posts his pending review: the verdict, its summary and every draft, as one review at the commit he read. Answers whether the
+   * forge took it. **Nothing is cleared on a refusal**: his drafts stay, and the forge's words are in `refused`.
+   * `told` is the Session a Request changes was sent to as well, by title.
+   */
+  submit: (key: string, verdict: Verdict, body: string, told?: string) => Promise<boolean>;
 };
 
 let ids = 0;
 const nextId = (prefix: string) => `${prefix}${(ids += 1)}`;
 
-/** The store for a window, over what the forge would serve. */
-export function createReviewStore(seed: ReviewSeed): ReviewStore {
+const NO_AGENT: AgentPr = { explanation: { summary: "", themes: [] }, explainedBy: "agent", accounts: {}, answers: [], asked: [] };
+
+/** A pull request until its page is read: only what the row says. */
+const stubPage = (row: PullReviewRow): PullRequestPage => ({
+  manifest_id: row.manifest_id,
+  number: row.number,
+  base: "",
+  author: row.author,
+  additions: 0,
+  deletions: 0,
+  mergeable: "unknown",
+  review: row.review,
+  approvals: 0,
+  conversation: [],
+  checks: [],
+  files: [],
+  commits: [],
+});
+
+const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
+
+const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
+
+/** The store for a window, over what Fleet serves and the fixtures the agent is driven by. */
+export function createReviewStore(source: ReviewSource, agent: AgentFixtures): ReviewStore {
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
-  const initialWork = (pr: ReviewPr): PrWork => ({
-    ...EMPTY,
-    explains: pr.explainedBy === "session" ? { "how-it-works": { state: "done", at: Date.now(), head: pr.head }, why: { state: "done", at: Date.now(), head: pr.head } } : {},
-    kind: pr.explainedBy === "session" ? "how-it-works" : undefined,
-    asks: pr.asked.map((words) => ({ id: nextId("ask"), words, run: { state: "done", at: Date.now(), head: pr.head } })),
-    threads: pr.threads,
-    review: pr.page.review,
-  });
   let snapshot: ReviewSnapshot = {
     prs: [],
     fetchedAt: undefined,
     fetching: false,
     tab: "requested",
+    me: "",
+    failed: undefined,
     finds: [],
     open: undefined,
     searching: false,
     askFirst: true,
     spending: undefined,
-    armada: seed.tools.armada,
-    kit: seed.tools.kit,
-    repository: seed.tools.repository,
+    armada: agent.tools.armada,
+    kit: agent.tools.kit,
+    repository: agent.tools.repository,
     work: {},
   };
   const set = (next: Partial<ReviewSnapshot>) => {
@@ -113,60 +120,99 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
   const work = (key: string): PrWork => snapshot.work[key] ?? EMPTY;
   const change = (key: string, by: Partial<PrWork>) => set({ work: { ...snapshot.work, [key]: { ...work(key), ...by } } });
   const prOf = (key: string) => snapshot.prs.find((one) => one.key === key);
+  const mend = (key: string, by: Partial<ReviewPr>) => set({ prs: snapshot.prs.map((one) => (one.key === key ? { ...one, ...by } : one)) });
 
-  const arrive = () => {
+  const acts = createAgentActs(agent, { get: () => snapshot, set, work, change, prOf, timers, nextId });
+
+  const prOfRow = (row: PullReviewRow, lists: readonly PrList[], was: ReviewPr | undefined): ReviewPr => {
+    const key = keyOf(row);
+    const fixture = agent.prs[key] ?? NO_AGENT;
+    return {
+      key,
+      repository: row.repository,
+      manifestId: row.manifest_id,
+      number: row.number,
+      title: row.title,
+      branch: row.branch,
+      address: row.address,
+      draft: row.draft,
+      checks: row.checks,
+      head: row.head,
+      updatedAt: row.updated_at,
+      lists,
+      ...(row.team === undefined ? {} : { team: row.team }),
+      ...(fixture.holder === undefined ? {} : { holder: fixture.holder }),
+      body: was?.body ?? "",
+      page: was?.page ?? stubPage(row),
+      explanation: fixture.explanation,
+      explainedBy: fixture.explainedBy,
+      accounts: fixture.accounts,
+      answers: fixture.answers,
+      asked: fixture.asked,
+    };
+  };
+
+  /** The page of a pull request, read from the forge. A page already held stays on screen while it is read again. */
+  const readPage = (key: string) => {
+    const pr = prOf(key);
+    if (pr === undefined || work(key).page.state === "reading") return;
+    const held = work(key).page.state === "read";
+    if (!held) change(key, { page: { state: "reading" } });
+    void source.page(pr.manifestId, pr.number).then((answer) => {
+      const now = prOf(key);
+      if (now === undefined) return;
+      if (!answer.ok) return change(key, { page: held ? { state: "read" } : { state: "said", said: answer.said } });
+      const page = answer.value;
+      const head = page.head ?? now.head;
+      mend(key, { page, body: page.body ?? "", head });
+      // A commit pushed since the patches were read makes them stale: they are read again where their change is shown.
+      change(key, { page: { state: "read" }, threads: page.threads ?? [], review: page.review, ...(head === now.head ? {} : { patches: {} }) });
+    });
+  };
+
+  const arrive = (lists: PullReviewLists) => {
+    const held = snapshot.prs;
+    const silent = new Set<PullReviewList>(lists.silent ?? []);
+    const byKey = new Map<string, { row: PullReviewRow; on: PrList[] }>();
+    for (const list of LISTS) {
+      for (const row of lists[list]) {
+        const one = byKey.get(keyOf(row)) ?? { row, on: [] };
+        one.on.push(list);
+        // The team that was asked is only on the Team list's row, whichever list the pull request was met on first.
+        if (row.team !== undefined && one.row.team === undefined) one.row = { ...one.row, team: row.team };
+        byKey.set(keyOf(row), one);
+      }
+    }
+    const arrived = [...byKey.values()].map(({ row, on }) => {
+      const was = held.find((one) => one.key === keyOf(row));
+      // A list the forge would not answer keeps what it last held, so one failure does not blank a list.
+      const kept = (was?.lists ?? []).filter((list) => silent.has(list));
+      return prOfRow(row, [...new Set([...on, ...kept])], was);
+    });
+    // A pull request only on a silent list stays where it was.
+    const carried = held.filter((one) => !byKey.has(one.key) && one.lists.some((list) => silent.has(list))).map((one) => ({ ...one, lists: one.lists.filter((list) => silent.has(list)) }));
+    const prs = [...arrived, ...carried].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const kept = snapshot.work;
-    // A commit pushed since he first read the list arrives with the second read.
-    const prs = snapshot.fetchedAt === undefined ? seed.prs : seed.prs.map((one) => withPush(one, seed.pushes[one.key]));
+    const fetchedAt = Date.parse(lists.fetched_at);
     set({
       prs,
-      fetchedAt: Date.now(),
+      me: lists.me,
+      failed: undefined,
+      fetchedAt: Number.isNaN(fetchedAt) ? Date.now() : fetchedAt,
       fetching: false,
-      work: Object.fromEntries(prs.map((one) => [one.key, kept[one.key] ?? initialWork(one)])),
+      work: Object.fromEntries(
+        prs.map((one) => {
+          const review = byKey.get(one.key)?.row.review ?? kept[one.key]?.review ?? "none";
+          return [one.key, kept[one.key] === undefined ? { ...EMPTY, ...acts.initial(one), review } : { ...kept[one.key]!, review }];
+        }),
+      ),
     });
+    // The pull request open in the reader is read again, since a commit may have been pushed to it.
+    if (snapshot.open !== undefined && prOf(snapshot.open) !== undefined) readPage(snapshot.open);
   };
-
-  const setFind = (id: string, by: Partial<Find>) => set({ finds: snapshot.finds.map((one) => (one.id === id ? { ...one, ...by } : one)) });
-  const look = (id: string, words: string) => {
-    setFind(id, { run: { state: "running", since: Date.now() }, hits: [] });
-    timers.add(
-      window.setTimeout(() => {
-        const hits = seed.finds.find((one) => new RegExp(one.when, "i").test(words))?.hits ?? [];
-        setFind(id, { run: { state: "done", at: Date.now(), head: "" }, hits });
-      }, AGENT_MS + 600),
-    );
-  };
-
-  const start = (key: string, tool: ToolDef) => {
-    const head = prOf(key)?.head ?? "";
-    change(key, {
-      view: tool.id,
-      runs: { ...work(key).runs, [tool.id]: { state: "running", since: Date.now() } },
-      findings: work(key).findings.filter((one) => one.tool !== tool.id),
-    });
-    timers.add(
-      window.setTimeout(() => {
-        const found: Finding[] = (seed.results[key]?.[tool.id] ?? []).map((one) => ({ id: nextId("f"), tool: tool.id, ...one, dismissed: false, sent: false }));
-        change(key, { runs: { ...work(key).runs, [tool.id]: { state: "done", at: Date.now(), head } }, findings: [...work(key).findings, ...found] });
-      }, AGENT_MS),
-    );
-  };
-
-  const read = (key: string, def: ToolDef, head: string) => {
-    change(key, { kind: def.id, explains: { ...work(key).explains, [def.id]: { state: "running", since: Date.now() } } });
-    timers.add(window.setTimeout(() => change(key, { explains: { ...work(key).explains, [def.id]: { state: "done", at: Date.now(), head } } }), AGENT_MS));
-  };
-
-  const setAsk = (key: string, id: string, run: Asked["run"]) => change(key, { asks: work(key).asks.map((one) => (one.id === id ? { ...one, run } : one)) });
-  const answer = (key: string, id: string, head: string) => {
-    setAsk(key, id, { state: "running", since: Date.now() });
-    timers.add(window.setTimeout(() => setAsk(key, id, { state: "done", at: Date.now(), head }), AGENT_MS));
-  };
-
-  let waiting: (() => void) | undefined;
-  let declined: (() => void) | undefined;
 
   return {
+    ...acts,
     get: () => snapshot,
     subscribe: (listener) => {
       listeners.add(listener);
@@ -175,121 +221,76 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     fetch: () => {
       if (snapshot.fetching) return;
       set({ fetching: true });
-      timers.add(window.setTimeout(arrive, snapshot.fetchedAt === undefined ? 0 : 600));
+      void source.lists().then((answer) => (answer.ok ? arrive(answer.value) : set({ fetching: false, failed: answer.said })));
     },
     setTab: (tab) => set({ tab }),
-    find: (words) => {
-      const said = words.trim().replace(/\s+/g, " ");
-      if (said === "") return;
-      const again = snapshot.finds.find((one) => one.words.toLowerCase() === said.toLowerCase());
-      const id = again?.id ?? nextId("find");
-      if (again === undefined) set({ finds: [...snapshot.finds, { id, words: said, run: { state: "idle" }, hits: [] }] });
-      set({ tab: id });
-      if (again?.run.state !== "running") look(id, said);
+    open: (open) => {
+      set({ open });
+      if (open !== undefined) readPage(open);
     },
-    rerunFind: (id) => {
-      const one = snapshot.finds.find((one) => one.id === id);
-      if (one !== undefined && one.run.state !== "running") look(id, one.words);
-    },
-    removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
-    open: (open) => set({ open }),
     setSearching: (searching) => set({ searching }),
-    spend: (what, run, cancelled) => {
-      if (!snapshot.askFirst) return run();
-      waiting = run;
-      declined = cancelled;
-      set({ spending: what });
-    },
-    confirmSpend: (again) => {
-      const run = waiting;
-      waiting = undefined;
-      declined = undefined;
-      set({ spending: undefined, ...(again ? { askFirst: false } : {}) });
-      run?.();
-    },
-    cancelSpend: () => {
-      const no = declined;
-      waiting = undefined;
-      declined = undefined;
-      set({ spending: undefined });
-      no?.();
-    },
     setView: (key, view) => change(key, { view }),
-    explain: (key, def) => {
-      const pr = prOf(key);
-      if (pr === undefined) return;
-      const kept = work(key).explains[def.id];
-      change(key, { kind: def.id });
-      if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) return;
-      read(key, def, pr.head);
-    },
-    explainAgain: (key, def) => {
-      const pr = prOf(key);
-      if (pr === undefined || bySession(pr, def) || work(key).explains[def.id]?.state === "running") return;
-      read(key, def, pr.head);
-    },
-    show: (key, kind) => change(key, { kind }),
-    ask: (key, words) => {
-      const pr = prOf(key);
-      const said = words.trim().replace(/\s+/g, " ");
-      if (pr === undefined || said === "") return;
-      const again = work(key).asks.find((one) => one.words.toLowerCase() === said.toLowerCase());
-      const id = again?.id ?? nextId("ask");
-      if (again === undefined) change(key, { asks: [...work(key).asks, { id, words: said, run: { state: "idle" } }] });
-      change(key, { kind: id });
-      if (again?.run.state !== "running") answer(key, id, pr.head);
-    },
-    askAgain: (key, id) => {
-      const pr = prOf(key);
-      if (pr !== undefined && work(key).asks.find((one) => one.id === id)?.run.state !== "running") answer(key, id, pr.head);
-    },
-    removeAsk: (key, id) => change(key, { asks: work(key).asks.filter((one) => one.id !== id), kind: work(key).kind === id ? undefined : work(key).kind }),
-    runTool: (key, tool) => {
-      if (!tool.agent) return change(key, { view: tool.id });
-      const run = work(key).runs[tool.id];
-      if (run === undefined || run.state === "idle") return start(key, tool);
-      change(key, { view: tool.id });
-    },
-    rerun: (key, tool) => {
-      if (work(key).runs[tool.id]?.state === "running") return;
-      start(key, tool);
-    },
     toggleOpen: (key, id) => {
       const opened = work(key).opened;
       change(key, { opened: opened.includes(id) ? opened.filter((one) => one !== id) : [...opened, id] });
     },
-    addDraft: (key, at, body, thread) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...at, body, ...(thread === undefined ? {} : { thread }) }] }),
-    removeDraft: (key, id) => change(key, { drafts: work(key).drafts.filter((one) => one.id !== id) }),
-    resolve: (key, thread, resolved) => change(key, { threads: work(key).threads.map((one) => (one.id === thread ? { ...one, resolved } : one)) }),
-    dismiss: (key, finding) => change(key, { findings: work(key).findings.map((one) => (one.id === finding ? { ...one, dismissed: true } : one)) }),
-    sent: (key, findings) => change(key, { findings: work(key).findings.map((one) => (findings.includes(one.id) ? { ...one, sent: true } : one)) }),
-    submit: (key, verdict, body, told) => {
+    readFile: (key, path) => {
       const pr = prOf(key);
-      if (pr === undefined) return;
-      const now = new Date().toISOString();
-      const current = work(key);
-      // Each draft is posted: a reply joins its thread, a new comment opens one.
-      let threads = [...current.threads];
-      for (const draft of current.drafts) {
-        const comment = { id: nextId("c"), author: seed.me, at: now, body: draft.body };
-        if (draft.thread !== undefined && threads.some((one) => one.id === draft.thread)) {
-          threads = threads.map((one) => (one.id === draft.thread ? { ...one, comments: [...one.comments, comment] } : one));
-        } else {
-          threads.push({ id: nextId("t"), change: draft.change, hunk: draft.hunk, ...(draft.line === undefined ? {} : { line: draft.line }), resolved: false, comments: [comment] });
-        }
-      }
-      const review: PullRequestPage["review"] = verdict === "approve" ? "approved" : verdict === "request_changes" ? "changes_requested" : current.review;
-      change(key, {
-        threads,
-        drafts: [],
-        review,
-        submissions: [...current.submissions, { verdict, body: body.trim(), comments: current.drafts.length, at: now, ...(told === undefined ? {} : { told }) }],
+      if (pr === undefined || work(key).patches[path] !== undefined) return;
+      const keep = (read: PatchRead) => change(key, { patches: { ...work(key).patches, [path]: read } });
+      keep({ state: "reading" });
+      void source.file(pr.manifestId, pr.number, path).then((answer) => {
+        if (!answer.ok) return keep({ state: "said", said: answer.said });
+        const patch = answer.value.patch;
+        keep(patch === undefined ? { state: "said", said: answer.value.said ?? "No lines changed in this file." } : { state: "read", lines: linesOfPatch(path, patch) });
       });
     },
-    addTool: ({ kind, name, checks, scope, manifestId }) => {
-      const def: ToolDef = { id: idOfName(name), kind, name: name.trim(), source: scope, mark: "custom", checks: checks.trim(), agent: true };
-      if (scope === "kit") set({ kit: [...snapshot.kit.filter((one) => one.id !== def.id), def] });
-      else set({ repository: { ...snapshot.repository, [manifestId]: [...(snapshot.repository[manifestId] ?? []).filter((one) => one.id !== def.id), def] } });
+    addDraft: (key, draft) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...draft }] }),
+    removeDraft: (key, id) => change(key, { drafts: work(key).drafts.filter((one) => one.id !== id) }),
+    resolve: async (key, thread, resolved) => {
+      const pr = prOf(key);
+      if (pr === undefined) return false;
+      const answer = await source.resolve(pr.manifestId, { thread, resolved });
+      if (!answer.ok) {
+        change(key, { refused: answer.said });
+        return false;
+      }
+      change(key, { refused: undefined, threads: work(key).threads.map((one) => (one.id === thread ? { ...one, resolved: answer.value.resolved } : one)) });
+      return true;
+    },
+    submit: async (key, verdict, body, told) => {
+      const pr = prOf(key);
+      const current = work(key);
+      if (pr === undefined || current.submitting) return false;
+      const comments: PullReviewComment[] = current.drafts.map((one) =>
+        one.thread !== undefined
+          ? { kind: "reply", thread: one.thread, body: one.body }
+          : one.line !== undefined && one.side !== undefined
+            ? { kind: "line", path: one.path, line: one.line, side: one.side, body: one.body }
+            : { kind: "file", path: one.path, body: one.body },
+      );
+      change(key, { submitting: true, refused: undefined });
+      const answer = await source.write(pr.manifestId, {
+        pull_request: pr.number,
+        kind: verdict,
+        ...(body.trim() === "" ? {} : { body: body.trim() }),
+        ...(comments.length === 0 ? {} : { comments }),
+        ...(pr.head === "" ? {} : { commit: pr.head }),
+      });
+      if (!answer.ok) {
+        change(key, { submitting: false, refused: answer.said });
+        return false;
+      }
+      const page = answer.value;
+      mend(key, { page, body: page.body ?? pr.body, head: page.head ?? pr.head });
+      change(key, {
+        submitting: false,
+        drafts: [],
+        threads: page.threads ?? [],
+        review: page.review,
+        submissions: [...work(key).submissions, { verdict, body: body.trim(), comments: comments.length, at: new Date().toISOString(), ...(told === undefined ? {} : { told }) }],
+      });
+      return true;
     },
   };
 }
@@ -298,14 +299,14 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
 
 const Held = createContext<ReviewStore | undefined>(undefined);
 
-/** Hands the window the store a scenario built. Nothing handed, and no review surface is offered. */
+/** Hands the window its store. Nothing handed, and no review surface is offered. */
 export function ReviewsFrom({ store, children }: { store: ReviewStore | undefined; children: ReactNode }) {
   return <Held.Provider value={store}>{children}</Held.Provider>;
 }
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

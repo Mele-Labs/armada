@@ -3,15 +3,18 @@
 // a path is only a small caption. The same block draws a change three ways, for the explanation, for what a tool
 // found on it, and for the Comments tool, so a finding, a thread and his own words all hang on the change they are about.
 
-import { useState } from "react";
-import { ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, LoaderCircle, MessageSquare } from "lucide-react";
 import { Button, DiffSize, Prose, PrMark, Tooltip, UnifiedDiff } from "@armada/components";
 import type { DiffFile } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
+import { changesOf, ownerOf, placeOfDraft, placeOfThread, spotOf } from "./changes";
+import type { Spot } from "./changes";
 import { DraftCard, FindingCard, LineComposer, ThreadCard } from "./lines";
 import { TOOL_MARK } from "./marks";
-import type { Anchor, Change, Draft, Finding, ReviewPr, Theme, Thread } from "./model";
+import type { Change, Draft, Finding, ReviewPr, Theme, Thread } from "./model";
+import { placeOfLine } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { toolsOf } from "./tools";
 
@@ -19,7 +22,10 @@ export type ChangeMode = "explain" | "result" | "comments";
 
 type Send = ReturnType<typeof useSendFindings>;
 
-const hereOf = (at: Anchor, hunk: number, line: number | undefined) => at.hunk === hunk && at.line === line;
+/** Where he is writing: a hunk of the change and a line of it, or the change itself; or a reply on a thread. */
+type Composing = Spot & { thread?: string };
+
+const hereOf = (at: Spot | undefined, hunk: number, line: number | undefined) => at !== undefined && at.hunk === hunk && at.line === line;
 
 /** One theme: its title and purpose over the changes, in the order they were made. */
 export function ThemeBlock({ pr, theme, number, mode, tool, send, quiet }: { pr: ReviewPr; theme: Theme; number: number; mode: ChangeMode; tool?: string; send: Send; quiet?: (change: Change) => boolean }) {
@@ -48,7 +54,7 @@ export function ThemeBlock({ pr, theme, number, mode, tool, send, quiet }: { pr:
  * pressed here pins its findings to the path and the lines, with the hunk one press away.
  */
 export function BareChanges({ pr, mode, tool, send, quiet }: { pr: ReviewPr; mode: ChangeMode; tool?: string; send: Send; quiet?: (change: Change) => boolean }) {
-  const all = pr.explanation.themes.flatMap((theme) => theme.changes);
+  const all = changesOf(pr, useReviews().work[pr.key] ?? NO_WORK);
   const shown = [...all].sort((a, b) => (a.hunks[0]?.path ?? "").localeCompare(b.hunks[0]?.path ?? "")).filter((one) => quiet === undefined || !quiet(one));
   if (shown.length === 0) return null;
   return (
@@ -67,10 +73,12 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
   const tools = toolsOf(reviews, pr.manifestId);
-  const [composing, setComposing] = useState<(Anchor & { thread?: string }) | undefined>(undefined);
+  const [composing, setComposing] = useState<Composing | undefined>(undefined);
 
-  const threads = work.threads.filter((one) => one.change === change.id);
-  const drafts = work.drafts.filter((one) => one.change === change.id);
+  // **A thread or a draft is named by its place in a file**, so it belongs to the first change that holds that line.
+  const all = changesOf(pr, work);
+  const threads = work.threads.filter((one) => ownerOf(all, one.path, placeOfThread(one))?.id === change.id);
+  const drafts = work.drafts.filter((one) => (one.thread === undefined ? ownerOf(all, one.path, placeOfDraft(one))?.id === change.id : threads.some((thread) => thread.id === one.thread)));
   const findings = work.findings.filter((one) => one.change === change.id && !one.dismissed);
   const shownFindings = tool === undefined ? [] : findings.filter((one) => one.tool === tool);
   const onLines = threads.some((one) => one.line !== undefined) || drafts.some((one) => one.line !== undefined && one.thread === undefined);
@@ -80,16 +88,26 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   const marked = [...new Set(findings.map((one) => tools.find((def) => def.id === one.tool)?.mark ?? "custom"))];
   const open = threads.some((one) => !one.resolved) || drafts.length > 0;
   const place = change.hunks[0]?.path ?? change.title;
+  // **A change nobody grouped is a file**, whose patch is read from the forge the first time it is shown.
+  const file = pr.explanation.themes.length === 0;
+  const patch = file ? work.patches[change.id] : undefined;
+  useEffect(() => {
+    if (shown && file) store.readFile(pr.key, change.id);
+  }, [shown, file, store, pr.key, change.id]);
 
-  const cards = (here: (one: Anchor) => boolean) => {
-    const ts = threads.filter(here);
-    const ds = drafts.filter((one) => here(one) && one.thread === undefined);
-    const writing = composing !== undefined && here(composing) && composing.thread === undefined;
+  const spotOfThread = (thread: Thread) => spotOf(change, thread.path, placeOfThread(thread));
+  const spotOfDraft = (draft: Draft) => spotOf(change, draft.path, placeOfDraft(draft));
+  const pathOf = (hunk: number) => change.hunks[hunk]?.path ?? change.hunks[0]?.path ?? change.id;
+
+  const cards = (here: (one: Spot | undefined) => boolean) => {
+    const ts = threads.filter((one) => here(spotOfThread(one)));
+    const ds = drafts.filter((one) => one.thread === undefined && here(spotOfDraft(one)));
+    const writing = composing !== undefined && composing.thread === undefined && here(composing);
     if (ts.length + ds.length === 0 && !writing) return null;
     return (
       <div className="pr-under">
         {ts.map((thread) => (
-          <ThreadBlock key={thread.id} pr={pr} change={change} thread={thread} composing={composing} setComposing={setComposing} />
+          <ThreadBlock key={thread.id} pr={pr} change={change} thread={thread} spot={spotOfThread(thread)} composing={composing} setComposing={setComposing} />
         ))}
         {ds.map((draft) => (
           <DraftCard key={draft.id} draft={draft} onRemove={() => store.removeDraft(pr.key, draft.id)} />
@@ -99,7 +117,9 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
             keep={`pr-review:${pr.key}:${change.id}:${composing.hunk}:${composing.line ?? "change"}`}
             label="Comment"
             onAdd={(body) => {
-              store.addDraft(pr.key, { change: change.id, hunk: composing.hunk, ...(composing.line === undefined ? {} : { line: composing.line }) }, body);
+              const lines = change.hunks[composing.hunk]?.lines ?? [];
+              const at = composing.line === undefined ? undefined : placeOfLine(lines, composing.line);
+              store.addDraft(pr.key, { path: pathOf(composing.hunk), ...(at === undefined ? {} : { line: at.line, side: at.side }), body });
               setComposing(undefined);
             }}
             onCancel={() => setComposing(undefined)}
@@ -108,6 +128,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
       </div>
     );
   };
+  const onChange = (one: Spot | undefined) => one === undefined || one.line === undefined;
 
   return (
     <article className="pr-change" tabIndex={0} data-stop aria-label={`Change: ${bare ? place : change.title}`} data-mode={mode} data-bare={bare || undefined}>
@@ -126,7 +147,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
         </span>
         {mode === "comments" ? (
           <Tooltip label="Comment on this change">
-            <Button variant="ghost" size="sm" aria-label={`Comment on ${bare ? place : change.title}`} onClick={() => setComposing({ change: change.id, hunk: 0 })}>
+            <Button variant="ghost" size="sm" aria-label={`Comment on ${bare ? place : change.title}`} onClick={() => setComposing({ hunk: 0 })}>
               Comment
             </Button>
           </Tooltip>
@@ -143,11 +164,17 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
             <FindingBlock key={finding.id} pr={pr} finding={finding} mark={tools.find((def) => def.id === finding.tool)?.mark ?? "custom"} send={send} />
           ))
         : null}
-      {mode === "comments" ? cards((one) => one.line === undefined) : null}
+      {mode === "comments" ? cards(onChange) : null}
       <Button variant="ghost" size="sm" className="pr-change__toggle" aria-expanded={shown} onClick={() => store.toggleOpen(pr.key, change.id)}>
         {shown ? <ChevronDown size={16} strokeWidth={2} aria-hidden /> : <ChevronRight size={16} strokeWidth={2} aria-hidden />}
         {shown ? "Hide change" : "Show change"}
       </Button>
+      {shown && patch?.state === "reading" ? (
+        <span className="pr-review__mark" data-checks="running">
+          <PrMark Glyph={LoaderCircle} said="Reading the change" tone="running" />
+        </span>
+      ) : null}
+      {shown && patch?.state === "said" ? <p className="pr-change__said">{patch.said}</p> : null}
       {shown
         ? change.hunks.map((hunk, at) => {
             const file: DiffFile = { path: hunk.path, lines: hunk.lines, meta: <DiffSize additions={hunk.lines.filter((one) => one.kind === "added").length} deletions={hunk.lines.filter((one) => one.kind === "removed").length} /> };
@@ -159,7 +186,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
                   onLine={{
                     label: "Comment on this line",
                     name: (_, index) => `Comment on ${hunk.lines[index]?.text.trim() ?? "this line"}`,
-                    press: (_, index) => setComposing({ change: change.id, hunk: at, line: index }),
+                    press: (_, index) => setComposing({ hunk: at, line: index }),
                   }}
                 />
               </div>
@@ -170,7 +197,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   );
 }
 
-function ThreadBlock({ pr, change, thread, composing, setComposing }: { pr: ReviewPr; change: Change; thread: Thread; composing: (Anchor & { thread?: string }) | undefined; setComposing: (next: (Anchor & { thread?: string }) | undefined) => void }) {
+function ThreadBlock({ pr, change, thread, spot, composing, setComposing }: { pr: ReviewPr; change: Change; thread: Thread; spot: Spot | undefined; composing: Composing | undefined; setComposing: (next: Composing | undefined) => void }) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const drafts: Draft[] = work.drafts.filter((one) => one.thread === thread.id);
@@ -180,15 +207,15 @@ function ThreadBlock({ pr, change, thread, composing, setComposing }: { pr: Revi
       where={change.title}
       drafts={drafts}
       replying={composing?.thread === thread.id}
-      onReply={() => setComposing({ change: thread.change, hunk: thread.hunk, ...(thread.line === undefined ? {} : { line: thread.line }), thread: thread.id })}
-      onResolve={(resolved) => store.resolve(pr.key, thread.id, resolved)}
+      onReply={() => setComposing({ hunk: spot?.hunk ?? 0, ...(spot?.line === undefined ? {} : { line: spot.line }), thread: thread.id })}
+      onResolve={(resolved) => void store.resolve(pr.key, thread.id, resolved)}
       onRemove={(id) => store.removeDraft(pr.key, id)}
       composer={
         <LineComposer
           keep={`pr-review:${pr.key}:reply:${thread.id}`}
           label="Reply"
           onAdd={(body) => {
-            store.addDraft(pr.key, thread, body, thread.id);
+            store.addDraft(pr.key, { path: thread.path, body, thread: thread.id });
             setComposing(undefined);
           }}
           onCancel={() => setComposing(undefined)}

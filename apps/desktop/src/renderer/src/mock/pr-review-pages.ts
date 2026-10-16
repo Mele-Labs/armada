@@ -9,7 +9,8 @@
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestPage } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
-import type { Account, Change, FindingSeed, Hunk, ReviewPr, ReviewSeed, Theme, Thread, ToolDef } from "../pr-review/model";
+import type { Account, Change, FindingSeed, Hunk, MockPr, ReviewPr, ReviewSeed, SeedThread, Theme, ToolDef } from "../pr-review/model";
+import { ARMADA_TOOLS } from "../pr-review/tools";
 
 const FORGE = "https://github.com/mele-labs";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -68,14 +69,14 @@ type Spec = {
   results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
 
-function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, readonly FindingSeed[]>> } {
+function build(spec: Spec): { pr: MockPr; results: Readonly<Record<string, readonly FindingSeed[]>> } {
   const themes: Theme[] = spec.themes.map((theme) => ({
     ...theme,
     changes: theme.changes.map((one): Change => ({ ...one, hunks: one.hunks.map(hunkOf) })),
   }));
   const changes = themes.flatMap((theme) => theme.changes);
   const key = `${spec.repository}#${spec.number}`;
-  const threads: Thread[] = (spec.threads ?? []).map((one) => {
+  const threads: SeedThread[] = (spec.threads ?? []).map((one) => {
     const at = changes.find((change) => change.id === one.change);
     if (at === undefined) throw new Error(`${key} has no change ${one.change}`);
     const line = one.match === undefined ? -1 : at.hunks[0]!.lines.findIndex((text) => text.text.includes(one.match!));
@@ -111,7 +112,7 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     })),
     commits: spec.commits,
   };
-  const pr: ReviewPr = {
+  const pr: MockPr = {
     key,
     repository: spec.repository,
     manifestId: spec.manifestId,
@@ -122,6 +123,7 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     draft: false,
     checks: spec.checks,
     head: spec.commits.at(-1)?.sha ?? "",
+    updatedAt: minutesAgo(spec.opened),
     lists: spec.lists,
     ...(spec.team === undefined ? {} : { team: spec.team }),
     ...(spec.holder === undefined ? {} : { holder: spec.holder }),
@@ -1233,17 +1235,6 @@ const webhook = quick({
 
 // ---- The tools ------------------------------------------------------------------------------------------------
 
-const armadaTools: ToolDef[] = [
-  { id: "risks", kind: "tool", name: "Risks", source: "armada", mark: "risks", agent: true, checks: "What could go wrong that the change does not handle: shared state, ordering, a caller that was not updated." },
-  { id: "bugs", kind: "tool", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
-  { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
-  { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
-  { id: "how-it-works", kind: "explanation", name: "How it works", source: "armada", mark: "custom", agent: true, checks: "How the code does what it does: its changes in the order they were made, each with why." },
-  { id: "for-you", kind: "explanation", name: "User Impact", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
-  { id: "how-to-test", kind: "explanation", name: "How to Test", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for. Follow the author's own testing directions in the description first. Where there are none, or they do not cover a changed area, use the nearest docs up the tree from each changed path: READMEs, CLAUDE.md and AGENTS.md, and the docs they point to. Say where each step came from." },
-  { id: "why", kind: "explanation", name: "Why", source: "armada", mark: "custom", agent: true, checks: "The problem, and what it cost, with the issue or incident the pull request names." },
-];
-
 const kitTools: ToolDef[] = [
   { id: "test-gaps", kind: "tool", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
 ];
@@ -1261,8 +1252,9 @@ export function reviewSeed(): ReviewSeed {
   const all = [marta, devon, mia, reconnect, pause, hub, totals, webhook];
   return {
     me: "nick",
-    prs: all.map((one) => one.pr),
-    tools: { armada: armadaTools, kit: kitTools, repository: repositoryTools },
+    // Listed newest first, as the forge lists them: the order they were written in.
+    prs: all.map((one, at) => ({ ...one.pr, updatedAt: minutesAgo(at + 1) })),
+    tools: { armada: ARMADA_TOOLS, kit: kitTools, repository: repositoryTools },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
     pushes: {
       [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "claude" },

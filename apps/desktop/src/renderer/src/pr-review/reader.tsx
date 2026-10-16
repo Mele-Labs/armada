@@ -98,7 +98,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
           {state.said}
         </Badge>
         <Tooltip label="Branch and the branch it merges into">
-          <span className="pr-reader__branch mono">{`${pr.branch} → ${pr.page.base}`}</span>
+          <span className="pr-reader__branch mono">{pr.page.base === "" ? pr.branch : `${pr.branch} → ${pr.page.base}`}</span>
         </Tooltip>
         <Tooltip label="Opened by">
           <span className="pr-reader__who">{pr.page.author}</span>
@@ -116,6 +116,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         <Tabs items={TABS} value={work.view} onChange={(id) => store.setView(pr.key, id)} />
       </div>
       <div className="pr-reader__body">
+        {work.page.state === "said" ? <p className="pr-reader__said" role="alert">{work.page.said}</p> : null}
         {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}

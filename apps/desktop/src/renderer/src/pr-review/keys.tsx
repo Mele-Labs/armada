@@ -1,10 +1,7 @@
-// The review surface's keys, so every act on it is reachable without the mouse. **A mock: these are not acts of
-// `actions.toml` yet**, so they are spelled here, in one table, and each was checked against the registry
-// (`crates/core-model/domain/actions.toml`) for a clash with a key that listens where the review surface does: the
-// `anywhere` and `dashboard` rows, the list motions (`move_focus`, `open_focused`, `open`, `close`), and the two the deck
-// reads before it stands down (`w`, and `g` for the page chord). The letters that go to a panel (`l`, `f`) are the deck's
-// own for the same panels, so the same key goes to the same place. On build each becomes a `review_*` row in the `review`
-// scope and moves into Settings → Keyboard shortcuts with the rest.
+// The review surface's keys, so every act on it is reachable without the mouse. **They are acts of `actions.toml`**
+// (`review_*`, scope `review`), so Settings → Keyboard shortcuts lists and rebinds them and this file asks the keymap
+// what a press is. The letters that go to a part (`l`, `f`) are the deck's own for the same places, so the same key goes
+// to the same place. The list motions (`move_focus`, `open`, `close`) are the registry's `list` rows, shared with the deck.
 //
 // Focus is the cursor, as the deck has it: three parts (the list, the reader, the foot tools), a key to each, arrows
 // inside each, Esc backing out a level. A key stands down in a text field and while a dialog is up.
@@ -13,7 +10,6 @@ import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
-import { REVIEW_KEYS } from "./key-table";
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
 
 const ZONES = [".pr-list", ".pr-reader", ".deck-controls"] as const;
@@ -127,29 +123,30 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   }
 
   // Which part: the same letters the deck uses for the same places.
-  if (event.key === REVIEW_KEYS.list) return take(), focusList();
-  if (event.key === REVIEW_KEYS.reader) return take(), focusReader();
-  if (event.key === REVIEW_KEYS.tools) return take(), focusTools();
-  if (event.key === REVIEW_KEYS.lists) {
+  const part = pressedSlot("review_panel", event);
+  if (part === 0) return take(), focusList();
+  if (part === 1) return take(), focusReader();
+  if (part === 2) return take(), focusTools();
+  if (isPressed("review_lists", event)) {
     take();
     return document.querySelector<HTMLElement>(".pr-list__pick button")?.click();
   }
-  if (event.key === REVIEW_KEYS.search) {
+  if (isPressed("review_search", event)) {
     take();
     return store.setSearching(true);
   }
 
   // The quick actions bar takes one key, and the description its own, for the pull request that is open.
   if (pr !== undefined) {
-    if (event.key === REVIEW_KEYS.quick) {
+    if (isPressed("review_quick", event)) {
       take();
       return focusBar();
     }
-    if (event.key === REVIEW_KEYS.ask) {
+    if (isPressed("review_ask", event)) {
       take();
       return document.querySelector<HTMLElement>('.pr-ask-bar [role="textbox"]')?.focus();
     }
-    if (event.key === REVIEW_KEYS.description) {
+    if (isPressed("review_description", event)) {
       take();
       return document.querySelector<HTMLElement>(".pr-desc > header button")?.click();
     }

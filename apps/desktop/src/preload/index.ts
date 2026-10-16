@@ -31,6 +31,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
+import type { PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest } from "@armada/protocol";
 import type { ChosenHold, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
@@ -43,6 +44,7 @@ import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { WriteClashesRead } from "../shared/api/clashes";
+import type { ReviewActed } from "../shared/api/reviews";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import type { HelmCarry } from "../shared/api/helm";
@@ -705,6 +707,11 @@ const api: BridgeApi = {
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
+  getReviewLists: (): Promise<ReviewActed<PullReviewLists>> => ipcRenderer.invoke(CHANNELS.getReviewLists),
+  readReviewPage: (manifestId: string, number: number): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.readReviewPage, manifestId, number),
+  readReviewFile: (manifestId: string, number: number, path: string): Promise<ReviewActed<PullRequestFilePatch>> => ipcRenderer.invoke(CHANNELS.readReviewFile, manifestId, number, path),
+  writeReview: (manifestId: string, write: WritePullRequest): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.writeReview, manifestId, write),
+  resolveReviewThread: (manifestId: string, resolve: ResolvePullThread): Promise<ReviewActed<PullThreadResolved>> => ipcRenderer.invoke(CHANNELS.resolveReviewThread, manifestId, resolve),
   getRepositoryAreas: (): Promise<RepositoryAreasRead> => ipcRenderer.invoke(CHANNELS.getRepositoryAreas),
   getSlotTouches: (): Promise<SlotTouchesRead> => ipcRenderer.invoke(CHANNELS.getSlotTouches),
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),

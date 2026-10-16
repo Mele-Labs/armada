@@ -32,14 +32,14 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, work, searching: asking } = useReviews();
+  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
-  // The list is read when the view is opened, the first time and no more.
+  // The list is read each time the view is opened, and on Refresh. Nothing reads it in between.
   useEffect(() => {
-    if (fetchedAt === undefined) store.fetch();
-  }, [store, fetchedAt]);
+    store.fetch();
+  }, [store]);
 
   const find = finds.find((one) => one.id === tab);
   const rows: { pr: ReviewPr; reason?: string }[] =
@@ -132,6 +132,11 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
       </form>
       ) : (
         <>
+      {failed === undefined ? null : (
+        <p className="pr-list__failed" role="alert">
+          {failed}
+        </p>
+      )}
       {find === undefined ? null : <FindHead find={find} />}
       <ul className="deck-list__rows pr-list__rows">
         {rows.map(({ pr, reason }) => (

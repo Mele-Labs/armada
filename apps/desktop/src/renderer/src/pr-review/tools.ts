@@ -3,7 +3,7 @@
 // `~/.armada/review-tools/`, then the repository's own at `.armada/review-tools/`. A later place keeps the earlier
 // tool's position and says whose it replaced; a name nobody had is added at the end.
 
-import type { PrWork, ReviewPr, ReviewSnapshot, ToolDef } from "./model";
+import type { AgentFixtures, PrWork, ReviewPr, ReviewSnapshot, ToolDef } from "./model";
 
 /** A name as the file that holds it is called: lower case, words joined by a dash. */
 export const idOfName = (name: string): string =>
@@ -38,3 +38,18 @@ export const bySession = (pr: ReviewPr, def: ToolDef): boolean => pr.explainedBy
 
 /** How it works has been read, so a result can sit under its themes. */
 export const isExplained = (work: PrWork): boolean => work.explains["how-it-works"]?.state === "done";
+
+/** The tools Armada carries: the four tools and the four explanations. Mock-backed until wave 2 runs them. */
+export const ARMADA_TOOLS: readonly ToolDef[] = [
+  { id: "risks", kind: "tool", name: "Risks", source: "armada", mark: "risks", agent: true, checks: "What could go wrong that the change does not handle: shared state, ordering, a caller that was not updated." },
+  { id: "bugs", kind: "tool", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
+  { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
+  { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
+  { id: "how-it-works", kind: "explanation", name: "How it works", source: "armada", mark: "custom", agent: true, checks: "How the code does what it does: its changes in the order they were made, each with why." },
+  { id: "for-you", kind: "explanation", name: "User Impact", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
+  { id: "how-to-test", kind: "explanation", name: "How to Test", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for. Follow the author's own testing directions in the description first. Where there are none, or they do not cover a changed area, use the nearest docs up the tree from each changed path: READMEs, CLAUDE.md and AGENTS.md, and the docs they point to. Say where each step came from." },
+  { id: "why", kind: "explanation", name: "Why", source: "armada", mark: "custom", agent: true, checks: "The problem, and what it cost, with the issue or incident the pull request names." },
+];
+
+/** What the agent half has to go on in a window with no mock forge behind it: Armada's own tools, and nothing found. */
+export const NO_FIXTURES: AgentFixtures = { tools: { armada: ARMADA_TOOLS, kit: [], repository: {} }, results: {}, finds: [], prs: {} };
