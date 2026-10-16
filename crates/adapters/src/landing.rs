@@ -414,7 +414,7 @@ pub(crate) fn checkout_has(in_repo: &str, base: &str, commit: &str) -> bool {
 
 /// The commit that stands for `base` in this checkout: `HEAD` where the base is
 /// checked out, the local base branch where another is.
-fn base_here(repo: &Repository, base: &str) -> Option<git2::Oid> {
+pub(crate) fn base_here(repo: &Repository, base: &str) -> Option<git2::Oid> {
     let head = repo.head().ok()?;
     match head.is_branch() && head.shorthand() == Some(base) {
         true => head.target(),
@@ -461,18 +461,27 @@ pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
             .filter_map(|entry| entry.path().map(str::to_string))
             .collect(),
     };
-    let clashing = match uncommitted.is_empty() {
-        true => Vec::new(),
-        false => changed_between(&repo, ours, theirs)
-            .into_iter()
-            .filter(|path| uncommitted.contains(path))
-            .collect(),
+    // **A file main changed that already holds the owner's change is not a clash**: the change
+    // went up another road, and the pull over it takes nothing from anyone.
+    let (clashing, already_on_base): (Vec<String>, Vec<String>) = match uncommitted.is_empty() {
+        true => (Vec::new(), Vec::new()),
+        false => {
+            let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
+            let (here, tip) = (tree(ours)?, tree(theirs)?);
+            changed_between(&repo, ours, theirs)
+                .into_iter()
+                .filter(|path| uncommitted.contains(path))
+                .partition(|path| {
+                    !same_as_the_tree(&repo, &tip, path) && !held_by_the_tree(&repo, &here, &tip, path)
+                })
+        }
     };
     Some(HeldBack {
         base: base.to_string(),
         on,
         uncommitted,
         clashing,
+        already_on_base,
         behind,
         ahead,
     })
@@ -521,8 +530,93 @@ pub(crate) fn uncommitted_change_of(in_repo: &str, path: &str) -> Result<String,
     Ok(String::from_utf8_lossy(&run.stdout).into_owned())
 }
 
+/// What a path holds in the working tree of the checkout.
+pub(crate) enum Working {
+    /// Nothing is there: a deletion, where the tree has the path.
+    Gone,
+    /// A file, or a link whose target is the content.
+    File(Vec<u8>, git2::FileMode),
+    /// Something that is neither, or that would not be read: not ours to send or to call the same.
+    Unreadable,
+}
+
+pub(crate) fn working(repo: &Repository, path: &str) -> Working {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::PermissionsExt;
+    let Some(at) = repo.workdir().map(|root| root.join(path)) else {
+        return Working::Unreadable;
+    };
+    let meta = match std::fs::symlink_metadata(&at) {
+        Ok(meta) => meta,
+        Err(why) if why.kind() == std::io::ErrorKind::NotFound => return Working::Gone,
+        Err(_) => return Working::Unreadable,
+    };
+    if meta.file_type().is_symlink() {
+        return match std::fs::read_link(&at) {
+            Ok(target) => Working::File(target.as_os_str().as_bytes().to_vec(), git2::FileMode::Link),
+            Err(_) => Working::Unreadable,
+        };
+    }
+    if !meta.is_file() {
+        return Working::Unreadable;
+    }
+    let mode = match meta.permissions().mode() & 0o111 {
+        0 => git2::FileMode::Blob,
+        _ => git2::FileMode::BlobExecutable,
+    };
+    match std::fs::read(&at) {
+        Ok(content) => Working::File(content, mode),
+        Err(_) => Working::Unreadable,
+    }
+}
+
+/// Whether the working-tree file at `path` is, byte for byte and in mode, what
+/// `tree` holds there. A path gone from both is the same.
+pub(crate) fn same_as_the_tree(repo: &Repository, tree: &git2::Tree<'_>, path: &str) -> bool {
+    let held = tree.get_path(Path::new(path)).ok();
+    match (working(repo, path), held) {
+        (Working::Gone, None) => true,
+        (Working::File(content, mode), Some(entry)) => {
+            entry.filemode() == i32::from(mode)
+                && repo.find_blob(entry.id()).is_ok_and(|blob| blob.content() == content)
+        }
+        _ => false,
+    }
+}
+
+/// Whether `tip` already holds the owner's uncommitted change to `path`: their
+/// change, merged with main's over what `here` has, gives back main's file
+/// exactly. Main took the change and moved on (a comment reworded beside it), so
+/// the pull keeps everything of theirs.
+fn held_by_the_tree(repo: &Repository, here: &git2::Tree<'_>, tip: &git2::Tree<'_>, path: &str) -> bool {
+    let Working::File(content, mode) = working(repo, path) else {
+        return false;
+    };
+    let (Ok(was), Ok(main)) = (here.get_path(Path::new(path)), tip.get_path(Path::new(path))) else {
+        return false;
+    };
+    if main.filemode() != i32::from(mode) {
+        return false;
+    }
+    let (Some(root), Ok(owners)) = (repo.workdir(), repo.blob(&content)) else {
+        return false;
+    };
+    // `--object-id`, so nothing is written beside the owner's files.
+    let Ok(merged) = run_in(
+        &root.to_string_lossy(),
+        "git",
+        &["merge-file", "-p", "--object-id", &owners.to_string(), &was.id().to_string(), &main.id().to_string()],
+    ) else {
+        return false;
+    };
+    merged.status.success()
+        && repo
+            .find_blob(main.id())
+            .is_ok_and(|blob| blob.content() == merged.stdout.as_slice())
+}
+
 /// The paths `theirs` changed since it and `ours` parted.
-fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
+pub(crate) fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
     let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
     let Some(parted) = repo.merge_base(ours, theirs).ok() else {
         return Vec::new();

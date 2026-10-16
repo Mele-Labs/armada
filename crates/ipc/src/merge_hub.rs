@@ -65,6 +65,36 @@ pub struct HeldCheckout {
     pub behind: u32,
     /// Commits the checkout has that main does not. Above zero is diverged.
     pub ahead: u32,
+    /// The pull request Fleet opened from the uncommitted files, on the person's
+    /// press of `checkout_to_pull_request`. Absent until then, and once the hold
+    /// clears.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<CheckoutPullRequest>,
+}
+
+/// The pull request a held checkout's uncommitted files went up as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutPullRequest {
+    pub number: u32,
+    /// Whether the forge took auto-merge. A pull request whose auto-merge it
+    /// refused is open all the same, for a person to merge.
+    pub auto_merge: bool,
+}
+
+/// `checkout_to_pull_request`'s body. **Names a repository and nothing more**,
+/// for `CatchUpCheckout`'s reason: Fleet reads the hold again and sends the
+/// files it lists, so no path crosses the wire.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutToPullRequest {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+}
+
+/// `checkout_to_pull_request`'s answer: the pull request that was opened.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutSentAsPullRequest {
+    pub pull_request: u32,
+    pub auto_merge: bool,
 }
 
 /// `catch_up_checkout`'s body: pull a held checkout level with its base, the one

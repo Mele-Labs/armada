@@ -43,6 +43,36 @@ test("Run asks Fleet to catch the repository up by its Manifest alone, and sends
   expect(typeof catchUp.mock.calls[0]?.[0]).toBe("string");
 });
 
+test("Pull request asks Fleet by the repository's Manifest alone, and waits for the hold to carry the pull request", async () => {
+  const { app, section } = await opened();
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: { pull_request: 2402, auto_merge: true } });
+  const button = section.getByRole("button", { name: "Pull request" });
+  await userEvent.click(button);
+  await expect.poll(() => send.mock.calls.length).toBe(1);
+  expect(send.mock.calls[0]).toHaveLength(1);
+  expect(typeof send.mock.calls[0]?.[0]).toBe("string");
+  // Fleet answered, but the card still draws the hold it was given: the button stays pending rather than offering a second press.
+  await expect.element(button).toHaveAttribute("aria-busy", "true");
+  await expect.element(button).toHaveAttribute("aria-disabled", "true");
+});
+
+test("a refused Pull request frees the button again", async () => {
+  const { app, section } = await opened();
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "refused",
+      error: { code: "fleet.checkout_not_catchable", message: "an uncommitted file also changed on `main`: armada.yml", run_id: "r", fields: {}, chain: [] },
+    },
+  });
+  const button = section.getByRole("button", { name: "Pull request" });
+  await userEvent.click(button);
+  await expect.poll(() => send.mock.calls.length).toBe(1);
+  await expect.element(button).not.toHaveAttribute("aria-busy");
+  await expect.element(button).toBeVisible();
+});
+
 test("a path in Uncommitted opens the change Fleet reads for it, and a second press folds it", async () => {
   const { app, section } = await opened();
   const read = vi.spyOn(app.api, "readCheckoutDiff").mockResolvedValue({

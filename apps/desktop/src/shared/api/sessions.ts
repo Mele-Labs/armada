@@ -6,6 +6,7 @@ import type {
   AnswerWaiting,
   CheckoutCaughtUp,
   CheckoutDiff,
+  CheckoutSentAsPullRequest,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -161,6 +162,12 @@ export type SessionsApi = {
    */
   catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
   /**
+   * Sends a held checkout's uncommitted files up as a pull request with auto-merge on, without touching the
+   * checkout. **Names the repository by its Manifest and no path**; Fleet reads the hold again, refuses what
+   * the pull would refuse and answers with the pull request's number. The hold then carries it.
+   */
+  sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
+  /**
    * One uncommitted file of a held checkout, as a unified diff against HEAD. Names the repository by its Manifest
    * and the path; Fleet refuses a path the hold does not list.
    */
@@ -229,5 +236,6 @@ export const SESSIONS_CHANNELS = {
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
   catchUpCheckout: "bridge:catch-up-checkout",
+  sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
   readCheckoutDiff: "bridge:read-checkout-diff",
 } as const;

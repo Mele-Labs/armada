@@ -1,6 +1,7 @@
 // The served checkout is behind main and Fleet would not catch it up, so main's light on the merge queue carries an amber mark
 // and its card a section, "Your checkout": what holds it back, and the one command that is safe to press, where there is one.
-// Four holds in turn on one repository. The safe one runs from the card and the checkout is level. The last is a long list of
+// Four holds in turn on one repository. The safe one offers Pull request, which sends the file up with auto-merge on, or runs from the
+// card and the checkout is level. The last is a long list of
 // uncommitted files, in a box that scrolls inside the card. An uncommitted file opens its change when pressed and folds it
 // when pressed again; a change past Fleet's bound is sent cut and says how many lines are drawn. Over `checkout-held-back`.
 
@@ -31,6 +32,11 @@ const steps: readonly Step[] = [
   { press: inside(section(safe), button("armada.yml")), say: "A second press folds it" },
   { look: inside(section(safe), text("pull --ff-only --autostash")), say: "A pull that keeps the file is safe" },
   { look: inside(section(safe), button("Copy")), say: "Copy puts it on the clipboard" },
+  { hover: inside(section(safe), button("Pull request")), say: "Pull request sits beside the command" },
+  { press: inside(section(safe), button("Pull request")), say: "A press sends the file up as a pull request" },
+  { look: inside(section(safe), text("#2402")), say: "The pull request replaces the command, and the file stays listed" },
+  { look: inside(section(safe), role("img", "Auto-merge on")), say: "Auto-merge is on" },
+  { later: places, say: "Fleet reads the hold again, with no pull request" },
   { press: inside(section(safe), button("Run")), say: "Run plays it and exits 0" },
   { later: places, say: "Fleet has the checkout level" },
   { look: inside(queue, role("img", "Main is green")), say: "The mark is gone, and a green main has no card" },

@@ -510,6 +510,16 @@ impl Commands for FakeDaemon {
             crate::tests::shapes::run_id(),
         )))
     }
+    async fn checkout_to_pull_request(
+        &self,
+        asked: ipc::CheckoutToPullRequest,
+    ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.checkout_not_held",
+            format!("the fake holds no checkout for {}", asked.manifest_id.as_str()),
+            crate::tests::shapes::run_id(),
+        )))
+    }
     async fn resume_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.pause_marked(&job_id, false)
     }

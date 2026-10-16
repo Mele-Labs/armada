@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod basing;
+mod checkout_send;
 mod ci;
 mod cloning;
 mod commit;
@@ -60,6 +61,7 @@ pub use basing::{BaseCheckout, BaseSpec, BaseSpecRefused, BranchListed};
 pub use ci::{
     CiCommand, CiConfiguration, CiNotFollowed, CiReading, FileEntry, FileRead, RepositoryFiles,
 };
+pub use checkout_send::{CheckoutSent, CheckoutToSend};
 pub use cloning::NotCloned;
 pub use commit::{CommitTime, Committed};
 pub use delivery::{

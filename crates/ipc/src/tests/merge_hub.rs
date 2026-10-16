@@ -1,5 +1,6 @@
 use crate::{
-    decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
+    decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -294,6 +295,7 @@ fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
             clashing: Vec::new(),
             behind: 880,
             ahead: 0,
+            pull_request: None,
         }),
         ..a_red_hub()
     }));
@@ -304,6 +306,36 @@ fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
     );
     let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
     assert_eq!(read, line);
+}
+
+#[test]
+fn a_held_checkouts_pull_request_is_spelled_when_there_is_one_and_absent_from_an_older_fleet() {
+    let sent = r#"{"base":"main","uncommitted":["armada.yml"],"behind":3,"ahead":0,"pull_request":{"number":2402,"auto_merge":true}}"#;
+    let read: HeldCheckout = decode("a held checkout", sent.as_bytes()).expect("reads");
+    assert_eq!(read.pull_request, Some(CheckoutPullRequest { number: 2402, auto_merge: true }));
+    assert_eq!(encode(&read).unwrap(), sent);
+
+    let older = r#"{"base":"main","uncommitted":["armada.yml"],"behind":3,"ahead":0}"#;
+    let read: HeldCheckout = decode("a held checkout", older.as_bytes()).expect("reads");
+    assert_eq!(read.pull_request, None);
+    assert_eq!(encode(&read).unwrap(), older, "none is not spelled");
+}
+
+#[test]
+fn sending_a_checkout_as_a_pull_request_names_a_repository_and_answers_with_the_number() {
+    let asked = CheckoutToPullRequest { manifest_id: crate::ManifestId::carried("shop") };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop"}"#);
+    let read: CheckoutToPullRequest = decode("a send", br#"{"manifest_id":"shop"}"#).expect("reads");
+    assert_eq!(read, asked);
+    // No path crosses: the type has nowhere to put one, so one sent anyway is not read.
+    let smuggled: CheckoutToPullRequest = decode("a send", br#"{"manifest_id":"shop","paths":["../../etc/passwd"]}"#).expect("reads");
+    assert_eq!(smuggled, asked);
+
+    let answer = CheckoutSentAsPullRequest { pull_request: 2402, auto_merge: false };
+    let spelled = encode(&answer).unwrap();
+    assert_eq!(spelled, r#"{"pull_request":2402,"auto_merge":false}"#);
+    let back: CheckoutSentAsPullRequest = decode("an answer", spelled.as_bytes()).expect("reads");
+    assert_eq!(back, answer);
 }
 
 #[test]

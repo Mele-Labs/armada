@@ -430,6 +430,15 @@ export class WiredStore {
     // The card's command is Fleet's to run: the repository is named by its Manifest and the string is not sent.
     runInRepository: (root, _command, on) =>
       catchingUp((manifestId) => this.api.catchUpCheckout(manifestId), this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id, on),
+    // The files go up as a pull request by the repository's Manifest alone; Fleet reads the hold again and sends what it lists.
+    sendCheckoutAsPullRequest: async (root) => {
+      const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
+      if (manifestId === undefined) return void askToTell("Fleet serves no Manifest for that repository.");
+      this.say(undefined);
+      const done = await this.api.sendCheckoutAsPullRequest(manifestId);
+      if (!done.ok) return void this.tell(done.outcome);
+      return { number: done.value.pull_request };
+    },
     // The file is read by its Manifest and path; Fleet refuses one the hold does not list.
     diffInRepository: async (root, path) => {
       const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
@@ -488,8 +497,11 @@ export function WiredSessions({ children }: { children: ReactNode }) {
   const store = useMemo(() => new WiredStore(window.armada), []);
   useEffect(() => store.attach(), [store]);
   const served = useSyncExternalStore(store.subscribe, store.served);
-  const { runInRepository, diffInRepository, actInRepository } = store.draft;
-  const acts = useMemo(() => ({ runInRepository, diffInRepository, actInRepository }), [runInRepository, diffInRepository, actInRepository]);
+  const { runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest } = store.draft;
+  const acts = useMemo(
+    () => ({ runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest }),
+    [runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest],
+  );
   return (
     <SessionsFrom held={served ? store.draft : undefined} acts={acts}>
       {children}

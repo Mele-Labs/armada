@@ -87,3 +87,25 @@ describe("the reason a card leads with", () => {
     expect(checkoutCall(ROOT, held({ behind: 880 })).title).toBe("880 commits behind main");
   });
 });
+
+describe("sending the uncommitted files as a pull request", () => {
+  it("is offered under the same gate as the pull: on the base, ahead of nothing, files uncommitted, none clashing", () => {
+    expect(checkoutCall(ROOT, held()).sendable).toBe(true);
+    expect(checkoutCall(ROOT, held({ ahead: 2 })).sendable).toBeUndefined();
+    expect(checkoutCall(ROOT, held({ clashing: ["armada.yml"] })).sendable).toBeUndefined();
+    expect(checkoutCall(ROOT, held({ on: "my-own-branch" })).sendable).toBeUndefined();
+    expect(checkoutCall(ROOT, held({ uncommitted: [] })).sendable).toBeUndefined();
+  });
+
+  it("is drawn from the hold Fleet published: the pull request replaces the command and the press", () => {
+    const call = checkoutCall(ROOT, held({ pull_request: { number: 2402, auto_merge: true } }));
+    expect(call.pullRequest).toEqual({ number: 2402, autoMerge: true });
+    expect(call.command).toBeUndefined();
+    expect(call.sendable).toBeUndefined();
+    expect(call.facts.length).toBeGreaterThan(0);
+  });
+
+  it("keeps a pull request the forge would not auto-merge as open and without the mark", () => {
+    expect(checkoutCall(ROOT, held({ pull_request: { number: 7, auto_merge: false } })).pullRequest).toEqual({ number: 7, autoMerge: false });
+  });
+});

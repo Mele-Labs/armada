@@ -368,6 +368,8 @@ mod scoping;
 pub mod scout;
 mod scouting;
 pub mod seeding;
+/// A held checkout's uncommitted files sent up as a pull request.
+mod sending_checkout;
 mod servers;
 pub mod serving;
 pub mod session;

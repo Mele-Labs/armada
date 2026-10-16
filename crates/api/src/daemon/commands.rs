@@ -189,6 +189,18 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::CatchUpCheckout,
     ) -> impl Future<Output = Result<ipc::CheckoutCaughtUp, Refusal>> + Send;
 
+    /// `checkout_to_pull_request` — send a held checkout's uncommitted files up
+    /// as a pull request with auto-merge on, **without touching the checkout**.
+    /// Reads the hold again first and refuses on `catch_up_checkout`'s
+    /// conditions, and where the hold already carries a pull request.
+    /// [`Refusal::IllegalMove`] for those; [`Refusal::Unacceptable`] on a
+    /// repository this Fleet does not serve; [`Refusal::Fault`] where git or the
+    /// forge would not take it.
+    fn checkout_to_pull_request(
+        &self,
+        asked: ipc::CheckoutToPullRequest,
+    ) -> impl Future<Output = Result<ipc::CheckoutSentAsPullRequest, Refusal>> + Send;
+
     /// `resume_job` — lifts the pause. **A gate Job takes a slot now if one is
     /// free** and waits for the first to free if not; a queued one is let into
     /// admission's line. Neither starts a Drone itself. 409 where the Job is

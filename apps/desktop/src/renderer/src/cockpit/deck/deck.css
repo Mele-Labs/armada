@@ -324,7 +324,12 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-checkout__files:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .deck-checkout__files .deck-checkout__line { flex: none; }
 .deck-checkout__note { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
-.deck-checkout__command { padding: var(--space-1) var(--space-4) var(--space-3); }
+.deck-checkout__command { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2); padding: var(--space-1) var(--space-4) var(--space-3); }
+/* The command takes the width the button leaves, and the button drops under it where the card is too narrow for both. */
+.deck-checkout__run { flex: 1 1 16rem; min-width: 0; }
+.deck-checkout__send { flex: none; }
+/* The pull request's auto-merge mark, in the success hue. */
+.deck-checkout__auto { display: inline-flex; flex: none; color: var(--status-completed-success); }
 /* The command is there to be run, as the ledger's is: Copy and Run are always shown, not only under the pointer. */
 .deck-checkout__command .armada-prose__run-acts { opacity: 1; }
 /* An uncommitted path that opens its change: a plain button in the line's own type, and the change under it inside the row's box. */

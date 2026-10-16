@@ -432,6 +432,14 @@ impl Delivery for GitVcs {
     ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
         crate::manifest_edit::send(in_repo, sending)
     }
+
+    fn send_checkout_as_pull_request(
+        &self,
+        in_repo: &str,
+        sending: &adapter_traits::CheckoutToSend,
+    ) -> Result<adapter_traits::CheckoutSent, NotDelivered> {
+        crate::checkout_send::send(in_repo, sending)
+    }
 }
 
 /// Ask the forge one thing about one pull request, named as the forge names

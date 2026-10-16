@@ -1,0 +1,108 @@
+//! A held checkout's uncommitted files, sent up as a pull request on the owner's
+//! press instead of being stashed by a pull.
+//!
+//! **The checkout is the owner's and is not touched.** The commit is made from
+//! objects on top of `origin`'s tip of the base (`Delivery::send_checkout_as_pull_request`),
+//! so the working tree, the index and `HEAD` stay as they were. Fleet then keeps
+//! the pull request's number beside the hold until the hold clears, and
+//! `catching_up` catches the checkout up by itself once the change is on main.
+
+use adapter_traits::{AgentHarness, CheckoutToSend, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use ipc::WireError;
+
+use crate::catching_up::{why_not_pull, CHECKOUT_NOT_HELD};
+use crate::daemon::Fleet;
+use crate::pull_requesting::number_of;
+use crate::refusing::NOT_SERVED;
+
+/// Pressed for a hold that already carries a pull request. A 409: the card was
+/// drawn before the first press answered, or a second window pressed again.
+const CHECKOUT_ALREADY_SENT: &str = "fleet.checkout_already_sent";
+/// The commit, the push or the pull request would not go. A 500, with the
+/// tool's words; the hold is unchanged and the press may be made again.
+const CHECKOUT_NOT_SENT: &str = "fleet.checkout_not_sent";
+
+/// The title a pull request from these paths carries: the path itself where
+/// there is one, else how many.
+fn titled(paths: &[String]) -> String {
+    match paths {
+        [only] => only.clone(),
+        many => format!("{} files", many.len()),
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// `checkout_to_pull_request`: the hold's uncommitted files as a pull request
+    /// into the base, auto-merge on, recorded on the hold.
+    ///
+    /// **Fleet reads the hold itself** and refuses on the conditions
+    /// `catch_up_checkout` does, so a caller names a repository and no path. It
+    /// holds the merge end while the commit is made, because the pull
+    /// `checkout_caught_up` runs stashes these very files for a moment and the
+    /// commit would read them gone.
+    pub(crate) async fn checkout_sent_as_pull_request(
+        &self,
+        asked: ipc::CheckoutToPullRequest,
+    ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {
+        let raised = |code: &'static str, said: String| WireError::raised(code, said, self.run_id());
+        let Some(served) = self.repositories().serving(asked.manifest_id.as_str()) else {
+            return Err(Refusal::Unacceptable(raised(
+                NOT_SERVED,
+                format!("this Fleet does not serve {}", asked.manifest_id.as_str()),
+            )));
+        };
+        let root = served.root().to_string();
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return Err(Refusal::IllegalMove(raised(
+                CHECKOUT_NOT_HELD,
+                String::from("the repository names no base to send a pull request into"),
+            )));
+        };
+        let _at_the_merge_end = self.merge_end().lock().await;
+        if let Some(sent) = self.sweeping().lock().await.checkout_sent.get(&root) {
+            return Err(Refusal::IllegalMove(raised(
+                CHECKOUT_ALREADY_SENT,
+                format!("these files already went up as #{}", sent.number),
+            )));
+        }
+        let held = self
+            .forge_asked(&root, {
+                let base = base.clone();
+                move |vcs: &V, root: &str| vcs.held_back(root, &base)
+            })
+            .await;
+        if let Some((code, said)) = why_not_pull(held.as_ref()) {
+            return Err(Refusal::IllegalMove(raised(code, said)));
+        }
+        let held = held.expect("why_not_pull refuses where there is no hold");
+        let sending = CheckoutToSend {
+            message: titled(&held.uncommitted),
+            paths: held.uncommitted,
+            branch: format!("armada/checkout-{:08x}", rand::random::<u32>()),
+            base,
+        };
+        let sent = self
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.send_checkout_as_pull_request(root, &sending))
+            .await
+            .map_err(|why| Refusal::Fault(raised(CHECKOUT_NOT_SENT, why.said())))?;
+        let number = number_of(&sent.pull_request).and_then(|number| u32::try_from(number).ok()).ok_or_else(|| {
+            Refusal::Fault(raised(
+                CHECKOUT_NOT_SENT,
+                format!("the pull request opened, but `{}` names no number", sent.pull_request),
+            ))
+        })?;
+        let pull_request = ipc::CheckoutPullRequest { number, auto_merge: sent.auto_merge.is_ok() };
+        self.sweeping().lock().await.checkout_sent.insert(root, pull_request);
+        Ok(ipc::CheckoutSentAsPullRequest { pull_request: number, auto_merge: pull_request.auto_merge })
+    }
+}

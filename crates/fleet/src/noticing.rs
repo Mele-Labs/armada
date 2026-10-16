@@ -164,6 +164,10 @@ pub(crate) struct Sweep {
     /// Each served checkout main moved past and that could not be caught up,
     /// by root, and why. `crate::catching_up`.
     pub(crate) held_back: BTreeMap<String, adapter_traits::HeldBack>,
+    /// The pull request each held checkout's uncommitted files went up as, by
+    /// root, on a person's press. Kept with the hold and dropped with it, so a
+    /// later hold starts without one. `crate::catching_up`.
+    pub(crate) checkout_sent: BTreeMap<String, ipc::CheckoutPullRequest>,
 }
 
 /// What the record's state says on the wire, where it says anything.

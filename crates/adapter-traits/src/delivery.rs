@@ -1159,6 +1159,21 @@ pub trait Delivery {
         in_repo: &str,
         sending: &crate::ManifestEditToSend,
     ) -> Result<crate::ManifestEditSent, NotDelivered>;
+
+    /// Send the uncommitted files of the checkout in `in_repo` up as a pull
+    /// request into `sending.base`, auto-merge on: a commit on `origin`'s tip of
+    /// the base whose tree is that tip's with each path's working-tree content,
+    /// pushed to `sending.branch`.
+    ///
+    /// **Never touches `in_repo`'s working tree, index or HEAD**, which the
+    /// person is standing in: the commit is made from objects. **Refuses a path
+    /// the base also changed to something else**, so the commit can never undo
+    /// what landed on the base.
+    fn send_checkout_as_pull_request(
+        &self,
+        in_repo: &str,
+        sending: &crate::CheckoutToSend,
+    ) -> Result<crate::CheckoutSent, NotDelivered>;
 }
 
 /// A checkout Fleet would not catch up, and what stands in the way.
@@ -1171,9 +1186,14 @@ pub struct HeldBack {
     /// Tracked files with uncommitted changes, while the base is checked out.
     /// Untracked files never block a fast-forward and are not named.
     pub uncommitted: Vec<String>,
-    /// Those of `uncommitted` that the remote base also changed, so an
-    /// autostash could stop on a conflict.
+    /// Those of `uncommitted` that the remote base also changed **to something
+    /// else**, so an autostash could stop on a conflict. A file whose content
+    /// is byte for byte the remote base's is in `already_on_base` instead.
     pub clashing: Vec<String>,
+    /// Those of `uncommitted` that the remote base also changed and whose
+    /// content here is exactly what it now holds: the change went up some other
+    /// way, and a pull over them takes nothing from anyone.
+    pub already_on_base: Vec<String>,
     /// Commits the remote base has that the checkout does not.
     pub behind: usize,
     /// Commits the checkout has that the remote base does not.

@@ -456,7 +456,7 @@ where
                 .collect();
             (roots, by_hand)
         };
-        let (pulls, merged, runs, queues, elsewhere, held_back) = {
+        let (pulls, merged, runs, queues, elsewhere, held_back, checkout_sent) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
@@ -465,6 +465,7 @@ where
                 sweep.queues.clone(),
                 sweep.elsewhere.clone(),
                 sweep.held_back.clone(),
+                sweep.checkout_sent.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -501,7 +502,7 @@ where
                 hub.fixing = fixing.as_ref().and_then(|by| by.job()).and_then(titled);
                 hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
                 hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
-                hub.checkout = held_back.get(&root).map(held_checkout);
+                hub.checkout = held_back.get(&root).map(|held| held_checkout(held, checkout_sent.get(&root).copied()));
                 if let Some(number) = by_hand.get(&root) {
                     for pull in hub.pull_requests.iter_mut().filter(|it| it.number == *number) {
                         pull.merge_by_hand = true;
@@ -517,8 +518,9 @@ where
     }
 }
 
-/// A checkout Fleet would not catch up, as the hub draws it.
-fn held_checkout(held: &adapter_traits::HeldBack) -> ipc::HeldCheckout {
+/// A checkout Fleet would not catch up, as the hub draws it, with the pull
+/// request its uncommitted files went up as where a person sent them.
+fn held_checkout(held: &adapter_traits::HeldBack, pull_request: Option<ipc::CheckoutPullRequest>) -> ipc::HeldCheckout {
     let counted = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
     ipc::HeldCheckout {
         base: held.base.clone(),
@@ -527,6 +529,7 @@ fn held_checkout(held: &adapter_traits::HeldBack) -> ipc::HeldCheckout {
         clashing: held.clashing.clone(),
         behind: counted(held.behind),
         ahead: counted(held.ahead),
+        pull_request,
     }
 }
 

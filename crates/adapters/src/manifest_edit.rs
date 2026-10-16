@@ -96,10 +96,8 @@ pub(crate) fn send(
             // **A branch with no pull request on it is left on the remote by
             // nobody's choice**, so a pull request that will not open takes
             // the branch the push just made with it.
-            let opened = open_pull_request(in_repo, base, sending).inspect_err(|_| {
-                unpushed(in_repo, &sending.branch);
-            })?;
-            let pull_request = last_line(&opened);
+            let pull_request = opened(in_repo, base, &sending.branch, &sending.message, BODY)
+                .inspect_err(|_| unpushed(in_repo, &sending.branch))?;
             let auto_merge = enable_auto_merge(in_repo, &pull_request);
             Ok(ManifestEditSent {
                 commit,
@@ -110,34 +108,28 @@ pub(crate) fn send(
     }
 }
 
-fn open_pull_request(
+/// Open a pull request from `branch` into `base`, and answer its address.
+pub(crate) fn opened(
     in_repo: &str,
     base: &str,
-    sending: &ManifestEditToSend,
-) -> Result<std::process::Output, NotDelivered> {
+    branch: &str,
+    title: &str,
+    body: &str,
+) -> Result<String, NotDelivered> {
     let opened = run_in(
         in_repo,
         FORGE,
         &[
-            "pr",
-            "create",
-            "--base",
-            base,
-            "--head",
-            &sending.branch,
-            "--title",
-            &sending.message,
-            "--body",
-            BODY,
+            "pr", "create", "--base", base, "--head", branch, "--title", title, "--body", body,
         ],
     )
     .map_err(|why| {
         NotDelivered::of("the pull request", format!("`{FORGE}` would not run: {why}"))
     })?;
-    match opened.status.success() {
-        true => Ok(opened),
-        false => Err(NotDelivered::of("the pull request", said(&opened))),
+    if !opened.status.success() {
+        return Err(NotDelivered::of("the pull request", said(&opened)));
     }
+    Ok(last_line(&opened))
 }
 
 /// Delete `branch` from the remote. **Best effort**: the refusal this follows is
@@ -188,19 +180,20 @@ fn committed_and_pushed(
         .commit(None, &who, &who, &sending.message, &tree, &[&parent])
         .map_err(git)?
         .to_string();
+    pushed(in_repo, &commit, &sending.branch)?;
+    Ok(commit)
+}
+
+/// Push `commit` to a branch of that name on the remote. Never forced.
+pub(crate) fn pushed(in_repo: &str, commit: &str, branch: &str) -> Result<(), NotDelivered> {
     let pushed = run_in(
         in_repo,
         "git",
-        &[
-            "push",
-            "--quiet",
-            REMOTE,
-            &format!("{commit}:refs/heads/{}", sending.branch),
-        ],
+        &["push", "--quiet", REMOTE, &format!("{commit}:refs/heads/{branch}")],
     )
     .map_err(|why| NotDelivered::of("the push", format!("`git` would not run: {why}")))?;
     match pushed.status.success() {
-        true => Ok(commit),
+        true => Ok(()),
         false => Err(NotDelivered::of("the push", said(&pushed))),
     }
 }
