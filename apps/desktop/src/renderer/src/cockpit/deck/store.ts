@@ -58,6 +58,8 @@ export type DeckState = {
   jobView: "mission" | "canvas";
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
   before: { sel: Sel | undefined; view: DeckView } | undefined;
+  /** A light on the merge queue that a call asked to open its card: the light pins it and lets go of the ask. */
+  light?: "checkout";
 };
 
 const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
@@ -202,6 +204,8 @@ export const setHere = (here: boolean) => {
 export function visit(key: string): void {
   if (!state.visited.has(key)) set({ visited: new Set(state.visited).add(key) });
 }
+/** The light has pinned the card a call asked it to open. */
+export const lightPinned = (): void => set({ light: undefined });
 /** The call is answered: held out of every list until Fleet stops carrying it. */
 export function answered(key: string): void {
   set({ held: new Map(state.held).set(key, Date.now()), visited: new Set(state.visited).add(key) });
@@ -271,6 +275,8 @@ export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpen" | 
     (jobId === undefined ? undefined : held("job", jobId)) ??
     (owner === undefined ? undefined : held(owner.kind, owner.id));
   if (subject !== undefined) return picked(selOfSubject(subject));
+  // A held checkout is the merge queue's light: opening its call pins the light's card and leaves the stage as it was.
+  if (item.key.startsWith("checkout:")) return (set({ light: "checkout" }), false);
   const named = sessionId !== undefined ? { kind: "session" as const, id: sessionId } : jobId !== undefined ? { kind: "job" as const, id: jobId } : undefined;
   if (named !== undefined && hosts !== undefined) return handed(named, hosts);
   const number = /^pull:(\d+)$/.exec(item.key)?.[1];

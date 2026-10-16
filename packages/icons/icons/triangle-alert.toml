@@ -19,3 +19,10 @@
   size = "16px"
   status = "Specified"
   notes = "Accepted 15 Oct 2026 with the walks. Proposed 15 Oct 2026 for the walk `session-move-repository`, on the owner's note that the confirm should read as a warning. The glyph of a caution Alert in the layer a Session's repository opens. The same meaning it has everywhere else: a warning."
+
+[[icons.triangle-alert.usage]]
+  means = "An uncommitted file in the served checkout that main also changed, so an autostash could stop on a conflict"
+  group = "Cockpit"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Beside a path in the Uncommitted row of the Your checkout section on main's card, tooltip `Also changed on main`, in the awaiting review hue. The registry has no other warning glyph, and the Worktree slot's Unreadable row already takes this one at 12px for a fact about a checkout."

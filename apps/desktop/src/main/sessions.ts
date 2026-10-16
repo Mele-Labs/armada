@@ -16,6 +16,9 @@ import WebSocket from "ws";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  CatchUpCheckout,
+  CheckoutCaughtUp,
+  CheckoutDiff,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -153,6 +156,22 @@ export class SessionsHost {
     const underway = answer.body as SessionRunUnderway;
     this.observeRun(port, underway.run_id);
     return { ok: true, value: underway };
+  }
+
+  /** The one pull a held checkout is offered. Fleet answers 200 with the code and words, even for a pull git refused. */
+  async catchUpCheckout(catchUp: CatchUpCheckout): Promise<SessionActed<CheckoutCaughtUp>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/merge_lines/catch_up", catchUp);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutCaughtUp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One uncommitted file of a held checkout, read by Fleet from the served checkout. */
+  async checkoutDiff(manifestId: string, path: string): Promise<SessionActed<CheckoutDiff>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/merge_lines/checkout_diff?manifest_id=${encodeURIComponent(manifestId)}&path=${encodeURIComponent(path)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutDiff } : { ok: false, outcome: answer.outcome };
   }
 
   async stopRun(stop: StopSessionRun): Promise<SessionActed<SessionRunUnderway>> {

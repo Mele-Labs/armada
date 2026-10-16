@@ -175,6 +175,7 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
       ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
     recent,
+    ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
   };
 }
 

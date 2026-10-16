@@ -859,6 +859,14 @@ impl Queries for FakeDaemon {
         Ok(shapes::slot_history(&ask))
     }
 
+    async fn checkout_diff(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.checkout_not_held",
+            format!("the fake holds no checkout for {}", ask.manifest_id.as_str()),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(ipc::MergeLines::default())
     }

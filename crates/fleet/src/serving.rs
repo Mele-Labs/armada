@@ -924,6 +924,11 @@ where
         Ok(crate::merge_lines::answer(self).await)
     }
 
+    /// One uncommitted file of a held checkout — [`crate::catching_up`].
+    async fn checkout_diff(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
+        self.checkout_diff_of(ask).await
+    }
+
     async fn merge_hubs(&self) -> Vec<(String, ipc::MergeLineHub)> {
         Fleet::merge_hubs(self).await
     }

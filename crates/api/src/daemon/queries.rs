@@ -876,6 +876,16 @@ pub trait Queries: Send + Sync + 'static {
     /// Fleet read off the forge, with the queue lists empty. It never refuses.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
 
+    /// `checkout_diff` — one uncommitted file of a served checkout that Fleet
+    /// holds back, as a unified diff against `HEAD`. **Only a path the hold
+    /// lists is read**: [`Refusal::IllegalMove`] for any other and where nothing
+    /// is held; [`Refusal::Unacceptable`] on a repository this Fleet does not
+    /// serve; [`Refusal::Fault`] where git would not run.
+    fn checkout_diff(
+        &self,
+        ask: ipc::CheckoutDiffAsk,
+    ) -> impl Future<Output = Result<ipc::CheckoutDiff, Refusal>> + Send;
+
     /// What Fleet read off the forge for each served repository, by root: main's
     /// CI and the open pull requests, which `get_merge_lines` carries as `hub`.
     /// **Empty by default**, for a daemon that reads no forge.
