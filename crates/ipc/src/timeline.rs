@@ -111,6 +111,11 @@ pub enum TimelineKind {
     /// A person changed a Session's workflow in a panel. `says` is `workflow: old → new`.
     #[serde(rename = "session.workflow")]
     SessionWorkflow,
+    /// A Session moved from one step of its workflow to another, as Fleet observed. `says` is
+    /// `step: old → new`, naming a step by its label, none before the first as `start` and past the
+    /// last as `done`.
+    #[serde(rename = "session.step")]
+    SessionStep,
     /// A Session's turn started on a different model than the turn before. `says` is `model: old → new`.
     #[serde(rename = "session.model")]
     SessionModel,

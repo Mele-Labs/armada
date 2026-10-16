@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
+import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Alert,
   Button,
@@ -19,11 +20,11 @@ import {
   PilotExits,
   DockedTerminal,
   ProseTerminal,
-  RetroPress,
   Tooltip,
   Sheet,
   SessionComposer,
   SessionFrame,
+  type DropdownMenuEntry,
   SessionLedger,
   SessionList,
   SessionThread,
@@ -72,7 +73,7 @@ import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -107,6 +108,10 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import type { PlanEditing } from "./session-view/PlanEdit";
+import { changeLines } from "./session-view/plan-marks";
+import { PlanReview } from "./session-view/PlanReview";
+import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -697,7 +702,8 @@ export function entriesOf(
   release?: LedgerRelease["rowOf"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
+  // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge")).map((one): LedgerEntry => {
     if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
@@ -856,16 +862,23 @@ export function entriesOf(
 /** What Cleanup holds, read here for a slot's panel. */
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
+/** An act in the header's menu: its glyph, its label and what it does. */
+export type DeckAct = { id: string; label: string; icon: LucideIcon; run: () => void };
+
 /**
  * What the flight deck changes in a Session it draws on its stage: its own acts beside the Session's, and the ledger drawn where
  * the deck keeps it, in the right column, and not beside the thread. There the ledger is always up, so the fold below the
  * breakpoint and the button that hides it are not drawn.
  */
 export type DeckSession = {
-  /** The deck's acts, after the ones the Sessions window draws: the pull request, Stop, Open and the way back. */
-  acts: ReactNode;
+  /** The deck's acts, first in the header's menu: Open the Session page and Stop. */
+  acts: readonly DeckAct[];
+  /** The way back, the header's far right item. */
+  back: ReactNode;
   /** The element the ledger is drawn into. Absent until the deck has drawn it, and the ledger waits for it. */
   ledger: HTMLElement | null;
+  /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
+  hosts?: Hosts;
 };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
@@ -881,6 +894,11 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const numbered = useNumbered(session.manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
+  /** The plan opened in full to review. */
+  const [reviewing, setReviewing] = useState(false);
+  // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
+  const [marks, setMarks] = useState<PlanMark[]>([]);
+  useEffect(() => setMarks([]), [session.id]);
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
@@ -973,6 +991,30 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
         }
       : undefined;
+  /** The Cockpit draws this Session's panels itself, the Ledger among them, so no second one is drawn beside the thread or in the deck's right column. */
+  const workspace = deck?.hosts !== undefined && session.work !== undefined;
+  const planNow = session.work?.plan;
+  const planEditing: PlanEditing | undefined =
+    planNow === undefined
+      ? undefined
+      : {
+          id: session.id,
+          plan: planNow,
+          marks,
+          set: setMarks,
+          send: () => {
+            draft.work?.suggest(session.id, marks);
+            setMarks([]);
+            setReviewing(false);
+          },
+        };
+  /** Approve, with what he marked on the plan going to the agent in the same press. */
+  const approvePlan = () => {
+    setReviewing(false);
+    if (marks.length === 0) return draft.work?.approve(session.id);
+    draft.work?.suggest(session.id, marks, true);
+    setMarks([]);
+  };
   // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
     const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
@@ -1012,6 +1054,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
       <SessionFrame
         state={state}
         said={said}
@@ -1023,25 +1066,24 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
+        menu={{
+          entries: [
+            ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),
+            ...(draft.fork === undefined || session.dead === undefined ? [] : [{ kind: "item", id: "fork", label: "Fork", icon: GitFork } as const]),
+            ...(retro.press === undefined ? [] : [{ kind: "item", id: "retro", label: retro.writing.has(session.id) ? "Writing the retro" : "Retro", icon: Rewind, disabled: retro.writing.has(session.id) } as const]),
+            ...(draft.close === undefined || session.dead !== undefined ? [] : [{ kind: "separator", id: "end-rule" } as const, { kind: "item", id: "end", label: "End session", icon: PowerOff, danger: true } as const]),
+          ],
+          onSelect: (id) => {
+            if (id === "fork") opening(draft.fork!(session.id), onOpen);
+            else if (id === "retro") retro.press?.(session, true);
+            else if (id === "end") draft.close?.(session.id);
+            else deck?.acts.find((one) => one.id === id)?.run();
+          },
+        }}
+        {...(deck === undefined ? {} : { back: deck.back })}
         {...{
               actions: (
                 <>
-                  {draft.fork === undefined || session.dead === undefined ? null : (
-                    <Tooltip label="Start a new Session with this one's conversation">
-                      <Button variant="ghost" size="sm" onClick={() => opening(draft.fork!(session.id), onOpen)}>
-                        Fork
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session, true)} />}
-                  {draft.close === undefined || session.dead !== undefined ? null : (
-                    <Tooltip label="End session">
-                      <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
-                        <PowerOff size={16} strokeWidth={2} aria-hidden />
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {deck?.acts}
                   {deck !== undefined ? null : narrow ? (
                     <Tooltip label="Open what this Session holds">
                       <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
@@ -1086,10 +1128,14 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           <SessionThread
             sessionId={session.id}
             rows={shown}
+            {...(session.work?.concerns === undefined || session.work.concerns.length === 0 || draft.work === undefined ? {} : { concerns: session.work.concerns, onSendConcern: (one: string) => draft.work?.sendConcern(session.id, one), onDismissConcern: (one: string) => draft.work?.dismissConcern(session.id, one) })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
+            {...(session.work?.plan === undefined
+              ? {}
+              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1155,7 +1201,13 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
               {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
               {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
               efforts={draft.efforts}
-              onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+              onTune={(tuning) => {
+                draft.tune(session.id, { ...tuning, mode });
+                // A value the proposer picked loses its mark once he changes it.
+                if (tuning.model !== (session.model ?? null)) draft.work?.unpick(session.id, "model");
+                if (tuning.effort !== (session.effort ?? null)) draft.work?.unpick(session.id, "effort");
+              }}
+              {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
               compact={narrow}
               taggable={[
@@ -1186,7 +1238,11 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           )}
         </div>
       </SessionFrame>
-      {deck?.ledger == null ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
+      </SessionWorkspace>
+      {session.work?.plan === undefined ? null : (
+        <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+      )}
+      {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

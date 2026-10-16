@@ -1,0 +1,7 @@
+[icons.arrow-right]
+  means = "An arrow pointing right"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "From one value to the one that replaced it, between a changed value's old and new words in a Session's thread. Never a step order, a disclosure (the chevrons) or a retro item's way, which is `move-right`."
+  notes = "Proposed 16 Oct 2026 for the thread's change rows and the plan edit's suggested rewording (`old to new`). Muted, a mark between two words."

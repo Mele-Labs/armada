@@ -144,9 +144,16 @@ fn every_launch_carries_the_session_rules_once() {
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {
-    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion"] {
+    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
         assert!(rules().contains(named), "{named}");
     }
+}
+
+/// Fleet runs judges itself, so a plan's group is never given the `judge` subagent: the rules say so, in the planning paragraph.
+#[test]
+fn the_rules_say_no_group_names_a_judge() {
+    let planning = rules().split("\n\n").find(|block| block.starts_with("Planning.")).expect("a planning paragraph");
+    assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
 }
 
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
@@ -155,7 +162,7 @@ fn the_rules_name_the_tools_that_surface_a_need() {
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
-    assert_eq!(blocks.len(), 3, "needs, progress, finishing");
+    assert_eq!(blocks.len(), 4, "needs, progress, planning, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }
