@@ -293,7 +293,12 @@ function plain(node: ReactNode): string {
   return isValidElement<{ children?: ReactNode }>(node) ? Children.toArray(node.props.children).map(plain).join("") : "";
 }
 
-export function SessionLedger({ entries, folded = false, keepKey }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string }) {
+/**
+ * `offers` is the kinds the bar has a button for, all of them by default. **A host that shows a kind elsewhere
+ * leaves it out**, so the bar has no button that can never have a row behind it (the Cockpit's Ledger panel
+ * keeps the branch and the bay in its band).
+ */
+export function SessionLedger({ entries, folded = false, keepKey, offers }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string; offers?: readonly LedgerKind[] }) {
   const [only, setOnly] = useState<LedgerKind>();
   const keep = searchKeep(keepKey);
   const [query, setQuery] = useState(() => (keep === false ? "" : (readKept<string>(keep) ?? "")));
@@ -326,7 +331,7 @@ export function SessionLedger({ entries, folded = false, keepKey }: { entries: r
             <Search size={12} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
-        {BAR.map(({ kind, said, Glyph }) => {
+        {BAR.filter(({ kind }) => offers === undefined || offers.includes(kind)).map(({ kind, said, Glyph }) => {
           const pressed = chosen === kind;
           return (
             <Tooltip key={kind} label={said}>

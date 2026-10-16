@@ -30,6 +30,9 @@ const wire = [
   task("tail-fleet", "command", "Follow the Fleet log", "tail -f ~/Library/Logs/Armada/fleet.log", 33, { state: "spent", status: "killed", ended: 25 }),
 ];
 
+/** The Session's background tasks as its ledger reads them, also held by `ledger-in-cockpit`. */
+export const backgroundAttachments = attachmentsOfRecord({ attachments: wire } as SessionRecord, { jobs: [], sketches: [] });
+
 const holding: Session = {
   id: "s73",
   terminal: true,
@@ -40,7 +43,7 @@ const holding: Session = {
   rows: [],
   attachments: [
     { kind: "branch", name: "ledger/background", slot: 6 },
-    ...attachmentsOfRecord({ attachments: wire } as SessionRecord, { jobs: [], sketches: [] }),
+    ...backgroundAttachments,
   ],
 };
 
