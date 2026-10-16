@@ -64,6 +64,8 @@ export type HeldCheckout = {
   behind: number;
   /** Above zero is diverged. */
   ahead: number;
+  /** The pull request Fleet opened from the uncommitted files, on the person's press of "Pull request". Absent until then. */
+  pull_request?: { number: number; auto_merge: boolean };
 };
 
 /** Who holds main's red on another machine: a Job or Session by id, the machine, and since when. No title: only the holder can say. */

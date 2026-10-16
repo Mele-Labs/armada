@@ -3,11 +3,13 @@
 // is safe to press, or none. `checkout-held-back.ts` plays it over the flight deck's ship.
 //
 //   0  On main, one file uncommitted and main never touched it: the autostash pull is safe. Run, and the checkout is level.
+//      Or send the file as a pull request: Fleet opens #2402 with auto-merge on and the hold carries it (`pull_request`).
 //   1  Two files are uncommitted and main changed one of them: an autostash could stop on a conflict.
 //   2  On main, with two commits main lacks, so the history diverged.
 //   3  A loose agent left 100 files uncommitted, three of them changed on main too: the list is long, the clashing ones scattered through it.
 //
-// The first `later` moment is the checkout level, so a light a Run has not yet taken away is gone before the next hold; the card of
+// The first `later` moment is the safe hold read again with no pull request, so the walk can play Run after the press of
+// Pull request; the second is the checkout level, so a light a Run has not yet taken away is gone before the next hold; the card of
 // the holds after it stays open and changes in place.
 
 import type { HeldCheckout, MergeLines } from "@armada/protocol";
@@ -83,11 +85,21 @@ function withCheckout(lines: MergeLines, root: string, checkout?: HeldCheckout):
   };
 }
 
-/** The state at the first hold, then level and each later hold as the changes a walk publishes, and the checkout level as the change a Run leaves. */
+/** The pull request Fleet opens from the files of the safe hold. */
+export const SENT_PULL_REQUEST = 2402;
+
+/** The state at the first hold, then the safe hold again, level and each later hold as the changes a walk publishes, the checkout level as the change a Run leaves, and the safe hold carrying a pull request as the change a press of Pull request leaves. */
 export function checkoutHeld(
   lines: MergeLines,
   root: string,
-): { first: Partial<BridgeState>; later: Partial<BridgeState>[]; level: Partial<BridgeState>; safe: HeldCheckout } {
+): { first: Partial<BridgeState>; later: Partial<BridgeState>[]; level: Partial<BridgeState>; sent: Partial<BridgeState>; safe: HeldCheckout } {
   const at = (checkout?: HeldCheckout): Partial<BridgeState> => ({ mergeLines: withCheckout(lines, root, checkout) });
-  return { first: at(HELD[0]), later: [at(), ...HELD.slice(1).map(at)], level: at(), safe: HELD[0]! };
+  const safe = HELD[0]!;
+  return {
+    first: at(safe),
+    later: [at(safe), at(), ...HELD.slice(1).map(at)],
+    level: at(),
+    sent: at({ ...safe, pull_request: { number: SENT_PULL_REQUEST, auto_merge: true } }),
+    safe,
+  };
 }

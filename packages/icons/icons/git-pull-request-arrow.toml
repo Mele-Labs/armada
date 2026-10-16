@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Promote: a mod becomes a branch and a pull request. Not the pull request itself, which is `git-pull-request`."
   notes = "Tooltip `Promote <mod> to a branch and pull request`. Walked by the owner in the Mods mock."
+
+  [[icons.git-pull-request-arrow.usage]]
+    means = "The uncommitted files of Your checkout sent up as a pull request"
+    group = "Cockpit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. A ghost button labelled `Pull request` beside the command in Your checkout, tooltip `Commit to a branch, open a pull request, auto-merge on`. A branch going to a pull request, the same meaning it has under Promote."
