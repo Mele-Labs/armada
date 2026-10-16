@@ -290,6 +290,15 @@ fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
     relative && !matches!(word.trim_end_matches('/'), "" | "." | "*") && slots.iter().any(below)
 }
 
+/// Whether a `cd` to `to` lands in one of `slots`, its root included: unlike a
+/// removal, standing at the root of a slot is the slot's own.
+fn cd_stays(to: &str, slots: &[&str]) -> bool {
+    let to = to.trim_matches(|c| c == '\'' || c == '"');
+    !to.is_empty()
+        && !to.contains(['$', '~'])
+        && slots.iter().any(|slot| inside_the_directory(to, slot))
+}
+
 /// Where a session may write and remove besides its slot.
 const SCRATCH: &[&str] = &[
     "/tmp/",
@@ -577,7 +586,7 @@ fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Beca
         relative: segments.iter().all(|said| {
             let mut words = said.split_whitespace();
             match words.next() {
-                Some("cd" | "pushd") => words.next().is_some_and(|to| in_the_slot(to, slots, true)),
+                Some("cd" | "pushd") => words.next().is_some_and(|to| cd_stays(to, slots)),
                 Some("popd") => false,
                 _ => true,
             }
@@ -665,7 +674,7 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
         return Some(Because::Unreadable);
     }
     match program {
-        "git" => return git(&arguments, slot.is_some(), own),
+        "git" => return git(&arguments, slot, own),
         "gh" => return forge(&arguments),
         "curl" | "wget" | "http" => return fetching(&arguments),
         _ => {}
@@ -771,7 +780,7 @@ fn into_a_device(after: &[char]) -> bool {
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
 /// `status`, `diff`, `show` and `worktree list` run.
-fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
+fn git(arguments: &[&str], slot: Option<Slot>, own: Own) -> Option<Because> {
     // `-C <path>` and `-c <key=value>` carry a value, which is not the verb.
     let mut words = arguments.iter();
     let subcommand = loop {
@@ -784,9 +793,10 @@ fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
     };
     // **A session in its own slot rewrites its own branch unasked**: a reset, a
     // checkout, a rebase or a forced tag there touches nothing but the work it
-    // made (the owner, 8 Oct 2026). Pointed elsewhere with `-C`, it is read as
-    // before; the stash is every worktree's, and a push, a deleted branch and
-    // a pruned repository are everyone's.
+    // made (the owner, 8 Oct 2026). It is in one where it has not `cd`ed out of
+    // its slots, or where `-C` names a slot it holds (16 Oct 2026); pointed
+    // anywhere else it is read as before. The stash is every worktree's, and a
+    // push, a deleted branch and a pruned repository are everyone's.
     const OWN_BRANCH: &[&str] = &[
         "reset",
         "clean",
@@ -799,11 +809,28 @@ fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
         "merge",
         "tag",
     ];
-    let elsewhere = arguments.iter().any(|word| {
-        *word == "-C" || word.starts_with("--git-dir") || word.starts_with("--work-tree")
+    let pointed: Vec<&str> = arguments
+        .windows(2)
+        .filter(|pair| pair[0] == "-C")
+        .map(|pair| pair[1])
+        .collect();
+    let own_slot = slot.is_some_and(|slot| {
+        let held = |path: &str| {
+            let path = path.trim_matches(|c| c == '\'' || c == '"');
+            !path.contains(['$', '~'])
+                && (path.starts_with('/') || slot.relative)
+                && slot.slots.iter().any(|one| inside_the_directory(path, one))
+        };
+        let other_tree = arguments
+            .iter()
+            .any(|word| word.starts_with("--git-dir") || word.starts_with("--work-tree"));
+        !other_tree
+            && match pointed.is_empty() {
+                true => slot.relative,
+                false => pointed.iter().all(|path| held(path)),
+            }
     });
     if own_slot
-        && !elsewhere
         && OWN_BRANCH.contains(subcommand)
         && !(*subcommand == "tag" && arguments.iter().any(|w| matches!(*w, "-d" | "--delete")))
     {

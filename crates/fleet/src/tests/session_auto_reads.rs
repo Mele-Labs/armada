@@ -225,3 +225,25 @@ fn a_read_outside_the_slots_runs_unless_macos_or_credentials_guard_it() {
         Because::ReachesOutside,
     );
 }
+
+#[test]
+fn git_pointed_at_a_held_slot_is_its_own_and_cd_out_of_it_is_not() {
+    ran(&[
+        "git -C /repo/.armada/slots/slot-3 reset -q --keep HEAD~1",
+        "git -C /repo/.armada/slots/slot-3 checkout -- src/lib.rs",
+        "cd /repo/.armada/slots/slot-3 && git rebase origin/main",
+        "git reset --hard HEAD~1",
+    ]);
+    refused(
+        &[
+            "git -C /repo reset --hard",
+            "git -C /repo/.armada/slots/slot-3/../../.. reset --hard",
+            "git -C $SLOT reset --hard",
+            "cd /repo && git reset --hard",
+            "cd /repo && git checkout main",
+            "git -C /repo/.armada/slots/slot-3 --work-tree=/repo reset --hard",
+            "git -C /repo/.armada/slots/slot-3 stash",
+        ],
+        Because::Destructive,
+    );
+}
