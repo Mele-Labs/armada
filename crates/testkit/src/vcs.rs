@@ -38,6 +38,7 @@ use adapter_traits::{
 
 use crate::work_product::Holding;
 
+mod checkout_sends;
 mod commit;
 mod delivered;
 mod delivering;
@@ -111,6 +112,8 @@ pub struct FakeVcs {
     merging: Mutex<Merging>,
     /// What a form's edit to the Manifest comes to.
     manifest_edits: Mutex<manifest_edits::ManifestEdits>,
+    /// What sending the served checkout's uncommitted files as a pull request comes to.
+    checkout_sends: Mutex<checkout_sends::CheckoutSends>,
     /// What the forge says about one pull request and does when it is readied.
     pull_requests: Mutex<pull_requests::PullRequests>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
@@ -746,6 +749,14 @@ impl Delivery for FakeVcs {
         sending: &adapter_traits::ManifestEditToSend,
     ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
         self.manifest_edit_sent(sending)
+    }
+
+    fn send_checkout_as_pull_request(
+        &self,
+        _in_repo: &str,
+        sending: &adapter_traits::CheckoutToSend,
+    ) -> Result<adapter_traits::CheckoutSent, NotDelivered> {
+        self.checkout_sent(sending)
     }
 }
 

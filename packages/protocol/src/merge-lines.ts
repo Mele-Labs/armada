@@ -64,6 +64,8 @@ export type HeldCheckout = {
   behind: number;
   /** Above zero is diverged. */
   ahead: number;
+  /** The pull request Fleet opened from the uncommitted files, on the person's press of "Pull request". Absent until then. */
+  pull_request?: { number: number; auto_merge: boolean };
 };
 
 /** Who holds main's red on another machine: a Job or Session by id, the machine, and since when. No title: only the holder can say. */
@@ -113,6 +115,17 @@ export type FixMain = {
 /** `catch_up_checkout`'s body: pull a held checkout level with its base. Names the repository and no command: Fleet reads the hold again and runs the pull itself. */
 export type CatchUpCheckout = {
   manifest_id: string;
+};
+
+/** `checkout_to_pull_request`'s body: send a held checkout's uncommitted files up as a pull request. Names the repository and no path: Fleet reads the hold again and sends the files it lists. */
+export type CheckoutToPullRequest = {
+  manifest_id: string;
+};
+
+/** `checkout_to_pull_request`'s answer: the pull request that was opened. `auto_merge` is false where the forge refused it; the pull request is open all the same. */
+export type CheckoutSentAsPullRequest = {
+  pull_request: number;
+  auto_merge: boolean;
 };
 
 /** `checkout_diff`'s query: which uncommitted file of a held checkout to read. */

@@ -14,8 +14,12 @@ export type CheckoutCall = {
   /** The one reason it is held, in the order the card ranks them. Empty where none applies. */
   fact: string;
   facts: readonly Fact[];
-  /** Absent where no single press is safe. */
+  /** Absent where no single press is safe, and once the files went up as a pull request. */
   command?: string;
+  /** Set where the uncommitted files can go up as a pull request: on the base branch, ahead of nothing, none clashing, no pull request yet. */
+  sendable?: true;
+  /** The pull request opened from the uncommitted files. */
+  pullRequest?: { number: number; autoMerge: boolean };
 };
 
 const commits = (count: number): string => `${count} ${count === 1 ? "commit" : "commits"}`;
@@ -23,11 +27,12 @@ const commits = (count: number): string => `${count} ${count === 1 ? "commit" : 
 /** A path or branch as a shell word: bare where it is plain, else in single quotes. */
 const word = (text: string): string => (/^[\w./@:+=,-]+$/.test(text) ? text : `'${text.replace(/'/g, `'\\''`)}'`);
 
+/** Uncommitted files on the base branch, ahead of nothing, that main did not also change: the pull and the pull request are both safe, and Fleet refuses both otherwise. */
+const sound = (held: HeldCheckout): boolean => held.on === undefined && (held.uncommitted ?? []).length > 0 && (held.clashing ?? []).length === 0 && held.ahead === 0;
+
 /** The one command that brings the checkout back to `base` where nothing can be lost or stopped on a conflict. */
 function commandOf(root: string, held: HeldCheckout): string | undefined {
-  const uncommitted = held.uncommitted ?? [];
-  const clashing = held.clashing ?? [];
-  return held.on === undefined && uncommitted.length > 0 && clashing.length === 0 && held.ahead === 0 ? `git -C ${word(root)} pull --ff-only --autostash` : undefined;
+  return sound(held) && held.pull_request === undefined ? `git -C ${word(root)} pull --ff-only --autostash` : undefined;
 }
 
 /** The uncommitted paths with the clashing ones first, each group in path order, so a long list opens on the files that matter. */
@@ -61,5 +66,7 @@ export function checkoutCall(root: string, held: HeldCheckout): CheckoutCall {
       ...(held.ahead > 0 ? [{ label: `Not on ${held.base}`, lines: [{ text: commits(held.ahead) }] }] : []),
     ],
     ...(command === undefined ? {} : { command }),
+    ...(sound(held) && held.pull_request === undefined ? { sendable: true as const } : {}),
+    ...(held.pull_request === undefined ? {} : { pullRequest: { number: held.pull_request.number, autoMerge: held.pull_request.auto_merge } }),
   };
 }

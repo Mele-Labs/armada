@@ -241,8 +241,12 @@ fn somewhere_that_is_not_a_repository_is_left_alone() {
 
 /// Commit `path` in the second checkout and push it, as a merge on the forge.
 fn merged_elsewhere(repo: &TempRepo, path: &str) {
+    merged_elsewhere_as(repo, path, "main's version");
+}
+
+fn merged_elsewhere_as(repo: &TempRepo, path: &str, text: &str) {
     let elsewhere = repo.root().with_extension("elsewhere");
-    std::fs::write(elsewhere.join(path), "main's version").expect("writes");
+    std::fs::write(elsewhere.join(path), text).expect("writes");
     for args in [
         vec!["add", "--", path],
         vec!["commit", "-m", "main changed it"],
@@ -297,6 +301,7 @@ fn uncommitted_files_main_did_not_touch_are_held_back_with_no_clash() {
             on: None,
             uncommitted: vec![String::from("armada.yml")],
             clashing: Vec::new(),
+            already_on_base: Vec::new(),
             behind: 1,
             ahead: 0,
         })
@@ -311,6 +316,105 @@ fn an_uncommitted_file_main_also_changed_is_named_as_clashing() {
 
     let held = held_back(&repo.root_str(), "main").expect("read");
     assert_eq!(held.clashing, ["armada.yml"]);
+}
+
+/// The change the owner kept uncommitted reached main by another road: the file is main's own now.
+#[test]
+fn an_uncommitted_file_that_is_main_s_own_content_is_not_a_clash() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.uncommitted, ["armada.yml"]);
+    assert!(held.clashing.is_empty(), "{:?}", held.clashing);
+    assert_eq!(held.already_on_base, ["armada.yml"]);
+}
+
+/// One byte apart is a clash: only the same content is safe.
+#[test]
+fn a_file_one_byte_from_main_s_content_still_clashes() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.clashing, ["armada.yml"]);
+    assert!(held.already_on_base.is_empty());
+}
+
+/// Main took the owner's change and reworded a line beside it: the file is not
+/// main's byte for byte, but nothing of theirs is lost by the pull.
+#[test]
+fn an_uncommitted_change_main_already_holds_is_not_a_clash_and_pulls_clean() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\nd\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert!(held.clashing.is_empty(), "{:?}", held.clashing);
+    assert_eq!(held.already_on_base, ["notes.md"]);
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(std::fs::read_to_string(repo.root().join("notes.md")).expect("reads"), "header\na\nb\nc\nd\n");
+    assert!(repo.status().is_empty(), "{:?}", repo.status());
+}
+
+/// A change that merges clean but is not in main's file is still the owner's own.
+#[test]
+fn an_uncommitted_change_main_does_not_hold_still_clashes() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\ne\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!(held.clashing, ["notes.md"]);
+    assert!(held.already_on_base.is_empty());
+}
+
+/// The file's deletion landed on main too: gone from both is the same.
+#[test]
+fn a_file_deleted_here_and_on_main_is_main_s_own() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    let elsewhere = repo.root().with_extension("elsewhere");
+    for args in [vec!["rm", "--quiet", "armada.yml"], vec!["commit", "-m", "gone"], vec!["push", "origin", "main"]] {
+        let run = std::process::Command::new("git")
+            .args(["-c", "user.name=armada", "-c", "user.email=a@b.invalid", "-C"])
+            .arg(&elsewhere)
+            .args(&args)
+            .output()
+            .expect("git on PATH");
+        assert!(run.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&run.stderr));
+    }
+    std::fs::remove_file(repo.root().join("armada.yml")).expect("deleted by hand");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.already_on_base, ["armada.yml"]);
+    assert!(held.clashing.is_empty());
 }
 
 #[test]
@@ -376,6 +480,36 @@ fn an_autostash_pull_moves_the_branch_and_keeps_a_file_main_did_not_touch() {
     );
     assert_eq!(repo.git(&["stash", "list"]).trim(), "", "nothing is left in the stash");
     assert!(!pulled.output.is_empty(), "git's words come back");
+}
+
+/// The pull Fleet runs by itself once the change is on main: the owner's file equals what arrives, and
+/// a second file main never touched stays theirs.
+#[test]
+fn an_autostash_pull_over_a_file_equal_to_main_s_succeeds_and_leaves_the_checkout_clean_of_it() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "v1", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo.root().with_extension("elsewhere"))
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version");
+    repo.write("notes.md", "v2, mine");
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!((held.clashing.as_slice(), held.already_on_base.as_slice()), (&[][..], &[String::from("armada.yml")][..]));
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(repo.git(&["rev-parse", "HEAD"]), repo.git(&["rev-parse", "origin/main"]), "the checkout has main's tip");
+    assert_eq!(std::fs::read_to_string(repo.root().join("armada.yml")).expect("reads"), "main's version");
+    assert_eq!(std::fs::read_to_string(repo.root().join("notes.md")).expect("reads"), "v2, mine", "the untouched file stays the owner's");
+    assert_eq!(repo.status(), ["notes.md"], "only the owner's own file is left uncommitted");
+    assert_eq!(repo.git(&["stash", "list"]).trim(), "", "nothing is left in the stash");
 }
 
 /// **git exits clean for this and Fleet does not.** The fast-forward happened, the

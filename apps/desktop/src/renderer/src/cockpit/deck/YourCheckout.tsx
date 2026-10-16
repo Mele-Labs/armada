@@ -4,8 +4,8 @@
 // change in place where Fleet reads it, and a second press folds it.
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { FolderGit2, TriangleAlert } from "lucide-react";
-import { CopyAct, RunnableBlock, Tooltip, UnifiedDiff, type CodeRunner } from "@armada/components";
+import { FolderGit2, GitMerge, GitPullRequestArrow, TriangleAlert } from "lucide-react";
+import { Button, Chip, CopyAct, OwnerChip, RunnableBlock, Tooltip, UnifiedDiff, type CodeRunner } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 import type { CheckoutDiffRead } from "@armada/screens/src/draft/sessions";
 
@@ -45,6 +45,56 @@ function Command({ root, command }: { root: string; command: string }) {
     <RunnableBlock command={command} runner={runner} copy={command}>
       {block}
     </RunnableBlock>
+  );
+}
+
+/** The uncommitted files as a pull request: committed to a branch, opened, auto-merge on. Pending until Fleet answers with its number. */
+function SendAsPullRequest({ root }: { root: string }) {
+  const send = useRepositoryActs().sendCheckoutAsPullRequest;
+  const [pending, setPending] = useState(false);
+  if (send === undefined) return null;
+  return (
+    <span className="deck-checkout__send">
+    <Tooltip label="Commit to a branch, open a pull request, auto-merge on">
+      <Button
+        variant="ghost"
+        size="sm"
+        pending={pending}
+        onClick={() => {
+          setPending(true);
+          // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal frees it.
+          void send(root).then((sent) => sent === undefined && setPending(false), () => setPending(false));
+        }}
+      >
+        <GitPullRequestArrow size={12} aria-hidden="true" />
+        Pull request
+      </Button>
+    </Tooltip>
+    </span>
+  );
+}
+
+/** The pull request opened from the files: its chip, and auto-merge as a glyph that a tooltip names. A row of the facts' own grid. */
+function PullRequestRow({ pullRequest }: { pullRequest: NonNullable<CheckoutCall["pullRequest"]> }) {
+  const chip = { kind: "pull_request", number: pullRequest.number } as const;
+  return (
+    <>
+      <dt>Pull request</dt>
+      <dd>
+        <span className="deck-checkout__line">
+          <OwnerChip chip={chip}>
+            <Chip chip={chip} />
+          </OwnerChip>
+          {pullRequest.autoMerge ? (
+            <Tooltip label="Auto-merge on">
+              <span role="img" aria-label="Auto-merge on" className="deck-checkout__auto">
+                <GitMerge size={12} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          ) : null}
+        </span>
+      </dd>
+    </>
   );
 }
 
@@ -148,7 +198,7 @@ export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
       </div>
       <p className="deck-checkout__title">{call.title}</p>
       {call.fact === "" ? null : <p className="deck-checkout__fact">{call.fact}</p>}
-      {call.facts.length === 0 ? null : (
+      {call.facts.length === 0 && call.pullRequest === undefined ? null : (
         <dl className="deck-checkout__rows mono" aria-label="Checkout">
           {call.facts.map((one) => (
             <Fragment key={one.label}>
@@ -158,11 +208,17 @@ export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
               </dd>
             </Fragment>
           ))}
+          {call.pullRequest === undefined ? null : <PullRequestRow pullRequest={call.pullRequest} />}
         </dl>
       )}
-      {call.command === undefined ? null : (
+      {call.command === undefined && call.sendable === undefined ? null : (
         <div className="deck-checkout__command">
-          <Command root={held.root} command={call.command} />
+          {call.command === undefined ? null : (
+            <div className="deck-checkout__run">
+              <Command root={held.root} command={call.command} />
+            </div>
+          )}
+          {call.sendable === undefined ? null : <SendAsPullRequest root={held.root} />}
         </div>
       )}
     </section>

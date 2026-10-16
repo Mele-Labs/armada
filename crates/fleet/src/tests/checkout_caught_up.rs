@@ -6,7 +6,7 @@
 
 use adapter_traits::{CheckoutPulled, HeldBack, RepositoryStanding};
 use api::{Commands, Queries, Refusal};
-use ipc::{CatchUpCheckout, CheckoutDiffAsk, ManifestId};
+use ipc::{CatchUpCheckout, CheckoutDiffAsk, CheckoutPullRequest, CheckoutToPullRequest, ManifestId};
 
 use crate::tests::main_ci::{a_fleet_over, the_hub, Fixture, MANIFEST, ONE, TWO};
 use crate::tests::tmp::TempDir;
@@ -25,6 +25,7 @@ fn dirty() -> HeldBack {
         on: None,
         uncommitted: vec![String::from("armada.yml")],
         clashing: Vec::new(),
+        already_on_base: Vec::new(),
         behind: 3,
         ahead: 0,
     }
@@ -105,6 +106,7 @@ fn on_another_branch() -> HeldBack {
         on: Some(String::from("fix/slot-lease")),
         uncommitted: Vec::new(),
         clashing: Vec::new(),
+        already_on_base: Vec::new(),
         behind: 40,
         ahead: 0,
     }
@@ -395,4 +397,286 @@ async fn a_diff_of_a_repository_this_fleet_does_not_serve_is_refused() {
         Err(Refusal::Unacceptable(why)) => assert_eq!(why.code, "fleet.repository_not_served"),
         other => panic!("{other:?}"),
     }
+}
+
+// --------------------------------------------- Fleet catches up by itself once the change is on main
+
+/// The pull request merged, or the owner committed the same change by hand: the file is main's own now.
+fn landed_on_main() -> HeldBack {
+    HeldBack { already_on_base: vec![String::from("armada.yml")], ..dirty() }
+}
+
+#[tokio::test]
+async fn a_file_that_is_main_s_own_content_is_caught_up_with_no_call() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone {
+        why: String::from("`main` is carrying 1 uncommitted change(s)"),
+    });
+    vcs.held_back_by(Some(landed_on_main()));
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 1, "the one safe pull ran by itself");
+    assert_eq!(held_back(&fleet).await, None, "so nobody is called");
+    assert!(fleet.merge_hubs().await.iter().all(|(_, hub)| hub.checkout.is_none()));
+}
+
+/// A file main did not touch is as safe under the pull as one that equals main's.
+#[tokio::test]
+async fn files_main_did_not_touch_ride_along_with_one_that_equals_main_s() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone { why: String::from("dirty") });
+    vcs.held_back_by(Some(HeldBack {
+        uncommitted: vec![String::from("armada.yml"), String::from("notes.md")],
+        ..landed_on_main()
+    }));
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 1);
+    assert_eq!(held_back(&fleet).await, None);
+}
+
+/// The plain safe hold stays the owner's call: Run or Pull request, from the card.
+#[tokio::test]
+async fn files_main_did_not_touch_alone_still_raise_the_call() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(fleet.vcs().times_the_checkout_was_pulled(), 0);
+    assert!(held_back(&fleet).await.is_some());
+}
+
+#[tokio::test]
+async fn a_file_that_truly_clashes_still_raises_the_call_beside_one_that_equals_main_s() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone { why: String::from("dirty") });
+    vcs.held_back_by(Some(HeldBack {
+        uncommitted: vec![String::from("armada.yml"), String::from("src/lib.rs")],
+        clashing: vec![String::from("src/lib.rs")],
+        ..landed_on_main()
+    }));
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 0, "never over a file that truly clashes");
+    let held = held_back(&fleet).await.expect("the hold stands");
+    assert_eq!(held.clashing, ["src/lib.rs"]);
+}
+
+/// Not on the base, or with commits main lacks, no pull is Fleet's to run, whatever the files hold.
+#[tokio::test]
+async fn a_diverged_hold_is_not_pulled_even_where_the_file_equals_main_s() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone { why: String::from("dirty") });
+    vcs.held_back_by(Some(HeldBack { ahead: 1, ..landed_on_main() }));
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 0);
+    assert!(held_back(&fleet).await.is_some());
+}
+
+/// A pull that did not take is not mistaken for a caught-up checkout: the hold is read again next time.
+#[tokio::test]
+async fn a_pull_that_did_not_take_leaves_the_hold_standing() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone { why: String::from("dirty") });
+    vcs.held_back_by(Some(landed_on_main()));
+    vcs.pulling_comes_to(CheckoutPulled { code: 1, output: String::from("could not fetch") });
+
+    fleet.turn().await.unwrap();
+
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 1);
+    assert!(held_back(&fleet).await.is_some());
+}
+
+// ------------------------------------------------- the checkout's files sent up as a pull request
+
+fn send() -> CheckoutToPullRequest {
+    CheckoutToPullRequest { manifest_id: ManifestId::carried("01FIXTUREMANIFEST") }
+}
+
+fn refused_to_send(answer: Result<ipc::CheckoutSentAsPullRequest, Refusal>) -> (String, String) {
+    match answer {
+        Err(Refusal::IllegalMove(why)) => (why.code, why.message),
+        other => panic!("expected a 409, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn the_press_sends_the_files_and_the_hub_carries_the_pull_request() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let vcs = fleet.vcs();
+
+    let sent = fleet.checkout_to_pull_request(send()).await.expect("sent");
+
+    assert_eq!((sent.pull_request, sent.auto_merge), (2402, true));
+    let sends = vcs.checkouts_sent();
+    assert_eq!(sends.len(), 1);
+    assert_eq!((sends[0].base.as_str(), sends[0].paths.as_slice(), sends[0].message.as_str()), ("main", [String::from("armada.yml")].as_slice(), "armada.yml"));
+    let hex = sends[0].branch.strip_prefix("armada/checkout-").expect("a checkout branch");
+    assert!(!hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()), "{}", sends[0].branch);
+    let card = the_hub(&fleet).await.checkout.expect("the hold stands");
+    assert_eq!(card.pull_request, Some(CheckoutPullRequest { number: 2402, auto_merge: true }));
+    assert_eq!(card.uncommitted, ["armada.yml"], "the files are still listed");
+    assert_eq!(vcs.times_the_checkout_was_pulled(), 0, "nothing was pulled over the owner's files");
+}
+
+#[tokio::test]
+async fn several_files_are_titled_by_their_count() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, HeldBack { uncommitted: vec![String::from("a.rs"), String::from("b.rs"), String::from("c.rs")], ..dirty() }).await;
+
+    fleet.checkout_to_pull_request(send()).await.expect("sent");
+
+    assert_eq!(fleet.vcs().checkouts_sent()[0].message, "3 files");
+}
+
+#[tokio::test]
+async fn a_forge_that_refused_auto_merge_still_has_its_pull_request_said_without_it() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.vcs().now_auto_merge(Err(String::from("auto-merge is not allowed")));
+
+    let sent = fleet.checkout_to_pull_request(send()).await.expect("the pull request is open either way");
+
+    assert!(!sent.auto_merge);
+    let card = the_hub(&fleet).await.checkout.expect("the hold stands");
+    assert_eq!(card.pull_request.map(|pull| pull.auto_merge), Some(false));
+}
+
+#[tokio::test]
+async fn the_pull_request_stays_on_the_hold_through_the_next_reading_of_main() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.checkout_to_pull_request(send()).await.expect("sent");
+
+    fleet.turn().await.unwrap();
+
+    let card = the_hub(&fleet).await.checkout.expect("the hold stands");
+    assert_eq!(card.pull_request.map(|pull| pull.number), Some(2402));
+}
+
+#[tokio::test]
+async fn the_pull_request_goes_when_the_hold_does() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let vcs = fleet.vcs();
+    fleet.checkout_to_pull_request(send()).await.expect("sent");
+
+    // The pull request merged: the file is main's own, so Fleet catches the checkout up by itself.
+    vcs.held_back_by(Some(landed_on_main()));
+    fleet.turn().await.unwrap();
+
+    assert_eq!(held_back(&fleet).await, None);
+    assert!(fleet.merge_hubs().await.iter().all(|(_, hub)| hub.checkout.is_none()));
+    assert!(fleet.sweeping().lock().await.checkout_sent.is_empty(), "a later hold starts without it");
+}
+
+#[tokio::test]
+async fn a_second_press_is_refused_and_sends_nothing() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.checkout_to_pull_request(send()).await.expect("sent");
+
+    let (code, said) = refused_to_send(fleet.checkout_to_pull_request(send()).await);
+
+    assert_eq!(code, "fleet.checkout_already_sent");
+    assert!(said.contains("2402"), "{said}");
+    assert_eq!(fleet.vcs().checkouts_sent().len(), 1);
+}
+
+#[tokio::test]
+async fn a_clashing_hold_is_refused_and_nothing_is_sent() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, HeldBack { clashing: vec![String::from("armada.yml")], ..dirty() }).await;
+
+    let (code, said) = refused_to_send(fleet.checkout_to_pull_request(send()).await);
+
+    assert_eq!(code, "fleet.checkout_not_catchable");
+    assert!(said.contains("armada.yml"), "{said}");
+    assert!(fleet.vcs().checkouts_sent().is_empty());
+    assert_eq!(the_hub(&fleet).await.checkout.expect("the hold stands").pull_request, None);
+}
+
+#[tokio::test]
+async fn holds_the_press_cannot_clear_are_refused_as_the_pull_is() {
+    for held in [
+        HeldBack { on: Some(String::from("my-own-branch")), ..dirty() },
+        HeldBack { ahead: 2, ..dirty() },
+        HeldBack { uncommitted: Vec::new(), ..dirty() },
+    ] {
+        let home = TempDir::new();
+        let fleet = held_by(&home, held).await;
+
+        let (code, _) = refused_to_send(fleet.checkout_to_pull_request(send()).await);
+
+        assert_eq!(code, "fleet.checkout_not_catchable");
+        assert!(fleet.vcs().checkouts_sent().is_empty());
+    }
+}
+
+/// The card was drawn, then the owner committed the file: the hold is read now.
+#[tokio::test]
+async fn a_hold_that_has_gone_since_the_card_was_drawn_is_refused_as_not_held_by_the_press() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.vcs().held_back_by(None);
+
+    let (code, _) = refused_to_send(fleet.checkout_to_pull_request(send()).await);
+
+    assert_eq!(code, "fleet.checkout_not_held");
+    assert!(fleet.vcs().checkouts_sent().is_empty());
+}
+
+#[tokio::test]
+async fn a_push_that_would_not_go_is_a_fault_with_the_tool_s_words_and_the_hub_says_no_pull_request() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.vcs().now_sending_the_checkout_is_refused("remote: Permission denied");
+
+    match fleet.checkout_to_pull_request(send()).await {
+        Err(Refusal::Fault(why)) => {
+            assert_eq!(why.code, "fleet.checkout_not_sent");
+            assert!(why.message.contains("Permission denied"), "{}", why.message);
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(the_hub(&fleet).await.checkout.expect("the hold stands").pull_request, None);
+}
+
+#[tokio::test]
+async fn a_repository_this_fleet_does_not_serve_is_refused_by_the_press() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+
+    match fleet.checkout_to_pull_request(CheckoutToPullRequest { manifest_id: ManifestId::carried("01NOSUCHMANIFEST") }).await {
+        Err(Refusal::Unacceptable(why)) => assert_eq!(why.code, "fleet.repository_not_served"),
+        other => panic!("{other:?}"),
+    }
+    assert!(fleet.vcs().checkouts_sent().is_empty());
 }

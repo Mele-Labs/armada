@@ -126,6 +126,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
     text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.sendCheckoutAsPullRequest, (_event, manifestId: string) =>
+    text(manifestId) ? (connection()?.sessions.sendCheckoutAsPullRequest({ manifest_id: manifestId }) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.readCheckoutDiff, (_event, manifestId: string, path: string) =>
     text(manifestId) && text(path) ? (connection()?.sessions.checkoutDiff(manifestId, path) ?? unsent) : unsent,
   );
