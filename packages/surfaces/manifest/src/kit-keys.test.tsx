@@ -60,9 +60,9 @@ test("the arrows move across Kit's tiles as they are drawn, and j and k step thr
   await userEvent.keyboard("{ArrowRight}");
   await expect.element(region("Plugins")).toHaveFocus();
   await userEvent.keyboard("{ArrowDown}");
-  await expect.element(region("MCP servers")).toHaveFocus();
-  await userEvent.keyboard("{ArrowLeft}");
   await expect.element(region("Commands")).toHaveFocus();
+  await userEvent.keyboard("{ArrowLeft}");
+  await expect.element(region("Sub agents")).toHaveFocus();
   await userEvent.keyboard("{ArrowUp}");
   await expect.element(region("Skills")).toHaveFocus();
 
