@@ -11,6 +11,7 @@ pub const HARNESS_DRONE_PATH: List = List("harness.dronePath");
 pub const HELM_CAN_ACT: Flag = Flag("features.helmCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
+pub const WORKFLOWS: Flag = Flag("features.workflows");
 
 pub const EDITOR_COMMAND: Words = Words("editor.command");
 pub const TERMINAL_APP: Words = Words("terminal.app");
@@ -103,6 +104,17 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("pull-request-mode-ready-draft"),
+        env: None,
+    },
+    Entry {
+        key: WORKFLOWS.0,
+        section: Section::Features,
+        title: "Workflows for Sessions",
+        description: "A Session can follow a workflow: the proposer picks one, and the thread shows its steps. Off, every Session is a plain one.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: Some("session-workflows"),
         env: None,
     },
     Entry {

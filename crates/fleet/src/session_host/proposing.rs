@@ -37,6 +37,9 @@ use crate::timeline::{Fact, Subject};
 /// A workflow id the Session's repository does not hold. A 422.
 const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
 
+/// A workflow set while `features.workflows` is off. A 422.
+const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
+
 /// A Session whose proposal call is out. In memory: a Fleet that restarts reads nothing.
 #[derive(Debug, Default)]
 pub(crate) struct Reading {
@@ -195,7 +198,8 @@ where
         let served = self
             .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
             .map_err(|_| String::from("the repository is not served"))?;
-        let workflows = served.workflows();
+        // With workflows off the proposer is shown none, so it never picks one.
+        let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
         let brief = Brief::about_session(request, &workflows, &proposing.choices);
         let ask = Ask::put(
             proposing.model.clone(),
@@ -349,7 +353,7 @@ where
     /// on it, and the turn that starts then tells.
     pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
-        if !hosting.ran {
+        if !hosting.ran && self.workflows_on() {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
                 said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false));
             }
@@ -429,6 +433,12 @@ where
             .workflow
             .map(|named| named.trim().to_string())
             .filter(|named| !named.is_empty());
+        if workflow.is_some() && !self.workflows_on() {
+            return Err(self.hosted_refusal(
+                WORKFLOWS_OFF,
+                "workflows are switched off in Settings, so every Session is a plain one",
+            ));
+        }
         if let Some(named) = &workflow {
             if !held.contains_key(&WorkflowId::carried(Ulid::carried(named.as_str()))) {
                 return Err(self.hosted_refusal(

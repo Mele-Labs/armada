@@ -105,6 +105,9 @@ where
             return;
         }
         record.judging = self.hosts().of(&session.id).state().judging > 0;
+        if !self.workflows_on() {
+            return;
+        }
         let (Some(manifest), Some(workflow)) = (session.manifest_id.as_deref(), record.workflow.as_deref()) else {
             return;
         };

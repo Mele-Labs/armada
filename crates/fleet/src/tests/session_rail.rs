@@ -439,3 +439,81 @@ async fn a_call_that_fails_raises_nothing_and_leaves_the_last_reading_alone() {
     let read = record(&rig, &id).await;
     assert!(read.judge.is_none() && read.waiting_for.iter().all(|one| one.source != WaitingSource::Judge), "{read:?}");
 }
+
+// ---- Switched off ----
+
+fn workflows_switched(rig: &Rig, on: bool) -> impl std::future::Future<Output = ()> + '_ {
+    let save = ipc::SaveSettings {
+        changes: std::collections::BTreeMap::from([("features.workflows".to_string(), Some(ipc::SettingValue::Bool(on)))]),
+    };
+    async move {
+        api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+    }
+}
+
+#[tokio::test]
+async fn with_workflows_off_the_proposer_is_shown_none_and_still_proposes_the_title() {
+    let judge = Arc::new(FakeJudge::saying("workflow: bug\ntitle: Log reader drops a line\nsettings: effort=high"));
+    let rig = rig_fitted(|fittings| {
+        fittings.judge = Arc::clone(&judge) as _;
+        fittings.starting().workflows = [super::daemon::workflow_named("bug")].into_iter().map(|one| (one.id().clone(), one)).collect();
+    });
+    workflows_switched(&rig, false).await;
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    eventually(|| async { record(&rig, &id).await.proposal.is_none_or(|one| !one.reading) }).await;
+
+    let read = record(&rig, &id).await;
+    assert_eq!(read.workflow, None, "never picks a workflow, though the answer named one");
+    assert_eq!(read.title.as_deref(), Some("Log reader drops a line"), "the title is still proposed");
+    assert!(judge.asked()[0].contains("this repository holds none"), "{}", judge.asked()[0]);
+}
+
+#[tokio::test]
+async fn with_workflows_off_a_workflow_cannot_be_set_but_can_be_cleared() {
+    let rig = ruled(Arc::new(FakeJudge::with_no_objection()));
+    let id = rig.start().await;
+    workflows_switched(&rig, false).await;
+    let set = |workflow: Option<&str>| {
+        Arc::clone(&rig.fleet).set_session_workflow(SetSessionWorkflow { session_id: id.clone(), workflow: workflow.map(String::from) })
+    };
+    let refused = set(Some("rail")).await;
+    assert!(matches!(&refused, Err(Refusal::Unacceptable(why)) if why.code == "fleet.session_workflows_off"), "{refused:?}");
+    assert_eq!(record(&rig, &id).await.workflow, None);
+
+    workflows_switched(&rig, true).await;
+    assert_eq!(set(Some("rail")).await.expect("set").workflow.as_deref(), Some("rail"));
+    workflows_switched(&rig, false).await;
+    assert_eq!(set(None).await.expect("cleared").workflow, None, "turning a workflow off is always allowed");
+}
+
+#[tokio::test]
+async fn with_workflows_off_there_is_no_step_no_nudge_and_no_boundary_judge_but_the_tile_still_reads() {
+    let judge = Arc::new(FakeJudge::with_no_objection());
+    let rig = ruled(Arc::clone(&judge));
+    let id = on_the_rail(&rig).await;
+    assert_eq!(record(&rig, &id).await.workflow_step, Some(0));
+    workflows_switched(&rig, false).await;
+
+    rig.stand_in.says(0, vec![edit("crates/reader/src/lib.rs")]);
+    approved_plan(&rig, &id).await;
+    let harness = record(&rig, &id).await.harness;
+    rig.fleet
+        .report_session(SessionReport { harness, session_id: id.clone(), fact: SessionFact::Pushed { branch: Some("armada/reader".into()) } })
+        .await
+        .expect("kept");
+    rig.fleet.timeline().settled().await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    let read = record(&rig, &id).await;
+    assert_eq!(read.workflow.as_deref(), Some("rail"), "the Session keeps the workflow it has");
+    assert_eq!(read.workflow_step, None, "no current step");
+    assert_eq!(told(&rig, "edited files before"), 0, "no nudge");
+    assert!(judge.asked().is_empty(), "no boundary judge: {:?}", judge.asked());
+    assert!(says_of_steps(&rig).await.is_empty(), "and no step entered on the timeline");
+
+    let reply = Arc::clone(&rig.fleet).judge_session(JudgeSession { session_id: id.clone() }).await.expect("asked");
+    assert!(reply.judging);
+    eventually(|| async { record(&rig, &id).await.judge.is_some() }).await;
+    assert_eq!(judge.asked().len(), 1, "the tile reads against the plan alone");
+    assert!(judge.asked()[0].contains("Stop at the end"));
+}

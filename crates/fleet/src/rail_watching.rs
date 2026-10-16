@@ -67,6 +67,9 @@ where
 {
     async fn rail_moved(self: &Arc<Self>, record: SessionRecord, seen: &mut HashMap<String, Seen>) {
         let id = record.id.as_str().to_string();
+        if !self.workflows_on() {
+            return;
+        }
         let (Some(manifest), Some(workflow)) = (record.manifest_id.as_ref(), record.workflow.as_deref()) else {
             return;
         };
