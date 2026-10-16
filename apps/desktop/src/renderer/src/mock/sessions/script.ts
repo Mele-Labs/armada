@@ -13,7 +13,7 @@ import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
-import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
 export type SessionsStore = SessionsDraft & {
@@ -208,6 +208,8 @@ export function sessionsStore(
   more: readonly Session[] = [],
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
   arrivals: readonly (readonly [id: string, text: string])[] = [],
+  /** The Manifest id of each repository by its root, as Fleet names the repository a Session starts in. A root not here leaves the Session with none. */
+  owners: ReadonlyMap<string, string> = new Map(),
 ): SessionsStore {
   // A Session in `more` with a usual one's id stands in for it.
   let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
@@ -217,6 +219,8 @@ export function sessionsStore(
   let arrived = 0;
   let started = false;
   let made = 0;
+  let queued: readonly QueuedIdea[] = [];
+  let queuing = 0;
   /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
   const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
@@ -432,11 +436,43 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag) {
+    start(tag, root, _request, tuning) {
       made += 1;
       const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
-      set([{ id, attachments: [], rows: [], turn: idle, ...(tag === undefined ? {} : { pendingTags: [tag] }) }, ...now]);
+      const manifestId = root === undefined ? undefined : owners.get(root);
+      set([
+        {
+          id,
+          ...(manifestId === undefined ? {} : { manifestId }),
+          attachments: [],
+          rows: [],
+          turn: idle,
+          ...(tag === undefined ? {} : { pendingTags: [tag] }),
+          ...(tuning?.model === undefined ? {} : { model: tuning.model }),
+          ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+        },
+        ...now,
+      ]);
       return id;
+    },
+    queued: () => queued,
+    queue(idea) {
+      queuing += 1;
+      queued = [...queued, { id: `q${queuing}`, ...idea }];
+      set([...now]);
+    },
+    startQueued(id) {
+      const idea = queued.find((one) => one.id === id);
+      if (idea === undefined) return Promise.resolve(undefined);
+      const session = store.start(undefined, idea.root, idea.text, { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) });
+      if (typeof session !== "string") return session;
+      store.dropQueued!(id);
+      store.send(session, { text: idea.text, files: [], sketches: [], tags: [] });
+      return session;
+    },
+    dropQueued(id) {
+      queued = queued.filter((one) => one.id !== id);
+      set([...now]);
     },
     taggable() {
       const jobsOnBoard = taggableJobs.map((j): SessionTag => ({
