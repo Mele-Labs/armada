@@ -178,6 +178,13 @@ pub enum HelmCallAnswer {
     AllowAndRemember,
     /// Do not run it. The session is told, and goes on without it.
     Refuse,
+    /// Run it, and let every session reach the folder the answer names, and everything under it,
+    /// with no card. **Armada's folder list, never the agent CLI's rule**: the rule matches a command,
+    /// and the guard that drew the card runs before the CLI's settings are read. Offered only on
+    /// a call that names [`HelmCallInFlight::reaches`].
+    AlwaysAllow,
+    /// Do not run it, and refuse every session the folder the answer names, with no card.
+    AlwaysBlock,
 }
 
 /// One call a Helm session is waiting on a person to answer, right now.
@@ -221,6 +228,11 @@ pub struct HelmCallInFlight {
     /// ([`ASKS_A_QUESTION`]). **Empty for every other call.** Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<AskedQuestion>,
+    /// The path past the session's slots that the guard asked about, absolute, and what a folder
+    /// for [`HelmCallAnswer::AlwaysAllow`] or [`HelmCallAnswer::AlwaysBlock`] must contain. Left out
+    /// for a call that reaches nowhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaches: Option<String>,
 }
 
 /// A person's answer to one Helm call. The request half of `answer_helm_call`.
@@ -238,6 +250,10 @@ pub struct AnswerHelmCall {
     /// One entry per question, for a call that asked some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
+    /// The folder an "always" answer is for: [`HelmCallInFlight::reaches`] or a folder above it.
+    /// Read for those two answers only, and one without it is refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 
 /// `helm.asking_to_run`: a call is waiting on a person. **Absent from

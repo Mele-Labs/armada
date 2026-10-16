@@ -307,19 +307,27 @@ nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of it
 branch and the branches of slots it holds, once the base holds every commit on them, and
 `rm` under `$TMPDIR` as under `/tmp`.
 
-**In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
-Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
-off the machine unasked. A call that writes into the owner's own files, or
-removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. **A read anywhere runs** (the owner, 16 Oct 2026),
-except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads, Pictures,
-Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`, `~/.config/gh`),
-another volume, or a search from `/`, `/Users` or his home (`fleet::helm::deciding::GUARDED`).
+**In `auto` a session waits on the person only for a call past its slots** (the owner, 16 Oct
+2026, reversing 8 Oct's "never waits" for these calls). Inside its slots and `/tmp` it runs,
+rewrites its own branch, pushes and reaches off the machine unasked. **A read anywhere runs**
+(16 Oct 2026), except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads,
+Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`,
+`~/.config/gh`), another volume, or a search from `/`, `/Users` or his home
+(`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
+`Edit` anywhere outside its slots and `/tmp` are put to him on a card in the session's thread:
+Allow once, Reject once, Always allow and Always block, the last two over the path the guard named
+first, drawn as its folders so a press on `Documents` chooses everything under it. **The folder
+list answers before a card is drawn** (`features.reachFolders` in settings.json, shown and edited
+in Settings, Features): a path in a blocked folder is refused with no card, one in an allowed
+folder runs, and the deeper entry wins, a block winning a tie. Nobody answering inside the hold is
+a refusal, so a session never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
+`chmod`, `chown` or a truncating redirect outside the slots and `/tmp` is refused with a reason the
+agent reads and works around, whatever folder he allowed, and `sudo` and `kill -9 -1` stay refused.
 `launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
-session's slot all run. `chmod` and `chown` in a
-held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
-variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
-is put to the person; `ask` and `acceptEdits` still put calls to him.
+session's slot all run. `chmod` and `chown` in a held slot are the session's work as `rm` is, and a
+redirect into `/tmp` runs however `$$` or a variable the line set spells it. Writing another
+session's slot stays refused. A question (`AskUserQuestion`) is put to him in every mode; `ask` and
+`acceptEdits` still put every call to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a
 restart of the process or of Fleet is not the session ending. **So is every

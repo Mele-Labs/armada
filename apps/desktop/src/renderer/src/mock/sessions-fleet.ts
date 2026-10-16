@@ -19,6 +19,7 @@ import type {
   SendSessionMessage,
   SessionRecord,
   SessionRow,
+  SessionAskState,
   PartialRetroItem,
   RenameSession,
   SessionSubagent,
@@ -26,6 +27,8 @@ import type {
 } from "@armada/protocol";
 
 import { withThreadRow } from "@armada/screens/src/retro-row";
+import { REACH_FOLDERS_KEY, reachFoldersOf } from "@armada/protocol";
+import { savedInto } from "@armada/settings/fake";
 
 import type { SessionActed } from "../../../shared/api/sessions";
 import { retroFrames } from "./session-retro-script";
@@ -295,6 +298,7 @@ export class FakeSessionsFleet {
           },
           answerSessionAsk: async (answer) => {
             this.calls.answered.push(answer);
+            this.settled(answer);
             return this.change(answer.session_id, (one) => {
               const { asked: _asked, ...rest } = one.hosted!;
               return { ...one, hosted: rest };
@@ -587,6 +591,30 @@ export class FakeSessionsFleet {
     }
     this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };
     this.publishThreads();
+  }
+
+  /**
+   * An answer settles the ask's row, and an "always" answer puts its folder on the list in settings.json
+   * and off the other, as Fleet does.
+   */
+  private settled(answer: AnswerSessionAsk): void {
+    const STATE: Record<AnswerSessionAsk["answer"], SessionAskState> = {
+      allow_once: "allowed_once",
+      allow_and_remember: "allowed_and_remembered",
+      refuse: "refused",
+      always_allow: "always_allowed",
+      always_block: "always_blocked",
+    };
+    const waiting = this.threads[answer.session_id]?.find((row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting");
+    if (waiting?.kind === "ask") this.row(answer.session_id, { ...waiting, state: STATE[answer.answer] });
+    const settings = this.fleet?.state().settings;
+    if (answer.folder === undefined || (answer.answer !== "always_allow" && answer.answer !== "always_block") || settings == null) return;
+    const folder = answer.folder;
+    const held = reachFoldersOf(settings.settings.find((one) => one.key === REACH_FOLDERS_KEY)?.value);
+    const allow = held.allow.filter((one) => one !== folder);
+    const block = held.block.filter((one) => one !== folder);
+    (answer.answer === "always_allow" ? allow : block).push(folder);
+    this.fleet?.publish({ settings: savedInto(settings, { [REACH_FOLDERS_KEY]: { allow, block } }) });
   }
 
   /** The agent says something in a thread. */

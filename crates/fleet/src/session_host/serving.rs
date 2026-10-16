@@ -46,6 +46,8 @@ const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
 /// An answer to an ask with questions that leaves one unanswered. A 422.
 const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
+/// An "always" answer naming no folder, or one that does not hold the path asked about. A 422.
+const SESSION_ANSWER_NOT_A_FOLDER: &str = "fleet.session_answer_not_a_folder";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
@@ -152,6 +154,7 @@ where
             answer: said.answer,
             note: said.note,
             answers: said.answers,
+            folder: said.folder,
         };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
@@ -162,6 +165,11 @@ where
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
                     "that ask has questions, and each needs an answer",
+                    self.run_id(),
+                )),
+                NotAnswerable::NotAFolderAbove => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_NOT_A_FOLDER,
+                    "an always answer names the folder it is for: the path asked about or one above it",
                     self.run_id(),
                 )),
                 _ => self.ask_not_waiting(),

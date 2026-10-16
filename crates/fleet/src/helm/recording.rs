@@ -83,6 +83,7 @@ fn line(row: &SessionRow) -> Option<HelmDebugLine> {
         SessionRow::Ask { at, ask, state, .. } => {
             let because = match state {
                 SessionAskState::Refused => "the call was refused",
+                SessionAskState::AlwaysBlocked => "the call was refused and its folder blocked",
                 SessionAskState::Unanswered => "nobody answered inside the hold",
                 SessionAskState::SessionGone => "the process went before the answer did",
                 _ => return None,

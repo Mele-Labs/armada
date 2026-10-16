@@ -241,6 +241,7 @@ mod serving;
 mod session;
 mod session_auto;
 mod session_auto_reads;
+mod session_reach_folders;
 mod session_background;
 mod session_background_work;
 mod session_bays;

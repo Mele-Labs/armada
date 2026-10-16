@@ -1,0 +1,39 @@
+/* Folders sessions reach: a row each of mark, path and Remove. The path is mono at --text-2xs and
+   takes the width, cut at its start-side end rather than wrapped. */
+.armada-reach-folders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-reach-folders__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-reach-folders__mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-reach-folders__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-reach-folders__none {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
