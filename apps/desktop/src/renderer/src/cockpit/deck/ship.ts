@@ -194,6 +194,8 @@ export function shipOf(input: Inputs): Ship {
   };
   for (const line of lines) {
     for (const pull of line.hub?.pull_requests ?? []) {
+      // Another author's is not Armada's to follow: no subject, no call, and its chip is drawn quiet.
+      if (pull.mine === false) continue;
       const owner = ownerOf(pull);
       prs.push({
         key: `pr:${line.root}:${pull.number}`,
