@@ -13,6 +13,7 @@ import {
   Box,
   Briefcase,
   FileCog,
+  Eye,
   Rewind,
   HardDrive,
   LayoutDashboard,
@@ -48,6 +49,7 @@ export const SURFACE = {
   mods: "mods",
   jobs: "jobs",
   account: "account",
+  reviews: "reviews",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -205,6 +207,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: Rewind,
   },
   {
+    id: SURFACE.reviews,
+    label: "Reviews",
+    // No key: the registry's `deck_tabs` spells six digits, and a seventh is the owner's to bind.
+    aliases: ["review", "pull requests", "pr review"],
+    // `eye` is Review's.
+    icon: Eye,
+  },
+  {
     id: SURFACE.workflows,
     label: "Workflows",
     // No key; reached from the System strip, a link on the deck and by name.
@@ -259,8 +269,12 @@ export const DECK_TABS = [
   { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
   { id: "studios", label: "Studios", surface: SURFACE.studios },
   { id: "retros", label: "Retros", surface: SURFACE.lessons },
+  { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
+
+/** The tabs a digit reaches. Reviews takes none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip it and System keeps `⌘6`. */
+const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews");
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
@@ -288,6 +302,7 @@ export const PLACES: readonly string[] = [
   SURFACE.workflows,
   SURFACE.studios,
   SURFACE.lessons,
+  SURFACE.reviews,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
@@ -299,7 +314,7 @@ export function deckTabOf(showing: string): DeckTabId | undefined {
 
 /** What `⌘<digit>` reaches: the tab's surface for `⌘1` to `⌘6`. */
 export function surfaceOfDigit(digit: number): string | undefined {
-  return DECK_TABS[digit - 1]?.surface;
+  return DIGIT_TABS[digit - 1]?.surface;
 }
 
 /**

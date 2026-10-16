@@ -1,0 +1,323 @@
+/* The review surface: the pull requests waiting on him, one of them whole, and what an agent found beside it.
+   It takes the flight deck's glass and its small-caps bands, so it sits in the Cockpit's grid or on a page of
+   its own without a second look. Three things hang on a line and are told apart by their frame alone: the
+   forge's thread is a solid card, his pending words take his hue and a dashed edge, and a finding is hatched,
+   because it is Armada's and is never posted. Tokens only. */
+
+/* ---- The list ------------------------------------------------------------------------------------------- */
+
+.pr-list__refresh { display: inline-flex; margin-left: auto; text-transform: none; letter-spacing: 0; }
+.pr-list__pick { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.pr-list__pick .armada-dropdown-menu__trigger { flex: 1 1 0; min-width: 0; }
+.pr-list__pick .armada-dropdown-menu__trigger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Find: what he wants in his own words, and the one press that sends a Drone to look. */
+.pr-find { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.pr-find .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+.pr-find__head { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-3) var(--space-1); }
+.pr-find__acts { display: inline-flex; margin-left: auto; }
+.pr-row__reason { grid-column: 1 / -1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-list__spin[data-fetching] { animation: pr-review-spin var(--duration-pulse) linear infinite; }
+
+.pr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.pr-row:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.pr-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.pr-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+.pr-row__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.pr-row[data-selected] .pr-row__title { font-weight: var(--weight-heading); }
+.pr-row__facts { grid-column: 1 / -1; display: flex; min-width: 0; align-items: baseline; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-row__number { flex: none; color: var(--fg-subtle); }
+.pr-row__author { flex: none; }
+.pr-row__repository { min-width: 0; overflow: hidden; color: var(--fg-subtle); text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- The reader ----------------------------------------------------------------------------------------- */
+
+.pr-reader { min-height: 0; }
+.pr-reader .deck-pane__acts { gap: var(--space-2); }
+/* A pull request's title is drawn in its own case: the band it sits in sets caps and tracking, which a title does not take. */
+.pr-reader .deck-pane__title { text-transform: none; letter-spacing: 0; }
+.pr-reader__meta { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: 0 var(--space-4) var(--space-2); }
+.pr-reader__branch { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-reader__who { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-reader__tabs { flex: none; padding: 0 var(--space-4) var(--space-2); }
+.pr-reader__body { flex: 1 1 0; min-height: 0; padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; border-top: var(--border-width) solid var(--border-subtle); }
+
+/* ---- What hangs under a line ---------------------------------------------------------------------------- */
+
+.pr-under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-3);
+  white-space: normal;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+.pr-thread,
+.pr-draft,
+.pr-finding {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.pr-card__head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-card__who { min-width: 0; overflow: hidden; color: var(--fg-default); font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.pr-card__ago { color: var(--fg-muted); font-size: var(--text-2xs); }
+.pr-card__act { display: inline-flex; margin-left: auto; align-items: center; gap: var(--space-1); }
+.pr-card__body { min-width: 0; padding: 0 var(--space-3) var(--space-3); overflow-wrap: anywhere; }
+
+.pr-thread[data-resolved] { background: none; border-color: var(--border-subtle); }
+.pr-thread__comments { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.pr-thread__comment { min-width: 0; padding: var(--space-2) var(--space-3); overflow-wrap: anywhere; border-top: var(--border-width) solid var(--border-subtle); }
+.pr-thread__by { display: flex; align-items: baseline; gap: var(--space-2); }
+.pr-thread__foot { display: flex; justify-content: flex-end; padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
+.pr-thread > .pr-draft { margin: var(--space-2) var(--space-3); }
+
+/* His own, not posted: his hue, and a dashed edge, which is what unposted looks like. */
+.pr-draft { border-style: dashed; border-color: var(--you-edge); background: color-mix(in srgb, var(--you) 8%, var(--bg-raised)); }
+
+/* Armada's, never posted: hatched, in no hue at all. A finding is a note, and nobody on the forge sees it. */
+.pr-finding {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg-default) 2%, transparent) 0 var(--space-1), transparent var(--space-1) var(--space-3)),
+    var(--bg-raised);
+}
+
+.pr-compose { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); }
+.pr-compose__bar { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* Checks running is the one mark in motion. */
+.pr-review__mark[data-checks="running"] svg { animation: pr-review-spin var(--duration-pulse) linear infinite; }
+
+@keyframes pr-review-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-review__mark[data-checks="running"] svg,
+  .pr-list__spin[data-fetching] { animation: none; }
+}
+
+/* ---- The explanation ------------------------------------------------------------------------------------ */
+
+.pr-explain { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* What this does: a short plain paragraph at the top, under a small-caps band like the panels'. */
+.pr-what { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
+.pr-what__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-what__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+
+/* The choice of explanations, and the one chosen. A kind he added scrolls rather than wraps the strip. */
+.pr-explainer { display: flex; flex-direction: column; gap: var(--space-2); }
+.pr-desc:not([data-open]) { padding-block: var(--space-1); }
+.pr-explainer__title { display: flex; align-items: center; gap: var(--space-2); }
+.pr-explainer__pick { overflow-x: auto; }
+/* The questions he asked of this pull request: an index, so quiet. A row is his words in full, wrapping, with its marks at the end. */
+.pr-asked { display: flex; flex-direction: column; margin: 0; padding: var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); }
+.pr-asked__row { display: flex; align-items: center; gap: var(--space-1); border-radius: var(--radius-sm); }
+.pr-asked__row[data-selected] { background: var(--accent-muted); }
+.pr-asked__words { flex: 1 1 0; min-width: 0; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.pr-asked__words:hover { color: var(--fg-default); }
+.pr-asked__words:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.pr-asked__row[data-selected] .pr-asked__words { color: var(--fg-default); }
+/* The composer at the foot of the reader: his own question about this pull request, on one row that grows as he types. */
+.pr-ask-bar { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-top: var(--border-width) solid var(--border-subtle); }
+.pr-ask-bar > kbd { margin-bottom: var(--space-2); }
+.pr-ask-bar .armada-session-composer { flex: 1 1 0; min-width: 0; }
+.pr-what__words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+.pr-what[data-source="kit"] { border-color: color-mix(in srgb, var(--status-rejected) 45%, var(--border-default)); }
+.pr-what[data-source="repository"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
+
+/* What it changes for you: the thing, then before and after side by side. */
+.pr-before-after { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-before-after__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-1); }
+.pr-before-after__what { grid-column: 1 / -1; margin: 0; color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.pr-before-after__before, .pr-before-after__after { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-before-after__before { background: var(--bg-base); box-shadow: inset 0 0 0 var(--border-width) var(--border-subtle); color: var(--fg-muted); }
+.pr-before-after__after { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+.pr-before-after__tag { color: var(--fg-subtle); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+
+/* How to test it: numbered steps, a command in its block, and what to look for under it. */
+.pr-steps { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-steps__step { display: flex; gap: var(--space-3); }
+.pr-steps__n { display: inline-flex; flex: none; width: var(--space-6); height: var(--space-6); align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.pr-steps__body { display: flex; min-width: 0; flex: 1 1 0; flex-direction: column; gap: var(--space-1); }
+.pr-steps__do { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-steps__look { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* Why it was needed: the problem, what it cost, and where the pull request says it came from. */
+.pr-reason { display: flex; flex-direction: column; gap: var(--space-2); }
+.pr-reason__links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+
+.pr-themes { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* A theme: its number, its title, one line of purpose, and its changes down a spine in the order they were made. */
+.pr-theme { display: flex; flex-direction: column; gap: var(--space-1); }
+.pr-theme__head { display: flex; align-items: center; gap: var(--space-3); }
+.pr-theme__n { display: inline-flex; flex: none; width: var(--space-6); height: var(--space-6); align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.pr-theme__title { margin: 0; color: var(--fg-default); font-size: var(--text-base); font-weight: var(--weight-heading); line-height: var(--leading-base); }
+.pr-theme__purpose { margin: 0 0 var(--space-2) calc(var(--space-6) + var(--space-3)); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-theme__changes { position: relative; display: flex; flex-direction: column; gap: var(--space-3); margin: 0 0 0 calc(var(--space-3)); padding: 0 0 0 calc(var(--space-3) + var(--space-2)); list-style: none; border-left: var(--border-width) solid var(--border-strong); }
+
+/* A change: the order it was made in, what it did, why, and its hunk folded below. */
+.pr-change { position: relative; display: flex; min-width: 0; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.pr-change__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-change__n { position: absolute; top: var(--space-2); left: calc((var(--space-3) + var(--space-2) + var(--space-3) / 2) * -1); display: inline-flex; width: var(--space-4); height: var(--space-4); align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-base, var(--bg-sunken)); box-shadow: 0 0 0 var(--border-width) var(--border-strong); color: var(--fg-muted); font-size: var(--text-2xs); line-height: 1; }
+.pr-change__title { min-width: 0; margin: 0; flex: 1 1 auto; font-size: var(--text-sm); font-weight: var(--weight-heading); line-height: var(--leading-sm); }
+.pr-change__marks { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
+.pr-change__path { margin: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-change__why { min-width: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.pr-change__toggle { align-self: flex-start; margin-left: calc(var(--space-2) * -1); color: var(--fg-muted); }
+.pr-change__hunk { min-width: 0; overflow-x: auto; }
+/* The hunk's own file head is the path again: the change already carries it as its caption. */
+.pr-change .armada-diff__head { display: none; }
+.pr-change .pr-under { margin: var(--space-1) var(--space-2); }
+.pr-change[data-mode="result"] { border-color: var(--border-strong); }
+
+/* ---- A tool's results ------------------------------------------------------------------------------------ */
+
+.pr-results { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-results__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-results__title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-heading); line-height: var(--leading-base); }
+.pr-results__acts { display: inline-flex; margin-left: auto; }
+.pr-results__themes { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-results__running,
+.pr-results__clean { display: flex; margin: 0; padding: var(--space-3); }
+
+/* ---- Comments, and his review ---------------------------------------------------------------------------- */
+
+.pr-comments { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-comments .pr-change[data-mode="comments"] { padding-block: var(--space-1); }
+.pr-yours { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--you) 6%, var(--bg-raised)); }
+.pr-yours__head { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+.pr-yours__drafts,
+.pr-yours__sent { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.pr-yours__draft { display: grid; grid-template-columns: minmax(0, 12em) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-yours__path { overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-yours__text { min-width: 0; overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
+.pr-yours__form { display: flex; flex-direction: column; gap: var(--space-2); }
+.pr-yours__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.pr-yours__done { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+
+/* ---- The tools: the Flight control's tiles ---------------------------------------------------------------- */
+
+/* One tile per tool, then Add a tool, then (in the Cockpit) the mode tile. The panel is as wide as its tiles. */
+.deck-controls__block.pr-tools { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+.pr-tool__text { max-width: 100%; line-height: 1.15; padding: 0 var(--space-1); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pr-tool__source { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; opacity: 0.7; }
+.pr-tool[aria-busy] .pr-tool__spin { animation: pr-review-spin var(--duration-pulse) linear infinite; }
+.pr-tool[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+.pr-tool[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
+.deck-controls__block.pr-tools .deck-tile[data-mode] { border-color: var(--accent); }
+
+.deck-foot:has(.pr-tools[data-n="5"]) { --controls-min: calc(var(--tile) * 5 + var(--space-2) * 4 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="6"]) { --controls-min: calc(var(--tile) * 6 + var(--space-2) * 5 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="7"]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="8"]) { --controls-min: calc(var(--tile) * 8 + var(--space-2) * 7 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="9"]) { --controls-min: calc(var(--tile) * 9 + var(--space-2) * 8 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="10"]) { --controls-min: calc(var(--tile) * 10 + var(--space-2) * 9 + var(--space-3) * 2 + var(--border-width) * 2); }
+
+/* A review has no right column: the list and the stage share the grid. */
+.deck-grid[data-review] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
+.deck-grid[data-review] .deck-handle { display: revert; }
+
+/* The old seventh tile in the work view: PR Review is a mode, so it stands apart from the six. */
+.deck-foot:has(.deck-controls__block[data-review]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-controls__block[data-review] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.deck-controls__block[data-review] .deck-tile[data-mode] { border-color: var(--border-strong); }
+
+/* ---- Add a tool ------------------------------------------------------------------------------------------- */
+
+.pr-add { display: flex; flex-direction: column; gap: var(--space-3); }
+.pr-add__choice { display: inline-flex; }
+.pr-add__bar { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* The one line a Request changes leaves when it also went to the Session that holds the pull request. */
+.pr-yours__told { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: var(--space-2); color: var(--fg-default); }
+
+/* The description is first and the explanation an optional step under it: Explain sits in the description's own head. */
+.pr-what__acts { display: inline-flex; margin-left: auto; }
+.pr-bare { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-change__title[data-mono] { font-family: var(--font-mono); font-size: var(--text-xs); }
+.pr-change[data-bare] .pr-change__n { display: none; }
+
+/* ---- Colour where it carries meaning ------------------------------------------------------------------------ */
+
+/* Each tool has a hue, and its tile, its results and its findings share it. Existing status and accent tokens only. */
+[data-tool="risks"] { --tool-hue: var(--status-awaiting-review); }
+[data-tool="bugs"] { --tool-hue: var(--status-completed-failed); }
+[data-tool="breaks"] { --tool-hue: var(--status-escalated); }
+[data-tool="comments"] { --tool-hue: var(--accent); }
+[data-tool="custom"] { --tool-hue: var(--status-handed-in); }
+[data-tool="custom"][data-source="repository"] { --tool-hue: var(--status-rejected); }
+
+.pr-tool > svg:first-child { color: var(--tool-hue, currentColor); }
+.pr-tool { box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), inset 0 calc(var(--border-width) * -3) 0 color-mix(in srgb, var(--tool-hue, transparent) 60%, transparent); }
+.pr-tool[aria-pressed="true"] { border-color: var(--tool-hue, var(--accent)); background: color-mix(in srgb, var(--tool-hue, var(--accent)) 14%, transparent); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), inset 0 calc(var(--border-width) * -3) 0 var(--tool-hue, var(--accent)), 0 0 var(--space-3) color-mix(in srgb, var(--tool-hue, var(--accent)) 35%, transparent); }
+.pr-hued .armada-pr-mark,
+.pr-results__head > .armada-pr-mark:first-of-type { color: var(--tool-hue); }
+.pr-results[data-tool] .pr-results__head .armada-pr-mark:first-of-type { color: var(--tool-hue); }
+.pr-results[data-tool] .pr-results__title { color: var(--tool-hue); }
+
+/* A finding takes its tool's hue as a weighted left edge, over the quieter hatching. */
+.pr-results .pr-finding { border-left: var(--space-1) solid var(--tool-hue); }
+
+/* Where a source is: Armada's is plain, the Kit's teal, the repository's violet. */
+.pr-tool__source[data-source="kit"] { color: var(--status-handed-in); opacity: 1; }
+.pr-tool__source[data-source="repository"] { color: var(--status-rejected); opacity: 1; }
+
+/* A theme's number, and the spine its changes hang on, share one of five hues in order. */
+.pr-theme { --theme-hue: var(--accent); }
+.pr-theme[data-hue="1"] { --theme-hue: var(--status-running); }
+.pr-theme[data-hue="2"] { --theme-hue: var(--status-completed-success); }
+.pr-theme[data-hue="3"] { --theme-hue: var(--status-rejected); }
+.pr-theme[data-hue="4"] { --theme-hue: var(--status-awaiting-review); }
+.pr-theme__n { background: color-mix(in srgb, var(--theme-hue) 22%, transparent); box-shadow: inset 0 0 0 var(--border-width) var(--theme-hue); }
+.pr-theme__changes { border-left-color: color-mix(in srgb, var(--theme-hue) 55%, transparent); }
+.pr-change__n { box-shadow: 0 0 0 var(--border-width) var(--theme-hue); color: var(--theme-hue); }
+
+/* Who wrote an explanation: a Session in the accent, an agent in violet. */
+.pr-what__source[data-by="session"] { color: var(--accent); }
+.pr-what__source[data-by="agent"] { color: var(--status-rejected); }
+.pr-what__source { display: inline-flex; }
+
+/* A kept result: a small glyph on the tile, and amber once a newer commit has made it out of date. */
+.pr-tool__kept { position: absolute; top: var(--space-1); left: calc(var(--space-4) + var(--space-1)); display: inline-flex; color: var(--fg-subtle); }
+.pr-tool[data-stale] .pr-tool__kept,
+.pr-results__stale .armada-pr-mark { color: var(--status-awaiting-review); }
+.pr-results__stale { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* ---- Keyboard ------------------------------------------------------------------------------------------- */
+
+/* A part the arrows land on shows where focus is, as every control does. */
+.pr-change:focus-visible,
+.pr-reader:focus-visible,
+.pr-list:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.pr-asked__row:focus-within { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
+.pr-tool:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

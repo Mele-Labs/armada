@@ -477,6 +477,7 @@ export * from "./compositions/PullRequestPanel/PullRequestPanel";
 export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/PullRequestComposer";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
+export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
