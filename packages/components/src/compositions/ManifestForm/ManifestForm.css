@@ -61,6 +61,17 @@
 }
 
 /* The slack goes here, so the two buttons stay at the row's end at any width. */
+/* Under Save: the pull request a person merges, its number a press that opens it. */
+.armada-manifest-form__by-hand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
 .armada-manifest-form__receipt {
   flex: 1 1 0;
   min-width: 0;

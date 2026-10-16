@@ -299,6 +299,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-main-card__name { margin: 0; padding: var(--space-2) var(--space-3) 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); }
 /* The amber mark on main's chip while a checkout is held: small, beside the dot, which keeps meaning main's CI alone. */
 .deck-chip__checkout { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
+/* A form edit's pull request the forge would not auto-merge: a person's glyph after its number, in the hue of the state `user-check` is, awaiting a person. */
+.deck-chip__hand { display: inline-flex; flex: none; color: var(--status-awaiting-approval); }
 /* The state of a green main at the head of its card, in the success hue, as the red band is in the failure's. */
 .deck-main-card__state { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); background: var(--status-completed-success-bg); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
 .deck-main-card__state .deck-chip__dot { --dot: var(--status-completed-success); background: var(--dot); }

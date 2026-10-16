@@ -59,6 +59,7 @@ import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
 import { checkoutCall } from "./cockpit/checkout";
+import { MERGE_BY_HAND } from "./cockpit/horizon";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -555,7 +556,24 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
         });
       }
       for (const pull of view.hub?.pulls ?? []) {
-        if (pull.ci !== "failed" && pull.queue?.state !== "unmergeable") continue;
+        const failing = pull.ci === "failed" || pull.queue?.state === "unmergeable";
+        // A form edit the forge would not auto-merge waits for a person; opening the call opens its pull request.
+        if (!failing && pull.mergeByHand === true) {
+          items.push({
+            key: `pull:${pull.number}`,
+            owner: "line",
+            icon: GitPullRequest,
+            kind: "Pull request",
+            title: `armada.yml edit #${pull.number}`,
+            fact: MERGE_BY_HAND,
+            hue: "ask",
+            where,
+            body: [["Branch", pull.branch]],
+            acts: () => <Button variant="secondary" onClick={() => hosts.onOpenLink(pull.url)}>Open pull request</Button>,
+          });
+          continue;
+        }
+        if (!failing) continue;
         items.push({
           key: `pull:${pull.number}`,
           icon: GitPullRequest,

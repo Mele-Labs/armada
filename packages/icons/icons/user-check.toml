@@ -33,3 +33,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. On a row in a profile's repositories, tooltip `Matched`. The glyph already says an account vouches for it; `user-pen` is the same row bound by the person's choice."
+
+  [[icons.user-check.usage]]
+    means = "A form edit's pull request the forge would not auto-merge: a person merges it"
+    group = "Pull request state"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `mergeByHand` (#2396). Follows the number on the pull request's chip in the Cockpit's merge queue, tooltip `Needs merging by hand`, in `--status-awaiting-approval`. The glyph already means a person is required, and `hand` is reserved to a slot handed over with a Job. The same fact is a call in Incoming calls and a line under the Manifest form's Save, which draw no glyph."

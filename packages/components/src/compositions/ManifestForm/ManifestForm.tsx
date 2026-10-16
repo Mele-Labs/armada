@@ -112,6 +112,8 @@ export type ManifestFormProps = {
   saving?: boolean;
   onSave: () => void;
   onDiscard: () => void;
+  /** The last save went out as a pull request the forge would not auto-merge, so a person merges it. `onOpen` opens it. */
+  mergeByHand?: { number: number; onOpen: () => void };
   /** The line beside the path: when the last save landed, or that one has not. */
   receipt?: string;
   /** What Fleet would not write, with its faults key by key. */
@@ -121,7 +123,7 @@ export type ManifestFormProps = {
 };
 
 export function ManifestForm(props: ManifestFormProps) {
-  const { path, identity, changed, saving = false, onSave, onDiscard, receipt, refused, moved, problems } = props;
+  const { path, identity, changed, saving = false, onSave, onDiscard, receipt, refused, moved, problems, mergeByHand } = props;
   const blocked = Object.keys(problems).length > 0;
   return (
     <div className="armada-manifest-form">
@@ -137,6 +139,15 @@ export function ManifestForm(props: ManifestFormProps) {
           {saving ? "Saving" : "Save"}
         </Button>
       </div>
+
+      {mergeByHand === undefined ? null : (
+        <p className="armada-manifest-form__by-hand">
+          <Button variant="ghost" size="sm" onClick={mergeByHand.onOpen}>
+            {`#${mergeByHand.number}`}
+          </Button>
+          <span>needs merging by hand</span>
+        </p>
+      )}
 
       {refused === undefined ? null : (
         <Alert tone="escalated" title="Not saved">

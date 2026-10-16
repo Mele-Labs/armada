@@ -152,7 +152,7 @@ import {
 import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./commander-acts";
-import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
+import { hiddenSurfaces, MergeLineSurface, viewsOf } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
@@ -412,8 +412,10 @@ export function App({ draft }: AppProps = {}) {
     onReadFile: readManifestFile,
     onSaveFile: saveManifestFile,
   });
-  // The forms beside it, held here for the same reason.
+  // The forms beside it, held here for the same reason. A form edit's pull request the forge would not auto-merge is read off the merge line.
+  const byHand = viewsOf(state).flatMap((view) => view.hub?.pulls ?? []).find((pull) => pull.mergeByHand === true);
   const form = useManifestForm({
+    ...(byHand === undefined ? {} : { mergeByHand: { number: byHand.number, onOpen: () => openProseLink(byHand.url) } }),
     repository,
     showing: manifesting,
     reading: state.manifestReading,
