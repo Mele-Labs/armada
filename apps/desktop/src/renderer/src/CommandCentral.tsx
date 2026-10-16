@@ -15,6 +15,7 @@ const ACTS: Record<Act, true> = {
   onOpen: true,
   onOpenSession: true,
   onOpenLink: true,
+  onOpenCheck: true,
   onFix: true,
   onSendToSession: true,
   onPropose: true,
