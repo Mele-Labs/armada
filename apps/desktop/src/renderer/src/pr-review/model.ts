@@ -3,31 +3,33 @@
 // they borrow the pull request panel's page (`PullRequestPage`) rather than a second set of words for the
 // conversation, the checks and the commits.
 //
-// A line is named by its place in `ReviewFile.lines`. The diff draws no numbers, so none is derived here.
+// A pull request is read as what it makes happen, not as the files it touches: an explanation, then themes,
+// and each theme's changes in the order they were made, with why. A hunk is the evidence for a change, and a
+// path is only a caption on it. A line is named by its place in `Hunk.lines`, since the diff draws no numbers.
 
 import type { DiffLine } from "@armada/components";
-import type { PullRequestFile, PullRequestPage } from "@armada/protocol";
+import type { PullRequestPage } from "@armada/protocol";
 
 /** The two tabs that narrow the list. */
 export type ReviewTab = "requested" | "mine";
 
-export type ReviewFile = {
-  path: string;
-  status: PullRequestFile["status"];
-  additions: number;
-  deletions: number;
-  /** The patch, split into the lines git wrote. Empty for a file the forge sent no patch for. */
-  lines: DiffLine[];
-  /** Fleet's sentence where there is no patch. */
-  said?: string;
-};
+/** One hunk of one file: the evidence for a change. */
+export type Hunk = { path: string; lines: DiffLine[] };
 
-/** Where a comment sits: a file, and a line of it by place. */
-export type Anchor = { path: string; line: number };
+/** One thing done, in the order it was done, and why. */
+export type Change = { id: string; title: string; why: string; hunks: Hunk[] };
+
+/** A set of changes that make one thing happen. */
+export type Theme = { id: string; title: string; purpose: string; changes: Change[] };
+
+export type Explanation = { summary: string; themes: Theme[] };
+
+/** Where a comment sits: a change, and a line of one of its hunks. No line is a comment on the change itself. */
+export type Anchor = { change: string; hunk: number; line?: number };
 
 export type ThreadComment = { id: string; author: string; at: string; body: string };
 
-/** A thread the forge holds, on a line. Resolving it is the forge's own act, so it is not part of the pending review. */
+/** A thread the forge holds. Resolving it is the forge's own act, so it is not part of the pending review. */
 export type Thread = Anchor & { id: string; resolved: boolean; comments: ThreadComment[] };
 
 /**
@@ -36,12 +38,35 @@ export type Thread = Anchor & { id: string; resolved: boolean; comments: ThreadC
  */
 export type Draft = Anchor & { id: string; body: string; thread?: string };
 
-export type FindingKind = "bug" | "risk" | "question";
+/** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
+export type ToolSource = "armada" | "kit" | "repository";
 
-/** Armada's own note on a line, from an agent review he asked for. **Never posted to the forge.** */
-export type Finding = Anchor & {
+/** What a tool is drawn with. Armada's four have a mark each; one anybody adds takes the clipboard. */
+export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "custom";
+
+/**
+ * A review tool: a name and what it checks, as a prompt. **Shared like a skill**: a file in `~/.armada/review-tools/`
+ * is his, in every repository on the machine, and one in `.armada/review-tools/` is the repository's, for everyone
+ * on it. A later place replaces an earlier one of the same name.
+ */
+export type ToolDef = {
   id: string;
-  kind: FindingKind;
+  name: string;
+  source: ToolSource;
+  mark: ToolMark;
+  /** What it checks. */
+  checks: string;
+  /** Runs an agent when pressed. Comments does not: it is the forge's conversation. */
+  agent: boolean;
+  /** The source a tool of the same name was replaced from, where it replaced one. */
+  replaces?: ToolSource;
+};
+
+/** Armada's own note on a change, from a tool he pressed. **Never posted to the forge.** */
+export type Finding = {
+  id: string;
+  tool: string;
+  change: string;
   title: string;
   body: string;
   dismissed: boolean;
@@ -53,7 +78,7 @@ export type Verdict = "comment" | "approve" | "request_changes";
 
 export type Submission = { verdict: Verdict; body: string; comments: number; at: string };
 
-/** An agent review of one pull request: asked for, underway, or read. */
+/** A run of an agent: asked for, underway, or read. */
 export type AgentRun = { state: "idle" } | { state: "running"; since: number } | { state: "done"; at: number };
 
 export type ReviewPr = {
@@ -76,28 +101,48 @@ export type ReviewPr = {
   body: string;
   /** The forge's page: conversation, checks, commits, the review, and who opened it. */
   page: PullRequestPage;
-  files: ReviewFile[];
+  /**
+   * What the pull request does. **Where it comes from**: a Session of his that wrote it knows why, so it is there
+   * at open (`session`). On anybody else's it is read by an agent when he presses Explain (`agent`).
+   */
+  explanation: Explanation;
+  explainedBy: "session" | "agent";
   threads: Thread[];
 };
 
-/** What an agent review would find, by place. Placed on a line when the review is asked for. */
-export type FindingSeed = { path: string; line: number; kind: FindingKind; title: string; body: string };
+/** What a tool finds, by change. Placed when the tool is run. */
+export type FindingSeed = { change: string; title: string; body: string };
+
+export type ToolDefs = {
+  armada: readonly ToolDef[];
+  /** `~/.armada/review-tools/`, every repository on this machine. */
+  kit: readonly ToolDef[];
+  /** `.armada/review-tools/`, by repository. */
+  repository: Readonly<Record<string, readonly ToolDef[]>>;
+};
 
 export type ReviewSeed = {
   /** Who he is on the forge. */
   me: string;
   prs: readonly ReviewPr[];
-  /** What a review by an agent comes to, by pull request. A pull request with none reads clean. */
-  agent: Readonly<Record<string, readonly FindingSeed[]>>;
+  tools: ToolDefs;
+  /** What each tool comes to, by pull request. A tool with none for a pull request reads clean. */
+  results: Readonly<Record<string, Readonly<Record<string, readonly FindingSeed[]>>>>;
 };
+
+/** What the stage is showing: the explanation, a page of the forge's, or a tool's results. */
+export type View = "explanation" | "checks" | "commits" | (string & {});
 
 /** What the store holds about one pull request beyond what the forge served. */
 export type PrWork = {
-  viewed: readonly string[];
+  explain: AgentRun;
+  view: View;
+  runs: Readonly<Record<string, AgentRun>>;
+  /** Changes whose hunks are open. */
+  opened: readonly string[];
   drafts: readonly Draft[];
   threads: readonly Thread[];
   findings: readonly Finding[];
-  run: AgentRun;
   submissions: readonly Submission[];
   /** The page's review state, which a submitted review moves. */
   review: PullRequestPage["review"];
@@ -113,5 +158,9 @@ export type ReviewSnapshot = {
   open: string | undefined;
   /** The Cockpit has swapped into review mode. */
   mode: boolean;
+  /** The tools, by place. Kit and the repositories' grow when he saves one. */
+  armada: readonly ToolDef[];
+  kit: readonly ToolDef[];
+  repository: Readonly<Record<string, readonly ToolDef[]>>;
   work: Readonly<Record<string, PrWork>>;
 };

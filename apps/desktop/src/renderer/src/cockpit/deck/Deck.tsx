@@ -19,7 +19,7 @@ import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { ReviewList } from "../../pr-review/list";
 import { ReviewReader } from "../../pr-review/reader";
-import { ReviewSide } from "../../pr-review/side";
+import { ReviewTools } from "../../pr-review/flight";
 import { useReviewStore, useReviews } from "../../pr-review/store";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
@@ -464,23 +464,15 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         Flight control
         <PanelKey id="controls" />
       </header>
-      {session !== undefined && draft !== undefined && !reviewing ? (
+      {reviewing && reviews !== undefined ? (
+        <ReviewTools leave={{ pressed: true, press: () => reviews.setMode(false), icon: <Eye size={20} aria-hidden="true" /> }} />
+      ) : session !== undefined && draft !== undefined ? (
         <SessionTiles session={session} draft={draft} repository={repository} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block" data-review={reviews === undefined ? undefined : ""}>
           {TILES.map((tile, at) => (
             <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-              <button
-                type="button"
-                className="deck-tile"
-                aria-label={tile.label}
-                aria-pressed={tile.pressed(deck)}
-                onClick={() => {
-                  // A filter or the stage's view is the work's, so pressing one puts the work back first.
-                  if (reviewing) reviews?.setMode(false);
-                  tile.press();
-                }}
-              >
+              <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
                 <tile.Glyph size={20} aria-hidden="true" />
                 <span className="deck-tile__text">{tile.text}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
@@ -491,7 +483,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
           ))}
           {reviews === undefined ? null : (
             <Tooltip label="PR Review" asChild>
-              <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={reviewing} onClick={() => reviews.setMode(!reviewing)}>
+              <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={false} onClick={() => reviews.setMode(true)}>
                 <Eye size={20} aria-hidden="true" />
                 <span className="deck-tile__text">PR Review</span>
               </button>
@@ -750,7 +742,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <CursorJob listed={listed} jobs={props.state.jobs} onCursor={props.onCursor} />
     <AutopilotAsked control={autopilot.control} />
     <div className="armada-cockpit deck">
-      <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
+      <div ref={grid} className="deck-grid" data-review={reviewing || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
           {reviewing ? (
@@ -780,22 +772,18 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
             <AutopilotPanel props={props} autopilot={autopilot} />
           </div>
         </div>
-        <div className="deck-right">
-          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {reviewing ? (
-            <ReviewSide />
-          ) : (
-            <>
-              {reading ? (
-                <>
-                  {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
-                  <LedgerPanel host={setLedgerHost} />
-                </>
-              ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
-              <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
-            </>
-          )}
-        </div>
+        {reviewing ? null : (
+          <div className="deck-right">
+            {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
+            {reading ? (
+              <>
+                {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
+                <LedgerPanel host={setLedgerHost} />
+              </>
+            ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
+            <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          </div>
+        )}
       </div>
     </div>
     </ClashesOpenHere>

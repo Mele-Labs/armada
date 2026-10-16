@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 import { Check, SquareDashed, X } from "lucide-react";
 import { Button, Prose, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 
-import type { Draft, Finding, Thread } from "./model";
-import { ArmadaMark, FINDING } from "./marks";
+import type { Draft, Finding, Thread, ToolMark } from "./model";
+import { ArmadaMark, TOOL_MARK } from "./marks";
 
 // ---- The box -------------------------------------------------------------------------------------------
 
@@ -87,6 +87,7 @@ export function DraftCard({ draft, onRemove }: { draft: Draft; onRemove: () => v
 
 export function ThreadCard({
   thread,
+  where,
   drafts,
   replying,
   onReply,
@@ -95,6 +96,8 @@ export function ThreadCard({
   composer,
 }: {
   thread: Thread;
+  /** The change it is on, by title. */
+  where: string;
   drafts: readonly Draft[];
   replying: boolean;
   onReply: () => void;
@@ -104,7 +107,7 @@ export function ThreadCard({
 }) {
   const first = thread.comments[0];
   return (
-    <article className="pr-thread" aria-label={`Thread on ${thread.path.split("/").pop()} by ${first?.author ?? "reviewer"}`} data-resolved={thread.resolved || undefined}>
+    <article className="pr-thread" aria-label={`Thread on ${where} by ${first?.author ?? "reviewer"}`} data-resolved={thread.resolved || undefined}>
       <header className="pr-card__head">
         {thread.resolved ? <PrMark Glyph={Check} said="Resolved" tone="success" /> : null}
         <b className="pr-card__who">{first?.author}</b>
@@ -148,11 +151,11 @@ export function ThreadCard({
 // ---- Armada's own note -----------------------------------------------------------------------------------
 
 /**
- * A finding: pinned to a line, hatched, and the agent's alone. **It is not on the forge**, which the glyph
+ * A finding: pinned to a change, hatched, and the agent's alone. **It is not on the forge**, which the glyph
  * says. Dismiss puts it away; Send to Session is there only where one of his Sessions holds the pull request.
  */
-export function FindingCard({ finding, session, onDismiss, onSend }: { finding: Finding; session: boolean; onDismiss: () => void; onSend: () => void }) {
-  const kind = FINDING[finding.kind];
+export function FindingCard({ finding, mark, session, onDismiss, onSend }: { finding: Finding; mark: ToolMark; session: boolean; onDismiss: () => void; onSend: () => void }) {
+  const kind = TOOL_MARK[mark];
   return (
     <article className="pr-finding" aria-label={`Finding: ${finding.title}`} data-finding={finding.id}>
       <header className="pr-card__head">

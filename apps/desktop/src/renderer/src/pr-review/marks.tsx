@@ -3,11 +3,11 @@
 // `square-dashed` is a review nobody has given. **No state is a phrase.**
 
 import type { LucideIcon } from "lucide-react";
-import { Ban, Bot, Bug, Check, LoaderCircle, MessageCircleQuestion, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert } from "lucide-react";
+import { AppWindow, Ban, Bot, Briefcase, Bug, Check, ClipboardList, FolderGit2, LoaderCircle, MessageSquare, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert, Unplug } from "lucide-react";
 import { PrMark } from "@armada/components";
 import type { PullRequestReviewState } from "@armada/protocol";
 
-import type { FindingKind, ReviewPr } from "./model";
+import type { ReviewPr, ToolMark, ToolSource } from "./model";
 
 type Said = { Glyph: LucideIcon; said: string; tone?: string };
 
@@ -24,10 +24,20 @@ const CHECKS: Record<ReviewPr["checks"], Said> = {
   running: { Glyph: LoaderCircle, said: "Checks running", tone: "running" },
 };
 
-export const FINDING: Record<FindingKind, Said> = {
-  bug: { Glyph: Bug, said: "Bug" },
-  risk: { Glyph: TriangleAlert, said: "Risk" },
-  question: { Glyph: MessageCircleQuestion, said: "Question" },
+/** A tool's own glyph. **Borrowed**: the four are the natural drawings and each is reserved elsewhere in the registry, so they wait on the owner's pick. */
+export const TOOL_MARK: Record<ToolMark, Said> = {
+  risks: { Glyph: TriangleAlert, said: "Risks" },
+  bugs: { Glyph: Bug, said: "Possible bugs" },
+  breaks: { Glyph: Unplug, said: "API breaking changes" },
+  comments: { Glyph: MessageSquare, said: "Comments" },
+  custom: { Glyph: ClipboardList, said: "Tool" },
+};
+
+/** Where a tool is defined, as a small glyph. Armada's is the product, his Kit is the briefcase, a repository is the repository's own. */
+export const SOURCE_MARK: Record<ToolSource, Said> = {
+  armada: { Glyph: AppWindow, said: "Armada's tool" },
+  kit: { Glyph: Briefcase, said: "Your Kit's tool, in every repository" },
+  repository: { Glyph: FolderGit2, said: "This repository's tool, shared with everyone on it" },
 };
 
 /** Where a pull request stands on review. */

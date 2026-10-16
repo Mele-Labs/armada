@@ -48,40 +48,7 @@
 .pr-reader__branch { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .pr-reader__who { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .pr-reader__tabs { flex: none; padding: 0 var(--space-4) var(--space-2); }
-.pr-reader__page { flex: 1 1 0; min-height: 0; padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; }
-
-.pr-reader__files { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); border-top: var(--border-width) solid var(--border-subtle); }
-.pr-reader__scroll { min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; overscroll-behavior: contain; }
-
-/* The tree: one row per file, the name over where it is, a check once it is read. */
-.pr-tree { min-width: 0; min-height: 0; border-right: var(--border-width) solid var(--border-subtle); overflow-y: auto; }
-.pr-tree__rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2); list-style: none; }
-.pr-tree__row {
-  display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-4);
-  align-items: center;
-  column-gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--fg-default);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.pr-tree__row:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
-.pr-tree__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.pr-tree__row[data-viewed] .pr-tree__file { color: var(--fg-muted); font-weight: var(--weight-body); }
-.pr-tree__viewed,
-.pr-tree__open { display: inline-flex; align-items: center; justify-content: center; }
-.pr-tree__name { display: flex; min-width: 0; flex-direction: column; }
-.pr-tree__file { overflow: hidden; font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
-.pr-tree__dir { overflow: hidden; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
-
-/* The Viewed box sits in the file's own header, quiet beside the path. */
-.pr-reader .armada-diff__actions .armada-checkbox { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-reader__body { flex: 1 1 0; min-height: 0; padding: var(--space-2) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; border-top: var(--border-width) solid var(--border-subtle); }
 
 /* ---- What hangs under a line ---------------------------------------------------------------------------- */
 
@@ -136,34 +103,6 @@
 .pr-compose { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); }
 .pr-compose__bar { display: flex; justify-content: flex-end; gap: var(--space-2); }
 
-/* ---- The right column ----------------------------------------------------------------------------------- */
-
-.pr-agent { flex: 1 1 0; }
-.pr-yours { flex: none; max-height: 70%; }
-.pr-agent__body { flex: 1 1 0; }
-.pr-yours__body { flex: 1 1 auto; }
-.pr-agent__body,
-.pr-yours__body { display: flex; min-height: 0; flex-direction: column; gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3); overflow-y: auto; }
-.pr-agent__findings,
-.pr-yours__drafts,
-.pr-yours__sent { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-
-.pr-find { display: flex; flex-direction: column; border: var(--border-width) dashed var(--border-strong); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 4%, transparent); }
-.pr-find__head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2) 0 var(--space-3); }
-.pr-find__title { min-width: 0; flex: 1 1 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); font-weight: var(--weight-medium); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
-.pr-find__title:hover { color: var(--accent); }
-.pr-find__title:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.pr-find__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-1) var(--space-3); }
-.pr-find__where { min-width: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
-
-.pr-yours__draft { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.pr-yours__path { color: var(--fg-subtle); font-size: var(--text-2xs); }
-.pr-yours__text { min-width: 0; overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
-.pr-yours__form { display: flex; flex-direction: column; gap: var(--space-2); }
-.pr-yours__form .armada-tabs { width: 100%; }
-.pr-yours__form .armada-tabs__tab { flex: 1 1 0; justify-content: center; }
-.pr-yours__done { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-
 /* Checks running is the one mark in motion. */
 .pr-review__mark[data-checks="running"] svg { animation: pr-review-spin var(--duration-pulse) linear infinite; }
 
@@ -176,10 +115,94 @@
   .pr-list__spin[data-fetching] { animation: none; }
 }
 
-/* ---- The Flight control's seventh tile ------------------------------------------------------------------ */
+/* ---- The explanation ------------------------------------------------------------------------------------ */
 
-/* PR Review is a mode and not a filter, so it stands apart from the six: one more column, lit while it is on. */
+.pr-explain { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* What this does: a short plain paragraph at the top, under a small-caps band like the panels'. */
+.pr-what { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
+.pr-what__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-what__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+
+.pr-themes { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* A theme: its number, its title, one line of purpose, and its changes down a spine in the order they were made. */
+.pr-theme { display: flex; flex-direction: column; gap: var(--space-1); }
+.pr-theme__head { display: flex; align-items: center; gap: var(--space-3); }
+.pr-theme__n { display: inline-flex; flex: none; width: var(--space-6); height: var(--space-6); align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.pr-theme__title { margin: 0; color: var(--fg-default); font-size: var(--text-base); font-weight: var(--weight-heading); line-height: var(--leading-base); }
+.pr-theme__purpose { margin: 0 0 var(--space-2) calc(var(--space-6) + var(--space-3)); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-theme__changes { position: relative; display: flex; flex-direction: column; gap: var(--space-3); margin: 0 0 0 calc(var(--space-3)); padding: 0 0 0 calc(var(--space-3) + var(--space-2)); list-style: none; border-left: var(--border-width) solid var(--border-strong); }
+
+/* A change: the order it was made in, what it did, why, and its hunk folded below. */
+.pr-change { position: relative; display: flex; min-width: 0; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.pr-change__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-change__n { position: absolute; top: var(--space-2); left: calc((var(--space-3) + var(--space-2) + var(--space-3) / 2) * -1); display: inline-flex; width: var(--space-4); height: var(--space-4); align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-base, var(--bg-sunken)); box-shadow: 0 0 0 var(--border-width) var(--border-strong); color: var(--fg-muted); font-size: var(--text-2xs); line-height: 1; }
+.pr-change__title { min-width: 0; margin: 0; flex: 1 1 auto; font-size: var(--text-sm); font-weight: var(--weight-heading); line-height: var(--leading-sm); }
+.pr-change__marks { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
+.pr-change__path { margin: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-change__why { min-width: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.pr-change__toggle { align-self: flex-start; margin-left: calc(var(--space-2) * -1); color: var(--fg-muted); }
+.pr-change__hunk { min-width: 0; overflow-x: auto; }
+/* The hunk's own file head is the path again: the change already carries it as its caption. */
+.pr-change .armada-diff__head { display: none; }
+.pr-change .pr-under { margin: var(--space-1) var(--space-2); }
+.pr-change[data-mode="result"] { border-color: var(--border-strong); }
+
+/* ---- A tool's results ------------------------------------------------------------------------------------ */
+
+.pr-results { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-results__head { display: flex; align-items: center; gap: var(--space-2); }
+.pr-results__title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-heading); line-height: var(--leading-base); }
+.pr-results__acts { display: inline-flex; margin-left: auto; }
+.pr-results__themes { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-results__running,
+.pr-results__clean { display: flex; margin: 0; padding: var(--space-3); }
+
+/* ---- Comments, and his review ---------------------------------------------------------------------------- */
+
+.pr-comments { display: flex; flex-direction: column; gap: var(--space-4); }
+.pr-comments .pr-change[data-mode="comments"] { padding-block: var(--space-1); }
+.pr-yours { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--you) 6%, var(--bg-raised)); }
+.pr-yours__head { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+.pr-yours__drafts,
+.pr-yours__sent { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.pr-yours__draft { display: grid; grid-template-columns: minmax(0, 12em) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border: var(--border-width) dashed var(--you-edge); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-yours__path { overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.pr-yours__text { min-width: 0; overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
+.pr-yours__form { display: flex; flex-direction: column; gap: var(--space-2); }
+.pr-yours__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.pr-yours__done { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+
+/* ---- The tools: the Flight control's tiles ---------------------------------------------------------------- */
+
+/* One tile per tool, then Add a tool, then (in the Cockpit) the mode tile. The panel is as wide as its tiles. */
+.deck-controls__block.pr-tools { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+.pr-tool__text { max-width: 100%; padding: 0 var(--space-1); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pr-tool__source { position: absolute; top: var(--space-1); left: var(--space-1); display: inline-flex; opacity: 0.7; }
+.pr-tool[aria-busy] .pr-tool__spin { animation: pr-review-spin var(--duration-pulse) linear infinite; }
+.pr-tool[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+.pr-tool[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
+.deck-controls__block.pr-tools .deck-tile[data-mode] { border-color: var(--accent); }
+
+.deck-foot:has(.pr-tools[data-n="5"]) { --controls-min: calc(var(--tile) * 5 + var(--space-2) * 4 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="6"]) { --controls-min: calc(var(--tile) * 6 + var(--space-2) * 5 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="7"]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="8"]) { --controls-min: calc(var(--tile) * 8 + var(--space-2) * 7 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="9"]) { --controls-min: calc(var(--tile) * 9 + var(--space-2) * 8 + var(--space-3) * 2 + var(--border-width) * 2); }
+.deck-foot:has(.pr-tools[data-n="10"]) { --controls-min: calc(var(--tile) * 10 + var(--space-2) * 9 + var(--space-3) * 2 + var(--border-width) * 2); }
+
+/* A review has no right column: the list and the stage share the grid. */
+.deck-grid[data-review] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
+.deck-grid[data-review] .deck-handle { display: revert; }
+
+/* The old seventh tile in the work view: PR Review is a mode, so it stands apart from the six. */
 .deck-foot:has(.deck-controls__block[data-review]) { --controls-min: calc(var(--tile) * 7 + var(--space-2) * 6 + var(--space-3) * 2 + var(--border-width) * 2); }
 .deck-controls__block[data-review] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .deck-controls__block[data-review] .deck-tile[data-mode] { border-color: var(--border-strong); }
-.deck-controls__block[data-review] .deck-tile[data-mode][aria-pressed="true"] { border-color: var(--accent); }
+
+/* ---- Add a tool ------------------------------------------------------------------------------------------- */
+
+.pr-add { display: flex; flex-direction: column; gap: var(--space-3); }
+.pr-add__choice { display: inline-flex; }
+.pr-add__bar { display: flex; justify-content: flex-end; gap: var(--space-2); }

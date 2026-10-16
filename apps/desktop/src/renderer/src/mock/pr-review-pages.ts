@@ -1,14 +1,15 @@
 // What a mock forge holds of five pull requests for the review surface: three that teammates asked his review
-// of, and two that agents of his opened. Each has a real-looking patch of several files, and one of the three
-// has threads already, so a reply and a resolve have something to act on. **The patches are written by hand**
-// and the files' figures are counted from them, so the tree and the diff cannot disagree.
+// of, and two that agents of his opened. Each is read as what it makes happen: an explanation, then themes, and each
+// theme's changes in the order they were made, with why and a real-looking hunk as the evidence. One of the three has
+// threads already, so a reply and a resolve have something to act on, and each has what the review tools would find.
+// **The patches are written by hand**, and a thread or a finding names its line by what the line says.
 //
 // Built on the helpers `session-pr-pages.ts` has for the panel's tabs, which read the same shapes.
 
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestPage } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
-import type { FindingSeed, ReviewFile, ReviewPr, ReviewSeed, Thread } from "../pr-review/model";
+import type { Change, FindingSeed, Hunk, ReviewPr, ReviewSeed, Theme, Thread, ToolDef } from "../pr-review/model";
 
 const FORGE = "https://github.com/mele-labs";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -24,27 +25,14 @@ const checks = (repository: string, number: number, rows: readonly (readonly [st
 const commits = (rows: readonly (readonly [string, string, string, number])[]): PullRequestCommit[] =>
   rows.map(([sha, headline, author, ago]) => ({ sha, headline, author, at: minutesAgo(ago) }));
 
-type FileIn = readonly [path: string, status: ReviewFile["status"], patch: readonly string[]];
+type HunkIn = readonly [path: string, patch: readonly string[]];
+type ChangeIn = { id: string; title: string; why: string; hunks: readonly HunkIn[] };
+type ThemeIn = { id: string; title: string; purpose: string; changes: readonly ChangeIn[] };
 
-/** A file as the reader draws it: the patch split into the lines git wrote, and the figures counted from them. */
-function fileOf([path, status, patch]: FileIn): ReviewFile {
+/** A hunk as the reader draws it: the patch split into the lines git wrote. */
+function hunkOf([path, patch]: HunkIn): Hunk {
   const drawn = drawnOf(`diff --git a/${path} b/${path}\n${patch.join("\n")}`, () => "");
-  const lines = drawn.files[0]?.lines ?? [];
-  return {
-    path,
-    status,
-    lines,
-    additions: lines.filter((one) => one.kind === "added").length,
-    deletions: lines.filter((one) => one.kind === "removed").length,
-  };
-}
-
-/** The place of the first line of `path` that holds `match`. A fixture names a line by what it says, not by a count. */
-function lineOf(files: readonly ReviewFile[], path: string, match: string): number {
-  const file = files.find((one) => one.path === path);
-  const at = file?.lines.findIndex((one) => one.text.includes(match)) ?? -1;
-  if (at < 0) throw new Error(`${path} has no line holding “${match}”`);
-  return at;
+  return { path, lines: drawn.files[0]?.lines ?? [] };
 }
 
 type Spec = {
@@ -65,37 +53,56 @@ type Spec = {
   conversation: PullRequestEntry[];
   checkRows: PullRequestCheckRow[];
   commits: PullRequestCommit[];
-  files: readonly FileIn[];
-  /** Threads by what the line says. */
-  threads?: readonly { id: string; path: string; match: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
-  /** What an agent review finds, by what the line says. */
-  agent?: readonly { path: string; match: string; kind: FindingSeed["kind"]; title: string; body: string }[];
+  summary: string;
+  explainedBy: ReviewPr["explainedBy"];
+  themes: readonly ThemeIn[];
+  /** Threads by the change they are on, and the line of its first hunk by what it says. */
+  threads?: readonly { id: string; change: string; match?: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
+  /** What each tool finds, by the tool's id. */
+  results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
 
-function build(spec: Spec): { pr: ReviewPr; agent: readonly FindingSeed[] } {
-  const files = spec.files.map(fileOf);
-  const key = `${spec.repository}#${spec.number}`;
-  const threads: Thread[] = (spec.threads ?? []).map((one) => ({
-    id: `${key}:${one.id}`,
-    path: one.path,
-    line: lineOf(files, one.path, one.match),
-    resolved: one.resolved ?? false,
-    comments: one.comments.map(([author, ago, body], at) => ({ id: `${key}:${one.id}:${at}`, author, at: minutesAgo(ago), body })),
+function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, readonly FindingSeed[]>> } {
+  const themes: Theme[] = spec.themes.map((theme) => ({
+    ...theme,
+    changes: theme.changes.map((one): Change => ({ ...one, hunks: one.hunks.map(hunkOf) })),
   }));
+  const changes = themes.flatMap((theme) => theme.changes);
+  const key = `${spec.repository}#${spec.number}`;
+  const threads: Thread[] = (spec.threads ?? []).map((one) => {
+    const at = changes.find((change) => change.id === one.change);
+    if (at === undefined) throw new Error(`${key} has no change ${one.change}`);
+    const line = one.match === undefined ? -1 : at.hunks[0]!.lines.findIndex((text) => text.text.includes(one.match!));
+    if (one.match !== undefined && line < 0) throw new Error(`${one.change} has no line holding “${one.match}”`);
+    return {
+      id: `${key}:${one.id}`,
+      change: one.change,
+      hunk: 0,
+      ...(line < 0 ? {} : { line }),
+      resolved: one.resolved ?? false,
+      comments: one.comments.map(([author, ago, body], n) => ({ id: `${key}:${one.id}:${n}`, author, at: minutesAgo(ago), body })),
+    };
+  });
+  const lines = changes.flatMap((change) => change.hunks.flatMap((hunk) => hunk.lines));
   const page: PullRequestPage = {
     manifest_id: spec.manifestId,
     number: spec.number,
     base: "main",
     author: spec.author,
     created_at: minutesAgo(spec.opened),
-    additions: files.reduce((sum, one) => sum + one.additions, 0),
-    deletions: files.reduce((sum, one) => sum + one.deletions, 0),
+    additions: lines.filter((one) => one.kind === "added").length,
+    deletions: lines.filter((one) => one.kind === "removed").length,
     mergeable: spec.mergeable ?? "mergeable",
     review: spec.review,
     approvals: spec.approvals ?? 0,
     conversation: spec.conversation,
     checks: spec.checkRows,
-    files: files.map(({ path, status, additions, deletions }) => ({ path, status, additions, deletions })),
+    files: [...new Set(changes.flatMap((change) => change.hunks.map((hunk) => hunk.path)))].map((path) => ({
+      path,
+      status: "modified" as const,
+      additions: changes.flatMap((change) => change.hunks).filter((hunk) => hunk.path === path).flatMap((hunk) => hunk.lines).filter((one) => one.kind === "added").length,
+      deletions: changes.flatMap((change) => change.hunks).filter((hunk) => hunk.path === path).flatMap((hunk) => hunk.lines).filter((one) => one.kind === "removed").length,
+    })),
     commits: spec.commits,
   };
   const pr: ReviewPr = {
@@ -112,11 +119,11 @@ function build(spec: Spec): { pr: ReviewPr; agent: readonly FindingSeed[] } {
     ...(spec.holder === undefined ? {} : { holder: spec.holder }),
     body: spec.body,
     page,
-    files,
+    explanation: { summary: spec.summary, themes },
+    explainedBy: spec.explainedBy,
     threads,
   };
-  const agent = (spec.agent ?? []).map(({ match, ...one }) => ({ ...one, line: lineOf(files, one.path, match) }));
-  return { pr, agent };
+  return { pr, results: spec.results ?? {} };
 }
 
 // ---- #1899: asked of him by marta, with threads ----------------------------------------------------------
@@ -155,160 +162,239 @@ const marta = build({
     ["f9b2e63", "Read the plan once a minute in Bridge", "marta", 196],
     ["02d7a8c", "Say when the windows were read", "marta", 150],
   ]),
-  files: [
-    [
-      RUST,
-      "modified",
-      [
-        "@@ -1,16 +1,52 @@",
-        " use std::time::{Duration, Instant};",
-        " ",
-        " use tokio::sync::Mutex;",
-        " ",
-        " use crate::anthropic::{self, Windows};",
-        "+",
-        "+/// The windows move on the minute, so a read younger than this is served again.",
-        "+const CACHE_FOR: Duration = Duration::from_secs(60);",
-        " ",
-        "-pub async fn read(client: &anthropic::Client) -> Result<Windows, ReadError> {",
-        "-    client.windows().await",
-        "+struct Held {",
-        "+    at: Instant,",
-        "+    windows: Windows,",
-        "+}",
-        "+",
-        "+pub struct PlanUsage {",
-        "+    client: anthropic::Client,",
-        "+    held: Mutex<Option<Held>>,",
-        " }",
-        "+",
-        "+impl PlanUsage {",
-        "+    pub fn new(client: anthropic::Client) -> Self {",
-        "+        Self { client, held: Mutex::new(None) }",
-        "+    }",
-        "+",
-        "+    pub async fn read(&self) -> Result<Windows, ReadError> {",
-        "+        let mut held = self.held.lock().await;",
-        "+        if let Some(one) = held.as_ref() {",
-        "+            if one.at.elapsed() < CACHE_FOR {",
-        "+                return Ok(one.windows.clone());",
-        "+            }",
-        "+        }",
-        "+        let windows = self.client.windows().await?;",
-        "+        *held = Some(Held { at: Instant::now(), windows: windows.clone() });",
-        "+        Ok(windows)",
-        "+    }",
-        "+}",
-        "+",
-        "+#[cfg(test)]",
-        "+mod tests {",
-        "+    use super::*;",
-        "+",
-        "+    #[tokio::test(start_paused = true)]",
-        "+    async fn a_read_inside_the_minute_is_served_again() {",
-        "+        let usage = PlanUsage::new(anthropic::Client::counting());",
-        "+        usage.read().await.unwrap();",
-        "+        tokio::time::advance(Duration::from_secs(59)).await;",
-        "+        usage.read().await.unwrap();",
-        "+        assert_eq!(usage.client.calls(), 1);",
-        "+    }",
-        "+}",
+  summary:
+    "The title bar's meters read the plan windows every five seconds, and every read called the provider. Fleet now keeps its last read for a minute and serves it again, Bridge asks once a minute, and each reading carries the instant it was taken so a meter can say how old its figure is.",
+  explainedBy: "agent",
+  themes: [
+    {
+      id: "keep",
+      title: "Fleet keeps the last read",
+      purpose: "A read inside the minute is served from memory, so the provider is called once a minute.",
+      changes: [
+        {
+          id: "hold",
+          title: "Hold the last read for a minute",
+          why: "Every ask called the provider. The windows move on the minute, so a read held for a minute is never more than a minute wrong.",
+          hunks: [
+            [
+              RUST,
+              [
+                "@@ -1,9 +1,22 @@",
+                " use std::time::{Duration, Instant};",
+                " ",
+                " use tokio::sync::Mutex;",
+                " ",
+                " use crate::anthropic::{self, Windows};",
+                "+",
+                "+/// The windows move on the minute, so a read younger than this is served again.",
+                "+const CACHE_FOR: Duration = Duration::from_secs(60);",
+                "+",
+                "+struct Held {",
+                "+    at: Instant,",
+                "+    windows: Windows,",
+                "+}",
+                "+",
+                "+pub struct PlanUsage {",
+                "+    client: anthropic::Client,",
+                "+    held: Mutex<Option<Held>>,",
+                "+}",
+                " ",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "serve",
+          title: "Serve it while it is fresh",
+          why: "The read became a method on the struct that holds the last one. The lock is taken first, so two asks that arrive together make one call to the provider.",
+          hunks: [
+            [
+              RUST,
+              [
+                "@@ -12,5 +25,18 @@ pub struct PlanUsage {",
+                "-pub async fn read(client: &anthropic::Client) -> Result<Windows, ReadError> {",
+                "-    client.windows().await",
+                "-}",
+                "+impl PlanUsage {",
+                "+    pub fn new(client: anthropic::Client) -> Self {",
+                "+        Self { client, held: Mutex::new(None) }",
+                "+    }",
+                "+",
+                "+    pub async fn read(&self) -> Result<Windows, ReadError> {",
+                "+        let mut held = self.held.lock().await;",
+                "+        if let Some(one) = held.as_ref() {",
+                "+            if one.at.elapsed() < CACHE_FOR {",
+                "+                return Ok(one.windows.clone());",
+                "+            }",
+                "+        }",
+                "+        let windows = self.client.windows().await?;",
+                "+        *held = Some(Held { at: Instant::now(), windows: windows.clone() });",
+                "+        Ok(windows)",
+                "+    }",
+                "+}",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "fleet",
+          title: "Fleet owns the one cache",
+          why: "One `PlanUsage` on Fleet means every ask, from any window, shares the same held read.",
+          hunks: [
+            [
+              "crates/fleet/src/lib.rs",
+              ["@@ -41,6 +41,7 @@ pub mod plan_usage;", " pub struct Fleet {", "     store: Store,", "+    plan_usage: plan_usage::PlanUsage,", "     gate: Gate,", " }"],
+            ],
+          ],
+        },
+        {
+          id: "test",
+          title: "Test the minute",
+          why: "Paused time puts a second read at 59 seconds, and the provider is called once.",
+          hunks: [
+            [
+              RUST,
+              [
+                "@@ -38,0 +60,13 @@ impl PlanUsage {",
+                "+#[cfg(test)]",
+                "+mod tests {",
+                "+    use super::*;",
+                "+",
+                "+    #[tokio::test(start_paused = true)]",
+                "+    async fn a_read_inside_the_minute_is_served_again() {",
+                "+        let usage = PlanUsage::new(anthropic::Client::counting());",
+                "+        usage.read().await.unwrap();",
+                "+        tokio::time::advance(Duration::from_secs(59)).await;",
+                "+        usage.read().await.unwrap();",
+                "+        assert_eq!(usage.client.calls(), 1);",
+                "+    }",
+                "+}",
+              ],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      MAIN_TS,
-      "modified",
-      [
-        "@@ -8,15 +8,22 @@ import { fleet } from \"./fleet-link\";",
-        " ",
-        "-const EVERY_MS = 5_000;",
-        "+const EVERY_MS = 60_000;",
-        " ",
-        " let last: PlanUsage | undefined;",
-        "+let timer: NodeJS.Timeout | undefined;",
-        " ",
-        " export async function readPlanUsage(): Promise<PlanUsage | undefined> {",
-        "   const answer = await fleet.get<PlanUsage>(\"/plan_usage\");",
-        "-  last = answer.ok ? answer.value : last;",
-        "+  if (answer.ok) last = answer.value;",
-        "   return last;",
-        " }",
-        " ",
-        " export function watchPlanUsage(tell: (usage: PlanUsage) => void): () => void {",
-        "-  const timer = setInterval(() => void readPlanUsage().then((u) => u && tell(u)), EVERY_MS);",
-        "-  return () => clearInterval(timer);",
-        "+  timer = setInterval(() => void readPlanUsage().then((usage) => usage && tell(usage)), EVERY_MS);",
-        "+  return () => clearInterval(timer);",
-        " }",
+    },
+    {
+      id: "poll",
+      title: "Bridge asks once a minute",
+      purpose: "The title bar stops asking every five seconds for a figure that cannot have changed.",
+      changes: [
+        {
+          id: "poll",
+          title: "Poll every minute",
+          why: "Five seconds was shorter than the windows move. A minute matches the held read, and the interval is kept so it can be cleared.",
+          hunks: [
+            [
+              MAIN_TS,
+              [
+                "@@ -8,15 +8,22 @@ import { fleet } from \"./fleet-link\";",
+                " ",
+                "-const EVERY_MS = 5_000;",
+                "+const EVERY_MS = 60_000;",
+                " ",
+                " let last: PlanUsage | undefined;",
+                "+let timer: NodeJS.Timeout | undefined;",
+                " ",
+                " export async function readPlanUsage(): Promise<PlanUsage | undefined> {",
+                "   const answer = await fleet.get<PlanUsage>(\"/plan_usage\");",
+                "-  last = answer.ok ? answer.value : last;",
+                "+  if (answer.ok) last = answer.value;",
+                "   return last;",
+                " }",
+                " ",
+                " export function watchPlanUsage(tell: (usage: PlanUsage) => void): () => void {",
+                "-  const timer = setInterval(() => void readPlanUsage().then((u) => u && tell(u)), EVERY_MS);",
+                "-  return () => clearInterval(timer);",
+                "+  timer = setInterval(() => void readPlanUsage().then((usage) => usage && tell(usage)), EVERY_MS);",
+                "+  return () => clearInterval(timer);",
+                " }",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "notify",
+          title: "Tell the title bar by callback",
+          why: "The source kept a set of names and told nobody. A callback lets the meters redraw the moment a read lands.",
+          hunks: [
+            [
+              SOURCE_TS,
+              [
+                "@@ -20,10 +20,14 @@ export type PlanUsageSource = {",
+                " export function createFleetPlanUsage(api: BridgeApi): PlanUsageSource {",
+                "   let held: PlanUsage | undefined;",
+                "-  const names = new Set<string>();",
+                "+  const listeners = new Set<(usage: PlanUsage) => void>();",
+                "   return {",
+                "     get: () => held,",
+                "-    subscribe: (name, tell) => names.add(name),",
+                "+    subscribe: (tell) => {",
+                "+      listeners.add(tell);",
+                "+      return () => listeners.delete(tell);",
+                "+    },",
+                "   };",
+                " }",
+              ],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      PROTOCOL_TS,
-      "modified",
-      [
-        "@@ -14,6 +14,9 @@ export type PlanWindow = {",
-        " ",
-        " export type PlanUsage = {",
-        "   windows: PlanWindow[];",
-        "+  /** RFC 3339. When Fleet last read the windows from the provider. */",
-        "+  read_at: string;",
-        " };",
-        " ",
-        " export type PlanKind = PlanWindow[\"kind\"];",
+    },
+    {
+      id: "age",
+      title: "Meters say how old a figure is",
+      purpose: "A held read can be a minute old, so each reading carries the instant it was taken.",
+      changes: [
+        {
+          id: "readat",
+          title: "Add read_at to the wire",
+          why: "The meters need the instant of the read to say how old their figure is.",
+          hunks: [
+            [
+              PROTOCOL_TS,
+              [
+                "@@ -14,6 +14,9 @@ export type PlanWindow = {",
+                " ",
+                " export type PlanUsage = {",
+                "   windows: PlanWindow[];",
+                "+  /** RFC 3339. When Fleet last read the windows from the provider. */",
+                "+  read_at: string;",
+                " };",
+                " ",
+                " export type PlanKind = PlanWindow[\"kind\"];",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "doc",
+          title: "Write the minute down",
+          why: "The concept page said a figure is as old as the last ask. It is now as old as the last read.",
+          hunks: [
+            [
+              "docs/concepts/plan-usage.md",
+              [
+                "@@ -9,7 +9,10 @@ Two windows count against a plan: five hours and seven days.",
+                " ",
+                " ## How fresh it is",
+                " ",
+                "-Fleet reads the windows when Bridge asks, so a figure is as old as the last ask.",
+                "+Fleet keeps the last read for a minute and serves it again to every ask inside",
+                "+that minute. `read_at` is when Fleet last read, so a meter can say how old its",
+                "+figure is. The windows move on the minute, so a figure is never more than a",
+                "+minute wrong.",
+              ],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      SOURCE_TS,
-      "modified",
-      [
-        "@@ -20,10 +20,14 @@ export type PlanUsageSource = {",
-        " export function createFleetPlanUsage(api: BridgeApi): PlanUsageSource {",
-        "   let held: PlanUsage | undefined;",
-        "-  const names = new Set<string>();",
-        "+  const listeners = new Set<(usage: PlanUsage) => void>();",
-        "   return {",
-        "     get: () => held,",
-        "-    subscribe: (name, tell) => names.add(name),",
-        "+    subscribe: (tell) => {",
-        "+      listeners.add(tell);",
-        "+      return () => listeners.delete(tell);",
-        "+    },",
-        "   };",
-        " }",
-      ],
-    ],
-    [
-      "crates/fleet/src/lib.rs",
-      "modified",
-      [
-        "@@ -41,6 +41,7 @@ pub mod plan_usage;",
-        " pub struct Fleet {",
-        "     store: Store,",
-        "+    plan_usage: plan_usage::PlanUsage,",
-        "     gate: Gate,",
-        " }",
-      ],
-    ],
-    [
-      "docs/concepts/plan-usage.md",
-      "modified",
-      [
-        "@@ -9,7 +9,10 @@ Two windows count against a plan: five hours and seven days.",
-        " ",
-        " ## How fresh it is",
-        " ",
-        "-Fleet reads the windows when Bridge asks, so a figure is as old as the last ask.",
-        "+Fleet keeps the last read for a minute and serves it again to every ask inside",
-        "+that minute. `read_at` is when Fleet last read, so a meter can say how old its",
-        "+figure is. The windows move on the minute, so a figure is never more than a",
-        "+minute wrong.",
-      ],
-    ],
+    },
   ],
   threads: [
     {
       id: "ttl",
-      path: RUST,
+      change: "hold",
       match: "const CACHE_FOR",
       comments: [
         ["devon", 118, "Should this be a setting? Other windows are `settings.toml` rows."],
@@ -317,7 +403,7 @@ const marta = build({
     },
     {
       id: "name",
-      path: SOURCE_TS,
+      change: "notify",
       match: "const listeners",
       resolved: true,
       comments: [
@@ -327,34 +413,40 @@ const marta = build({
     },
     {
       id: "readat",
-      path: PROTOCOL_TS,
+      change: "readat",
       match: "read_at: string",
       comments: [["priya", 90, "Is this RFC 3339 like the other instants in this file, or epoch millis?"]],
     },
   ],
-  agent: [
-    {
-      path: RUST,
-      match: "if one.at.elapsed() < CACHE_FOR",
-      kind: "bug",
-      title: "A reset inside the minute is served late",
-      body: "The cache is keyed on its age alone. A window that resets at 14:00:10 is still served with last minute's percentage until 14:01.\n\nCompare `resets_at` of the held windows to now, and read again once one has passed.",
-    },
-    {
-      path: MAIN_TS,
-      match: "timer = setInterval",
-      kind: "risk",
-      title: "A second watch loses the first interval",
-      body: "`timer` is one module variable. Calling `watchPlanUsage` twice overwrites it, and the first interval can no longer be cleared.",
-    },
-    {
-      path: PROTOCOL_TS,
-      match: "read_at: string",
-      kind: "question",
-      title: "Is read_at required?",
-      body: "A Fleet that predates this change sends none, and Bridge parses it as present. Make it optional, or bump the protocol.",
-    },
-  ],
+  results: {
+    risks: [
+      {
+        change: "poll",
+        title: "A second watch loses the first interval",
+        body: "`timer` is one module variable. Calling `watchPlanUsage` twice overwrites it, and the first interval can no longer be cleared.",
+      },
+      {
+        change: "serve",
+        title: "The lock is held across the provider call",
+        body: "A slow read blocks every other ask until it returns, including the ones a held read could have answered.\n\nTake the lock again after the call, and let a second ask wait on the first instead.",
+      },
+    ],
+    bugs: [
+      {
+        change: "serve",
+        title: "A reset inside the minute is served late",
+        body: "The cache is keyed on its age alone. A window that resets at 14:00:10 is still served with last minute's percentage until 14:01.\n\nCompare `resets_at` of the held windows to now, and read again once one has passed.",
+      },
+    ],
+    "api-breaking-changes": [
+      {
+        change: "readat",
+        title: "read_at is required on the wire",
+        body: "A Fleet that predates this change sends none, and Bridge parses it as present. Make it optional, or bump the protocol.",
+      },
+    ],
+    "test-gaps": [{ change: "test", title: "No test for a window that resets inside the minute", body: "The one test holds time still. Nothing covers a read after `resets_at` has passed." }],
+  },
 });
 
 // ---- #1903: asked of him by devon ------------------------------------------------------------------------
@@ -382,73 +474,107 @@ const devon = build({
     ["7bd0c19", "Answer a bay's history from one query", "devon", 62],
     ["c3a5f48", "Draw the history from the query's rows", "devon", 50],
   ]),
-  files: [
-    [
-      "crates/fleet/src/bay_history.rs",
-      "added",
-      [
-        "@@ -0,0 +1,34 @@",
-        "+use crate::events::{Event, Events};",
-        "+use crate::pool::SlotId;",
-        "+",
-        "+/// How many entries a bay's history carries before it says it cut.",
-        "+const LIMIT: usize = 200;",
-        "+",
-        "+pub struct BayHistory {",
-        "+    pub entries: Vec<Entry>,",
-        "+    pub cut: bool,",
-        "+}",
-        "+",
-        "+pub fn of(events: &Events, slot: SlotId) -> BayHistory {",
-        "+    let mut entries: Vec<Entry> = events",
-        "+        .iter()",
-        "+        .filter(|one| one.detail() == Some(slot.label().as_str()))",
-        "+        .filter_map(Entry::from_event)",
-        "+        .collect();",
-        "+    entries.sort_by(|a, b| b.at.cmp(&a.at));",
-        "+    let cut = entries.len() > LIMIT;",
-        "+    entries.truncate(LIMIT);",
-        "+    BayHistory { entries, cut }",
-        "+}",
+  summary: "A bay's pane filtered every slot event in Bridge to find one bay's history. Fleet now answers that bay's leases and checkouts, newest first, and says when it cut the list. The pane draws the answer.",
+  explainedBy: "agent",
+  themes: [
+    {
+      id: "query",
+      title: "Fleet answers a bay's history",
+      purpose: "One query returns one bay's entries, so Bridge stops filtering the whole event log.",
+      changes: [
+        {
+          id: "query",
+          title: "Read one bay's entries",
+          why: "The events already carry the slot. Filtering there keeps the query from walking anything else.",
+          hunks: [
+            [
+              "crates/fleet/src/bay_history.rs",
+              [
+                "@@ -0,0 +1,20 @@",
+                "+use crate::events::{Event, Events};",
+                "+use crate::pool::SlotId;",
+                "+",
+                "+/// How many entries a bay's history carries before it says it cut.",
+                "+const LIMIT: usize = 200;",
+                "+",
+                "+pub struct BayHistory {",
+                "+    pub entries: Vec<Entry>,",
+                "+    pub cut: bool,",
+                "+}",
+                "+",
+                "+pub fn of(events: &Events, slot: SlotId) -> BayHistory {",
+                "+    let mut entries: Vec<Entry> = events",
+                "+        .iter()",
+                "+        .filter(|one| one.detail() == Some(slot.label().as_str()))",
+                "+        .filter_map(Entry::from_event)",
+                "+        .collect();",
+                "+    entries.sort_by(|a, b| b.at.cmp(&a.at));",
+                "+    let cut = entries.len() > LIMIT;",
+                "+    entries.truncate(LIMIT);",
+                "+    BayHistory { entries, cut }",
+                "+}",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "wire",
+          title: "Say when it cut",
+          why: "A list that stops at its limit has to say so, or an older lease looks like it never happened.",
+          hunks: [
+            [
+              "packages/protocol/src/bay-history.ts",
+              [
+                "@@ -3,8 +3,12 @@",
+                " export type BayHistoryEntry =",
+                "   | { kind: \"leased\"; at: string; holder: BayHolder; branch?: string }",
+                "   | { kind: \"released\"; at: string; holder: BayHolder }",
+                "   | { kind: \"checkout\"; at: string; sha: string; to: string; from?: string };",
+                " ",
+                "-export type BayHistory = { manifest_id: string; slot: number; entries: BayHistoryEntry[] };",
+                "+export type BayHistory = {",
+                "+  manifest_id: string;",
+                "+  slot: number;",
+                "+  entries: BayHistoryEntry[];",
+                "+  /** The query stopped at its limit and older entries exist. */",
+                "+  cut: boolean;",
+                "+};",
+              ],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      "packages/protocol/src/bay-history.ts",
-      "modified",
-      [
-        "@@ -3,8 +3,12 @@",
-        " export type BayHistoryEntry =",
-        "   | { kind: \"leased\"; at: string; holder: BayHolder; branch?: string }",
-        "   | { kind: \"released\"; at: string; holder: BayHolder }",
-        "   | { kind: \"checkout\"; at: string; sha: string; to: string; from?: string };",
-        " ",
-        "-export type BayHistory = { manifest_id: string; slot: number; entries: BayHistoryEntry[] };",
-        "+export type BayHistory = {",
-        "+  manifest_id: string;",
-        "+  slot: number;",
-        "+  entries: BayHistoryEntry[];",
-        "+  /** The query stopped at its limit and older entries exist. */",
-        "+  cut: boolean;",
-        "+};",
+    },
+    {
+      id: "pane",
+      title: "The pane draws the answer",
+      purpose: "The history pane reads the query's rows and no longer sorts events itself.",
+      changes: [
+        {
+          id: "pane",
+          title: "Draw the history from the query",
+          why: "The pane took every event and filtered them. It now asks for one bay and draws what comes back, with a note where the list was cut.",
+          hunks: [
+            [
+              "apps/desktop/src/renderer/src/cockpit/deck/bay-history.tsx",
+              [
+                "@@ -30,9 +30,11 @@ export function BayHistoryPane({ bay }: { bay: BayView }) {",
+                "-  const events = useFleetEvents();",
+                "-  const entries = historyOf(events, bay.slot);",
+                "+  const history = useBayHistory(bay.manifest, bay.slot);",
+                "+  const entries = history?.entries ?? [];",
+                "   return (",
+                "     <section className=\"deck-history\" aria-label=\"History\">",
+                "       <Holders entries={entries} />",
+                "+      {history?.cut === true ? <Cut /> : null}",
+                "     </section>",
+                "   );",
+              ],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      "apps/desktop/src/renderer/src/cockpit/deck/bay-history.tsx",
-      "modified",
-      [
-        "@@ -30,9 +30,11 @@ export function BayHistoryPane({ bay }: { bay: BayView }) {",
-        "-  const events = useFleetEvents();",
-        "-  const entries = historyOf(events, bay.slot);",
-        "+  const history = useBayHistory(bay.manifest, bay.slot);",
-        "+  const entries = history?.entries ?? [];",
-        "   return (",
-        "     <section className=\"deck-history\" aria-label=\"History\">",
-        "       <Holders entries={entries} />",
-        "+      {history?.cut === true ? <Cut /> : null}",
-        "     </section>",
-        "   );",
-      ],
-    ],
+    },
   ],
 });
 
@@ -473,41 +599,51 @@ const mia = build({
     ["lighthouse", "passed", 88],
   ]),
   commits: commits([["e1f7b02", "Add the 512 and maskable icons", "mia", 118]]),
-  files: [
-    [
-      "public/manifest.webmanifest",
-      "modified",
-      [
-        "@@ -6,8 +6,18 @@",
-        "   \"display\": \"standalone\",",
-        "   \"icons\": [",
-        "     { \"src\": \"/icons/192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\" },",
-        "-    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" }",
-        "+    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" },",
-        "+    { \"src\": \"/icons/512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\" },",
-        "+    {",
-        "+      \"src\": \"/icons/maskable-512.png\",",
-        "+      \"sizes\": \"512x512\",",
-        "+      \"type\": \"image/png\",",
-        "+      \"purpose\": \"maskable\"",
-        "+    }",
-        "   ]",
-        " }",
+  summary: "The install prompt wants a 512 pixel icon and a maskable one, and the manifest only named 144 and 192. Both are added to the manifest and to the files the service worker caches.",
+  explainedBy: "agent",
+  themes: [
+    {
+      id: "icons",
+      title: "The install prompt gets its icons",
+      purpose: "The manifest names the two sizes the prompt asks for, and the app works offline with them.",
+      changes: [
+        {
+          id: "manifest",
+          title: "Name the 512 and maskable icons",
+          why: "The prompt skips an app whose manifest has no 512 pixel icon.",
+          hunks: [
+            [
+              "public/manifest.webmanifest",
+              [
+                "@@ -6,8 +6,18 @@",
+                "   \"display\": \"standalone\",",
+                "   \"icons\": [",
+                "     { \"src\": \"/icons/192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\" },",
+                "-    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" }",
+                "+    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" },",
+                "+    { \"src\": \"/icons/512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\" },",
+                "+    {",
+                "+      \"src\": \"/icons/maskable-512.png\",",
+                "+      \"sizes\": \"512x512\",",
+                "+      \"type\": \"image/png\",",
+                "+      \"purpose\": \"maskable\"",
+                "+    }",
+                "   ]",
+                " }",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "precache",
+          title: "Cache them for offline",
+          why: "An icon not in the precache list is fetched on first use, and the install prompt can ask before it is online.",
+          hunks: [
+            ["src/sw/precache.ts", ["@@ -3,6 +3,8 @@ export const PRECACHE = [", "   \"/\",", "   \"/icons/192.png\",", "+  \"/icons/512.png\",", "+  \"/icons/maskable-512.png\",", "   \"/app.js\",", " ];"]],
+          ],
+        },
       ],
-    ],
-    [
-      "src/sw/precache.ts",
-      "modified",
-      [
-        "@@ -3,6 +3,8 @@ export const PRECACHE = [",
-        "   \"/\",",
-        "   \"/icons/192.png\",",
-        "+  \"/icons/512.png\",",
-        "+  \"/icons/maskable-512.png\",",
-        "   \"/app.js\",",
-        " ];",
-      ],
-    ],
+    },
   ],
 });
 
@@ -541,107 +677,230 @@ const reconnect = build({
     ["5c18d3e", "Wait 5 seconds first, then back off", "claude", 38],
     ["80a2f6b", "Jitter the wait", "claude", 31],
   ]),
-  files: [
-    [
-      RECONNECT,
-      "modified",
-      [
-        "@@ -1,12 +1,24 @@",
-        "-const FIRST_WAIT_MS = 30_000;",
-        "+const FIRST_WAIT_MS = 5_000;",
-        " const CAP_MS = 60_000;",
-        "+const JITTER = 0.2;",
-        " ",
-        " /** How long to wait before reconnect number `attempt`, counting from zero. */",
-        " export function waitFor(attempt: number): number {",
-        "-  return FIRST_WAIT_MS;",
-        "+  const grown = FIRST_WAIT_MS * 2 ** attempt;",
-        "+  return Math.min(CAP_MS, grown);",
-        " }",
-        "+",
-        "+/** A wait spread by `JITTER` either side, so two windows do not knock together. */",
-        "+export function jittered(wait: number, random: () => number = Math.random): number {",
-        "+  return Math.round(wait * (1 - JITTER + random() * JITTER * 2));",
-        "+}",
-      ],
-    ],
-    [
-      LINK,
-      "modified",
-      [
-        "@@ -28,14 +28,20 @@ let socket: WebSocket | undefined;",
-        " export function connect(): void {",
-        "   const socket = new WebSocket(url());",
-        "+  socket.on(\"open\", () => {",
-        "+    announce(\"connected\");",
-        "+  });",
-        "   socket.on(\"close\", () => {",
-        "     announce(\"lost\");",
-        "-    setTimeout(connect, 30_000);",
-        "+    const wait = jittered(waitFor(attempt));",
-        "+    attempt += 1;",
-        "+    setTimeout(connect, wait);",
-        "   });",
-        " }",
-      ],
-    ],
-    [
-      "apps/desktop/src/renderer/src/cockpit/reconnect.test.ts",
-      "added",
-      [
-        "@@ -0,0 +1,22 @@",
-        "+import { describe, expect, it } from \"vitest\";",
-        "+",
-        "+import { jittered, waitFor } from \"./reconnect\";",
-        "+",
-        "+describe(\"waitFor\", () => {",
-        "+  it(\"starts at five seconds\", () => {",
-        "+    expect(waitFor(0)).toBe(5_000);",
-        "+  });",
-        "+",
-        "+  it(\"doubles, then holds at the cap\", () => {",
-        "+    expect(waitFor(1)).toBe(10_000);",
-        "+    expect(waitFor(3)).toBe(40_000);",
-        "+    expect(waitFor(9)).toBe(60_000);",
-        "+  });",
-        "+});",
-        "+",
-        "+describe(\"jittered\", () => {",
-        "+  it(\"spreads a wait by a fifth either side\", () => {",
-        "+    expect(jittered(10_000, () => 0)).toBe(8_000);",
-        "+    expect(jittered(10_000, () => 1)).toBe(12_000);",
-        "+  });",
-        "+});",
-      ],
-    ],
-    [
-      "docs/practices/protocol.md",
-      "modified",
-      [
-        "@@ -88,7 +88,9 @@ A lost socket is reconnected by Bridge, never by Fleet.",
-        " ",
-        "-The first wait is 30 seconds and stays there.",
-        "+The first wait is 5 seconds. Each one after doubles up to 60 seconds, and is",
-        "+spread by a fifth either side so two windows do not reconnect in step.",
-      ],
-    ],
-  ],
-  agent: [
+  summary:
+    "Bridge waited a flat 30 seconds after losing its socket to Fleet, so a Fleet restart left every window dark for half a minute. The wait now starts at 5 seconds and doubles up to 60. Each wait is spread by a fifth so two windows do not knock together, and the link says when it is connected.",
+  explainedBy: "session",
+  themes: [
     {
-      path: LINK,
-      match: "attempt += 1;",
-      kind: "bug",
-      title: "The attempt count is never reset",
-      body: "`attempt` grows on every drop and nothing sets it back to zero when the socket opens. After the sixth drop in a day, every reconnect waits the full cap.\n\nReset it in the `open` handler.",
+      id: "back",
+      title: "A dropped socket waits longer each time",
+      purpose: "The first retry is quick, and a Fleet that stays away is asked less and less often.",
+      changes: [
+        {
+          id: "back",
+          title: "Back off by doubling",
+          why: "A flat 30 seconds was too slow for a restart and too eager for an outage. Five seconds first, doubled each time, held at 60.",
+          hunks: [
+            [
+              RECONNECT,
+              [
+                "@@ -1,9 +1,10 @@",
+                "-const FIRST_WAIT_MS = 30_000;",
+                "+const FIRST_WAIT_MS = 5_000;",
+                " const CAP_MS = 60_000;",
+                " ",
+                " /** How long to wait before reconnect number `attempt`, counting from zero. */",
+                " export function waitFor(attempt: number): number {",
+                "-  return FIRST_WAIT_MS;",
+                "+  const grown = FIRST_WAIT_MS * 2 ** attempt;",
+                "+  return Math.min(CAP_MS, grown);",
+                " }",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "link",
+          title: "Wait that long in the link",
+          why: "The link slept a constant. It now counts its attempts and asks `waitFor` how long.",
+          hunks: [
+            [
+              LINK,
+              ["@@ -1,4 +1,5 @@", " import WebSocket from \"ws\";", "+import { jittered, waitFor } from \"../renderer/src/cockpit/reconnect\";", " ", " import { announce } from \"./status\";"],
+            ],
+            [
+              LINK,
+              [
+                "@@ -28,10 +29,14 @@ import { announce } from \"./status\";",
+                " let socket: WebSocket | undefined;",
+                "+let attempt = 0;",
+                " ",
+                " export function connect(): void {",
+                "   const socket = new WebSocket(url());",
+                "   socket.on(\"close\", () => {",
+                "     announce(\"lost\");",
+                "-    setTimeout(connect, 30_000);",
+                "+    const wait = jittered(waitFor(attempt));",
+                "+    attempt += 1;",
+                "+    setTimeout(connect, wait);",
+                "   });",
+                " }",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "test-back",
+          title: "Test the back off",
+          why: "The first wait, the doubling and the cap are the three numbers a later edit would break.",
+          hunks: [
+            [
+              "apps/desktop/src/renderer/src/cockpit/reconnect.test.ts",
+              [
+                "@@ -0,0 +1,13 @@",
+                "+import { describe, expect, it } from \"vitest\";",
+                "+",
+                "+import { waitFor } from \"./reconnect\";",
+                "+",
+                "+describe(\"waitFor\", () => {",
+                "+  it(\"starts at five seconds\", () => {",
+                "+    expect(waitFor(0)).toBe(5_000);",
+                "+  });",
+                "+",
+                "+  it(\"doubles, then holds at the cap\", () => {",
+                "+    expect(waitFor(1)).toBe(10_000);",
+                "+    expect(waitFor(3)).toBe(40_000);",
+                "+    expect(waitFor(9)).toBe(60_000);",
+                "+  });",
+                "+});",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "doc",
+          title: "Write the waits down",
+          why: "The protocol practice stated the flat 30 seconds, and the next person to touch the link reads it first.",
+          hunks: [
+            [
+              "docs/practices/protocol.md",
+              [
+                "@@ -88,7 +88,9 @@ A lost socket is reconnected by Bridge, never by Fleet.",
+                " ",
+                "-The first wait is 30 seconds and stays there.",
+                "+The first wait is 5 seconds. Each one after doubles up to 60 seconds, and is",
+                "+spread by a fifth either side so two windows do not reconnect in step.",
+              ],
+            ],
+          ],
+        },
+      ],
     },
     {
-      path: RECONNECT,
-      match: "return Math.round(wait *",
-      kind: "risk",
-      title: "Jitter can pass the cap",
-      body: "The cap is applied in `waitFor`, before the spread. A 60 second wait comes out as up to 72 seconds.",
+      id: "spread",
+      title: "Two windows do not reconnect in step",
+      purpose: "Every window that lost Fleet at once would retry at once. A spread breaks the knock.",
+      changes: [
+        {
+          id: "jitter",
+          title: "Spread each wait",
+          why: "Windows that lose the socket together would all retry on the same second. A fifth either side spreads them out.",
+          hunks: [
+            [
+              RECONNECT,
+              [
+                "@@ -10,3 +11,8 @@ export function waitFor(attempt: number): number {",
+                "   return Math.min(CAP_MS, grown);",
+                " }",
+                "+",
+                "+const JITTER = 0.2;",
+                "+",
+                "+/** A wait spread by `JITTER` either side, so two windows do not knock together. */",
+                "+export function jittered(wait: number, random: () => number = Math.random): number {",
+                "+  return Math.round(wait * (1 - JITTER + random() * JITTER * 2));",
+                "+}",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "test-jitter",
+          title: "Test the spread",
+          why: "The random source is a parameter so the two ends of the spread can be asserted exactly.",
+          hunks: [
+            [
+              "apps/desktop/src/renderer/src/cockpit/reconnect.test.ts",
+              [
+                "@@ -14,0 +15,8 @@ describe(\"waitFor\", () => {",
+                "+describe(\"jittered\", () => {",
+                "+  it(\"spreads a wait by a fifth either side\", () => {",
+                "+    expect(jittered(10_000, () => 0)).toBe(8_000);",
+                "+    expect(jittered(10_000, () => 1)).toBe(12_000);",
+                "+  });",
+                "+});",
+              ],
+            ],
+          ],
+        },
+      ],
+    },
+    {
+      id: "connected",
+      title: "Bridge says when it is connected",
+      purpose: "The link announced only a loss. It now announces the open, and the title bar has words for it.",
+      changes: [
+        {
+          id: "open",
+          title: "Announce the open",
+          why: "Nothing told the window the socket was back, so it stayed on its lost state until the next message.",
+          hunks: [
+            [
+              LINK,
+              [
+                "@@ -31,6 +32,9 @@ export function connect(): void {",
+                "   const socket = new WebSocket(url());",
+                "+  socket.on(\"open\", () => {",
+                "+    announce(\"connected\");",
+                "+  });",
+                "   socket.on(\"close\", () => {",
+                "     announce(\"lost\");",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "state",
+          title: "Give the state its words",
+          why: "The title bar switches on the link state, and a new state with no case draws nothing.",
+          hunks: [
+            [
+              "apps/desktop/src/renderer/src/cockpit/link-state.ts",
+              [
+                "@@ -1,10 +1,12 @@",
+                "-export type LinkState = \"lost\" | \"connecting\";",
+                "+export type LinkState = \"connected\" | \"lost\" | \"connecting\";",
+                " ",
+                " export function wordsOf(state: LinkState): string {",
+                "   switch (state) {",
+                "+    case \"connected\":",
+                "+      return \"Connected\";",
+                "     case \"lost\":",
+                "       return \"Lost\";",
+              ],
+            ],
+          ],
+        },
+      ],
     },
   ],
+  results: {
+    risks: [{ change: "jitter", title: "Jitter can pass the cap", body: "The cap is applied in `waitFor`, before the spread. A 60 second wait comes out as up to 72 seconds." }],
+    bugs: [
+      {
+        change: "link",
+        title: "The attempt count is never reset",
+        body: "`attempt` grows on every drop and nothing sets it back to zero when the socket opens. After the sixth drop in a day, every reconnect waits the full cap.\n\nReset it in the `open` handler.",
+      },
+    ],
+    "api-breaking-changes": [
+      {
+        change: "state",
+        title: "LinkState gains a member",
+        body: "A window built before this change switches on `LinkState` with no default, and draws nothing for `connected`.",
+      },
+    ],
+    "test-gaps": [{ change: "open", title: "No test for the open handler", body: "Nothing asserts that `announce` is called with `connected`, or that the attempt count is touched when the socket opens." }],
+  },
 });
 
 // ---- #1892: his Job's ----------------------------------------------------------------------------------------
@@ -665,52 +924,94 @@ const pause = build({
     ["verify-foundations", "passed", 55],
   ]),
   commits: commits([["9e4b7a0", "Add the pause marker column", "claude", 29]]),
-  files: [
-    [
-      "crates/store/migrations/0043_pause_marker.sql",
-      "added",
-      [
-        "@@ -0,0 +1,6 @@",
-        "+-- A Job is paused when this is set, and resumed when it is cleared.",
-        "+ALTER TABLE jobs ADD COLUMN paused_at TEXT;",
-        "+",
-        "+UPDATE jobs SET paused_at = NULL;",
-        "+",
-        "+CREATE INDEX jobs_paused ON jobs (paused_at) WHERE paused_at IS NOT NULL;",
+  summary: "A Job is paused when `paused_at` is set and resumed when it is cleared. The column is added to the jobs table, read into the store's row, and sent on the wire.",
+  explainedBy: "agent",
+  themes: [
+    {
+      id: "marker",
+      title: "A Job can be marked paused",
+      purpose: "One nullable column says whether a Job is paused and since when.",
+      changes: [
+        {
+          id: "migration",
+          title: "Add the column",
+          why: "Null until a Job is paused, so every existing row stays running.",
+          hunks: [
+            [
+              "crates/store/migrations/0043_pause_marker.sql",
+              [
+                "@@ -0,0 +1,6 @@",
+                "+-- A Job is paused when this is set, and resumed when it is cleared.",
+                "+ALTER TABLE jobs ADD COLUMN paused_at TEXT;",
+                "+",
+                "+UPDATE jobs SET paused_at = NULL;",
+                "+",
+                "+CREATE INDEX jobs_paused ON jobs (paused_at) WHERE paused_at IS NOT NULL;",
+              ],
+            ],
+          ],
+        },
+        {
+          id: "row",
+          title: "Read it into the row",
+          why: "The store hands out `JobRow`, so the column has to be a field of it.",
+          hunks: [
+            ["crates/store/src/jobs.rs", ["@@ -44,6 +44,7 @@ pub struct JobRow {", "     pub branch: Option<String>,", "     pub started_at: Option<String>,", "+    pub paused_at: Option<String>,", " }"]],
+          ],
+        },
+        {
+          id: "wire",
+          title: "Send it on the wire",
+          why: "Bridge draws a paused Job from the summary, so the field has to be in it.",
+          hunks: [
+            [
+              "packages/protocol/src/job.ts",
+              ["@@ -52,6 +52,8 @@ export type JobSummary = {", "   started_at?: string;", "+  /** RFC 3339. Set while the Job is paused. */", "+  paused_at?: string;", "   branch?: string;", " };"],
+            ],
+          ],
+        },
       ],
-    ],
-    [
-      "crates/store/src/jobs.rs",
-      "modified",
-      [
-        "@@ -44,6 +44,7 @@ pub struct JobRow {",
-        "     pub branch: Option<String>,",
-        "     pub started_at: Option<String>,",
-        "+    pub paused_at: Option<String>,",
-        " }",
-      ],
-    ],
-    [
-      "packages/protocol/src/job.ts",
-      "modified",
-      [
-        "@@ -52,6 +52,8 @@ export type JobSummary = {",
-        "   started_at?: string;",
-        "+  /** RFC 3339. Set while the Job is paused. */",
-        "+  paused_at?: string;",
-        "   branch?: string;",
-        " };",
-      ],
-    ],
+    },
   ],
+  results: {
+    "migration-safety": [
+      {
+        change: "migration",
+        title: "The UPDATE rewrites every row",
+        body: "A new nullable column is already null. `UPDATE jobs SET paused_at = NULL` touches every row for no change, and holds the write lock while it does.\n\nDrop the statement.",
+      },
+    ],
+  },
 });
 
-/** Every pull request the mock forge holds, and what an agent review of each would find. */
+// ---- The tools ------------------------------------------------------------------------------------------------
+
+const armadaTools: ToolDef[] = [
+  { id: "risks", name: "Risks", source: "armada", mark: "risks", agent: true, checks: "What could go wrong that the change does not handle: shared state, ordering, a caller that was not updated." },
+  { id: "bugs", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
+  { id: "api-breaking-changes", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
+  { id: "comments", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
+];
+
+const kitTools: ToolDef[] = [
+  { id: "test-gaps", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
+];
+
+/** `.armada/review-tools/` in the armada repository: one that is its own, and one that replaces the Kit's of the same name. */
+const repositoryTools: Record<string, ToolDef[]> = {
+  armada: [
+    { id: "test-gaps", name: "Test gaps", source: "repository", mark: "custom", agent: true, checks: "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it." },
+    { id: "migration-safety", name: "Migration safety", source: "repository", mark: "custom", agent: true, checks: "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice." },
+  ],
+};
+
+/** Every pull request the mock forge holds, the tools a repository has, and what each tool finds on each pull request. */
 export function reviewSeed(): ReviewSeed {
   const all = [marta, devon, mia, reconnect, pause];
   return {
     me: "nick",
     prs: all.map((one) => one.pr),
-    agent: Object.fromEntries(all.filter((one) => one.agent.length > 0).map((one) => [one.pr.key, one.agent])),
+    tools: { armada: armadaTools, kit: kitTools, repository: repositoryTools },
+    results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
   };
 }
