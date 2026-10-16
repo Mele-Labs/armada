@@ -23,7 +23,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
 import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
-import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { SessionMemo, rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { share } from "@armada/screens/src/share";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   CheckoutDiffRead,
@@ -103,8 +104,19 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository && was.helm === state.helm && was.workflowsOff === workflowsOffIn(state.settings)) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository, helm: state.helm, workflowsOff: workflowsOffIn(state.settings) };
+    // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
+    // one Session finds every other one the same and reads only that one.
+    const next = {
+      sessions: share(was?.sessions, state.sessions),
+      sessionThreads: share(was?.sessionThreads, state.sessionThreads),
+      jobs: share(was?.jobs, state.jobs),
+      holds: share(was?.holds, state.holds),
+      repository: state.repository,
+      helm: share(was?.helm, state.helm),
+      workflowsOff: workflowsOffIn(state.settings),
+    };
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.jobs === next.jobs && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
+    this.inputs = next;
     this.recompute();
   }
 
@@ -112,20 +124,41 @@ export class WiredStore {
     const read = this.inputs?.sessions;
     // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
-    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside);
+    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo);
+    // Nothing drawn changed: the same list, so what reads it does not draw again.
+    if (mapped.length !== this.mapped.length || mapped.some((one, at) => one !== this.mapped[at])) this.mapped = mapped;
     // Helm answers for the repository the dock points at, which the rail's pick need not be.
     const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
     const record = aimed === undefined || read === undefined || read.state !== "read" ? undefined : read.sessions.find((one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed);
-    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside)[0];
+    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside, undefined, this.memo)[0];
+    this.memo.keep(new Set(read?.state === "read" ? read.sessions.map((one) => one.id) : []));
     this.listeners.forEach((listener) => listener());
+  }
+
+  private readonly memo = new SessionMemo();
+  /** Bumped when a picture arrives, which a Session's rows draw without any record changing. */
+  private epoch = 0;
+  private repositoryOf: { from: unknown; read: (manifestId: string | undefined) => string } | undefined;
+
+  private readonly pictureOf = (sessionId: string, fileId: string): string | undefined => this.picture(sessionId, fileId);
+
+  /** One function while the repositories are the same ones, so a Session's rows are not read again for a new closure. */
+  private repository(): (manifestId: string | undefined) => string {
+    const from = this.inputs?.holds.repositories;
+    const held = this.repositoryOf;
+    if (held !== undefined && held.from === from) return held.read;
+    const read = (manifestId: string | undefined): string => from?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
+    this.repositoryOf = { from, read };
+    return read;
   }
 
   private readonly beside = (id: string): Beside => ({
     jobs: this.inputs?.jobs ?? NONE,
-    picture: (sessionId, fileId) => this.picture(sessionId, fileId),
+    picture: this.pictureOf,
     sketches: this.sketches.get(id) ?? NONE,
     pending: this.pending.get(id) ?? NONE,
-    repository: (manifestId) => this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "",
+    repository: this.repository(),
+    epoch: this.epoch,
     workflows: this.inputs?.holds.workflows ?? NONE,
     events: this.events,
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
@@ -162,6 +195,7 @@ export class WiredStore {
     void this.api.readSessionFile(sessionId, fileId).then((read) => {
       if (!read.ok) return;
       this.pictures.set(key, URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })));
+      this.epoch += 1;
       this.recompute();
     });
     return undefined;

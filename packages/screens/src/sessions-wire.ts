@@ -14,6 +14,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
+import { share } from "./share";
 import type {
   Session,
   SessionActivity,
@@ -47,6 +48,8 @@ export type Beside = {
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
   workflowsOff?: boolean;
+  /** Moves when something `picture` answers has changed without its identity doing so. */
+  epoch?: number;
 };
 
 const NO_WORKFLOWS: readonly WorkflowSummary[] = [];
@@ -606,10 +609,41 @@ export function sessionsOfRecords(
   threads: Readonly<Record<string, readonly WireRow[]>>,
   beside: (id: string) => Beside,
   now: number = Date.now(),
+  memo?: SessionMemo,
 ): Session[] {
   const since = now - ENDED_LISTED_DAYS * 24 * 60 * 60 * 1000;
   return records.map((one) => {
-    const session = sessionOfRecord(one, threads[one.id], beside(one.id));
-    return one.state === "ended" && Date.parse(one.last_seen_at) < since ? { ...session, older: true as const } : session;
+    const old = one.state === "ended" && Date.parse(one.last_seen_at) < since;
+    const build = (): Session => {
+      const session = sessionOfRecord(one, threads[one.id], beside(one.id));
+      return old ? { ...session, older: true as const } : session;
+    };
+    return memo === undefined ? build() : memo.of(one, threads[one.id], beside(one.id), old, build);
   });
 }
+
+/**
+ * What each Session was last drawn from, so a message about one Session reads only that one. **A hit needs the very
+ * same record, rows and `Beside` parts, so the caller hands in values that do not change identity unless they changed**
+ * (`share.ts`), including a `picture` and `repository` that stay one function. A miss is built again and shares what it
+ * can with the last build, so a row that did not change is the same object it was.
+ */
+export class SessionMemo {
+  private readonly held = new Map<string, { record: SessionRecord; rows: readonly WireRow[] | undefined; beside: Beside; old: boolean; session: Session }>();
+
+  of(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, old: boolean, build: () => Session): Session {
+    const last = this.held.get(record.id);
+    if (last !== undefined && last.record === record && last.rows === rows && last.old === old && sameBeside(last.beside, beside)) return last.session;
+    const session = share(last?.session, build());
+    this.held.set(record.id, { record, rows, beside, old, session });
+    return session;
+  }
+
+  /** Lets go of every Session not in `ids`: one that left the list must not be held. */
+  keep(ids: ReadonlySet<string>): void {
+    for (const id of this.held.keys()) if (!ids.has(id)) this.held.delete(id);
+  }
+}
+
+const sameBeside = (a: Beside, b: Beside): boolean =>
+  a.jobs === b.jobs && a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
