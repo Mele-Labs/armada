@@ -161,6 +161,68 @@ export const Blank: Story = {
     await expect(canvas.queryByRole("heading")).toBeNull();
     await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Attachments" }).textContent).toBe("");
+    // An empty ledger draws its picture alone, with no bar of five disabled icons.
+    await expect(canvas.queryByRole("group", { name: "Narrow the ledger" })).toBeNull();
+    await expect(canvas.queryByRole("button")).toBeNull();
+  },
+};
+
+const BAR_ENTRIES: LedgerEntry[] = [
+  { key: "pr", kind: "pull_request", name: "Pull request #1843, checks passed", text: "#1843 Pin the store clock", mark: { glyph: "passed", said: "Checks passed" }, onOpen: open },
+  { key: "b3", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
+  { key: "b5", kind: "branch", name: "Branch store/migration-lock", text: <code>store/migration-lock</code>, slot: 5, onOpen: open },
+  { key: "s9", kind: "slot", name: "Worktree slot 9", text: "9", onOpen: open },
+  WAITING[1]!,
+];
+const headingsOf = (canvas: { queryAllByRole: (role: string) => HTMLElement[] }) => canvas.queryAllByRole("heading").map((one) => one.textContent);
+
+/**
+ * The bar across the top narrows the ledger to one kind, and Search narrows every section by the words of
+ * its rows. Sections run Waiting on you, Pull requests, Branches. A kind with no rows is disabled, not gone.
+ */
+export const FilterBar: Story = {
+  args: { entries: BAR_ENTRIES },
+  play: async ({ canvas }) => {
+    const bar = within(canvas.getByRole("group", { name: "Narrow the ledger" }));
+    await expect(headingsOf(canvas)).toEqual(["Waiting on you", "Pull requests", "Branches"]);
+    // A kind narrows to its own section, and pressing it again brings every section back.
+    const pulls = bar.getByRole("button", { name: "Pull requests" });
+    await userEvent.click(pulls);
+    await expect(pulls).toHaveAttribute("aria-pressed", "true");
+    await expect(headingsOf(canvas)).toEqual(["Pull requests"]);
+    await userEvent.click(pulls);
+    await expect(pulls).toHaveAttribute("aria-pressed", "false");
+    await expect(headingsOf(canvas)).toEqual(["Waiting on you", "Pull requests", "Branches"]);
+    // One kind at a time; Branches holds the bare slot row too.
+    await userEvent.click(bar.getByRole("button", { name: "Calls" }));
+    await userEvent.click(bar.getByRole("button", { name: "Branches and slots" }));
+    await expect(bar.getByRole("button", { name: "Calls" })).toHaveAttribute("aria-pressed", "false");
+    await expect(headingsOf(canvas)).toEqual(["Branches"]);
+    await expect(canvas.getByRole("button", { name: "Open Worktree slot 9" })).toBeInTheDocument();
+    // A kind the ledger holds no row of is disabled and stays in the bar.
+    await expect(bar.getByRole("button", { name: "Artifacts" })).toBeDisabled();
+    // Search and the kind combine; Escape clears the words and closes the field.
+    await userEvent.click(bar.getByRole("button", { name: "Search" }));
+    await userEvent.keyboard("FLAKY");
+    await expect(canvas.getAllByRole("listitem").map((one) => one.getAttribute("aria-label"))).toEqual(["Branch fix/flaky-store"]);
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("textbox")).toBeNull();
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(3);
+    await userEvent.click(bar.getByRole("button", { name: "Branches and slots" }));
+    // Search alone reaches every section, by the words a row's text draws too.
+    await userEvent.click(bar.getByRole("button", { name: "Search" }));
+    await userEvent.keyboard("migration-lock");
+    await expect(canvas.getAllByRole("listitem").map((one) => one.getAttribute("aria-label"))).toEqual(["Branch store/migration-lock"]);
+    await userEvent.clear(canvas.getByRole("textbox", { name: "Search the ledger" }));
+    await userEvent.keyboard("pin the store");
+    await expect(headingsOf(canvas)).toEqual(["Pull requests"]);
+    // Nothing matching draws the ledger's picture, and the bar stays.
+    await userEvent.clear(canvas.getByRole("textbox", { name: "Search the ledger" }));
+    await userEvent.keyboard("zzz");
+    await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("heading")).toBeNull();
+    await expect(bar.getByRole("button", { name: "Search" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.keyboard("{Escape}");
   },
 };
 
@@ -354,6 +416,8 @@ export const PreviewCards: Story = {
     await userEvent.unhover(pr);
     await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible());
     // By keyboard: one stop a row, Waiting on you first, so nothing inside the pull request's row took one.
+    // The bar's buttons are stops before the rows; start from the last of them.
+    canvas.getByRole("button", { name: "Calls" }).focus();
     await userEvent.tab();
     await expect(canvas.getByRole("button", { name: "Open Which clock?" })).toHaveFocus();
     await userEvent.tab();
