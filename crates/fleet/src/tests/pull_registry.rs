@@ -31,6 +31,7 @@ fn open(machine: &Machine, numbers: &[u64]) {
                 number: *number,
                 branch: FromOutside::verbatim(format!("armada/{number}")),
                 url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
+                author: None,
                 head: Some(ONE.to_string()),
                 conflicting: false,
                 queue: PullQueue::Outside,

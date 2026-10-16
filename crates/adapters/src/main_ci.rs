@@ -287,6 +287,17 @@ pub(crate) fn publish_status(in_repo: &str, status: &CommitStatus) -> Result<(),
     }
 }
 
+/// The login `gh` is signed in as: `gh api user`. `None` where it is not signed in, would not
+/// answer, or printed nothing.
+pub(crate) fn forge_login(in_repo: &str) -> Option<String> {
+    let run = run_in(in_repo, FORGE, &["api", "user", "--jq", ".login"]).ok()?;
+    if !run.status.success() {
+        return None;
+    }
+    let login = String::from_utf8_lossy(&run.stdout).trim().to_string();
+    (!login.is_empty()).then_some(login)
+}
+
 const MERGED_PULLS: &str = "\
     .[] | [(.number | tostring), (.title // \"\"), (.headRefName // \"\"), (.url // \"\"), \
     (.author.login // \"\"), (.mergedAt // \"\"), (.mergeCommit.oid // \"\")] | @tsv";

@@ -256,6 +256,12 @@ export type HubPullRequest = {
    * for a person (`Pending::merge_by_hand`). Absent is any other pull request, or one the forge is going to merge itself.
    */
   merge_by_hand?: boolean;
+  /**
+   * Opened by the person using this Fleet: its author is the login Armada is signed in as for the repository or the one
+   * the forge's command line is signed in as, or neither is known. Absent is mine, and what an older Fleet sends. One
+   * that is not is drawn only in the merge queue, quietly, and raises no call.
+   */
+  mine?: boolean;
 };
 
 /** Who registered a pull request: a kind, a short id and a machine's name, and nothing about the pull request. */
