@@ -105,7 +105,6 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
-import { ProposalCard } from "./session-view/ProposalCard";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -1068,7 +1067,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             </ForkedFrom>
           )}
           {startedBy}
-          {session.work?.proposal === undefined ? null : <ProposalCard session={session} draft={draft} />}
           <SessionThread
             sessionId={session.id}
             rows={shown}
@@ -1139,7 +1137,13 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
               {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
               {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
               efforts={draft.efforts}
-              onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+              onTune={(tuning) => {
+                draft.tune(session.id, { ...tuning, mode });
+                // A value the proposer picked loses its mark once he changes it.
+                if (tuning.model !== (session.model ?? null)) draft.work?.unpick(session.id, "model");
+                if (tuning.effort !== (session.effort ?? null)) draft.work?.unpick(session.id, "effort");
+              }}
+              {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
               compact={narrow}
               taggable={[

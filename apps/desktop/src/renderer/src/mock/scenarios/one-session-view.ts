@@ -55,7 +55,7 @@ const dispatched: Session = {
   standing: "idle",
   rows: [you("v-1", "14:02:00", WORDS)],
   attachments: [],
-  work: { proposal: { workflow: FEATURE.name }, workflow: { ...FEATURE, at: -1 } },
+  work: { proposal: { workflow: FEATURE.name, picked: ["workflow", "model", "effort"] }, workflow: { ...FEATURE, at: -1 } },
 };
 
 const quiet: Session = {
@@ -286,9 +286,11 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         works((work) => {
           const { workflow, ...rest } = work;
           void workflow;
-          return { ...rest, proposal: { workflow: name }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: -1 } }) };
+          return { ...rest, proposal: { workflow: name, ...(work.proposal?.picked === undefined ? {} : { picked: work.proposal.picked.filter((one) => one !== "workflow") }) }, ...(chosen === undefined ? {} : { workflow: { ...chosen, at: -1 } }) };
         });
       },
+      unpick: (_id, value) =>
+        works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
       // Start begins the work: the first step, and the agent reads and asks before it plans.
       start: () => {
         works((work) => {

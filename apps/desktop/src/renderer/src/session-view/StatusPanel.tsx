@@ -7,9 +7,9 @@
 // under the step that builds it.
 
 import { useEffect, useRef } from "react";
-import { BadgeCheck, Bot, CircleCheck, CircleDashed, CircleDot, PencilLine } from "lucide-react";
-import { Button, TaskMark, Tooltip } from "@armada/components";
-import type { SessionWork, WorkPlan } from "@armada/screens/src/draft/sessions";
+import { BadgeCheck, Bot, CircleCheck, CircleDashed, CircleDot, Lightbulb, PencilLine } from "lucide-react";
+import { Button, Select, TaskMark, Tooltip } from "@armada/components";
+import type { SessionWork, SessionWorkActs, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { SvPanel, type PanelState } from "./SvPanel";
 import type { Take } from "./take";
@@ -148,12 +148,46 @@ function Outline({ work, plan }: { work: SessionWork; plan: WorkPlan | undefined
   );
 }
 
-export function StatusPanel({ work, take, place, onApprove }: { work: SessionWork; take: Take; place: "side" | "left"; onApprove: () => void }) {
+const NONE = "none";
+
+/** The workflow's name over its steps. Until the work starts it is a picker, and None is a custom Session with no steps. */
+function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string }) {
+  const proposal = work.proposal;
+  if (proposal === undefined || proposal.started === true || acts === undefined) {
+    return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;
+  }
+  return (
+    <div className="sv-flow">
+      <Select aria-label="Workflow" value={proposal.workflow ?? NONE} onChange={(event) => acts.choose(id, event.target.value === NONE ? null : event.target.value)}>
+        <option value={NONE}>None</option>
+        {acts.workflows.map((one) => (
+          <option key={one.name} value={one.name}>
+            {one.name}
+          </option>
+        ))}
+      </Select>
+      {proposal.picked?.includes("workflow") === true ? (
+        <Tooltip label="Picked by the proposer">
+          <span className="sv-flow__proposed" role="img" aria-label="Picked by the proposer">
+            <Lightbulb size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
+export function StatusPanel({ work, take, place, id, acts: workActs, onStart, onApprove }: { work: SessionWork; take: Take; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined; onStart: () => void; onApprove: () => void }) {
   const plan = work.plan;
   const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
   const state: PanelState | undefined = plan === undefined ? undefined : !plan.approved ? "asks" : finished ? "done" : "live";
+  const unstarted = work.proposal !== undefined && work.proposal.started !== true;
   const acts =
-    plan === undefined ? undefined : plan.approved ? (
+    unstarted ? (
+      <Button variant="primary" size="sm" onClick={onStart}>
+        Start
+      </Button>
+    ) : plan === undefined ? undefined : plan.approved ? (
       <Tooltip label="Plan approved">
         <span className="sv-panel__mark" role="img" aria-label="Plan approved">
           <BadgeCheck size={16} strokeWidth={2} aria-hidden />
@@ -166,6 +200,7 @@ export function StatusPanel({ work, take, place, onApprove }: { work: SessionWor
     );
   return (
     <SvPanel label="Status" area="status" place={place} state={state} acts={acts}>
+      <Flow work={work} acts={workActs} id={id} />
       {work.workflow !== undefined && take === "b" ? (
         <Outline work={work} plan={plan} />
       ) : (

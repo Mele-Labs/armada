@@ -1,7 +1,7 @@
 // One view of a Session, the same on the Cockpit and on the Sessions page. With nothing selected the Cockpit keeps Activity, Bays and
 // Autopilot, and the foot has Dispatch controls; with a Session selected the Dispatch controls go and the Session's own panels stand in
-// Activity's and Autopilot's places, the Status area holds its workflow and plan in the ring's place, and the proposal is a card at
-// the head of the thread. The Session goes from dispatched words to a pull request ready. Over the `one-session-view` scenario.
+// Activity's and Autopilot's places, the Status area holds its workflow and plan in the ring's place, and the proposer's values stand
+// where they already live: the name in the header, the model and effort in the composer, the workflow over the steps in Status. The Session goes from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 // Two takes, `&take=a` and `&take=b`, differ in where the judge's concerns stand and in how the Status area sits the plan by the steps.
 
 import { toSessions } from "../sessions/walk-kit";
@@ -10,7 +10,6 @@ import { button, deckRow, inside, region, role, text, walk } from "../walk";
 const places = role("navigation", "Places");
 const stage = region(/^Session: /);
 const status = region("Status");
-const proposal = region("Proposal");
 const ask = role("article", "Waiting on you");
 const concern = (words: RegExp) => role("group", words);
 
@@ -19,15 +18,14 @@ export const oneSessionView = walk("one-session-view", [
   { look: region("Bays"), say: "Bays" },
   { look: region("Autopilot"), say: "Autopilot, beside Flight control and Dispatch" },
   { press: deckRow("Retry the slot lease"), say: "A Session is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way" },
-  { look: proposal, say: "A card at the head of the thread, above the dispatched words. The proposer has filled in the title, a workflow, the model and the effort, each one changeable before the work starts" },
-  { look: status, say: "The Status area keeps its place. The workflow's steps run down a column with none lit yet, and the plan is empty" },
+  { look: role("combobox", "Model"), say: "Dispatched words and nothing run. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it" },
+  { look: status, say: "The proposed workflow is over the steps in Status, marked the same way. The steps run down a column with none lit yet, and the plan is empty" },
   { type: "Bug fix", into: role("combobox", "Workflow"), say: "A different workflow" },
   { look: text("Reproduce"), say: "Its steps replace the others" },
   { type: "none", into: role("combobox", "Workflow"), say: "None is a custom Session, which draws no steps" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again" },
-  { type: "sonnet", into: role("combobox", "Model"), say: "A lighter model" },
-  { type: "medium", into: role("combobox", "Effort"), say: "And less effort" },
-  { press: inside(proposal, button("Start")), say: "Start. The first step lights and the agent reads before it asks. The card stays in the thread as a record" },
+  { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. The mark on it goes once he changes it" },
+  { press: inside(status, button("Start")), say: "Start. The first step lights and the agent reads before it asks. The workflow is now a name and no longer a picker" },
   { look: inside(stage, ask), say: "Planning happens with him in the thread. The Status area has no plan yet, and the Field has the Session's own drone reading Fleet" },
   { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
   { press: inside(ask, button("Answer")), say: "Answered" },

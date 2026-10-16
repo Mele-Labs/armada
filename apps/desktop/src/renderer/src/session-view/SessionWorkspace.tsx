@@ -3,8 +3,8 @@
 //
 // **The places.** The Status area, the Ledger and Incoming calls keep theirs, and the Ledger keeps the size it has with nothing
 // selected. Two places are given to the Session's own panels in place of what stands there with nothing selected: Activity's (left,
-// under the list) and Autopilot's (the foot, where Dispatch controls also give way). The proposal is a card in the thread itself
-// (`ProposalCard`). On the Cockpit those places are the deck's own and the panels are drawn into them (`hosts`). On the Sessions
+// under the list) and Autopilot's (the foot, where Dispatch controls also give way). The proposal has no panel: the title is the Session's name in its header, the model and the effort are the composer's dropdowns marked as
+// picked by the proposer, and the workflow is a picker over the steps in Status. On the Cockpit those places are the deck's own and the panels are drawn into them (`hosts`). On the Sessions
 // page there is no deck, so the same places are drawn round the thread: left of it, in the right column, and under it.
 //
 // **Two takes** (`take.ts`) differ in where Concerns stand and in how the Status area draws the plan.
@@ -44,7 +44,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
   const foot = concern("foot");
   const right = (
     <>
-      <StatusPanel work={work} take={take} place="side" onApprove={() => acts?.approve(id)} />
+      <StatusPanel work={work} take={take} place="side" id={id} acts={acts} onStart={() => acts?.start(id)} onApprove={() => acts?.approve(id)} />
       <LedgerPanel session={session} entries={entries} place="side" />
     </>
   );
