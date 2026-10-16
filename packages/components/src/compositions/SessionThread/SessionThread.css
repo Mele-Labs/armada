@@ -888,3 +888,39 @@
 .armada-session-thread__ask .armada-prose__run-acts {
   opacity: 1;
 }
+
+/* reach answers — the call's own answers in a row, then Always in a panel washed in
+   --accent-faint behind an --accent-muted edge, so the folder picked in it reads as what the two
+   Always answers cover. The folder each names is --accent. */
+.armada-session-thread__reach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__always {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--accent-muted);
+  border-radius: var(--radius-md);
+  background: var(--accent-faint);
+}
+
+.armada-session-thread__always-head {
+  color: var(--fg-default);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-thread__always-covers {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-session-thread__always-folder {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}

@@ -773,24 +773,42 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 /** The answers that carry a folder, and so the picker's choice. */
 const FOLDER_ANSWERS = new Set(["always_allow", "always_block"]);
 
-/** A card's answers under the folder picker. Keyed by the path, so a new ask opens on its whole path. */
+/** A card's answers: the ones for this call in a row, then **Always** in a panel of its own, the
+ * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
+ * by the path, so a new ask opens on its whole path. */
 function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
   const [folder, setFolder] = useState(reaches);
+  const shown = offers.filter((offer) => offer.id !== "allow_once");
+  const once = shown.filter((offer) => !FOLDER_ANSWERS.has(offer.id));
+  const always = shown.filter((offer) => FOLDER_ANSWERS.has(offer.id));
+  const name = folder.split("/").filter((part) => part.length > 0).pop() ?? folder;
+  const covers = folder === reaches ? `${reaches} only` : `${folder} and everything in it`;
   return (
-    <>
-      <PathPicker path={reaches} chosen={folder} onChoose={setFolder} label="Folder for always" />
-      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-        {offers
-          .filter((offer) => offer.id !== "allow_once")
-          .map((offer) => (
+    <div className="armada-session-thread__reach" role="group" aria-label="Answers">
+      <div className="armada-session-thread__answers">
+        {once.map((offer) => (
+          <Tooltip key={offer.id} label={offer.means}>
+            <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
+              {offer.label}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+      <div className="armada-session-thread__always">
+        <span className="armada-session-thread__always-head">Always applies to</span>
+        <PathPicker path={reaches} chosen={folder} onChoose={setFolder} label="Folder for always" />
+        <span className="armada-session-thread__always-covers">{covers}</span>
+        <div className="armada-session-thread__answers">
+          {always.map((offer) => (
             <Tooltip key={offer.id} label={offer.means}>
-              <Button size="sm" variant="secondary" onClick={() => (FOLDER_ANSWERS.has(offer.id) ? onAnswer(offer.id, undefined, folder) : onAnswer(offer.id))}>
-                {offer.label}
+              <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id, undefined, folder)}>
+                {offer.label} <span className="armada-session-thread__always-folder">{name}</span>
               </Button>
             </Tooltip>
           ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
