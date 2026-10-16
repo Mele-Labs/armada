@@ -24,7 +24,7 @@ const baysLookLikeBays = walk("bays-look-like-bays", [
   { look: bay(/^slot-3, armada, Held/), say: "The selected bay is framed in the accent" },
   { press: inside(list, button("Shorten the reconnect wait")), say: "A Job picked in the list narrows the Bays to the ones it holds" },
   { look: bay(/^slot-3, armada, Held/), say: "Only its bay is left, and the other Jobs' and Sessions' bays are out of the list" },
-  { press: inside(region(/^Job: Shorten the reconnect wait/), button("Back")), say: "Back lets go of the Job" },
+  { press: inside(region(/^Job: Shorten the reconnect wait/), button("Back", { exact: true })), say: "Back lets go of the Job" },
   { look: bay(/^slot-5, armada, Free/), say: "Nothing picked, so every bay is drawn again" },
 ]);
 
