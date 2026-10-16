@@ -193,6 +193,15 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     go(lookingAt(at, Math.max(latest.current.eye, LOCK_EYE)), "ease");
   }, [layout]);
 
+  // Another repository drawn: the camera lets go of where it was and eases to the fit of the new field.
+  const shown = repos.map((one) => one.root).join("\n");
+  const was = useRef(shown);
+  useEffect(() => {
+    if (was.current === shown) return;
+    was.current = shown;
+    if (scene === undefined) homeAgain();
+  }, [shown]);
+
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
   const eased = useRef(pitch);
