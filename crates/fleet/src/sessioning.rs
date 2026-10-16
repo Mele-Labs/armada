@@ -41,6 +41,9 @@ pub(crate) struct LedgerReads {
     context: Option<String>,
     /// What the build record is derived from.
     build: BuildReads,
+    /// The plan the Session recorded, and the files it and its subagents touched.
+    plan: Option<store::KeptPlan>,
+    touches: Vec<store::KeptTouch>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -329,6 +332,8 @@ where
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
+            plan: store.session_plan(&session.id).map_err(fault)?,
+            touches: store.session_touches(&session.id).map_err(fault)?,
         })
     }
 
@@ -393,6 +398,8 @@ where
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
+        record.plan = reads.plan.as_ref().map(crate::plan_record::wire);
+        record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record
     }
 
@@ -700,11 +707,29 @@ where
                     .map_err(fault)?;
             }
             // For the check of who else writes these files; nothing on the ledger changes.
-            SessionFact::Touched { paths } => {
+            SessionFact::Touched { paths, by, act } => {
                 self.session_wrote(&session, &roots, &paths);
                 // A hosted session is heard from its own process, which enters the same acts.
                 if terminal {
                     self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
+                    // The Field and the plan: the subagent is named by the type its attachment carries.
+                    let by = by.map(|agent| {
+                        let held = store.attachments_of(&Holder::session(&id)).unwrap_or_default();
+                        let kind = held
+                            .iter()
+                            .find(|one| one.kind == "subagent" && one.target == agent)
+                            .and_then(|one| one.detail.get("type").cloned())
+                            .unwrap_or_else(|| String::from("subagent"));
+                        (kind, agent)
+                    });
+                    let act = match act {
+                        Some(ipc::TouchAct::Write) => "write",
+                        _ => "edit",
+                    };
+                    for path in &paths {
+                        changed |= crate::plan_keeping::touch_kept(&mut store, &id, by.clone(), path, act, &now)
+                            .map_err(fault)?;
+                    }
                 }
                 if !paths.is_empty() {
                     changed |= build_heard(&mut store, &id, &Observed::Edited, &now).map_err(fault)?;
@@ -905,6 +930,25 @@ where
         show: ipc::ShowSketch,
     ) -> Result<SessionRecord, Refusal> {
         self.sketch_shown(caller, show).await
+    }
+
+    async fn record_plan(
+        &self,
+        caller: Option<api::Caller>,
+        record: ipc::RecordPlan,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_recorded(caller, record).await
+    }
+
+    async fn approve_plan(self: Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {
+        self.plan_approved(approve).await
+    }
+
+    async fn send_plan_changes(
+        self: Arc<Self>,
+        sent: ipc::SendPlanChanges,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_changes_sent(sent).await
     }
 
     async fn ask_in_window(
@@ -1255,5 +1299,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         helm: false,
         activity: None,
         build: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }

@@ -69,9 +69,15 @@ impl Activity {
                 _ => false,
             },
         };
-        if !changed {
-            return Publish::Not;
+        match changed {
+            true => self.changed(every),
+            false => Publish::Not,
         }
+    }
+
+    /// Something the row carries changed, though not through a call this holds: the row goes out
+    /// at most once in `every`, as for a call.
+    pub(crate) fn changed(&mut self, every: Duration) -> Publish {
         self.unsent = true;
         if self.trailing {
             return Publish::Not;
@@ -326,6 +332,12 @@ where
                 }
             });
         }
+        fleet.publish_step(id, step);
+    }
+
+    /// Publish the row as [`Activity`] said: now, after a wait, or not.
+    pub(super) fn publish_step(self: &Arc<Self>, id: String, step: Publish) {
+        let fleet = Arc::clone(self);
         match step {
             Publish::Not => {}
             Publish::Now => {

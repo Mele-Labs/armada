@@ -23,6 +23,7 @@ import type {
   CheckoutDiff,
   CheckoutSentAsPullRequest,
   CheckoutToPullRequest,
+  ApprovePlan,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -35,6 +36,7 @@ import type {
   RenameSession,
   RunSessionCommand,
   ReviewDispatched,
+  SendPlanChanges,
   SendSessionMessage,
   SessionList,
   SessionRecord,
@@ -429,6 +431,16 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
+  async approvePlan(approve: ApprovePlan): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/plan/approve", approve);
+  }
+
+  /** The marks he made on a plan, sent to the agent as one message. */
+  async sendPlanChanges(changes: SendPlanChanges): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/plan/changes", changes);
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */

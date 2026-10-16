@@ -10,6 +10,7 @@ import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-ca
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
+import type { PlanChangeLine } from "./session-plan";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
 
@@ -350,7 +351,17 @@ export type SessionRow =
       narrative?: DroneNarrative;
     }
   /** A call put to the person. Replaced as it is answered. */
-  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string };
+  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string }
+  /**
+   * The agent recorded a plan, or recorded it again. The plan is `SessionRecord.plan`; this row is where
+   * in the thread it was recorded.
+   */
+  | { kind: "plan"; id: string; at: string; version: number }
+  /**
+   * What the person sent the agent against a version of the plan, as Fleet worded it. The plan does not
+   * change until the agent records it again. `approved`: the plan was approved with them.
+   */
+  | { kind: "plan_changes"; id: string; at: string; version: number; approved?: boolean; lines: PlanChangeLine[] };
 
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };

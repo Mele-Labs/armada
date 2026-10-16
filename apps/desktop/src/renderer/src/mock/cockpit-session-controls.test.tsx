@@ -13,7 +13,8 @@ unmountAfterEach();
 const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const pane = () => page.getByRole("region", { name: "Session: Pin the store clock" });
-const feed = () => document.querySelector(".deck-activity")?.textContent ?? "";
+// Activity names each event on its dot.
+const feed = () => [...document.querySelectorAll(".deck-activity .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
 const tiles = () => [...document.querySelectorAll(".deck-controls .deck-tile")].map((one) => one.getAttribute("aria-label"));
 
 async function open() {

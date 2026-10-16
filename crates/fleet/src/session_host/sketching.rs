@@ -8,7 +8,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
-use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowSketch};
+use ipc::{AttachmentReport, SessionFact, SessionId, SessionRecord, SessionReport, ShowSketch, Sketch};
 
 use crate::daemon::Fleet;
 
@@ -17,7 +17,7 @@ const SKETCH_UNNAMED: &str = "fleet.sketch_unnamed";
 const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
-const TARGET_PREFIX: &str = "sketch:";
+pub(crate) const TARGET_PREFIX: &str = "sketch:";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -97,22 +97,26 @@ where
         self.report_session(SessionReport {
             harness,
             session_id: SessionId::carried(&id),
-            fact: SessionFact::Attached {
-                attachment: AttachmentReport {
-                    kind: String::from("artifact"),
-                    target: format!("{TARGET_PREFIX}{}", sketch.title),
-                    detail: [
-                        ("form".to_string(), "sketch".to_string()),
-                        ("by".to_string(), "agent".to_string()),
-                        ("title".to_string(), sketch.title),
-                        ("scene".to_string(), sketch.scene),
-                    ]
-                    .into_iter()
-                    .chain(sketch.against.map(|kept| ("against".to_string(), kept)))
-                    .collect(),
-                },
-            },
+            fact: SessionFact::Attached { attachment: sketch_attachment(sketch) },
         })
         .await
+    }
+}
+
+/// A sketch as the ledger keeps it: the artifact a title replaces where it stands. A plan's sketch is
+/// kept the same way, so the scene is on the ledger once and the plan names it.
+pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
+    AttachmentReport {
+        kind: String::from("artifact"),
+        target: format!("{TARGET_PREFIX}{}", sketch.title),
+        detail: [
+            ("form".to_string(), "sketch".to_string()),
+            ("by".to_string(), "agent".to_string()),
+            ("title".to_string(), sketch.title),
+            ("scene".to_string(), sketch.scene),
+        ]
+        .into_iter()
+        .chain(sketch.against.map(|kept| ("against".to_string(), kept)))
+        .collect(),
     }
 }
