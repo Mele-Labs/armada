@@ -28,7 +28,7 @@ import type {
 import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 import { recentManifestIds } from "./recent-manifests";
-import type { RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "./thought-routing";
+import type { HeldWords, HelmOutgoing, RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "./thought-routing";
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
@@ -41,9 +41,15 @@ export type HelmDockProps = {
   onRemoveChip?: () => void;
   /**
    * Words for Helm. `carry` is what went with them and is left out when nothing did; **the words may be
-   * blank when it is given**. The window turns it into what the wire takes.
+   * blank when it is given**. The window turns it into what the wire takes. Resolves to whether Fleet
+   * took the words: a refusal is the thread's to show, on the message.
    */
-  onAsk: (text: string, context: HelmContext, carry?: ThoughtCarry) => void;
+  onAsk: (text: string, context: HelmContext, carry?: ThoughtCarry) => void | Promise<boolean>;
+  /**
+   * Where the words go in Helm's thread the moment they are sent, to be shown going. Absent, they are
+   * not drawn until Fleet's own row arrives.
+   */
+  outgoing?: HelmOutgoing;
   /** Where the person is, assembled by `App.tsx`. Sent with every ask, unchanged here. #1075. */
   context: HelmContext;
   /** The open Studio and its selected node, by name, for the footer. #1287. */
@@ -96,7 +102,7 @@ export type HelmDockProps = {
  * A thought the person sent: being read, matched to running work, or offered a new home. **They
  * queue in the order typed**, and the first one is the card in front.
  */
-type Thought = { id: number; text: string; carry: ThoughtCarry } & (
+type Thought = { id: number; text: string; carry: ThoughtCarry; held?: HeldWords } & (
   | { stage: "routing" }
   | { stage: "match"; match: RouteTarget }
   | { stage: "new" }
@@ -110,6 +116,7 @@ export function HelmDock({
   chip,
   onRemoveChip,
   onAsk,
+  outgoing,
   context,
   studio,
   onSwitch,
@@ -174,11 +181,12 @@ export function HelmDock({
     );
   }
 
-  /** Words for Helm, with what went with them when something did. */
-  function ask(text: string, carry: ThoughtCarry): void {
+  /** Words for Helm, with what went with them when something did. The words in the thread are settled by the answer. */
+  function ask(text: string, carry: ThoughtCarry, held?: HeldWords): void {
     const goes = onlyIfCarried(carry);
-    if (goes === undefined) onAsk(text, context);
-    else onAsk(text, context, goes);
+    const asked = () => (goes === undefined ? onAsk(text, context) : onAsk(text, context, goes));
+    if (held === undefined) void asked();
+    else void held.deliver(asked);
   }
 
   function send(sent: SentFromComposer): void {
@@ -188,11 +196,13 @@ export function HelmDock({
     if (text === "" && !goesWith) return;
     // Sketches went with this message and do not wait for the next.
     carry.sketches.forEach((one) => box?.onRemoveDrawn?.(one.id));
+    // In the thread from the press: while Helm reads where the words belong they are shown going, and no card stands in for them.
+    const words = outgoing?.hold(text, carry);
     // Blank words are not read for where they belong: what they carry goes to Helm.
-    if (routing === undefined || text === "") return ask(text, carry);
+    if (routing === undefined || text === "") return ask(text, carry, words);
     const id = (counted.current += 1);
     held.current.add(id);
-    setThoughts((was) => [...was, { id, text, carry, stage: "routing" }]);
+    setThoughts((was) => [...was, { id, text, carry, ...(words === undefined ? {} : { held: words }), stage: "routing" }]);
     // A read that cannot be had is a question: the words go to Helm and are never lost.
     const asQuestion = (): ThoughtReading => ({ kind: "question" });
     void Promise.resolve()
@@ -203,9 +213,9 @@ export function HelmDock({
         // **A question never waits behind a card.** It goes to Helm as soon as it is read.
         if (reading.kind === "question") {
           leave(id);
-          ask(text, carry);
+          ask(text, carry, words);
         } else {
-          change(id, reading.match === undefined ? { id, text, carry, stage: "new" } : { id, text, carry, stage: "match", match: reading.match });
+          change(id, { id, text, carry, ...(words === undefined ? {} : { held: words }), ...(reading.match === undefined ? { stage: "new" as const } : { stage: "match" as const, match: reading.match }) });
         }
       });
   }
@@ -223,19 +233,26 @@ export function HelmDock({
   /** The words go to Helm as an ordinary message, since the guess at where they belong can be wrong. */
   function askHelm(one: Thought): void {
     leave(one.id);
-    ask(one.text, one.carry);
+    ask(one.text, one.carry, one.held);
+  }
+
+  /** The words were not sent anywhere: out of the thread, and the card goes with them. */
+  function discard(one: Thought): void {
+    one.held?.drop();
+    leave(one.id);
   }
 
   /**
-   * Deliver the words. **The card stays until they have arrived**, and its row is the thread's: it
-   * is drawn when Fleet's record of the delivery reaches `helm`, so a refusal leaves the card for
-   * another try, for N or for H, and nothing is shown as sent that was not.
+   * Deliver the words. **The card stays until they have arrived.** The words are in the thread meanwhile,
+   * pulsing with the Sending mark, which is what keeps the promise that nothing is shown as sent that was
+   * not: a refusal marks them Not sent, with a Retry, and leaves the card for another try, for N or for H.
+   * Where they went is the thread's own row, drawn when Fleet's record of the delivery reaches `helm`.
    */
   function place(one: Thought & { stage: "match" }): void {
     if (routing === undefined || delivering.current) return;
     delivering.current = true;
-    void routing
-      .send(one.match, one.text, one.carry)
+    const go = () => routing.send(one.match, one.text, one.carry);
+    void (one.held === undefined ? go() : one.held.deliver(go))
       .catch(() => false)
       .then((delivered) => {
         delivering.current = false;
@@ -244,7 +261,7 @@ export function HelmDock({
   }
 
   function startNew(kind: "session" | "job", one: Thought): void {
-    leave(one.id);
+    discard(one);
     routing?.startNew(kind, one.text);
   }
 
@@ -259,14 +276,14 @@ export function HelmDock({
     const onButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
     const act =
       key === "escape"
-        ? () => leave(thought.id)
+        ? () => discard(thought)
         : key === "h"
           ? () => askHelm(thought)
           : thought.stage === "match"
             ? key === "enter" && !onButton
               ? () => place(thought)
               : key === "n"
-                ? () => change(thought.id, { id: thought.id, text: thought.text, carry: thought.carry, stage: "new" })
+                ? () => change(thought.id, restaged(thought))
                 : undefined
             : key === "s"
               ? () => startNew("session", thought)
@@ -295,16 +312,14 @@ export function HelmDock({
           neither of them has to be left to find it — #1519. The same
           `DockQuestions` the dock draws, so there is one card and not two. */}
       <DockQuestions questions={asks} />
-      {thought === undefined ? null : thought.stage === "routing" ? (
-        <ThoughtCard key={thought.id} stage="routing" words={thought.text} />
-      ) : thought.stage === "match" ? (
+      {thought === undefined || thought.stage === "routing" ? null : thought.stage === "match" ? (
         <ThoughtCard
           key={thought.id}
           stage="match"
           words={thought.text}
           target={thought.match}
           onSend={() => place(thought)}
-          onNo={() => change(thought.id, { id: thought.id, text: thought.text, carry: thought.carry, stage: "new" })}
+          onNo={() => change(thought.id, restaged(thought))}
           onAskHelm={() => askHelm(thought)}
         />
       ) : (
@@ -315,7 +330,7 @@ export function HelmDock({
           onSession={() => startNew("session", thought)}
           onJob={() => startNew("job", thought)}
           onAskHelm={() => askHelm(thought)}
-          onDismiss={() => leave(thought.id)}
+          onDismiss={() => discard(thought)}
         />
       )}
       <HelmComposer
@@ -347,6 +362,11 @@ export function HelmDock({
       />
     </div>
   );
+}
+
+/** A thought offered a new home, with its words and what went with them kept. */
+function restaged(one: Thought): Thought {
+  return { id: one.id, text: one.text, carry: one.carry, ...(one.held === undefined ? {} : { held: one.held }), stage: "new" };
 }
 
 /** Whether the message box holds anything: from then on a letter is a word and not an answer to the card. */

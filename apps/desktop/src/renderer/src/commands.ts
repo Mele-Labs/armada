@@ -26,6 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
+import { sentRedirects } from "./sent-redirects";
 import type { ToProposer, ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { BuildSource, ChangeSlotPool, FixMain, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
@@ -693,13 +694,17 @@ export function useCommands(sending: Sending) {
    * confirm here, only to send.
    */
   async function redirect(jobId: string, instruction: string, droneId?: string): Promise<void> {
-    return acted(jobId, "redirect", async () => {
-      const answer =
-        droneId === undefined
-          ? await window.armada.redirectDrone(jobId, instruction)
-          : await window.armada.redirectDrone(jobId, instruction, droneId);
-      heard(jobId, "redirect", answer);
-    });
+    // The words are above the Drone's box from the press, going, and a refusal leaves them there with a Retry.
+    await sentRedirects.send(jobId, instruction, () =>
+      acted(jobId, "redirect", async () => {
+        const answer =
+          droneId === undefined
+            ? await window.armada.redirectDrone(jobId, instruction)
+            : await window.armada.redirectDrone(jobId, instruction, droneId);
+        heard(jobId, "redirect", answer);
+        return answer.ok;
+      }),
+    );
   }
 
   /**
