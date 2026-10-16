@@ -80,9 +80,10 @@ where
     /// The reading of one repository's main, and what changed in it.
     async fn main_read(&self, served: &Served, base: String) -> Result<Vec<MainChanged>, Adrift> {
         let root = served.root().to_string();
-        self.notice_pulls(served).await;
-        self.notice_queue(served).await;
-        self.notice_merged(served).await;
+        // Every call of the visit is made even after one fails; a failed one only makes the visit quiet.
+        let mut answered = self.notice_pulls(served).await;
+        answered &= self.notice_queue(served).await;
+        answered &= self.notice_merged(served).await;
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
@@ -90,6 +91,7 @@ where
             })
             .await
         else {
+            self.forge_visited(&root, false).await;
             return Ok(Vec::new());
         };
         // Whoever has written files in this repository is set against main's new tip on the next
@@ -97,7 +99,8 @@ where
         self.writes().main_seen(served.manifest().id().as_str(), &head);
         self.checkout_caught_up(served, &base, &head).await;
         self.pending_edit_settled(served).await;
-        let candidates = self.notice_merged_runs(served, &head).await;
+        let (candidates, runs_answered) = self.notice_merged_runs(served, &head).await;
+        self.forge_visited(&root, answered && runs_answered).await;
         let before = self
             .store()
             .lock()

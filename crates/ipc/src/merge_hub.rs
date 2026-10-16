@@ -44,6 +44,15 @@ pub struct MergeLineHub {
     /// fast-forward it. Absent while it has main's tip, and from an older Fleet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checkout: Option<HeldCheckout>,
+    /// When Fleet last got an answer from the forge for every call of its visit to this
+    /// repository, main and pull requests alike: **how old everything above is**, as `main`'s
+    /// own `read_at` moves only when the head does. Absent until a visit has fully answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forge_read_at: Option<Instant>,
+    /// When the forge first failed to answer a call of the visit, since the last visit it
+    /// answered whole. Absent while it answers, so what is above is no staler than a visit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiet_since: Option<Instant>,
 }
 
 /// What stops the served checkout catching up to main. Fleet never forces,
