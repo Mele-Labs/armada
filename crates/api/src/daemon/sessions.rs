@@ -88,6 +88,30 @@ pub trait Sessions: Send + Sync + 'static {
         show: ipc::ShowSketch,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `record_plan` — a session records its plan, as a new version where it has one. `caller` places a hosted
+    /// session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`] with every rule the plan
+    /// breaks, or for a call that places no session.
+    fn record_plan(
+        &self,
+        caller: Option<crate::Caller>,
+        plan: ipc::RecordPlan,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `approve_plan` — the person approves the plan at the version he read, and the agent is told once.
+    /// [`Refusal::IllegalMove`] for a version that is no longer the current one, or a session with no plan.
+    fn approve_plan(
+        self: std::sync::Arc<Self>,
+        approve: ipc::ApprovePlan,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `send_plan_changes` — the marks the person made on the plan go to its agent as one message; the plan
+    /// itself does not change. [`Refusal::IllegalMove`] for a version that is no longer current,
+    /// [`Refusal::Unacceptable`] for a mark that names nothing the plan holds.
+    fn send_plan_changes(
+        self: std::sync::Arc<Self>,
+        changes: ipc::SendPlanChanges,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.

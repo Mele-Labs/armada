@@ -172,6 +172,51 @@ pub(crate) async fn show_sketch<D: Sessions>(
     }
 }
 
+/// A session records its plan. 200 with the row, or a [`Receipt`] through the agent's door naming the version and
+/// each group and task by the id Fleet gave it; 422 for a plan that breaks a rule, naming each, or a call that places
+/// no session. **The session is placed by the connection**, as `show_window`'s is.
+pub(crate) async fn record_plan<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let plan: ipc::RecordPlan = match ipc::decode("a plan to record", &body) {
+        Ok(plan) => plan,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().record_plan(crate::acting::asking(), plan).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::plan(&record), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person approves the plan at the version he read. 200 with the row; 409 for a plan that is not that version or
+/// none; 422 for a session Fleet does not know.
+pub(crate) async fn approve_plan<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let approve: ipc::ApprovePlan = match ipc::decode("a plan to approve", &body) {
+        Ok(approve) => approve,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().approve_plan(approve).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person sends the changes he marked on the plan to its agent. 200 with the row; 409 for a plan that is not the
+/// version the marks are against; 422 for a mark that names nothing the plan holds, or none to send.
+pub(crate) async fn send_plan_changes<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let changes: ipc::SendPlanChanges = match ipc::decode("changes to a plan", &body) {
+        Ok(changes) => changes,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_plan_changes(changes).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session asks the person about a place on its walk. 200 with the row, or a [`Receipt`] through the door; 422 for an address on no
 /// window the session showed, a blank question or selector, or a call that places no session.
 pub(crate) async fn ask_in_window<D: Sessions>(

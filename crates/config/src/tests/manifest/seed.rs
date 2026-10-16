@@ -153,8 +153,8 @@ fn this_repositorys_own_manifest_seeds_target_warmed_by_a_build_and_a_test_build
     assert_eq!(
         runs,
         [
-            "cargo build --workspace --locked --jobs ${width}",
-            "cargo nextest run --workspace --no-run --locked --build-jobs ${width}"
+            "cargo build --workspace --locked",
+            "cargo nextest run --workspace --no-run --locked"
         ]
     );
 }

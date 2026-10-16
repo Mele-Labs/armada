@@ -45,8 +45,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(thread, role("img", /Screenshot/)), say: "What was sent goes with the message" },
     { look: region("Leased on first write"), say: "Its first write leased a worktree slot and cut a branch, in the thread where it happened" },
     ...opened([
-      inLedger("Worktree slot 3", "The ledger took the slot"),
-      inLedger("Branch fix/flaky-store", "And the branch"),
+      inLedger("Branch fix/flaky-store", "The ledger took the branch, with its slot as a chip"),
       inLedger("Sketch pin the clock", "The sketch that was drawn"),
     ]),
     { later: thread, say: "The agent carries on" },

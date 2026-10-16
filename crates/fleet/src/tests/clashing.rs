@@ -91,7 +91,7 @@ impl Rig {
 
     async fn writes(&self, id: &str, n: u32, file: &str, line: usize, to: &str) {
         self.edited(n, file, line, to);
-        self.report(id, SessionFact::Touched { paths: vec![file.to_string()] }).await;
+        self.report(id, SessionFact::Touched { paths: vec![file.to_string()], by: None, act: None }).await;
     }
 
     /// A change on disk that nothing reported, as before Fleet restarted.

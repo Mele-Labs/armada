@@ -40,7 +40,12 @@ pub(crate) fn build_heard(store: &mut Store, id: &str, heard: &Observed, now: &s
     if matches!(heard, Observed::Tasks(_)) {
         store.keep_session_build_tasks(id, &took.tasks)?;
     }
-    Ok(took.visible)
+    // The same list also moves the tasks of the Session's plan.
+    let planned = match heard {
+        Observed::Tasks(list) => crate::plan_keeping::tasks_heard(store, id, list, now)?,
+        _ => false,
+    };
+    Ok(took.visible || planned)
 }
 
 /// Where a Session's work is read from: when it started, or when the last pull request it held merged,

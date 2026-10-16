@@ -11,6 +11,7 @@ import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
+import type { FileTouch, SessionPlan } from "./session-plan";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -112,6 +113,31 @@ export type SessionRecord = {
    * done nothing Fleet observed. See `session-build.ts`.
    */
   build?: SessionBuild;
+  /**
+   * The workflow id the Session runs under. Absent is a custom Session, which is not a default workflow.
+   * Hosted Sessions only. Since 23.91.
+   */
+  workflow?: string;
+  /** What the proposer did for this Session. Absent where it was never asked. Since 23.91. */
+  proposal?: SessionProposal;
+  /** The plan the Session recorded. Absent until it records one. See `session-plan.ts`. */
+  plan?: SessionPlan;
+  /** The files it and its subagents last touched, oldest first, a bounded window. Absent while there are none. */
+  touches?: FileTouch[];
+};
+
+/** A value of a Session the proposer can pick. */
+export type ProposedField = "title" | "workflow" | "model" | "effort";
+
+/**
+ * The proposer's part in a Session, per field. A field in `picked` is one the proposer chose and nobody has
+ * changed since, so it is marked "Picked by the proposer"; the person changing it in a panel takes it out.
+ * `reading` is the call being out: the Session exists and its process starts on the answer. In memory in
+ * Fleet, so a Fleet that restarts reads nothing as reading. Since 23.91.
+ */
+export type SessionProposal = {
+  reading?: boolean;
+  picked?: ProposedField[];
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -123,10 +149,11 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * Session's agent started this one and the person has not sent its first message. A `first_message` item
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
- * the list whether or not the agent called a tool. `replied` is no longer served: a reply is the
+ * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
+ * person has not approved; it is approved, or sent changes, from its own card. `replied` is no longer served: a reply is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

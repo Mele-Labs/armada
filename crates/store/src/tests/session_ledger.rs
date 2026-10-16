@@ -425,6 +425,10 @@ fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
         fork_of: None,
         helm,
         setup: false,
+        workflow: None,
+        proposed: String::new(),
+        turn_model: None,
+        turn_effort: None,
     }
 }
 

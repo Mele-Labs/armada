@@ -220,7 +220,12 @@ pub async fn run_stoppable<S: std::future::Future<Output = Stop>>(
     let mut spawning = Command::new(&spawned);
     spawning
         .args(&args)
-        .current_dir(worktree)
+        .current_dir(worktree);
+    // Before the caller's own, so a Job's environment can still say otherwise.
+    if let Some(flags) = crate::offered() {
+        spawning.env("MAKEFLAGS", flags);
+    }
+    spawning
         .envs(
             env.iter()
                 .map(|(name, value)| (name.as_str(), value.as_str())),

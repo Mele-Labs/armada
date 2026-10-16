@@ -21,6 +21,9 @@
 //! `${width}` a Manifest writes it into — a number handed to a runner, never a
 //! cap imposed on one. #1444.
 //!
+//! [`BuildSlots`] is the one pool of compiler jobs every build Fleet starts shares,
+//! handed over as a make jobserver rather than as a number each build keeps.
+//!
 //! [`reached`] is what a change reaches in a Cargo workspace, which both gates
 //! — the merge line and Fleet's step gate — narrow over through
 //! [`narrowed_over`]. The one Cargo fact either holds, kept apart from
@@ -50,6 +53,7 @@
 //! other names every test a run's own summary said failed — both read the
 //! runner's own printed words, which only this crate captures at all.
 
+mod build_slots;
 mod failing;
 mod holding;
 mod matched;
@@ -66,6 +70,7 @@ mod width;
 #[cfg(test)]
 mod tests;
 
+pub use build_slots::{build_cap, compiler_running, keep, offer, offered, BuildSlots, Settled};
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
 pub use named::{one_test_in, touched_run, OneTestRefused, TouchedRun};

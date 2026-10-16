@@ -325,5 +325,9 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         helm: true,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
+        plan: None,
+        touches: Vec::new(),
     }
 }

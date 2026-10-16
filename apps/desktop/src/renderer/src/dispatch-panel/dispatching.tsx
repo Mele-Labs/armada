@@ -208,7 +208,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     const text = wordsNow().trim();
     recall(at);
     setSending(true);
-    void Promise.resolve(draft.start(undefined, at)).then((id) => {
+    void Promise.resolve(draft.start(undefined, at, text)).then((id) => {
       if (id === undefined) return setSending(false);
       draft.send(id, { text, files: [], sketches: [], tags: [] });
       clearAll();

@@ -129,7 +129,7 @@ async fn a_terminal_sessions_acts_are_entered_once_where_its_turn_ends() {
         report(&fleet, "t1", SessionFact::Read { path: format!("src/{n}.rs") }).await;
     }
     report(&fleet, "t1", SessionFact::Ran { command: "API_TOKEN=abc123 cargo test".to_string() }).await;
-    report(&fleet, "t1", SessionFact::Touched { paths: vec!["src/a.rs".to_string(), "src/b.rs".to_string()] }).await;
+    report(&fleet, "t1", SessionFact::Touched { paths: vec!["src/a.rs".to_string(), "src/b.rs".to_string()], by: None, act: None }).await;
     assert_eq!(kinds(&read(&fleet).await), ["session.started"], "nothing is entered while the burst is open");
 
     report(&fleet, "t1", SessionFact::TurnCompleted { said: None }).await;
@@ -225,6 +225,7 @@ async fn a_hosted_sessions_calls_are_entered_where_its_turn_ends() {
             mode: None,
             pilot: None,
             fork: None,
+            request: None,
         })
         .await
         .expect("started");

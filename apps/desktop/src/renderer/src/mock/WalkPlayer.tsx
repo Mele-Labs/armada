@@ -37,7 +37,15 @@ type Phase =
   | { is: "stopped"; at: number }
   | { is: "done" };
 
-/** The target's box, followed every frame: a panel slides, and a list scrolls under it. */
+/** Frames the box must hold still before it is no longer looked at. A slide settles inside this. */
+const STILL_FRAMES = 30;
+
+/**
+ * The target's box. It is looked at every frame while it may be moving (a panel slides, a list scrolls under it) and
+ * not at all once it has held still for `STILL_FRAMES`, until something that can move it happens: a scroll, a resize,
+ * a transition or animation starting, or the target or the page changing size. A window left open drew a frame
+ * and a `getBoundingClientRect` each, for as long as it stood (358 in 10.7 s in the owner's profile).
+ */
 function useBox(element: HTMLElement | null): DOMRect | null {
   const [box, setBox] = useState<DOMRect | null>(null);
   useEffect(() => {
@@ -46,17 +54,36 @@ function useBox(element: HTMLElement | null): DOMRect | null {
       return;
     }
     let frame = 0;
+    let held = 0;
+    let last: DOMRect | null = null;
     const follow = () => {
+      frame = 0;
       const now = element.getBoundingClientRect();
-      setBox((was) =>
-        was !== null && was.x === now.x && was.y === now.y && was.width === now.width && was.height === now.height
-          ? was
-          : now,
-      );
-      frame = requestAnimationFrame(follow);
+      const moved = last === null || last.x !== now.x || last.y !== now.y || last.width !== now.width || last.height !== now.height;
+      if (moved) {
+        last = now;
+        setBox(now);
+      }
+      held = moved ? 0 : held + 1;
+      if (held < STILL_FRAMES && !document.hidden) frame = requestAnimationFrame(follow);
     };
-    follow();
-    return () => cancelAnimationFrame(frame);
+    const wake = () => {
+      held = 0;
+      if (frame === 0 && !document.hidden) frame = requestAnimationFrame(follow);
+    };
+    wake();
+    const resized = new ResizeObserver(wake);
+    resized.observe(element);
+    resized.observe(document.body);
+    const events = ["scroll", "resize", "transitionrun", "animationstart"] as const;
+    for (const one of events) window.addEventListener(one, wake, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", wake);
+    return () => {
+      cancelAnimationFrame(frame);
+      resized.disconnect();
+      for (const one of events) window.removeEventListener(one, wake, { capture: true });
+      document.removeEventListener("visibilitychange", wake);
+    };
   }, [element]);
   return box;
 }

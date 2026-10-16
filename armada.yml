@@ -39,12 +39,11 @@ policy:
 # declare `width:` to take less — never more. Nothing enforces it: these lines
 # are the enforcement, which is why a runner that sizes itself from a config
 # file rather than a flag reads `ARMADA_CHECK_WIDTH` from its environment
-# instead. #1444. **The compile is the other half of a run, and gets the same
-# number**: nextest takes `--build-jobs ${width}` and cargo `--jobs ${width}`,
-# because cargo otherwise builds at one job per core in every worktree, each with
-# a target of its own, and three sessions compiling at once were 54 rustc jobs
-# on 18 cores (12 Oct 2026). A CI runner is sole tenant, so there `${width}` is
-# every core and nothing is lost. **Checks also take turns across the whole machine**:
+# instead. #1444. **The compile is not sized here**: Fleet hands every build one
+# pool of compiler jobs for the whole machine (a make jobserver), which cargo
+# takes from instead of any `--jobs`, and which it warns about if given one. A
+# CI runner is sole tenant and has none, so there cargo gets `${width}` from
+# `CARGO_BUILD_JOBS`. **Checks also take turns across the whole machine**:
 # `armada check`, the land line and Fleet's gate share one set of slots, so a
 # Check may wait on one another session started. `docs/concepts/manifest.md`,
 # *How many Checks run at once*.
@@ -86,7 +85,7 @@ policy:
 checks:
   build:
     # `--locked`: a Check that updates the lockfile changed what it measured.
-    run: cargo build --workspace --locked --jobs ${width}
+    run: cargo build --workspace --locked
     # What a Drone gets when it asks about its own change rather than the whole
     # tree. `--workspace` is gone rather than joined by `-p`: cargo reads the
     # two together as the whole workspace and drops the `-p` silently, so a
@@ -100,7 +99,7 @@ checks:
     # No `except`, unlike `test` below: `--workspace` builds `acceptance` too,
     # so `-p acceptance` measures nothing the whole run does not.
     narrow:
-      run: cargo build --locked --jobs ${width}
+      run: cargo build --locked
       each: "-p {}"
       under: crates
     # **What the command reads, not what it is usually about.** A pattern
@@ -132,7 +131,7 @@ checks:
     # its own, so a red `test` always names a unit test and never a milestone
     # claim breaking. See docs/practices/acceptance-tests.md. `nextest`
     # measured 3x `cargo test`.
-    run: cargo nextest run --workspace --exclude acceptance --build-jobs ${width} --test-threads ${width}
+    run: cargo nextest run --workspace --exclude acceptance --test-threads ${width}
     # `--exclude` goes with `--workspace`, and cargo refuses it without one —
     # so the exclusion is restated as `except`, and it is the same exclusion
     # for the same reason: a narrowed run that pulled `acceptance` back in
@@ -160,7 +159,7 @@ checks:
     # this Check. `apps/desktop`'s `xtask_test` is that same `-p xtask` run for
     # them.
     narrow:
-      run: cargo nextest run --build-jobs ${width} --test-threads ${width} -p xtask
+      run: cargo nextest run --test-threads ${width} -p xtask
       each: "-p {}"
       under: crates
       except:
@@ -194,7 +193,7 @@ checks:
     # module. `{}` arrives regex-escaped; a name that matches several runs
     # each, and the count is said.
     one_test:
-      run: cargo nextest run --build-jobs ${width} --test-threads ${width} -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run --test-threads ${width} -E test(/(^|::){}(::|$)/)
     # Everything `build` reads, and the Bridge tree with it. **`xtask`'s own
     # tests read `apps/` and `packages/`** — the error-code rule collects
     # declarations from both, and the vocabulary rules read the generated
@@ -226,12 +225,12 @@ checks:
     # A milestone's own claim, checked on its own so a red `acceptance` names
     # a broken claim and a red `test` never does. See
     # docs/practices/acceptance-tests.md and #1130.
-    run: cargo nextest run -p acceptance --build-jobs ${width} --test-threads ${width}
+    run: cargo nextest run -p acceptance --test-threads ${width}
     # No `narrow`: `-p acceptance` already is the narrowest run a change could
     # ask for, unlike `build` and `test` above which narrow to whichever
     # workspace member changed.
     one_test:
-      run: cargo nextest run -p acceptance --build-jobs ${width} --test-threads ${width} -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run -p acceptance --test-threads ${width} -E test(/(^|::){}(::|$)/)
     # Everything the suite compiles from, and no further, so a Bridge-only
     # change does not pay for it. It is the only run of the suite on the merge
     # line: `verify-foundations` checks each test exists and leaves passing
@@ -370,9 +369,9 @@ commands:
   # What `setup.seed` warms the base checkout with: the same build the `build`
   # Check compiles, and every test binary without running one.
   warm_build:
-    run: cargo build --workspace --locked --jobs ${width}
+    run: cargo build --workspace --locked
   warm_tests:
-    run: cargo nextest run --workspace --no-run --locked --build-jobs ${width}
+    run: cargo nextest run --workspace --no-run --locked
 
   # Bridge's renderer on a mock Fleet, in a browser, held open so a person can
   # look around while Jobs land. `evidence:` runs the same command for its own

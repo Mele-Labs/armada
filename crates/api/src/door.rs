@@ -142,6 +142,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "all_done",
     "show_window",
     "show_sketch",
+    "record_plan",
     "ask_in_window",
 ];
 
