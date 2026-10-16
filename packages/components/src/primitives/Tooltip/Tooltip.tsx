@@ -164,7 +164,8 @@ export function Tooltip({
     // concept annotated on part of a control is read by hovering it — the
     // control's own description is what a keyboard gets.
     if (held.closest(FOCUSABLE) === null) held.tabIndex = 0;
-  }, [bubbleId, children, decorative]);
+  // Not on `children`, which is new on every render: that rewrote the attribute on every tooltip in the window each time anything drew.
+  }, [bubbleId, decorative]);
 
   const show = useCallback(() => {
     window.clearTimeout(timer.current);
