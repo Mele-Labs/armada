@@ -157,6 +157,11 @@
 .armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); font-weight: var(--weight-body); }
 .armada-session-thread__tasks > li { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
 .armada-session-thread__record { list-style: none; }
+.armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }
+/* The groups and, where the agent drew one, its sketch beside them. */
+.armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.armada-session-thread__plan .armada-session-sketch__glass { block-size: calc(var(--h-row) * 6); }
 
 /* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
 .armada-session-done {

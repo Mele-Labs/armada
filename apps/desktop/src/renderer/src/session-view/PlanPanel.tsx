@@ -3,8 +3,8 @@
 // panel shows the plan with no band of its own; once approved the panel carries the plan for the rest of the Session. Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState } from "react";
-import { BadgeCheck, Bot, ChevronDown, PencilLine } from "lucide-react";
-import { TaskMark, Tooltip } from "@armada/components";
+import { BadgeCheck, Bot, ChevronDown, PencilLine, PencilRuler } from "lucide-react";
+import { Button, TaskMark, Tooltip } from "@armada/components";
 import type { WorkGroup, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -65,16 +65,29 @@ function Group({ group }: { group: WorkGroup }) {
   );
 }
 
-export function PlanPanel({ plan, place }: { plan: WorkPlan; place: Place }) {
+export function PlanPanel({ plan, place, onOpenSketch }: { plan: WorkPlan; place: Place; onOpenSketch: (sketch: string) => void }) {
   const finished = plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
   const state: PanelState | undefined = !plan.approved ? undefined : finished ? "done" : "live";
-  const acts = plan.approved ? (
-    <Tooltip label="Plan approved">
-      <span className="sv-panel__mark" role="img" aria-label="Plan approved">
-        <BadgeCheck size={16} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  ) : undefined;
+  const sketch = plan.sketch;
+  const acts =
+    sketch === undefined && !plan.approved ? undefined : (
+      <>
+        {sketch === undefined ? null : (
+          <Tooltip label="Sketch">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Sketch" onClick={() => onOpenSketch(sketch.id)}>
+              <PencilRuler size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
+        {plan.approved ? (
+          <Tooltip label="Plan approved">
+            <span className="sv-panel__mark" role="img" aria-label="Plan approved">
+              <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : null}
+      </>
+    );
   return (
     <SvPanel label="Plan" area="plan" place={place} state={state} acts={acts}>
       <div className="sv-plan">

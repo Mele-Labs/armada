@@ -123,7 +123,10 @@ export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: 
 export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
-export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+/** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
+export type WorkSketch = { id: string; title: string; scene: Scene };
+
+export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
 export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };

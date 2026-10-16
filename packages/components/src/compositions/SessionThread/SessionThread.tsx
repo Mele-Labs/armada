@@ -145,6 +145,8 @@ export type PlanApproval = {
   groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
   approved: boolean;
   after?: string;
+  /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
+  sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
 };
 
@@ -782,7 +784,7 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
 /** The plan's groups, each the type of subagent that takes it and its title, with its tasks while the plan waits, and Approve. */
-function PlanCard({ approval }: { approval: PlanApproval }) {
+function PlanCard({ approval, onOpenSketch }: { approval: PlanApproval; onOpenSketch?: (sketch: string) => void }) {
   const { approved } = approval;
   return (
     <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined}>
@@ -796,6 +798,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           </Tooltip>
         ) : null}
       </span>
+      <div className="armada-session-thread__plan-body">
       <ul className="armada-session-thread__groups">
         {approval.groups.map((group) => (
           <li key={group.id} className="armada-session-thread__group">
@@ -821,6 +824,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           </li>
         ))}
       </ul>
+      {approval.sketch === undefined ? null : (
+        <ul className="armada-session-thread__sketch">
+          <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />
+        </ul>
+      )}
+      </div>
       {approved ? null : (
         <div className="armada-session-thread__answers" role="group" aria-label="Answers">
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
@@ -876,7 +885,7 @@ export function SessionThread({ rows, approval, asked, askRef, onAnswer, lapsed,
             ) : (
               <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
-            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
+            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} /></li> : null,
           ])}
           {working === true && !endsInCalls ? (
             <li className="armada-session-thread__working">
@@ -889,7 +898,7 @@ export function SessionThread({ rows, approval, asked, askRef, onAnswer, lapsed,
         </ProseRunner.Provider>
         </ProseWalk.Provider>
       </div>
-      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}

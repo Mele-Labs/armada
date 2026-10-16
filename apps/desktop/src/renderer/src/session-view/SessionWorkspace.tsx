@@ -25,7 +25,7 @@ import "./session-view.css";
 /** The deck's own places, as elements: `null` before the deck has drawn one. */
 export type Hosts = { side: HTMLElement | null; foot: HTMLElement | null; calls: HTMLElement | null };
 
-export function SessionWorkspace({ session, entries, repositories, hosts, children }: { session: Session; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; children: ReactNode }) {
+export function SessionWorkspace({ session, entries, repositories, hosts, onOpenSketch, children }: { session: Session; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; onOpenSketch: (sketch: string) => void; children: ReactNode }) {
   const draft = useSessionsDraft();
   const work = session.work;
   if (work === undefined || draft === undefined || hosts === undefined) return <>{children}</>;
@@ -39,7 +39,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
     <>
       <StatusPanel work={work} place="side" id={id} acts={acts} />
       <LedgerPanel session={session} entries={entries} place="side" />
-      {work.plan === undefined ? null : <PlanPanel plan={work.plan} place="side" />}
+      {work.plan === undefined ? null : <PlanPanel plan={work.plan} place="side" onOpenSketch={onOpenSketch} />}
     </>
   );
   return (

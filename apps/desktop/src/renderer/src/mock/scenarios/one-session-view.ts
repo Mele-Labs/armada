@@ -10,6 +10,7 @@ import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile
 import { mockAreas } from "../cockpit-areas";
 import { asRow, holding, servedFrom } from "../holding";
 import type { Scenario } from "../moment";
+import { arrow, box, scene } from "../scenes";
 import { sessionsStore } from "../sessions/script";
 import type { SessionsStore } from "../sessions/script";
 
@@ -175,6 +176,17 @@ const CONCERNS: WorkConcern[] = [
   { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay." },
   { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling." },
 ];
+
+/** The sketch the agent draws with its plan: the change wired together, in the format `show_sketch` takes. */
+const PLAN_SKETCH_ID = "sketch:Plan";
+const PLAN_SKETCH = scene(
+  [
+    box("fleet", 0, 0, "Fleet", "Lease retry:\nback off and ask again when the pool is contended", { icon: "server", step: 1 }),
+    box("wire", 360, 0, "Wire", "Attempt count on the lease reply", { icon: "webhook", step: 2 }),
+    box("bridge", 720, 0, "Bridge", "Bay tile shows the attempt", { icon: "globe", step: 3 }),
+  ],
+  [arrow("fleet", "wire", "attempts", undefined, 2), arrow("wire", "bridge", "lease reply", undefined, 3)],
+);
 
 /** What a judge sent by hand finds the first time: one concern on the build so far. A second read finds nothing. */
 const SENT_CONCERN: WorkConcern = { id: "j1", step: "Build", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it." };
@@ -368,8 +380,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       if (plan === undefined) {
         // The agent records its plan after planning with him, and it arrives for his approval.
         const note = said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.");
-        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false, after: note.id } }));
-        push([note], idle());
+        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false, after: note.id, sketch: { id: PLAN_SKETCH_ID, title: "Plan", scene: PLAN_SKETCH } } }));
+        push([note], { ...idle(), attachments: [...(now.attachments ?? []), { kind: "sketch", id: PLAN_SKETCH_ID, title: "Plan", by: "agent", drawing: PLAN_SKETCH }] });
         return;
       }
       if (!plan.approved) return;
