@@ -242,6 +242,28 @@ path.armada-session-ledger__picture-later {
   color: var(--fg-default);
 }
 
+/* The bar across the top: one glyph per kind, held down while the ledger is narrowed to it, as the
+   Artifacts head's kind toggles are. Search opens its one-line field on a row of its own under them. */
+.armada-session-ledger__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-session-ledger__bar [aria-pressed="false"]:not(:disabled) {
+  color: var(--fg-muted);
+}
+
+.armada-session-ledger__bar [aria-pressed="true"] {
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+.armada-session-ledger__find {
+  flex-basis: 100%;
+}
+
 /* A quiet press under the newest rows that reveals the rest. */
 .armada-session-ledger__more {
   align-self: flex-start;

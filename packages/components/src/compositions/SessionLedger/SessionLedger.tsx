@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { Children, isValidElement, useState, type ReactNode } from "react";
 import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { forgetKept } from "../../keep";
+import { forgetKept, readKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -256,12 +256,123 @@ function rowsOf(entries: readonly LedgerEntry[], kind: LedgerKind): LedgerEntry[
   return kind === "branch" ? [...own, ...entries.filter((one) => one.kind === "slot")] : own;
 }
 
+/** The kinds the bar narrows the ledger to, in the bar's order; each stands for one section. */
+const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
+  { kind: "pull_request", said: "Pull requests", Glyph: GitPullRequest },
+  { kind: "waiting", said: "Calls", Glyph: BellRing },
+  { kind: "branch", said: "Branches and slots", Glyph: GitBranch },
+  { kind: "artifact", said: "Artifacts", Glyph: Files },
+];
+
+/** What the Search field's draft is kept under: a viewer's one search, which survives leaving the panel. */
+const SEARCH_KEEP = "session-ledger-search";
+
+/** Which kind the bar narrows to, kept like a section's view. A viewer's convenience, so a blocked store only forgets it. */
+function useOnly(): [LedgerKind | undefined, (next: LedgerKind | undefined) => void] {
+  const key = "armada.session-ledger.only";
+  const [only, set] = useState<LedgerKind | undefined>(() => {
+    try {
+      return BAR.find((one) => one.kind === localStorage.getItem(key))?.kind;
+    } catch {
+      return undefined;
+    }
+  });
+  return [
+    only,
+    (next) => {
+      set(next);
+      try {
+        if (next === undefined) localStorage.removeItem(key);
+        else localStorage.setItem(key, next);
+      } catch {
+        // Not kept: the bar is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
+/** The words a node draws, for matching a search against a row's text. */
+function plain(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plain).join("");
+  return isValidElement<{ children?: ReactNode }>(node) ? Children.toArray(node.props.children).map(plain).join("") : "";
+}
+
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
+  const [only, setOnly] = useOnly();
+  const [query, setQuery] = useState(() => readKept<string>(SEARCH_KEEP) ?? "");
+  const [finding, setFinding] = useState(query !== "");
+  // A kind the Session holds no row of cannot narrow anything, so a choice kept from another Session is not applied.
+  const chosen = only !== undefined && rowsOf(entries, only).length > 0 ? only : undefined;
+  const asked = query.trim().toLowerCase();
+  const sections = SECTIONS.filter(({ kind }) => chosen === undefined || kind === chosen).map((section) => ({
+    ...section,
+    all: rowsOf(entries, section.kind).filter((row) => asked === "" || `${row.name} ${plain(row.text)}`.toLowerCase().includes(asked)),
+  }));
+  const stopFinding = () => {
+    forgetKept(SEARCH_KEEP);
+    setQuery("");
+    setFinding(false);
+  };
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
-      {entries.length === 0 ? <EmptyLedger /> : null}
-      {SECTIONS.map(({ kind, label, Glyph }) => (
-        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={rowsOf(entries, kind)} />
+      <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
+        <Tooltip label="Search">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Search"
+            aria-pressed={finding}
+            disabled={entries.length === 0}
+            onClick={() => (finding ? stopFinding() : setFinding(true))}
+          >
+            <Search size={12} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+        {BAR.map(({ kind, said, Glyph }) => {
+          const pressed = chosen === kind;
+          return (
+            <Tooltip key={kind} label={said}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={said}
+                aria-pressed={pressed}
+                disabled={rowsOf(entries, kind).length === 0}
+                onClick={() => setOnly(pressed ? undefined : kind)}
+              >
+                <Glyph size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          );
+        })}
+        {finding ? (
+          <div className="armada-session-ledger__find">
+            <Textarea
+              autoFocus
+              rows={1}
+              keep={SEARCH_KEEP}
+              aria-label="Search the ledger"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  stopFinding();
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                }
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
+      {sections.every((one) => one.all.length === 0) ? <EmptyLedger /> : null}
+      {sections.map(({ kind, label, Glyph, all }) => (
+        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={all} />
       ))}
     </aside>
   );
