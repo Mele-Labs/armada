@@ -117,11 +117,16 @@ pub struct Gauge {
     pub tokens: Option<u64>,
 }
 
-/// The window a figure of `tokens` is drawn against. **The transcript names the model and never its
-/// window**, so a subagent is held to the usual one until it has read more than that, which only
-/// the long one can.
-pub fn window_for(tokens: u64) -> u64 {
-    if tokens > USUAL_WINDOW { LONG_WINDOW } else { USUAL_WINDOW }
+/// The window a subagent's figure is drawn against. **The transcript names the model and never its
+/// window**, so where the parent Session runs on the same model id and has reported a window, that
+/// is the one. Otherwise a guess: the usual window, until the tokens outgrow it, which only the
+/// long one can.
+pub fn window_for(tokens: u64, model: Option<&str>, parent: Option<(&str, u64)>) -> u64 {
+    match (model, parent) {
+        (Some(model), Some((same, window))) if model == same => window,
+        _ if tokens > USUAL_WINDOW => LONG_WINDOW,
+        _ => USUAL_WINDOW,
+    }
 }
 
 const USUAL_WINDOW: u64 = 200_000;

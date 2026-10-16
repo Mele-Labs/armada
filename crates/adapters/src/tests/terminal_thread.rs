@@ -462,10 +462,16 @@ fn a_subagent_says_its_model_and_what_its_last_answer_had_in_its_window() {
     assert_eq!(crate::terminal_thread::read_subagent(&file).unwrap().gauge, crate::terminal_thread::Gauge::default());
 }
 
-/// The usual window holds until a subagent has read more than it, which only the long one can.
+/// The parent's window is a subagent's where both run on one model id; otherwise the usual window
+/// holds until the tokens outgrow it, which only the long one can.
 #[test]
-fn a_window_is_the_usual_one_until_the_tokens_outgrow_it() {
-    assert_eq!(crate::terminal_thread::window_for(42_000), 200_000);
-    assert_eq!(crate::terminal_thread::window_for(200_000), 200_000);
-    assert_eq!(crate::terminal_thread::window_for(200_001), 1_000_000);
+fn a_subagent_shares_its_parents_window_on_the_same_model_and_guesses_otherwise() {
+    let window = crate::terminal_thread::window_for;
+    let parent = Some(("vendor-opus-5-5", 1_000_000));
+    assert_eq!(window(42_000, Some("vendor-opus-5-5"), parent), 1_000_000, "the same model");
+    assert_eq!(window(42_000, Some("vendor-haiku-5"), parent), 200_000, "another model");
+    assert_eq!(window(42_000, Some("vendor-opus-5-5"), None), 200_000, "the parent has reported none");
+    assert_eq!(window(42_000, None, parent), 200_000, "no model said");
+    assert_eq!(window(200_000, None, None), 200_000);
+    assert_eq!(window(200_001, None, None), 1_000_000);
 }
