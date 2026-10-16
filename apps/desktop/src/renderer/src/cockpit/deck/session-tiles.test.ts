@@ -26,6 +26,22 @@ test("without Armada's repository a report starts in the reported Session's own"
   expect(reportRoot([], undefined)).toBeUndefined();
 });
 
+const planned = { work: { plan: { groups: [] } } } as unknown as Session;
+const draftWith = (judge: boolean) => ({ commands: [], work: judge ? { judge: async () => false } : {} }) as unknown as SessionsDraft;
+
+test("the Judge tile is offered for a Session with a plan, when Fleet can read one", () => {
+  expect(offeredOf(planned, draftWith(true), "/code/shop").off.judge).toBeUndefined();
+});
+
+test("the Judge tile is off with no plan to judge against, or with no way to ask for a reading", () => {
+  expect(offeredOf({} as Session, draftWith(true), "/code/shop").off.judge).toBe("No plan to judge against");
+  expect(offeredOf(planned, draftWith(false), "/code/shop").off.judge).toBe("No plan to judge against");
+});
+
+test("the Judge tile is off with the reason a Session cannot be spoken to", () => {
+  expect(offeredOf({ ...planned, dead: "ended" } as Session, draftWith(true), "/code/shop").off.judge).toBe("The Session ended");
+});
+
 const held = (over: Partial<Session> = {}): Session =>
   ({
     id: "s1",

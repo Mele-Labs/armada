@@ -37,8 +37,8 @@ afterEach(() => {
 test("a Session is sent the words through the composer's send, with nothing attached", async () => {
   const fleet = api();
   expect(await askRing("session:s1", fleet)).toEqual({ ok: true });
-  expect(fleet.sent).toEqual([["session", "s1", { text: "Progress update, please: what is done, what is running now, what is next, and anything blocked.", files: [], sketches: [], tags: [] }]]);
-  expect(ASK_FOR_UPDATE).toBe("Progress update, please: what is done, what is running now, what is next, and anything blocked.");
+  expect(fleet.sent).toEqual([["session", "s1", { text: "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.", files: [], sketches: [], tags: [] }]]);
+  expect(ASK_FOR_UPDATE).toBe("Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.");
 });
 
 test("askForUpdate answers whether the send was taken, and false for no draft", async () => {

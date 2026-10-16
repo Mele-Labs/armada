@@ -25,16 +25,25 @@ async function deck() {
   return app;
 }
 
-test("calls open as panes, and a Session's question keeps its call until it is answered", async () => {
+test("calls open as panes, and an open Session's question is a card in its thread, not an Incoming call, until it is deselected", async () => {
   await deck();
   await expect.poll(() => hails().some((one) => one.startsWith("Session question: "))).toBe(true);
   const asked = hails().find((one) => one.startsWith("Session question: "))!;
   const before = hails().length;
   await incoming().getByRole("button", { name: asked }).click();
 
-  // What it is about opens on the stage. Seen is not answered, so a question's call stays (the owner, 15 Oct 2026); a reply's
-  // leaves when seen (`store.test.ts`).
+  // What it is about opens on the stage. While a Session is open its own calls are cards in its thread and leave Incoming calls, so nothing
+  // shows twice (`withoutOpenSession`, the owner's ruling of 16 Oct 2026). Seen is not answered, so the question stays asked.
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked.replace(/^[^:]+: /, ""));
+  await expect.element(page.getByRole("article", { name: "Waiting on you" })).toBeVisible();
+  expect(hails()).not.toContain(asked);
+  expect(hails()).toHaveLength(before - 1);
+
+  // Let go of the Session and its call is back, unanswered.
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toBe("Flight map");
+  // It comes back as the same call, under the same label.
+  await expect.poll(() => hails()).toContain(asked);
   expect(hails()).toHaveLength(before);
 });
 

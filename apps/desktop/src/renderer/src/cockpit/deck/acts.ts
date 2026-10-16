@@ -33,8 +33,8 @@ export type Acts = {
   };
 };
 
-/** What a ring's button, and a Session's flight control, ask a Session or a Job's Commander. */
-export const ASK_FOR_UPDATE = "Progress update, please: what is done, what is running now, what is next, and anything blocked.";
+/** What a ring's button, a Session's flight control and the Plan panel ask a Session or a Job's Commander. A plan ticks only where the task list names its tasks word for word. */
+export const ASK_FOR_UPDATE = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
 /**
  * Asks a Session for an update, through the route its composer sends with. Resolves whether Fleet took it: a refusal is worded by the

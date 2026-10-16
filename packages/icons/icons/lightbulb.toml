@@ -1,0 +1,7 @@
+[icons.lightbulb]
+  means = "A light bulb: an idea someone suggested"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A value on a Session's composer or status panel that the proposer picked and the person has not. Never a hint or a tip, and never the proposer itself, which is `scan-line` while it reads."
+  notes = "Proposed 16 Oct 2026 for the proposer's picks. A value the proposer chose is marked where it lives, and the bulb is the suggestion rather than the choice. Tooltip `Picked by the proposer`."

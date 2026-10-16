@@ -66,7 +66,8 @@ import { startSetupSession, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
 import { said } from "@armada/screens/src/copy";
 import { share } from "@armada/screens/src/share";
-import { LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
+import { LandCheckLogSheet, SentRedirectsContext, sessionCheckId } from "@armada/jobs";
+import { sentRedirects } from "./sent-redirects";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
@@ -467,6 +468,7 @@ export function App({ draft }: AppProps = {}) {
     settings: state.settings,
     openSession,
     openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
+    words: helmBox.words,
   });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
@@ -668,6 +670,7 @@ export function App({ draft }: AppProps = {}) {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <SentRedirectsContext.Provider value={sentRedirects}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
         <SketchSharing onCopied={setCopied} onSaid={setTelling}>
@@ -703,7 +706,8 @@ export function App({ draft }: AppProps = {}) {
               live={live}
               chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
               onRemoveChip={() => setChip(dismissed)}
-              onAsk={(text, context, carry) => void helmBox.ask(text, context, carry)}
+              onAsk={helmBox.asked}
+              outgoing={helmBox.outgoing}
               context={helmContext}
               studio={
                 shownStudio === null
@@ -1285,6 +1289,7 @@ export function App({ draft }: AppProps = {}) {
         </SketchSharing>
         </SessionsOwnership>
       </GuidanceProvider>
+      </SentRedirectsContext.Provider>
     </ProseLinks.Provider>
   );
 }
