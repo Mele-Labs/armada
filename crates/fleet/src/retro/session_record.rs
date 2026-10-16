@@ -107,7 +107,7 @@ fn asks(from: &SessionSources<'_>) -> Vec<RecordAsked> {
             SessionAskState::Waiting | SessionAskState::RanUnasked => None,
             SessionAskState::AllowedOnce => Some("allowed once"),
             SessionAskState::AllowedAndRemembered => Some("allowed and remembered"),
-            SessionAskState::AlwaysAllowed => Some("allowed, and its folder always"),
+            SessionAskState::AlwaysAllowed => Some("allowed, and its folder always allowed"),
             SessionAskState::AlwaysBlocked => Some("refused, and its folder blocked"),
             SessionAskState::Refused => Some("refused"),
             SessionAskState::Unanswered => Some("nobody answered, so it was refused"),

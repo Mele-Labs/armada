@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
+import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
@@ -141,10 +142,12 @@ export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
-   * order; absent, the card offers Allow once and Deny and names neither.
+   * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
+   * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`
+   * or `always_block` press hands back the folder chosen.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
-  onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string };
+  onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
    * thread until it is answered or the person says anything else. Not a call: the agent is not held on it, so
@@ -767,6 +770,30 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
   }, [scope]);
 }
 
+/** The answers that carry a folder, and so the picker's choice. */
+const FOLDER_ANSWERS = new Set(["always_allow", "always_block"]);
+
+/** A card's answers under the folder picker. Keyed by the path, so a new ask opens on its whole path. */
+function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
+  const [folder, setFolder] = useState(reaches);
+  return (
+    <>
+      <PathPicker path={reaches} chosen={folder} onChoose={setFolder} label="Folder for always" />
+      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+        {offers
+          .filter((offer) => offer.id !== "allow_once")
+          .map((offer) => (
+            <Tooltip key={offer.id} label={offer.means}>
+              <Button size="sm" variant="secondary" onClick={() => (FOLDER_ANSWERS.has(offer.id) ? onAnswer(offer.id, undefined, folder) : onAnswer(offer.id))}>
+                {offer.label}
+              </Button>
+            </Tooltip>
+          ))}
+      </div>
+    </>
+  );
+}
+
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
@@ -853,6 +880,8 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
               onAnswer={onAnswer}
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
             />
+          ) : asked.reaches !== undefined && asked.offers?.some((offer) => FOLDER_ANSWERS.has(offer.id)) === true ? (
+            <ReachAnswers key={asked.reaches} reaches={asked.reaches} offers={asked.offers} onAnswer={onAnswer} />
           ) : (
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
             {asked.offers === undefined ? (

@@ -1,0 +1,54 @@
+/* path picker — a path's folders in mono at --text-2xs, each a press. The chosen one wears
+   --accent-faint behind --fg-default, the ones under it stay --fg-default to read as covered, and
+   the ones above it are --fg-muted. A part is --h-kbd tall, the smallest press the contract draws
+   inside a card's body. */
+.armada-path-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
+}
+
+.armada-path-picker__part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-path-picker__between {
+  color: var(--fg-subtle);
+}
+
+.armada-path-picker__folder {
+  height: var(--h-kbd);
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-path-picker__folder:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-path-picker__folder:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.armada-path-picker__folder[data-covered] {
+  color: var(--fg-default);
+}
+
+.armada-path-picker__folder[aria-pressed="true"] {
+  border-color: var(--border-default);
+  background: var(--accent-faint);
+  color: var(--fg-default);
+}
