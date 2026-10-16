@@ -27,8 +27,8 @@ const SESSION: ClashHolderRef = { kind: "session", id: "s1", label: "Retry tunin
 const MAIN: ClashHolderRef = { kind: "main", id: "main", label: "main" };
 const PATHS = ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"];
 
-function holding(open: Clashing["open"], other: ClashHolderRef): Clashing {
-  return { open, of: (kind, id) => (kind === "job" && id === "j1" ? [{ with: other, paths: PATHS }] : []) };
+function holding(open: Clashing["open"], other: ClashHolderRef, job = "j1"): Clashing {
+  return { open, of: (kind, id) => (kind === "job" && id === job ? [{ with: other, paths: PATHS }] : []) };
 }
 
 const opened = fn();
@@ -90,8 +90,8 @@ export const InNoClash: Story = {
 /** In an open Job or Session the clashes are one bar: folded, the other holders on a line; opened, a row for each with its files. */
 export const InAnOpenJob: Story = {
   render: () => (
-    <ClashesProvider value={holding(opened, SESSION)}>
-      <ClashNotice kind="job" id="j1" />
+    <ClashesProvider value={holding(opened, SESSION, "j-open")}>
+      <ClashNotice kind="job" id="j-open" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -104,14 +104,14 @@ export const InAnOpenJob: Story = {
   },
 };
 
-
+// Each notice has a Job of its own: a bar he opened stays open for its owner, so stories that shared one would start as the last left it.
 const MANY = Array.from({ length: 37 }, (_, i) => `crates/store/src/migrations/${String(i + 1).padStart(4, "0")}_clock.rs`);
 
 /** A long list shows three files and one chip for the rest; the chip opens them all and then folds them back. */
 export const WithManyFiles: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j1" ? [{ with: MAIN, paths: MANY }] : []) }}>
-      <ClashNotice kind="job" id="j1" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-many" ? [{ with: MAIN, paths: MANY }] : []) }}>
+      <ClashNotice kind="job" id="j-many" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -141,8 +141,8 @@ export const WithManyFiles: Story = {
 /** The notice starts folded to its line. The line opens the list and folds it again; the holder's own button opens the holder and leaves the panel as it is. */
 export const Collapsed: Story = {
   render: () => (
-    <ClashesProvider value={holding(opened, SESSION)}>
-      <ClashNotice kind="job" id="j1" />
+    <ClashesProvider value={holding(opened, SESSION, "j-collapsed")}>
+      <ClashNotice kind="job" id="j-collapsed" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -166,8 +166,8 @@ export const Collapsed: Story = {
 /** Two clashes are one bar, folded to a line of two chips; opened, a row for each. */
 export const WithTwoClashes: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j2" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
-      <ClashNotice kind="job" id="j2" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-two" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
+      <ClashNotice kind="job" id="j-two" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -184,8 +184,8 @@ export const WithTwoClashes: Story = {
 /** Four files are drawn whole, with no chip. */
 export const WithFourFiles: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j1" ? [{ with: MAIN, paths: MANY.slice(0, 4) }] : []) }}>
-      <ClashNotice kind="job" id="j1" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-four" ? [{ with: MAIN, paths: MANY.slice(0, 4) }] : []) }}>
+      <ClashNotice kind="job" id="j-four" />
     </ClashesProvider>
   ),
   play: async ({ canvas }) => {
