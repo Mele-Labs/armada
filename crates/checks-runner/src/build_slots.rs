@@ -6,10 +6,10 @@
 //! one job per core. A fifo, not an inherited pipe, because Fleet starts agents
 //! detached and a Drone's own builds begin hours after its spawn.
 //!
-//! **A build is one implicit job plus what it takes from the fifo**, so the
-//! fifo holds one fewer than the machine's cores and a lone build gets them
-//! all. Each further build adds its implicit job: `k` builds peak at
-//! `cores - 1 + k`.
+//! **A build is one implicit job plus what it takes from the fifo**, and each
+//! build brings its own, so `k` builds peak at `pool + k`. The fifo holds
+//! [`HEADROOM`] fewer than the cores, the owner's choice of 16 Oct 2026: five
+//! builds then peak near the cores, and a lone build still gets most of them.
 //!
 //! **A killed build loses its tokens for good**, which is measured: `kill -9`
 //! on a cargo holding all four of four left an empty fifo. Tokens are anonymous
@@ -34,6 +34,10 @@ const COMPILERS: [&str; 3] = ["cargo", "rustc", "rustdoc"];
 /// shortfall is called lost. One look would write tokens back in the gap
 /// between a build's `cargo` exiting and its tokens landing in the fifo.
 const LOOKS_BEFORE_LOST: u32 = 2;
+
+/// How many fewer tokens than cores the fifo holds: room for the implicit job
+/// of each of several builds at once.
+pub const HEADROOM: u32 = 4;
 
 static OFFERED: OnceLock<String> = OnceLock::new();
 
@@ -86,7 +90,7 @@ pub struct BuildSlots {
 }
 
 impl BuildSlots {
-    /// The pool at `path`, sized so a lone build gets `cores` jobs.
+    /// The pool at `path`, [`HEADROOM`] fewer than `cores`, and never empty.
     ///
     /// **A fifo already there is kept**, with what builds still running hold
     /// of it: a Fleet that crashed leaves its Drones building, and a fresh pool
@@ -110,7 +114,7 @@ impl BuildSlots {
                 "a jobserver path with a space cannot be written into MAKEFLAGS",
             ));
         }
-        let tokens = cores.max(2) - 1;
+        let tokens = cores.saturating_sub(HEADROOM).max(1);
         let reused = make_fifo(path)?;
         let held = open_held(path)?;
         let slots = BuildSlots {
