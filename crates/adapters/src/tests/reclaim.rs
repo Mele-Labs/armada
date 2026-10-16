@@ -395,7 +395,8 @@ fn a_dirty_worktree_is_committed_to_its_branch_before_it_goes() {
     let saved = crate::leasing::save_worktree(&spec, JOB)
         .expect("it saves")
         .expect("there was something to save");
-    assert_eq!(saved.files, vec!["half.txt"]);
+    assert_eq!(saved.committed.files, vec!["half.txt"]);
+    assert_eq!(saved.branch, format!("armada/{JOB}"));
     let given_back = reclaim(&spec, None, UnmergedWork::Keep).expect("the repository opens");
 
     assert!(matches!(given_back.worktree, WorktreeGone::Removed { .. }));
@@ -410,6 +411,29 @@ fn a_dirty_worktree_is_committed_to_its_branch_before_it_goes() {
     );
     assert_eq!(
         repo.git(&["show", &format!("armada/{JOB}:half.txt")]),
+        "half a thought"
+    );
+}
+
+/// A detached worktree has no branch to take the files, so they get one that
+/// outlives the reclaim.
+#[test]
+fn a_dirty_detached_worktree_keeps_its_files_on_a_new_branch() {
+    let repo = TempRepo::with_a_commit();
+    let spec = spec_for(&repo, JOB);
+    GitVcs::new().create_worktree(&spec).expect("a worktree");
+    let at = std::path::PathBuf::from(spec.worktree_path());
+    repo.git(&["-C", &spec.worktree_path(), "switch", "--quiet", "--detach"]);
+    std::fs::write(at.join("half.txt"), "half a thought\n").expect("a file to keep");
+
+    let saved = crate::leasing::save_worktree(&spec, JOB)
+        .expect("it saves")
+        .expect("there was something to save");
+
+    assert_eq!(saved.branch, format!("kept/job-{JOB}"));
+    reclaim(&spec, None, UnmergedWork::Keep).expect("the repository opens");
+    assert_eq!(
+        repo.git(&["show", &format!("{}:half.txt", saved.branch)]),
         "half a thought"
     );
 }

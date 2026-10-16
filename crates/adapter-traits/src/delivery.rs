@@ -1101,9 +1101,16 @@ pub trait Delivery {
     /// anything it cannot do without merging, rebasing or discarding.
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding;
 
-    /// Whether the commit checked out in `in_repo` already has `commit`, read
-    /// in process. `false` where the commit is not here at all.
-    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool;
+    /// Whether `in_repo` already has `commit` on `base`, read in process: the
+    /// commit checked out where `base` is, and the local `base` branch where
+    /// another is. `false` where the commit is not here at all.
+    fn checkout_has(&self, in_repo: &str, base: &str, commit: &str) -> bool;
+
+    /// Fast-forward the local `base` branch to `origin`'s while another branch
+    /// is checked out, touching nothing checked out. **False where git refuses**:
+    /// a history that will not fast-forward, or `base` checked out in some
+    /// worktree.
+    fn base_fast_forwarded(&self, in_repo: &str, base: &str) -> bool;
 
     /// Why `in_repo` cannot be fast-forwarded to `base` on the remote, read for
     /// a person to act on. Fetches the base first so the counts are current.
@@ -1151,9 +1158,10 @@ pub trait Delivery {
 pub struct HeldBack {
     pub base: String,
     /// The branch checked out, where it is not the base. `HEAD` when detached.
+    /// The counts below are then the local base branch's.
     pub on: Option<String>,
-    /// Tracked files with uncommitted changes. Untracked files never block a
-    /// fast-forward and are not named.
+    /// Tracked files with uncommitted changes, while the base is checked out.
+    /// Untracked files never block a fast-forward and are not named.
     pub uncommitted: Vec<String>,
     /// Those of `uncommitted` that the remote base also changed, so an
     /// autostash could stop on a conflict.

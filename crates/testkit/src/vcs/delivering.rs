@@ -71,6 +71,8 @@ pub struct Delivering {
     /// What the one pull a held checkout is offered comes to. A clean pull by
     /// default.
     pub pulled: CheckoutPulled,
+    /// Whether the local base branch fast-forwards while another is checked out.
+    pub base_fast_forwards: bool,
     /// What merging one local branch into another comes to.
     pub branch_merge: BranchMerged,
 }
@@ -117,6 +119,7 @@ impl Default for Delivering {
                 code: 0,
                 output: String::from("Fast-forward"),
             },
+            base_fast_forwards: true,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and

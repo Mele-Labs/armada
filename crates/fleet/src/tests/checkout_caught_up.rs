@@ -99,6 +99,50 @@ async fn a_dirty_checkout_is_held_back_and_said_until_it_catches_up() {
         .all(|(_, hub)| hub.checkout.is_none()));
 }
 
+fn on_another_branch() -> HeldBack {
+    HeldBack {
+        base: String::from("main"),
+        on: Some(String::from("fix/slot-lease")),
+        uncommitted: Vec::new(),
+        clashing: Vec::new(),
+        behind: 40,
+        ahead: 0,
+    }
+}
+
+#[tokio::test]
+async fn on_another_branch_the_base_is_fast_forwarded_and_nobody_is_called() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone {
+        why: String::from("the repository is on `fix/slot-lease` and not `main`"),
+    });
+    vcs.held_back_by(Some(on_another_branch()));
+
+    fleet.turn().await.unwrap();
+    assert_eq!(held_back(&fleet).await, None);
+}
+
+#[tokio::test]
+async fn a_base_that_will_not_fast_forward_under_another_branch_is_said() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+    let vcs = fleet.vcs();
+    vcs.main_ci.head_is(Some(TWO));
+    vcs.checkout_on(ONE);
+    vcs.repository_standing(RepositoryStanding::LeftAlone {
+        why: String::from("the repository is on `fix/slot-lease` and not `main`"),
+    });
+    vcs.held_back_by(Some(on_another_branch()));
+    vcs.base_fast_forwards(false);
+
+    fleet.turn().await.unwrap();
+    assert_eq!(held_back(&fleet).await, Some(on_another_branch()));
+}
+
 // ---------------------------------------------------------- the one press the card offers
 
 fn ask() -> CatchUpCheckout {

@@ -399,19 +399,36 @@ fn why_not_to_touch_it(repo: &Repository, base: &str) -> Option<String> {
     }
 }
 
-/// Whether the checked-out commit already has `commit`. In process, so the
-/// reading of main can ask it every minute for nothing.
-pub(crate) fn checkout_has(in_repo: &str, commit: &str) -> bool {
+/// Whether `base` here already has `commit`: the checked-out commit where the
+/// base is checked out, the local base branch where it is not. In process, so
+/// the reading of main can ask it every minute for nothing.
+pub(crate) fn checkout_has(in_repo: &str, base: &str, commit: &str) -> bool {
     let Ok(repo) = Repository::open(in_repo) else {
         return false;
     };
-    let (Some(head), Ok(commit)) = (
-        repo.head().ok().and_then(|head| head.target()),
-        git2::Oid::from_str(commit),
-    ) else {
+    let (Some(ours), Ok(commit)) = (base_here(&repo, base), git2::Oid::from_str(commit)) else {
         return false;
     };
-    head == commit || repo.graph_descendant_of(head, commit).unwrap_or(false)
+    ours == commit || repo.graph_descendant_of(ours, commit).unwrap_or(false)
+}
+
+/// The commit that stands for `base` in this checkout: `HEAD` where the base is
+/// checked out, the local base branch where another is.
+fn base_here(repo: &Repository, base: &str) -> Option<git2::Oid> {
+    let head = repo.head().ok()?;
+    match head.is_branch() && head.shorthand() == Some(base) {
+        true => head.target(),
+        false => repo.refname_to_id(&format!("refs/heads/{base}")).ok(),
+    }
+}
+
+/// Fast-forward the local base branch while another is checked out. A refspec
+/// without `+`, so git itself refuses a history that is not a fast-forward,
+/// and a branch checked out in any worktree.
+pub(crate) fn base_fast_forwarded(in_repo: &str, base: &str) -> bool {
+    let refspec = format!("{base}:{base}");
+    run_in(in_repo, "git", &["fetch", "--quiet", "origin", &refspec])
+        .is_ok_and(|run| run.status.success())
 }
 
 /// What stops `in_repo` fast-forwarding to `base` on `origin`. One fetch of the
@@ -427,19 +444,23 @@ pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
         true => head.shorthand().map(str::to_string).filter(|on| on != base),
         false => Some(String::from("HEAD")),
     };
-    let ours = head.target()?;
+    let ours = base_here(&repo, base)?;
     let theirs = repo
         .refname_to_id(&format!("refs/remotes/origin/{base}"))
         .ok()?;
     let (ahead, behind) = repo.graph_ahead_behind(ours, theirs).ok()?;
+    // Another branch's uncommitted files are not on the base, and hold nothing back.
     let mut asking = git2::StatusOptions::new();
     asking.include_untracked(false).include_ignored(false);
-    let uncommitted: Vec<String> = repo
-        .statuses(Some(&mut asking))
-        .ok()?
-        .iter()
-        .filter_map(|entry| entry.path().map(str::to_string))
-        .collect();
+    let uncommitted: Vec<String> = match on {
+        Some(_) => Vec::new(),
+        None => repo
+            .statuses(Some(&mut asking))
+            .ok()?
+            .iter()
+            .filter_map(|entry| entry.path().map(str::to_string))
+            .collect(),
+    };
     let clashing = match uncommitted.is_empty() {
         true => Vec::new(),
         false => changed_between(&repo, ours, theirs)

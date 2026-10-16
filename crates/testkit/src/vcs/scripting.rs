@@ -173,6 +173,11 @@ impl FakeVcs {
         self.delivery.lock().expect("not poisoned").checkout = Some(commit.to_string());
     }
 
+    /// Say whether the local base branch fast-forwards while another is checked out.
+    pub fn base_fast_forwards(&self, does: bool) {
+        self.delivery.lock().expect("not poisoned").base_fast_forwards = does;
+    }
+
     /// Say what asking why the served repository was held back comes to.
     pub fn held_back_by(&self, held: Option<adapter_traits::HeldBack>) {
         self.delivery.lock().expect("not poisoned").held_back = held;

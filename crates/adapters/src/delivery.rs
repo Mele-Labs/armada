@@ -392,8 +392,12 @@ impl Delivery for GitVcs {
         crate::landing::caught_up(in_repo, base)
     }
 
-    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool {
-        crate::landing::checkout_has(in_repo, commit)
+    fn checkout_has(&self, in_repo: &str, base: &str, commit: &str) -> bool {
+        crate::landing::checkout_has(in_repo, base, commit)
+    }
+
+    fn base_fast_forwarded(&self, in_repo: &str, base: &str) -> bool {
+        crate::landing::base_fast_forwarded(in_repo, base)
     }
 
     fn held_back(&self, in_repo: &str, base: &str) -> Option<adapter_traits::HeldBack> {

@@ -405,8 +405,9 @@ pub trait Vcs {
     /// session, and not a Job of that id.
     ///
     /// **A session rewrites its own branch inside its slot**, so this commits
-    /// to the branch the checkout is on, not the one the lease names, and
-    /// refuses only the base and a detached head. Whatever still runs with its
+    /// to the branch the checkout is on, not the one the lease names. Where
+    /// it is on none or on the base, a `kept/` branch is cut for what there is
+    /// to keep. Whatever still runs with its
     /// working directory in the slot is ended first, and nothing outside it.
     fn park_hosted_slot(
         &self,
