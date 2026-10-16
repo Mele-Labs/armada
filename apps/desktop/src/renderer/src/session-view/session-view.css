@@ -7,7 +7,10 @@
 /* On the Cockpit: the two places the deck gives up, empty until a Session's panel is drawn into one. */
 .sv-slot { display: flex; min-width: 0; min-height: 0; }
 .sv-slot:empty { display: none; }
-.sv-slot[data-place="left"] { flex: none; flex-direction: column; max-height: calc(var(--space-12) * 7); }
+.sv-slot[data-place="left"] { flex: 0 0 calc(var(--space-12) * 8); flex-direction: column; transition: flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), flex-grow calc(var(--duration-sheet) * 1.6) var(--ease); }
+/* A panel folded to its band leaves the left column's room to the list; the list folded leaves its room to this one. */
+.sv-slot[data-place="left"]:has(> .sv-panel[data-collapsed]) { flex-basis: calc(var(--h-row) * 1.25 + var(--border-width) * 2); }
+.deck-left:has(> .deck-list[data-collapsed]) > .sv-slot[data-place="left"]:not(:has(> .sv-panel[data-collapsed])) { flex: 1 1 0; }
 .sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); flex-direction: column; min-width: calc(var(--space-12) * 7); }
 /* The right column's own children: Status, the Ledger at the size it has with a Session open and no workspace, then Incoming calls. */
 .sv-side { display: contents; }
@@ -43,12 +46,12 @@
 .sv__right > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
 .sv-side > .sv-panel[data-area="ledger"] { flex: 3 1 0; min-height: calc(var(--space-12) * 5); }
 .sv__right > .sv-panel[data-area="ledger"] { flex: 1 1 0; min-height: calc(var(--space-12) * 10); }
-.sv-panel[data-area="field"][data-place="left"] { height: calc(var(--space-12) * 6); }
 .sv-slot[data-place="left"] > .sv-panel { flex: 1 1 auto; min-height: 0; }
 
 /* ---- A panel -------------------------------------------------------------------------------------------- */
 
 .sv-panel {
+  --folded: calc(var(--h-row) * 1.25 + var(--border-width) * 2);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -191,3 +194,27 @@
 .sv-panel[data-place="foot"] .sv-concern { flex: 0 0 calc(var(--space-12) * 6); }
 .sv-panel[data-place="foot"] .sv-concern__text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sv-panel[data-place="foot"] > .sv-panel__body { overflow-x: auto; overflow-y: hidden; }
+
+/* The Field's drones fly slowly enough to be followed from file to file. */
+.sv-field .bf { --move: calc(var(--duration-pulse) * 0.9); }
+
+/* ---- Incoming calls with a Session open ----------------------------------------------------------------------- */
+
+/* With no call it is folded to its band. A call arriving opens it, and the Ledger, which keeps a minimum, gives way. */
+.deck-right:has(.sv-panel) > .deck-incoming { position: relative; flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.deck-right:has(.sv-panel) > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
+/* Focused, by its key or by a press inside it, it opens further and lies over the Ledger, and settles back when focus goes. Its extra
+   size is taken from the margin above it, so the Ledger is not pushed and only covered. */
+.deck-right:has(.sv-panel) > .deck-incoming:not([data-collapsed]):has(.deck-incoming__cards > li:not(:empty)):focus-within {
+  z-index: 3;
+  flex: 2 1 calc(var(--space-12) * 4.5);
+  margin-top: calc(var(--space-12) * -4.5);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 var(--space-3) var(--space-8) color-mix(in srgb, var(--bg-base) 70%, transparent);
+}
+
+/* A panel that scrolls rests with a whole row at its top, and a row it was moved to is never left half under the band. */
+.sv-panel__body { scroll-snap-type: y proximity; scroll-padding-top: var(--space-2); }
+.sv-panel__body > *,
+.sv-plan > *,
+.sv-outline > .sv-step,
+.sv-step__plan > * { scroll-snap-align: start; }

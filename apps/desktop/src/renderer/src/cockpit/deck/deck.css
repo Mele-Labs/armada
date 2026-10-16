@@ -699,3 +699,30 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-history__to { flex: none; }
 .deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
 .deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }
+
+/* ---- A panel folds to its band ------------------------------------------------------------------------------ */
+
+/* The band is what folds a panel: pressed, it closes the panel to the band alone, and pressed again it opens. The size is animated, and what
+   is under the band is clipped by the panel while it goes and hidden from the pointer and the keyboard once it has. The band, with its key,
+   stays as it was. */
+.deck-foot { interpolate-size: allow-keywords; }
+.deck-band[role="button"],
+.sv-panel__band[role="button"] { cursor: pointer; user-select: none; }
+.deck-band[role="button"]:hover,
+.sv-panel__band[role="button"]:hover { color: var(--fg-default); }
+.deck-band[role="button"]:focus-visible,
+.sv-panel__band[role="button"]:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
+.deck-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
+.deck-panel,
+.sv-panel {
+  transition: flex-grow calc(var(--duration-sheet) * 1.6) var(--ease), flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), min-height calc(var(--duration-sheet) * 1.6) var(--ease), max-height calc(var(--duration-sheet) * 1.6) var(--ease), height calc(var(--duration-sheet) * 1.6) var(--ease), margin-top calc(var(--duration-sheet) * 1.6) var(--ease);
+}
+.deck-panel > :not(.deck-band),
+.sv-panel > :not(.sv-panel__band) { visibility: visible; }
+.deck-panel[data-collapsed] > :not(.deck-band),
+.sv-panel[data-collapsed] > :not(.sv-panel__band) { visibility: hidden; transition: visibility 0s linear calc(var(--duration-sheet) * 1.6); }
+/* In a column the panel gives up its share and keeps the band. Specific enough to stand over each panel's own size. */
+.deck-panel[data-collapsed][data-collapsed][data-collapsed],
+.sv-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); min-height: 0; height: auto; max-height: var(--folded); }
+/* In the foot, a row, it keeps its width and gives up its height. */
+.deck-foot > .deck-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 1 1 auto; align-self: flex-start; height: var(--folded); }

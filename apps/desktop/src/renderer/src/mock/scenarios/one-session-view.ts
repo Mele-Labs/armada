@@ -5,7 +5,7 @@
 
 import { featureRunning } from "@armada/jobs/fake";
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
-import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 
 import { mockAreas } from "../cockpit-areas";
 import { asRow, holding, servedFrom } from "../holding";
@@ -112,16 +112,63 @@ function groups(stage: number): WorkGroup[] {
   ];
 }
 
-/** Who is flying and where. The Session's own drone has no agent type; each subagent has one and a task. */
-function field(stage: number): WorkDrone[] {
-  const rust: WorkDrone = { id: "rust", agent: "rust-engineer", task: "Retry the lease when the pool is contended", path: "crates/fleet", doing: "write" };
-  const protocol: WorkDrone = { id: "protocol", agent: "protocol-engineer", task: "Add attempts to the lease reply", path: "crates/ipc", doing: "write" };
-  const bridge: WorkDrone = { id: "bridge", agent: "bridge-engineer", task: "Show the attempt on the bay tile", path: "apps/desktop", doing: "write" };
-  if (stage === 0) return [{ id: "main", path: "crates/fleet", doing: "read" }];
-  if (stage === 1) return [{ id: "main", path: "crates/fleet", doing: "write" }, rust, protocol];
-  if (stage === 2) return [{ id: "main", path: "crates/fleet", doing: "read" }, rust, bridge];
-  if (stage === 3) return [{ id: "main", path: "crates/fleet", doing: "run" }, bridge];
-  return [{ id: "main", path: "crates/fleet", doing: "run" }];
+// ---- The floor and the drones over it ---------------------------------------------------------------------
+
+const F = "crates/fleet/src/";
+const I = "crates/ipc/src/";
+const P = "packages/protocol/src/";
+const D = "apps/desktop/src/renderer/src/cockpit/deck/";
+
+/** The files the plots hold before the work starts, each drawn as a bar. */
+const EXISTING = [
+  ...["lease.rs", "pool.rs", "bay.rs", "slots.rs", "lib.rs", "clock.rs", "errors.rs"].map((name) => F + name),
+  ...["lease.rs", "wire.rs", "reply.rs", "lib.rs"].map((name) => I + name),
+  ...["index.ts", "bays.ts", "wire.ts", "errors.ts"].map((name) => P + name),
+  ...["BayRows.tsx", "PoolSlots.tsx", "PoolSlots.css", "Deck.tsx", "Incoming.tsx", "Ledger.tsx"].map((name) => D + name),
+];
+
+type Beat = Partial<Record<"main" | "rust" | "protocol" | "bridge", readonly [path: string, doing: WorkDrone["doing"], act?: WorkFile["act"]]>>;
+
+/** Where each drone is over the floor, beat by beat, and what it does to the file there. The beats of a stage are the drones travelling. */
+const BEATS: Record<number, readonly Beat[]> = {
+  0: [{ main: [F + "lease.rs", "read"] }, { main: [F + "pool.rs", "read"] }, { main: [F + "bay.rs", "read"] }, { main: [F + "slots.rs", "read"] }],
+  1: [
+    { main: [F + "pool.rs", "read"], rust: [F + "lease.rs", "write", "edit"], protocol: [I + "wire.rs", "read"] },
+    { main: [F + "bay.rs", "read"], rust: [F + "retry.rs", "write", "write"], protocol: [I + "lease.rs", "write", "edit"] },
+    { main: [F + "lease.rs", "read"], rust: [F + "backoff.rs", "write", "write"], protocol: [P + "lease.ts", "write", "write"] },
+    { main: [F + "slots.rs", "read"], rust: [F + "lease.rs", "write", "edit"], protocol: [P + "index.ts", "write", "edit"] },
+  ],
+  2: [
+    { main: [F + "pool.rs", "read"], rust: [F + "backoff.rs", "write", "edit"], bridge: [D + "BayRows.tsx", "write", "edit"] },
+    { main: [F + "lease.rs", "read"], rust: [F + "slots.rs", "write", "remove"], bridge: [D + "PoolSlots.tsx", "write", "edit"] },
+    { main: [F + "bay.rs", "read"], rust: [F + "lib.rs", "write", "edit"], bridge: [D + "PoolSlots.css", "write", "edit"] },
+    { main: [F + "pool.rs", "read"], rust: [F + "retry.rs", "write", "edit"], bridge: [D + "BayTile.tsx", "write", "write"] },
+  ],
+  3: [
+    { main: [F + "lease.rs", "run"], bridge: [D + "BayTile.tsx", "write", "edit"] },
+    { main: [F + "retry.rs", "run"], bridge: [D + "BayRows.tsx", "write", "edit"] },
+    { main: [F + "lease.rs", "run"], bridge: [D + "PoolSlots.css", "write", "edit"] },
+  ],
+  4: [{ main: [F + "lease.rs", "run"] }, { main: [F + "retry.rs", "run"] }],
+};
+
+const AGENTS = {
+  main: {},
+  rust: { agent: "rust-engineer", task: "Retry the lease when the pool is contended" },
+  protocol: { agent: "protocol-engineer", task: "Add attempts to the lease reply" },
+  bridge: { agent: "bridge-engineer", task: "Show the attempt on the bay tile" },
+} as const;
+
+/** One beat as the Field draws it: each drone at its file, and the files with what is being done to them. `made` and `gone` are the files the work has added and taken away so far. */
+function fieldAt(beat: Beat, made: ReadonlySet<string>, gone: ReadonlySet<string>, again: boolean): { field: WorkDrone[]; files: WorkFile[] } {
+  const field = (Object.keys(AGENTS) as (keyof typeof AGENTS)[]).flatMap((id): WorkDrone[] => {
+    const at = beat[id];
+    return at === undefined ? [] : [{ id, ...AGENTS[id], path: at[0].split("/").slice(0, 2).join("/"), doing: at[1], file: at[0] }];
+  });
+  // On a second time round a made file is only changed, and a file already taken away stays gone.
+  const acts = new Map(Object.values(beat).flatMap((at) => (at?.[2] === undefined || (again && at[2] === "remove") ? [] : [[at[0], at[2] === "write" && again ? "edit" : at[2]] as const])));
+  const files = [...EXISTING, ...made].filter((path) => !gone.has(path) || acts.get(path) === "remove").map((path): WorkFile => (acts.has(path) ? { path, act: acts.get(path)! } : { path }));
+  return { field, files };
 }
 
 const CONCERNS: WorkConcern[] = [
@@ -182,13 +229,41 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const idle = (): Partial<Session> => ({ turn: { state: "idle" }, standing: "replied", lastTurnAt: new Date().toISOString() });
   const working = (): Partial<Session> => ({ turn: { state: "working" }, standing: "working" });
 
+  // The drones travel: each beat of a stage puts every drone over another file, a moment apart, and the stage goes round again until the next.
+  const BEAT_MS = 2600;
+  const made = new Set<string>();
+  const gone = new Set<string>();
+  let tour = 0;
+  const fly = (at: number) => {
+    const beats = BEATS[at] ?? BEATS[4]!;
+    const mark = (tour += 1);
+    let step = 0;
+    let removing: string | undefined;
+    const go = () => {
+      if (mark !== tour) return;
+      const lap = Math.floor(step / beats.length);
+      const beat = beats[step % beats.length]!;
+      if (removing !== undefined) gone.add(removing);
+      removing = undefined;
+      for (const one of Object.values(beat)) {
+        if (one?.[2] === "write" && lap === 0) made.add(one[0]);
+        if (one?.[2] === "remove") removing = one[0];
+      }
+      const drawn = fieldAt(beat, made, gone, lap > 0);
+      works((work) => ({ ...work, field: drawn.field, files: drawn.files }));
+      step += 1;
+      after(BEAT_MS, go);
+    };
+    go();
+  };
+
   /** The build at `at`: the groups, the drones, and the step the workflow is at. */
   const building = (at: number) => {
     stage = at;
+    fly(at);
     works((work) => ({
       ...work,
       ...(work.plan === undefined ? {} : { plan: { ...work.plan, groups: groups(at) } }),
-      field: field(at),
       ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: at >= 4 ? work.workflow.steps.length - 1 : 1 } }),
     }));
   };
@@ -217,8 +292,9 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       // Start begins the work: the first step, and the agent reads and asks before it plans.
       start: () => {
         works((work) => {
-          return { ...work, ...(work.proposal === undefined ? {} : { proposal: { ...work.proposal, started: true } }), ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }), field: field(0) };
+          return { ...work, ...(work.proposal === undefined ? {} : { proposal: { ...work.proposal, started: true } }), ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }) };
         });
+        fly(0);
         push([tool("Read crates/fleet/src/lease.rs"), said("Two Sessions can ask for the same bay between the read and the write. One question before I plan.")], {
           asked: { command: QUESTIONS[0]!.question, call: "v-q1", offers: ["allow_once", "refuse"], questions: QUESTIONS },
         });
@@ -267,7 +343,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       const plan = now.work?.plan;
       if (plan === undefined) {
         // The agent records its plan after planning with him, and it arrives for his approval.
-        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false }, field: field(0) }));
+        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false } }));
         push([said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.")], idle());
         return;
       }
@@ -353,7 +429,7 @@ function build(): Scenario {
     ...base,
     state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
     held: pool(),
-    draft: { sessions, events: EVENTS, areas: mockAreas },
+    draft: { sessions, events: EVENTS, areas: () => mockAreas("/armada") },
   };
 }
 

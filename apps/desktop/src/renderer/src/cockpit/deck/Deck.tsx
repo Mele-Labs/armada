@@ -33,6 +33,7 @@ import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } fr
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { useBays, slotKey } from "./bays";
+import { useCollapse } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
@@ -109,6 +110,7 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
 }
 
 function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
+  const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const row = (one: Subject) => {
     const Kind = one.kind === "job" ? Box : SquareTerminal;
@@ -133,8 +135,8 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
-      <header className="deck-band">
+    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+      <header className="deck-band" {...folded.band}>
         Jobs and Sessions
         <PanelKey id="list" />
       </header>
@@ -428,6 +430,7 @@ export const TILES: readonly Tile[] = [
  * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
  */
 function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
+  const folded = useCollapse("controls");
   const only = useDeck((deck) => deck.only);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
@@ -443,8 +446,8 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
   return (
-    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
-      <header className="deck-band">
+    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
       </header>
@@ -576,9 +579,10 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
 }
 
 function Incoming({ calls, now, ship, hosts, host }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession">; host?: (element: HTMLElement | null) => void }) {
+  const folded = useCollapse("calls");
   return (
-    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1}>
-      <header className="deck-band">
+    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <header className="deck-band" {...folded.band}>
         Incoming calls
         <PanelKey id="calls" />
       </header>

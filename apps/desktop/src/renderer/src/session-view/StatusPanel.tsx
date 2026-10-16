@@ -40,7 +40,9 @@ function useKeepNow(at: number) {
     const now = list.current?.querySelector<HTMLElement>('[data-state="now"]');
     const scroller = now?.closest<HTMLElement>(".sv-steps, .sv-panel__body");
     if (now === null || now === undefined || scroller === null || scroller === undefined) return;
-    scroller.scrollTop += now.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (scroller.clientHeight - now.clientHeight) / 2;
+    // Two rows above the lit one are kept, from a whole row: the list never rests with its first row cut off under the band.
+    const lead = now.previousElementSibling?.previousElementSibling ?? now.previousElementSibling ?? now;
+    scroller.scrollTop += lead.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
   }, [at]);
   return list;
 }

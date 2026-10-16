@@ -126,7 +126,10 @@ export type WorkGroup = { id: string; agent: string; title: string; tasks: reado
 export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
-export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run" };
+export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
+
+/** A file of the repository as the Field draws it, a bar on the plot of its directory. `act` is what is being done to it now: made, changed or taken away. */
+export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
 /** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
 export type WorkConcern = { id: string; step: string; judge: string; text: string };
@@ -142,6 +145,8 @@ export type SessionWork = {
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
   field?: readonly WorkDrone[];
+  /** The files the Field draws as bars on its plots. */
+  files?: readonly WorkFile[];
   concerns?: readonly WorkConcern[];
 };
 
