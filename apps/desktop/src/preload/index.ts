@@ -15,6 +15,7 @@ import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol"
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
 import type { Pattern } from "../shared/haptics";
+import type { StateChange } from "../shared/state-change";
 import type {
   CheckOutputRead,
   BriefRead,
@@ -116,13 +117,14 @@ import type {
 const api: BridgeApi = {
   state: (): Promise<BridgeState> => ipcRenderer.invoke(CHANNELS.state),
 
-  subscribe: (onState: (state: BridgeState) => void): (() => void) => {
-    const handler = (_event: unknown, state: BridgeState): void => onState(state);
+  subscribeChanges: (onChange: (change: StateChange<BridgeState>) => void): (() => void) => {
+    const handler = (_event: unknown, change: StateChange<BridgeState>): void => onChange(change);
     ipcRenderer.on(CHANNELS.changed, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.changed, handler);
     };
   },
+  syncState: (): Promise<StateChange<BridgeState>> => ipcRenderer.invoke(CHANNELS.syncState),
   onWalkFocus: (onFocus: (focused: boolean) => void): (() => void) => {
     const handler = (_event: unknown, focused: unknown): void => onFocus(focused === true);
     ipcRenderer.on(CHANNELS.walkFocused, handler);
