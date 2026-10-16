@@ -76,6 +76,17 @@ export const WaitingOnYou: Story = {
   },
 };
 
+/** A waiting item handed to the ledger is not drawn: the thread's Needs you band holds it, and a ledger of nothing else is the empty picture. */
+export const NoWaitingSection: Story = {
+  args: { entries: [WAITING[1]!] },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("heading", { name: "Waiting on you" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Open Approve #1843" })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("group", { name: "Narrow the ledger" })).toBeNull();
+  },
+};
+
 let delivered: () => void = () => undefined;
 const sent = fn(() => new Promise<void>((done) => (delivered = done)));
 /** While Fleet delivers an answer, Answer is disabled, so a second press cannot send it again. */
