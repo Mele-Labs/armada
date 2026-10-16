@@ -434,10 +434,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bays[data-take="a"] .deck-bay[data-bay="free"] .deck-bay__band .deck-bay__state { color: var(--hue); }
 .deck-bays[data-take="a"] .deck-bay[data-bay="closed"] .deck-bay__band { background: var(--slot-closed-bg); color: var(--slot-closed); }
 .deck-bays[data-take="a"] .deck-bay[data-bay="closed"] .deck-bay__band .deck-bay__state { color: var(--slot-closed); }
-.deck-bays[data-take="a"] .deck-bay__word { flex: 1 1 auto; }
-.deck-bays[data-take="a"] .deck-bay__repo { flex: 0 1 auto; color: inherit; font-weight: var(--weight-body); letter-spacing: 0; text-transform: none; opacity: 0.8; }
+.deck-bays[data-take="a"] .deck-bay__word { flex: none; }
+.deck-bays[data-take="a"] .deck-bay__repo { flex: 1 1 0; color: inherit; font-weight: var(--weight-body); letter-spacing: 0; text-transform: none; opacity: 0.8; }
 .deck-bays[data-take="a"] .deck-bay__body { padding: var(--space-2) var(--space-3); }
-.deck-bays[data-take="a"] .deck-bay__name { color: inherit; }
+.deck-bays[data-take="a"] .deck-bay__name { color: inherit; font-weight: var(--weight-heading); }
 
 /* ---- Take B: a berth. A thick door in the state's hue, the number painted large beside it, the holder to the right. ---- */
 .deck-bays[data-take="b"] .deck-bay {

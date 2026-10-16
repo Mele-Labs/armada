@@ -166,9 +166,9 @@ function Card({ view, repo }: { view: BayView; repo: string }) {
     <>
       <span className="deck-bay__band">
         <State view={view} size={16} />
-        <span className="deck-bay__word">{view.word}</span>
-        <span className="deck-bay__repo">{repo}</span>
         <Name view={view} />
+        <span className="deck-bay__repo">{repo}</span>
+        <span className="deck-bay__word">{view.word}</span>
       </span>
       <span className="deck-bay__body">
         <span className="deck-bay__line">
