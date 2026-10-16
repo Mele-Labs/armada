@@ -1,5 +1,5 @@
 // A Session's workflow rail and its judges. `crates/ipc/src/session_rail.rs`, `docs/concepts/session.md`
-// (*The rail*, *The judges*). Since 23.92.
+// (*The rail*, *The judges*). Since 16 Oct 2026.
 //
 // The header rules in `protocol.ts` hold here. The rail is soft and the judge is advisory: Fleet reads the
 // step a Session is on from what it observed and nudges the agent about a step skipped, and a judge's

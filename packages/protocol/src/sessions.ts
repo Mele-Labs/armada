@@ -127,16 +127,16 @@ export type SessionRecord = {
   /**
    * The index of the workflow step the Session is on, read by Fleet from what it observed and never from the
    * agent's word. Absent for a custom Session, once the delivering step's pull request merged with no step
-   * after it, and while `features.workflows` is off. Since 23.92.
+   * after it, and while `features.workflows` is off. Since 16 Oct 2026.
    */
   workflow_step?: number;
-  /** A judge is reading the work now. Held in memory in Fleet. Absent when none is. Since 23.92. */
+  /** A judge is reading the work now. Held in memory in Fleet. Absent when none is. Since 16 Oct 2026. */
   judging?: boolean;
-  /** The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns". Since 23.92. */
+  /** The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns". Since 16 Oct 2026. */
   judge?: JudgeReading;
   /**
    * Concerns the person has settled, oldest first, a bounded window: each a `judge` item with
-   * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 23.92.
+   * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
    */
   settled?: WaitingItem[];
 };

@@ -609,6 +609,42 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Session plans with him first, and w
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Session's recent file touches for the Field: the subagent (type and the call that started it, absent for the Session's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`. The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one. A hosted Session's touches are read off its process stream: the `Agent` call (once `Task`) names the type, and every line a subagent makes carries that call as `parent_tool_use_id`. A call whose start Fleet never heard (a Fleet that restarted) is named `subagent`. A terminal Session's come from the mod's `touched` fact, which carries the subagent's `agentId` (`by`) and the `act`; the type is read from the `subagent` attachment. A hosted Session loads the mod too, so only the stream is recorded for it. A removal is read from a plain `rm`, `git rm` or `unlink`; a command that removes by a pattern or a variable names nothing.
 
+## The rail
+
+Since 16 Oct 2026. A Session that follows a workflow has a **current step**, and it is **read off what Fleet observed, never off the agent's word**. `SessionRecord.workflow_step` is its index in the workflow's steps; it is derived each time the row is drawn (`rail.rs`, `Fleet::rail_drawn`), so nothing stores it beside the facts it comes from. It is absent for a custom Session, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off.
+
+**Three anchors are exact.** A `records_plan` step is current until a plan is approved. A `follows_plan` step is current from approval, and stays until a later step is entered. A `delivers` step is current from the first push until its pull request merges.
+
+**The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
+
+| Step declares | Entered on |
+|---|---|
+| evidence `diff` | the first edit |
+| evidence `test_suite_run` or `failing_test`, or a Manifest Check | a Check run the Session asked for, or the pull request's checks |
+| the `delivery` phase | a commit |
+| evidence `review` | a pull request opened |
+| anything else | never by itself |
+
+**Where a step cannot be told apart from the one before it, the earlier is kept**: a step that fits the same fact as its neighbour is not entered. A workflow edited under a running Session moves the indexes; the rail does not follow that.
+
+**Every move is entered on the timeline** as `session.step`, `says` `step: <old> → <new>`, a step by its label, `start` before the first and `done` past the last.
+
+**A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Session's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open. Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*. A nudge that cannot be delivered because nobody is there is asked again later and not counted.
+
+**With `features.workflows` off** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Session that already has a workflow, and the first turn does not tell the agent the steps. The Session keeps the workflow it has. The proposer is shown none and never picks one, and `set_session_workflow` refuses to set one (`fleet.session_workflows_off`) but still clears one.
+
+## The judges
+
+Since 16 Oct 2026. **A judge is the stateless call a Job's step is judged by**, on the Judge model setting (`judge.md`, *A Session's judge*), put about a Session's work. It is shown the request the person dispatched with (the Session's first message from him), the plan with the state Fleet observed for each task, the repository's standing rules and the diff against the base, and **never the transcript**. It is advisory: nothing it says blocks the Session.
+
+**Two things run one.** The **tile** (`judge_session`, `POST /sessions/judge`) runs a judge now: it asks whether the work carries out the plan and stays inside the request, and beside that the `judge_checks` of the step the Session is on. It answers the row at once with `judging` true, and the reading lands on it as `judge` `{at, concerns}`; zero is how Bridge says *No concerns*. A **boundary judge** runs in the background when the current step moves past a step that has `judge_checks`, with those checks as the questions, once for each step. Only the step just left is read, not steps passed over.
+
+**A concern is a call in the thread.** Each refusal the judge read becomes a waiting item, id `judge:<n>`, source `judge`, with its text (what was expected, produced and what follows), `concern.from` (the tile, or the step it came from), and `cites`: the files and lines of the diff its quotation landed on. A concern worded as one still waiting is not raised twice. **A call that fails or cannot be read raises nothing**, leaves `judge` as it was, and says why on Fleet's stderr.
+
+**The person decides what the agent hears.** `send_concern` sends it to the agent as his message (naming where it came from, the text and what it cites) and settles it; the message goes first, so a send that fails leaves the concern waiting. `dismiss_concern` settles it and tells the agent nothing. A settled concern leaves `waiting_for` and stays on the record in `settled`, a bounded window of the last 40, for the thread to draw as one line. `answer_waiting` and `dismiss_waiting` refuse a `judge` item, and sleep mode leaves it for the morning.
+
+**Held in memory:** `judging`, as a Fleet that restarts reads nothing as reading. Kept in the store: the rail's last step, the steps nudged and judged, the concerns and the last reading (`session_rail`, `session_concerns`, `session_judge_reading`).
+
 ## What fills the context window
 
 **A Session's context tank opens onto what fills it, the way `/context` shows it.** The mod asks the engine for a `summary` breakdown, estimated locally and never `full`, which would call the token-count API for every tool and file. It asks when the throttle lets a measurement through and the context moved, and sends `SessionRecord.context_breakdown`: `categories` (`name`, `tokens`, and a `kind` of `used`, `free`, `buffer` or `deferred` that Bridge branches on, never the name), `memory_files` (`path`, `tokens`), the ten `mcp_tools` that weigh most (`name`, `server`, `tokens`), `total_tokens`, `max_tokens` and `autocompact_threshold?`. **Names, paths and counts only**: no message text, prompt or file contents leave the mod. The live token count is the `context_tokens` already on `usage`.
