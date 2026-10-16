@@ -27,7 +27,10 @@ progress. The proposer runs on Session dispatch and fills in the title, the
 workflow (none where nothing fits, which is a custom Session as today), the
 model by difficulty, and the effort.
 
-## Walk notes, 15 Oct 2026
+## Walk notes, 15 and 16 Oct 2026
+
+**Approved 16 Oct 2026** on the walk `?walk=oneSessionView`, branch
+`mock/one-session-view`, which is the reference for the build.
 
 | He said | Settled |
 |---|---|
@@ -35,6 +38,11 @@ model by difficulty, and the effort.
 | The Cockpit's panels: keep Incoming calls, Flight control, Merge line, Status, the Ledger and the Jobs and Sessions list; Activity, Bays and Autopilot may give way | A selected Session fills the middle with its thread and composer, and its own panels take the three places that give way |
 | *"I should be able to collapse any of these panels by clicking their headers"* | Every panel folds to its band. Incoming calls is folded with no calls, opens when one arrives, and lifts over the Ledger when focused |
 | The proposal card duplicated the composer's model and effort | No proposal card. The title is the Session's name, model and effort preset the composer's own controls, the workflow is picked above the steps in Status |
+| A Start press in Status could be missed | No Start. A Session starts as soon as the proposal lands; the workflow, model and effort stay changeable, and a change applies from the next turn |
+| Plan approval in the Plan panel could be missed | Approval is a card in the thread, like a question; the Plan panel carries the plan after it |
+| *"These are all tools built on top of agents so we need to ensure that changes being made are notifying agents so they can readjust"* | Every change he makes through a panel reaches the agent. A workflow or plan change is sent at once (at its next tool call mid-turn, waking it when idle). A model or effort change applies from the next turn, which is told of it. A dismissed concern tells it nothing. Each shows as an event row in the thread |
+| *"I should be able to quickly and easily suggest changes to the plan. Suggestions and edits should go back to the agent so they can cross examine them"* | Edits and notes on a group or task collect as marks and go to the agent as one message with Send changes. The agent answers, may push back, and records a revised plan that shows what changed. Nothing he marks changes the plan without the agent |
+| *"Anything that needs me for this specific session should appear in the thread. That is where most of my focus is going to be."* | A selected Session's calls (judge concerns, plan approval, questions, permission asks, waiting items) are cards in its thread, and are left out of Incoming calls while it is selected. Incoming calls carries the other Sessions'. This replaces the 15 Oct answer "a card to him first" only in where the card sits |
 | A horizontal strip cannot hold a long workflow | Steps are drawn vertically |
 | The Field should be the repository's floorplan | A treemap of the directories with files as bars; drones fly to the file they touch |
 
