@@ -211,6 +211,13 @@
   color: var(--error);
 }
 
+/* The page is on a provider's, and the walk waits for it. The word is its tooltip. */
+.armada-capture-bar__walk-signing {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
 .armada-capture-bar__walk-said {
   flex: 1 1 auto;
   min-width: 0;

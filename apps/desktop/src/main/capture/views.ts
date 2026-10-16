@@ -5,10 +5,10 @@
 // **The page holds nothing of Armada's.** The bar and the panel are Bridge documents loaded from disk
 // with Bridge's preload and Bridge's CSP; the page is the only one that is not, and it has no preload.
 
-import { session, WebContentsView, type Session } from "electron";
+import { app, session, WebContentsView, type Session } from "electron";
 import { join } from "node:path";
 
-import { partitionFor } from "./address";
+import { chromeAgent, partitionFor } from "./address";
 import { panelQuery, type PanelSubject } from "./layout";
 
 /**
@@ -24,12 +24,17 @@ const held = new Set<string>();
  * **Every permission is denied without asking.** A page that wants the camera,
  * the clipboard, a notification or the screen gets no dialog and no capability
  * — this window exists to look at a page, not to host one.
+ *
+ * **The user agent is Electron's with its own two tokens taken out**, for every page and popup in the
+ * partition: a sign-in provider that refuses a browser it reads as Electron then reads Chrome.
+ * Bridge's own views are on the default session and keep Electron's.
  */
 function sessionFor(manifestId: string | null): Session {
   const name = partitionFor(manifestId);
   const part = session.fromPartition(name);
   if (held.has(name)) return part;
   held.add(name);
+  part.setUserAgent(chromeAgent(app.userAgentFallback));
   part.setPermissionRequestHandler((_contents, _permission, decide) => decide(false));
   part.setPermissionCheckHandler(() => false);
   part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });

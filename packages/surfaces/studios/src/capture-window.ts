@@ -97,6 +97,8 @@ export type CaptureGuide = {
   folded: boolean;
   /** The target the step cannot find, as a person would name it. Absent: found, or not yet looked for. */
   stopped?: string;
+  /** The page is on a provider the Session named, or has its popup open: the walk waits for the shown origin. Absent: it is not. */
+  signingIn?: boolean;
 };
 
 /** `ready`: done and waiting on the person. `working`: still being changed. */

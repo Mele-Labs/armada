@@ -88,7 +88,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // The ring of a walk Bridge plays, over the page until it is put away, held on a step or done. A question
   // or an armed capture is drawn instead: each of them takes the page.
   const guide = state?.walk?.guide;
-  const guiding = guide !== undefined && !guide.folded && state?.walk?.done !== true && guide.stopped === undefined && !armed && !asking;
+  const guiding = guide !== undefined && !guide.folded && state?.walk?.done !== true && guide.stopped === undefined && guide.signingIn !== true && !armed && !asking;
 
   // A new question starts with nothing typed against it.
   useEffect(() => {
@@ -298,6 +298,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
                           shown: !state.walk.guide.folded,
                           onShow: (shown: boolean) => void api.walkGuide(shown),
                           ...(state.walk.guide.stopped === undefined ? {} : { stopped: state.walk.guide.stopped }),
+                          ...(state.walk.guide.signingIn === true ? { signingIn: true } : {}),
                         },
                 },
               })}

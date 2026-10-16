@@ -248,6 +248,8 @@ export class StepWalk {
   private box: CaptureRect | null = null;
   private autoplaying = false;
   private folded = false;
+  /** The page is on a provider the Session named, or has its popup open. The step waits and is not held. */
+  private signing = false;
   /** Bumped by anything that moves the walk, so a look or a dwell that lands afterwards is let go of. */
   private round = 0;
   /** The beat that reads the ringed box again, and the dwell autoplay holds a step for. */
@@ -277,7 +279,8 @@ export class StepWalk {
       guide: {
         box: this.phase === "ready" ? this.box : null,
         folded: this.folded,
-        ...(this.phase === "stopped" ? { stopped: line(this.stoppedWords(), SAID_MAX) } : {}),
+        ...(this.signing ? { signingIn: true } : {}),
+        ...(this.phase === "stopped" && !this.signing ? { stopped: line(this.stoppedWords(), SAID_MAX) } : {}),
       },
     };
   }
@@ -291,6 +294,20 @@ export class StepWalk {
   /** Begin on the page as it stands: the first load. */
   begin(): void {
     void this.run(0);
+  }
+
+  /**
+   * The page is, or is no longer, being signed in on: it is on a provider the Session named, or its
+   * popup is open. **While it is, the step being looked for is waited on with its patience held**, so a
+   * target that cannot be on a provider's page is not read as missing, and nothing is told to the
+   * Session. Back on the shown origin the same step is looked for again, with the whole patience.
+   */
+  signIn(on: boolean): void {
+    if (this.signing === on) return;
+    this.signing = on;
+    this.host.changed();
+    // A step held before the page left is looked for again on its return.
+    if (!on && this.phase === "stopped" && this.host.open()) void this.seek(++this.round);
   }
 
   /** The bar's five acts, and the one that shows or hides the ring. */
@@ -399,10 +416,17 @@ export class StepWalk {
 
   /** The target once it has arrived, or `null` after the patience a step has. Asked in short turns, so a page that navigates is waited out. */
   private async arrive(target: WalkTarget, round: number): Promise<CaptureRect | null> {
-    const until = Date.now() + PATIENCE_MS;
+    let until = Date.now() + PATIENCE_MS;
     for (;;) {
+      if (round !== this.round || !this.host.open()) return null;
+      // On a provider's page the target is not expected, and the time it takes a person to sign in is not the step's.
+      if (this.signing) {
+        until = Date.now() + PATIENCE_MS;
+        await sleep(150);
+        continue;
+      }
       const left = until - Date.now();
-      if (left <= 0 || round !== this.round || !this.host.open()) return null;
+      if (left <= 0) return null;
       const box = await this.host.finder.arrive(target, Math.min(left, 1000));
       if (box !== null || round !== this.round) return box;
       await sleep(150);

@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, RotateCcw, Search } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, RotateCcw, Search, UserCheck } from "lucide-react";
 import type { KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -130,10 +130,11 @@ export type CaptureBarWalk = {
   onReplay: () => void;
   /**
    * Present where Bridge plays the steps itself and draws the ring over the page. `shown` is whether
-   * the ring is up, `onShow` puts it away or draws it again so the page can be used, and `stopped` names
-   * the target the step cannot find. **Absent: the page plays its own walk** and rings its own target.
+   * the ring is up, `onShow` puts it away or draws it again so the page can be used, `stopped` names
+   * the target the step cannot find, and `signingIn` is the page being on a provider's, which the walk
+   * waits out. **Absent: the page plays its own walk** and rings its own target.
    */
-  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string };
+  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string; signingIn?: boolean };
 };
 
 /**
@@ -306,6 +307,13 @@ export function CaptureBar(props: CaptureBarProps) {
           <span className="armada-capture-bar__walk-where">
             Step {walk.at} of {walk.of}
           </span>
+          {walk.guide?.signingIn !== true ? null : (
+            <Tooltip label="Signing in">
+              <span className="armada-capture-bar__walk-signing" role="img" aria-label="Signing in">
+                <UserCheck size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          )}
           {walk.guide?.stopped === undefined ? null : (
             <Tooltip label={`Not found: ${walk.guide.stopped}`}>
               <span className="armada-capture-bar__walk-stopped" role="img" aria-label="Not found">

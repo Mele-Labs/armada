@@ -65,6 +65,14 @@ around `nodeIntegration: false`.
 > Why: a deployed page behind single sign-on redirects to a provider and back,
 > and a window that refuses the first hop cannot show the page at all.
 
+> **Rule.** A Session's window may open one popup, and only onto the shown origin or a named one
+> (`origins`). It is a child window of the walk's, in the same partition, with the same navigation hold
+> and no preload; it closes when the page calls `window.close()` or the walk window closes. Every other
+> popup is refused, as are a second one, one a popup opens, and any popup of a Run's or a Job's window.
+> *A popup a Session's page opened* has the review.
+> Why: a provider that signs in through a popup cannot be walked in a window that denies every
+> popup, and the sign-in is the one thing the owner cannot be handed a redirect for.
+
 > **Rule.** A Session's window is in a cookie jar of its own repository, keyed by
 > the Session's `manifest_id`. A Session with none shares one unnamed jar.
 > Why: a sign-in, the person's or the Session's, has to hold for the next walk,
@@ -124,7 +132,8 @@ around `nodeIntegration: false`.
 | Top-level navigation | `will-navigate` | Refused, address said, unless on a named origin |
 | A server redirect | `will-redirect` | Refused, address said, unless on a named origin |
 | A subframe | `will-frame-navigate` | Refused, counted on the bar, unless on a named origin |
-| A popup or new window | `setWindowOpenHandler` | Denied, address said |
+| A popup or new window | `setWindowOpenHandler` | A Session's window opens one onto the shown origin or a named one; every other is denied, address said |
+| A popup's own navigation | `will-navigate`, `will-redirect`, `will-frame-navigate` on the popup | Held to the same origins as the page, refused and said on the walk's bar otherwise |
 | A download | `will-download` | Refused |
 
 > **Rule.** A comparison is on the whole origin — scheme, host and port —
@@ -274,7 +283,7 @@ this window, and that is another security review. `#1294`.
 | Node, `require`, `fs` | None | `nodeIntegration: false`, `sandbox: true` |
 | The Studio's records | None | No id, no path, no port in the page |
 | A frame Fleet kept | None | `armada-frame:` is handled on the default session |
-| Bridge's window | None | Every window open denied, so no opener |
+| Bridge's window | None | Never an opener: the only popup is the page's own, onto an origin the page may reach |
 | Bridge's cookies and cache | None | Its own session partition |
 | The filesystem | None | Downloads refused, `file:` never loaded |
 | The screen | None | Fullscreen, pointer lock and every permission denied |
@@ -475,6 +484,7 @@ this window, and what it adds is below.
 | It is ringed | The bar's view over the page | Main sends the target's box and the caption; the bar draws the ring and the card, as a question's outline is drawn (`WalkGuide`). The page draws nothing |
 | The person presses Next | The bar names the act | Main sends real input to the page's contents (`sendInputEvent`): the pointer moves to the target's middle, goes down and up; keys for `type` and `key`; a drag with moves between |
 | The target is not found | Main, after the patience a step has | The walk holds on the step. The bar marks it, and the Session is told once through `window_failed`, naming the step and its target |
+| The page is signing in | Main, from the page's address and its popup | While the page is on a named origin, is heading to one, or has its popup open, the step is waited on with its patience held. The bar marks it with the signing-in glyph and a tooltip, the page takes presses, and the Session is told nothing. Back on the shown origin the same step is looked for again |
 | Back, Replay, Reload | Main | The pinned address loads again and the steps before the one asked for run straight through, as the mock's Back does |
 
 > **Rule.** The finder runs in an isolated world and nowhere else. The page's own world gets no global,
@@ -513,6 +523,13 @@ this window, and what it adds is below.
 > step, leaves the page to take presses.
 > Why: a ring drawn where a press could land on the page is a forgery the page could read, and a walk
 > the person cannot touch the page of is not one he can use.
+
+> **Rule.** While the page is on a named origin the walk is in a signing-in state, not a held one.
+> The state is the page's address (navigated to, redirected to, or about to be, off `will-navigate`
+> and `will-redirect`) or its popup being open, and it ends when both are gone. A step held before the
+> page left is looked for again on its return. The first load follows the same line as `beginsOn`:
+> the steps begin on the shown origin.
+> Why: a provider's page is not one the steps were written for, so a target missing there is not news.
 
 > **Rule.** A step whose target is not found within the patience a step has, the mock's, is held on, and
 > told to the Session through the path `window_failed` uses: once per step until it is found, in a line
@@ -616,9 +633,9 @@ is that a second Bridge document sits beside it, with the bar's grant.
 | Capture once the Run is not serving | Trusting a port to still be the Run's |
 | Rewriting the page's CSP, or `webSecurity: false` | Making an awkward app render |
 | Any preload capability on this window | One small exception, then a second |
-| A page's `window.open`, downloads and dialogs | Filtering them |
+| A page's `window.open` onto any other address, downloads and dialogs | Filtering them |
 | Following a refused address in this window | A second browser nobody asked for |
-| A popup, even a sign-in provider's | Letting a page open a window of its own |
+| A popup onto an address the window may not reach, a second popup, a popup's popup, and any popup of a Run's or a Job's window | Letting a page open a window of its own |
 | A `sign_in` address off the shown origin and the named ones | A Session loading a page it did not let the window reach |
 
 > **Rule.** A capability added to this window later is another security review,
@@ -637,7 +654,7 @@ is that a second Bridge document sits beside it, with the bar's grant.
 | What it allows | A top-level navigation, a redirect or a subframe to that origin, compared on scheme, host and port whole |
 | What it does not allow | Any other origin. A redirect off the named ones is refused and said on the bar, as before |
 | Where main still runs a script | The shown origin only. Capture, a question's locate, the failure look and a walk's handle all wait for the page to be on it, so a provider's page is never asked anything |
-| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads and popups refused, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
+| What the named page reaches | What the shown page does: no preload, no channel to main, every permission denied, downloads refused, popups held as *A popup a Session's page opened* says, `webSecurity` on. It holds its own origin's cookies in the repository's jar and no other's |
 | What the Session can do with it | Reach a page it could already show with `show_window`. Naming an origin makes no page the window loads trusted; it lets a redirect there complete |
 
 > **Rule.** A named origin is allowed to be navigated to and nothing more.
@@ -651,11 +668,60 @@ is that a second Bridge document sits beside it, with the bar's grant.
 > Why: a sign-in is a page load with a login in its address, and it should reach
 > no further than the window does.
 
-**Costs.** A provider that signs in through a popup, or one that refuses a
-browser whose user agent says Electron, cannot be walked in this window. The
-redirect form works, and the owner signs in on the provider's page once. A
-Bridge that is not connected when the page is shown opens no window, and
-`sign_in` is lost with the call.
+> **Rule.** A walk whose page is on a named origin waits there. The steps hold on the step being
+> looked for in a signing-in state, the bar draws a glyph with a tooltip and not the not-found one,
+> and the Session is told nothing. Back on the shown origin the same step is looked for again, with
+> its whole patience. A page that has its popup open is in the same state.
+> Why: a step that sends the page to a provider has a target the provider's page cannot hold, and
+> reading that as missing told the Session to fix steps that were right. The person's time at a
+> provider is not the step's patience. The state is read off the page's address and the popup, which
+> main already knows, and nothing is asked of the page.
+
+> **Rule.** The capture partitions' user agent is Electron's with the `Electron/x.y.z` token and the
+> app's own name token removed (`chromeAgent`, `address.ts`), for the page and its popup. Bridge's own
+> views keep Electron's.
+> Why: a provider that refuses a browser it can place as Electron reads Chrome instead. The agent is
+> a header and a string the page reads, and the page learns nothing of Armada from it. It makes the
+> page no more trusted and the window no more capable; a page that reads it learns only less about
+> where it runs.
+
+**Costs.** A bot check that reads more than the user agent still refuses this window, and the
+owner signs in on the provider's page in a browser first. A popup that opens `about:blank` and
+navigates it afterwards is refused, since its first address is on no origin. A Bridge that is not
+connected when the page is shown opens no window, and `sign_in` is lost with the call.
+
+## A popup a Session's page opened
+
+A provider's sign-in often opens a popup and posts its answer back to the page. This is the review of
+letting that one window open, and it is a capability added to this window.
+
+| Question | Answer |
+|---|---|
+| Whose window | A Session's. A Run's and a Job's refuse every popup, as before |
+| Which address | The popup's own, `HandlerDetails.url`, on the shown origin or a named one, compared whole. Anything else is refused, said on the bar |
+| How many | One. A second `window.open` while it is open is refused, and so is one the popup makes |
+| What it is | A child window of the walk's around the contents Electron made for it (`createWindow`), in the page's partition, sandboxed, `contextIsolation` on, `nodeIntegration` off, no preload |
+| What holds it | The page's own hold: `will-navigate`, `will-redirect` and `will-frame-navigate` against the same origins. A download, a permission and a dialog meet the partition's refusals |
+| What it can reach | The page that opened it, as any popup reaches its opener, and the repository's cookie jar. Nothing of Bridge's: it is not Bridge's window's opener, and the page has no preload for it to find |
+| When it closes | The page calls `window.close()`, the person closes it, or the walk window closes |
+| What a failure does | Nothing reaches main uncaught. A popup that cannot be built is closed and refused as every popup was |
+
+> **Rule.** The popup is built on the contents Electron hands `createWindow`, never on a view of
+> Bridge's own making.
+> Why: Electron requires the child window to be connected to the contents it created, and a popup
+> that is not is an uncaught exception in main. The preferences are the opener's, which are the
+> page's: no preload and sandboxed.
+
+> **Rule.** The popup runs no script of Bridge's. Capture, a question's locate, the failure look and
+> the walk's finder stay on the page, and the page's own `window.opener` is the only line between the two.
+> Why: the popup is a provider's page, and everything the window does to a page for the person's sake
+> stays on the origin the Session showed.
+
+**What it adds.** One more document that can exist beside the page, on an origin the Session already
+let the window reach, able to talk to the page that opened it. **What it does not add:** no origin
+the window could not already navigate to, no preload, no channel to main, no run of Bridge's script
+in it, and no popup for a Run's page or a Job's. A page that opens a popup onto its own origin gets a
+window of itself, which it could already draw.
 
 ## What this does not claim
 
