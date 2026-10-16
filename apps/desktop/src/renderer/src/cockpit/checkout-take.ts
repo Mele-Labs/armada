@@ -3,4 +3,12 @@
 
 export type CheckoutTake = "scroll" | "reveal";
 
-export const checkoutTake = (): CheckoutTake => (new URLSearchParams(window.location.search).get("take") === "reveal" ? "reveal" : "scroll");
+/** Set by a scenario, so a walk plays its take without the url naming it. */
+let chosen: CheckoutTake | undefined;
+
+export const chooseCheckoutTake = (take: CheckoutTake | undefined): void => {
+  chosen = take;
+};
+
+export const checkoutTake = (): CheckoutTake =>
+  chosen ?? (new URLSearchParams(window.location.search).get("take") === "reveal" ? "reveal" : "scroll");

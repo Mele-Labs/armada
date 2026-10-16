@@ -51,7 +51,7 @@ export const checkoutHeldBack = walk("checkout-held-back", [
 ]);
 
 /** And held by folding: the first few lines, Show all, and Show fewer. */
-export const checkoutHeldBackReveal = walk("checkout-held-back", [
+export const checkoutHeldBackReveal = walk("checkout-held-back-reveal", [
   ...steps,
   ...looseHold,
   { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first, and the list stops after a few lines" },
