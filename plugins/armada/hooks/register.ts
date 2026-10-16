@@ -41,6 +41,8 @@ import {
   titleOf,
   todoTasks,
   updatedTask,
+  storedTasks,
+  taskListDir,
   saidOf,
   withoutMarkup,
   effortOf,
@@ -88,6 +90,10 @@ type Known = {
   background: Map<string, Record<string, string>>
   /** The agent's task list as its tools last left it, in order. */
   tasks: Task[]
+  /** Whether the harness's own list was read for this process, which is done once. */
+  tasksRead: boolean
+  /** The list as Fleet last heard it, so a seed that changes nothing Fleet holds tells nothing. */
+  tasksTold: string
   tuned?: Tuning
   // The terminal's permission prompts open now, oldest first. Fleet is told of the first.
   prompts: Prompt[]
@@ -473,7 +479,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -589,13 +595,41 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
  * write the same list (measured on claude 2.1.300), so they are heard too, each task marked with who made it.
  * A subagent's `TodoWrite` is a list of its own and would replace this one: not heard. A list that did not
  * change is not told again.
+ *
+ * **A process that began after the list was made does not hold it** (a session resumed after Fleet restarted,
+ * or moved into a slot), so the first of these tools reads the harness's own list from disk (`stored`) and
+ * the call's change goes on top of it. Without that, a `TaskUpdate` named a task nothing here had made and
+ * was never told. The `TaskCreate` hears `by` from the call; a task made before this process has none.
  */
-async function planned($: Dollar, next: (list: Task[]) => Task[] | undefined): Promise<void> {
+async function planned($: Dollar, next: (list: Task[]) => Task[] | undefined, seed = true): Promise<void> {
   const [id, one] = await current($)
-  const tasks = next(one.tasks)
-  if (tasks === undefined || JSON.stringify(tasks) === JSON.stringify(one.tasks)) return
+  if (seed && !one.tasksRead) {
+    const kept = await stored($, id).catch(() => undefined)
+    if (kept !== undefined && !one.tasksRead) {
+      one.tasksRead = true
+      if (one.tasks.length === 0) one.tasks = kept
+    }
+  }
+  const tasks = next(one.tasks) ?? one.tasks
   one.tasks = tasks
+  const now = JSON.stringify(tasks)
+  if (now === one.tasksTold) return
+  one.tasksTold = now
   say($, id, { kind: 'tasks', tasks })
+}
+
+/** The harness's own list for this session, or nothing where it has none yet or cannot be read. */
+async function stored($: Dollar, id: string): Promise<Task[] | undefined> {
+  const home = await $.env.get('HOME')
+  if (!home) return undefined
+  const dir = taskListDir(home, (await $.env.get('CLAUDE_CODE_TASK_LIST_ID')) || id)
+  const entries = await $.fs.list(dir)
+  const files = await Promise.all(
+    entries
+      .filter(one => one.kind === 'file' && one.name.endsWith('.json') && !one.name.startsWith('.'))
+      .map(one => $.fs.read(`${dir}/${one.name}`).then(text => (typeof text === 'string' ? text : ''), () => '')),
+  )
+  return storedTasks(files)
 }
 
 async function dispatched($: Dollar, via: string, text: string): Promise<void> {
@@ -1022,7 +1056,7 @@ export const register: Register = on => {
     const ran = await next(e)
     if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
       const list = todoTasks(e as Record<string, unknown>)
-      if (list !== undefined) void planned($, () => list).catch(() => undefined)
+      if (list !== undefined) void planned($, () => list, false).catch(() => undefined)
     }
     return ran
   })

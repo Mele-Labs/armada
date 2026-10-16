@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.27'
+export const MOD_VERSION = '0.3.28'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -500,8 +500,38 @@ export function madeTask(
 }
 
 /**
- * The list after a `TaskUpdate`. A task the mod never saw made (a session resumed in a terminal) is
- * not in it, and is not invented: nothing to tell.
+ * Where Claude Code keeps a task list: `~/.claude/tasks/<list>/<n>.json`, one file a task. The list is the
+ * session's id unless `CLAUDE_CODE_TASK_LIST_ID` names it, and the harness cleans the name the same way.
+ */
+export function taskListDir(home: string, list: string): string {
+  return `${home}/.claude/tasks/${list.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+}
+
+/**
+ * The harness's own list, from its task files. It is what the agent's tools left, whichever process made
+ * them, so a process that began after the list was written (a resumed session) starts from it. A file
+ * that is not a task, or not whole yet, is left out. In order of id.
+ */
+export function storedTasks(files: string[]): Task[] {
+  const tasks: Task[] = []
+  for (const file of files) {
+    let one: Record<string, unknown>
+    try {
+      one = JSON.parse(file) as Record<string, unknown>
+    } catch {
+      continue
+    }
+    const id = typeof one?.id === 'string' || typeof one?.id === 'number' ? String(one.id) : undefined
+    const text = textOf(one.subject)
+    if (id === undefined || text === undefined) continue
+    tasks.push({ id, text, status: statusOf(one.status) ?? 'pending' })
+  }
+  return tasks.sort((a, b) => Number(a.id) - Number(b.id) || a.id.localeCompare(b.id))
+}
+
+/**
+ * The list after a `TaskUpdate`. A task that is in neither the list nor the harness's store is not
+ * invented: nothing to tell.
  */
 export function updatedTask(list: Task[], input: Record<string, unknown>): Task[] | undefined {
   const id = input.taskId ?? input.task_id ?? input.id
