@@ -5,18 +5,13 @@ import { useCallback } from "react";
 
 import { useSessionsDraft } from "../sessions-draft";
 import type { Finding, ReviewPr } from "./model";
+import { placeSaid } from "./runs";
 import { useReviewStore } from "./store";
-
-/** The change a finding is on, by title, and the path it touches. */
-const whereOf = (pr: ReviewPr, finding: Finding): string => {
-  const one = pr.explanation.themes.flatMap((theme) => theme.changes).find((change) => change.id === finding.change);
-  return one === undefined ? "" : `${one.title}, ${one.hunks[0]?.path ?? ""}`;
-};
 
 const textOf = (pr: ReviewPr, findings: readonly Finding[]): string =>
   findings.length === 1
-    ? `Review finding on #${pr.number}, ${whereOf(pr, findings[0]!)}: ${findings[0]!.title}\n\n${findings[0]!.body}`
-    : [`Review findings on #${pr.number}`, ...findings.map((one) => `${whereOf(pr, one)}: ${one.title}\n${one.body}`)].join("\n\n");
+    ? `Review finding on #${pr.number}, ${placeSaid(findings[0]!.at)}: ${findings[0]!.title}\n\n${findings[0]!.body}`
+    : [`Review findings on #${pr.number}`, ...findings.map((one) => `${placeSaid(one.at)}: ${one.title}\n${one.body}`)].join("\n\n");
 
 /** Send findings to the Session that holds `pr`. Absent where none of his Sessions does. */
 export function useSendFindings(pr: ReviewPr | undefined): ((findings: readonly Finding[]) => void) | undefined {

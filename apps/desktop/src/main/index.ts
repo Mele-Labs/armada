@@ -562,6 +562,7 @@ void app.whenReady().then(() => {
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
+  connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));

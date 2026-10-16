@@ -135,3 +135,43 @@ test("a tool that found nothing draws its picture and says what it checked", asy
   await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
   await expect.element(results.getByText(/^No risks in \d+ changes?$/)).toBeVisible();
 });
+
+test("a pull request one of his Sessions holds opens with what was kept for it, and no run is asked for", async () => {
+  await reviews();
+  await choose("My PRs");
+  await row(1896).click();
+  await expect.element(reader(1896).getByRole("button", { name: "Session: Fix the reconnect wait" })).toBeVisible();
+  const how = reader(1896).getByRole("region", { name: "How it works" });
+  await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
+  await reader(1896).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "Why" }).click();
+  await expect.element(reader(1896).getByRole("region", { name: "Why" }).getByRole("img", { name: /^Kept/ })).toBeVisible();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("a run that fails shows Fleet's reason where the result would be, and Run again starts another", async () => {
+  const app = await reviews();
+  (app.api as typeof app.api & Pick<MockForge, "failNextRun">).failNextRun("The answer was not valid JSON");
+  await row(212).click();
+  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
+  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
+  const results = page.getByRole("region", { name: "Risks results" });
+  await expect.element(results.getByRole("alert")).toHaveTextContent("The answer was not valid JSON");
+  await expect.element(results.getByRole("img", { name: "Nothing found" })).not.toBeInTheDocument();
+
+  await results.getByRole("button", { name: "Run again" }).click();
+  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
+  await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
+  await expect.element(results.getByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
+  await reviews();
+  await row(1899).click();
+  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Add a tool" }).click();
+  const sheet = page.getByRole("dialog", { name: "Add a tool" });
+  await sheet.getByRole("textbox", { name: "Name" }).fill("Test gaps");
+  await sheet.getByRole("textbox", { name: "What it checks" }).fill("What no test would notice.");
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect.element(sheet.getByRole("alert")).toHaveTextContent("test-gaps.md is already in the Kit");
+  await expect.element(sheet.getByRole("list", { name: "Left out" })).toBeVisible();
+});
