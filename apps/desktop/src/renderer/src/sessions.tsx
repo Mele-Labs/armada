@@ -1168,7 +1168,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                     ...(session.asked.offers === undefined
                       ? {}
                       : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
+                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }), ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
                   },
                 })}
             onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
@@ -1381,7 +1381,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
                   ...(session.asked.offers === undefined
                     ? {}
                     : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-                  ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
+                  ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }), ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
                 },
               })}
           onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}

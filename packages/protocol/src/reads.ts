@@ -436,6 +436,7 @@ export type Outcome =
       modPromoted?: ModPromoted;
     }
   | { ok: false; why: "not_connected" }
+  | { ok: false; why: "not_understood" }
   | { ok: false; why: "empty_brief" }
   | { ok: false; why: "empty_title" }
   | { ok: false; why: "no_workflow" }

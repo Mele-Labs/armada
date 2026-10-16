@@ -103,6 +103,7 @@ fn offer_label(offer: &HelmCallAnswer) -> &'static str {
         HelmCallAnswer::Refuse => "Refuse",
         HelmCallAnswer::AlwaysAllow => "Always allow",
         HelmCallAnswer::AlwaysBlock => "Always block",
+        HelmCallAnswer::AllowForSession => "Always allow for this session",
     }
 }
 
