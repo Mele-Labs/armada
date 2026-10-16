@@ -30,6 +30,12 @@ export function HelmHolds({ entries }: { entries: readonly LedgerEntry[] }) {
             <button type="button" className="armada-helm-holds__chip" aria-label={`Open ${one.name}`} onClick={one.onOpen}>
               <Glyph size={12} strokeWidth={2} aria-hidden />
               <span className="armada-helm-holds__text">{one.text}</span>
+              {one.slot === undefined ? null : (
+                <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${one.slot}`}>
+                  <KeyRound size={12} strokeWidth={2} aria-hidden />
+                  {one.slot}
+                </span>
+              )}
               {one.pr !== undefined ? (
                 <PullRequestChecksMark checks={one.pr.checks} said={one.pr.checksSaid} />
               ) : one.kind === "subagent" && one.mark !== undefined ? (
