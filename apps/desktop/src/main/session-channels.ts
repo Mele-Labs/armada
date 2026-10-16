@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -64,6 +64,14 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
   });
+  ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
+    if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unsent;
+    return connection()?.sessions.approvePlan({ session_id: approve.session_id, version: approve.version }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.sendPlanChanges, (_event, changes: SendPlanChanges) => {
+    if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unsent;
+    return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
+  });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
     return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;
@@ -87,6 +95,15 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
+    if (!text(sessionId)) return unsent;
+    // Each row a kind and a target, or none sent; anything else is not a choice Fleet could read.
+    const chosen = Array.isArray(rows) && rows.every((one) => text(one?.kind) && text(one?.target)) ? (rows as ChosenHold[]).map(({ kind, target }) => ({ kind, target })) : undefined;
+    if (rows !== undefined && chosen === undefined) return unsent;
+    return (
+      connection()?.sessions.releaseHolds({ session_id: sessionId, ...(text(toSessionId) ? { to_session_id: toSessionId } : {}), ...(chosen === undefined ? {} : { rows: chosen }) }) ?? unsent
+    );
+  });
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
     text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
   );

@@ -57,9 +57,11 @@ pub struct Start {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Heard {
     Events(Vec<DroneEvent>),
-    /// What a subagent inside the process did. Its words are not the agent's and are not drawn, but its
-    /// reads, edits and commands are the session's work.
-    Subagent(Vec<DroneEvent>),
+    /// What a subagent inside the process did, under the call that started it. Its words are not the
+    /// agent's and are not drawn, but its reads, edits and commands are the session's work.
+    Subagent { events: Vec<DroneEvent>, call: Option<String> },
+    /// Subagents a line started: the call of each, and the type it asked for.
+    Spawned(Vec<(String, String)>),
     /// What the stream's `init` line said the agent has: slash commands and
     /// skills, by name. Since 23.51.
     Commands(Vec<String>),

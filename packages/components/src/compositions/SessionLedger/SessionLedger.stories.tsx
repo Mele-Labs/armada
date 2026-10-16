@@ -22,8 +22,8 @@ type Story = StoryObj<typeof SessionLedger>;
 const open = fn();
 const shown = fn();
 const ENTRIES: LedgerEntry[] = [
-  { key: "s3", kind: "slot", name: "Worktree slot 3", text: "3", onOpen: open },
-  { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", onOpen: open },
+  { key: "s7", kind: "slot", name: "Worktree slot 7", text: "7", onOpen: open },
+  { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
   { key: "p", kind: "pull_request", name: "Pull request #1843, checks failed", text: "#1843 Pin the store clock", mark: { glyph: "failed", said: "Checks failed: store: 2 failed" }, onOpen: open },
   { key: "j", kind: "job", name: "Job 52", text: "52 Pin the store clock", slot: 4, onOpen: open },
   { key: "st", kind: "studio", name: "Studio Flaky store shapes", text: "Flaky store shapes", onOpen: open },
@@ -152,6 +152,25 @@ export const Some: Story = {
     await expect(canvas.queryByRole("heading", { name: "Worktree Slot" })).toBeNull();
     await expect(canvas.queryByRole("heading", { name: "Artifacts" })).toBeNull();
     await expect(canvas.queryByRole("img", { name: "Nothing attached" })).toBeNull();
+  },
+};
+
+/** No Worktree Slot section: a branch row ends in its slot's chip, and a slot no branch is on is a row under Branches, after the branches. */
+export const SlotChips: Story = {
+  args: {
+    entries: [
+      { key: "s9", kind: "slot", name: "Worktree slot 9", text: "9", onOpen: open },
+      { key: "b3", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
+      { key: "b5", kind: "branch", name: "Branch store/migration-lock", text: "store/migration-lock", slot: 5, onOpen: open },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("heading", { name: "Worktree Slot" })).toBeNull();
+    const branches = canvas.getByRole("region", { name: "Branches" });
+    await expect(within(branches).getByRole("listitem", { name: "Branch fix/flaky-store" }).querySelector('[aria-label="Worktree slot 3"]')).not.toBeNull();
+    await expect(within(branches).getByRole("listitem", { name: "Branch store/migration-lock" }).querySelector('[aria-label="Worktree slot 5"]')).not.toBeNull();
+    const rows = within(branches).getAllByRole("listitem").map((one) => one.getAttribute("aria-label"));
+    await expect(rows).toEqual(["Branch fix/flaky-store", "Branch store/migration-lock", "Worktree slot 9"]);
   },
 };
 

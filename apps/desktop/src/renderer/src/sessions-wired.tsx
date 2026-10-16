@@ -16,7 +16,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { SessionRunMessage } from "@armada/protocol";
+import type { SessionHoldsReleased, SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
@@ -27,6 +27,7 @@ import { share } from "@armada/screens/src/share";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   CheckoutDiffRead,
+  HoldsReleased,
   PullRequestFileRead,
   PullRequestPageRead,
   Session,
@@ -274,6 +275,14 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call; a refusal is the toast `stop`'s is. Both Sessions' rows change by `session.changed`. */
+  private async releasing(id: string, to: string | undefined, rows: readonly { kind: string; target: string }[] | undefined): Promise<HoldsReleased | undefined> {
+    this.say(undefined);
+    const done = await this.api.releaseSessionHolds(id, to, rows === undefined ? undefined : rows.map(({ kind, target }) => ({ kind, target })));
+    if (!done.ok) return void this.tell(done.outcome);
+    return holdsReleasedOf(done.value);
+  }
+
   /** As `forking`, from one message of a Session that may still be running. */
   private async forkingAt(id: string, at: string): Promise<string | undefined> {
     this.say(undefined);
@@ -444,6 +453,7 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
@@ -539,4 +549,20 @@ export function WiredSessions({ children }: { children: ReactNode }) {
       {children}
     </SessionsFrom>
   );
+}
+
+/** Fleet's answer, as the deck draws it. */
+export function holdsReleasedOf(wire: SessionHoldsReleased): HoldsReleased {
+  const row = (one: SessionHoldsReleased["moved"][number]) => ({
+    kind: one.kind,
+    target: one.target,
+    ...(one.released === undefined || one.released === null
+      ? {}
+      : { saved: { branch: one.released.branch, files: one.released.saved?.files ?? [], ...(one.released.saved?.commit === undefined ? {} : { commit: one.released.saved.commit }) } }),
+  });
+  return {
+    ...(wire.to_session_id === undefined ? {} : { to: wire.to_session_id }),
+    moved: wire.moved.map(row),
+    kept: wire.kept.map((one) => ({ kind: one.kind, target: one.target, why: one.why })),
+  };
 }

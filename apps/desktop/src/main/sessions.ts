@@ -14,6 +14,8 @@
 import WebSocket from "ws";
 
 import type {
+  ReleaseSessionHolds,
+  SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
   CatchUpCheckout,
@@ -21,6 +23,7 @@ import type {
   CheckoutDiff,
   CheckoutSentAsPullRequest,
   CheckoutToPullRequest,
+  ApprovePlan,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -33,6 +36,7 @@ import type {
   RenameSession,
   RunSessionCommand,
   ReviewDispatched,
+  SendPlanChanges,
   SendSessionMessage,
   SessionList,
   SessionRecord,
@@ -429,6 +433,16 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
+  /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
+  async approvePlan(approve: ApprovePlan): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/plan/approve", approve);
+  }
+
+  /** The marks he made on a plan, sent to the agent as one message. */
+  async sendPlanChanges(changes: SendPlanChanges): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/plan/changes", changes);
+  }
+
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
   async windowClosed(closed: WindowClosed): Promise<SessionActed> {
     return await this.act("POST", "/sessions/window/closed", closed);
@@ -463,6 +477,14 @@ export class SessionsHost {
 
   async stop(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
+  }
+
+  /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/release_holds", release);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHoldsReleased } : { ok: false, outcome: answer.outcome };
   }
 
   /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */

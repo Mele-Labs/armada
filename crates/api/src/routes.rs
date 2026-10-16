@@ -255,6 +255,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::show_window::<D>),
         )
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
+        .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
+        .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
+        .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -351,6 +354,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/stop",
             post(crate::hosted_sessions::stop_session::<D>),
+        )
+        .route(
+            "/sessions/release_holds",
+            post(crate::hosted_sessions::release_session_holds::<D>),
         )
         .route(
             "/sessions/one",

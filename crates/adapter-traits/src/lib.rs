@@ -70,7 +70,7 @@ pub use delivery::{
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
-pub use event::{CallDetail, DroneEvent, Speaker, ToolUse};
+pub use event::{CallDetail, DroneEvent, FileAct, Speaker, ToolUse};
 pub use harness::{
     AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
     Model, Prompt, Prompting, Repair, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
@@ -198,6 +198,12 @@ pub trait AgentHarness {
     /// event, an edit call included. **Which tools these are is the harness's vocabulary**, asked of
     /// it for the reason `edited` is.
     fn used(&self, event: &DroneEvent) -> Option<ToolUse>;
+
+    /// How the edit call `edited` names changed its file: written whole, or in part. **An edit unless
+    /// the harness says otherwise**, since most of what changes a file changes part of it.
+    fn edit_act(&self, _event: &DroneEvent) -> FileAct {
+        FileAct::Edit
+    }
 }
 
 /// Version control, as Fleet uses it.
@@ -443,6 +449,21 @@ pub trait Vcs {
         slot: u32,
         holder: &str,
     ) -> Result<SlotParked, SlotParkRefused>;
+
+    /// Write a slot an agent session holds as `to_session`'s, as it stands: nothing is
+    /// committed or released. **`from` is who holds it now, as the pool names it** (a
+    /// process's `claude (pid 44698)`, a hosted session's `job <id>`); a slot re-leased
+    /// since is refused. The new lease is held as a Job of `to_session`'s id.
+    fn hand_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        from: &str,
+        to_session: &str,
+    ) -> Result<(), SlotParkRefused> {
+        let _ = (pool, slot, from, to_session);
+        Err(SlotParkRefused::NotLeased)
+    }
 
     /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
     /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
