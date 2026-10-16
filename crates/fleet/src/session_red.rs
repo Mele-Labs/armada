@@ -150,6 +150,7 @@ where
                     session_id: SessionId::carried(old),
                     at,
                 }),
+                request: None,
             })
         };
         let made: Result<SessionRecord, _> = match fork(None).await {

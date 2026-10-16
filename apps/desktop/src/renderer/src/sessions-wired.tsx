@@ -177,9 +177,9 @@ export class WiredStore {
     return manifest === undefined ? undefined : this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifest)?.root;
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag));
+    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag), request);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -404,7 +404,7 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root) => this.starting(tag, root),
+    start: (tag, root, request) => this.starting(tag, root, request),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),

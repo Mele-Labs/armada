@@ -44,6 +44,13 @@ export type StartSession = {
    * Manifest, and `manifest_id` is not read. A root that has one by now starts as a plain start on it.
    */
   root?: string;
+  /**
+   * The words the person dispatched. Since 23.91. Fleet reads them once with the Job proposer's model and
+   * fills in the title, workflow, model and effort this start leaves unset; the answer is not waited on.
+   * The session is answered at once with `proposal.reading` true, and its process starts on the answer.
+   * Not read with `pilot`, `fork` or `root`.
+   */
+  request?: string;
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
@@ -131,6 +138,17 @@ export type MoveSession = { session_id: string; manifest_id: string };
 
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
+
+/**
+ * `POST /sessions/workflow`: the person picked the Session's workflow in a panel, or cleared it. Since 23.91.
+ * Answers the `SessionRecord`. A Session that has run is told at once; one that has not, with its first turn.
+ * 422 `fleet.session_workflow_not_held` for an id the Session's repository does not hold.
+ */
+export type SetSessionWorkflow = {
+  session_id: string;
+  /** Absent clears it: a custom Session. */
+  workflow?: string;
+};
 
 /** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
 export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };

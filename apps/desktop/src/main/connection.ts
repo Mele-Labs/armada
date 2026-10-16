@@ -692,10 +692,10 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string, root?: string): Promise<SessionActed> {
+  async startSession(picked: Picked, title?: string, root?: string, request?: string): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    const start = startOn(repository, title, root);
+    const start = startOn(repository, title, root, request);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
   }

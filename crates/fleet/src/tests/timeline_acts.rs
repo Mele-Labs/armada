@@ -225,6 +225,7 @@ async fn a_hosted_sessions_calls_are_entered_where_its_turn_ends() {
             mode: None,
             pilot: None,
             fork: None,
+            request: None,
         })
         .await
         .expect("started");
