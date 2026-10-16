@@ -1,10 +1,10 @@
 // The Cockpit tab's one body: the flight deck. `cockpit/deck/` holds the parts.
 
 import { useMemo, useRef } from "react";
+import { useNow } from "@armada/components";
 
 import { DeckBody } from "./cockpit/deck/Deck";
 import { AGE_MS } from "./cockpit/deck/clock";
-import { quantized } from "./cockpit/deck/field";
 import type { CockpitProps } from "./cockpit/deck/props";
 
 type Data = "state" | "now" | "picked" | "nowViews" | "nows" | "bring" | "bayActs";
@@ -41,7 +41,7 @@ const ACTS: Record<Act, true> = {
  * the deck is drawn only when its data changes, so a callback it kept would be one from an older draw. One is absent while the
  * window gave none, as it was.
  */
-function useSteady(props: CockpitProps): Pick<CockpitProps, Act> {
+function useSteady(props: Omit<CockpitProps, "now">): Pick<CockpitProps, Act> {
   const latest = useRef(props);
   latest.current = props;
   const given = (Object.keys(ACTS) as Act[]).filter((one) => props[one] !== undefined);
@@ -54,9 +54,9 @@ function useSteady(props: CockpitProps): Pick<CockpitProps, Act> {
   );
 }
 
-export function CommandCentral(props: CockpitProps) {
+export function CommandCentral(props: Omit<CockpitProps, "now">) {
   const acts = useSteady(props);
-  const { state, now, picked, nowViews, nows, bring, bayActs } = props;
-  // The deck reads ages in whole minutes, so it is handed the minute: a clock that moves each second would draw all of it each second.
-  return <DeckBody state={state} now={quantized(now, AGE_MS)} picked={picked} nowViews={nowViews} nows={nows} bring={bring} bayActs={bayActs} {...acts} />;
+  const { state, picked, nowViews, nows, bring, bayActs } = props;
+  // The deck reads ages in whole minutes, so it reads the minute: a clock that moves each second would draw all of it each second.
+  return <DeckBody state={state} now={useNow(AGE_MS)} picked={picked} nowViews={nowViews} nows={nows} bring={bring} bayActs={bayActs} {...acts} />;
 }
