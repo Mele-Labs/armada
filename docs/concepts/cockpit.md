@@ -43,7 +43,7 @@ The two side columns resize. A handle sits in the gap on each inner edge, drawn 
 
 ## The Session's flight controls
 
-While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `5`. When it closes the six return.
+While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `6`. When it closes the six return.
 
 | Key | Tile | Does | Through |
 |---|---|---|---|
@@ -52,6 +52,7 @@ While a Session is open on the stage the tiles are that Session's, in the same b
 | `3` | Compact | Runs the Session's `/compact` | A hosted Session is sent `/compact` as a message, as picking it from `/` does; a terminal Session is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
 | `4` | Report | Swaps the tiles for a box. What he types and sends starts a new Session in Armada's repository where Fleet serves it, else the reported Session's own, and tells it his words, verbatim, then plain labelled lines of what Bridge holds about the reported Session: its ids, transcript path, repository, branch and slot, state, model, context, Jobs and pull requests, what it waits on him for, its last messages, tool calls and timeline entries, and when and where Report was pressed. The new Session is opened on the stage. Esc closes the box and keeps the words. Empty words cannot be sent | `draft.start(undefined, reportRoot(...))` then `draft.send` (`deck/SessionTiles.tsx`, `deck/ReportBox.tsx`); the message is built by `reportBrief` in `deck/report-brief.ts` from the window's state, never by asking the agent. No Fleet operation. A Session that ended or went quiet can be reported |
 | `5` | Map | Closes the Session and shows the map | The stage's view switch, as tile 5 is |
+| `6` | Release | Opens a confirmation that names each slot, branch, open pull request, Job and need the Session holds, each a checkbox ticked when it opens, with a picker: Release, the default, or a live Session of the same repository to hand them to. The confirm key names the act, Release all, Release while some are unticked, or Hand to and the Session's title, is off while nothing is ticked, and sends only what is ticked. Cancel holds focus and changes nothing. Once Fleet answers, what moved stands in place of the tiles, then what is still held with why, the unticked among it, until Close | `draft.releaseHolds`, over `release_session_holds` ([Session](session.md), *Releasing what a Session holds*); `deck/ReleaseHolds.tsx`. Off where the Session holds nothing |
 
 A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening, except Report, which is off only where the Session's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
@@ -97,7 +98,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a d` |
-| A flight control | `1` to `6`, or `1` to `5` while a Session is open |
+| A flight control | `1` to `6`, the Session's own while one is open |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 

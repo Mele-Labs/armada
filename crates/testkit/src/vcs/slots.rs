@@ -227,6 +227,28 @@ impl FakeSlots {
         })
     }
 
+    /// Write the slot `from` holds as `to`'s, as the real pool's hand does. `from` is named as the
+    /// real pool names a Job's holder, `job <id>`, or bare.
+    pub(super) fn hand(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        from: &str,
+        to: &str,
+    ) -> Result<(), SlotParkRefused> {
+        let from = from.strip_prefix("job ").unwrap_or(from);
+        self.with(pool, |slots| match slots.get_mut(slot as usize - 1) {
+            Some(at) if at.held_by.as_deref() == Some(from) => {
+                at.held_by = Some(to.to_string());
+                Ok(())
+            }
+            Some(Slot {
+                held_by: Some(by), ..
+            }) => Err(SlotParkRefused::HolderChanged(by.clone())),
+            _ => Err(SlotParkRefused::NotLeased),
+        })
+    }
+
     /// Park a slot whose holder has ended, for `session`; a holder still
     /// running is refused, as the real pool refuses a live process.
     pub(super) fn park_left(

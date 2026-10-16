@@ -251,6 +251,22 @@ pub(crate) async fn stop_session<D: HostedSessions>(
     }
 }
 
+/// What a Session held, given back or handed over. 200 with what moved and what stayed; 422 for a
+/// Session Fleet has no row for, 409 for a target that cannot take them.
+pub(crate) async fn release_session_holds<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let release: ipc::ReleaseSessionHolds = match ipc::decode("a session's holds to release", &body) {
+        Ok(release) => release,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().release_session_holds(release).await {
+        Ok(released) => answer(StatusCode::OK, &released, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_session`.
 #[derive(Deserialize)]
 pub(crate) struct Which {
