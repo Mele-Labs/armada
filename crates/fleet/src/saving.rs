@@ -61,8 +61,7 @@ where
     ///
     /// **The pool's release goes first**, so a clean slot is given back exactly
     /// as it was before. A park is the fallback for any refusal and says so
-    /// itself where it cannot help: a detached HEAD, the base branch, a busy
-    /// slot.
+    /// itself where it cannot help: a busy slot, git refusing.
     pub(crate) async fn freed_by_a_clear(&self, job: &Job) -> Freed {
         self.freed(job, CLEARED).await
     }
@@ -150,17 +149,17 @@ where
         spec: &WorktreeSpec,
         job: &JobId,
     ) -> Result<Option<SavedWork>, Adrift> {
-        let saved = adapters::leasing::save_worktree(spec, job.as_str()).map_err(|refused| {
+        let saved = adapters::leasing::save_worktree(spec, job.as_str()).map_err(|why| {
             Adrift::WorktreeNotSaved {
                 job: job.clone(),
-                why: refused.said(),
+                why,
             }
         })?;
-        Ok(saved.map(|committed| {
+        Ok(saved.map(|kept| {
             let saved = SavedWork {
-                branch: spec.branch(),
-                commit: committed.commit,
-                files: committed.files,
+                branch: kept.branch,
+                commit: kept.committed.commit,
+                files: kept.committed.files,
             };
             self.noted_saved(job, &saved, None, CLEARED);
             saved

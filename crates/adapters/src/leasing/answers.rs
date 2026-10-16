@@ -204,7 +204,8 @@ pub struct Released {
 #[derive(Debug)]
 pub struct Parked {
     pub slot: usize,
-    /// The branch the work is on, and stays on.
+    /// The branch the work is on, and stays on. A new `kept/` one where the
+    /// checkout was on none or on the base and had something to keep.
     pub branch: String,
     /// The WIP commit, with the paths it took; `None` where the slot was
     /// clean and only released.
@@ -227,15 +228,6 @@ pub enum ParkRefused {
     HeldByAnother(String),
     /// A take or a release is under way on it.
     Busy,
-    /// The checkout is detached, so there is no branch to park onto.
-    OnNoBranch,
-    /// The checkout is on the base itself.
-    OnTheBase(String),
-    /// The checkout is on a branch other than the one the lease names.
-    OnAnotherBranch {
-        leased: String,
-        on: String,
-    },
     /// The work was committed and the release then refused. The commit stays.
     Release(ReleaseRefused),
     Vcs(String),
@@ -255,16 +247,6 @@ impl ParkRefused {
             ),
             ParkRefused::HeldByAnother(holder) => format!("{holder} holds it"),
             ParkRefused::Busy => String::from("a lease or a release is under way on it"),
-            ParkRefused::OnNoBranch => String::from(
-                "the checkout is on no branch, so there is nothing to park the work onto",
-            ),
-            ParkRefused::OnTheBase(base) => {
-                format!("the checkout is on {base}, the base itself. Park onto a branch of its own")
-            }
-            ParkRefused::OnAnotherBranch { leased, on } => format!(
-                "the checkout is on {on}, and the lease names {leased}. Switch back to {leased}, \
-                 then park"
-            ),
             ParkRefused::Release(refused) => {
                 format!(
                     "the work is committed, but the slot stays held: {}",
