@@ -126,7 +126,26 @@ export type WorkGroup = { id: string; agent: string; title: string; /** The path
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
 export type WorkSketch = { id: string; title: string; scene: Scene };
 
-export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+/**
+ * What he marked on the plan before it goes to the agent: renamed, removed, added, moved, a group's subagent type changed, or a
+ * note pinned to a group or a task. Nothing is changed until he sends them; they ride on the plan as marks. `group` is a group's id and
+ * `task` a task's id; an `add` with no `task` is a group.
+ */
+export type PlanMark =
+  | { kind: "rename"; group: string; task?: string; from: string; to: string }
+  | { kind: "remove"; group: string; task?: string }
+  | { kind: "add"; group: string; task?: string; id: string; text: string }
+  | { kind: "move"; task: string; from: string; to: string }
+  | { kind: "agent"; group: string; from: string; to: string }
+  | { kind: "note"; id: string; group: string; task?: string; text: string };
+
+/** One line of what he sent, against the group or task it is about. */
+export type SuggestLine = { verb: "Renamed" | "Removed" | "Added" | "Moved" | "Subagent" | "Note"; where: string; text?: string; from?: string };
+
+/** What the agent changed in the plan it recorded again: ids of what is new, what was renamed and what it was, and what is gone. */
+export type PlanChanges = { added: readonly string[]; renamed: readonly { id: string; from: string }[]; removed: readonly { group: string; text: string }[] };
+
+export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
 export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
@@ -135,7 +154,7 @@ export type WorkDrone = { id: string; agent?: string; task?: string; path: strin
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
 /** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
-export type WorkConcern = { id: string; step: string; judge: string; text: string };
+export type WorkConcern = { id: string; step: string; judge: string; text: string; /** What it cites: the files it is about. */ cites?: readonly string[] };
 
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { name: string; steps: readonly string[] };
@@ -161,6 +180,8 @@ export type SessionWorkActs = {
   /** The person changed a value the proposer picked, so its mark goes. */
   unpick: (id: string, value: "workflow" | "model" | "effort") => void;
   approve: (id: string) => void;
+  /** Sends the marks he put on the plan to the agent as one message, which answers and may record the plan again. `approving` is Approve pressed with marks on: the plan is approved with them. */
+  suggest: (id: string, marks: readonly PlanMark[], approving?: boolean) => void;
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
@@ -259,6 +280,10 @@ export type SessionRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
+  /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
+  | { id: string; at: string; kind: "concern"; step: string; text: string }
+  /** The changes and notes he sent on the plan, one message with a line for each. */
+  | { id: string; at: string; kind: "suggest"; lines: readonly SuggestLine[] }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */

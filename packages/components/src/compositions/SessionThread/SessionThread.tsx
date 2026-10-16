@@ -1,6 +1,6 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -82,6 +82,10 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
+  /** A judge's concern the person dismissed: a settled line, the agent told nothing. */
+  | { id: string; at: string; kind: "concern"; step: string; text: string }
+  /** The changes and notes the person sent on the plan, his message: a line for each, against its group or task. */
+  | { id: string; at: string; kind: "suggest"; lines: readonly { verb: "Renamed" | "Removed" | "Added" | "Moved" | "Subagent" | "Note"; where: string; text?: string; from?: string }[] }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
@@ -147,6 +151,8 @@ export type PlanApproval = {
   groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
   approved: boolean;
   after?: string;
+  /** What the agent changed since the plan before this one: what is added, renamed (and what it was) and removed. */
+  changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -154,8 +160,15 @@ export type PlanApproval = {
   onReview?: () => void;
 };
 
+/** A concern a judge raised at a step, waiting on the person: drawn as a card the way a question is. */
+export type ThreadConcern = { id: string; step: string; judge: string; text: string; cites?: readonly string[] };
+
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
+  /** The judge's concerns waiting on the person. Nothing reaches the agent until Send to session; a judge never blocks. */
+  concerns?: readonly ThreadConcern[];
+  onSendConcern?: (id: string) => void;
+  onDismissConcern?: (id: string) => void;
   /** A plan waiting on the person, or settled. Absent draws none. */
   approval?: PlanApproval;
   /**
@@ -644,6 +657,47 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "concern") {
+    return (
+      <li className="armada-session-concern-settled" role="region" aria-label="Concern dismissed">
+        <Tooltip label="Dismissed">
+          <span role="img" aria-label="Dismissed" className="armada-session-concern-settled__mark">
+            <Scale size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <code>{row.step}</code>
+        <span className="armada-session-concern-settled__text">{row.text}</span>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
+  if (row.kind === "suggest") {
+    const glyphs = { Renamed: Pencil, Removed: Trash2, Added: Plus, Moved: MoveRight, Subagent: Bot, Note: MessageSquare } as const;
+    return (
+      <li className="armada-session-suggest" role="region" aria-label="Changes to the plan">
+        <span className="armada-session-lease__eyebrow">Plan changes</span>
+        <ul className="armada-session-suggest__lines">
+          {row.lines.map((line, at) => {
+            const Glyph = glyphs[line.verb];
+            return (
+              <li key={at} className="armada-session-suggest__line">
+                <Tooltip label={line.verb}>
+                  <span role="img" aria-label={line.verb} className="armada-session-suggest__verb">
+                    <Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+                <span className="armada-session-suggest__where">{line.where}</span>
+                {line.from === undefined ? null : <s>{line.from}</s>}
+                {line.from !== undefined && line.text !== undefined ? <ArrowRight size={12} strokeWidth={2} aria-hidden /> : null}
+                {line.text === undefined ? null : <span className="armada-session-suggest__text">{line.text}</span>}
+              </li>
+            );
+          })}
+        </ul>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">
@@ -820,6 +874,21 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           </Tooltip>
         ) : null}
       </span>
+      {approval.changes === undefined || approval.changes.length === 0 ? null : (
+        <ul className="armada-session-thread__changes" aria-label="Changed since the last plan">
+          {approval.changes.map((one, at) => (
+            <li key={at} data-kind={one.kind}>
+              <Tooltip label={one.kind === "added" ? "Added" : one.kind === "renamed" ? "Renamed" : "Removed"}>
+                <span role="img" aria-label={one.kind === "added" ? "Added" : one.kind === "renamed" ? "Renamed" : "Removed"}>
+                  {one.kind === "added" ? <Plus size={12} strokeWidth={2} aria-hidden /> : one.kind === "renamed" ? <Pencil size={12} strokeWidth={2} aria-hidden /> : <Trash2 size={12} strokeWidth={2} aria-hidden />}
+                </span>
+              </Tooltip>
+              {one.from === undefined ? null : <s>{one.from}</s>}
+              {one.kind === "removed" ? <s>{one.text}</s> : <span>{one.text}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="armada-session-thread__plan-body">
         <ul className="armada-session-thread__groups">
           {approval.groups.map((group) => (
@@ -860,7 +929,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -916,6 +985,36 @@ export function SessionThread({ rows, approval, asked, askRef, onAnswer, lapsed,
         </ProseWalk.Provider>
       </div>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      {(concerns ?? []).map((one) => (
+        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={one.text}>
+          <span className="armada-session-thread__eyebrow armada-session-thread__concern-head">
+            <Tooltip label="Judge">
+              <span role="img" aria-label={`Judge on ${one.step}`} className="armada-session-thread__concern-judge">
+                <Scale size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            {one.step}
+          </span>
+          <p className="armada-session-thread__command">{one.text}</p>
+          {one.cites === undefined || one.cites.length === 0 ? null : (
+            <ul className="armada-session-thread__cites" aria-label="Cites">
+              {one.cites.map((path) => (
+                <li key={path}>
+                  <code>{path}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+            <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
+              Send to session
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      ))}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}

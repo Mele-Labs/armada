@@ -5,8 +5,9 @@
 
 import { featureRunning } from "@armada/jobs/fake";
 import type { TimelineEvent, WriteClash, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
-import type { Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import type { PlanChanges, Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 
+import { linesOf } from "../../session-view/plan-marks";
 import { mockAreas } from "../cockpit-areas";
 import { asRow, holding, servedFrom } from "../holding";
 import type { Scenario } from "../moment";
@@ -110,12 +111,23 @@ const task = (id: string, text: string, state: WorkTaskState): WorkTask => ({ id
 /** The task groups at a stage of the build: 0 recorded, 1 started, 2 the first two done, 3 the Fleet group done, 4 everything done. */
 function groups(stage: number): WorkGroup[] {
   const at = (from: number, done: number): WorkTaskState => (stage >= done ? "done" : stage >= from ? "working" : "open");
+  const r = revision.on;
   return [
-    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), task("T2", "Back off between attempts", at(2, 3))] },
-    { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", paths: ["crates/ipc", "packages/protocol"], tasks: [task("T3", "Add attempts to the lease reply", at(1, 2))] },
-    { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", paths: ["apps/desktop"], tasks: [task("T4", "Show the attempt on the bay tile", at(2, 4))] },
+    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), ...(r ? [] : [task("T2", "Back off between attempts", at(2, 3))])] },
+    { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", paths: ["crates/ipc", "packages/protocol"], tasks: [task("T3", "Add attempts to the lease reply", at(1, 2)), ...(r ? [task("T5", "Bump the protocol ID", at(1, 2))] : [])] },
+    { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", paths: ["apps/desktop"], tasks: [task("T4", r ? "Show the attempt count on the bay tile" : "Show the attempt on the bay tile", at(2, 4))] },
   ];
 }
+
+/** Whether the agent has recorded the plan again after his changes: the groups then read as it revised them. */
+const revision = { on: false };
+
+/** What the revision changed, as the plan records it. */
+const CHANGES: PlanChanges = {
+  added: ["T5"],
+  renamed: [{ id: "T4", from: "Show the attempt on the bay tile" }],
+  removed: [{ group: "g1", text: "Back off between attempts" }],
+};
 
 // ---- A plan at size: six groups and twenty-five tasks, unevenly spread -------------------------------------------
 
@@ -290,8 +302,8 @@ function fieldAt(beat: Beat, made: ReadonlySet<string>, gone: ReadonlySet<string
 }
 
 const CONCERNS: WorkConcern[] = [
-  { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay." },
-  { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling." },
+  { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay.", cites: ["crates/fleet/src/lease.rs"] },
+  { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling.", cites: ["crates/fleet/src/backoff.rs"] },
 ];
 
 /** The sketch the agent draws with its plan: the change wired together, in the format `show_sketch` takes. */
@@ -306,7 +318,7 @@ const PLAN_SKETCH = scene(
 );
 
 /** What a judge sent by hand finds the first time: one concern on the build so far. A second read finds nothing. */
-const SENT_CONCERN: WorkConcern = { id: "j1", step: "Build", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it." };
+const SENT_CONCERN: WorkConcern = { id: "j1", step: "Build", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it.", cites: ["crates/fleet/src/lease.rs"] };
 const READ_MS = 2200;
 
 const REPLIES: Record<string, string> = {
@@ -333,6 +345,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
+  revision.on = false;
   const own = new Set([MINE, QUIET, BUSY, BIG]);
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
@@ -437,6 +450,20 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
     }));
   };
 
+  const approveMine = () => {
+    works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
+    push(
+      [
+        asked("Approved the plan."),
+        said("Starting with the lease in Fleet. The wire and the bay tile follow."),
+        tool("Edit crates/fleet/src/lease.rs"),
+        next((id, at) => ({ id, at, kind: "lease", slot: 3, branch: BRANCH })),
+      ],
+      { ...working(), attachments: [...(mine()?.attachments ?? []), { kind: "branch", name: BRANCH, slot: 3 }] },
+    );
+    building(1);
+  };
+
   return {
     ...base,
     // Only the menu's Retro item is drawn here; the press writes nothing.
@@ -486,17 +513,38 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
       approve: (id) => {
         if (id === BIG) return approveBig();
-        works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
-        push(
-          [
-            asked("Approved the plan."),
-            said("Starting with the lease in Fleet. The wire and the bay tile follow."),
-            tool("Edit crates/fleet/src/lease.rs"),
-            next((id, at) => ({ id, at, kind: "lease", slot: 3, branch: BRANCH })),
-          ],
-          { ...working(), attachments: [...(mine()?.attachments ?? []), { kind: "branch", name: BRANCH, slot: 3 }] },
-        );
-        building(1);
+        approveMine();
+      },
+      // The marks he put on the plan, sent as one message. The agent answers each: it takes some, pushes back on one with a reason,
+      // and records the plan again with what changed marked. Once the plan is approved the answer is a line and the build goes on.
+      suggest: (id, marks, approving) => {
+        if (id !== MINE) return;
+        const plan = mine()?.work?.plan;
+        if (plan === undefined) return;
+        push([next((rid, at): SessionRow => ({ id: rid, at, kind: "suggest", lines: linesOf(plan, marks) }))], working());
+        if (approving === true) {
+          approveMine();
+          after(700, () => push([said("Taking those in as I start.")], working()));
+        } else if (plan.approved) {
+          after(700, () => push([said("Noted. I will fold those into the tasks still open.")], working()));
+        } else {
+          after(800, () =>
+            push(
+              [
+                said(
+                  "Taking the rename, and dropping Back off between attempts: the pool's own backoff covers it. Keeping a new field on the wire: nothing existing carries the attempt count, so reusing one would be a guess. That adds a task for the protocol ID. Recording the plan again.",
+                ),
+              ],
+              idle(),
+            ),
+          );
+          after(2200, () => {
+            revision.on = true;
+            const note = said("The plan is recorded again with three changes. Approve it, or tell me what to change.");
+            works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, groups: groups(0), approved: false, changes: CHANGES, after: note.id } }));
+            push([note], idle());
+          });
+        }
       },
       sendConcern: (_id, concern) => {
         const one = mine()?.work?.concerns?.find((it) => it.id === concern);
@@ -514,7 +562,13 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
             resolve(found);
           }),
         ),
-      dismissConcern: (_id, concern) => works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) })),
+      dismissConcern: (_id, concern) => {
+        const one = mine()?.work?.concerns?.find((it) => it.id === concern);
+        if (one === undefined) return;
+        // Folded to a settled line in the thread. The agent is told nothing.
+        works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
+        push([next((id, at): SessionRow => ({ id, at, kind: "concern", step: one.step, text: one.text }))]);
+      },
     },
     // The question the agent asked is answered, and it goes on to record the plan.
     answer: (_id, answer, answers) => {
@@ -561,6 +615,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         building(3);
         // A judge reads the Build step and raises two concerns. Neither blocks: the agent goes on.
         works((work) => ({ ...work, concerns: CONCERNS }));
+        // At the same moment another Session asks for something: its call is Incoming calls', and the concerns above are not.
+        base.edit(QUIET, (one) => ({ ...one, asked: { command: "git push -u origin fix/migration-names", call: "v-q2", offers: ["allow_once", "refuse"] } }));
       } else if (stage === 3) {
         building(4);
         push(

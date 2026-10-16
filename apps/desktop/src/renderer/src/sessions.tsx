@@ -71,7 +71,7 @@ import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -106,6 +106,8 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import type { PlanEditing } from "./session-view/PlanEdit";
+import { changeLines } from "./session-view/plan-marks";
 import { PlanReview } from "./session-view/PlanReview";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 
@@ -875,6 +877,9 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const [reading, setReading] = useState<Reading | undefined>();
   /** The plan opened in full to review. */
   const [reviewing, setReviewing] = useState(false);
+  // What he marked on the plan, held until he sends it: the review overlay's and the Plan panel's alike.
+  const [marks, setMarks] = useState<PlanMark[]>([]);
+  useEffect(() => setMarks([]), [session.id]);
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
@@ -966,6 +971,28 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
         }
       : undefined;
+  const planNow = session.work?.plan;
+  const planEditing: PlanEditing | undefined =
+    planNow === undefined
+      ? undefined
+      : {
+          id: session.id,
+          plan: planNow,
+          marks,
+          set: setMarks,
+          send: () => {
+            draft.work?.suggest(session.id, marks);
+            setMarks([]);
+            setReviewing(false);
+          },
+        };
+  /** Approve, with what he marked on the plan going to the agent in the same press. */
+  const approvePlan = () => {
+    setReviewing(false);
+    if (marks.length === 0) return draft.work?.approve(session.id);
+    draft.work?.suggest(session.id, marks, true);
+    setMarks([]);
+  };
   // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
     const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
@@ -1004,7 +1031,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
       <SessionFrame
         state={state}
         said={said}
@@ -1078,12 +1105,13 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           <SessionThread
             sessionId={session.id}
             rows={shown}
+            {...(session.work?.concerns === undefined || session.work.concerns.length === 0 || draft.work === undefined ? {} : { concerns: session.work.concerns, onSendConcern: (one: string) => draft.work?.sendConcern(session.id, one), onDismissConcern: (one: string) => draft.work?.dismissConcern(session.id, one) })}
             onOpenRetro={openRetro}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
-              : { approval: { groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: () => { setReviewing(false); draft.work?.approve(session.id); }, onReview: () => setReviewing(true) } })}
+              : { approval: { groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1185,7 +1213,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} onApprove={() => { setReviewing(false); draft.work?.approve(session.id); }} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || session.work !== undefined ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
       {narrow ? (

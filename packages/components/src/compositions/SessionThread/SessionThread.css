@@ -923,3 +923,90 @@
 .armada-session-thread__ask .armada-prose__run-acts {
   opacity: 1;
 }
+
+/* The changes and notes he sent on the plan: his message, in his colour, a line for each. */
+.armada-session-suggest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--you);
+  color: var(--fg-inverse);
+}
+
+.armada-session-suggest__lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-session-suggest__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-suggest__verb {
+  display: inline-flex;
+}
+
+.armada-session-suggest__where {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-session-suggest__line s {
+  opacity: 0.7;
+}
+
+/* What the agent changed since the last plan, over the card's groups. */
+.armada-session-thread__changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-thread__changes li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__changes [data-kind="added"] > span[role="img"] { color: var(--step-advanced); }
+.armada-session-thread__changes [data-kind="renamed"] > span[role="img"] { color: var(--step-running); }
+.armada-session-thread__changes [data-kind="removed"] { color: var(--fg-muted); }
+.armada-session-thread__changes [data-kind="removed"] > span[role="img"] { color: var(--step-failed); }
+.armada-session-thread__changes s { color: var(--fg-muted); }
+
+/* A judge's concern, waiting on him: the question card's own frame, with what it cites. */
+.armada-session-thread__concern-head { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.armada-session-thread__concern-judge { display: inline-flex; }
+.armada-session-thread__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__cites code { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); }
+
+/* A dismissed concern, folded to one line. */
+.armada-session-concern-settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-session-concern-settled__mark { display: inline-flex; }
+.armada-session-concern-settled__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

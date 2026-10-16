@@ -5,12 +5,14 @@
 import { useState } from "react";
 import { BadgeCheck, Bot, ChevronDown, PencilLine, PencilRuler } from "lucide-react";
 import { Button, TaskMark, Tooltip } from "@armada/components";
-import type { WorkGroup, WorkPlan } from "@armada/screens/src/draft/sessions";
+import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
+import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit";
+import { viewOf, type ViewGroup } from "./plan-marks";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 /** A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full. */
-function Group({ group }: { group: WorkGroup }) {
+function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
   const [open, setOpen] = useState(false);
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done");
@@ -45,28 +47,14 @@ function Group({ group }: { group: WorkGroup }) {
       </button>
       {open ? (
         <div className="sv-group__body">
-          <ul className="sv-scope" aria-label="Paths">
-            {group.paths.map((path) => (
-              <li key={path}>
-                <code>{path}</code>
-              </li>
-            ))}
-          </ul>
-          <ul className="sv-tasks">
-            {group.tasks.map((task) => (
-              <li key={task.id} className="sv-task" data-state={task.state}>
-                <TaskMark state={task.state} />
-                <span>{task.text}</span>
-              </li>
-            ))}
-          </ul>
+          <GroupEditor group={group} ed={ed} />
         </div>
       ) : null}
     </section>
   );
 }
 
-export function PlanPanel({ plan, place, onOpenSketch }: { plan: WorkPlan; place: Place; onOpenSketch: (sketch: string) => void }) {
+export function PlanPanel({ plan, place, ed, onOpenSketch }: { plan: WorkPlan; place: Place; ed: PlanEditing; onOpenSketch: (sketch: string) => void }) {
   const finished = plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
   const state: PanelState | undefined = !plan.approved ? undefined : finished ? "done" : "live";
   const sketch = plan.sketch;
@@ -93,9 +81,13 @@ export function PlanPanel({ plan, place, onOpenSketch }: { plan: WorkPlan; place
     <SvPanel label="Plan" area="plan" place={place} state={state} acts={acts}>
       <div className="sv-plan">
         <div className="sv-plan__groups">
-          {plan.groups.map((group) => (
-            <Group key={group.id} group={group} />
+          {viewOf(plan, ed.marks).map((group) => (
+            <Group key={group.id} group={group} ed={ed} />
           ))}
+        </div>
+        <div className="sv-plan__foot">
+          <AddGroup ed={ed} />
+          <SendChanges ed={ed} />
         </div>
       </div>
     </SvPanel>

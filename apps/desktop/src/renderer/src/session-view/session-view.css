@@ -10,8 +10,6 @@
 .sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); flex-direction: column; min-width: calc(var(--space-12) * 7); }
 /* The right column's own children: Status, the Ledger at the size it has with a Session open and no workspace, then Incoming calls. */
 .sv-side { display: contents; }
-.sv-calls { display: flex; flex-direction: column; min-width: 0; }
-.sv-calls:empty { display: none; }
 
 /* Status takes what its content needs up to a cap and scrolls past it. The Ledger is a kept panel and does not shrink for it. */
 .sv-side > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
@@ -139,22 +137,6 @@
 .sv-task[data-state="done"] { color: var(--fg-muted); }
 .sv-task[data-state="working"] { font-weight: var(--weight-medium); }
 
-/* ---- Concerns ------------------------------------------------------------------------------------------- */
-
-.sv-concerns { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.sv-concern {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid color-mix(in srgb, var(--status-awaiting-review) 40%, var(--border-subtle));
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-.sv-concern__head { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
-.sv-concern__judge { display: inline-flex; }
-.sv-concern__text { margin: 0; font-family: var(--font-sans); }
-.sv-concern__acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* ---- Proposal ------------------------------------------------------------------------------------------- */
 
 .sv-plan { display: flex; flex-direction: column; gap: var(--space-3); }
@@ -191,3 +173,45 @@
 .sv-review__group .sv-group__row:hover { background: none; }
 .sv-review__sketch { display: flex; min-width: 0; min-height: 0; }
 .sv-review__sketch > * { flex: 1 1 0; min-width: 0; }
+
+/* ---- Quick edits and notes on the plan (PlanEdit) ---------------------------------------------------------------- */
+.sv-edit-group { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+.sv-edit-group[data-removed] .sv-edit__text,
+.sv-edit-group[data-removed] .sv-group__title { text-decoration: line-through; color: var(--fg-subtle); }
+.sv-edit-group__head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.sv-edit-group__head .armada-select-field { min-width: 0; }
+.sv-edit { display: inline-flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.sv-edit__text { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: text; }
+.sv-edit__text:hover { text-decoration: underline dotted; text-underline-offset: var(--space-1); }
+.sv-edit__text:focus-visible { outline: var(--border-width) solid var(--accent); }
+.sv-edit__was { color: var(--fg-subtle); font-size: var(--text-xs); }
+.sv-edit__tools { display: inline-flex; margin-left: auto; opacity: 0; transition: opacity var(--duration-fast) var(--ease); }
+.sv-edit-group__head:hover > .sv-edit__tools,
+.sv-task--edit:hover > .sv-task__body > .sv-task__line > .sv-edit__tools,
+.sv-edit-group__head:focus-within > .sv-edit__tools,
+.sv-edit__tools:focus-within { opacity: 1; }
+.sv-task--edit { cursor: grab; }
+.sv-task__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.sv-task__line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.sv-task--edit[data-removed] .sv-edit__text { text-decoration: line-through; color: var(--fg-subtle); }
+.sv-task--edit[data-added] .sv-edit__text,
+.sv-edit-group[data-added] .sv-group__title { color: var(--step-advanced); }
+.sv-task--gone { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.sv-moved { color: var(--fg-muted); font-size: var(--text-2xs); font-family: var(--font-mono); }
+.sv-since { display: inline-flex; align-items: center; color: var(--fg-muted); font-size: var(--text-2xs); }
+.sv-since[data-kind="added"] { color: var(--step-advanced); }
+.sv-since[data-kind="removed"] { color: var(--step-failed); }
+.sv-since[data-kind="renamed"] { color: var(--step-running); }
+.sv-note-box { display: flex; align-items: center; gap: var(--space-1); }
+.sv-note-box > *:first-child { flex: 1; min-width: 0; }
+.sv-pins { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-pin { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-left: var(--border-width) solid var(--you); background: color-mix(in srgb, var(--you) 12%, transparent); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-pin__mark { display: inline-flex; color: var(--you); }
+.sv-review__foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.sv-plan__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.sv-edit-group__head .armada-select-field { flex: none; width: auto; }
+.sv-edit-group__head .armada-select { width: auto; max-width: 18ch; height: var(--h-control-sm); font-size: var(--text-xs); }
+.sv-edit-group__head .armada-input-field,
+.sv-task__line .armada-input-field,
+.sv-edit-group > .armada-input-field { flex: 1; min-width: 0; }
+.sv-edit-group__head .sv-group__title { flex: 1; min-width: 0; font-size: var(--text-sm); color: var(--fg-default); }

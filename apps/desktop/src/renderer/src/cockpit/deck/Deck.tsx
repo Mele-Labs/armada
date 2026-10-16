@@ -44,7 +44,7 @@ import { reportRoot } from "./session-tiles";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
+import { callOfSubject, callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -579,7 +579,7 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   );
 }
 
-function Incoming({ calls, now, ship, hosts, host }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession">; host?: (element: HTMLElement | null) => void }) {
+function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
   const folded = useCollapse("calls");
   return (
     <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
@@ -604,7 +604,6 @@ function Incoming({ calls, now, ship, hosts, host }: { calls: readonly Item[]; n
             </li>
           );
         })}
-        {host === undefined ? null : <li className="sv-calls" ref={host} />}
       </ul>
     </section>
   );
@@ -696,7 +695,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   }, [bring?.at]);
   const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
   const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
-  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
+  // The selected Session's own calls are cards in its thread, so Incoming calls leaves them out and nothing shows twice.
+  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship)).filter((one) => !(sel?.kind === "session" && callOwnerOf(one) === sel.key));
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
   // A Session with `work` draws its own panels in the places of Activity, Bays and Autopilot, and its status in the ring's.
@@ -704,8 +704,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   const [footHost, setFootHost] = useState<HTMLElement | null>(null);
-  const [callsHost, setCallsHost] = useState<HTMLElement | null>(null);
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost, calls: callsHost } : undefined), [unified, sideHost, footHost, callsHost]);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const layout = unified ? "session" : reading ? "reading" : "idle";
@@ -725,7 +724,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} {...(unified ? { host: setCallsHost } : {})} />
+          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
