@@ -89,7 +89,7 @@ export type ToolDef = {
 
 /**
  * Where a step of How to Test came from. **The author's own directions come first**, in the description. Where there are none, or
- * they do not cover a changed area, the nearest docs to the changed code: READMEs and agent files (`CLAUDE.md`, `AGENTS.md`) up
+ * they do not cover a changed area, the nearest docs to the changed code: READMEs and agent files (`AGENTS.md`) up
  * the tree from each changed path, and the docs they point to. A doc is named by its path and opens at its address.
  */
 export type StepSource = { from: "description" } | { from: "doc"; path: string; address: string };
