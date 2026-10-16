@@ -422,7 +422,7 @@ port is claimed from the store and is normally the same.
 so the next message starts a new keeper instead of reattaching to an agent that
 is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
-"process ended" row.
+"process ended" note, a message in Fleet's voice.
 
 **A process Fleet replaces takes its subagents with it.** A subagent runs inside
 its agent's process, so the keeper only carries it across a Fleet restart. A tune,

@@ -509,7 +509,7 @@ export type SessionsDraft = {
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
   /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
-  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
+  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
    * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as

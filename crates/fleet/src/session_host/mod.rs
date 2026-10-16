@@ -95,6 +95,22 @@ pub struct Hosts {
     helm_starting: tokio::sync::Mutex<()>,
     /// The most often a session's row goes out for what it is doing, in milliseconds.
     activity_every: AtomicU64,
+    /// Waiting items, by session and item, whose answer or removal is being delivered now.
+    settling: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
+}
+
+/// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
+/// it exists**: the item comes off the list only after the send, so a second press inside that
+/// send found it still open, and the agent was told the same answer once per press.
+pub(crate) struct Settling {
+    held: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
+    key: (String, String),
+}
+
+impl Drop for Settling {
+    fn drop(&mut self) {
+        self.held.lock().expect("held across no panic").remove(&self.key);
+    }
 }
 
 impl Hosts {
@@ -114,7 +130,15 @@ impl Hosts {
             slot_queue: Arc::default(),
             helm_starting: tokio::sync::Mutex::new(()),
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
+            settling: Arc::default(),
         }
+    }
+
+    /// Claim a waiting item for one answer or removal. `None` where another is being delivered.
+    pub(crate) fn settling(&self, session: &str, item: &str) -> Option<Settling> {
+        let key = (session.to_string(), item.to_string());
+        let fresh = self.settling.lock().expect("held across no panic").insert(key.clone());
+        fresh.then(|| Settling { held: Arc::clone(&self.settling), key })
     }
 
     pub(crate) fn activity_every(&self) -> Duration {

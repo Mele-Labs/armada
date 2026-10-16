@@ -50,6 +50,26 @@ where
         }));
     }
 
+    /// Fleet's own note in a session's thread, in Fleet's voice. **Never a `Tool` row**: Bridge
+    /// names a tool row by its first word, and a note drawn that way read as a call named "the".
+    pub(crate) async fn fleet_note(&self, session: &str, text: String) {
+        self.row_put(
+            session,
+            SessionRow::Message {
+                id: self.row_id(session),
+                at: self.instant(),
+                from: ipc::SessionVoice::Session {
+                    id: super::serving::FLEET_NAME.to_lowercase(),
+                    title: super::serving::FLEET_NAME.to_string(),
+                },
+                text,
+                files: Vec::new(),
+                tags: Vec::new(),
+            },
+        )
+        .await;
+    }
+
     /// A document the session wrote (`file`) or a picture it looked at
     /// (`image`) goes on its ledger as an artifact. The terminal mod tells the
     /// same fact from its own side; see `session.md`.

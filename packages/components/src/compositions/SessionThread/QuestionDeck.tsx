@@ -19,7 +19,8 @@ export function QuestionDeck({
   flat,
 }: {
   questions: readonly AskedQuestion[];
-  onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
+  /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
+  onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void | Promise<unknown>;
   canSkip: boolean;
   /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
   flat?: boolean;
@@ -31,6 +32,7 @@ export function QuestionDeck({
   const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
   const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
   const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
+  const [sending, setSending] = useState(false);
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
     const typed = words[index]?.trim() ?? "";
@@ -158,8 +160,13 @@ export function QuestionDeck({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={!complete}
-                  onClick={() => onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })))}
+                  disabled={!complete || sending}
+                  onClick={() => {
+                    const sent = onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })));
+                    if (sent === undefined) return;
+                    setSending(true);
+                    void sent.finally(() => setSending(false));
+                  }}
                 >
                   Answer
                 </Button>
