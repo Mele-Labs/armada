@@ -87,7 +87,7 @@ export const InNoClash: Story = {
   },
 };
 
-/** In an open Job or Session the same clash is a line: the other holder, linked, and the files. */
+/** In an open Job or Session the clashes are one bar: folded, the other holders on a line; opened, a row for each with its files. */
 export const InAnOpenJob: Story = {
   render: () => (
     <ClashesProvider value={holding(opened, SESSION)}>
@@ -96,7 +96,8 @@ export const InAnOpenJob: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     opened.mockClear();
-    await expect(canvas.getByRole("list", { name: "Conflicting files" })).toHaveTextContent("retry.rs");
+    await userEvent.click(canvas.getByRole("button", { name: "Write clash" }));
+    await expect(canvas.getByRole("list", { name: /^Conflicting files/ })).toHaveTextContent("retry.rs");
     await userEvent.click(canvas.getByRole("button", { name: "Open Retry tuning" }));
     await expect(opened).toHaveBeenCalledTimes(1);
     await expect(opened).toHaveBeenCalledWith(SESSION);
@@ -117,8 +118,8 @@ export const WithManyFiles: Story = {
     const header = canvas.getByRole("button", { name: "Write clash" });
     await expect(header).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(header);
-    const list = canvas.getByRole("list", { name: "Conflicting files" });
-    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
+    const list = canvas.getByRole("list", { name: /^Conflicting files/ });
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(5);
     await expect(list).toHaveTextContent("0003_clock.rs");
     await expect(list).not.toHaveTextContent("0004_clock.rs");
     await expect(canvas.getByText("main")).toBeVisible();
@@ -130,8 +131,8 @@ export const WithManyFiles: Story = {
     const fewer = canvas.getByRole("button", { name: "Fewer" });
     await expect(fewer).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(fewer);
-    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
-    // A clash he opened stays open for that clash, so the story folds it back.
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(5);
+    // A bar he opened stays open for that Job, so the story folds it back.
     await userEvent.click(header);
     await expect(header).toHaveAttribute("aria-expanded", "false");
   },
@@ -155,9 +156,27 @@ export const Collapsed: Story = {
     await expect(header).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(header);
     await expect(header).toHaveAttribute("aria-expanded", "false");
-    await expect(canvas.getByRole("list", { name: "Conflicting files", hidden: true }).closest("[inert]")).not.toBeNull();
+    await expect(canvas.getByRole("list", { name: /^Conflicting files/, hidden: true }).closest("[inert]")).not.toBeNull();
     await userEvent.click(header);
-    await expect(canvas.getByRole("list", { name: "Conflicting files" })).toHaveTextContent("retry.rs");
+    await expect(canvas.getByRole("list", { name: /^Conflicting files/ })).toHaveTextContent("retry.rs");
+    await userEvent.click(header);
+  },
+};
+
+/** Two clashes are one bar, folded to a line of two chips; opened, a row for each. */
+export const WithTwoClashes: Story = {
+  render: () => (
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j2" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
+      <ClashNotice kind="job" id="j2" />
+    </ClashesProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("region", { name: "Write clash" })).toHaveLength(1);
+    const header = canvas.getByRole("button", { name: "Write clash" });
+    await expect(header).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(header);
+    await expect(canvas.getByRole("list", { name: "Conflicting files with Retry tuning" })).toHaveTextContent("retry.rs");
+    await expect(canvas.getByRole("list", { name: "Conflicting files with main" })).toHaveTextContent("open.rs");
     await userEvent.click(header);
   },
 };
@@ -170,8 +189,8 @@ export const WithFourFiles: Story = {
     </ClashesProvider>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getAllByRole("listitem")).toHaveLength(4);
-    await expect(canvas.getByRole("list", { name: "Conflicting files" })).toHaveTextContent("0004_clock.rs");
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(5);
+    await expect(canvas.getByRole("list", { name: /^Conflicting files/ })).toHaveTextContent("0004_clock.rs");
     await expect(canvas.queryByRole("button", { name: /more$|^Fewer$/ })).toBeNull();
   },
 };

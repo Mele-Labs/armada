@@ -730,9 +730,10 @@ const EVENTS: TimelineEvent[] = [
   event(22, quiet, "session.turn", "idle", "Replied"),
 ];
 
-/** MINE edits a file QUIET also changes: the header's clash, and the notice under it. */
+/** MINE edits a file QUIET also changes and two BUSY also changes: the header's clash, and the one bar under it that holds both. */
 const CLASHES: readonly WriteClash[] = [
   { one: { kind: "session", id: MINE, label: dispatched.title! }, other: { kind: "session", id: QUIET, label: quiet.title! }, paths: ["crates/store/src/migrations.rs"], since: ago(3) },
+  { one: { kind: "session", id: MINE, label: dispatched.title! }, other: { kind: "session", id: BUSY, label: busy.title! }, paths: ["crates/store/src/audit.rs", "crates/fleet/src/lease.rs"], since: ago(2) },
 ];
 
 function build(): Scenario {
