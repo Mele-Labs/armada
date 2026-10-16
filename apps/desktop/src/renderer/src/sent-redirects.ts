@@ -3,6 +3,8 @@
 
 import type { SentRedirect, SentRedirects } from "@armada/jobs";
 
+import type { SessionRow } from "@armada/screens/src/draft/sessions";
+
 import { outgoing } from "./outgoing";
 import type { Held } from "./outgoing";
 
@@ -10,9 +12,11 @@ const engine = outgoing();
 const latest = new Map<string, Held>();
 
 const none = new Set<string>();
+/** One array, so the engine's cache holds: a new one each read would make every read a new row. */
+const NO_ROWS: readonly SessionRow[] = [];
 
 const rowOf = (jobId: string): (SentRedirect & { kind: string }) | undefined => {
-  const row = engine.overlay(jobId, [])[0];
+  const row = engine.overlay(jobId, NO_ROWS)[0];
   return row?.kind === "message" ? row : undefined;
 };
 
