@@ -23,7 +23,7 @@ function Grid({ layout }: { layout: string }) {
   const grid = useRef<HTMLDivElement>(null);
   const splits = useSplits(grid, layout);
   return (
-    <div ref={grid} className="deck-grid" style={{ position: "relative", display: "grid", gridTemplateColumns: "300px", height: 400 }}>
+    <div ref={grid} className="deck-grid" style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr", width: 300, height: 400 }}>
       <div className="deck-left" style={{ display: "flex", flexDirection: "column", gap: 8, height: 400 }}>
         <section className="sv-panel" data-area="alpha" aria-label="Alpha" style={{ height: 196 }} />
         <section className="sv-panel" data-area="beta" aria-label="Beta" style={{ height: 196 }} />

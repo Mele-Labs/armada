@@ -13,6 +13,8 @@
 /* The thread and the region pinned over its foot share the stage; what is under the stage (working on, needs you, done) is the footer. */
 .armada-session-thread__stage {
   --calls-band: var(--h-row-header);
+  /* No region, no height: a length of nothing, which the thread sets inline once it has cards. */
+  --calls-body: calc(var(--border-width) * 0);
   position: relative;
   display: flex;
   flex: 1;
@@ -30,7 +32,7 @@
 .armada-session-thread__rows {
   flex: 1;
   min-height: 0;
-  padding-block-end: var(--calls-body, 0px);
+  padding-block-end: var(--calls-body);
   overflow: auto;
   scroll-timeline: --thread-scroll block;
 }
@@ -51,7 +53,7 @@
   bottom: 0;
   display: flex;
   flex-direction: column;
-  height: calc(var(--calls-band) + var(--calls-body, 0px) + var(--border-width) * 2);
+  height: calc(var(--calls-band) + var(--calls-body) + var(--border-width) * 2);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);
@@ -65,19 +67,19 @@
 /* **A pixel of scroll is a pixel of height.** The region slides down the length of its own body as the thread is scrolled up through the last
    body's height of its range, and is whole again when he is at the end. */
 @keyframes armada-session-calls-shrink {
-  from { transform: translateY(var(--calls-body, 0px)); }
+  from { transform: translateY(var(--calls-body)); }
   to { transform: translateY(0); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .armada-session-thread__calls:not([data-open]) {
     animation: armada-session-calls-shrink linear both;
     animation-timeline: --thread-scroll;
-    animation-range: calc(100% - var(--calls-body, 0px)) 100%;
+    animation-range: calc(100% - var(--calls-body)) 100%;
   }
 }
 /* Reduced motion snaps: whole at the end of the thread, the band alone once he is a region's height away. */
 @media (prefers-reduced-motion: reduce) {
-  .armada-session-thread__calls[data-shrink="collapsed"]:not([data-open]) { transform: translateY(var(--calls-body, 0px)); }
+  .armada-session-thread__calls[data-shrink="collapsed"]:not([data-open]) { transform: translateY(var(--calls-body)); }
 }
 
 /* The band is the region's header, as a panel's is: small caps in mono over the raised surface. */
@@ -128,7 +130,7 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
-.armada-session-thread__calls-body[inert] { visibility: hidden; }
+.armada-session-thread__calls-body:is([inert]) { visibility: hidden; }
 .armada-session-thread__calls-list {
   display: flex;
   flex-direction: column;

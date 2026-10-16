@@ -84,5 +84,8 @@ export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessio
     .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
 }
 
+/** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
+export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Session question" : source === "walk" ? "Session walk" : "Session");
+
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
 export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);

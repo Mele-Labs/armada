@@ -442,6 +442,17 @@ pub fn note(records_root: &str, handle: &str, envelope: &Envelope) -> Result<(),
     write_line(&mut log, envelope)
 }
 
+/// Write one Fleet-authored line to Fleet's standard error, for what belongs to no Job and so has no log to join.
+///
+/// The same line the Job log carries, so a query and the redactor reach it; a stream that will not take it
+/// loses the line and nothing else.
+pub fn note_aloud(envelope: &Envelope) {
+    use std::io::Write;
+    if let Ok(line) = encoded(&Line::from(envelope)) {
+        let _ = std::io::stderr().write_all(line.as_bytes());
+    }
+}
+
 /// Open for appending, making the directory if it is not there.
 ///
 /// Append rather than truncate: a Job log outlives any one Drone, and a

@@ -22,7 +22,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use config::ResolvedWorkflow;
-use core_model::{Ulid, WorkflowId};
+use core_model::{Component, Envelope, FieldValue, Level, Ulid, WorkflowId};
 use ipc::{ManifestId, ProposedField, SessionRecord, SetSessionWorkflow, StartSession};
 use ipc::{TimelineKind, TimelineTone};
 use store::{KeptHosting, KeptSession, Store};
@@ -327,6 +327,15 @@ where
                 let _ = store.keep_hosting(&hosting);
             }
         }
+    }
+
+    /// A warning in the envelope on Fleet's standard error, about a Session. A Session has no Job log to
+    /// write into, and what failed here raises nothing for the person.
+    pub(crate) fn session_warned(&self, session: &str, msg: &str, why: impl std::fmt::Display) {
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("session", FieldValue::Str(session.to_string()))
+            .with_field("why", FieldValue::Str(why.to_string()));
+        crate::transcript::note_aloud(&envelope);
     }
 
     /// An entry on the Session's timeline, for the thread to draw.

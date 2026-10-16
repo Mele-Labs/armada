@@ -42,9 +42,8 @@ test("calls open as panes, and an open Session's question is a card in its threa
   // Let go of the Session and its call is back, unanswered.
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toBe("Flight map");
-  // It comes back worded from the Session's waiting item rather than its card, so it is found by whom it is from.
-  const title = asked.replace(/^[^:]+: /, "");
-  await expect.poll(() => hails().some((one) => one.endsWith(`: ${title}`))).toBe(true);
+  // It comes back as the same call, under the same label.
+  await expect.poll(() => hails()).toContain(asked);
   expect(hails()).toHaveLength(before);
 });
 

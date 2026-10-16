@@ -82,7 +82,7 @@ button.armada-clash-notice__with:hover { text-decoration: underline; }
   transition: grid-template-rows var(--duration-sheet) var(--ease);
 }
 
-.armada-clash-notice__fold-box[data-open] {
+.armada-clash-notice__fold-box[data-open="true"] {
   grid-template-rows: 1fr;
 }
 
@@ -93,7 +93,7 @@ button.armada-clash-notice__with:hover { text-decoration: underline; }
   transition: padding-top var(--duration-sheet) var(--ease);
 }
 
-.armada-clash-notice__fold-box[data-open] > .armada-clash-notice__clashes {
+.armada-clash-notice__fold-box[data-open="true"] > .armada-clash-notice__clashes {
   padding-top: var(--space-2);
 }
 

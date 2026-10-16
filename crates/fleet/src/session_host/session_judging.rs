@@ -192,7 +192,7 @@ where
         let (concerns, readable) = match self.concerns_read(id, &question).await {
             Ok(read) => read,
             Err(why) => {
-                eprintln!("session {id}: the work was not judged: {why}");
+                self.session_warned(id, "the work was not judged", why);
                 return;
             }
         };
@@ -211,11 +211,11 @@ where
                 one.since = now.clone();
                 one.from_step = question.from.clone();
                 if let Err(why) = store.keep_session_concern(id, &one) {
-                    eprintln!("session {id}: a concern was not kept: {why}");
+                    self.session_warned(id, "a concern was not kept", why);
                 }
             }
             if let Err(why) = store.keep_session_judge_reading(id, &KeptReading { at: now, concerns: raised }) {
-                eprintln!("session {id}: the reading was not kept: {why}");
+                self.session_warned(id, "the reading was not kept", why);
             }
         }
         let _ = self.published_hosted(id).await;
@@ -263,14 +263,14 @@ where
             let reply = match said(explaining.client.as_ref(), &ask, explaining.budget).await {
                 Ok(reply) => reply,
                 Err(why) => {
-                    eprintln!("session {id}: a judge's call failed: {why}");
+                    self.session_warned(id, "a judge's call failed", why);
                     continue;
                 }
             };
             let judged = match brief.read(&reply) {
                 Ok(judged) => judged,
                 Err(why) => {
-                    eprintln!("session {id}: a judge's answer was not readable: {why:?}");
+                    self.session_warned(id, "a judge's answer was not readable", format!("{why:?}"));
                     continue;
                 }
             };

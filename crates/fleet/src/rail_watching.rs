@@ -140,7 +140,7 @@ where
             kept.judged.push(left as u32);
         }
         if let Err(why) = self.store().lock().await.keep_session_rail(id, &kept) {
-            eprintln!("session {id}: the rail was not kept: {why}");
+            self.session_warned(id, "the rail was not kept", why);
             return None;
         }
         if let Some(left) = left {
