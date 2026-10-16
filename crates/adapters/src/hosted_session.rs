@@ -338,6 +338,63 @@ pub fn reads_only(line: &str) -> bool {
         .all(reads)
 }
 
+/// What a shell line is to the gate's background rule. #2415.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CheckLine {
+    /// No `armada check` in it.
+    NoCheck,
+    /// A check, and beside it only a `cd` or what reads, such as `| tail -25`.
+    Alone,
+    /// A check beside something that writes, such as `&& git commit`, which a
+    /// background run would hide the outcome of.
+    Chained,
+}
+
+/// Whether `line` runs an `armada check` (or `armada manifest check`), and with what. A line
+/// [`segments`] cannot read, such as one with a redirect, is left as it was written.
+pub fn check_line(line: &str) -> CheckLine {
+    let Some(segments) = segments(line) else {
+        return CheckLine::NoCheck;
+    };
+    let segments: Vec<&str> = segments
+        .iter()
+        .map(|segment| segment.trim())
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    let (checks, rest): (Vec<&str>, Vec<&str>) = segments.into_iter().partition(|segment| checks(segment));
+    match (checks.is_empty(), rest.iter().all(|segment| reads(segment))) {
+        (true, _) => CheckLine::NoCheck,
+        (false, true) => CheckLine::Alone,
+        (false, false) => CheckLine::Chained,
+    }
+}
+
+/// What a line puts in front of the command it runs: `taskpolicy -c utility armada check`.
+const LAUNCHERS: &[&str] = &["taskpolicy", "nice", "env", "time"];
+
+fn checks(segment: &str) -> bool {
+    let mut words = segment.split_whitespace().peekable();
+    // A launcher's own flags and values, and `NAME=value`, come before the program.
+    let launched = words.peek().is_some_and(|first| LAUNCHERS.contains(first));
+    while let Some(&word) = words.peek() {
+        let ahead = word.contains('=') || (launched && word.rsplit('/').next() != Some("armada"));
+        if !ahead {
+            break;
+        }
+        words.next();
+    }
+    let program = words.next().unwrap_or_default();
+    if program.rsplit('/').next() != Some("armada") {
+        return false;
+    }
+    match words.next() {
+        Some("check") => true,
+        Some("manifest") => words.next() == Some("check"),
+        _ => false,
+    }
+}
+
+
 /// Redirects that write nothing: to the null device, or one descriptor onto another.
 const HARMLESS_REDIRECTS: &[&str] = &[
     "2>>/dev/null",
