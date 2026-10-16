@@ -72,6 +72,17 @@ fn a_session_holds_what_the_person_holds_and_is_told_its_id_and_its_name() {
 }
 
 #[test]
+fn a_session_has_the_task_tools_so_its_build_ring_has_pieces() {
+    let launch = HeadlessAgent::at("/usr/local/bin/agent")
+        .render_hosted_session(&launching(false, SessionMode::Auto))
+        .expect("renders");
+    assert_eq!(
+        launch.environment(),
+        &environment().and(crate::conversing::TASK_TOOLS, "1").expect("a legal name")
+    );
+}
+
+#[test]
 fn the_next_process_resumes_by_the_same_id() {
     let args = rendered(&launching(true, SessionMode::Auto));
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(ID));
