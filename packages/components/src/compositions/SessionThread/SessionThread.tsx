@@ -712,7 +712,7 @@ function Row({
     if (act !== null) return <Did act={act} at={row.at} />;
     const placed = placeTags(row.text, row.tags ?? [], openTag);
     return (
-      <li className="armada-session-you" role="region" aria-label="Your message">
+      <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
         <div className="armada-session-you__band">
           <span className="armada-session-you__who">You</span>
           <Delivery row={row} />

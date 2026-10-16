@@ -16,6 +16,9 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
+// Two takes of a message still going, for a walk to show side by side: `?take=dotted` or `?take=pulse`. `SessionThread.css`.
+const take = query.get("take");
+if (take !== null) document.documentElement.setAttribute("data-take", take);
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 const walking = query.get("walk");
 const script = walking === null ? undefined : EVERY_WALK.get(walking);
