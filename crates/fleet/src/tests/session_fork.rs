@@ -98,6 +98,7 @@ impl Rig {
                     at: at.map(str::to_string),
                 }),
                 request: None,
+                after: None,
             })
             .await
     }
@@ -151,6 +152,7 @@ impl Rig {
                 pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started");
@@ -296,6 +298,7 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
             pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .expect("started");

@@ -403,6 +403,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::rail_watching::keep_the_rail(Arc::clone(&fleet));
             // The parent of a Session its agent started is told when that one needs the owner, ends or merges.
             fleet::linked_watching::keep_the_linked(Arc::clone(&fleet));
+            // A Session dispatched to wait on another starts when the condition it named is met.
+            fleet::after_watching::keep_the_waiting(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(

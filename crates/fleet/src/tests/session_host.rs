@@ -175,6 +175,7 @@ impl Rig {
                 pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
@@ -198,6 +199,7 @@ impl Rig {
             pilot: None,
             fork: None,
             request: Some(request.to_string()),
+            after: None,
         };
         set(&mut start);
         Arc::clone(&self.fleet)
@@ -692,6 +694,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .unwrap()

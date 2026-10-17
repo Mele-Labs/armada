@@ -46,6 +46,8 @@ pub(crate) struct LedgerReads {
     touches: Vec<store::KeptTouch>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
+    /// The wait of a Session still waiting on another, and the title of the one it waits on.
+    wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -330,7 +332,20 @@ where
             }
             None => Default::default(),
         };
+        let wait = store
+            .wait_of(&session.id)
+            .map_err(fault)?
+            .filter(|one| one.started_at.is_none())
+            .map(|one| {
+                let title = store.session(&one.on_session).ok().flatten().and_then(|on| on.title);
+                let part = (!one.part.is_empty())
+                    .then(|| store.session_plan(&one.on_session).ok().flatten())
+                    .flatten()
+                    .and_then(|plan| crate::session_host::after::plan_part_title(&crate::plan_record::wire(&plan), &one.part));
+                (one, title, part)
+            });
         Ok(LedgerReads {
+            wait,
             rail,
             held,
             build,
@@ -415,6 +430,11 @@ where
         record.plan = reads.plan.as_ref().map(crate::plan_record::wire);
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
+        // A Session still waiting on another carries the wait until it starts.
+        record.waits = reads
+            .wait
+            .filter(|_| session.state == store::SessionState::Live)
+            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
         self.rail_drawn(session, &reads.rail, &mut record);
         record
     }
@@ -824,6 +844,14 @@ where
         start: ipc::StartAnotherSession,
     ) -> Result<ipc::SessionHeld, Refusal> {
         self.another_session_started(caller, start).await
+    }
+
+    async fn change_waiting(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        change: ipc::ChangeWaiting,
+    ) -> Result<ipc::SessionWait, Refusal> {
+        self.waiting_changed(caller, change).await
     }
 
     async fn fork_this_session(
@@ -1351,5 +1379,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }

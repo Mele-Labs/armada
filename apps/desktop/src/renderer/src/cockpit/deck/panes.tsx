@@ -5,12 +5,14 @@
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, ClashMark, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Button, ClashMark, NowPanel, Select, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { BayManage } from "@armada/cleanup";
 import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
 import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
+import type { StartWhen } from "@armada/screens/src/draft/sessions";
+import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import { age, type Item } from "../../Dashboard";
@@ -25,6 +27,7 @@ import { SessionView } from "../../sessions";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import type { Session, SessionsDraft, SessionWait } from "@armada/screens/src/draft/sessions";
 import { restoreThread } from "../../session-view/place";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
@@ -215,7 +218,8 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
  * and Needs you band.
  */
 export function SessionPane({ subject, props, acts, ledger, hosts, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
-  const session = useSessions().find((one) => one.id === subject.id);
+  const sessions = useSessions();
+  const session = sessions.find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
   useViewing(session?.id);
@@ -225,6 +229,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   }, [session?.id]);
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
+  if (session.waits !== undefined) return <WaitingPane subject={subject} session={session} wait={session.waits} sessions={sessions} draft={draft} />;
   return (
     <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
       <SessionView
@@ -246,6 +251,82 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
           back: <BackAct />,
         }}
       />
+    </section>
+  );
+}
+
+// ---- A Session that waits on another ----------------------------------------------------------------------
+
+/**
+ * A Session dispatched after another and not started: its brief, the Session it waits on, and when it starts and from where. The
+ * condition can be changed, and Start now ignores it. It has no thread to read and no box to answer in; those come when it starts.
+ */
+function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Subject; session: Session; wait: SessionWait; sessions: readonly Session[]; draft: SessionsDraft }) {
+  const parts = planPartsOf(sessions.find((one) => one.id === wait.on.id));
+  const set = (when: StartWhen, part?: string) => {
+    const found = parts.find((one) => one.id === part);
+    draft.startWhen?.(session.id, when, found === undefined ? undefined : { id: found.id, title: found.title });
+  };
+  return (
+    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+      <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone: toneOf(subject) }} />}>
+        {draft.startNow === undefined ? null : (
+          <Button variant="primary" size="sm" onClick={() => draft.startNow?.(session.id)}>
+            Start now
+          </Button>
+        )}
+      </PaneHead>
+      <div className="deck-pane__body deck-waiting">
+        <dl className="deck-facts">
+          <div className="deck-facts__row">
+            <dt>Brief</dt>
+            <dd className="deck-waiting__brief">{wait.brief}</dd>
+          </div>
+          <div className="deck-facts__row">
+            <dt>Waits on</dt>
+            <dd>
+              <Holder kind="session" id={wait.on.id} title={wait.on.title} />
+            </dd>
+          </div>
+          <div className="deck-facts__row">
+            <dt>Starts when</dt>
+            <dd className="deck-waiting__when">
+              {draft.startWhen === undefined ? (
+                START_WHEN.find((one) => one.id === wait.when)?.label
+              ) : (
+                <>
+                  <Select aria-label="Starts when" value={wait.when} onChange={(event) => set(event.target.value as StartWhen, event.target.value === "plan" ? parts[0]?.id : undefined)}>
+                    {START_WHEN.map((one) => (
+                      <option key={one.id} value={one.id} disabled={one.id === "plan" && parts.length === 0}>
+                        {one.label}
+                      </option>
+                    ))}
+                  </Select>
+                  {wait.when !== "plan" ? null : (
+                    <Select aria-label="Plan part" value={wait.part?.id ?? parts[0]?.id ?? ""} onChange={(event) => set("plan", event.target.value)}>
+                      {parts.map((one) => (
+                        <option key={one.id} value={one.id}>
+                          {`${one.kind === "group" ? "Group" : "Task"}: ${one.title}`}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </>
+              )}
+            </dd>
+          </div>
+          {wait.needs === "" ? null : (
+            <div className="deck-facts__row">
+              <dt>Needs</dt>
+              <dd>{wait.needs}</dd>
+            </div>
+          )}
+          <div className="deck-facts__row">
+            <dt>Starts from</dt>
+            <dd data-mono>{startsFrom(wait)}</dd>
+          </div>
+        </dl>
+      </div>
     </section>
   );
 }

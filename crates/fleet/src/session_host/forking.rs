@@ -247,6 +247,7 @@ where
             pilot: None,
             fork: None,
             request: None,
+            after: None,
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {

@@ -122,11 +122,13 @@ const ROOT = ARMADA.root;
 
 /** The draft a real Fleet serves, as far as dispatching reads it: what it starts, what it queues, and the lists the selects offer. */
 function served(serves: { queue: boolean } = { queue: true }) {
+  // One list, since the sheet reads the Sessions through `useSyncExternalStore` and a new array each read never settles.
+  const none: never[] = [];
   const start = vi.fn(async (..._args: Parameters<SessionsDraft["start"]>) => "s-new");
   const send = vi.fn();
   const queue = vi.fn();
   const draft = {
-    get: () => [],
+    get: () => none,
     subscribe: () => () => undefined,
     start,
     send,

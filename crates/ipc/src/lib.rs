@@ -219,6 +219,7 @@ mod session_checks;
 mod slot_asking;
 mod session_retro_row;
 mod session_starts;
+mod session_waits;
 mod session_summary;
 mod sessions;
 mod setup;
@@ -532,6 +533,10 @@ pub use session_checks::{
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
 pub use session_starts::{ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_waits::{
+    ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition, StartWaitingNow, WaitBy, WaitPull,
+    WaitReading, WaiterEvent, WaiterSide,
+};
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,

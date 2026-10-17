@@ -28,6 +28,11 @@ pub struct StartAnotherSession {
     /// has handed it already.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// A Session this one waits on, and when it starts. **Present, the new Session starts when the
+    /// condition is met** and its first message, the other Session's handoff then `message`, is held
+    /// for the person as any start's is. The Session waited on is told what `after.needs` says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<crate::session_waits::StartAfter>,
 }
 
 /// `hand_to_session`: the person hands one group of a Session's plan to a Session of its own, from

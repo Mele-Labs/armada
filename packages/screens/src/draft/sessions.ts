@@ -332,6 +332,11 @@ export type SessionRow =
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session that waits on this one: it was dispatched to, its start condition was changed by this Session's agent or by the person,
+   * or its condition was met and it started. `by` is who changed the condition. **A mock's row**: nothing in Fleet carries it yet.
+   */
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished, or merged its pull request. The agent was told in the same moment. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
@@ -360,6 +365,47 @@ export type HeldRow = {
 
 /** What a release gave back or handed over, and what stayed with why. `to` is the Session handed them. */
 export type HoldsReleased = { to?: string; moved: readonly HeldRow[]; kept: readonly (HeldRow & { why: string })[] };
+
+// ---- A Session that waits on another -------------------------------------------------------------------------
+// Draft, mock-only: nothing in Fleet or the protocol carries it. A Session dispatched after another holds no slot and
+// runs nothing until its condition is met; the Session it waits on is told, and may change the condition.
+
+/** What starts a waiting Session: the other Session ends, a part of its plan is done, its pull request is pushed, or lands. */
+export type StartWhen = "ends" | "plan" | "pushed" | "lands";
+
+export type SessionWait = {
+  /** The Session it waits on. */
+  on: { id: string; title: string };
+  when: StartWhen;
+  /** With `plan`: the group or task of the other Session's plan, by id. */
+  part?: { id: string; title: string };
+  /** With `pushed` and `lands`: the pull request, once the other Session has named it. */
+  pull?: { number: number; branch: string };
+  /** Where it starts from: main, or the branch of the other Session's pull request. */
+  base: StartBase;
+  /** What it needs of the Session it waits on: the rest of the clause the brief names the wait in. Empty where the brief names none. */
+  needs: string;
+  /** The words it was dispatched with, which it starts on. */
+  brief: string;
+  /** Who last set the condition. */
+  by: "you" | "agent";
+};
+
+export type StartBase = "main" | "branch";
+
+/**
+ * What the proposer reads of a brief that tags a Session: who it waits on, when it starts, where from, and what it needs. **A mock's
+ * stand-in**: the mock's `reads-waits.ts` reads the words by rule, and nothing in Fleet reads a wait yet.
+ */
+export type WaitReading = {
+  on: { id: string; title: string };
+  when: StartWhen;
+  part?: { id: string; title: string };
+  base: StartBase;
+  needs: string;
+  /** What the proposer would name the Session. Absent where it reads no name, as a Fleet's reading of the wait does. */
+  title?: string;
+};
 
 export type Session = {
   id: string;
@@ -449,6 +495,8 @@ export type Session = {
   mode?: SessionMode;
   /** The plan, workflow, subagents and concerns the view draws round the thread. Absent draws the thread and its ledger as before. */
   work?: SessionWork;
+  /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
+  waits?: SessionWait;
 };
 
 /**
@@ -600,8 +648,23 @@ export type SessionsDraft = {
    * `request` is the words the person dispatched with: Fleet reads them once to fill in the title, workflow,
    * model and effort, and the Session starts on the answer without the press waiting for it.
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
+   * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">) => string | Promise<string | undefined>;
+  /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
+  readsWait?: (words: string) => WaitReading | undefined;
+  /**
+   * The reading of a brief once the proposer has answered for it, which a send waits for so a Session is not started on the defaults
+   * while the real reading is out. Absent where `readsWait` answers at once.
+   */
+  settlesWait?: (words: string) => Promise<WaitReading | undefined>;
+  /**
+   * Changes when a waiting Session starts, and from where. The Session it waits on is told. Absent where nothing serves it, and the
+   * waiting Session's page offers no condition to change.
+   */
+  startWhen?: (id: string, when: StartWhen, part?: { id: string; title: string }) => void;
+  /** Starts a waiting Session now, whatever its condition. The Session it waits on is told. Absent with `startWhen`. */
+  startNow?: (id: string) => void;
   /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
   queued?: () => readonly QueuedIdea[];
   /** Saves an idea without starting it. Absent with `queued`. */

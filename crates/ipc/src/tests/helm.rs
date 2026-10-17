@@ -161,6 +161,7 @@ fn a_helm_record() -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }
 

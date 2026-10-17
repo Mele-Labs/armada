@@ -28,6 +28,7 @@ import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
+import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
@@ -107,6 +108,11 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
+   * changed it), or started (`says` is where from). A press opens it.
+   */
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
@@ -730,6 +736,7 @@ function Row({
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (
