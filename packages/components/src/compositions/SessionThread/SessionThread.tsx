@@ -1029,6 +1029,12 @@ export function askLabel({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "
   return header === "" ? "Question" : header;
 }
 
+/** The question's own words, or a permission's command: the line its row in the Needs you list reads. */
+export function askText({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "lapsed">): string {
+  if (asked !== undefined) return asked.questions?.[0]?.question ?? asked.command.split("\n")[0] ?? "";
+  return lapsed?.questions[0]?.question ?? "";
+}
+
 /** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
 export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true }) {
   return (

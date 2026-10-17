@@ -17,6 +17,7 @@ import {
   ForkedFrom,
   AskCards,
   askLabel,
+  askText,
   NeedsYouPanel,
   DockedTerminal,
   ProseTerminal,
@@ -877,6 +878,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       ? undefined
       : {
           id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
+          text: askText({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
           children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };

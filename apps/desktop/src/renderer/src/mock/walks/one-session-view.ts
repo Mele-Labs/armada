@@ -41,6 +41,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: text("Reproduce"), say: "Its steps replace the others in Progress" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again, told the same way" },
   { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. This wakes nobody and the mark on it goes" },
+  { press: inside(stage, button("Open How many attempts before it gives up?")), say: "The question is a row in the Needs you panel, and a press opens it" },
   { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Progress has no plan yet, and the Field has the Session's own drone reading Fleet" },
   { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
   { press: inside(ask, button("Answer")), say: "Answered. A new turn starts" },

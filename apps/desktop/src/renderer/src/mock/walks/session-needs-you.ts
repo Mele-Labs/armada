@@ -11,12 +11,14 @@ function steps(): Step[] {
   const needs = region("Needs you");
   return [
     { press: inside(sessions, button(/Pin the store clock/)), say: "Opened" },
-    { look: needs, say: "Needs you, the panel on the composer, up because a question arrived" },
+    { look: needs, say: "Needs you, the panel on the composer, a list because a question arrived" },
     { hover: inside(needs, role("img", "Look at the findings page")), say: "One glyph an item, named on hover" },
-    { look: inside(needs, button("Open Approve #1843")), say: "The ledger's own rows, each a press that does its act" },
-    { press: inside(needs, button("Open Keep the old fixture or drop it?")), say: "An item with no act opens a box" },
+    { look: inside(needs, button("Open Approve #1843")), say: "One row to a thing, the question first, and no acts in the list" },
+    { press: inside(needs, button("Open Keep the old fixture or drop it?")), say: "A press opens the item, and one with no act opens a box" },
     { look: inside(needs, role("textbox", /^Reply to Keep the old fixture/)), say: "What is typed here goes to the agent" },
-    { look: role("article", "Waiting on you"), say: "The question is the panel's first part, above the rows" },
+    { press: inside(needs, button("Back", { exact: true })), say: "Back to the list" },
+    { press: inside(needs, button("Open Which clock?")), say: "The question is the first row" },
+    { look: role("article", "Waiting on you"), say: "Opened, it is answered in the panel" },
   ];
 }
 

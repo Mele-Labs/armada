@@ -1,6 +1,6 @@
-// Everything the agent needs from him is one panel joined to the composer, the question first and what waits on him under it. A question that
-// arrives has it up already. Esc folds it to its trigger on the box, and a press on the trigger raises it again. Over the
-// `session-waiting-on-you` scenario. Plays under both takes: `?take=eyebrow` (a tab) and `?take=band` (a band on the box).
+// Everything the agent needs from him is one panel joined to the composer, and it opens as a list: a row for each thing, the question first.
+// A press on a row opens that one in the panel's place to answer or address; Back or Esc returns to the list, and Esc on the list folds the
+// panel to its trigger. Over the `session-waiting-on-you` scenario. Plays under both takes: `?take=eyebrow` (a tab) and `?take=band` (a band).
 
 import { button, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
@@ -8,15 +8,23 @@ import { toSessions } from "../sessions/walk-kit";
 const sessions = region("Work", { exact: true });
 const needs = region("Needs you");
 const trigger = inside(needs, button("Needs you", { exact: true }));
+const question = inside(needs, button("Open Which clock?"));
+const cargo = inside(needs, button("Open Run the store tests on your machine"));
+const run = inside(needs, role("group", "cargo test -p store"));
 
 const needsYouPanel = walk("session-waiting-on-you", [
   toSessions,
   { press: inside(sessions, button(/Pin the store clock/)), say: "A Session with a question and four things waiting" },
-  { look: inside(needs, role("article", "Waiting on you")), say: "The panel is up already, the question first, joined to the box" },
-  { key: "Escape", on: inside(needs, role("radio", "Fake")), say: "Esc folds it to its trigger" },
-  { look: trigger, say: "The trigger sits on the box, a glyph for the question and one for each thing waiting" },
-  { press: trigger, say: "A press raises the panel again" },
-  { look: inside(needs, button("Open Approve #1843")), say: "What waits on him follows the question, under a line" },
+  { look: question, say: "The panel is up as a list, the question first, joined to the box" },
+  { press: question, say: "A press on a row opens it" },
+  { look: inside(needs, role("article", "Waiting on you")), say: "The question, to answer here" },
+  { press: inside(needs, button("Back", { exact: true })), say: "Back returns to the list" },
+  { look: cargo, say: "One row to a thing, whatever is waiting" },
+  { press: cargo, say: "A command opens with its Run" },
+  { look: inside(run, button("Run")), say: "Run, as it was in the thread" },
+  { key: "Escape", on: inside(run, button("Run")), say: "Esc returns to the list" },
+  { key: "Escape", on: cargo, say: "Esc on the list folds the panel" },
+  { look: trigger, say: "The trigger sits on the box, a glyph for each thing waiting" },
 ]);
 
 export { needsYouPanel as "needs-you-panel" };
