@@ -261,7 +261,7 @@ export const ORIGIN: Readonly<Record<string, Rendering | undefined>> = {
   "drone_drafted": { verb: "Drafted by a Drone", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_dispatched": { verb: "From a Studio, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_helm_drafted": { verb: "From a Studio, via Helm", icon: null, badgeStatus: null, statusToken: null, hint: null },
-  "session_dispatched": { verb: "From a Session, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
+  "session_dispatched": { verb: "From a Job, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "autopilot_picked": { verb: "Picked by Autopilot", icon: null, badgeStatus: null, statusToken: null, hint: null },
 };
 
