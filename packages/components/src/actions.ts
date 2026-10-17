@@ -37,22 +37,12 @@ export * from "./generated/actions";
  * has taught them the wrong one.
  */
 export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = {
-  kill: ["terminate", "stop", "abort", "end"],
-  kill_and_redispatch: ["terminate and retry", "restart the job"],
-  redispatch: ["retry", "again", "rerun"],
-  redirect: ["steer", "correct", "instruct"],
-  restart_step: ["retry the step", "run the step again"],
   // "dispatch" left the alias list on 2026-09-14 (#1087): it is the verb now,
   // and an alias identical to the label it finds teaches nothing.
   new_job: ["start", "compose"],
   copy_debug_info: ["clipboard", "support", "envelope"],
   debug_bridge: ["screenshot", "diagnose", "state"],
-  report_job: ["bug", "file", "wrong"],
-  observe: ["watch", "transcript", "terminal"],
-  open_diff: ["patch", "changes", "files"],
-  open_stage: ["gate", "phase", "check"],
   state_filter: ["tab", "narrow", "status"],
-  submit_for_verification: ["hand back", "verify"],
 };
 
 /**
@@ -60,8 +50,7 @@ export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = 
  *
  * **Not the same thing as a scope.** A scope says where a binding is offered
  * and the registry decides how many there are; a context is where a person is
- * standing. `dispatch card` and `piloted job` are conditions inside the detail
- * rather than places of their own, and `open studio` is a place: the acts
+ * standing. `open studio` is a place: the acts
  * scoped to it act on the board rather than on anything focused, so a Studio
  * open on its whiteboard is neither the board nor a job read whole.
  */
@@ -81,9 +70,6 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   anywhere: ["board", "detail", "studio"],
   list: ["board"],
   "list and detail": ["board", "detail"],
-  detail: ["detail"],
-  "dispatch card": ["detail"],
-  "piloted job": ["detail"],
   "open studio": ["studio"],
   // Keys on the Dashboard's panel and on a call in front: found from its own `?` sheet, not drawn as
   // palette rows, which would each need a handler the panel owns.

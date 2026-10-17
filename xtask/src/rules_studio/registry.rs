@@ -7,10 +7,8 @@
 //! read rather than dropping it, because a field this skips is a field the
 //! rule does not compare.
 //!
-//! **One reader for one file.** [`crate::rules_enums::reachability::reading`]
-//! reads the Job registries; a second parser over the same rows is where two
-//! readers would start disagreeing about what a file says. This one reads a
-//! file that one does not.
+//! **One reader for one file.** This one reads `studio-kinds.toml`, which no
+//! other reader in the gate parses.
 
 use std::collections::BTreeMap;
 

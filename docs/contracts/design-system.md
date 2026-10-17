@@ -1477,26 +1477,8 @@ a modifier.
 j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
-r              review             (list only)
-t              attest   (list and detail)
-d              redirect   (list and detail)
-s              restart step        (detail only)
 c              copy debug info
-b              report this job     (detail only) (confirms)
-x              kill                (confirms)
-X              kill & redispatch   (detail only) (confirms) (not built)
 n              dispatch
-a              approve             (dispatch card only)
-v              observe             (detail only)
-u              submit for verification  (piloted job only)
-e              redispatch as a new job   (list and detail)
-⌥↑ ⌥↓          move up / down       (detail only)
-f              open the diff        (detail only)
-o              open the output      (detail only)
-g              open the stage       (detail only)
-B              raise the cost cap   (detail only) (confirms)
-T              raise the turn cap   (detail only) (confirms)
-r              open the run sheet   (detail only)
 N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)
@@ -1543,9 +1525,9 @@ any list does; the rest are its own: `l r f` go to the list, the reader and the 
 description. They stand down in a text field and while a dialog is up.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
-The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
-hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
-the keymap does not count them against `t` and `c`. `l b c q f a d` go to a panel, `m` shows
+The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
+hand (`c` copy debug info) are not on the deck, so
+the keymap does not count them against `c`. `l b c q f a d` go to a panel, `m` shows
 the map, `0–9` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
 and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
@@ -1762,13 +1744,10 @@ and an act the app cannot reach from where you are standing. Both are
 facts rather than a list of exceptions, which is the same reasoning the
 `not built` annotation carries under Two tiers.
 
-**One exception: an act on one Job, with no Job focused, is left out.**
-Open, Review, Attest, Redirect, Kill, Redispatch and Restart step need a
-Job to act on. With no Job open and nothing under the Board's cursor, six
-dimmed rows all saying *no job focused* led the palette and told a person
-nothing they could act on. They come back when a Job is focused, which
-is where their shortcuts are learned. A `not built` row is never left
-out. Settled 2026-09-17.
+**One exception: an act on a focused row is left out.**
+Open and Close need a row to act on. With nothing under the cursor, dimmed rows
+all saying *nothing focused* led the palette and told a person nothing they could
+act on. A `not built` row is never left out. Settled 2026-09-17.
 
 **The palette is the discovery surface.** It is how a person learns
 forty shortcuts without a cheat sheet, which is why every entry displays

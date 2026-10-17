@@ -97,17 +97,7 @@
           "model": "sonnet",
           "panel_size": 2,
           "prompt_key": "refactor_test_changes_justified",
-          "question": "Given the stated refactor, are the changes to test files justified by it - or has test scope been narrowed, have assertions been weakened, or have tests been skipped or deleted?",
-          "gaming_check": {
-            "enabled": true,
-            "baseline_ref": "plan.evidence",
-            "flag_if": [
-              "test_scope_narrowed",
-              "assertion_weakened",
-              "test_skipped",
-              "test_deleted"
-            ]
-          }
+          "question": "Given the stated refactor, are the changes to test files justified by it - or has test scope been narrowed, have assertions been weakened, or have tests been skipped or deleted?"
         }
       ],
       "evidence_scope": {
@@ -119,7 +109,6 @@
         "max_context_size": 40
       },
       "advance_gate": "auto_if_judge_passes",
-      "on_gaming_flag": "escalate:evidence_suspect",
       "on_fail": "retry:refactor"
     },
     {

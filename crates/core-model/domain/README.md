@@ -1,9 +1,8 @@
 # crates/core-model/domain
 
-**Authored here.** These files are the authority on Armada's domain enums —
-where a Job can be, where one step of it can be, which edges between those are
-legal, why a Job stops and asks, and what a WorkflowDef declares. The design
-workspace's databases are the record of the decision and the reasoning that
+**Authored here.** These files are the authority on Armada's domain sets —
+what a Check outcome is, what a WorkflowDef declares, which acts Bridge carries
+and what a Studio is made of. The design workspace's databases are the record of the decision and the reasoning that
 produced them, not the authority on the current set: a page there that
 disagrees with a file here is stale, not right.
 
@@ -15,13 +14,7 @@ files, a rule can — and the rule is the point.
 
 | Path | What it is |
 |---|---|
-| `job-statuses.toml` | Where a Job is. The `status` column on `jobs`, and the outer half of the two-level machine |
-| `step-states.toml` | Where one step of the frozen WorkflowDef is. The `state` column on `job_steps`, and the inner half |
-| `job-transitions.toml` | Every legal edge of the status machine, what fires it, and the escalation trigger it belongs to |
-| `transition-guards.toml` | The conditions an edge is admitted under, and the step states each one admits |
-| `job-fields.toml` | What a Job record holds — the `jobs` row, the `job_steps` row, and the things stored elsewhere |
-| `escalation-triggers.toml` | Why a Job stopped and a person is being asked |
-| `check-outcomes.toml` | What one declared mechanical Check did. The `outcome` column on `job_step_checks` |
+| `check-outcomes.toml` | What one declared mechanical Check did. The values a Check run's `outcome` takes |
 | `enum-verbs.toml` | The word, the glyph and the colour each variant renders as, for every enum its own header lists |
 | `workflowdef-fields.toml` | What a WorkflowDef declares: a step's gates, its evidence scope, the def-level defaults |
 | `workflows.toml` | The workflows Armada runs, and the ones it has decided not to design yet |
@@ -41,67 +34,21 @@ the two blocks under "Keyboard and command palette" in
 **`studio-kinds.toml` is held to three readers rather than one enum**, because
 a Studio's sets are spelled in `core-model`, in the store's `CHECK` constraints
 and in the TypeScript mirror, and nothing compared them. Its promotions are not
-an enum at all: they are `from`/`to` pairs over the node kinds, the shape
-`job-transitions.toml` has and for the same reason.
+an enum at all: they are `from`/`to` pairs over the node kinds, so a rule can
+read a rung's ends against the kinds.
 
 ## What a rule can check, and why the layout is shaped for it
 
-A transition names a `from` and a `to`, each of which must be a key in
-`job-statuses.toml` **verbatim** — no title-casing, no slugging, no lookup
-table in between. That is why the enum files key their tables on the wire value
-rather than on a slug with a `name` field beside it, the way `settings.toml`
-does: a setting has a human name and a key, an enum variant has only the one
-spelling, and a second spelling is the drift this file exists to catch. The same
-holds for `escalation_trigger` on a transition, for `step_states` on a status,
-and for `seen_under` on a step state.
-
-Transitions are an array of tables rather than one table per edge, because an
-edge has no name of its own that a Rust identifier could carry. `from` and `to`
-are the whole identity.
-
-A **guard** is the one thing an edge carries that reads another machine. Its
-`holds_steps` names the step states a Job may hold and still cross the edge, so
-`Guard::holds` in `core-model` is that array transcribed and the predicate is
-written in terms of it — there is no second statement of the condition to
-disagree with the first. That is what lets `completed_success` declare
-`step_states = ["advanced"]` and be checked rather than asserted: the gate
-carries only a guard's admitted states across a guarded edge. Issue #189.
-
-`transitions_in` and `transitions_out` on a status are derivable from
-`job-transitions.toml`, and are carried anyway. Declared intent checked against
-what was actually wired is worth the redundancy; a rule reads both and fails
-where they disagree. As carried, they agree.
-
-`step_states` on a status and `seen_under` on a step state are one relation
-written twice, and both are derived from the step machine the same way. **They
-had gone stale before anything read either**: `escalated` said `["stopped"]`
-while a Job escalated on `stalled` holds a step that is `running`, `advanced`
-was a state no status named, and seven rows declared nothing at all. Issue #184
-is the rule that reads them, and it walks `STEP_EDGES` beneath
-`ADVANCING_STATUSES` and carries a frozen step across the status edges rather
-than reading the `StepState` enum, every variant of which exists. Where a row
-and the walk disagree it names both and stops — which side is stale is not
-something a comparison knows, and here it was this file.
+A table is keyed on the wire value, with no slug and no `name` field beside it,
+the way `settings.toml` does: a setting has a human name and a key, an enum
+variant has only the one spelling, and a second spelling is the drift these
+files exist to catch.
 
 The WorkflowDef samples are JSON rather than TOML because that is the shape a
 repo authors and Fleet interprets, and embedding them in a TOML string would
 make them unparseable as what they are. A rule can read one and check every key
 against `workflowdef-fields.toml`, every `advance_gate` against that row's value
 table, and every `mechanical_check.type` against the sanctioned set.
-
-## The source disagrees with itself, and that is preserved
-
-Nothing here was repaired to make it consistent and no row was dropped. Escalation triggers carry
-no `level` while `last_verdict` in `job-fields.toml` says only step-level
-triggers may appear in it. Those are the findings, and repairing them here would
-have destroyed them. Each survives on the row it belongs to — in `notes`, or as
-the empty field that says the source left it undecided — for whoever decides it.
-
-**One was repaired, because a rule arrived that could arbitrate it.** `advanced`
-was a step state no status named, recorded here as a preserved disagreement. It
-is now named by every status, because the step machine says every status can
-hold one — the disagreement was the file's, and a finding is only worth
-preserving while nothing can settle it.
 
 ## What did not survive the move
 
@@ -119,23 +66,10 @@ the rows that say otherwise.
 ## Adding to these files
 
 A value added here is a value some enum must gain, so add it in the change that
-adds the variant, not before and not after. A transition added here needs both
-its ends present first. `actions.toml` has no enum to gain a variant: a row
-there needs its line in the contract's key map in the same change, and a glyph
+adds the variant, not before and not after. `actions.toml` has no enum to gain
+a variant: a row there needs its line in the contract's key map in the same change, and a glyph
 or a stated reason for having none. Nothing under this directory is Rust and
 nothing is under `src/`.
-
-## Known inconsistencies, not open questions
-
-Two disagreements are recorded here rather than filed, because they are most
-likely authoring artefacts. This data was written in sessions with no code
-alongside it, so a type-level contradiction is more probably a slip than a
-design position. Whoever implements the enums verifies each against intent and
-corrects the data.
-
-- **`silent` is typed `Sub-kind` in the trigger table and its `in_code` is
-  blank.** Whether it is a variant of its own or a payload on another trigger
-  decides a Rust type.
 
 ## Open questions
 
