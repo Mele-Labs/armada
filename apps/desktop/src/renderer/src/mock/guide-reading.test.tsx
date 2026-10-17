@@ -95,9 +95,9 @@ test("a guide with a relation draws it under the step that names it, from the re
     expect(figure.element().textContent).toContain(said);
   }
 
-  // Nothing in a figure is a control: the drawing is hidden from the
-  // accessibility tree, and a focus stop inside it would be unreachable.
-  expect(figure.element().querySelectorAll("button, a, input, [tabindex]")).toHaveLength(0);
+  // Nothing in a figure is a control: the drawing is hidden from the accessibility tree and inert, so a
+  // real card's tooltip marks are no focus stop there.
+  for (const one of figure.element().querySelectorAll("button, a, input, [tabindex]")) expect(one.closest("[inert]")).not.toBeNull();
 });
 
 test("a guide with no relation draws no figure, and holds no frame where one would go", async () => {

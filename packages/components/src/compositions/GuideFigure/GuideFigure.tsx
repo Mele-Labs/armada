@@ -53,7 +53,7 @@ export function GuideFigure({ figure, scale }: GuideFigureProps) {
       {/* Hidden rather than trusted to `role="img"`: a real component brings
           its own list, its own headings and its own labels, and a guide's step
           list is read by role. Nothing in here is focusable. */}
-      <div className="armada-guide-figure__stage" aria-hidden="true">
+      <div className="armada-guide-figure__stage" aria-hidden="true" inert>
         <Drawing figure={figure} />
       </div>
     </div>
