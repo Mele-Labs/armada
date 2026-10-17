@@ -339,7 +339,7 @@ async fn a_pick_with_words_tells_the_agent_both() {
         })
         .last()
         .unwrap();
-    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nFleet took this off your waiting list.");
+    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nThis settles the item, so Fleet took it off your waiting list. Do not add it back.");
 }
 
 #[tokio::test]
@@ -481,7 +481,7 @@ async fn an_answered_agent_item_leaves_the_list_at_once_and_stays_gone_when_rest
         .collect();
     let last = sent.last().unwrap();
     assert!(last.starts_with("Re: Run the tests\nYes\n"), "{last}");
-    assert!(last.ends_with("Fleet took this off your waiting list."), "{last}");
+    assert!(last.ends_with("This settles the item, so Fleet took it off your waiting list. Do not add it back."), "{last}");
     let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     assert_eq!(ids(&restated), ["b"]);
 }
