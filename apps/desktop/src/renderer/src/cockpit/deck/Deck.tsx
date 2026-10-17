@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Activity as ActivityGlyph, Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Rows3, Send, SlidersHorizontal, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -196,6 +196,7 @@ function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { s
     // A press on the list and on no row lets the cursor go.
     <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <header className="deck-band" {...folded.band}>
+        <Rows3 className="deck-band__icon" size={16} aria-hidden="true" />
         Jobs and Sessions
         <PanelKey id="list" />
       </header>
@@ -262,7 +263,10 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   }, [events, focus, replay === undefined ? undefined : replay.at]);
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
-      <header className="deck-band">Activity</header>
+      <header className="deck-band">
+        <ActivityGlyph className="deck-band__icon" size={16} aria-hidden="true" />
+        Activity
+      </header>
       <ActivityGraph
         now={props.now}
         jobs={props.state.jobs}
@@ -573,6 +577,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
+        <SlidersHorizontal className="deck-band__icon" size={16} aria-hidden="true" />
         Flight control
         <PanelKey id="controls" />
       </header>
@@ -666,6 +671,7 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
   return (
     <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
       <header className="deck-band">
+        <Plane className="deck-band__icon" size={16} aria-hidden="true" />
         <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
         </Switch>
@@ -708,6 +714,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
   return (
     <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
+        <Megaphone className="deck-band__icon" size={16} aria-hidden="true" />
         Incoming calls
         <PanelKey id="calls" />
       </header>
@@ -722,6 +729,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
                     <Icon size={16} aria-hidden="true" />
                   </span>
                 </Tooltip>
+                <span className="deck-hail__word">{item.kind}</span>
                 <span className="deck-hail__title">{item.title}</span>
                 <span className="deck-hail__age">{age(item.at, now)}</span>
               </button>

@@ -3,7 +3,7 @@
 // the Job or Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button, Tooltip } from "@armada/components";
 
@@ -180,6 +180,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <header className="deck-band">
+        <Warehouse className="deck-band__icon" size={16} aria-hidden="true" />
         Bays
         {onOpenSlots === undefined ? null : (
           <Tooltip label="Worktree Slots" asChild>

@@ -310,16 +310,15 @@
 }
 
 /* ---- Micro-motion --------------------------------------------------------------------------------------- */
-/* A menu or popover opens with a short rise and a fade from its trigger. They are unmounted on close, so closing
+/* A popover opens with a short rise and a fade from its trigger (a menu keeps its own, which rises to the side it opened on). They are unmounted on close, so closing
    is the instant the layer goes; a person summoned them, so entering is allowed (design-system.md → Motion). */
 @keyframes armada-type-pop {
   from { opacity: 0; transform: translateY(var(--pop-rise)) scale(var(--pop-from)); }
 }
-:root[data-look="new"] :is(.armada-dropdown-menu__panel, .armada-popover__panel) {
+:root[data-look="new"] .armada-popover__panel {
   transform-origin: top right;
   animation: armada-type-pop var(--duration-base) var(--ease);
 }
-:root[data-look="new"] .armada-dropdown-menu[data-align="start"] > .armada-dropdown-menu__panel,
 :root[data-look="new"] .armada-popover__panel--start { transform-origin: top left; }
 
 /* The focus ring eases in: it starts a little out from the control and clear, and settles on its own offset. */
@@ -334,3 +333,141 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] { --lift: 0px; --pop-rise: 0px; --pop-from: 1; }
 }
+
+/* ---- Cockpit panels: one frame, one header ---------------------------------------------------------------- */
+/* Every panel and pane is the same object: a glass frame at the rest level, its edge and shadow stepping to lifted
+   while focus is inside it. The header is an icon, tracked caps, a keycap, and one hairline under it. */
+:root[data-look="new"] :is(.deck-panel, .deck-pane) {
+  border-color: var(--edge-rest);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-rest);
+  transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+}
+:root[data-look="new"] :is(.deck-panel, .deck-pane):focus-within {
+  border-color: var(--edge-lifted);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-lifted);
+}
+:root[data-look="new"] .deck-band {
+  gap: var(--space-2);
+  color: var(--fg-default);
+  background: linear-gradient(90deg, var(--head-rule), transparent 94%) bottom / 100% var(--border-width) no-repeat;
+}
+:root[data-look="new"] .deck-band__icon { display: inline-flex; flex: none; color: var(--fg-muted); }
+:root[data-look="new"] .deck-band .armada-kbd { opacity: 1; margin-left: auto; box-shadow: var(--button-raise); }
+:root[data-look="new"] .deck-pane[aria-label="Flight map"] .deck-pane__title {
+  font-family: var(--font-display);
+  font-size: var(--text-head);
+  font-weight: var(--weight-head);
+  letter-spacing: var(--tracking-head);
+  text-transform: uppercase;
+}
+
+/* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
+/* A repository group is a section label: caps, quiet, and a hairline running out to the edge. */
+:root[data-look="new"] .deck-list__repository {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--fg-muted);
+}
+:root[data-look="new"] .deck-list__repository::after {
+  content: "";
+  flex: 1 1 auto;
+  height: var(--border-width);
+  background: linear-gradient(90deg, var(--head-rule), transparent);
+}
+
+:root[data-look="new"] .deck-row { min-height: var(--h-row); padding: 0 var(--space-3); }
+:root[data-look="new"] .deck-row__title { color: var(--fg-default); }
+:root[data-look="new"] .deck-row__said { color: var(--fg-muted); }
+:root[data-look="new"] .deck-row:is([data-cursor]):not([data-selected]) {
+  box-shadow: inset 0 0 0 var(--border-width) var(--edge-lifted), inset 0 var(--border-width) 0 var(--tile-edge);
+}
+/* What is open is lit: the accent washes the whole row, a ring and a still glow carry it, and the title goes firm. */
+:root[data-look="new"] .deck-row[data-selected] {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 8%, transparent)),
+    var(--accent-muted);
+  box-shadow:
+    inset 0 0 0 var(--border-width) var(--accent),
+    inset 0 0 var(--space-4) color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 var(--space-3) -2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+:root[data-look="new"] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+
+/* ---- Incoming calls: what is calling, who, how long ------------------------------------------------------- */
+/* Two lines: the kind of call in the status hue's caps over the Job or Session it is about, the age at the end.
+   The urgency is the hue the call already carries. */
+:root[data-look="new"] .deck-hail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "kind word age" "kind title age";
+  column-gap: var(--space-3);
+  align-items: center;
+  min-height: calc(var(--h-control) + var(--space-3));
+  padding: var(--space-2) var(--space-3);
+  box-shadow: inset 0 var(--border-width) 0 var(--tile-edge), var(--shadow-rest);
+  transition: background-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .deck-hail__kind { grid-area: kind; }
+:root[data-look="new"] .deck-hail__word {
+  display: block;
+  grid-area: word;
+  overflow: hidden;
+  color: var(--hue);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-head);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+:root[data-look="new"] .deck-hail__title { grid-area: title; font-weight: var(--weight-medium); }
+:root[data-look="new"] .deck-hail__age { grid-area: age; align-self: center; font-size: var(--text-xs); }
+:root[data-look="new"] .deck-hail:hover {
+  background: color-mix(in srgb, var(--hue) 15%, var(--bg-raised));
+  transform: translateY(var(--lift));
+  box-shadow: inset 0 var(--border-width) 0 var(--tile-edge), var(--shadow-hover);
+}
+/* Opened, kept under the cursor or pressed: lit in its own hue, a ring and a still glow, never a new colour. */
+:root[data-look="new"] .deck-hail:is([data-selected], [data-cursor], [aria-expanded="true"], :focus-visible, :active) {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--hue) 30%, transparent), color-mix(in srgb, var(--hue) 10%, transparent)),
+    var(--bg-raised);
+  transform: none;
+  box-shadow:
+    inset 0 0 0 var(--border-width) var(--hue),
+    inset 0 0 var(--space-4) color-mix(in srgb, var(--hue) 24%, transparent),
+    0 0 var(--space-3) -2px color-mix(in srgb, var(--hue) 50%, transparent);
+}
+:root[data-look="new"] .deck-hail:is([data-selected], [data-cursor], [aria-expanded="true"], :focus-visible, :active) .deck-hail__title { font-weight: var(--weight-heading); }
+
+/* ---- The repository selector: a field set into the glass, a menu at the overlay level --------------------- */
+:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger {
+  border-color: var(--edge-rest);
+  background: color-mix(in srgb, var(--bg-sunken) 55%, var(--bg-glass));
+  box-shadow: var(--well);
+  font-weight: var(--weight-medium);
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger:hover { border-color: var(--edge-hover); background: color-mix(in srgb, var(--bg-sunken) 40%, var(--bg-glass)); }
+:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--edge-lifted));
+  box-shadow: var(--well), 0 0 var(--space-3) -4px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+:root[data-look="new"] .deck-scope .armada-dropdown-menu__chevron { transition: rotate var(--duration-base) var(--ease); }
+:root[data-look="new"] .deck-scope .armada-dropdown-menu__trigger[aria-expanded="true"] .armada-dropdown-menu__chevron { rotate: 180deg; }
+
+:root[data-look="new"] .armada-dropdown-menu__panel {
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+}
+:root[data-look="new"] .armada-dropdown-menu__item {
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .armada-dropdown-menu__item:hover:not([aria-disabled="true"]) { background: color-mix(in srgb, var(--fg-default) 9%, transparent); }
+:root[data-look="new"] .armada-dropdown-menu__item[aria-current] { font-weight: var(--weight-heading); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+:root[data-look="new"] .armada-dropdown-menu__item[aria-current] .armada-dropdown-menu__check { color: var(--accent); }
+:root[data-look="new"] .armada-dropdown-menu__separator { margin: var(--space-1) var(--space-2); }
