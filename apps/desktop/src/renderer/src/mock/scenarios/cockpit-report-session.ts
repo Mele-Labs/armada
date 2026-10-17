@@ -3,7 +3,7 @@
 // thread, and the timeline's entries for it. Report starts a Session beside it, as the wired draft does, and the walk lands on it.
 // The claims are in `walks/cockpit-report-session.ts`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 

@@ -30,6 +30,14 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn read_session_wait(self: Arc<Self>, _read: ipc::ReadSessionWait) -> Result<ipc::WaitReading, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn start_waiting_now(self: Arc<Self>, _start: ipc::StartWaitingNow) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn send_session_message(
         self: Arc<Self>,
         _sent: SendSessionMessage,

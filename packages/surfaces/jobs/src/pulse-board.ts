@@ -6,7 +6,7 @@
 
 import type { Figure, PulseLogRow, PulseReading, PulseWorktreeRow } from "@armada/components";
 import type { JobDetail as JobWhole, JobExamined, Recorded, StepDetail } from "@armada/protocol";
-import type { PulseLog, PulseProcess, PulseView } from "./draft/pulse";
+import type { PulseLog, PulseProcess, PulseView } from "@armada/screens/src/draft/pulse";
 import { span } from "@armada/screens/src/duration";
 import { ordered, spent } from "@armada/screens/src/facts";
 import { cap } from "./RaiseCap";

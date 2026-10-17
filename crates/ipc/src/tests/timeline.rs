@@ -1,24 +1,11 @@
 //! The timeline's spellings: the kinds Bridge matches on, and what an absent field looks like.
 
 use crate::{
-    decode, encode, Delivered, Event, FleetTimeline, Instant, JobId, ManifestId, SessionId,
+    decode, encode, Delivered, Event, FleetTimeline, Instant, ManifestId, SessionId,
     SessionFact, StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-const ALL: [TimelineKind; 33] = [
-    TimelineKind::JobCreated,
-    TimelineKind::JobQueued,
-    TimelineKind::JobStarted,
-    TimelineKind::JobStep,
-    TimelineKind::JobCheck,
-    TimelineKind::JobJudged,
-    TimelineKind::JobFiles,
-    TimelineKind::JobRead,
-    TimelineKind::JobRan,
-    TimelineKind::JobAsked,
-    TimelineKind::JobAnswered,
-    TimelineKind::JobLanded,
-    TimelineKind::JobFailed,
+const ALL: [TimelineKind; 20] = [
     TimelineKind::SessionStarted,
     TimelineKind::SessionAsked,
     TimelineKind::SessionAnswered,
@@ -49,8 +36,6 @@ fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
     assert_eq!(
         names,
         [
-            "job.created", "job.queued", "job.started", "job.step", "job.check", "job.judged",
-            "job.files", "job.read", "job.ran", "job.asked", "job.answered", "job.landed", "job.failed",
             "session.started", "session.asked", "session.answered", "session.turn", "session.edited",
             "session.read", "session.ran", "session.subagent", "session.waiting", "session.resolved",
             "session.spawned", "session.ended",
@@ -61,7 +46,7 @@ fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
     for kind in ALL {
         assert_eq!(TimelineKind::from_wire(&kind.as_wire()), Some(kind));
     }
-    assert_eq!(TimelineKind::from_wire("job.vanished"), None);
+    assert_eq!(TimelineKind::from_wire("session.vanished"), None);
     assert_eq!(TimelineTone::from_wire("ask"), Some(TimelineTone::Ask));
     assert_eq!(TimelineTone::from_wire("loud"), None);
 }
@@ -100,10 +85,8 @@ fn what_an_entry_does_not_carry_is_left_out_not_sent_as_null() {
 
 #[test]
 fn a_subject_is_tagged_by_what_it_is() {
-    let job = TimelineSubject::Job { id: JobId::carried("01JOB") };
     let session = TimelineSubject::Session { id: SessionId::carried("s9") };
     let pull = TimelineSubject::PullRequest { number: 1890, url: None };
-    assert_eq!(encode(&job).unwrap(), r#"{"kind":"job","id":"01JOB"}"#);
     assert_eq!(encode(&session).unwrap(), r#"{"kind":"session","id":"s9"}"#);
     assert_eq!(encode(&pull).unwrap(), r#"{"kind":"pull_request","number":1890}"#);
 }

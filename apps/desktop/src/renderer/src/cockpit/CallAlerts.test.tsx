@@ -2,7 +2,7 @@
 // it, and it says nothing for what was already waiting, for what the cockpit is already showing, or for
 // what has been dealt with by the time it would have stood.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobSummary } from "@armada/protocol";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";

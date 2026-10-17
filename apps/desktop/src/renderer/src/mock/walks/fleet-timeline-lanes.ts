@@ -1,4 +1,4 @@
-// The Cockpit's timeline, second take: lanes. A row for each Job and Session, its events as marks along
+// The Cockpit's timeline, second take: lanes. A row for each Session, its events as marks along
 // the last two hours, a pull request's among them, now at the right, the rows grouped by how they stand. Over `fleet-timeline`.
 
 import { button, inside, region, role, tab, walk } from "../walk";

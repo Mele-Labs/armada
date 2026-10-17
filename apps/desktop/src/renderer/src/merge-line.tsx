@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine, useTileGrid, type FixChoice, type FixRefusal } from "@armada/components";
 import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
-import { LandCheckLogSheet } from "@armada/jobs";
+import { LandCheckLogSheet } from "@armada/screens/src/check-log-sheet";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";

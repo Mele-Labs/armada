@@ -26,19 +26,6 @@
  * `done`. The model and effort entries are dated at the start of the turn that ran on the change. Since 23.91.
  */
 export type TimelineKind =
-  | "job.created"
-  | "job.queued"
-  | "job.started"
-  | "job.step"
-  | "job.check"
-  | "job.judged"
-  | "job.files"
-  | "job.read"
-  | "job.ran"
-  | "job.asked"
-  | "job.answered"
-  | "job.landed"
-  | "job.failed"
   | "session.started"
   | "session.asked"
   | "session.answered"
@@ -72,7 +59,6 @@ export type TimelineTone = "run" | "ask" | "bad" | "ok" | "idle";
 
 /** What it happened to. `main` is the repository's main branch; which one is `manifest_id`. */
 export type TimelineSubject =
-  | { kind: "job"; id: string }
   | { kind: "session"; id: string }
   | { kind: "pull_request"; number: number; url?: string }
   | { kind: "main" };

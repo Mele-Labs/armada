@@ -11,7 +11,8 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useEffect, useState } from "react";
-import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
+import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, type LessonsTab } from "@armada/screens/src/lessons/retro";
+import { planViewNamed, type PlanView } from "@armada/jobs";
 
 /** What a press tells the window, so two readers of one key stay in step. */
 const HEARD = "armada:remembered";

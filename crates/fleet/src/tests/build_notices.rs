@@ -125,9 +125,9 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")

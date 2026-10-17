@@ -4,7 +4,7 @@
 // timeline's last event for the replied and the done is a live turn, the case that used to read as
 // moving and then as stuck. The walk `session-standing` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";

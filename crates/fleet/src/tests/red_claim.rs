@@ -145,6 +145,25 @@ async fn red_on(machine: &Machine) {
     machine.fleet.turn().await.unwrap();
 }
 
+/// A Session on `machine` takes the red, the one claim the hub of another machine names.
+async fn a_session_takes_the_red(machine: &Machine, id: &str) {
+    machine
+        .fleet
+        .report_session(SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried(id),
+            fact: SessionFact::Started { cwd: root(&machine.fleet).await, title: None, origin: SessionOrigin::Terminal, mod_version: None },
+        })
+        .await
+        .unwrap();
+    let taken = machine
+        .fleet
+        .take_main_red(None, ipc::TakeMainRed { session_id: Some(SessionId::carried(id)), take_over: false })
+        .await
+        .expect("taken");
+    assert!(taken.claimed);
+}
+
 #[tokio::test]
 async fn a_take_is_seen_and_refused_on_the_other_machine_until_it_takes_over() {
     let shared = FakeStore::new();
@@ -158,10 +177,11 @@ async fn a_take_is_seen_and_refused_on_the_other_machine_until_it_takes_over() {
     assert_eq!((held.kind, held.id.as_str(), held.machine.as_str()), (HolderKind::Job, job.id().as_str(), "mac-a"));
 
     b.fleet.turn().await.unwrap();
-    let named = the_hub(&b.fleet).await.fixing_elsewhere.expect("B's hub names A");
-    assert_eq!((named.machine.as_str(), named.holder.id.as_str()), ("mac-a", job.id().as_str()));
-    assert_eq!(named.holder.kind, ipc::HolderKind::Job);
-    assert!(the_hub(&a.fleet).await.fixing_elsewhere.is_none(), "A's own take is `fixing`");
+    assert!(
+        the_hub(&b.fleet).await.fixing_elsewhere.is_none(),
+        "a Job's take is not drawn: the hub names only a Session's"
+    );
+    assert!(the_hub(&a.fleet).await.fixing_elsewhere.is_none());
 
     let refused = b.fleet.fix_main(&root(&b.fleet).await, None, None, false).await.unwrap_err();
     let wire = b.fleet.refusal(refused);
@@ -256,7 +276,7 @@ async fn a_hub_whose_store_cannot_be_read_has_no_field_and_no_error() {
     let (a, b) = (machine("mac-a", &shared, true).await, machine("mac-b", &shared, true).await);
     red_on(&a).await;
     red_on(&b).await;
-    a.fleet.fix_main(&root(&a.fleet).await, None, None, false).await.unwrap();
+    a_session_takes_the_red(&a, "s-a").await;
     b.fleet.turn().await.unwrap();
     assert!(the_hub(&b.fleet).await.fixing_elsewhere.is_some());
 
@@ -336,7 +356,7 @@ async fn green_clears_every_claim_for_both_machines() {
     let (a, b) = (machine("mac-a", &shared, true).await, machine("mac-b", &shared, true).await);
     red_on(&a).await;
     red_on(&b).await;
-    a.fleet.fix_main(&root(&a.fleet).await, None, None, false).await.unwrap();
+    a_session_takes_the_red(&a, "s-a").await;
     b.fleet.turn().await.unwrap();
     assert!(the_hub(&b.fleet).await.fixing_elsewhere.is_some());
 

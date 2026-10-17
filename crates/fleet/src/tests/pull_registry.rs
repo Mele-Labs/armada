@@ -56,7 +56,7 @@ async fn a_session(machine: &Machine, id: &str) {
 async fn claims(machine: &Machine, id: &str, number: u64) -> Result<ipc::PullRequestClaimed, api::Refusal> {
     machine
         .fleet
-        .claim_pull_request(None, ipc::ClaimPullRequest { number, session_id: Some(SessionId::carried(id)), job_id: None })
+        .claim_pull_request(None, ipc::ClaimPullRequest { number, session_id: Some(SessionId::carried(id)) })
         .await
 }
 

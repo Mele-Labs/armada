@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
-import { isWorking, type DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "@armada/screens/src/draft/drone";
 import { answeringOf, commandOf, type ExplainOne } from "./step";
 import type { ActingAct } from "./pending";
 import type { CommandAnswer } from "@armada/protocol";

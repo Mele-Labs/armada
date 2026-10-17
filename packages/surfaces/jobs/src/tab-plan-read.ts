@@ -10,12 +10,12 @@ import type { PlanTaskSheetProps, PlanTaskTest, TaskMarkState } from "@armada/co
 import { GROUP_STATE } from "@armada/components";
 import type { JobDetail, StepDetail } from "@armada/protocol";
 
-import { caseViewsOf, scopeRevisionsOf, type CaseView, type ScopeRevisionView } from "./draft/cases";
-import { criterionViewsOf, type CriterionView } from "./draft/criterion";
-import { taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
-import type { JobDraft } from "./draft/held";
-import { planRevisionsOf, type PlanRevisionView } from "./draft/revision";
-import type { TaskView } from "./draft/task";
+import { caseViewsOf, scopeRevisionsOf, type CaseView, type ScopeRevisionView } from "@armada/screens/src/draft/cases";
+import { criterionViewsOf, type CriterionView } from "@armada/screens/src/draft/criterion";
+import { taskGroupsOf, type GroupState, type GroupView } from "@armada/screens/src/draft/group";
+import type { JobDraft } from "@armada/screens/src/draft/held";
+import { planRevisionsOf, type PlanRevisionView } from "@armada/screens/src/draft/revision";
+import type { TaskView } from "@armada/screens/src/draft/task";
 import { money } from "@armada/screens/src/facts";
 
 /**

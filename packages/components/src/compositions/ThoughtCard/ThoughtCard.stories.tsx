@@ -62,24 +62,7 @@ export const MatchSession: Story = {
   },
 };
 
-/** A Job, which holds no slot: the name stands alone, and the kind reads Job. */
-export const MatchJob: Story = {
-  args: {
-    stage: "match",
-    words: "retries should back off longer after the third failed charge",
-    target: { kind: "job", title: "Retry failed invoice charges with backoff", repository: "billing" },
-    onSend,
-    onNo,
-    onAskHelm,
-  },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Job" })).toBeVisible();
-    await expect(canvas.getByText("Retry failed invoice charges with backoff")).toBeVisible();
-    await expect(canvas.getByText("billing")).toBeVisible();
-  },
-};
-
-/** A Session that holds no slot: drawn as a Job's is, with the Session's glyph. */
+/** A Session that holds no slot: with the Session's glyph. */
 export const MatchSessionWithoutSlot: Story = {
   args: {
     stage: "match",

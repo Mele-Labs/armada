@@ -9,9 +9,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ApproveDispatch, Branches, JobDetail as JobWhole, WorkflowSummary } from "@armada/protocol";
 
-import { branchesFrom } from "./draft/branches";
-import type { BranchView } from "./draft/branches";
-import type { JobDraft } from "./draft/held";
+import { branchesFrom } from "@armada/screens/src/draft/branches";
+import type { BranchView } from "@armada/screens/src/draft/branches";
+import type { JobDraft } from "@armada/screens/src/draft/held";
 import { approvalOf, proposalEditsOf, proposalEditsOfWhole } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
 

@@ -9,8 +9,8 @@
 // writes through `Commanding`, which publishes the thread, the plan and the panels as Fleet would.
 
 import { callViewOf, commanderAskOf } from "@armada/jobs";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 import type { CardOption, CommanderCard, CommanderThread, CommanderThreadItem, JobDetail, Outcome, PlanTask, Saw } from "@armada/protocol";
 
 import type { Fleet } from "./fake-context";

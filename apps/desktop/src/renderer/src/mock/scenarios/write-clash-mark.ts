@@ -5,8 +5,8 @@
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
+import type { NowView } from "@armada/screens/src/draft/now";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { WriteClash } from "@armada/protocol";
 

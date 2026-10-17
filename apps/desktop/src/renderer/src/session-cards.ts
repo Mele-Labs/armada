@@ -1,10 +1,9 @@
 // What a Session ledger row's card says: built from the attachment and what the window already holds,
 // so `SessionLedger` stays a drawing and nothing is read for a hover.
 
-import { JOB_STATUS } from "@armada/components";
-import type { SessionLedgerCard, SessionLedgerTone } from "@armada/components";
+import type { SessionLedgerCard } from "@armada/components";
 import { GitMerge, GitPullRequest } from "lucide-react";
-import type { JobSummary, WorktreeSlot } from "@armada/protocol";
+import type { WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -18,26 +17,10 @@ export const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }
 
 export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
 
-/** What else the window already holds that a row's card can say: the Board's Jobs, and the slots Cleanup read. Nothing is read for a card. */
-export type Known = { board: readonly JobSummary[]; slots: readonly WorktreeSlot[] };
+/** What else the window already holds that a row's card can say: the slots Cleanup read. Nothing is read for a card. */
+export type Known = { slots: readonly WorktreeSlot[] };
 
 const PR_STATE = { open: "Open", draft: "Draft", merged: "Merged" } as const;
-
-/** A Session's Job state as the wire status it stands for, so its word and hue are the generated vocabulary's. */
-const JOB_WIRE = { running: "running", review: "awaiting_review", landed: "completed_success", escalated: "escalated", piloted: "piloted", superseded: "superseded" } as const;
-
-/** The hue a Job status carries on a card: the same status token a ledger row's mark would take. */
-const JOB_TONE: Record<string, SessionLedgerTone | undefined> = {
-  running: "running",
-  proposing: "running",
-  piloted: "piloted",
-  escalated: "escalated",
-  awaiting_review: "pending",
-  completed_success: "passed",
-  completed_failed: "failed",
-};
-
-const sentence = (said: string) => said.charAt(0).toUpperCase() + said.slice(1);
 
 /** A pull request's card: the ledger row's and the Sessions list chip's, so the two say the same. */
 export function pullRequestCardOf(one: Extract<SessionAttachment, { kind: "pull_request" }>): SessionLedgerCard {
@@ -57,31 +40,17 @@ export function pullRequestCardOf(one: Extract<SessionAttachment, { kind: "pull_
 }
 
 /** What hovering a row shows beside it, from what the attachment and the window already hold. */
-export function cardOf(one: SessionAttachment, session: Session, sessions: readonly Session[], known: Known): SessionLedgerCard {
+export function cardOf(one: Exclude<SessionAttachment, { kind: "job" }>, session: Session, sessions: readonly Session[], known: Known): SessionLedgerCard {
   switch (one.kind) {
     case "pull_request":
       return pullRequestCardOf(one);
-    case "job": {
-      const row = known.board.find((job) => job.id === one.id);
-      const status = row?.status ?? JOB_WIRE[one.state];
-      const tone = JOB_TONE[status];
-      return {
-        title: one.title,
-        where: String(one.number),
-        state: { said: sentence(JOB_STATUS[status]?.verb ?? status.replaceAll("_", " ")), ...(tone === undefined ? {} : { tone }) },
-        facts: [
-          ...(row?.current_step_id === undefined ? [] : [{ label: "Step", value: row.current_step_id, mono: true }]),
-          { label: "Branch", value: one.branch, mono: true },
-        ],
-      };
-    }
     case "slot": {
       const branch = attachmentsOf(session, "branch").find((b) => b.slot === one.slot)?.name ?? known.slots.find((s) => s.slot === one.slot)?.branch;
       return {
         title: `Worktree slot ${one.slot}`,
         facts: [
           ...(branch === undefined ? [] : [{ label: "Branch", value: branch, mono: true }]),
-          { label: "Held by", value: one.handed === undefined ? "This Session" : `Job ${one.handed.job}, handed over` },
+          { label: "Held by", value: "This Session" },
         ],
       };
     }
@@ -92,7 +61,6 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
         facts: [
           { label: "Slot", value: String(one.slot) },
           ...(behind === undefined ? [] : [{ label: `Behind ${behind.base}`, value: String(behind.behind) }]),
-          ...(one.handed === undefined ? [] : [{ label: "Came with", value: `Job ${one.handed.job}, not created here` }]),
         ],
       };
     }

@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { featureJudgeQuestioned } from "./fake";
+import { featureJudgeQuestioned } from "@armada/screens/src/fixtures/jobs/job-groups-fixture";
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

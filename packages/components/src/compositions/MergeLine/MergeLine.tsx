@@ -19,7 +19,6 @@ import {
   MainRedBand,
   type FixChoice,
   type FixRefusal,
-  type HubJob,
   type MainState,
   type RecentJob,
   type RecentSession,
@@ -138,8 +137,6 @@ export type HubPull = {
   branch: string;
   /** Absent where nothing has run on it: no mark. */
   ci?: "passed" | "running" | "failed" | "waiting_on_main";
-  /** The Job it came from. Absent for a person's. */
-  job?: HubJob;
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
   queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
   /** The login that opened it. Absent where the forge named none. */
@@ -294,7 +291,6 @@ export function MergeLine(props: MergeLineProps) {
             {...(hub.recentSessions === undefined ? {} : { recentSessions: hub.recentSessions })}
             onOpenLink={onOpenPullRequest}
             {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
-            {...(onOpenJob === undefined ? {} : { onOpenJob })}
             {...(onOpenSession === undefined ? {} : { onOpenSession })}
             {...(onFix === undefined ? {} : { onFix })}
           />
@@ -342,7 +338,7 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? (hub.main.taken ?? hub.main.takenBySession) : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.takenBySession : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} />
                       ))}
                     </ul>
                   </>
@@ -532,7 +528,7 @@ function MainLight({ main }: { main: MainState | undefined }) {
       ...(one.test === undefined ? [] : [{ label: "Test", value: one.test, mono: true }]),
     ]),
     ...(red?.red.merge === undefined ? [] : [{ label: "Broke in", value: [`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" "), mono: true }]),
-    ...(red?.taken === undefined && red?.takenBySession === undefined ? [] : [{ label: "Fixing", value: (red.taken ?? red.takenBySession)!.title }]),
+    ...(red?.takenBySession === undefined ? [] : [{ label: "Fixing", value: red.takenBySession.title }]),
     ...((main?.checking?.length ?? 0) === 0 ? [] : [{ label: "Checking", value: main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" "), mono: true }]),
   ];
   return (
@@ -759,21 +755,19 @@ function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun
   );
 }
 
-/** One open pull request: its `ci` as a mark, the branch, the number, and the Job it came from. */
+/** One open pull request: its `ci` as a mark, the branch, the number, and the Session that owns it. */
 function Pull({
   pull,
   fixing,
   onOpenPullRequest,
-  onOpenJob,
   focus,
 }: {
   pull: HubPull;
   /** A branch another surface asked for, as an `Entry` takes it. */
   focus?: string;
-  /** The Job working on main's red, named on a pull request that waits for it. */
-  fixing: HubJob | undefined;
+  /** The Session working on main's red, named on a pull request that waits for it. */
+  fixing: { title: string } | undefined;
   onOpenPullRequest: (url: string) => void;
-  onOpenJob?: (jobId: string) => void;
 }) {
   const row = useRef<HTMLLIElement>(null);
   const focused = focus === pull.branch;
@@ -797,7 +791,6 @@ function Pull({
       tabIndex={0}
       data-merge-item=""
       data-branch={pull.branch}
-      data-job={pull.job?.id}
       data-lit={pull.queue?.state === "unmergeable" || (queued === undefined && pull.ci === "failed") || undefined}
       style={hueOf(mark?.reading?.statusToken)}
     >
@@ -841,8 +834,7 @@ function Pull({
       <span className="armada-merge-line__detail">
         <RegisteredOwnerOf repository={repositoryOfAddress(pull.url)} number={pull.number} />
         <EntryOwner
-          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url }, ...(pull.job === undefined ? {} : { job: pull.job }) }}
-          {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url } }}
         />
       </span>
     </li>

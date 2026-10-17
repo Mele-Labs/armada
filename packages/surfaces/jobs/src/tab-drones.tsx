@@ -25,8 +25,8 @@ import type { ConfirmableAct, HeldAct } from "./Acts";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID } from "@armada/screens/src/copy";
 import { TAB_LABEL } from "./detail-tabs";
 import { absoluteOf } from "@armada/screens/src/duration";
-import { isWorking, type DroneView } from "./draft/drone";
-import { taskGroupsOf, type GroupView } from "./draft/group";
+import { isWorking, type DroneView } from "@armada/screens/src/draft/drone";
+import { taskGroupsOf, type GroupView } from "@armada/screens/src/draft/group";
 import { steeringOf } from "./steering";
 import { useSentRedirect } from "./sent-redirect";
 import {

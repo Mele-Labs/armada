@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Link, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -20,10 +20,11 @@ import { useMarking, type Mark } from "../../marking";
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
  * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
  * pull request's Checks red, and ended is nothing listening, whether it was ended
- * or its terminal stopped asking, and limited is held until the plan's limit resets. `[conventions.session_state_borrowing]` and
+ * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
+ * (`link`, the Queued reason's upstream that has not finished). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited";
+export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -43,6 +44,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   quiet: Unplug,
   ended: Unplug,
   limited: BatteryLow,
+  after: Link,
 };
 
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */

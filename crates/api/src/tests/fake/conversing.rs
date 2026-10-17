@@ -333,5 +333,6 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }

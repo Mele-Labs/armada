@@ -10,7 +10,7 @@ import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { cap } from "./RaiseCap";
 import { span } from "@armada/screens/src/duration";
-import { type GroupView } from "./draft";
+import { type GroupView } from "@armada/screens/src/draft/index";
 import { GROUP_STATE } from "@armada/components";
 
 /** One group, as the Produced panel draws it. */

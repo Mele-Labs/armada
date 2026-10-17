@@ -2,7 +2,7 @@
 // a pull request to approve, a command to run, and an open question Fleet knows of. Over the `sessions`
 // scenario. The walk `session-waiting-on-you` plays it.
 
-import { mockPage } from "@armada/jobs/fake";
+import { mockPage } from "@armada/screens/src/fixtures/walk-window";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";

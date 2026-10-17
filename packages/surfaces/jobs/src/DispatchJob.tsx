@@ -30,10 +30,10 @@ import type {
 } from "@armada/components";
 import type { LeftOutWorkflow, StagedAttachment, WorkflowSummary } from "@armada/protocol";
 
-import { howManySet } from "./draft/dispatch";
-import type { DispatchSettingsView } from "./draft/dispatch";
-import type { BranchesAnswer } from "./draft/branches";
-import type { LandingRule } from "./draft/landing";
+import { howManySet } from "@armada/screens/src/draft/dispatch";
+import type { DispatchSettingsView } from "@armada/screens/src/draft/dispatch";
+import type { BranchesAnswer } from "@armada/screens/src/draft/branches";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
 import {
   drawingOf,
   isDrawn,

@@ -13,6 +13,7 @@ import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
+import type { SessionWait, StartAfter } from "./session-waits";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -25,7 +26,7 @@ export type SessionState = "live" | "ended";
  */
 export type AttachmentState = "standing" | "spent" | "given_back";
 
-export type HolderKind = "session" | "job";
+export type HolderKind = "session";
 
 export type Holder = { kind: HolderKind; id: string };
 
@@ -140,6 +141,11 @@ export type SessionRecord = {
    * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
    */
   settled?: WaitingItem[];
+  /**
+   * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
+   * met. Absent once it has started. Since 16 Oct 2026.
+   */
+  waits?: SessionWait;
 };
 
 /** A value of a Session the proposer can pick. */
@@ -255,6 +261,11 @@ export type StartAnotherSession = {
    * Refused 422 `fleet.group_unknown` for a group the plan lacks, and 409 `fleet.group_handed` for one handed already.
    */
   group?: string;
+  /**
+   * A Session this one waits on, and when it starts. The new Session starts when the condition is met, and its held first
+   * message is then the other Session's handoff followed by `message`. The Session waited on is told `after.needs`.
+   */
+  after?: StartAfter;
 };
 
 /**
@@ -274,15 +285,14 @@ export type ForkThisSession = { title: string; message: string; at?: string };
 export type SessionHeld = { session_id: string; title: string; fork: boolean };
 
 /**
- * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
- * `session_id` or `job_id` names the claimant where the connection places none, which is Bridge's case:
- * exactly one of the two. Fleet refuses
+ * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session holds.
+ * `session_id` names the claimant where the connection places none, which is Bridge's case. Fleet refuses
  * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
  */
-export type ClaimPullRequest = { number: number; session_id?: string; job_id?: string };
+export type ClaimPullRequest = { number: number; session_id?: string };
 
-/** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
-export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
+/** What `claim_pull_request` answers: the pull request now held, and by which Session. */
+export type PullRequestClaimed = { number: number; branch: string; url: string; holder_id: string };
 
 /**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job

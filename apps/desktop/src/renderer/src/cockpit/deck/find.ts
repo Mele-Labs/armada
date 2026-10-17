@@ -1,5 +1,5 @@
-// What the list's search finds. A Session by its title, its id, a pull request number, a branch, a slot or a Job it holds, as the
-// Sessions page found it (`sessionsMatching`); a Job by its title, id, handle or branch. A blank search finds nothing in particular
+// What the list's search finds. A Session by its title, its id, a pull request number, a branch, a slot or a Job it holds, as
+// `sessionsMatching` finds it; a Job by its title, id, handle or branch. A blank search finds nothing in particular
 // and narrows nothing. When what matched is a thing the Session holds, the row says which, in place of its age.
 
 import { useMemo } from "react";

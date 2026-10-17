@@ -304,46 +304,5 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
             keys::PROMPT_PERMIT_REJECTED_NOTE,
             crate::permitting::PERMIT_REJECTED_NOTE,
         ),
-        (
-            keys::PROMPT_PILOT_OPENING,
-            crate::session_host::PILOT_OPENING,
-        ),
-        (
-            keys::PROMPT_PILOT_WORKTREE,
-            crate::session_host::PILOT_WORKTREE,
-        ),
-        (
-            keys::PROMPT_PILOT_RESTART,
-            crate::session_host::PILOT_RESTART,
-        ),
-        (
-            keys::PROMPT_PILOT_FOR_GOOD,
-            crate::session_host::PILOT_FOR_GOOD,
-        ),
-        (
-            keys::PROMPT_PILOT_STOPPED,
-            crate::session_host::PILOT_STOPPED,
-        ),
-        (
-            keys::PROMPT_PILOT_JUDGE_REFUSED,
-            crate::session_host::PILOT_JUDGE_REFUSED,
-        ),
-        (
-            keys::PROMPT_PILOT_CHECKS_FAILED,
-            crate::session_host::PILOT_CHECKS_FAILED,
-        ),
-        (
-            keys::PROMPT_PILOT_OUTSIDE_PLAN,
-            crate::session_host::PILOT_OUTSIDE_PLAN,
-        ),
-        (
-            keys::PROMPT_PILOT_CHANGED,
-            crate::session_host::PILOT_CHANGED,
-        ),
-        (
-            keys::PROMPT_PILOT_NARRATIVE,
-            crate::session_host::PILOT_NARRATIVE,
-        ),
-        (keys::PROMPT_PILOT_RECORD, crate::session_host::PILOT_RECORD),
     ]
 }

@@ -111,7 +111,6 @@ const THE_JOBS_LIFE: &[&str] = &[
     "resume_interrupted_job",
     "redispatch_job",
     "forget_job",
-    "take_over",
     "edit_job",
     "to_proposer",
     "stop_proposal",
@@ -161,6 +160,7 @@ const ANSWERS_FOR_OR_REACHES_THE_PERSON: &[&str] = &[
     "all_done",
     "tell_session",
     "start_another_session",
+    "change_waiting",
     "fork_this_session",
 ];
 

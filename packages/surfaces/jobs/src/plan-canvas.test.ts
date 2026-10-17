@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { TASK_STATE } from "@armada/components";
 
-import { ARC_MOMENTS, everyTaskState } from "./fixtures/build/arc";
+import { ARC_MOMENTS, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import { heightBeyond, nameLines } from "./card-height";
 import { groupNodeId, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
 

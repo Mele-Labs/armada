@@ -353,6 +353,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::start_another_session::<D>),
         )
         .route(
+            "/sessions/change_waiting",
+            post(crate::sessions::change_waiting::<D>),
+        )
+        .route(
             "/sessions/fork_this",
             post(crate::sessions::fork_this_session::<D>),
         )
@@ -363,6 +367,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/hand_to_session",
             post(crate::hosted_sessions::hand_to_session::<D>),
+        )
+        .route(
+            "/sessions/read_wait",
+            post(crate::hosted_sessions::read_session_wait::<D>),
+        )
+        .route(
+            "/sessions/start_waiting",
+            post(crate::hosted_sessions::start_waiting_now::<D>),
         )
         .route(
             "/sessions/message",
@@ -669,14 +681,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/raise_cost_cap", post(raise_cost_cap::<D>))
         .route("/jobs/:job_id/raise_turn_cap", post(raise_turn_cap::<D>))
         .route("/jobs/:job_id/kill_drone", post(kill_drone::<D>))
-        .route(
-            "/jobs/:job_id/take_over",
-            post(crate::piloting::take_over::<D>),
-        )
-        .route(
-            "/jobs/:job_id/handoff",
-            get(crate::piloting::get_handoff::<D>),
-        )
         .route(
             "/jobs/:job_id/submit_for_verification",
             post(crate::piloting::submit_for_verification::<D>),

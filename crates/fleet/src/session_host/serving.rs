@@ -15,7 +15,7 @@ use ipc::{
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
 };
-use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
+use store::{Holder, KeptHosting, KeptSession};
 
 use super::address_of;
 use super::process::{Heard, Start};
@@ -124,9 +124,6 @@ where
     async fn start_session(&self, mut start: StartSession) -> Result<SessionRecord, Refusal> {
         // Read only through `start_session_reading`, which holds the Fleet a task needs.
         start.request = None;
-        if let Some(from) = start.pilot.take() {
-            return self.start_piloted(start, from).await;
-        }
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
@@ -142,6 +139,14 @@ where
 
     async fn hand_to_session(self: Arc<Self>, hand: ipc::HandToSession) -> Result<ipc::SessionHeld, Refusal> {
         self.group_handed(hand).await
+    }
+
+    async fn read_session_wait(self: Arc<Self>, read: ipc::ReadSessionWait) -> Result<ipc::WaitReading, Refusal> {
+        self.wait_read(read).await
+    }
+
+    async fn start_waiting_now(self: Arc<Self>, start: ipc::StartWaitingNow) -> Result<SessionRecord, Refusal> {
+        self.waiting_started_now(start.session_id.as_str()).await
     }
 
     async fn send_session_message(
@@ -337,11 +342,7 @@ where
             state.allowed_folders.clear();
         }
         let mut still_held = Vec::new();
-        if let Some(job) = self.piloted_job_of(&id).await {
-            // The worktree is the Job's, handed over: it goes back to it, and
-            // is not committed to anyone's branch on the way.
-            self.closed_while_piloting(&job).await;
-        } else if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
+        if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
             // Parked: what is in each slot is committed to the branch it is on and
             // nothing is pushed, so closing loses no work.
             still_held = self.park_every_slot_of(&id, &served, hosting.lease_slot).await;
@@ -831,6 +832,23 @@ where
         self.fleet_word(session, text, true, Some(Written::Row(row))).await
     }
 
+    /// The first message of a Session that waited on another, written to its thread as the voice of the
+    /// Session it waited on and started as a turn.
+    pub(crate) async fn first_message_from(
+        self: &Arc<Self>,
+        session: &str,
+        from: SessionVoice,
+        text: &str,
+    ) -> Result<(), Refusal> {
+        let sent = SendSessionMessage {
+            session_id: SessionId::carried(session),
+            text: text.to_string(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None).await.map(|_| ())
+    }
+
     async fn fleet_word(
         self: &Arc<Self>,
         session: &str,
@@ -933,8 +951,7 @@ where
         };
         self.row_put(&id, row).await;
         if matches!(written, Written::Message(SessionVoice::You)) {
-            self.noted_on_the_ledger(&session, &sent.mentions, &text)
-                .await?;
+            self.noted_on_the_ledger(&session, &text).await?;
             // What the box held may be the first message another Session's agent wrote for him.
             self.first_message_sent(&id).await;
         }
@@ -985,12 +1002,6 @@ where
             .await
             .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
-        if !hosting.ran {
-            if let Some(preface) = self.handoff_preface(id).await {
-                turn.push_str(&preface);
-                turn.push_str("\n\nThe person's first message:\n\n");
-            }
-        }
         if let Some(line) = &ahead {
             turn.push_str(line);
             turn.push_str("\n\n");
@@ -1055,36 +1066,14 @@ where
             .collect()
     }
 
-    /// The title a first message gives, and a Job the message names held as one
-    /// the session is looking at.
+    /// The title a first message gives.
     async fn noted_on_the_ledger(
         &self,
         session: &KeptSession,
-        tags: &[ipc::SessionTag],
         text: &str,
     ) -> Result<(), Refusal> {
-        let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let mut changed = false;
-        for tag in tags.iter().filter(|tag| tag.kind == ipc::TagKind::Job) {
-            let mut detail = std::collections::BTreeMap::new();
-            detail.insert(String::from("looking"), String::from("true"));
-            changed |= store
-                .attach(
-                    &KeptAttachment {
-                        holder: Holder::session(&session.id),
-                        kind: String::from("job"),
-                        manifest_id: session.manifest_id.clone().unwrap_or_default(),
-                        target: tag.id.clone(),
-                        state: AttachmentState::Standing,
-                        detail,
-                        since: now.clone(),
-                        changed_at: now.clone(),
-                    },
-                    false,
-                )
-                .map_err(|why| self.ledger_fault(why))?;
-        }
         // A title the proposer is about to give is not made from the first message first.
         let reading = self.hosts().of(&session.id).state().proposal.reading.is_some();
         if session.title.is_none() && !reading {

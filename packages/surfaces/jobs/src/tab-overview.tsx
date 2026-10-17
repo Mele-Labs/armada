@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
 
 import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
 import { heldForMoney, heldForTurns } from "./Acts";
-import { useCheckOutputs, useFollowing } from "./outputs";
+import { useCheckOutputs, useFollowing } from "@armada/screens/src/outputs";
 
 /** What `followed` reads as where the caller hands none in. */
 const NOT_FOLLOWING: FollowedLog = { state: "none" };
@@ -31,12 +31,12 @@ import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
 import { useDetailKeys } from "./detail-keys";
 import { DetailSheet, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
-import type { JobCheckLog } from "./check-log-sheet";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
-import type { NowView } from "./draft/now";
+import type { NowView } from "@armada/screens/src/draft/now";
 import { nowPanelOf, type NowActed } from "./now-panel";
 import { commanderViewOf } from "./commander-rows";
 import { BEFORE_THE_RUN } from "./now-real";
@@ -52,9 +52,9 @@ import { shapeSaid } from "./plan-board";
 import { workflowRunOf } from "./workflow-canvas";
 import type { Figure } from "@armada/components";
 import type { JobExamined } from "@armada/protocol";
-import type { PulseView } from "./draft/pulse";
-import type { DroneView } from "./draft/drone";
-import type { LandingRule } from "./draft/landing";
+import type { PulseView } from "@armada/screens/src/draft/pulse";
+import type { DroneView } from "@armada/screens/src/draft/drone";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
 import { changedOf } from "./settings";
 import { LandBoard } from "./LandBoard";
 import { TrainBoard } from "./TrainBoard";
@@ -70,7 +70,7 @@ import { outputOf } from "./gates";
 import { whyNoSteps } from "./run";
 import { answeringOf, commandOf, questionOf, waitingOf } from "./step";
 import { proposerWaitOf } from "./proposing";
-import { taskGroupsOf } from "./draft/group";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 import {
   LOOK_FAILED,
   nothingToAsk,
@@ -78,8 +78,8 @@ import {
   pulseReadingOf,
   whyNoReading,
 } from "./resources";
-import { pulseViewOf } from "./draft/pulse";
-import { jobMembersOf } from "./draft/members";
+import { pulseViewOf } from "@armada/screens/src/draft/pulse";
+import { jobMembersOf } from "@armada/screens/src/draft/members";
 import { membersOf, useDroppedMembers } from "./members";
 import { waveReadingOf } from "./tab-wave";
 import { stillReading, whyNoBrief } from "./work";
@@ -813,8 +813,6 @@ export function OverviewTab(props: OverviewTabProps) {
             commander: {
               jobId: job.id,
               ...commander,
-              // `@` offers the Board's other Jobs, written into the message by their handle.
-              taggable: (props.board ?? []).filter((one) => one.id !== job.id).map((one) => ({ kind: "job" as const, id: one.id, title: one.handle })),
               onSend: (text: string) => void props.onAskCommander?.(job.id, text),
             },
           })}

@@ -16,7 +16,7 @@ import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "@armada/screens/src/duration";
 import { markFor, phoneDoor, outcomeCellOf, whatCellOf } from "./record-cells";
-import { taskGroupsOf } from "./draft/group";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 import {
   countsOf,
   familyOf,
@@ -25,7 +25,7 @@ import {
   type LedgerActor,
   type LedgerFamily,
   type LedgerRow,
-} from "./draft/ledger";
+} from "@armada/screens/src/draft/ledger";
 
 /** All, and the eight families after it. The filter menu lists them in this order. */
 export const RECORD_FILTERS = ["all", ...LEDGER_FAMILIES] as const;

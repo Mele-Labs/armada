@@ -59,8 +59,8 @@ import type {
 } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
-import type { LessonSessionRead } from "./session-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 
 /**
  * Which repository a request's words are about (`read_request_repository`). `manifest_id` is set only

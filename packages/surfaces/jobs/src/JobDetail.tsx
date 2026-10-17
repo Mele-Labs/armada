@@ -30,7 +30,7 @@ import {
   whyNoReading,
   type CapPresses,
 } from "./resources";
-import { pulseViewOf } from "./draft/pulse";
+import { pulseViewOf } from "@armada/screens/src/draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
 import type { FollowedLog, JobDetail as JobWhole, JobTrigger, ToProposer } from "@armada/protocol";
 import { openArtifact } from "@armada/screens/src/opening";
@@ -39,22 +39,22 @@ import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
 import { useApproval } from "./approval-held";
-import { baseBranch } from "./draft/branches";
+import { baseBranch } from "@armada/screens/src/draft/branches";
 import { ApprovalCanvas } from "./ApprovalCanvas";
 import { lifeOf } from "./approval-life";
 import { proposalEditsOfWhole } from "./tab-proposal-read";
 import { stepLinesOf } from "./workflow-canvas";
 import { DronesTab } from "./tab-drones";
 import { heldCommandOf } from "./drone-held";
-import { droneViewsOf } from "./draft/drone";
+import { droneViewsOf } from "@armada/screens/src/draft/drone";
 import { whyNotWatching } from "./story";
 import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
-import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
+import { JobCheckLogSheet, type JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { TriggerLogSheet } from "./trigger-log-sheet";
 import { RepairDiffSheet, type RepairFileOpen } from "./repair-diff-sheet";
-import { useCheckOutputs, useFollowing } from "./outputs";
+import { useCheckOutputs, useFollowing } from "@armada/screens/src/outputs";
 
 /** What `followed` reads as where the caller hands none in. `tab-overview.tsx`'s own. */
 const NOT_FOLLOWING: FollowedLog = { state: "none" };
@@ -66,13 +66,13 @@ import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
-import { ledgerOf } from "./draft/ledger";
-import { litSteps } from "./draft/now";
+import { ledgerOf } from "@armada/screens/src/draft/ledger";
+import { litSteps } from "@armada/screens/src/draft/now";
 import { nowViewOf } from "./now-real";
 import { useNowHidden } from "./now-hidden";
 import { useTrail, type TrailProps } from "./trail";
-import { JobRetroSheet, withSessions } from "./Lessons";
-import { jobOf } from "./retro";
+import { JobRetroSheet, withSessions } from "@armada/screens/src/lessons/Lessons";
+import { jobOf } from "@armada/screens/src/lessons/retro";
 import { OPEN_JOB_ATTRIBUTE } from "./open-job";
 import { useWalkedOnOpen } from "./walked";
 

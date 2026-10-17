@@ -15,6 +15,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/hand_to_session",
     },
     Route {
+        operation: "read_session_wait",
+        method: "POST",
+        path: "/sessions/read_wait",
+    },
+    Route {
+        operation: "start_waiting_now",
+        method: "POST",
+        path: "/sessions/start_waiting",
+    },
+    Route {
         operation: "send_session_message",
         method: "POST",
         path: "/sessions/message",
@@ -128,6 +138,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "start_another_session",
         method: "POST",
         path: "/sessions/start_another",
+    },
+    Route {
+        operation: "change_waiting",
+        method: "POST",
+        path: "/sessions/change_waiting",
     },
     Route {
         operation: "fork_this_session",

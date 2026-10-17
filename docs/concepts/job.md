@@ -650,6 +650,8 @@ leaves nothing to hold the Job until, and reads as an ordinary ending.
 
 ## Taking a Job over
 
+**Removed 17 Oct 2026: a Job can no longer be taken over, and `get_handoff` is gone.** `take_over` is removed with the Session it opened (see [Pilot](pilot.md)); a Job already `piloted` keeps its row and the three exits below. What follows describes the act as it was built.
+
 [Pilot](pilot.md) is the fifth act on a stopped or running Job, and the only one that hands its worktree to a person. `take_over` ends the Drone where one is live, stops the step it was on, and moves the Job to `piloted`. It works from `running`, `awaiting_review`, `awaiting_repair`, `escalated` and `awaiting_attestation`, and is refused on any other status.
 
 **A piloted Job is not scheduled and takes no working slot.** No Drone is on it, no turn moves it, and admission, auto-release, the build sweep, `armada clean` and every reclaim leave its worktree alone. A reclaim says so rather than skipping it: `{job} is piloted: a person is working in its worktree`.

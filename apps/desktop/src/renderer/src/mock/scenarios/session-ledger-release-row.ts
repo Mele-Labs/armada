@@ -3,7 +3,7 @@
 // with the branch it has checked out, except what the piloted Job handed over, which stays and says why. The claims are in
 // `walks/session-ledger-release-row.ts`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { HeldRow, HoldsReleased, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { asRow, holding, servedFrom } from "../holding";

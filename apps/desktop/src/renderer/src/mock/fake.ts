@@ -5,7 +5,7 @@
 // What each kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { WorktreesHeld } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -112,7 +112,7 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
     SESSIONS.set(fake, sessions);
     // The Cockpit's two session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
     if (kept.some((one) => one.name === "sessions")) {
-      const served = cockpitRoutes(sessions, fleet.state, fleet.publish);
+      const served = cockpitRoutes(sessions, fleet.state);
       if (own?.answerWaiting === undefined) fake.answerWaiting = served.answerWaiting;
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
       if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;

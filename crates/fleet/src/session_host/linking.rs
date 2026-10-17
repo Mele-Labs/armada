@@ -84,7 +84,7 @@ where
 
     /// What a Session handed work starts knowing of the one that handed it: its title and id, where
     /// it works, its open pull requests and the last of what was said in its thread.
-    async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
+    pub(super) async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
         let (session, held) = {
             let store = self.store().lock().await;
             (
@@ -139,12 +139,12 @@ where
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await?;
-        let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group)).await?;
+        let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group), true).await?;
         let _ = Arc::clone(&self)
             .send_session_message(SendSessionMessage {
                 session_id: held.session_id.clone(),

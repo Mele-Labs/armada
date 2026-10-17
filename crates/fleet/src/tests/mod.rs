@@ -19,6 +19,7 @@
 mod admitted;
 mod adopting;
 mod agent_starts;
+mod session_after;
 mod agreeing;
 mod aiming;
 mod allowance;
@@ -262,7 +263,6 @@ mod session_finish_up;
 mod session_host;
 mod session_plan;
 mod session_keeper;
-mod session_piloting;
 mod session_proposal;
 mod session_rail;
 mod session_setup;

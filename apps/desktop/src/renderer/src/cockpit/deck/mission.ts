@@ -6,9 +6,10 @@
 
 import type { WorkflowStepCardProps } from "@armada/components";
 import type { JobDetail } from "@armada/protocol";
-import { stepThatWorksTheGroups, workflowRunOf } from "@armada/jobs";
-import type { DroneView } from "@armada/jobs/draft/drone";
-import { taskGroupsOf, type GroupState } from "@armada/jobs/draft/group";
+import { stepThatWorksTheGroups } from "@armada/screens/src/draft/group";
+import { workflowRunOf } from "@armada/jobs";
+import type { DroneView } from "@armada/screens/src/draft/drone";
+import { taskGroupsOf, type GroupState } from "@armada/screens/src/draft/group";
 
 import type { DroneIn, Layout, Placed, Point, Size, Territory, Tile } from "./layout";
 import { FLAT } from "./layout";

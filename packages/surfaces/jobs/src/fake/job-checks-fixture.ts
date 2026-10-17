@@ -8,7 +8,7 @@
 import type { CheckRun, CheckUnderway, DeclaredCheck, PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { featureOnItsPlan } from "./job-detail-fixtures";
+import { featureOnItsPlan } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 
 const AT = (minute: number) => `2026-10-07T04:${String(minute).padStart(2, "0")}:00.000Z`;
 

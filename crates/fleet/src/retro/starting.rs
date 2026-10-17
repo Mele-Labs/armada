@@ -107,9 +107,9 @@ where
             effort: None,
             mode: None,
             root: None,
-            pilot: None,
             fork: None,
             request: None,
+            after: None,
         };
         let started = match HostedSessions::start_session(self.as_ref(), start).await {
             Ok(record) => record.id.as_str().to_string(),

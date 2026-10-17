@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 use crate::protocol_id::ProtocolId;
 
 /// A session, by the id its harness knows it by.
@@ -67,7 +67,6 @@ pub enum AttachmentState {
 #[serde(rename_all = "snake_case")]
 pub enum HolderKind {
     Session,
-    Job,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -817,6 +816,11 @@ pub struct SessionRecord {
     /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settled: Vec<WaitingItem>,
+    /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
+    /// process until the condition is met. Absent once it has started, and on a Session that never
+    /// waited. `docs/concepts/session.md`, *A Session that waits on another*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waits: Option<crate::session_waits::SessionWait>,
 }
 
 /// A value of a Session the proposer can pick.
@@ -888,7 +892,7 @@ pub struct Owners {
     pub holders: Vec<Ownership>,
 }
 
-/// `claim_pull_request`: a Session or Job takes an open pull request nobody holds.
+/// `claim_pull_request`: a Session takes an open pull request nobody holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimPullRequest {
     pub number: u64,
@@ -896,10 +900,6 @@ pub struct ClaimPullRequest {
     /// Drone**, as `ShowWindow::session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
-    /// Or which Job, for a person attaching the pull request to one they picked. Exactly one of
-    /// the two, read where `session_id` is.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
 }
 
 /// `take_main_red`: a Session takes a repository's red main, so no Job on another machine is
@@ -933,7 +933,6 @@ pub struct PullRequestClaimed {
     pub number: u64,
     pub branch: String,
     pub url: String,
-    /// `session` or `job`, and its id.
-    pub holder_kind: String,
+    /// The Session's id.
     pub holder_id: String,
 }

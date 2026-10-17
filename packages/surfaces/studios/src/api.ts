@@ -26,10 +26,11 @@ export type * from "./capture-window";
 
 export type StudiosApi = {
   /**
-   * Hold one repository's Studios, by its Manifest id, or `null` to drop them. Published on
-   * `BridgeState.studios` and kept current by `studio.changed`. #1287.
+   * Hold one repository's Studios, by its Manifest id, or every listed repository's at once, or
+   * `null` to drop them. Published on `BridgeState.studios` and kept current by `studio.changed`.
+   * #1287.
    */
-  watchStudios: (manifestId: string | null) => Promise<void>;
+  watchStudios: (manifestId: string | readonly string[] | null) => Promise<void>;
   /** Hold one Studio whole, or `null` to drop it. Published on `BridgeState.studio`. */
   watchStudio: (studioId: string | null) => Promise<void>;
   /** Start an untitled Studio in one repository. Answers with it, which also lands on the list. */

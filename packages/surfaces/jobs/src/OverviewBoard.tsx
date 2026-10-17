@@ -38,7 +38,7 @@ import { PanelRightOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
-import { litSteps } from "./draft/now";
+import { litSteps } from "@armada/screens/src/draft/now";
 import { useNowHidden } from "./now-hidden";
 import { marksKey, useMarked, useMarks } from "./sketch-marks";
 import { studioName } from "@armada/screens/src/studio";

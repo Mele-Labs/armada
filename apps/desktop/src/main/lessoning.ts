@@ -7,7 +7,7 @@
 // It holds no connection. The `Board` it is handed is what an act needs.
 
 import type { Lesson, LessonAnswer, LessonSessionStarted } from "@armada/protocol";
-import type { LessonSessionRead } from "@armada/jobs/session-wire";
+import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ask } from "./request";
 // Type-only, and therefore not a cycle at runtime: `Board` is declared where the acts are.
 import type { Board } from "./command";

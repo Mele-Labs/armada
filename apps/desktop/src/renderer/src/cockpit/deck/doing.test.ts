@@ -54,13 +54,6 @@ test("a drone that is not working does nothing, however fresh the burst", () => 
   expect(withDoing([drone("session:s1", false)], [burst("session.read", s1, 5_000)], NOW, none)[0]?.doing).toBeUndefined();
 });
 
-test("a Job's read and run bursts count, and the kinds that are not tool bursts do not", () => {
-  const j1 = { kind: "job", id: "j1" } as const;
-  expect(withDoing([drone("job:j1")], [burst("job.read", j1, 10_000)], NOW, none)[0]?.doing).toBe("read");
-  expect(withDoing([drone("job:j1")], [burst("job.ran", j1, 10_000)], NOW, none)[0]?.doing).toBe("run");
-  expect(withDoing([drone("job:j1")], [burst("job.files", j1, 10_000), burst("job.step", j1, 5_000)], NOW, none)[0]?.doing).toBeUndefined();
-});
-
 test("a burst after the clock is not yet, and a picked burst shows whether or not it is fresh or working", () => {
   expect(withDoing([drone("session:s1")], [burst("session.read", s1, -60_000)], NOW, none)[0]?.doing).toBeUndefined();
   const old = burst("session.edited", s1, 60 * 60_000);

@@ -548,7 +548,7 @@ return to a scenario without editing the address.
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
 | `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
 | `kind/<workflow>` | One of those Jobs, already open |
-| `job/<builder>` | One Job, already open, for each builder `packages/surfaces/jobs/src/fixtures/build/index.ts` exports |
+| `job/<builder>` | One Job, already open, for each builder `packages/screens/src/fixtures/build/index.ts` exports |
 | `recorded/<slug>` | One recorded Job, already open, for each recording under `packages/screens/src/fixtures/recorded/` |
 
 **Every Job is a Storybook fixture, never data made up for the mock.** A
@@ -744,8 +744,9 @@ that matched nothing exits 1.
 (`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
 `mod tests` runs that module, in its crate only, and the line under the command
 names which (`touched tests::x in -p fleet`). A change that touches no test
-module runs nothing and says so: name a test with `armada check test <name>`,
-which compiles only the crate that declares it. Whole crates and the crates
+module runs nothing and says so: name the tests with `armada check test a b c`,
+one run that compiles only the crates declaring them. Never one call per name:
+each is its own build and its own wait for a Check slot. Whole crates and the crates
 depending on them are CI's. **CI and the merge line read `--changed` the old
 way** (every crate the paths name), which `ARMADA_CHECK_PRIORITY=normal` asks
 for here too. `../concepts/manifest.md`, *How much of the tree a Check reads*.

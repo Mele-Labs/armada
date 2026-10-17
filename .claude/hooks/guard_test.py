@@ -21,7 +21,7 @@ SAY = (
     "`cargo test` and bare `nextest` ignore the machine's width and the queue of "
     "other Checks, and one run made the owner's Mac unusable. Run:\n"
     "  armada check test --changed   # what this diff touches\n"
-    "  armada check test <name>      # one test by name\n"
+    "  armada check test a b c       # tests by name, all in one run\n"
     "docs/practices/rust.md section 8."
 )
 

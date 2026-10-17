@@ -39,9 +39,7 @@ export type MergeLineHub = {
   pull_requests?: HubPullRequest[];
   /** The newest pull requests merged into the base, newest first. Absent from a Fleet before 23.42. */
   merged?: HubMerged[];
-  /** The Job working on main's red. Since 23.42. */
-  fixing?: HubJob;
-  /** The Session working on main's red, where a Session holds it and no Job does. Absent while `fixing` is present. */
+  /** The Session working on main's red. */
   fixing_session?: HubSession;
   /**
    * Another machine's claim on main's red, from the central store. Absent while nobody else holds it, where
@@ -72,10 +70,10 @@ export type HeldCheckout = {
   pull_request?: { number: number; auto_merge: boolean };
 };
 
-/** Who holds main's red on another machine: a Job or Session by id, the machine, and since when. No title: only the holder can say. */
+/** Who holds main's red on another machine: a Session by id, the machine, and since when. No title: only the holder can say. */
 export type FixingElsewhere = {
   machine: string;
-  holder: { kind: "session" | "job"; id: string };
+  holder: { kind: "session"; id: string };
   since: string;
 };
 
@@ -89,8 +87,6 @@ export type HubMerged = {
   merged_at: string;
   /** The merge commit, whole. */
   commit?: string;
-  /** The Job that opened it. Absent for a person's. */
-  job?: HubJob;
   /** The CI run on its merge commit, on main itself, apart from the pull request's own checks. Absent where nothing ran or none was read yet. Since 23.44. */
   main_run?: MainRun;
 };
@@ -166,9 +162,6 @@ export type FixesMain = {
   fixed_in?: number;
 };
 
-/** A Job, by its id and what it is called. */
-export type HubJob = { id: string; title: string };
-
 /**
  * `main_ci_state` is `green`, `red`, `running` or `nothing_ran`. A red a fix is still running for
  * stays `red`. `nothing_ran` is not green: nothing was proved.
@@ -218,9 +211,7 @@ export type MainMerge = {
   number: number;
   url?: string;
   branch?: string;
-  /** The Job whose pull request that is. Absent for a person's. */
-  job?: HubJob;
-  /** The Session that held the pull request or its branch, where no Job owns it. Since 23.80. */
+  /** The Session that held the pull request or its branch. */
   session?: HubSession;
 };
 
@@ -233,8 +224,6 @@ export type HubPullRequest = {
   author?: string;
   /** Absent where nothing has run on it. */
   ci?: string;
-  /** The Job that opened it. Absent for a person's. */
-  job?: HubJob;
   /** Where the merge queue holds it, and `waiting_for_ci` where auto-merge waits on its checks. Absent otherwise. Since 23.70. */
   queue?: HubQueue;
   /** When the forge says it was opened, RFC 3339. Absent from an older Fleet. */
@@ -270,8 +259,8 @@ export type HubPullRequest = {
 
 /** Who registered a pull request: a kind, a short id and a machine's name, and nothing about the pull request. */
 export type PullRequestOwner = {
-  kind: "session" | "job";
-  /** The Session's or Job's short id. */
+  kind: "session";
+  /** The Session's short id. */
   id: string;
   /** The host's name, or `machine.name` where two hosts share one. */
   machine: string;

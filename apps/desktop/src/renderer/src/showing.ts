@@ -18,7 +18,6 @@ export type Open = {
   learning: boolean;
   workflowing: boolean;
   checking: boolean;
-  sessioning: boolean;
   /** The Jobs page, a rail row of its own: Overview's lists under the Sessions page's frame. */
   jobbing?: boolean;
   /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
@@ -43,7 +42,6 @@ export function showingOf(open: Open): string {
   if (open.learning) return SURFACE.lessons;
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
-  if (open.sessioning) return SURFACE.sessions;
   if (open.reviewing === true) return SURFACE.reviews;
   if (open.jobbing === true) return SURFACE.jobs;
   if (open.doctoring === true) return SURFACE.doctor;

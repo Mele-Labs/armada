@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { CAP, collapse, fold, openingOf, start, type Place } from "./history";
 
-const at = (surface: string, job: string | null = null, tab: Place["tab"] = null, item: string | null = null): Place => ({ surface, job, tab, item, session: null, studio: null, studioNode: null });
+const at = (surface: string, job: string | null = null, tab: Place["tab"] = null, item: string | null = null): Place => ({ surface, job, tab, item, studio: null, studioNode: null });
 const visit = (h: ReturnType<typeof start>, place: Place) => fold(h, { kind: "visited", place });
 
 test("a visit pushes where you were", () => {

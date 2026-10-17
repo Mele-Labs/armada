@@ -10,7 +10,7 @@
 // hold one act and what it asks a person for before it sends. What stays here
 // is which of them a state offers. The words on every button are `copy.ts`'s.
 
-import { AttestedMark, Button, HoldButton, PilotButton, PilotExits, PilotedBy, SplitButton, usePilot } from "@armada/components";
+import { AttestedMark, Button, HoldButton, PilotExits, SplitButton } from "@armada/components";
 import type { SplitButtonItem } from "@armada/components";
 
 import { JOB_LIFECYCLE } from "@armada/components";
@@ -313,10 +313,7 @@ export function Acts({
   const held = lead?.held;
   // The accent says a person is waited on and nothing else does. A terminal
   // Job's control is quiet, because there is nobody it is waiting for.
-  // Where Pilot is offered on an escalated Job it is the primary, so the acts beside it step down (issue 257).
-  const piloting = usePilot();
-  const pilotLeads = piloting !== null && job.status === "escalated";
-  const variant = !pilotLeads && (job.status === "awaiting_approval" || life?.whoIsActing === "Person") ? "primary" : "secondary";
+  const variant = (job.status === "awaiting_approval" || life?.whoIsActing === "Person") ? "primary" : "secondary";
   const busy = acting || stale || approving;
   // The act this header's own press sent, where one of these six is out —
   // `answer`, `set_model` and everything else `ActingAct` names belongs to a
@@ -373,15 +370,8 @@ export function Acts({
           onCopied={onCopied}
         />
       ) : null}
-      {/* Pilot sits left of the acts that end the Job (issue 250). Once a Job is piloted the header says
-          which Session has it, and the three ways out are here as they are on that Session's ledger. */}
-      <PilotButton jobId={job.id} status={job.status} />
-      {job.status === "piloted" ? (
-        <>
-          <PilotedBy jobId={job.id} />
-          <PilotExits jobId={job.id} />
-        </>
-      ) : null}
+      {/* Once a Job is piloted the three ways out are here as they are on a Session's ledger. */}
+      {job.status === "piloted" ? <PilotExits jobId={job.id} /> : null}
       {/* A Job a person closed on their word says so, apart from one that passed its gates. */}
       {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} /> : null}
       {/* A split button with nothing in its menu is a button: a caret over an

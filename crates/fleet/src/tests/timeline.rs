@@ -3,17 +3,13 @@
 
 use std::sync::Arc;
 
-use axum::http::StatusCode;
 use ipc::{
     FleetTimeline, HubPullCi, HubQueue, HubQueueState, HubPullRequest, MainCiState, MainStanding,
     MergeLine, MergeLineHub, MergeLines, RunId, TimelineAsk, TimelineEvent, TimelineKind,
-    TimelineSubject, TimelineTone,
 };
 use testkit::FakeWorkProduct;
 
-use crate::tests::daemon::{a_fleet, worktree_directory_named};
-use crate::tests::http::call;
-use crate::tests::serving::A_PROPOSAL;
+use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 use crate::timeline::{keep_timeline, Between};
 
@@ -41,111 +37,6 @@ pub(super) fn kinds(events: &[TimelineEvent]) -> Vec<String> {
 pub(super) fn publish(fleet: &Fixture, json: &str) {
     let event: ipc::Event = ipc::decode("an event", json.as_bytes()).expect("an event");
     fleet.events().publish(event);
-}
-
-/// A Job proposed, approved and dispatched over the real router is entered as it happens, under the
-/// handle and the repository it has, and read back by the route Bridge calls.
-#[tokio::test]
-async fn a_job_is_entered_from_its_creation_to_its_start_and_its_slot() {
-    let home = TempDir::new();
-    let (fleet, app) = kept(&home);
-    let mut live = fleet.events().subscribe();
-
-    let (status, body) = call(&app, "POST", "/jobs", A_PROPOSAL).await;
-    assert_eq!(status, StatusCode::CREATED);
-    let job: ipc::JobSummary = ipc::decode("a Job", &body).expect("a JobSummary");
-    worktree_directory_named(&home, &job.handle);
-    call(&app, "POST", &format!("/jobs/{}/approve_dispatch", job.id.as_str()), "").await;
-    fleet.turn().await.expect("the turn that admits it");
-
-    fleet.timeline().settled().await;
-    let (status, body) = call(&app, "GET", "/timeline", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let window: FleetTimeline = ipc::decode("a timeline", &body).expect("a timeline");
-    let got = kinds(&window.events);
-    for expected in ["job.created", "job.queued", "slot.leased", "job.started"] {
-        assert!(got.contains(&expected.to_string()), "{expected} missing from {got:?}");
-    }
-    let created = &window.events[0];
-    assert_eq!(created.subject, TimelineSubject::Job { id: job.id.clone() });
-    assert_eq!(created.title.as_deref(), Some(job.handle.as_str()));
-    assert_eq!(created.manifest_id.as_ref().map(|id| id.as_str()), Some("01FIXTUREMANIFEST"));
-    assert!(window.events.windows(2).all(|pair| pair[0].id < pair[1].id), "numbered in the order written");
-
-    // Each was also announced, carrying the number it was kept under.
-    let mut announced = Vec::new();
-    while let Ok(Some(api::Next::Send(delivered))) =
-        tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
-    {
-        if let ipc::Event::TimelineAppended(one) = delivered.event {
-            announced.push(one.event);
-        }
-    }
-    assert_eq!(announced, window.events, "the live append is the window's own entries");
-}
-
-/// A Job's own moves are dated by the instant they carry, and the ones that need the person are
-/// the Job asking.
-#[tokio::test]
-async fn a_jobs_moves_are_entered_with_their_own_instants() {
-    let home = TempDir::new();
-    let (fleet, _) = kept(&home);
-    let moved = |from: &str, to: &str, at: &str| {
-        format!(
-            r#"{{"kind":"job.state_changed","job_id":"01JOB","from":"{from}","to":"{to}","actor":"fleet","at":"{at}"}}"#
-        )
-    };
-    publish(&fleet, &moved("queued", "running", "2026-10-12T10:00:00.000Z"));
-    publish(&fleet, &moved("running", "running", "2026-10-12T10:00:01.000Z"));
-    publish(&fleet, &moved("running", "awaiting_review", "2026-10-12T10:20:00.000Z"));
-    publish(&fleet, &moved("awaiting_review", "running", "2026-10-12T10:21:00.000Z"));
-    publish(&fleet, &moved("running", "completed_failed", "2026-10-12T10:30:00.000Z"));
-    publish(&fleet, &moved("running", "superseded", "2026-10-12T10:31:00.000Z"));
-
-    let events = read(&fleet).await;
-    assert_eq!(
-        kinds(&events),
-        ["job.started", "job.asked", "job.started", "job.failed"],
-        "a running to running move and a superseded end are not entries"
-    );
-    assert_eq!(events[0].at.as_str(), "2026-10-12T10:00:00.000Z");
-    assert_eq!((events[1].tone, events[1].says.as_str()), (TimelineTone::Ask, "Needs review"));
-    assert!(events[0].live && !events[0].over);
-    assert!(events[3].over && events[3].tone == TimelineTone::Bad);
-}
-
-/// A Check's result is entered once however many times the gate republishes, and a Job's files at
-/// most once a minute.
-#[tokio::test]
-async fn a_repeat_is_not_entered_twice() {
-    let home = TempDir::new();
-    let (fleet, _) = kept(&home);
-    let checking = |at: &str| {
-        format!(
-            r#"{{"kind":"job.checking","job_id":"01JOB","step_id":"implement","actor":"fleet","at":"{at}",
-            "checking":{{"attempt":1,"checks":[
-              {{"name":"lint","ran":{{"attempt":1,"name":"lint","outcome":"failed"}}}},
-              {{"name":"test"}}]}}}}"#
-        )
-    };
-    publish(&fleet, &checking("2026-10-12T10:00:00.000Z"));
-    publish(&fleet, &checking("2026-10-12T10:00:05.000Z"));
-    let files = |at: &str| {
-        format!(
-            r#"{{"kind":"job.files_changed","job_id":"01JOB","step_id":"implement","drone_id":"01D",
-            "plan_declared":true,"files":[{{"path":"src/a.rs","change":"modified"}},{{"path":"src/b.rs","change":"added"}}],
-            "actor":"fleet","at":"{at}"}}"#
-        )
-    };
-    publish(&fleet, &files("2026-10-12T10:00:00.000Z"));
-    publish(&fleet, &files("2026-10-12T10:00:30.000Z"));
-    publish(&fleet, &files("2026-10-12T10:01:30.000Z"));
-
-    let events = read(&fleet).await;
-    assert_eq!(kinds(&events), ["job.check", "job.files", "job.files"]);
-    assert_eq!(events[0].says, "Check lint failed");
-    assert_eq!(events[0].detail.as_deref(), Some("lint"));
-    assert_eq!(events[1].says, "2 files changed");
 }
 
 fn session(state: &str, waiting: &str, ended: &str) -> String {
@@ -198,7 +89,6 @@ async fn a_session_is_entered_by_what_its_row_changed_to() {
 async fn an_answer_and_a_slot_are_entered_by_the_acts_that_make_them() {
     let home = TempDir::new();
     let (fleet, _) = kept(&home);
-    fleet.job_answered(&ipc::JobId::carried("01JOB"), "Answered: wrap it in place".to_string());
     let record: ipc::SessionRecord = match ipc::decode::<ipc::Event>("an event", session("live", "", "").as_bytes())
         .expect("an event")
     {
@@ -210,30 +100,12 @@ async fn an_answer_and_a_slot_are_entered_by_the_acts_that_make_them() {
     fleet.session_slot("s9", None, None, 3, false);
 
     let events = read(&fleet).await;
-    assert_eq!(kinds(&events), ["job.answered", "session.answered", "slot.leased", "slot.released"]);
-    assert_eq!(events[1].says, "Answered: allow");
-    assert_eq!(events[2].says, "Slot 3 leased");
-    assert_eq!(events[2].detail.as_deref(), Some("slot-3"));
-    assert_eq!(events[3].says, "Slot 3 given back");
+    assert_eq!(kinds(&events), ["session.answered", "slot.leased", "slot.released"]);
+    assert_eq!(events[0].says, "Answered: allow");
+    assert_eq!(events[1].says, "Slot 3 leased");
+    assert_eq!(events[1].detail.as_deref(), Some("slot-3"));
+    assert_eq!(events[2].says, "Slot 3 given back");
     assert!(events[0].live);
-}
-
-/// The words an answer is entered as: the label chosen, else the mode, else the count.
-#[test]
-fn what_an_answer_reads_as() {
-    let chose = |label: Option<&str>, mode: Option<ipc::AnswerMode>| ipc::ChosenAnswer {
-        question_id: ipc::QuestionId::carried("q"),
-        chose: label.map(str::to_string),
-        mode,
-        decisions: Vec::new(),
-    };
-    assert_eq!(crate::timeline::question_answer_says(&chose(Some("wrap"), None)), "Answered: wrap");
-    assert_eq!(
-        crate::timeline::question_answer_says(&chose(None, Some(ipc::AnswerMode::Quick))),
-        "Answered: get it done"
-    );
-    assert_eq!(crate::timeline::command_answer_says(ipc::CommandAnswer::Reject), "Answered: reject");
-    assert_eq!(crate::timeline::judge_answer_says(ipc::JudgeAnswer::DisagreeAlways), "Answered: disagree always");
 }
 
 /// A question or a command in a fact is one line and is cut.
@@ -254,7 +126,6 @@ fn pull(number: u64, ci: Option<HubPullCi>, queue: Option<HubQueue>) -> HubPullR
         url: format!("https://forge.invalid/pull/{number}"),
         author: None,
         ci,
-        job: None,
         queue,
         opened_at: None,
         updated_at: None,
@@ -294,7 +165,7 @@ fn lines(main: Option<MainStanding>, open: Vec<HubPullRequest>, merged: Vec<ipc:
             off: Vec::new(),
             landed: Vec::new(),
             sent_back: Vec::new(),
-            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing: None, fixing_session: None, fixing_elsewhere: None, checkout: None, forge_read_at: None, quiet_since: None }),
+            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing_session: None, fixing_elsewhere: None, checkout: None, forge_read_at: None, quiet_since: None }),
         }],
     }
 }
@@ -308,7 +179,6 @@ fn merged(number: u64, at: &str) -> ipc::HubMerged {
         author: None,
         merged_at: ipc::Instant::carried(at),
         commit: None,
-        job: None,
         main_run: None,
     }
 }
@@ -426,7 +296,9 @@ async fn the_window_is_cut_by_instant_and_limit() {
         publish(
             &fleet,
             &format!(
-                r#"{{"kind":"job.state_changed","job_id":"01JOB","from":"queued","to":"running","actor":"fleet","at":"2026-10-12T10:0{minute}:00.000Z"}}"#
+                r#"{{"kind":"session.changed","id":"s{minute}","harness":"a-harness","origin":"bridge","manifest_id":"armada",
+                "cwd":"/work","title":"A Session","state":"live","started_at":"2026-10-12T10:0{minute}:00.000Z",
+                "last_seen_at":"2026-10-12T10:0{minute}:00.000Z","usage":{{}},"attachments":[],"waiting_for":[]}}"#
             ),
         );
     }
@@ -449,7 +321,7 @@ async fn the_window_is_cut_by_instant_and_limit() {
     assert!(newest.cut);
     let none = fleet.fleet_timeline(ask(None, None, Some(0))).await.unwrap();
     assert_eq!(none.events.len(), 1, "a limit of nothing is raised to one");
-    assert_eq!(TimelineKind::from_wire("job.started"), Some(newest.events[0].kind));
+    assert_eq!(TimelineKind::from_wire("session.started"), Some(newest.events[0].kind));
 }
 
 /// A hosted Session's turn is entered once, where it ends, and the fact is how long it took: the
@@ -481,9 +353,9 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
             effort: None,
             mode: None,
             root: None,
-            pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .expect("started");

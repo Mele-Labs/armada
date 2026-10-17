@@ -9,8 +9,8 @@
 import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { NowActed } from "@armada/jobs";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { OverviewLists as Lists, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";

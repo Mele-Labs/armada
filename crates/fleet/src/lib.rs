@@ -80,6 +80,7 @@ mod rail;
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
 pub mod linked_watching;
+pub mod after_watching;
 pub mod rail_watching;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
@@ -537,7 +538,7 @@ pub use mint::{Mint, UlidMint};
 pub use noticing::{Noticed, Noticing};
 pub use overruling::Overruling;
 pub use peer::{NotACaller, PeerOf};
-pub use piloting::{Hatch, Unpilotable};
+pub use piloting::Unpilotable;
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use policy::{HeldBecause, Policies};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};

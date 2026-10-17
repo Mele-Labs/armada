@@ -4,7 +4,8 @@
 import { describe, expect, it } from "vitest";
 import type { AddedStep, JobDetail } from "@armada/protocol";
 
-import { addedTo, featureAtApproval, featureRunning } from "./fake";
+import { addedTo, featureAtApproval } from "./fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import { addStepOf, additionsOf, ahead, atGate, blankAddition, chainAt, delivererOf, heldId, timelineOf } from "./added-reach";
 
 const whole = (fixture: { watched: { state: string } }): JobDetail => {

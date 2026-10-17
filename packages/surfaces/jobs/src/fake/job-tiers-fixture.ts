@@ -9,7 +9,7 @@
 import type { JobDrones, PlanTask } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { featureRunInGroups } from "./job-groups-fixture";
+import { featureRunInGroups } from "@armada/screens/src/fixtures/jobs/job-groups-fixture";
 
 const AT = (minute: number) => `2026-10-02T14:${String(minute).padStart(2, "0")}:00.000Z`;
 

@@ -10,7 +10,7 @@
 import type { CheckRun, Judged, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { featureRunning } from "./feature-running";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 const ago = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
 

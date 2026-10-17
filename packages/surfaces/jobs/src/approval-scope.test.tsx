@@ -11,7 +11,8 @@
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { REFACTOR_FOR_REQUESTS, proposalFromAnIssue, refactorAtApproval, withRow } from "./fake";
+import { REFACTOR_FOR_REQUESTS, refactorAtApproval, withRow } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
+import { proposalFromAnIssue } from "./fake";
 import { closeNode, mount, onJob, openNode, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

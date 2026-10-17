@@ -39,23 +39,15 @@ export type Play = {
 };
 
 export const PLAYS: Partial<Record<TimelineKind, PlayKind>> = {
-  "job.created": "launch",
   "session.started": "launch",
   "slot.leased": "launch",
-  "job.check": "sweep",
-  "job.judged": "sweep",
   "pr.checks": "sweep",
   "pr.opened": "payload",
   "pr.queued": "payload",
   "pr.merged": "capture",
-  "job.landed": "capture",
   "session.turn": "tracer",
   "session.answered": "tracer",
   "session.asked": "blip",
-  "job.asked": "blip",
-  "job.answered": "blip",
-  "job.step": "blip",
-  "job.failed": "blip",
   "main.red": "flare",
   "main.green": "flare",
 };
@@ -70,7 +62,6 @@ export const MOST_PLAYING = 12;
 /** The key of the drone an event happened to, through the pull request's owner where it is one's. */
 export function droneOfEvent(event: TimelineEvent, ownerOf: (number: number) => string | undefined): string | undefined {
   const { subject } = event;
-  if (subject.kind === "job") return `job:${subject.id}`;
   if (subject.kind === "session") return `session:${subject.id}`;
   if (subject.kind === "pull_request") return ownerOf(subject.number);
   return undefined;
@@ -107,7 +98,7 @@ export function playsOf(events: readonly TimelineEvent[], now: number, ownerOf: 
 export function trailsOf(events: readonly TimelineEvent[], now: number, ownerOf: (number: number) => string | undefined): Map<string, number> {
   const trails = new Map<string, number>();
   for (const event of events) {
-    if (event.kind !== "job.created" && event.kind !== "job.started" && event.kind !== "session.started" && event.kind !== "slot.leased") continue;
+    if (event.kind !== "session.started" && event.kind !== "slot.leased") continue;
     const key = droneOfEvent(event, ownerOf);
     const age = now - Date.parse(event.at);
     if (key === undefined || age < 0 || age > TRAIL_MS) continue;

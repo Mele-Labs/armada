@@ -73,9 +73,9 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
@@ -294,7 +294,6 @@ async fn a_sessions_take_shows_in_the_hubs_fixing_row_with_no_store_configured()
     let hub = the_hub(&rig.fleet).await;
     let fixing = hub.fixing_session.expect("the Session is in the Fixing row");
     assert_eq!(fixing.id, id);
-    assert!(hub.fixing.is_none(), "and no Job is");
     assert!(hub.fixing_elsewhere.is_none());
 }
 

@@ -4,9 +4,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { JobDetail } from "@armada/protocol";
-import type { DroneView } from "./draft/drone";
+import type { DroneView } from "@armada/screens/src/draft/drone";
 import { holderOf } from "./drone-held";
-import { runningWaitingOnACommand } from "./fixtures/build/index";
+import { runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
 
 function held(): JobDetail {
   const fixture = runningWaitingOnACommand();

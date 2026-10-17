@@ -9,6 +9,7 @@
 //! writes the thread.
 
 pub(crate) mod activity;
+pub(crate) mod after;
 mod agent_starting;
 mod annotating;
 mod asking;
@@ -28,14 +29,8 @@ mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
 mod pausing;
-mod pilot_words;
 mod reach_folders;
-mod piloting;
 pub(crate) mod planning;
-pub(crate) use pilot_words::{
-    PILOT_CHANGED, PILOT_CHECKS_FAILED, PILOT_FOR_GOOD, PILOT_JUDGE_REFUSED, PILOT_NARRATIVE,
-    PILOT_OPENING, PILOT_OUTSIDE_PLAN, PILOT_RECORD, PILOT_RESTART, PILOT_STOPPED, PILOT_WORKTREE,
-};
 mod places;
 mod process;
 pub(crate) mod proposing;

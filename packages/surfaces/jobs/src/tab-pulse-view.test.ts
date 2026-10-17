@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { JobExamined, Look, Recorded, StepDetail } from "@armada/protocol";
-import type { PulseView } from "./draft/pulse";
+import type { PulseView } from "@armada/screens/src/draft/pulse";
 import { detail, job, spend } from "@armada/screens/src/fixtures/build/base";
 import { checksRunning, dronePlacesOf, judgesRunning, pulseFiguresOf, pulseReadingOf } from "./resources";
 

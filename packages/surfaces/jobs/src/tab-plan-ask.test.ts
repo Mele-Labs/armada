@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { arcGroups } from "./fixtures/build/arc-plan";
+import { arcGroups } from "@armada/screens/src/fixtures/build/arc-plan";
 import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
 
 const GROUPS = arcGroups();

@@ -211,8 +211,8 @@ mod tests;
 /// Nothing under `apps/desktop/src/main/` reads the draft schema.
 ///
 /// **The drafts are shapes Fleet does not serve**, kept in
-/// `packages/surfaces/jobs/src/draft/` (and the two files Studios reads, in
-/// `packages/screens/src/draft/`) rather than `@armada/protocol` because a type
+/// `packages/screens/src/draft/` (the Jobs surface's moved there on 17 Oct 2026, and
+/// the Jobs entry in [`DRAFTS`] watches a directory that is gone) rather than `@armada/protocol` because a type
 /// invented there is indistinguishable from one Fleet sends. `#1532`, decided
 /// in `#1530`. The main process is the half that holds the connection, so a
 /// draft type reaching it asks a daemon for a field nobody told it about.

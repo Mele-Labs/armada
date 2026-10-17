@@ -5,7 +5,8 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
@@ -25,7 +26,6 @@ const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "requ
 // and the card's press came back as Fleet not connected (16 Oct 2026).
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
-const OUTCOMES = ["take_over", "restart_step"];
 const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -36,16 +36,25 @@ const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as co
 const unread = { ok: false, outcome: { ok: false, why: "not_understood" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter) => {
     const fleet = connection();
     if (fleet === null) return unsent;
     // A model or effort the person did not pick is left off, so Fleet's proposer fills it in.
     const picked = { ...(text(tuning?.model) ? { model: tuning.model } : {}), ...(text(tuning?.effort) ? { effort: tuning.effort } : {}) };
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined);
   });
-  ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
-    text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unread,
-  );
+  ipc.handle(CHANNELS.readSessionWait, (_event, sessionId: string, request: string) => {
+    if (!text(sessionId) || typeof request !== "string") return unread;
+    return connection()?.sessions.readWait({ session_id: sessionId, request }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.changeWaiting, (_event, change: ChangeWaiting) => {
+    if (!text(change?.waiting_session) || (change.condition === undefined && change.base === undefined)) return unread;
+    return connection()?.sessions.changeWaiting(change) ?? unsent;
+  });
+  ipc.handle(CHANNELS.startWaitingNow, (_event, sessionId: string) => {
+    if (!text(sessionId)) return unread;
+    return connection()?.sessions.startWaitingNow({ session_id: sessionId }) ?? unsent;
+  });
   ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
     text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unread.outcome,
   );
@@ -64,9 +73,8 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
     if (!Number.isInteger(claim?.number) || claim.number < 1) return unread;
-    // Exactly one claimant, as Fleet reads it.
-    const to = text(claim.session_id) && !text(claim.job_id) ? { session_id: claim.session_id } : text(claim.job_id) && !text(claim.session_id) ? { job_id: claim.job_id } : undefined;
-    return to === undefined ? unread : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
+    if (claim.session_id !== undefined && !text(claim.session_id)) return unread;
+    return connection()?.sessions.claimPullRequest({ number: claim.number, ...(claim.session_id === undefined ? {} : { session_id: claim.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;

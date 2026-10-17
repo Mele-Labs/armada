@@ -15,9 +15,9 @@ import type { ChangedSince, GateRun, LifeRead, MemberRead, NodeLife, PlanGroupRe
 import { WHEN_BLOCKED_LABEL, WHEN_REFUSED_LABEL } from "@armada/screens/src/copy";
 import { onlyCurrentAttempt } from "@armada/screens/src/facts";
 import { REFUSED_STARTS_AT, STARTS_AT } from "./settings";
-import { taskGroupsOf } from "./draft/group";
-import type { GroupState } from "./draft/group";
-import type { WaveView } from "./draft/wave";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
+import type { GroupState } from "@armada/screens/src/draft/group";
+import type { WaveView } from "@armada/screens/src/draft/wave";
 
 /** The step machine's states the card's mark draws as they are. */
 const STEP_ACTIVITY: ReadonlySet<string> = new Set([

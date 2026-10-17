@@ -5,8 +5,8 @@
 import { describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { ARC_JOB_ID } from "./fixtures/build/arc";
-import { HELD_CALL } from "./fixtures/build/arc-executing";
+import { ARC_JOB_ID } from "@armada/screens/src/fixtures/build/arc";
+import { HELD_CALL } from "@armada/screens/src/fixtures/build/arc-executing";
 
 import { entered, mount, unmountAfterEach } from "@armada/desktop/mock";
 

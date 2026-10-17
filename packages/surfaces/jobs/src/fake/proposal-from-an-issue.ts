@@ -11,7 +11,7 @@ import type { Branches, Criterion } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 
-import { refactorAtApproval } from "./job-detail-fixtures";
+import { refactorAtApproval } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 
 /** The issue the request linked, as `IssueAddress` reads it and the forge addresses it. */
 const ISSUE = { kind: "issue", ref: "armada#1162", url: "https://example.invalid/armada/issues/1162" };

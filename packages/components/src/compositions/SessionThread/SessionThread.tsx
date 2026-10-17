@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -28,6 +28,7 @@ import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
+import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
@@ -107,28 +108,17 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
+   * changed it), or started (`says` is where from). A press opens it.
+   */
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
-  | SessionRetroRowData
-  | {
-      id: string;
-      at: string;
-      kind: "handoff";
-      job: { number: number; title: string };
-      slot: number;
-      branch: string;
-      /** Absent where the Job stopped on no step. */
-      step?: { id: string; label: string };
-      attempts: number;
-      refusals: readonly string[];
-      /** Files written that the plan did not cover, and paths it named that nothing changed under. */
-      plan: { outside: readonly string[]; unwritten: readonly string[] };
-      /** Absent where no Drone said what it was stuck on: a Job taken over from an escalation or a gate has none. */
-      narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
-    };
+  | SessionRetroRowData;
 
 /** One todo of the agent's list, in the order the band draws it. */
 export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
@@ -317,95 +307,6 @@ function Sent({ row, tags }: { row: { files?: readonly { id: string; name: strin
 
 /** Helm's thread draws a sent message the way a Session's does. */
 export { Sent as SentWith, placeTags as placeTagsIn };
-
-/** What Fleet knew when a Job's Drone stopped, as the structured fields the handoff bundle has. A field with nothing to say is left out. */
-function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> }) {
-  const { step, narrative } = row;
-  const planned = row.plan.outside.length + row.plan.unwritten.length > 0;
-  return (
-    <li className="armada-session-handoff" role="region" aria-label={`Handed over: Job ${row.job.number}`}>
-      <div className="armada-session-handoff__head">
-        <span className="armada-session-lease__eyebrow">Handed over</span>
-        <span className="armada-session-lease__facts">
-          <span className="armada-session-lease__chip" role="img" aria-label={`Job ${row.job.number}`}>
-            <Box size={12} strokeWidth={2} aria-hidden />
-            {row.job.number}
-          </span>
-          <span className="armada-session-lease__chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
-            <KeyRound size={12} strokeWidth={2} aria-hidden />
-            {row.slot}
-          </span>
-          <span className="armada-session-lease__chip" role="img" aria-label={`Branch ${row.branch}`}>
-            <GitBranch size={12} strokeWidth={2} aria-hidden />
-            {row.branch}
-          </span>
-        </span>
-        <span className="armada-session-lease__at">{row.at}</span>
-      </div>
-      <dl className="armada-session-handoff__fields">
-        {step === undefined ? null : (
-          <>
-            <dt>Stopped on</dt>
-            <dd>
-              <code>{step.id}</code> {step.label}
-            </dd>
-            <dt>Attempts</dt>
-            <dd>
-              <code>{row.attempts}</code>
-            </dd>
-          </>
-        )}
-        {row.refusals.length === 0 ? null : (
-          <>
-            <dt>Judge refused</dt>
-            <dd>
-              <ul>
-                {row.refusals.map((one) => (
-                  <li key={one}>{one}</li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {!planned ? null : (
-          <>
-            <dt>Plan against diff</dt>
-            <dd>
-              <ul>
-                {row.plan.outside.map((one) => (
-                  <li key={one}>
-                    <code>{one}</code> written, not declared
-                  </li>
-                ))}
-                {row.plan.unwritten.map((one) => (
-                  <li key={one}>
-                    <code>{one}</code> declared, not written
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {narrative === undefined ? null : (
-          <>
-            <dt>Trying to</dt>
-            <dd>{narrative.trying_to}</dd>
-            <dt>Blocked by</dt>
-            <dd>{narrative.blocked_by}</dd>
-            <dt>Tried</dt>
-            <dd>
-              <ol>
-                {narrative.tried.map((one) => (
-                  <li key={one}>{one}</li>
-                ))}
-              </ol>
-            </dd>
-          </>
-        )}
-      </dl>
-    </li>
-  );
-}
 
 type CheckRow = Extract<SessionThreadRow, { kind: "check" }>;
 
@@ -727,9 +628,9 @@ function Row({
       </li>
     );
   }
-  if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (

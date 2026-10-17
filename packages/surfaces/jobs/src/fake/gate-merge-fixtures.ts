@@ -4,7 +4,7 @@
 
 import type { PullRequestChecks } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { reviewAtDelivery } from "../fixtures/build/delivering";
+import { reviewAtDelivery } from "@armada/screens/src/fixtures/build/delivering";
 
 function withChecks(checks: PullRequestChecks, name: string): JobFixture {
   const fixture = reviewAtDelivery();

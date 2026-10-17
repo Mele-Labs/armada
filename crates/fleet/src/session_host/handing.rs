@@ -19,7 +19,7 @@ use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
 /// The ledger kinds a release acts on. Artifacts and the links between Sessions stay.
-const HELD_KINDS: [&str; 5] = ["slot", "branch", "pr", "job", "need"];
+const HELD_KINDS: [&str; 4] = ["slot", "branch", "pr", "need"];
 /// A hand to the Session that holds them. A 409.
 const HAND_TO_ITSELF: &str = "fleet.hand_to_itself";
 /// A hand to a Session that has ended. A 409.
@@ -123,23 +123,7 @@ where
             to_session_id: to.as_ref().map(|one| ipc::SessionId::carried(one.id.clone())),
             ..SessionHoldsReleased::default()
         };
-        // A piloted Job's worktree is leased by the Job, and the pilot's exit gives it back.
-        let piloted: Vec<String> = rows
-            .iter()
-            .filter_map(|row| row.detail.get("handed")?.strip_prefix("job ").map(str::to_string))
-            .collect();
         let mut staying: Vec<(String, String)> = Vec::new();
-        for row in &rows {
-            let handed_by_job = row.detail.get("handed").is_some_and(|said| said.starts_with("job "));
-            if handed_by_job || (row.kind == "job" && piloted.contains(&row.target)) {
-                staying.push((row.kind.clone(), row.target.clone()));
-                answer.kept.push(HoldKept {
-                    kind: row.kind.clone(),
-                    target: row.target.clone(),
-                    why: String::from("A piloted Job holds it, and the pilot's exit gives it back."),
-                });
-            }
-        }
         let mut handed_slots: Vec<(u32, Option<String>)> = Vec::new();
         if let Some(served) = &served {
             for leased in leased {

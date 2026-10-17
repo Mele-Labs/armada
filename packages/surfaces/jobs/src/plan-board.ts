@@ -22,12 +22,12 @@ import type {
 import { GUIDE_GROUP_BOUNDARY } from "@armada/components";
 import type { CheckRun, CheckUnderway, JobDetail as JobWhole, MovePlan, StepDetail } from "@armada/protocol";
 
-import type { JobCheckLog } from "./check-log-sheet";
-import type { CaseView } from "./draft/cases";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
+import type { CaseView } from "@armada/screens/src/draft/cases";
 import { basename } from "./phases";
-import type { JobDraft } from "./draft/held";
-import type { GroupState, GroupView } from "./draft/group";
-import type { TaskView } from "./draft/task";
+import type { JobDraft } from "@armada/screens/src/draft/held";
+import type { GroupState, GroupView } from "@armada/screens/src/draft/group";
+import type { TaskView } from "@armada/screens/src/draft/task";
 import {
   awaitingSaid,
   besideSaid,

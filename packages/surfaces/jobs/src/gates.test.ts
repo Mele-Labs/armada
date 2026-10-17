@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { Criterion, Judged, StepDetail } from "@armada/protocol";
 
 import { checksOf, outputOf, outputRunOf, panelsOf, placesOf } from "./gates";
-import { noteFor, regionOf, rowsOf } from "./outputs";
+import { noteFor, regionOf, rowsOf } from "@armada/screens/src/outputs";
 
 function step(over: Partial<StepDetail> = {}): StepDetail {
   return {

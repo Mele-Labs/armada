@@ -7,8 +7,8 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { CallView } from "@armada/jobs/draft/calls";
-import { featureRunning } from "@armada/jobs/fake";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";

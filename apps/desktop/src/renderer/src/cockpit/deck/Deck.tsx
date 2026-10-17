@@ -9,9 +9,10 @@ import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Re
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
+import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { slotTroubleOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
@@ -73,7 +74,6 @@ const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => pro
 
 /** The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue, as the title row's picker does. */
 function RepositoryScope({ props }: { props: CockpitProps }) {
-  const [recent] = useRecentRepositories();
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
   const add = props.onAddRepository;
@@ -81,18 +81,11 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   return (
     <div className="deck-scope">
       {repositories.length === 0 || pick === undefined ? null : (
-        <DropdownMenu
-          align="start"
-          portal
-          triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
-          triggerAriaLabel="Repository"
-          searchLabel={FIND_A_REPOSITORY}
-          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", add: add !== undefined, recent })}
-          onSelect={(chosen) => {
-            if (chosen === ADD) return add?.();
-            const root = rootOf(chosen);
-            pick(root === ALL ? null : root);
-          }}
+        <RepositoryCombobox
+          repositories={repositories}
+          picked={props.picked}
+          onPick={(root) => pick(root)}
+          onAdd={add}
         />
       )}
       {props.onGoTo === undefined ? null : (
@@ -224,6 +217,9 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   );
 }
 
+/** What a linked Session's link glyph is called: the plan group it was handed, where it was. */
+const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${linked.group}`);
+
 /** What each thing a Session waits on is called, by the item's source. */
 const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
 
@@ -243,8 +239,6 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
-    const Kind = one.kind === "job" ? Box : one.linked !== undefined ? Link : SquareTerminal;
-    const kindSaid = one.kind === "job" ? "Job" : one.linked !== undefined ? (one.linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${one.linked.group}`) : "Session";
     const quiet = one.since ?? one.step?.label ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
@@ -255,12 +249,22 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
       <li key={one.key} className="deck-list__item">
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
-          <Tooltip label={kindSaid}>
-            <span className="deck-row__kind" role="img" aria-label={kindSaid}>
-              <Kind size={14} aria-hidden="true" />
-            </span>
-          </Tooltip>
-          <span className="deck-row__title">{one.title}</span>
+          <span className="deck-row__title">
+            {one.linked === undefined ? null : (
+              <Tooltip label={linkedSaid(one.linked)}>
+                <span className="deck-row__link" role="img" aria-label={linkedSaid(one.linked)}>
+                  <Link size={12} aria-hidden="true" />
+                </span>
+              </Tooltip>
+            )}
+            {one.title}
+          </span>
+          <span className="deck-row__marks">
+            <span className="deck-row__clash-slot" aria-hidden="true" />
+            <Phase subject={one} builds={builds} jobs={jobs} />
+            <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
+          </span>
+          <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
           {hit === undefined || hit.short === "" ? (
             <span className="deck-row__said">{said}</span>
           ) : (
@@ -270,11 +274,13 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
               </span>
             </Tooltip>
           )}
-          <Phase subject={one} builds={builds} jobs={jobs} />
-          <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
         </Inspect>
-        {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+        {one.kind === "pr" ? null : (
+          <span className="deck-row__clash">
+            <ClashMark kind={one.kind} id={one.id} />
+          </span>
+        )}
       </li>
     );
   };
@@ -553,7 +559,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
   const marks = views.flatMap((view, at) => {
-    const dots = dotsOf(view, props.state.mergeLines, views, sessions);
+    const dots = dotsOf(view, props.state.mergeLines, sessions);
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
     const open = dots.filter((dot) => !dot.queued);
     return [

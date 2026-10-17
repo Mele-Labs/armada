@@ -46,4 +46,23 @@ impl Store {
             .map_err(WriteError::Database)?;
         Ok(())
     }
+
+    /// A pilot already under way on a Job, the row a take over used to write.
+    /// Nothing writes one now, so a test of the exits has to plant it.
+    pub fn plant_a_pilot(
+        &mut self,
+        job: &core_model::JobId,
+        reason: core_model::PilotReason,
+        at: &core_model::Timestamp,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO job_pilots (job_id, reason, marked_run, marked_at, \
+                 piloted_at) VALUES (?1, ?2, '', ?3, ?3)",
+                (job.as_str(), reason.as_wire(), at.as_str()),
+            )
+            .map_err(fault("planting a pilot"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
 }
