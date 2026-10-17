@@ -326,6 +326,114 @@
 /* The menu past nine is drawn in a layer of its own, since the frame clips what hangs out of it; it has to clear the scrim. */
 body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
 
+/* ---- The request's words: the tag of the Session a brief waits on is lit in the text ------------ */
+
+/* The mirror draws the request's words under the field, in its own metrics, with the tag marked: the field's text stays the only text. */
+.armada-dispatch-panel__line > .armada-dispatch-panel__words {
+  display: block;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-dispatch-panel__mirror,
+.armada-dispatch-panel__words > .armada-dispatch-panel__field {
+  box-sizing: border-box;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.armada-dispatch-panel__mirror {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+.armada-dispatch-panel__tag {
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 var(--border-width) var(--border-default);
+  color: transparent;
+}
+
+.armada-dispatch-panel__words > .armada-dispatch-panel__field { position: relative; display: block; }
+
+/* ---- The @ menu: the mention list's rows, in the sheet's flow so the frame does not clip it ------- */
+
+.armada-dispatch-panel__menu {
+  position: static;
+  margin: 0;
+  max-height: calc(var(--h-menu-item) * 5);
+  border-width: var(--border-width) 0 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.armada-dispatch-panel__menu .armada-mention__row { gap: var(--space-2); }
+
+.armada-dispatch-panel__menu svg { flex: none; color: var(--fg-muted); }
+
+/* ---- The sentence over the request: the proposer's reading of the wait, each part a button ------- */
+
+.armada-wait {
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-wait__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.armada-wait__glue { margin-inline-start: calc(var(--space-2) * -1); }
+
+.armada-wait__part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: calc(var(--palette-width) * 0.6);
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.armada-wait__part:hover:not(:disabled) { border-color: var(--border-strong); }
+.armada-wait__part:disabled { cursor: default; color: var(--fg-subtle); }
+.armada-wait__part:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* Set by hand: the accent at its edge, until the words say something else about it. */
+.armada-wait__part[data-his] { border-color: var(--accent); }
+
+.armada-wait__part > svg { flex: none; color: var(--fg-muted); }
+
+.armada-wait__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Settings: the existing block, set in the panel's mono ----------------------------------- */
 
 .armada-dispatch-panel__settings {

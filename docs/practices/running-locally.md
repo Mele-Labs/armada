@@ -744,8 +744,9 @@ that matched nothing exits 1.
 (`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
 `mod tests` runs that module, in its crate only, and the line under the command
 names which (`touched tests::x in -p fleet`). A change that touches no test
-module runs nothing and says so: name a test with `armada check test <name>`,
-which compiles only the crate that declares it. Whole crates and the crates
+module runs nothing and says so: name the tests with `armada check test a b c`,
+one run that compiles only the crates declaring them. Never one call per name:
+each is its own build and its own wait for a Check slot. Whole crates and the crates
 depending on them are CI's. **CI and the merge line read `--changed` the old
 way** (every crate the paths name), which `ARMADA_CHECK_PRIORITY=normal` asks
 for here too. `../concepts/manifest.md`, *How much of the tree a Check reads*.

@@ -13,6 +13,7 @@ import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
+import type { StartAfter, WaitBy, WaiterEvent, WaiterSide } from "./session-waits";
 
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -54,6 +55,12 @@ export type StartSession = {
    * Not read with `pilot`, `fork` or `root`.
    */
   request?: string;
+  /**
+   * A Session this one waits on, and when it starts. With it `request` is the brief and nothing is sent: the Session holds
+   * its brief, no slot and no process until the condition is met, and then starts on the other Session's handoff followed
+   * by the brief. The Session waited on is told. Not read with `pilot`, `fork` or `root`.
+   */
+  after?: StartAfter;
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
@@ -336,6 +343,13 @@ export type SessionRow =
    * Session's parent's thread where it happened, and the parent's agent is told the same moment; `session` is the linked one.
    */
   | { kind: "linked"; id: string; at: string; session: { id: string; title: string }; event: LinkedEvent }
+  /**
+   * A Session waits on this one, its condition changed, or it started. Written in this Session's thread (`side` absent,
+   * `session` the one that waits), and in the waiting Session's thread where the condition changed (`side` `waiting`,
+   * `session` the one it waits on). `says` is what the waiting Session needs or where it started from; `from` and `to` are
+   * the condition as it was and as it is, and `by` who changed it.
+   */
+  | { kind: "waiter"; id: string; at: string; session: { id: string; title: string }; event: WaiterEvent; side?: WaiterSide; says?: string; from?: string; to?: string; by?: WaitBy }
   /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.

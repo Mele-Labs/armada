@@ -45,6 +45,7 @@ fn setting_up(root: &str) -> StartSession {
         root: Some(root.to_string()),
         fork: None,
         request: None,
+        after: None,
     }
 }
 

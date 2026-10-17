@@ -14,6 +14,7 @@ import "@armada/tokens/tokens.css";
 import "tailwindcss/preflight.css";
 import "@armada/tokens/base.css";
 import "@armada/components/src/index.css";
+import "@armada/components/src/look";
 import type { ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { onTestFinished } from "vitest";

@@ -80,6 +80,7 @@ mod rail;
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
 pub mod linked_watching;
+pub mod after_watching;
 pub mod rail_watching;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;

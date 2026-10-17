@@ -144,6 +144,14 @@ where
         self.group_handed(hand).await
     }
 
+    async fn read_session_wait(self: Arc<Self>, read: ipc::ReadSessionWait) -> Result<ipc::WaitReading, Refusal> {
+        self.wait_read(read).await
+    }
+
+    async fn start_waiting_now(self: Arc<Self>, start: ipc::StartWaitingNow) -> Result<SessionRecord, Refusal> {
+        self.waiting_started_now(start.session_id.as_str()).await
+    }
+
     async fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,
@@ -819,6 +827,23 @@ where
         row: SessionRow,
     ) -> Result<bool, Refusal> {
         self.fleet_word(session, text, true, Some(Written::Row(row))).await
+    }
+
+    /// The first message of a Session that waited on another, written to its thread as the voice of the
+    /// Session it waited on and started as a turn.
+    pub(crate) async fn first_message_from(
+        self: &Arc<Self>,
+        session: &str,
+        from: SessionVoice,
+        text: &str,
+    ) -> Result<(), Refusal> {
+        let sent = SendSessionMessage {
+            session_id: SessionId::carried(session),
+            text: text.to_string(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None).await.map(|_| ())
     }
 
     async fn fleet_word(

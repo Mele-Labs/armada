@@ -65,6 +65,13 @@ test("a row of each party to a clash carries the mark, and the mark names the ot
   expect(said(headMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
 });
 
+test("a marked row keeps the list's width, less the mark", async () => {
+  await deck();
+  const width = (title: string) => document.querySelector(`.deck-list .deck-row[aria-label="${title}"]`)!.getBoundingClientRect().width;
+  // Only the mark and its gap come off: the mark's own wrapper does not take a share of the row.
+  expect(width(QUIET) - width(SESSION)).toBeLessThan(32);
+});
+
 test("a clash against main marks the one party, as a picture with nothing to open", async () => {
   await deck();
   const [mark, ...rest] = rowMarks(AGAINST_MAIN);

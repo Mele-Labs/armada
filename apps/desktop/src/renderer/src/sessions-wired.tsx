@@ -16,15 +16,17 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { ProposedField, SessionHoldsReleased, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { ProposedField, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
-import type { QueuedIdea, SessionCommand, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
+import { taggedIn } from "./dispatch-panel/waits";
 import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
 import { SessionMemo, rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { conditionOfWhen, defaultBase, planPartsOf, whenOfCondition } from "@armada/screens/src/session-waits";
 import { share } from "@armada/screens/src/share";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
@@ -62,6 +64,13 @@ const fileRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestFile"]>>)
 const checkoutDiffRead = (answer: Awaited<ReturnType<BridgeApi["readCheckoutDiff"]>>): CheckoutDiffRead =>
   answer.ok ? { ok: true, diff: answer.value.diff, ...(answer.value.cut === true ? { cut: true as const } : {}) } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
+/** How long the words stand still before the proposer is asked what wait they name. */
+const WAIT_READ_AFTER_MS = 400;
+/** Briefs read for a wait that are kept; the oldest go first. */
+const WAIT_READS_KEPT = 24;
+
+/** One brief that tags a Session, and what the proposer read of it. Until it has answered the defaults stand: it ends, from main. */
+type WaitRead = { sessionId: string; words: string; reading: WaitReading | undefined; timer: ReturnType<typeof setTimeout> | undefined; out: Promise<void> | undefined };
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
@@ -92,6 +101,11 @@ export class WiredStore {
   /** The ideas saved to start later, replaced and never changed so a reader can tell when they moved. */
   private queuedNow: readonly QueuedIdea[] = readQueuedIdeas();
   private readonly starts = new Set<string>();
+
+  /** What the proposer read of each brief that tags a Session, by Session and words. */
+  private readonly waitReads = new Map<string, WaitRead>();
+  /** The brief last typed: an older one is not asked about, since the words moved on. */
+  private waitLatest: WaitRead | undefined;
 
   constructor(api: BridgeApi) {
     this.api = api;
@@ -284,9 +298,89 @@ export class WiredStore {
     return started;
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }): Promise<string | undefined> {
+  /** The Session the words tag and the read held for them, made on first sight. */
+  private waitReadOf(words: string): { read: WaitRead; tagged: Session } | undefined {
+    const tag = taggedIn(words, this.mapped);
+    if (tag === undefined) return undefined;
+    const key = `${tag.session.id}\n${words}`;
+    let read = this.waitReads.get(key);
+    if (read === undefined) {
+      read = { sessionId: tag.session.id, words, reading: undefined, timer: undefined, out: undefined };
+      this.waitReads.set(key, read);
+      for (const old of [...this.waitReads.keys()].slice(0, Math.max(0, this.waitReads.size - WAIT_READS_KEPT))) this.waitReads.delete(old);
+    }
+    return { read, tagged: tag.session };
+  }
+
+  /** The reading as the draft carries it: the Session tagged, the condition with its plan part titled, and where it starts from. */
+  private waitReading(read: WaitRead, tagged: Session): WaitReading {
+    const on = { id: tagged.id, title: tagged.title ?? tagged.id };
+    if (read.reading !== undefined) return read.reading;
+    return { on, when: "ends", base: defaultBase("ends"), needs: "" };
+  }
+
+  /** Asks Fleet's proposer once, and tells whoever reads when it has answered. A reading it could not make leaves the defaults. */
+  private asking(read: WaitRead, tagged: Session): Promise<void> {
+    if (read.out !== undefined) return read.out;
+    if (read.timer !== undefined) clearTimeout(read.timer);
+    read.timer = undefined;
+    read.out = this.api.readSessionWait(read.sessionId, read.words).then((done) => {
+      if (!done.ok) return;
+      const { when, part } = whenOfCondition(done.value.condition, planPartsOf(tagged));
+      read.reading = { on: { id: tagged.id, title: tagged.title ?? tagged.id }, when, ...(part === undefined ? {} : { part }), base: done.value.base, needs: done.value.needs ?? "" };
+      this.listeners.forEach((listener) => listener());
+    });
+    return read.out;
+  }
+
+  /** What the words name, now: the proposer's reading where it has answered, else the defaults, with the proposer asked once the words pause. */
+  private readingWait(words: string): WaitReading | undefined {
+    const found = this.waitReadOf(words);
+    if (found === undefined) return undefined;
+    const { read, tagged } = found;
+    this.waitLatest = read;
+    if (read.out === undefined && read.timer === undefined) {
+      read.timer = setTimeout(() => {
+        read.timer = undefined;
+        if (this.waitLatest === read) void this.asking(read, tagged);
+      }, WAIT_READ_AFTER_MS);
+    }
+    return this.waitReading(read, tagged);
+  }
+
+  /** What the words name once the proposer has answered, for the send to start on. */
+  private async settledWait(words: string): Promise<WaitReading | undefined> {
+    const found = this.waitReadOf(words);
+    if (found === undefined) return undefined;
+    await this.asking(found.read, found.tagged);
+    return this.waitReading(found.read, found.tagged);
+  }
+
+  /** The wire's `after` for a wait the screens drew: a plan part is a group or a task by what the plan of the Session waited on says. */
+  private afterOf(after: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">): StartAfter {
+    const parts = planPartsOf(this.mapped.find((one) => one.id === after.on.id));
+    return { session: after.on.id, condition: conditionOfWhen(after.when, after.part, parts), base: after.base, ...(after.needs === "" ? {} : { needs: after.needs }) };
+  }
+
+  /** Changes when a waiting Session starts. Fleet tells the Session it waits on and writes a row in both threads; a refusal is a toast. */
+  private async changingWait(id: string, when: StartWhen, part?: { id: string; title: string }): Promise<void> {
+    const waiting = this.mapped.find((one) => one.id === id);
+    if (waiting?.waits === undefined) return;
+    const parts = planPartsOf(this.mapped.find((one) => one.id === waiting.waits!.on.id));
+    const done = await this.api.changeWaiting({ waiting_session: id, condition: conditionOfWhen(when, part, parts) });
+    if (!done.ok) this.tell(done.outcome);
+  }
+
+  private async startingNow(id: string): Promise<void> {
+    const done = await this.api.startWaitingNow(id);
+    if (!done.ok) this.tell(done.outcome);
+  }
+
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag), request, tuning);
+    // A start that waits on nothing is the call it always was.
+    const at = root ?? this.rootOfJob(tag);
+    const done = after === undefined ? await this.api.startSession(undefined, at, request, tuning) : await this.api.startSession(undefined, at, request, tuning, this.afterOf(after));
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -520,7 +614,11 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request, tuning) => this.starting(tag, root, request, tuning),
+    start: (tag, root, request, tuning, after) => this.starting(tag, root, request, tuning, after),
+    readsWait: (words) => this.readingWait(words),
+    settlesWait: (words) => this.settledWait(words),
+    startWhen: (id, when, part) => void this.changingWait(id, when, part),
+    startNow: (id) => void this.startingNow(id),
     queued: () => this.queuedNow,
     queue: (idea) => this.changeQueued((ideas) => [...ideas, { id: newIdeaId(), ...idea }]),
     startQueued: (id) => this.startingQueued(id),

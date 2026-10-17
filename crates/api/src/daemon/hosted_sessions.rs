@@ -49,6 +49,21 @@ pub trait HostedSessions: Send + Sync + 'static {
         hand: ipc::HandToSession,
     ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
 
+    /// `read_session_wait`: the proposer reads a brief that tags a Session for the wait it names.
+    /// **Never refused for what it could not read**: that is the defaults. [`Refusal::Unacceptable`]
+    /// for a Session Fleet does not host.
+    fn read_session_wait(
+        self: Arc<Self>,
+        read: ipc::ReadSessionWait,
+    ) -> impl Future<Output = Result<ipc::WaitReading, Refusal>> + Send;
+
+    /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.
+    /// [`Refusal::IllegalMove`] where it does not wait.
+    fn start_waiting_now(
+        self: Arc<Self>,
+        start: ipc::StartWaitingNow,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `send_session_message`. **Answers at once**, with the turn taken: the
     /// reply is the thread's, as Helm's is.
     fn send_session_message(

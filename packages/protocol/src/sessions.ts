@@ -13,6 +13,7 @@ import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
+import type { SessionWait, StartAfter } from "./session-waits";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -140,6 +141,11 @@ export type SessionRecord = {
    * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
    */
   settled?: WaitingItem[];
+  /**
+   * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
+   * met. Absent once it has started. Since 16 Oct 2026.
+   */
+  waits?: SessionWait;
 };
 
 /** A value of a Session the proposer can pick. */
@@ -255,6 +261,11 @@ export type StartAnotherSession = {
    * Refused 422 `fleet.group_unknown` for a group the plan lacks, and 409 `fleet.group_handed` for one handed already.
    */
   group?: string;
+  /**
+   * A Session this one waits on, and when it starts. The new Session starts when the condition is met, and its held first
+   * message is then the other Session's handoff followed by `message`. The Session waited on is told `after.needs`.
+   */
+  after?: StartAfter;
 };
 
 /**

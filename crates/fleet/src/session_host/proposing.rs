@@ -160,20 +160,45 @@ where
             .take()
             .map(|words| words.trim().to_string())
             .filter(|words| !words.is_empty() && plain);
+        // A Session that waits on another holds the request as its brief and sends nothing. The Session it
+        // waits on is checked before anything is made, so a refused wait leaves no Session behind.
+        let after = start.after.take().filter(|_| request.is_some());
+        if let Some(after) = &after {
+            self.after_checked("", after).await?;
+        }
         let Some(request) = request else {
             return self.start_session(start).await;
         };
         // No proposer to ask is a start on the defaults, as a failed call is.
         if let Err(why) = self.proposing() {
             eprintln!("a session's request was not read: {why:?}");
-            return self.start_session(start).await;
+            if after.is_some() && start.title.is_none() {
+                start.title = Some(super::after::first_line(&request)).filter(|title| !title.is_empty());
+            }
+            let record = self.start_session(start).await?;
+            return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
         let record = self.started_hosted(start, false).await?;
         let id = record.id.as_str().to_string();
         let fleet = Arc::clone(&self);
-        tokio::spawn(async move { fleet.read_request(id, request).await });
-        Ok(record)
+        let words = request.clone();
+        tokio::spawn(async move { fleet.read_request(id, words).await });
+        self.after_begun(record, after, request).await
+    }
+
+    /// A Session made to wait: the wait is kept and both Sessions are published, and the record answered is
+    /// the one that carries it.
+    async fn after_begun(
+        self: &Arc<Self>,
+        record: SessionRecord,
+        after: Option<ipc::StartAfter>,
+        brief: String,
+    ) -> Result<SessionRecord, Refusal> {
+        let Some(after) = after else {
+            return Ok(record);
+        };
+        self.wait_begun(record.id.as_str(), after, brief, false, ipc::WaitBy::You, true).await
     }
 
     async fn read_request(self: Arc<Self>, id: String, request: String) {

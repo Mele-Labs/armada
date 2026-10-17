@@ -11,6 +11,7 @@ import { Boundary, LayoutSourceProvider } from "@armada/shell";
 import { HapticsProvider, forgetAllKept } from "@armada/components";
 
 import "../styles/index.css";
+import "@armada/components/src/look";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";

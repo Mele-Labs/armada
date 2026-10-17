@@ -286,7 +286,7 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
   // A reply stays here too, with its unread mark until he has opened the Session: it asks nothing of him.
   { label: "Idle", has: (state) => state === "idle" || state === "failing" || state === "replied" },
-  { label: "Not started", has: (state) => state === "blank" },
+  { label: "Not started", has: (state) => state === "blank" || state === "after" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
 ];

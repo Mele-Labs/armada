@@ -7,11 +7,17 @@ import type { Outcome, Studio, StudioList, StudioSummary } from "@armada/protoco
  * `GET /studios?manifest_id=`, held while the surface shows. **Named by its repository**, so an
  * answer for a repository the rail has since moved off is told apart from the one being read.
  */
-export type StudiosRead =
-  | { state: "none" }
+export type StudiosOfOne =
   | { state: "reading"; manifestId: string }
   | { state: "read"; manifestId: string; list: StudioList }
   | { state: "failed"; manifestId: string; outcome: Outcome };
+
+/**
+ * The same read, held for one repository or for several at once. `many` is All repositories: one
+ * `GET /studios?manifest_id=` for each repository Fleet serves, in the order they were asked for,
+ * each answered or failed on its own.
+ */
+export type StudiosRead = { state: "none" } | StudiosOfOne | { state: "many"; reads: readonly StudiosOfOne[] };
 
 /**
  * `GET /studios/:studio_id`, held while that Studio is open, and replaced whole by every

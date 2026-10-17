@@ -76,6 +76,13 @@ pub struct StartSession {
     /// `fork` or `root`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request: Option<String>,
+    /// A Session this one waits on, and when it starts. **Present, `request` is the Session's brief
+    /// and nothing is sent**: it holds the brief, no slot and no process until the condition is met,
+    /// and then starts on the other Session's handoff followed by the brief. The Session waited on
+    /// is told. Not read with `pilot`, `fork` or `root`. `docs/concepts/session.md`, *A Session that
+    /// waits on another*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<crate::session_waits::StartAfter>,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -494,6 +501,28 @@ pub enum SessionRow {
         session: crate::session_starts::SessionLink,
         event: LinkedEvent,
     },
+    /// A Session waits on this one, its condition changed, or it started. Written in **this**
+    /// session's thread (`side` `waited`, `session` the one that waits), and in the waiting
+    /// session's thread where the condition changed (`side` `waiting`, `session` the one it waits
+    /// on). `says` is what the waiting Session needs, or where it started from; `from` and `to` are
+    /// the condition as it was and as it is; `by` is who changed it. The row is the press that opens
+    /// `session`.
+    Waiter {
+        id: String,
+        at: Instant,
+        session: crate::session_starts::SessionLink,
+        event: crate::session_waits::WaiterEvent,
+        #[serde(default, skip_serializing_if = "crate::session_waits::WaiterSide::is_waited")]
+        side: crate::session_waits::WaiterSide,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        says: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        from: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        to: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        by: Option<crate::session_waits::WaitBy>,
+    },
     /// A question the session asked in its walk window. **Replaced by id once answered**, with
     /// `answer` set to what the person chose and said.
     WindowAsk {
@@ -632,6 +661,7 @@ impl SessionRow {
             | SessionRow::Window { id, .. }
             | SessionRow::Started { id, .. }
             | SessionRow::Linked { id, .. }
+            | SessionRow::Waiter { id, .. }
             | SessionRow::Check { id, .. }
             | SessionRow::Ran { id, .. }
             | SessionRow::Retro { id, .. }

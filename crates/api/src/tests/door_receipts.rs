@@ -106,6 +106,7 @@ fn long_lived() -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }
 

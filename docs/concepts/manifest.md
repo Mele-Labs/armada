@@ -514,6 +514,7 @@ Rules that follow:
 - **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
+- **Several names are one run**: `armada check test a b c` puts them into `{}` as one alternation and compiles every member that holds any of them, with one Check slot and one row in a Session's thread. One name no member declares refuses the whole run. Decided 17 Oct 2026, after a Session's agent ran `armada check test <name>` once per name for ten minutes, a build and a queue turn each, at machine load 20.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
 
 ### Confirming a red

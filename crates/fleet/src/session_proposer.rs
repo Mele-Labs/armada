@@ -248,3 +248,94 @@ pub struct Proposing {
     /// `prompts.proposer` as it stood when the call was put together.
     pub prompt: String,
 }
+
+// ---- A Session that waits on another ----------------------------------------------------------------------
+
+/// A group or task of the plan of the Session waited on, offered to the reader to name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlanPart {
+    pub id: String,
+    pub title: String,
+    /// A group, else a task.
+    pub group: bool,
+}
+
+/// What a brief that tags a Session owes. **Four lines**, in order.
+const WAIT_ANSWER_FORMAT: &str = "\
+Answer with nothing but the block below.
+
+    condition: <ends, group_done, task_done, pr_pushed or pr_lands>
+    part: <the id of the group or task, spelled exactly as listed above, or `none`>
+    base: <main or branch>
+    needs: <what the new Session needs from that Session, in a few words, or `none`>
+
+`ends` is the default: the new Session starts when that Session ends. `group_done` and \
+`task_done` mean a group or a task of its plan is done, and name it in `part`; \
+`pr_pushed` means its pull request is pushed; `pr_lands` means its pull request merges. \
+Say `pr_pushed` or `pr_lands` only where the request says pull request, PR, push or \
+land. `base` is `branch` where the request asks to start from that Session's branch, and \
+`main` otherwise. `needs` is only what the request asks of that Session.";
+
+/// The question a brief that tags a Session puts, and the reading of its answer. **Total**: whatever
+/// the answer says, the reading is one the wire holds, and what cannot be used is the default.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WaitBrief {
+    question: String,
+    parts: Vec<PlanPart>,
+}
+
+/// The longest need Fleet keeps, in characters.
+const MOST_NEED: usize = 160;
+
+impl WaitBrief {
+    pub fn about(request: &str, on: &str, parts: &[PlanPart]) -> WaitBrief {
+        let mut listed = String::new();
+        if parts.is_empty() {
+            listed.push_str("  (it has recorded no plan, so `part` is `none`)\n");
+        }
+        for part in parts {
+            listed.push_str(&format!("  {} {} - {}\n", part.id, if part.group { "group" } else { "task" }, part.title));
+        }
+        let question = format!(
+            "A person is dispatching a new agent Session and tagged another Session, \"{on}\", with @ in \
+             the request. The new Session waits on it. Read from the request when the new Session starts \
+             and what it needs of \"{on}\". Answer only the question at the end.\n\n\
+             The request, as the person wrote it:\n\n{request}\n\n\
+             The plan of \"{on}\", its groups and tasks with their ids:\n\n{}\n\n{WAIT_ANSWER_FORMAT}",
+            listed.trim_end_matches('\n')
+        );
+        WaitBrief { question, parts: parts.to_vec() }
+    }
+
+    /// The text that goes to the model, exactly as it goes.
+    pub fn question(&self) -> &str {
+        &self.question
+    }
+
+    /// Read the answer back. A condition that names a part the plan does not hold is `ends`.
+    pub fn read(&self, answer: &str) -> ipc::WaitReading {
+        let said = |key: &str| field(answer, key).map(|one| one.trim().to_string()).filter(|one| !one.eq_ignore_ascii_case("none") && !one.is_empty());
+        let part = said("part").and_then(|id| self.parts.iter().find(|one| one.id == id));
+        let condition = match said("condition").map(|one| one.to_ascii_lowercase()).as_deref() {
+            Some("group_done") => part.filter(|one| one.group).map(|one| ipc::StartCondition::GroupDone { group: one.id.clone() }),
+            Some("task_done") => part.filter(|one| !one.group).map(|one| ipc::StartCondition::TaskDone { task: one.id.clone() }),
+            Some("pr_pushed") => Some(ipc::StartCondition::PrPushed),
+            Some("pr_lands") => Some(ipc::StartCondition::PrLands),
+            _ => None,
+        }
+        .unwrap_or_default();
+        let base = match said("base").map(|one| one.to_ascii_lowercase()).as_deref() {
+            Some("branch") => ipc::StartBase::Branch,
+            Some("main") => ipc::StartBase::Main,
+            _ if condition == ipc::StartCondition::PrPushed => ipc::StartBase::Branch,
+            _ => ipc::StartBase::Main,
+        };
+        let needs = said("needs").map(|one| one.chars().take(MOST_NEED).collect::<String>()).unwrap_or_default();
+        ipc::WaitReading { condition, base, needs }
+    }
+}
+
+/// What a reading that could not be had says: it ends, from main, asking nothing.
+pub fn unread_wait() -> ipc::WaitReading {
+    ipc::WaitReading { condition: ipc::StartCondition::Ends, base: ipc::StartBase::Main, needs: String::new() }
+}

@@ -1,26 +1,28 @@
-//! Running one test by name, and the tests a change touched, compiling only
+//! Running tests by name, and the tests a change touched, compiling only
 //! the members they are in: [`one_test`](crate::one_test) for a Check whose
 //! `narrow` says what a member is.
 //!
 //! Here rather than in [`narrow`](crate::narrowed) because that file knows no
 //! layout at all and these read the source of the one a Manifest names.
 
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use core_model::Narrowing;
 
 use crate::holding::holders;
-use crate::narrow::{one_argument, one_test, quoted, regex_escaped};
+use crate::narrow::{one_argument, quoted, regex_escaped};
 use crate::touched::touched;
 
 /// Why a named test could not become a command.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OneTestRefused {
-    /// The name is blank.
+    /// A name is blank, or none was given.
     Blank,
-    /// No member under `under` declares a function or module of that name.
+    /// No member under `under` declares a function or module called `test`.
     /// `excepted` are the ones that do and the Check leaves to another.
     NoMember {
+        test: String,
         under: String,
         excepted: Vec<String>,
     },
@@ -44,20 +46,53 @@ pub fn one_test_in(
     narrowing: Option<&Narrowing>,
     test: &str,
 ) -> Result<String, OneTestRefused> {
-    let command = one_test(run, test).ok_or(OneTestRefused::Blank)?;
+    tests_in(dir, run, narrowing, &[test])
+}
+
+/// [`one_test_in`] for several names at once: **one command, so one build.**
+/// The names go into `{}` as one alternation and the members are every member
+/// that holds any of them, as [`touched_run`] does for a change. A name no
+/// member holds refuses the whole run, as it refuses one.
+pub fn tests_in(
+    dir: &Path,
+    run: &str,
+    narrowing: Option<&Narrowing>,
+    tests: &[&str],
+) -> Result<String, OneTestRefused> {
+    let tests: Vec<&str> = tests.iter().map(|test| test.trim()).collect();
+    if tests.is_empty() || tests.iter().any(|test| test.is_empty()) {
+        return Err(OneTestRefused::Blank);
+    }
+    let command = run.replace("{}", &one_argument(&any_of(&tests)));
     let Some((narrowing, under)) = narrowing.and_then(|n| Some((n, n.under()?))) else {
         return Ok(command);
     };
-    let (excepted, held): (Vec<String>, Vec<String>) = holders(dir, under, test)
-        .into_iter()
-        .partition(|member| narrowing.except().contains(member));
-    if held.is_empty() {
-        return Err(OneTestRefused::NoMember {
-            under: under.to_string(),
-            excepted,
-        });
+    let mut members = BTreeSet::new();
+    for test in tests {
+        let (excepted, held): (Vec<String>, Vec<String>) = holders(dir, under, test)
+            .into_iter()
+            .partition(|member| narrowing.except().contains(member));
+        if held.is_empty() {
+            return Err(OneTestRefused::NoMember {
+                test: test.to_string(),
+                under: under.to_string(),
+                excepted,
+            });
+        }
+        members.extend(held);
     }
-    Ok(with_members(command, narrowing, &held))
+    let members: Vec<String> = members.into_iter().collect();
+    Ok(with_members(command, narrowing, &members))
+}
+
+/// Names as one regex that matches any of them, each escaped: one name bare,
+/// several as `(?:a|b)`.
+fn any_of<S: AsRef<str>>(names: &[S]) -> String {
+    let alternatives: Vec<String> = names.iter().map(|n| regex_escaped(n.as_ref())).collect();
+    match alternatives.as_slice() {
+        [one] => one.clone(),
+        many => format!("(?:{})", many.join("|")),
+    }
 }
 
 /// What a change's touched tests came to, as a command.
@@ -92,11 +127,7 @@ pub fn touched_run(
     if found.is_empty() {
         return TouchedRun::None;
     }
-    let alternatives: Vec<String> = found.names.iter().map(|n| regex_escaped(n)).collect();
-    let name = match alternatives.as_slice() {
-        [one] => one.clone(),
-        many => format!("(?:{})", many.join("|")),
-    };
+    let name = any_of(&found.names);
     let command = with_members(
         run.replace("{}", &one_argument(&name)),
         narrowing,

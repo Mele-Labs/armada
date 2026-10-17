@@ -398,6 +398,7 @@
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionThread/StartedRow.css";
 @import "./compositions/SessionThread/MovedRow.css";
+@import "./compositions/SessionThread/WaiterRow.css";
 @import "./compositions/SessionThread/LinkedRow.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
@@ -466,3 +467,7 @@
 @import "./compositions/SubagentMarks/SubagentMarks.css";
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";
+
+/* Bridge's look. Last, so it reads over every component above. */
+@import "./depth.css";
+@import "./pages.css";

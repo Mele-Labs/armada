@@ -153,6 +153,8 @@ export function dormantIn(where: {
     // The same shape: ⇧⌘Enter saves what the Session dispatcher holds, and
     // only that sheet has a draft to save.
     queue_session: "in a Session's dispatcher",
+    // The key opens the Dispatch panel on a Session with an `@` typed; the palette has no request to type it into.
+    dispatch_after: "⌥A does this",
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",

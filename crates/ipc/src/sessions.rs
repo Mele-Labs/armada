@@ -817,6 +817,11 @@ pub struct SessionRecord {
     /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settled: Vec<WaitingItem>,
+    /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
+    /// process until the condition is met. Absent once it has started, and on a Session that never
+    /// waited. `docs/concepts/session.md`, *A Session that waits on another*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waits: Option<crate::session_waits::SessionWait>,
 }
 
 /// A value of a Session the proposer can pick.
