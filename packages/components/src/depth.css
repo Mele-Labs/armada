@@ -23,7 +23,6 @@
   .deck-band,
   .deck-list__repository,
   .armada-card-title,
-  .armada-session-list__eyebrow,
   .armada-session-ledger__eyebrow
 ) {
   font-family: var(--font-display);

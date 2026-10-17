@@ -13,7 +13,6 @@ export type Place = {
   tab: DetailTab | null;
   /** What is open inside that tab — a task, step, Drone or Record row, by id — or null. */
   item: string | null;
-  session: string | null;
   studio: OpenStudio | null;
   studioNode: string | null;
 };
@@ -107,7 +106,7 @@ export function useHistory(current: Place, restore: (place: Place) => void, vali
       return;
     }
     held.current = fold(held.current, { kind: "visited", place: current });
-  }, [current.surface, current.job, current.tab, current.item, current.session, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current.surface, current.job, current.tab, current.item, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function go(kind: "back" | "forward"): void {
     let next = fold(held.current, { kind });
