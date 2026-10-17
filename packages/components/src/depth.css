@@ -322,3 +322,10 @@
 }
 
 /* The canvas behind the glass is main's: one soft accent pool at the top leading corner and no other wash. */
+
+/* The inspect card floats over the panels like a menu: under glass it takes the same material. Its own hairline and tone edge stay. */
+:root[data-look="new"][data-panels="glass"] .armada-inspect-card {
+  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+}
