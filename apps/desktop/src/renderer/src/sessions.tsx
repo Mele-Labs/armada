@@ -349,6 +349,7 @@ export function ReadingSheet({
   const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
   if (one?.kind === "pull_request") {
     return (
+      <OverTheApp open>
       <SessionPullRequest
         sessionId={sessionId}
         draft={draft}
@@ -364,6 +365,7 @@ export function ReadingSheet({
       >
         <Refused />
       </SessionPullRequest>
+      </OverTheApp>
     );
   }
   const title =
@@ -455,6 +457,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
     setDrawing(BLANK);
   };
   return (
+    <OverTheApp open={open}>
     <Sheet kind="session-sketch" open={open} floating floor={floor} size="wide" title="Draw a sketch" closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="armada-session-reading">
         <SketchPad
@@ -477,6 +480,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
         </Button>
       </div>
     </Sheet>
+    </OverTheApp>
   );
 }
 
@@ -1038,9 +1042,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
       {narrow ? (
-        <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
-        </Sheet>
+        <OverTheApp open={ledgerOpen}>
+          <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
+            <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
+          </Sheet>
+        </OverTheApp>
       ) : null}
       <ReadingSheet
         sessionId={session.id}
@@ -1072,7 +1078,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : (
+        <OverTheApp open>
+          <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />
+        </OverTheApp>
+      )}
       </ProseTerminal.Provider>
     </SessionRefs>
   );
