@@ -538,6 +538,23 @@ No environment variable.
 **The value lives in settings.json under `models.session`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.review-model]
+name = "Review model"
+scope = "Machine"
+default = "opus"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Ships as the Session model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Sessions leaves it where it was, and a machine that wants reviews cheaper says so here.
+
+Live: a run started after a change takes it. A run reads, never writes: it goes through the same read-only client as the Judge. Its spend is recorded on the run and shown beside it. No environment variable.
+
+**The value lives in settings.json under `models.review`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.model-selection-heuristic-parameters]
 name = "Model-selection heuristic parameters"
 scope = "Manifest only"

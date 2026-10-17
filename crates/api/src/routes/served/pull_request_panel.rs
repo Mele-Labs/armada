@@ -29,4 +29,24 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/review_threads/:repository",
     },
+    Route {
+        operation: "list_review_tools",
+        method: "GET",
+        path: "/review_tools/:repository",
+    },
+    Route {
+        operation: "save_review_tool",
+        method: "POST",
+        path: "/review_tools/:repository",
+    },
+    Route {
+        operation: "start_review_run",
+        method: "POST",
+        path: "/review_runs/:repository",
+    },
+    Route {
+        operation: "get_review_runs",
+        method: "GET",
+        path: "/review_runs/:repository/:number",
+    },
 ];

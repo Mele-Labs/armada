@@ -9,8 +9,8 @@
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestPage } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
-import type { Account, Change, FindingSeed, Hunk, MockPr, ReviewPr, ReviewSeed, SeedThread, Theme, ToolDef } from "../pr-review/model";
-import { ARMADA_TOOLS } from "../pr-review/tools";
+import type { Account, Change, Hunk, ReviewPr, Theme, ToolDef } from "../pr-review/model";
+import { ARMADA_DEFS, type FindingSeed, type MockPr, type ReviewSeed, type SeedThread } from "./review-seed";
 
 const FORGE = "https://forge.example/mele-labs";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -56,7 +56,7 @@ type Spec = {
   checkRows: PullRequestCheckRow[];
   commits: PullRequestCommit[];
   summary: string;
-  explainedBy: ReviewPr["explainedBy"];
+  explainedBy: MockPr["explainedBy"];
   themes: readonly ThemeIn[];
   /** Threads by the change they are on, and the line of its first hunk by what it says. */
   threads?: readonly { id: string; change: string; match?: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
@@ -182,7 +182,7 @@ const marta = build({
     { when: "gh|signed out|sign.?in", body: "No. The plan windows come from the provider, not from `gh`, so a signed out `gh` does not touch this cache. The pull request panel's own reads are unchanged." },
   ],
   accounts: {
-    "for-you": {
+    "user-impact": {
       shape: "change",
       rows: [
         { what: "The plan meters in the title bar", before: "Each meter read the provider every five seconds, so a figure was never more than five seconds old.", after: "A figure can be up to a minute old, and the meter says how old it is." },
@@ -475,10 +475,11 @@ const marta = build({
       {
         change: "serve",
         title: "The lock is held across the provider call",
+        severity: "high",
         body: "A slow read blocks every other ask until it returns, including the ones a held read could have answered.\n\nTake the lock again after the call, and let a second ask wait on the first instead.",
       },
     ],
-    bugs: [
+    "possible-bugs": [
       {
         change: "serve",
         title: "A reset inside the minute is served late",
@@ -489,6 +490,7 @@ const marta = build({
       {
         change: "readat",
         title: "read_at is required on the wire",
+        severity: "low",
         body: "A Fleet that predates this change sends none, and Bridge parses it as present. Make it optional, or bump the protocol.",
       },
     ],
@@ -728,7 +730,7 @@ const reconnect = build({
     ["80a2f6b", "Jitter the wait", "drone", 31],
   ]),
   accounts: {
-    "for-you": {
+    "user-impact": {
       shape: "change",
       rows: [
         { what: "Fleet restarts", before: "Every window stayed dark for 30 seconds.", after: "The first retry is at 5 seconds, so a restart is back in about that." },
@@ -960,10 +962,11 @@ const reconnect = build({
   ],
   results: {
     risks: [{ change: "jitter", title: "Jitter can pass the cap", body: "The cap is applied in `waitFor`, before the spread. A 60 second wait comes out as up to 72 seconds." }],
-    bugs: [
+    "possible-bugs": [
       {
         change: "link",
         title: "The attempt count is never reset",
+        severity: "high",
         body: "`attempt` grows on every drop and nothing sets it back to zero when the socket opens. After the sixth drop in a day, every reconnect waits the full cap.\n\nReset it in the `open` handler.",
       },
     ],
@@ -971,6 +974,7 @@ const reconnect = build({
       {
         change: "state",
         title: "LinkState gains a member",
+        severity: "low",
         body: "A window built before this change switches on `LinkState` with no default, and draws nothing for `connected`.",
       },
     ],
@@ -1097,7 +1101,7 @@ const hub = quick({
   opened: 300,
   body: "## Problem\n\nThe hub bound whatever port the operating system gave it and logged it once. A restart on a new port left every window reading the old one, so each had to be closed and reopened to find the hub again. #1862 has the reports.\n\n## Change\n\nThe hub now asks for the port in the runtime file first, and falls back to a free one only if it is taken.\n\n1. Read `hub.port` from the runtime file at start\n2. Try to bind it\n3. If it is taken, bind port 0, as before, and write the port it got\n4. Write the port back before accepting a connection, so a window that reads the file never sees a port nobody listens on\n\n```rust\nlet wanted = runtime::read().ok().and_then(|file| file.hub_port);\nlet listener = match wanted {\n    Some(port) => TcpListener::bind((LOCALHOST, port)).or_else(|_| TcpListener::bind((LOCALHOST, 0)))?,\n    None => TcpListener::bind((LOCALHOST, 0))?,\n};\nruntime::write_hub_port(listener.local_addr()?.port())?;\n```\n\n## Behaviour\n\n| Case | Before | After |\n|---|---|---|\n| Restart, port free | new port | same port |\n| Restart, port taken | new port | new port, written to the file |\n| First start | random port | random port, written to the file |\n\n## Notes\n\n- The runtime file is still written atomically, with a rename, so a reader never sees half of it\n- Nothing reads `hub.port` from anywhere else; the Drones are told it on their command line\n- A Drone started before a restart still holds the old port. That is #1866 and is not touched here\n\n## Testing\n\n1. Restart Fleet with a window open and check it reconnects without a reload\n2. Run `armada check test hub_port`, which covers the three cases in the table",
   accounts: {
-    "for-you": {
+    "user-impact": {
       shape: "change",
       rows: [
         { what: "Restarting Fleet", before: "Every open window kept reading the old port and had to be closed and reopened.", after: "The hub comes back on the same port, so a window reconnects on its own." },
@@ -1256,7 +1260,12 @@ export function reviewSeed(): ReviewSeed {
     me: "nick",
     // Listed newest first, as the forge lists them: the order they were written in.
     prs: all.map((one, at) => ({ ...one.pr, updatedAt: minutesAgo(at + 1) })),
-    tools: { armada: ARMADA_TOOLS, kit: kitTools, repository: repositoryTools },
+    tools: {
+      armada: ARMADA_DEFS,
+      kit: kitTools,
+      repository: repositoryTools,
+      leftOut: { armada: [{ file: "/Users/user/Development/armada/.armada/review-tools/notes.md", source: "repository", said: "No kind in its front matter" }] },
+    },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
     pushes: {
       [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "drone" },

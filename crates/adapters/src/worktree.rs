@@ -232,6 +232,19 @@ impl Vcs for GitVcs {
         })
     }
 
+    fn lease_review_bay(
+        &self,
+        pool: &SlotPool,
+        pull_request: u64,
+        holder: &str,
+    ) -> Result<adapter_traits::ReviewBay, String> {
+        noted(crate::leasing::jobs::lease_review(pool, pull_request, holder))
+    }
+
+    fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), String> {
+        noted(crate::leasing::jobs::release_review(pool, slot, holder))
+    }
+
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
         crate::leasing::jobs::open(pool, job_id)
     }

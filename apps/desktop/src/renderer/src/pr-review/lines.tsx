@@ -9,7 +9,7 @@ import { Check, SquareDashed, X } from "lucide-react";
 import { Button, Prose, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 
 import type { Draft, Finding, Thread, ToolMark } from "./model";
-import { ArmadaMark, TOOL_MARK } from "./marks";
+import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
 
 // ---- The box -------------------------------------------------------------------------------------------
 
@@ -164,6 +164,7 @@ export function FindingCard({ finding, mark, session, onDismiss, onSend }: { fin
           <PrMark Glyph={kind.Glyph} said={kind.said} />
         </span>
         <b className="pr-card__who">{finding.title}</b>
+        <SeverityMark severity={finding.severity} />
         <span className="pr-card__act">
           <Tooltip label="Dismiss">
             <Button variant="ghost" size="sm" iconOnly aria-label="Dismiss finding" onClick={onDismiss}>

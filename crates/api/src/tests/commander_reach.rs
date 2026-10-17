@@ -73,6 +73,7 @@ const EDITS_CHECKS_MANIFEST_OR_SETTINGS: &[&str] = &[
     "write_manifest_proposal",
     "save_manifest_file",
     "save_workflow",
+    "save_review_tool",
     "save_limits",
     "save_preferences",
     "save_settings",

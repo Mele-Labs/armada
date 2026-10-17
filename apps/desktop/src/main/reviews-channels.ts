@@ -1,7 +1,7 @@
 // The channels the Reviews tab travels over: one request each to Fleet, and the renderer names no port.
 
 import type { IpcMain } from "electron";
-import type { ResolvePullThread, WritePullRequest } from "@armada/protocol";
+import type { ResolvePullThread, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -25,5 +25,15 @@ export function handleReviews({ ipc, connection }: Hosts): void {
   );
   ipc.handle(CHANNELS.resolveReviewThread, (_event, manifestId: string, resolve: ResolvePullThread) =>
     text(manifestId) && text(resolve?.thread) && typeof resolve.resolved === "boolean" ? (connection()?.reviews.resolve(manifestId, resolve) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.listReviewTools, (_event, manifestId: string) => (text(manifestId) ? (connection()?.reviews.tools(manifestId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.saveReviewTool, (_event, manifestId: string, save: SaveReviewTool) =>
+    text(manifestId) && save !== null && typeof save === "object" ? (connection()?.reviews.saveTool(manifestId, save) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.startReviewRun, (_event, manifestId: string, start: StartReviewRun) =>
+    text(manifestId) && count(start?.number) && text(start.name) ? (connection()?.reviews.startRun(manifestId, start) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.getReviewRuns, (_event, manifestId: string, number: number) =>
+    text(manifestId) && count(number) ? (connection()?.reviews.runs(manifestId, number) ?? unsent) : unsent,
   );
 }
