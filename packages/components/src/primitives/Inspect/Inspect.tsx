@@ -336,7 +336,13 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
     },
     onClick: (event: ReactMouseEvent<HTMLElement>) => {
       own.onClick?.(event);
-      if (!pin || event.defaultPrevented) return;
+      // The press is the act, so the card gets out of the way of what it opened, and stays shut until the pointer leaves.
+      if (!pin) {
+        dismissed.current = true;
+        away();
+        return;
+      }
+      if (event.defaultPrevented) return;
       if (pinned) {
         dismissed.current = true;
         away();
