@@ -46,6 +46,7 @@ mod requester;
 mod servers;
 mod session_activity;
 mod session_build;
+mod loadout;
 mod session_plan;
 mod session_starts;
 mod session_summaries;

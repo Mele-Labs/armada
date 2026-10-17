@@ -212,6 +212,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/owner",
     },
     Route {
+        operation: "get_session_loadout",
+        method: "GET",
+        path: "/sessions/loadout",
+    },
+    Route {
         operation: "rename_session",
         method: "POST",
         path: "/sessions/rename",

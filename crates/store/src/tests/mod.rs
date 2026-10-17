@@ -24,6 +24,7 @@ mod repositories;
 mod review_runs;
 mod session_checks;
 mod session_ledger;
+mod session_loadout;
 mod session_plan;
 mod session_rail;
 mod settings_file;

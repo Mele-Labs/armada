@@ -90,6 +90,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         standing: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: false,
         activity: None,
         build: None,

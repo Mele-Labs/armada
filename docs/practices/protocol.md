@@ -4290,6 +4290,25 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One
 
 **The event stream.** This change makes the open risk below **better in kind**: it removes the producers of `job.*`, `drone.*`, `commander.*`, `evidence.submitted`, `proposal.moved` and `run.finished`, the busiest kinds Fleet published, so the stream carries far fewer events and a minimised Bridge has less to fall behind on. It adds no bounded broadcast and no "you missed N events" message; `Missed` and the drop-oldest channel are as they were, and the number is still unmeasured.
 
+## A Session's Loadout
+
+Since 17 Oct 2026. What a Session's agent knows, was told, and used each turn, each item with where it came from. **Additive only**: two facts, one optional field on `SessionRecord`, one operation and the types they carry. No event kind or error is new. Bridge's half is `packages/protocol/src/loadout.ts` and `sessions.ts`, written by hand. The migration `20261017T1700Z-session_loadout.kept` is additive. **Names, sources and counts only**: never a skill's body, a prompt's text, a tool's input or a file's contents.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionFact` `equipped` | The mod writes | `loadout`: `LoadoutItems` `{ items }`, the whole list, replacing the last. `LoadoutItem`: `kind`, `name`, `source`, `from?`, `state?`, `tokens?` |
+| `SessionFact` `used` | The mod writes | `use`: `LoadoutUse`: `turn_started_at`, `kind` (`skill`, `tool` or `subagent`), `name`, `source`, `from?`, `model?`, `by?` |
+| `SessionRecord.loadout_summary?` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `LoadoutSummary`: `knows`, `told`, `latest_turn?` (`started_at`, `used[]`). Absent where no `equipped` was ever reported |
+| `get_session_loadout` (`GET /sessions/loadout?session_id=`) | Bridge reads | `SessionLoadout`: `items[]`, empty where none was reported, and `turns[]`, oldest first, at most fifty. 422 `fleet.session_unnamed` for a session Fleet does not know |
+
+**Every closed set is a plain enum Bridge matches on**: `LoadoutSource` (`kit`, `armada`, `repository`, `plugin`, `mcp`, `built_in`, `managed`), `LoadoutKind` (`skill`, `subagent`, `mcp_server`, `tool`, `memory_file` are known; `output_style`, `rules`, `injection` are told), `LoadoutState` and `LoadoutUseKind`. A value outside them refuses the fact.
+
+**A turn is the instant the mod says it began**, and turns are ordered by when Fleet first heard of each. **A use repeated in its turn is kept once and publishes nothing**, and an `equipped` equal to the one held publishes nothing, so a turn of a hundred MCP calls to one tool is one row and one `session.changed`.
+
+**The event stream.** Each new list and each new distinct use publishes one `session.changed`, through the shared drop-oldest backlog. It adds no event kind and no queue, and the dedupe keeps it to what changed, so it leaves the unmeasured sink risk where it was. A Bridge that missed one reads the record again on the resync that follows a `Missed`.
+
+**Skew.** A Bridge that predates this ignores a `loadout_summary` it does not read. A Fleet that predates it refuses both facts, and the mod goes on.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

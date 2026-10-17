@@ -41,6 +41,8 @@ mod plan_marks;
 mod plan_record;
 /// Where a Session's plan meets the store.
 mod plan_keeping;
+/// Where a Session's Loadout meets the store.
+mod loadout_keeping;
 /// A Session's place in its workflow, read from what Fleet observed, and the nudge for a step skipped.
 mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.

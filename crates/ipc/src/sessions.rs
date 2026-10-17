@@ -234,6 +234,16 @@ pub enum SessionFact {
     },
     /// The prompt `permission_asked` told of is closed: the call ran, was refused, or was abandoned.
     PermissionSettled,
+    /// What the agent knows and was told, whole, replacing the last. The mod sends it at the start
+    /// and whenever it changes. Fleet keeps the latest.
+    Equipped {
+        loadout: crate::loadout::LoadoutItems,
+    },
+    /// The agent used a skill, a tool or a subagent the mod reports. Fleet keeps the last fifty turns.
+    Used {
+        #[serde(rename = "use")]
+        used: crate::loadout::LoadoutUse,
+    },
     Ended {
         reason: String,
     },
@@ -781,6 +791,10 @@ pub struct SessionRecord {
     /// until a mod reports one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
+    /// The Loadout in brief, from the latest `equipped` and the latest turn's uses. Absent where no
+    /// `equipped` was ever reported. The whole of it is `get_session_loadout`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loadout_summary: Option<crate::loadout::LoadoutSummary>,
     /// This hosted session is a repository's Helm: opening it from the Sessions list opens the
     /// dock, and at most one is live per `manifest_id`. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
