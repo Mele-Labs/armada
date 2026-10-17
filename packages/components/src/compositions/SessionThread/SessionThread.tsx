@@ -112,7 +112,7 @@ export type SessionThreadRow =
    * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
    * changed it), or started (`says` is where from). A press opens it.
    */
-  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */

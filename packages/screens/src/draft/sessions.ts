@@ -336,7 +336,7 @@ export type SessionRow =
    * A Session that waits on this one: it was dispatched to, its start condition was changed by this Session's agent or by the person,
    * or its condition was met and it started. `by` is who changed the condition. **A mock's row**: nothing in Fleet carries it yet.
    */
-  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** A Session this one follows needs the person, finished, or merged its pull request. The agent was told in the same moment. */
   | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */

@@ -8,6 +8,9 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
+  ChangeWaiting,
+  SessionWait,
+  WaitReading,
   ChosenHold,
   SessionHeld,
   SessionHoldsReleased,
@@ -501,6 +504,9 @@ type OldBridgeApi = {
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+    readSessionWait: (sessionId: string, request: string) => Promise<SessionActed<WaitReading>>;
+    changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
+    startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
@@ -857,6 +863,9 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
     claimPullRequest: "bridge:claim-pull-request",
+    readSessionWait: "bridge:read-session-wait",
+    changeWaiting: "bridge:change-waiting",
+    startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",

@@ -13,6 +13,7 @@ import { parseScene } from "@armada/components/src/compositions/SketchScene/scen
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
+import { waitOfWire } from "./session-waits";
 import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
 import { share } from "./share";
 import type {
@@ -455,6 +456,20 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "linked":
         out.push({ id: row.id, at, kind: "linked", session: row.session, event: row.event });
         break;
+      case "waiter":
+        out.push({
+          id: row.id,
+          at,
+          kind: "waiter",
+          session: row.session,
+          event: row.event,
+          ...(row.side === "waiting" ? { waiting: true as const } : {}),
+          ...(row.says === undefined ? {} : { says: row.says }),
+          ...(row.from === undefined ? {} : { from: row.from }),
+          ...(row.to === undefined ? {} : { to: row.to }),
+          ...(row.by === undefined ? {} : { by: row.by }),
+        });
+        break;
       case "retro":
         out.push(retroRowOf(row, at));
         break;
@@ -577,6 +592,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
+    ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(work === undefined ? {} : { work }),
   };
 }
