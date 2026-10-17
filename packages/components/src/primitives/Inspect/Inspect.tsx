@@ -362,6 +362,7 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
               id={cardId}
               className="armada-inspect"
               popover="manual"
+              tabIndex={-1}
               data-side={side}
               data-pinned={pinned || undefined}
               role={pinned ? "dialog" : "tooltip"}

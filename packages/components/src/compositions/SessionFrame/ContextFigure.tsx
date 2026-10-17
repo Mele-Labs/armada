@@ -4,7 +4,7 @@ import type { ContextBreakdown } from "../../context-breakdown";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { usageLevel } from "../../usage";
 import { Layers } from "lucide-react";
-import { Inspect, InspectCard, InspectSection, type InspectFact } from "../../primitives/Inspect/Inspect";
+import { Inspect, InspectCard, InspectFacts, InspectSection, type InspectFact } from "../../primitives/Inspect/Inspect";
 
 /** How full the Session's context window is, as it last reported, and what it is made of where that is known. */
 export type ContextFill = { tokens: number; window: number; breakdown?: ContextBreakdown };
@@ -59,11 +59,11 @@ function BreakdownCard({ fill, percent, breakdown }: { fill: ContextFill; percen
       where={`${tokensSaid(fill.tokens)} / ${tokensSaid(fill.window)}`}
       title="Context window"
       state={{ said: `${percent}% used`, ...(tone === undefined ? {} : { tone }) }}
-      facts={rows(breakdown.categories.filter((one) => one.kind !== "deferred").map((one) => [one.name, one.tokens] as const))}
       keys={[{ key: "Enter", verb: "Keep open" }]}
       width="wide"
     >
       <WindowBar breakdown={breakdown} tone={tone ?? "var(--fg-muted)"} />
+      <InspectFacts facts={rows(breakdown.categories.filter((one) => one.kind !== "deferred").map((one) => [one.name, one.tokens] as const))} />
       <InspectSection heading="Memory files" facts={rows(heaviest(breakdown.memoryFiles.map((one) => ({ name: nameOf(one.path, breakdown.memoryFiles), tokens: one.tokens }))).map((one) => [one.name, one.tokens] as const))} />
       <InspectSection heading="MCP tools" facts={rows(heaviestServers(breakdown.mcpTools).map((one) => [one.name, one.tokens] as const))} />
     </InspectCard>
