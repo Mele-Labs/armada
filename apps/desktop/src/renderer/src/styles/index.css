@@ -15,7 +15,7 @@
 @import "tailwindcss";
 @import "@armada/tokens/tokens.theme.css";
 @import "@armada/tokens/base.css";
-/* The six type takes of the foundations mock; inert until the root carries `data-type`. */
+/* The new look of the foundations mock; inert until the root carries `data-look="new"`. */
 @import "@armada/tokens/takes.css";
 
 /* The primitives' own stylesheets, last, because they consume the theme above.

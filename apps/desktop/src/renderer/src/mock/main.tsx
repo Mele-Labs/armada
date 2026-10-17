@@ -16,10 +16,8 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// `?type=system|inter|manrope|instrument|dm|sora` draws the type, spacing, shadow and motion foundations in one of six pairings (`@armada/tokens/takes.css`).
-const TYPE_TAKES = ["system", "inter", "manrope", "instrument", "dm", "sora"];
-const type = query.get("type");
-if (type !== null && TYPE_TAKES.includes(type)) document.documentElement.dataset.type = type;
+// `?look=new` draws the new look: type roles, spacing, shadows, material and motion (`@armada/tokens/takes.css`).
+if (query.get("look") === "new") document.documentElement.dataset.look = "new";
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 const walking = query.get("walk");
 const script = walking === null ? undefined : EVERY_WALK.get(walking);

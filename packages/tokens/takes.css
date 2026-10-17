@@ -1,36 +1,19 @@
-/* Six type takes for one set of foundations, a design mock the owner walks
-   with `?type=system|inter|manrope|instrument|dm|sora`. Nothing here applies until the page carries `data-type`
-   on its root, so the app without one draws as before.
+/* The new look, a design mock the owner walks with `?look=new`. Nothing here applies until the page
+   carries `data-look="new"` on its root, so the app without one draws as before and a walk can compare the two.
 
-   Not in the cascade `styles.css` declares and not generated: when he picks a
-   take, its faces move into `src/fonts.css`, the roles into `src/typography.css`
-   and the scales into `src/spacing.css`, and this file goes.
+   Not in the cascade `styles.css` declares and not generated: when he adopts it, the roles move into
+   `src/typography.css` and the scales into `src/spacing.css`, and this file goes.
 
-   Colour is the theme system's. Nothing here sets a ground, a text colour, an
-   accent or a status hue; a token below that looks like one is a `color-mix` of
-   the theme's own, so Dark, Light and a mod's theme all carry through.
+   Colour is the theme system's. Nothing here sets a ground, a text colour, an accent or a status hue; a token
+   below that looks like one is a `color-mix` of the theme's own, so Dark, Light and a mod's theme carry through.
+   Faces stay IBM Plex: the family is deferred.
 
-   What a take changes is the faces, the type roles, the spacing and radius
-   rhythm, the four shadow and border levels, and the motion on top of them. The
-   steps `--text-2xs` to `--text-2xl` and `--space-*` are left as they are: the
-   Cockpit's panels are laid out on them, and its layout does not move. */
+   What it changes is the type roles, the spacing and radius rhythm, the four shadow and border levels, the
+   material, and the motion on top of them. The steps `--text-2xs` to `--text-2xl` and `--space-*` are left as
+   they are: the Cockpit's panels are laid out on them, and its layout does not move. */
 
-/* ---- Faces. Only the weights a take draws are vendored; each file's licence sits beside it. ------------- */
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/Inter-var.woff2") format("woff2"); }
-@font-face { font-family: "Inter Display"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/InterDisplay-var.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 100 800; font-display: swap; src: url("./fonts/JetBrainsMono-var.woff2") format("woff2"); }
-@font-face { font-family: "Manrope"; font-style: normal; font-weight: 200 800; font-display: swap; src: url("./fonts/Manrope-var.woff2") format("woff2"); }
-@font-face { font-family: "Instrument Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("./fonts/InstrumentSans-var.woff2") format("woff2"); }
-@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 100 1000; font-display: swap; src: url("./fonts/DMSans-var.woff2") format("woff2"); }
-@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 300; font-display: swap; src: url("./fonts/DMMono-300.woff2") format("woff2"); }
-@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/DMMono-400.woff2") format("woff2"); }
-@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/DMMono-500.woff2") format("woff2"); }
-@font-face { font-family: "Sora"; font-style: normal; font-weight: 100 800; font-display: swap; src: url("./fonts/Sora-var.woff2") format("woff2"); }
-@font-face { font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/Geist-var.woff2") format("woff2"); }
-@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/GeistMono-var.woff2") format("woff2"); }
-
-/* ---- Shared by all six ------------------------------------------------------------------------------- */
-:root[data-type] {
+/* ---- The look ------------------------------------------------------------------------------- */
+:root[data-look="new"] {
   /* Material. White at low alpha over the theme's own ground, so it is neutral on any theme. The sheen and a
      tile together stay under 2% white: --fg-subtle is 4.74:1 on the glass top and 4.51:1 at 2%. */
   --glass-sheen: rgb(255 255 255 / 0.01);
@@ -47,7 +30,15 @@
   --canvas-grid: rgb(255 255 255 / 0.028);
 
   /* ---- Type roles. The steps stay; these say which step a thing is for. ---- */
-  --weight-light: 300;     /* a large figure: the number is the content, so it is thin */
+  --font-display: var(--font-sans);
+  --font-title: var(--font-sans);
+  --font-figure: var(--font-mono);
+  --weight-light: 400;     /* Plex Sans is vendored from 400 up */
+  --weight-head: 600;
+  --tracking-head: 0.12em;
+  --text-nav: 14px;  --weight-nav: 600;  --tracking-nav: 0.08em;
+  --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
+  --text-meta: 12.5px;
   --weight-title: 600;
   --text-head: 13px;       --leading-head: 16px;     /* a panel header: tracked caps in the display face */
   --text-nav: 15px;        /* the places in the title bar: the loudest type on screen */
@@ -94,7 +85,7 @@
 }
 
 /* A light theme's shadows are slate and softer, not black. */
-:root[data-type][data-theme="light"] {
+:root[data-look="new"][data-theme="light"] {
   --shadow-rest: 0 1px 2px rgb(15 23 42 / 0.08), 0 10px 22px -16px rgb(15 23 42 / 0.25);
   --shadow-hover: 0 2px 4px rgb(15 23 42 / 0.1), 0 16px 30px -16px rgb(15 23 42 / 0.3);
   --shadow-lifted: 0 3px 6px rgb(15 23 42 / 0.12), 0 24px 42px -18px rgb(15 23 42 / 0.35);
@@ -112,9 +103,9 @@
 
 /* The canvas: grain over a hairline grid over the accent's pool of light over the ground.
    `body` and the shell both paint it, as `base.css` and `TheShell.css` paint the pool. */
-:root[data-type] body,
-:root[data-type] .armada-shell,
-:root[data-type] .armada-shell[data-dock] {
+:root[data-look="new"] body,
+:root[data-look="new"] .armada-shell,
+:root[data-look="new"] .armada-shell[data-dock] {
   background:
     url("./textures/grain.png") 0 0 / 128px 128px,
     linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
@@ -122,7 +113,7 @@
     radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
     var(--bg-base);
 }
-:root[data-type] .armada-shell[data-dock] {
+:root[data-look="new"] .armada-shell[data-dock] {
   background:
     url("./textures/grain.png") 0 0 / 128px 128px,
     linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
@@ -130,84 +121,4 @@
     radial-gradient(640px 520px at 100% 100%, var(--helm-faint), transparent),
     radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
     var(--bg-base);
-}
-
-/* ---- system: the Mac's own faces. Nothing vendored; -apple-system picks SF Pro Display or Text by size. ---- */
-:root[data-type="system"] {
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  --weight-head: 600;  --tracking-head: 0.08em;  --text-head: 12.5px;
-  --text-nav: 14px;  --weight-nav: 500;  --tracking-nav: 0.06em;
-  --text-row: 14.5px;  --weight-row: 500;  --tracking-row: -0.005em;
-  --text-meta: 12px;
-}
-
-/* ---- inter: Inter Display for headers, Inter for the body, JetBrains Mono ------------------------------ */
-:root[data-type="inter"] {
-  --font-display: "Inter Display", "Inter", system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  --weight-head: 600;  --tracking-head: 0.09em;  --text-head: 12.5px;
-  --text-nav: 14px;  --weight-nav: 500;  --tracking-nav: 0.06em;
-  --text-row: 14.5px;  --weight-row: 550;  --tracking-row: -0.006em;
-  --text-meta: 12px;
-}
-
-/* ---- manrope: Manrope throughout, Geist Mono ------------------------------------------------------------ */
-:root[data-type="manrope"] {
-  --font-display: "Manrope", system-ui, sans-serif;
-  --font-sans: "Manrope", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  --weight-head: 700;  --tracking-head: 0.1em;  --text-head: 12.5px;
-  --text-nav: 14px;  --weight-nav: 600;  --tracking-nav: 0.06em;
-  --text-row: 14.5px;  --weight-row: 600;  --tracking-row: -0.005em;
-  --text-meta: 12px;
-}
-
-/* ---- instrument: Instrument Sans throughout, Geist Mono -------------------------------------------------- */
-:root[data-type="instrument"] {
-  --font-display: "Instrument Sans", system-ui, sans-serif;
-  --font-sans: "Instrument Sans", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  --weight-light: 400;  /* the face starts at 400 */
-  --weight-head: 600;  --tracking-head: 0.1em;  --text-head: 13px;
-  --text-nav: 14.5px;  --weight-nav: 500;  --tracking-nav: 0.06em;
-  --text-row: 15px;  --weight-row: 500;  --tracking-row: 0;
-  --text-meta: 12px;
-}
-
-/* ---- dm: DM Sans throughout, DM Mono ------------------------------------------------------------------------ */
-:root[data-type="dm"] {
-  --font-display: "DM Sans", system-ui, sans-serif;
-  --font-sans: "DM Sans", system-ui, sans-serif;
-  --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  --weight-head: 600;  --tracking-head: 0.1em;  --text-head: 13px;
-  --text-nav: 14.5px;  --weight-nav: 500;  --tracking-nav: 0.06em;
-  --text-row: 15px;  --weight-row: 500;  --tracking-row: 0;
-  --text-meta: 12px;
-}
-
-/* ---- sora: Sora for headers, Geist for the body, Geist Mono ------------------------------------------------ */
-:root[data-type="sora"] {
-  --font-display: "Sora", system-ui, sans-serif;
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-title: var(--font-display);
-  --font-figure: var(--font-display);
-  /* Sora is wide and tall: a size down and a lighter tracking keep it calm. */
-  --weight-head: 600;  --tracking-head: 0.08em;  --text-head: 12px;
-  --text-nav: 13px;  --weight-nav: 500;  --tracking-nav: 0.05em;
-  --text-row: 15px;  --weight-row: 450;  --tracking-row: -0.01em;
-  --text-meta: 12px;
 }

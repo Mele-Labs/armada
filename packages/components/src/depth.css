@@ -1,6 +1,6 @@
-/* One set of foundations for every screen, drawn in the type takes' own tokens
-   (`@armada/tokens/takes.css`). Every rule starts `:root[data-type]`, so a page
-   with no take draws as it did and the six takes share one stylesheet.
+/* One set of foundations for every screen, drawn in the look's own tokens
+   (`@armada/tokens/takes.css`). Every rule starts `:root[data-look="new"]`, so a page
+   with no look draws as it did and the look is one stylesheet.
    Colour is the theme's: nothing here names a hue.
 
    One material, one accent, a clear hierarchy, and nothing piled on:
@@ -19,7 +19,7 @@
    reduced motion zeroes. */
 
 /* ---- Cards: glass, lit from the top leading corner ------------------------------------------------------- */
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .armada-glass,
   .armada-card:not(:where([data-flat], .armada-glass *, .armada-sheet *, .armada-dialog *)),
   .armada-drift-panel:not(.armada-sheet *, .armada-dialog *),
@@ -32,7 +32,7 @@
 }
 
 /* The cockpit's panels paint their own flat glass; they take the same gradient and the same line. */
-:root[data-type] :is(.deck-panel, .deck-pane) {
+:root[data-look="new"] :is(.deck-panel, .deck-pane) {
   background:
     linear-gradient(145deg, var(--glass-sheen), transparent 60%),
     linear-gradient(145deg, var(--bg-glass), var(--bg-glass-end));
@@ -40,24 +40,24 @@
 }
 
 /* Sessions' own page: one glass panel, its head and controls on it rather than flat bands across it. */
-:root[data-type] .armada-session-list {
+:root[data-look="new"] .armada-session-list {
   background:
     linear-gradient(145deg, var(--glass-sheen), transparent 60%),
     linear-gradient(145deg, var(--bg-glass), var(--bg-glass-end));
   border-color: var(--border-glass);
   box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
 }
-:root[data-type] :is(.armada-session-list__head, .armada-session-list__controls) { background: transparent; }
+:root[data-look="new"] :is(.armada-session-list__head, .armada-session-list__controls) { background: transparent; }
 
 /* The window's title row joins the canvas rather than cutting a flat band across its grain. */
-:root[data-type] .armada-title-bar { background: transparent; }
+:root[data-look="new"] .armada-title-bar { background: transparent; }
 
 /* ---- Type roles: a header, a title, a figure --------------------------------------------------------------- */
 /* A panel header: small tracked caps in the display face, over one hairline that fades. */
-:root[data-type] :is(.deck-band, .armada-card-header) {
+:root[data-look="new"] :is(.deck-band, .armada-card-header) {
   background: linear-gradient(90deg, var(--head-rule), transparent 88%) bottom / 100% var(--border-width) no-repeat;
 }
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .deck-band,
   .deck-list__repository,
   .armada-card-title,
@@ -71,32 +71,32 @@
   letter-spacing: var(--tracking-head);
   text-transform: uppercase;
 }
-:root[data-type] .armada-card-title { color: var(--fg-muted); }
-:root[data-type] .deck-list__repository { font-size: calc(var(--text-head) - 1.5px); line-height: var(--leading-sm); }
-:root[data-type] .armada-card-header { padding-bottom: var(--space-2); }
+:root[data-look="new"] .armada-card-title { color: var(--fg-muted); }
+:root[data-look="new"] .deck-list__repository { font-size: calc(var(--text-head) - 1.5px); line-height: var(--leading-sm); }
+:root[data-look="new"] .armada-card-header { padding-bottom: var(--space-2); }
 
 /* A title is stronger than a header and reads as a sentence: sentence case, a touch tight. */
-:root[data-type] :is(.armada-dialog__title, .armada-sheet__title:not([data-titled]), .armada-account-screen__title, .armada-call__title) {
+:root[data-look="new"] :is(.armada-dialog__title, .armada-sheet__title:not([data-titled]), .armada-account-screen__title, .armada-call__title) {
   font-family: var(--font-title);
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
 }
-:root[data-type] .armada-account-screen__title { font-size: var(--text-title); line-height: var(--leading-title); }
+:root[data-look="new"] .armada-account-screen__title { font-size: var(--text-title); line-height: var(--leading-title); }
 
 /* The places in the title bar are the loudest type on screen: the display face, caps, tracked to the face. */
-:root[data-type] .deck-places .armada-tabs__tab {
+:root[data-look="new"] .deck-places .armada-tabs__tab {
   font-family: var(--font-display);
   font-size: var(--text-nav);
   font-weight: var(--weight-nav);
   letter-spacing: var(--tracking-nav);
 }
-:root[data-type] .deck-places .armada-tabs__tab--active { font-weight: var(--weight-nav); }
+:root[data-look="new"] .deck-places .armada-tabs__tab--active { font-weight: var(--weight-nav); }
 
 /* A row has three voices: the title in the body face, firm; the meta in the mono, small; the age with it. */
-:root[data-type] .deck-row__title { font-size: var(--text-row); font-weight: var(--weight-row); letter-spacing: var(--tracking-row); }
-:root[data-type] .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
-:root[data-type] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-row); }
-:root[data-type] :is(.deck-row__said, .deck-bay__time) {
+:root[data-look="new"] .deck-row__title { font-size: var(--text-row); font-weight: var(--weight-row); letter-spacing: var(--tracking-row); }
+:root[data-look="new"] .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+:root[data-look="new"] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-row); }
+:root[data-look="new"] :is(.deck-row__said, .deck-bay__time) {
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   font-weight: var(--weight-body);
@@ -104,7 +104,7 @@
 }
 
 /* A large figure is light and tight; the bay's number is the one in the Cockpit. */
-:root[data-type] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-autopilot__cap dd, .armada-title-bar__usage-meter) {
+:root[data-look="new"] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-autopilot__cap dd, .armada-title-bar__usage-meter) {
   font-family: var(--font-figure);
   font-weight: var(--weight-light);
   letter-spacing: var(--tracking-figure);
@@ -112,28 +112,28 @@
 }
 
 /* ---- Rows inside a card: inset tiles ---------------------------------------------------------------------- */
-:root[data-type] :is(.deck-row, .armada-session-ledger__row, .armada-setting-field, .armada-settings-index__tab) {
+:root[data-look="new"] :is(.deck-row, .armada-session-ledger__row, .armada-setting-field, .armada-settings-index__tab) {
   background: var(--bg-tile);
   box-shadow: inset 0 var(--border-width) 0 var(--tile-edge);
   transition: background-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
 }
-:root[data-type] :is(.deck-row, .armada-session-ledger__row, .armada-settings-index__tab):is(:hover, [data-hover], [data-cursor]) {
+:root[data-look="new"] :is(.deck-row, .armada-session-ledger__row, .armada-settings-index__tab):is(:hover, [data-hover], [data-cursor]) {
   background: var(--bg-tile-hover);
 }
-:root[data-type] .armada-session-ledger__row { border-color: transparent; }
-:root[data-type] .armada-session-ledger__row:hover { border-color: var(--border-default); }
-:root[data-type] .armada-session-ledger { background: none; }
+:root[data-look="new"] .armada-session-ledger__row { border-color: transparent; }
+:root[data-look="new"] .armada-session-ledger__row:hover { border-color: var(--border-default); }
+:root[data-look="new"] .armada-session-ledger { background: none; }
 
 /* A setting was ruled off from the one above; now it is a tile with a gap. */
-:root[data-type] .armada-setting-field,
-:root[data-type] .armada-setting-field:first-of-type {
+:root[data-look="new"] .armada-setting-field,
+:root[data-look="new"] .armada-setting-field:first-of-type {
   padding: var(--space-3);
   border-top: none;
   border-radius: var(--radius-md);
 }
 
 /* What is open is lit: the accent's wash rising from the foot of the tile, and a hairline. */
-:root[data-type] :is(.deck-row[data-selected], .armada-settings-index__tab[aria-selected="true"]) {
+:root[data-look="new"] :is(.deck-row[data-selected], .armada-settings-index__tab[aria-selected="true"]) {
   background:
     linear-gradient(0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 80%),
     var(--accent-muted);
@@ -141,20 +141,20 @@
 }
 
 /* A session's row keeps its status wash and edge as the theme draws them. */
-:root[data-type] .armada-session-list__row {
+:root[data-look="new"] .armada-session-list__row {
   box-shadow: inset 0 var(--border-width) 0 var(--tile-edge);
   border-radius: var(--radius-lg);
 }
 
 /* ---- Segmented controls and tab strips: a recessed well, the active segment lit --------------------------- */
-:root[data-type] .armada-tabs,
-:root[data-type] .deck-places .armada-tabs {
+:root[data-look="new"] .armada-tabs,
+:root[data-look="new"] .deck-places .armada-tabs {
   border-color: var(--border-subtle);
   background: var(--bg-sunken);
   box-shadow: var(--well);
 }
-:root[data-type] .armada-tabs__fill,
-:root[data-type] .deck-places .armada-tabs__fill {
+:root[data-look="new"] .armada-tabs__fill,
+:root[data-look="new"] .deck-places .armada-tabs__fill {
   background:
     linear-gradient(rgb(255 255 255 / 0.1), transparent 55%),
     color-mix(in srgb, var(--accent) 32%, var(--bg-sunken));
@@ -163,75 +163,75 @@
     inset 0 0 0 var(--border-width) color-mix(in srgb, var(--accent) 45%, transparent),
     0 0 var(--space-3) -2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
-:root[data-type] .armada-tabs__tab { transition: color var(--duration-fast) var(--ease); }
-:root[data-type] .armada-tabs__tab--active { color: var(--fg-default); }
+:root[data-look="new"] .armada-tabs__tab { transition: color var(--duration-fast) var(--ease); }
+:root[data-look="new"] .armada-tabs__tab--active { color: var(--fg-default); }
 
 /* ---- Buttons: raised, with a lit pressed state ------------------------------------------------------------ */
-:root[data-type] .armada-button[data-variant="secondary"] {
+:root[data-look="new"] .armada-button[data-variant="secondary"] {
   background-image: var(--button-sheen);
   box-shadow: var(--button-raise);
 }
-:root[data-type] .armada-button[data-variant="primary"] {
+:root[data-look="new"] .armada-button[data-variant="primary"] {
   background-image: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 62%);
 }
-:root[data-type] .armada-button[data-variant="tonal"] {
+:root[data-look="new"] .armada-button[data-variant="tonal"] {
   background-image: var(--button-sheen);
   box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.1);
 }
-:root[data-type] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
+:root[data-look="new"] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
 }
 /* Pressed is lit: the fill sinks and the accent shows at the edge. */
-:root[data-type] .armada-button:is([data-variant="secondary"], [data-variant="primary"], [data-variant="tonal"]):active:not(:disabled) {
+:root[data-look="new"] .armada-button:is([data-variant="secondary"], [data-variant="primary"], [data-variant="tonal"]):active:not(:disabled) {
   background-image: none;
   border-color: var(--accent);
   box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.55), 0 0 var(--space-3) -2px color-mix(in srgb, var(--accent) 50%, transparent);
 }
-:root[data-type] .armada-button[aria-pressed="true"]:not(:disabled) {
+:root[data-look="new"] .armada-button[aria-pressed="true"]:not(:disabled) {
   background-image: linear-gradient(0deg, color-mix(in srgb, var(--accent) 26%, transparent), transparent 80%);
   box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.12), 0 0 var(--space-3) -2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* The cockpit's tiles: the same raise, and pressed is lit. */
-:root[data-type] .deck-tile { background-image: var(--button-sheen); box-shadow: var(--button-raise); }
-:root[data-type] .deck-tile[aria-pressed="true"] {
+:root[data-look="new"] .deck-tile { background-image: var(--button-sheen); box-shadow: var(--button-raise); }
+:root[data-look="new"] .deck-tile[aria-pressed="true"] {
   background-image: linear-gradient(0deg, color-mix(in srgb, var(--accent) 28%, transparent), transparent 80%);
   box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.12), 0 0 var(--space-3) -2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* ---- Fields: set into the surface -------------------------------------------------------------------------- */
-:root[data-type] :is(.armada-input, .armada-select, .armada-textarea) { box-shadow: var(--well); }
+:root[data-look="new"] :is(.armada-input, .armada-select, .armada-textarea) { box-shadow: var(--well); }
 
 /* ---- Meters: a gradient fill on a hatched track ------------------------------------------------------------ */
-:root[data-type] .armada-autopilot__cap .armada-autopilot__meter {
+:root[data-look="new"] .armada-autopilot__cap .armada-autopilot__meter {
   background: var(--track-hatch), var(--bg-sunken);
   box-shadow: var(--well);
 }
-:root[data-type] .armada-autopilot__meter::after {
+:root[data-look="new"] .armada-autopilot__meter::after {
   background: linear-gradient(90deg, color-mix(in srgb, var(--status-running) 45%, var(--bg-sunken)), var(--status-running));
   box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.25);
 }
-:root[data-type] .armada-autopilot__cap[data-reached] .armada-autopilot__meter::after {
+:root[data-look="new"] .armada-autopilot__cap[data-reached] .armada-autopilot__meter::after {
   background: linear-gradient(90deg, color-mix(in srgb, var(--status-awaiting-review) 45%, var(--bg-sunken)), var(--status-awaiting-review));
 }
-:root[data-type] .armada-step-bar__segment { background-image: var(--track-hatch); }
-:root[data-type] .armada-step-bar__segment:is([data-state="past"], [data-activity="running"]) {
+:root[data-look="new"] .armada-step-bar__segment { background-image: var(--track-hatch); }
+:root[data-look="new"] .armada-step-bar__segment:is([data-state="past"], [data-activity="running"]) {
   background-image: linear-gradient(rgb(255 255 255 / 0.28), transparent);
 }
 
 /* ---- Status marks: a still glow behind them, a static shadow and nothing that moves ------------------------ */
-:root[data-type] .armada-title-bar__fleet-dot {
+:root[data-look="new"] .armada-title-bar__fleet-dot {
   box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, currentColor 0%, transparent), 0 0 var(--space-2) color-mix(in srgb, var(--fg-muted) 40%, transparent);
 }
-:root[data-type] .armada-title-bar__fleet-dot[data-tone="success"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-completed-success) 45%, transparent); }
-:root[data-type] .armada-title-bar__fleet-dot[data-tone="warn"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-awaiting-review) 45%, transparent); }
-:root[data-type] .armada-title-bar__fleet-dot[data-tone="escalated"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-escalated) 45%, transparent); }
+:root[data-look="new"] .armada-title-bar__fleet-dot[data-tone="success"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-completed-success) 45%, transparent); }
+:root[data-look="new"] .armada-title-bar__fleet-dot[data-tone="warn"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-awaiting-review) 45%, transparent); }
+:root[data-look="new"] .armada-title-bar__fleet-dot[data-tone="escalated"] { box-shadow: 0 0 var(--space-2) var(--space-1) color-mix(in srgb, var(--status-escalated) 45%, transparent); }
 
-:root[data-type] .armada-session-list__row[data-state] .armada-session-mark {
+:root[data-look="new"] .armada-session-list__row[data-state] .armada-session-mark {
   position: relative;
   isolation: isolate;
 }
-:root[data-type] .armada-session-list__row[data-state] .armada-session-mark::before {
+:root[data-look="new"] .armada-session-list__row[data-state] .armada-session-mark::before {
   content: "";
   position: absolute;
   inset: calc(var(--space-2) * -1);
@@ -242,13 +242,13 @@
 }
 
 /* A bay's door carries its state's hue; the glow behind it is still, inside the door. */
-:root[data-type] .deck-bay__door { box-shadow: inset 0 0 var(--space-6) calc(var(--space-2) * -1) color-mix(in srgb, var(--hue) 55%, transparent); }
+:root[data-look="new"] .deck-bay__door { box-shadow: inset 0 0 var(--space-6) calc(var(--space-2) * -1) color-mix(in srgb, var(--hue) 55%, transparent); }
 
 
 /* ---- Four levels of lift: rest, hover, lifted, overlay ----------------------------------------------------- */
 /* An interactive card or row rises one step under the pointer: its shadow goes rest to hover and it moves a pixel,
    transform and opacity-free paint only. A press settles it back. Data rows do not enter; they only answer. */
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .deck-row:not([data-selected]),
   .armada-session-ledger__row,
   .armada-session-list__row,
@@ -260,7 +260,7 @@
   transition-duration: var(--duration-fast);
   transition-timing-function: var(--ease);
 }
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .deck-row:not([data-selected]),
   .armada-session-ledger__row,
   .armada-session-list__row,
@@ -270,11 +270,11 @@
   transform: translateY(var(--lift));
   box-shadow: inset 0 var(--border-width) 0 var(--tile-edge), var(--shadow-hover);
 }
-:root[data-type] .deck-tile:hover:not(:disabled) {
+:root[data-look="new"] .deck-tile:hover:not(:disabled) {
   transform: translateY(var(--lift));
   box-shadow: var(--button-raise-hover);
 }
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .deck-row:not([data-selected]),
   .armada-session-ledger__row,
   .armada-session-list__row,
@@ -288,18 +288,18 @@
 }
 
 /* A raised button deepens its shadow under the pointer and sits back down on press. */
-:root[data-type] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
+:root[data-look="new"] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
   box-shadow: var(--button-raise-hover);
 }
-:root[data-type] .armada-button[data-variant="primary"]:hover:not(:disabled) {
+:root[data-look="new"] .armada-button[data-variant="primary"]:hover:not(:disabled) {
   box-shadow: var(--shadow-primary);
 }
 
 /* Cards take the edge that goes with their level: rest on the canvas, hover when they answer the pointer. */
-:root[data-type] .armada-card:is(button, a, [role="button"], [data-interactive]):hover { border-color: var(--edge-hover); }
+:root[data-look="new"] .armada-card:is(button, a, [role="button"], [data-interactive]):hover { border-color: var(--edge-hover); }
 
 /* A floating layer is the overlay level: its shadow and the brighter edge that goes with it. */
-:root[data-type] :is(
+:root[data-look="new"] :is(
   .armada-dropdown-menu__panel,
   .armada-popover__panel,
   .armada-tooltip__bubble,
@@ -315,22 +315,22 @@
 @keyframes armada-type-pop {
   from { opacity: 0; transform: translateY(var(--pop-rise)) scale(var(--pop-from)); }
 }
-:root[data-type] :is(.armada-dropdown-menu__panel, .armada-popover__panel) {
+:root[data-look="new"] :is(.armada-dropdown-menu__panel, .armada-popover__panel) {
   transform-origin: top right;
   animation: armada-type-pop var(--duration-base) var(--ease);
 }
-:root[data-type] .armada-dropdown-menu[data-align="start"] > .armada-dropdown-menu__panel,
-:root[data-type] .armada-popover__panel--start { transform-origin: top left; }
+:root[data-look="new"] .armada-dropdown-menu[data-align="start"] > .armada-dropdown-menu__panel,
+:root[data-look="new"] .armada-popover__panel--start { transform-origin: top left; }
 
 /* The focus ring eases in: it starts a little out from the control and clear, and settles on its own offset. */
 @keyframes armada-type-focus {
   from { outline-color: transparent; outline-offset: calc(var(--focus-ring-offset) + 3px); }
 }
-:root[data-type] :focus-visible:not([data-pending]) {
+:root[data-look="new"] :focus-visible:not([data-pending]) {
   animation: armada-type-focus var(--duration-base) var(--ease);
 }
 
 /* Reduced motion: the durations are already zero; the lift and the rise go to nothing too, so no state is a movement. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-type] { --lift: 0px; --pop-rise: 0px; --pop-from: 1; }
+  :root[data-look="new"] { --lift: 0px; --pop-rise: 0px; --pop-from: 1; }
 }

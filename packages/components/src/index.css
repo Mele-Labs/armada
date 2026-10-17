@@ -463,5 +463,5 @@
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";
 
-/* The foundations under a type take, `?type=` in the mock. Last, so it reads over every component above. */
+/* The new look, `?look=new` in the mock. Last, so it reads over every component above. */
 @import "./depth.css";
