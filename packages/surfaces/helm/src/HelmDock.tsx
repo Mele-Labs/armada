@@ -14,7 +14,6 @@ import { useRecentRepositories } from "@armada/shell";
 import type {
   DockQuestion,
   HelmBox,
-  HelmComposerChip,
   ProseReferences,
   SentFromComposer,
 } from "@armada/components";
@@ -22,7 +21,6 @@ import type {
   HelmContext,
   HelmDebugInfo,
   HelmDebugRead,
-  JobSummary,
   RepositorySummary,
 } from "@armada/protocol";
 import type { HelmState } from "./api";
@@ -33,12 +31,7 @@ import type { HeldWords, HelmOutgoing, RouteTarget, ThoughtCarry, ThoughtReading
 export type HelmDockProps = {
   helm: HelmState["helm"];
   repositories: readonly RepositorySummary[];
-  /** Names the Job the dock is on, in the footer. */
-  jobs: readonly JobSummary[];
   live: boolean;
-  /** The open Job's chip, while it stands — `App.tsx`'s own state. #1075. */
-  chip?: HelmComposerChip;
-  onRemoveChip?: () => void;
   /**
    * Words for Helm. `carry` is what went with them and is left out when nothing did; **the words may be
    * blank when it is given**. The window turns it into what the wire takes. Resolves to whether Fleet
@@ -111,10 +104,7 @@ type Thought = { id: number; text: string; carry: ThoughtCarry; held?: HeldWords
 export function HelmDock({
   helm,
   repositories,
-  jobs,
   live,
-  chip,
-  onRemoveChip,
   onAsk,
   outgoing,
   context,
@@ -334,9 +324,7 @@ export function HelmDock({
         current={current}
         repositories={options}
         recent={recent}
-        chip={chip}
-        onRemoveChip={onRemoveChip}
-        location={locationOf(context, jobs, studio)}
+        location={locationOf(context, studio)}
         // Always passed: **the composer alone decides when a switch is worth
         // drawing**, off `current` and this list. Counting the repositories
         // here as well is how one set up and Helm pointed at nothing kept

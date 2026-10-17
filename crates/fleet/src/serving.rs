@@ -6,9 +6,9 @@
 //! and `api`'s own tests were written against a fake before this existed.
 //!
 //! **This is the redaction, and it is a visible step.** Every signature below
-//! speaks `ipc` DTOs, `JobSummary::of` is called here by hand, and a field added
-//! to `core_model::Job` reaches the wire only when somebody writes the line that
-//! puts it there — `api` never sees a domain type.
+//! speaks `ipc` DTOs, and a field added to a `core_model` type reaches the wire
+//! only when somebody writes the line that puts it there — `api` never sees a
+//! domain type.
 //!
 //! **One of three files, because `api::Daemon` is three traits** — #434. The
 //! writes are [`commanding`](mod@crate::commanding)'s and the tools are
@@ -17,32 +17,17 @@
 //! **Which refusal a failure is, and the code it carries, is
 //! [`refusing`](mod@crate::refusing)'s** — every `WireError` below is raised
 //! through `Fleet::refusal`.
-//!
-//! **The reason costs a second read, and is not derived.** `JobSummary` carries
-//! the reason its last transition stored, which is in `job_events` and not on
-//! the `jobs` row, so each summary below reads the Job's log for it. N reads for
-//! N Jobs is the honest shape at M1: a status-to-reason mapping here would be a
-//! second vocabulary that agrees with the log only until something changes.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{ObservedCheckoutRun, Queries, Refusal, Resolved};
-use core_model::JobReference;
+use api::{ObservedCheckoutRun, Queries, Refusal};
 use ipc::{
-    AlertList, FleetHealth,
-    FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
-    ManifestSummary, ModelChoices, Work, WorkflowSummary, WorktreesHeld,
+    FleetHealth, ManifestConfig, ManifestDrift, ManifestFile, ManifestId,
+    ManifestReading, ManifestSummary, ModelChoices, WorkflowSummary, WorktreesHeld,
 };
-use store::{LoadJobError, ResolveJobError};
-
-/// One Job in full. **Its own file**, because this one crossed the 900-line
-/// rule and that read is a quarter of it.
-mod detail;
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::wire::{
-    manifest_summary, recorded, reported, workflow_summary,
-};
+use crate::wire::{manifest_summary, workflow_summary};
 
 impl<H, V, W> Queries for Fleet<H, V, W>
 where
@@ -54,86 +39,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// What a caller said, turned into the Job they meant.
-    ///
-    /// **Three reads and not one, deliberately.** `store::Store::resolve_job`
-    /// answers with the id and the handle together, so nothing downstream loads
-    /// the Job a second time to derive a path from it.
-    ///
-    /// **A number counts within a Manifest**, and Fleet serves several: one
-    /// that more than one of them holds is refused rather than guessed.
-    async fn resolve_job(
-        &self,
-        named: String,
-        within: Option<ManifestId>,
-    ) -> Result<Resolved, Refusal> {
-        let Some(reference) = JobReference::read(&named) else {
-            return Err(self.refusal(Adrift::Unresolvable(ResolveJobError::NoSuchJob { named })));
-        };
-        let served = match &within {
-            None => self.repositories().served(),
-            Some(manifest_id) => vec![self.served_named(Some(manifest_id))?],
-        };
-        let found = self
-            .resolve_job_across(&reference, &served)
-            .await
-            .map_err(|why| self.refusal(Adrift::Unresolvable(why)))?;
-        // A ULID counts within nothing, so its owner is compared here.
-        if let Some(manifest_id) = &within {
-            let owner = self.names().owner_of(&found.job_id);
-            if owner.as_deref() != Some(manifest_id.as_str()) {
-                return Err(
-                    self.refusal(Adrift::Unresolvable(ResolveJobError::ElsewhereOwned {
-                        named,
-                        within: manifest_id.as_str().to_string(),
-                    })),
-                );
-            }
-        }
-        Ok(Resolved::of(JobId::from(&found.job_id), found.handle))
-    }
-
-    async fn list_jobs(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        let owned = self.owned_by(manifest_id.as_ref())?;
-        let (mut loaded, unreadable) = self.every_job().await.map_err(|why| self.refusal(why))?;
-        loaded.jobs.retain(|job| owned(job));
-        // **One read for the whole list**, filled in afterwards rather than
-        // passed into `JobSummary::of`. What became of a Job's pull request is
-        // not on `core_model::Job` — it is in the delivery columns beside the
-        // row — and reading it per Job would be a query per row on a list that
-        // redraws on every event. Ordinarily an empty map: it holds only the
-        // Jobs somebody has merged or closed.
-        let landed = self
-            .store()
-            .lock()
-            .await
-            .landed_by_job()
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        // When each merged, for the same reason and in the same one read.
-        let merged_at = self
-            .store()
-            .lock()
-            .await
-            .merged_at_by_job()
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        let mut jobs = Vec::with_capacity(loaded.jobs.len());
-        for job in &loaded.jobs {
-            let mut summary = self.summarised(job).await?;
-            summary.landed = landed.get(job.id()).and_then(crate::attention::settled);
-            summary.merged_at = merged_at.get(job.id()).map(ipc::Instant::from);
-            jobs.push(summary);
-        }
-        Ok(JobList {
-            jobs,
-            unreadable: unreadable
-                .into_iter()
-                .map(|fault| ipc::UnreadableJob {
-                    job_id: None,
-                    fault,
-                })
-                .collect(),
-        })
-    }
 
     /// The Manifest a door session is answered inside: the one its relay
     /// named, refused where Fleet does not serve it. Absent is the first.
@@ -142,54 +47,9 @@ where
         Ok(ManifestId::from(served.manifest().id()))
     }
 
-    /// The four narrowings, each one rule, stated in `crate::attention`.
-    async fn list_job_board(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.job_board(manifest_id.as_ref()).await
-    }
-
-    async fn list_reviews(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.reviews(manifest_id.as_ref()).await
-    }
-
-    async fn get_activity_feed(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.activity_feed(manifest_id.as_ref()).await
-    }
-
-    async fn list_alerts(&self, manifest_id: Option<ManifestId>) -> Result<AlertList, Refusal> {
-        self.alerts(manifest_id.as_ref()).await
-    }
-
-    async fn owned_jobs(&self, manifest_id: ManifestId) -> Result<Vec<JobId>, Refusal> {
-        self.jobs_owned_by(manifest_id)
-    }
-
     /// The probes Fleet can run on itself — `crate::probing`.
     async fn get_health(&self) -> Result<FleetHealth, Refusal> {
         self.health().await
-    }
-
-    /// The spend, and what the ceilings hold — `crate::spending`.
-    async fn get_usage(&self) -> Result<FleetUsage, Refusal> {
-        self.usage().await
-    }
-
-    /// The costliest and the longest Job against this Manifest — the budget
-    /// form's warning, read beside the caps it is set against.
-    async fn get_manifest_spend(
-        &self,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::ManifestSpend, Refusal> {
-        let past = self
-            .store()
-            .lock()
-            .await
-            .past_spend_for(self.served_named(manifest_id.as_ref())?.manifest().id())
-            .map_err(|why| self.refusal(crate::adrift::Adrift::Reading(why)))?;
-        Ok(ipc::ManifestSpend {
-            jobs: past.jobs,
-            most_cost_micros: past.most_cost_micros,
-            most_turns: past.most_turns,
-        })
     }
 
     /// What this repository declares — `crate::configured`.
@@ -308,109 +168,6 @@ where
         Ok(self.manifest_proposals(self.repository_named(repository.as_deref())?.as_ref()))
     }
 
-    /// One Job in full — [`detail`](mod@detail), which is a quarter of this
-    /// file's length and the read made on every open of a Job.
-    async fn get_job(&self, job_id: JobId) -> Result<JobDetail, Refusal> {
-        self.job_detail(job_id).await
-    }
-
-    /// Every move one Job made, oldest first. **The log, read — not folded.**
-    ///
-    /// # The Job is loaded first, and that is not a wasted read
-    ///
-    /// It is what makes an id that names nothing a 404 rather than an empty
-    /// history — a lie about a Job that exists and has not moved — and it
-    /// keeps this read behind the same fold every other read is behind: a log
-    /// the machine would not admit refuses to load, so a history that reaches
-    /// the wire is one `Job::transition` accepted. **This read cannot show a
-    /// state the fold rejected**, and does not replay to avoid it —
-    /// `crates/store/src/fold.rs` is still the only caller.
-    ///
-    /// # The rows come back whole
-    ///
-    /// One query, in `seq` order, over the one table both machines write to.
-    /// A step move ordered against the status transitions around it is what a
-    /// separately keyed second log could not have offered.
-    async fn get_job_events(&self, job_id: JobId) -> Result<JobHistory, Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let (events, coords, vias) = {
-            let store = self.store().lock().await;
-            let events = store
-                .events_for(&id)
-                .map_err(|cause| self.refusal(Adrift::Reading(LoadJobError::Unreadable(cause))))?;
-            let coords = store
-                .group_coords(&id)
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            let vias = store
-                .vias_for(&id)
-                .map_err(|cause| self.refusal(Adrift::Reading(LoadJobError::Unreadable(cause))))?;
-            (events, coords, vias)
-        };
-        Ok(JobHistory {
-            job_id,
-            moves: events
-                .iter()
-                .map(|event| ipc::Recorded {
-                    // The door a request came through, kept beside the row.
-                    via: vias
-                        .iter()
-                        .find(|(seq, _)| *seq == event.seq())
-                        .map(|(_, via)| (*via).into()),
-                    ..recorded(event, &coords)
-                })
-                .collect(),
-        })
-    }
-
-    /// One Job's whole patch, with the file list beside it.
-    ///
-    /// **The expensive read, and the only place Fleet spends it for a person.**
-    /// `WorkProduct` keeps the patch behind its own call because the bytes are
-    /// large and most steps ask no semantic question; the two calls are made
-    /// together here because this is the one caller that wants both.
-    ///
-    /// A Job with no worktree answers `work: None` rather than an empty
-    /// reading, and a worktree that will not open is a 500 rather than a patch
-    /// nobody read. `plan_declared` is always false: a declaration belonged to a
-    /// Drone, and none works now.
-    async fn get_diff(&self, job_id: JobId) -> Result<JobDiff, Refusal> {
-        let job = self
-            .load(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let Some(worktree) = self.worktree_of(&job).map_err(|why| self.refusal(why))? else {
-            return Ok(JobDiff { job_id, work: None });
-        };
-        // **The whole branch, which is what a person opening a Job is reading.**
-        let changed = self
-            .work()
-            .changed_files(&worktree)
-            .map_err(|cause| self.unreadable(job.id(), cause))?;
-        let patch = self
-            .work()
-            .patch(&worktree)
-            .map_err(|cause| self.unreadable(job.id(), cause))?;
-        // Which ref the two readings above were taken against. **Carried rather
-        // than assumed**: a patch measured from the branch's own tip is the
-        // uncommitted remainder and not the Job's work, and until this field
-        // existed the sheet said "the Job's patch" over either one.
-        let measured = self.work().measured(&worktree);
-        Ok(JobDiff {
-            job_id,
-            work: Some(Work {
-                files: crate::wire::seen(&changed),
-                measured_from: measured.from,
-                measured_whole: measured.whole,
-                plan_declared: false,
-                // Absent where there is nothing in it. An empty string reads as
-                // a reading that broke, and a reading that broke is the refusal
-                // above rather than a field.
-                patch: Some(patch.as_str().to_string()).filter(|text| !text.is_empty()),
-            }),
-        })
-    }
-
     /// The Manifest surface's five reads — `crate::rehearsing::checkout`.
     async fn get_checkout_run_sheet(
         &self,
@@ -470,7 +227,7 @@ where
 
     async fn observe_server(&self, server_id: String) -> Result<api::ObservedServer, Refusal> {
         self.observed_server(&server_id)
-            .map_err(|why| self.server_refusal(why, None))
+            .map_err(|why| self.server_refusal(why))
     }
 
     /// Every workflow this Fleet holds, so a caller can name one that will not
@@ -608,25 +365,6 @@ where
         Fleet::merge_hubs(self).await
     }
 
-    /// The Jobs as loaded, without the per-Job reads a summary makes.
-    async fn job_branches(&self) -> Vec<(String, JobId, String)> {
-        let Ok((loaded, _)) = self.every_job().await else {
-            return Vec::new();
-        };
-        loaded
-            .jobs
-            .iter()
-            .filter_map(|job| {
-                let branch = job.branch()?;
-                Some((branch.as_str().to_string(), JobId::from(job.id()), job.handle()))
-            })
-            .collect()
-    }
-
-    async fn land_checks(&self) -> Vec<(String, Vec<String>)> {
-        Fleet::land_checks(self)
-    }
-
     /// One Check's log on main or a commit of it; a branch's line has none to open.
     async fn observe_land_check(
         &self,
@@ -651,7 +389,7 @@ where
         })
     }
 
-    /// What a Job may be spawned as: the roster the composition root resolved, and the default now.
+    /// What a Session may be spawned as: the roster the composition root resolved, and the default now.
     async fn list_models(&self) -> Result<ModelChoices, Refusal> {
         Ok(ModelChoices { default: self.default_model(), session: self.session_model(), ..self.models().clone() })
     }
@@ -665,26 +403,6 @@ where
     ) -> Result<WorktreesHeld, Refusal> {
         let held = self.worktrees_answer().await?;
         self.worktrees_within(held, manifest_id)
-    }
-
-    /// Every report filed, newest first, with the counts they are read beside.
-    async fn list_reports(&self) -> Result<ipc::ReportList, Refusal> {
-        let (filed, counted) = Fleet::reports(self)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let mut reports = Vec::with_capacity(filed.len());
-        for report in &filed {
-            reports.push(reported(report).map_err(|why| self.refusal(why))?);
-        }
-        Ok(ipc::ReportList {
-            reports,
-            calibration: ipc::Calibration {
-                refusals_recorded: counted.refusals_recorded,
-                refusals_disputed: counted.refusals_disputed,
-                passes_disputed: counted.passes_disputed,
-                reports_filed: counted.reports_filed,
-            },
-        })
     }
 
     /// Paths under the checkout narrowed against typed text, for Bridge's `@`
@@ -702,29 +420,4 @@ where
         })
     }
 
-    /// The repository's branches, through the Vcs adapter. #1605.
-    async fn list_branches(
-        &self,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::Branches, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        let listed = self
-            .vcs()
-            .branches(served.root(), served.manifest().base())
-            .map_err(|why| {
-                self.refusal(Adrift::BranchesUnread {
-                    job: None,
-                    why: why.to_string(),
-                })
-            })?;
-        Ok(ipc::Branches {
-            branches: listed
-                .into_iter()
-                .map(|branch| ipc::BranchRow {
-                    name: branch.name,
-                    base: branch.base,
-                })
-                .collect(),
-        })
-    }
 }

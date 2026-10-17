@@ -37,20 +37,18 @@ fn live(store: &Store, id: &str) -> bool {
         .is_some_and(|one| one.state != SessionState::Ended)
 }
 
-/// The pool's word on `session` and slot `slot` of the repository at `root`. `handed` is the Job
-/// a piloted Session was handed the slot by, whose lease it is.
+/// The pool's word on `session` and slot `slot` of the repository at `root`.
 pub(crate) fn claim_on(
     store: &Store,
     root: &str,
     slot: u32,
     session: &str,
-    handed: Option<&str>,
 ) -> Claim {
     let at = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
     let at = std::path::Path::new(&at);
     match adapters::leasing::holder_of(at) {
-        Some(Lease::Job(id)) if id == session || handed == Some(id.as_str()) => Claim::Holds,
-        Some(held) if held.alive() && !matches!(held, Lease::Job(_)) => {
+        Some(Lease::Hosted(id)) if id == session => Claim::Holds,
+        Some(held) if held.alive() && !matches!(held, Lease::Hosted(_)) => {
             match adapters::leasing::session_of(at) {
                 Some(named) if named == session => Claim::Holds,
                 Some(named) if live(store, &named) => Claim::Not,
@@ -87,8 +85,7 @@ pub(crate) fn stand_of(
         .iter()
         .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing && one.manifest_id == manifest)?;
     let slot: u32 = row.target.parse().ok()?;
-    let handed = row.detail.get("handed").and_then(|said| said.strip_prefix("job "));
-    let claim = claim_on(store, root, slot, session, handed);
+    let claim = claim_on(store, root, slot, session);
     let path = PathBuf::from(adapter_traits::slot_path(root.trim_end_matches('/'), slot));
     (claim != Claim::Not && path.is_dir()).then_some(Stand { path, claim })
 }
@@ -114,7 +111,7 @@ pub(crate) fn slots_of(served: &Served, session: &str) -> Vec<u32> {
             let at = adapter_traits::slot_path(root, *slot);
             let at = std::path::Path::new(&at);
             let named = match adapters::leasing::holder_of(at) {
-                Some(Lease::Job(id)) => id == session,
+                Some(Lease::Hosted(id)) => id == session,
                 Some(held) if held.alive() => adapters::leasing::session_of(at).as_deref() == Some(session),
                 _ => false,
             };
@@ -131,7 +128,7 @@ pub(crate) fn session_in_slot(store: &Store, manifest: &str, root: &str, slot: u
     let at = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
     let at = std::path::Path::new(&at);
     let named = match adapters::leasing::holder_of(at) {
-        Some(Lease::Job(id)) => Some(id),
+        Some(Lease::Hosted(id)) => Some(id),
         Some(held) if held.alive() => adapters::leasing::session_of(at),
         _ => None,
     };
@@ -143,10 +140,9 @@ pub(crate) fn session_in_slot(store: &Store, manifest: &str, root: &str, slot: u
         .unwrap_or_default()
         .into_iter()
         .find(|row| {
-            let handed = row.detail.get("handed").and_then(|said| said.strip_prefix("job "));
             row.holder.kind == HolderKind::Session
                 && row.state == AttachmentState::Standing
-                && claim_on(store, root, slot, &row.holder.id, handed) != Claim::Not
+                && claim_on(store, root, slot, &row.holder.id) != Claim::Not
         })
         .map(|row| row.holder.id)
 }
@@ -255,7 +251,7 @@ pub(crate) fn pool_backs(store: &Store, session: &KeptSession, roots: &[(String,
     roots
         .iter()
         .find(|(id, _)| *id == manifest)
-        .is_none_or(|(_, root)| claim_on(store, root, slot, &session.id, None) != Claim::Not)
+        .is_none_or(|(_, root)| claim_on(store, root, slot, &session.id) != Claim::Not)
 }
 
 /// Take the slot `placed` names for `holder`, or give back the one it was in where it stands in
@@ -278,7 +274,7 @@ pub(crate) fn stand_in_slot(
     };
     // A slot the lease is another's is not credited, and nothing is given back for the move: what
     // the Session still holds is the pool's to say (`Fleet::slot_rows_followed`).
-    if claim_on(store, root, slot, &holder.id, None) == Claim::Not {
+    if claim_on(store, root, slot, &holder.id) == Claim::Not {
         return Ok(false);
     }
     let row = |kind: &str, target: String| KeptAttachment {
@@ -334,8 +330,7 @@ where
                 let Some(session) = store.session(&id).ok().flatten().filter(|one| one.state != SessionState::Ended) else {
                     continue;
                 };
-                let handed = row.detail.get("handed").and_then(|said| said.strip_prefix("job "));
-                if claim_on(&store, &root, slot, &id, handed) != Claim::Not {
+                    if claim_on(&store, &root, slot, &id) != Claim::Not {
                     continue;
                 }
                 if session.origin == "bridge" {

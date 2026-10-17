@@ -7,9 +7,7 @@
 // empty list and the surface draws its empty state; the `studios` scenario adds the Helm write.
 //
 // **Promotion is the same shape** — #1291: each rung adds the node it makes and the `produced`
-// edges the Studio draws, and answers with the Studio whole. **No proposer runs here**, so a
-// dispatch mints one Job node: what the mock proves is the surface, and which workflow a model
-// picks is `fleet`'s.
+// edges the Studio draws, and answers with the Studio whole.
 
 import { onBoard, unanswered } from "@armada/bridge-api";
 import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
@@ -27,7 +25,7 @@ import type {
   StudioNodeContent,
   StudioPromotion,
 } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { sheet } from "@armada/screens/src/fixtures/run-sheet";
 import { foldStudio } from "@armada/screens/src/studio-reads";
 
@@ -107,17 +105,16 @@ export type StudioKeeping = {
   onChange: (listener: () => void) => () => void;
 };
 
-/** What a Studio write reads and publishes: the Studios, and the Board's rows a dispatch adds to. */
+/** What a Studio write reads and publishes: the Studios. */
 export type StudioHeld = StudiosState & PublishedCore;
 
 /**
  * The whole state and API a scenario of this Fleet needs, beyond Studios: the run sheet the
- * checkout declares, and approving a dispatch. Desktop's own `BridgeState` and `BridgeApi` have both.
+ * checkout declares. Desktop's own `BridgeState` and `BridgeApi` have both.
  */
 export type StudyingState = StudioHeld & { checkoutRunSheet: CheckoutRunSheetRead };
 export type StudyingApi = StudiosApi & {
   watchCheckoutRunSheet: (want: boolean) => Promise<void>;
-  approveDispatch: (jobId: string) => Promise<Outcome>;
 };
 
 /** One scenario's own Fleet, keeping Studios, over the app's whole state `S` and API `A`. */
@@ -495,11 +492,6 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           return refusedAs("fleet.studio_note_in_a_cluster", `\`${clustered}\` is already in a Cluster`);
         }
         const answer = write(studioId, (studio) => promoted(studio, promotion));
-        // **A dispatch puts a row on the Board as well as a node on the
-        // Studio** — #1379. A Job node holds a reference and no status, so a
-        // mock that minted the node alone would draw a bare id and prove
-        // nothing about the thing a person came to the Studio to do.
-        if (answer.ok && promotion.act === "dispatch") atTheGate(handle, answer.studio);
         return answer.ok ? OK : answer.outcome;
       },
     };
@@ -552,43 +544,6 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   };
 }
 
-/**
- * The Job the newest Job node references, put on the Board at the gate — the
- * dispatch gate is unchanged, and a Job from a Studio stands where every other
- * one does (#1379).
- *
- * Its title is whatever it was dispatched from: a draft's own title, or what
- * the forge calls what an address names, which is what the proposer would have
- * read it as. An address nothing has read in is titled by its address.
- */
-function atTheGate(handle: FleetHandle<StudioHeld>, studio: Studio): void {
-  const nodes = studio.nodes.filter((node) => node.kind === "job");
-  const node = nodes[nodes.length - 1];
-  if (node?.kind !== "job") return;
-  const edge = studio.edges.find((one) => one.to === node.id && one.kind === "produced");
-  const from = studio.nodes.find((one) => one.id === edge?.from);
-  const title =
-    from === undefined
-      ? "Dispatched from a Studio"
-      : from.kind === "issue_draft"
-        ? from.title
-        : "address" in from
-          ? ((("title" in from ? from.title : undefined) ?? ("named" in from ? from.named : undefined)) ?? from.address)
-          : "Dispatched from a Studio";
-  const row = job("awaiting_approval", {
-    id: node.job_id,
-    handle: mint("dispatched-from-a-studio-"),
-    title,
-    // A person pressed Dispatch on a Studio, so the row says where from as
-    // well as who — #1362.
-    origin: "studio_dispatched",
-    created_at: tick(),
-    branch: undefined,
-    assigned_drone: undefined,
-  });
-  handle.publish({ jobs: [...handle.state().jobs, row] });
-}
-
 /** The `studios` scenario: this repository picked, and a Fleet keeping these Studios. */
 export function studying<S extends StudyingState, A extends StudyingApi>(
   nothingYet: S,
@@ -598,13 +553,9 @@ export function studying<S extends StudyingState, A extends StudyingApi>(
   return {
     ...fleet,
     scenario: {
-      ...onBoard<S, A>(nothingYet, [], { picked: repository().root }),
+      ...onBoard<S, A>(nothingYet, { picked: repository().root }),
       name: "studios",
       says: "This repository's Studios, on a Fleet that keeps them",
-      // **Approving starts it here.** A real Fleet queues a Job and a slot
-      // takes it; this Fleet has no scheduler and one is always free, so
-      // approving a dispatch is what a person watches turn into a run — which
-      // is the half of the walkthrough a Studio's Job node is read against.
       behaves: (whole) => {
         // `S` is the app's whole state; this Fleet writes only the fields `StudyingState` names.
         const handle = whole as unknown as FleetHandle<StudyingState>;
@@ -613,12 +564,6 @@ export function studying<S extends StudyingState, A extends StudyingApi>(
           // The checkout declares what Run offers on the rail — 2 Oct 2026.
           watchCheckoutRunSheet: async (want: boolean) =>
             handle.publish({ checkoutRunSheet: want ? { state: "read", sheet: sheet() } : { state: "none" } }),
-          approveDispatch: async (jobId: string) => {
-            handle.publish({
-              jobs: handle.state().jobs.map((one) => (one.id === jobId ? { ...one, status: "running" } : one)),
-            });
-            return { ok: true } as const;
-          },
         } as Partial<A>;
       },
     },
@@ -642,15 +587,14 @@ const TOUCHED = "2026-09-17T08:40:00Z";
 
 /**
  * A Studio holding a node of every kind and an edge of every kind, proposed and accepted — what
- * `default` carries for Studios. `jobId` is a row on that Fleet, so the Job node draws the state
- * it holds rather than a bare id.
+ * `default` carries for Studios.
  */
 export const EVERY_KIND_STUDIO = "01STUDIOEVERYKIND0000000000";
 
-/** Its name, held so the Job it dispatched can be built naming the same Studio. */
+/** Its name, held so a scenario can name the same Studio. */
 export const EVERY_KIND_NAME = "Every kind of node and edge";
 
-export function everyKind(jobId: string): Studio {
+export function everyKind(): Studio {
   const nodes: StudioNode[] = [
     // A Link is an address no adapter recognised — #1394 — so what stands here
     // is a documentation page, and the three forge kinds are their own rows.
@@ -699,7 +643,6 @@ export function everyKind(jobId: string): Studio {
     { id: "every-deferral", kind: "deferral", what: "Whether the legend collapses under 720", state: "open", position: place(2, 4), created_at: MADE },
     { id: "every-outline", kind: "outline", body: "Give the legend its own row\nThen fix the contrast", state: "draft", position: place(1, 4), created_at: MADE },
     { id: "every-draft", kind: "issue_draft", title: "The Board's legend is illegible", body: "…", state: "draft", position: place(0, 4), created_at: MADE },
-    { id: "every-job", kind: "job", job_id: jobId, position: place(1, 5), created_at: MADE },
   ];
   // `produced` is drawn by the Studio and never proposed (`docs/concepts/studio.md`, Edges), so
   // only the three relations are here twice, once waiting on a person and once decided.
@@ -712,7 +655,6 @@ export function everyKind(jobId: string): Studio {
     ["every-produced-outline", "every-finding", "every-outline", "produced", "accepted"],
     ["every-produced-draft", "every-outline", "every-draft", "produced", "accepted"],
     ["every-produced-sketch", "every-sketch", "every-draft", "produced", "accepted"],
-    ["every-produced-job", "every-draft", "every-job", "produced", "accepted"],
     ["every-same-as", "every-note", "every-note-wide", "same_as", "accepted"],
     ["every-same-as-asked", "every-note", "every-note-states", "same_as", "proposed"],
     ["every-blocks", "every-deferral", "every-outline", "blocks", "accepted"],
@@ -933,8 +875,6 @@ function promoted(studio: Studio, promotion: StudioPromotion): Studio {
             : node,
         ),
       };
-    case "dispatch":
-      return made(studio, { kind: "job", job_id: mint("01JOB") }, [promotion.node_id], promotion.position);
     case "read_in":
       return readIn(studio, promotion.node_id, promotion.position, promotion.take ?? "everything");
   }

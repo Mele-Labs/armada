@@ -36,7 +36,6 @@ use ipc::{
 };
 use store::{KeptSession, KeptWaiting, Store};
 
-use crate::answer_mode::{mode_line, of_waiting};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::UNSENT_ITEM;
@@ -668,7 +667,7 @@ where
             ),
             None => None,
         };
-        let line = said.mode.map(|mode| mode_line(of_waiting(mode)));
+        let line = said.mode.map(mode_line);
         // A pick with words says both: the words go with the pick, never in place of it.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
@@ -938,4 +937,12 @@ fn reply(item: &str, answer: Option<&str>, line: Option<&str>) -> String {
         text.push_str(line);
     }
     text
+}
+
+/// The line that tells the agent to settle an item itself.
+fn mode_line(mode: ipc::WaitingMode) -> &'static str {
+    match mode {
+        ipc::WaitingMode::Best => "Decide this yourself. Think it through and go with the best option.",
+        ipc::WaitingMode::Quick => "Just get it done. Take the reasonable path, finish the work and land it. Skip the formalities.",
+    }
 }

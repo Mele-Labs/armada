@@ -63,9 +63,6 @@ fn content_of(kind: core_model::StudioNodeKind) -> core_model::StudioNodeContent
             title: text(),
             body: text(),
         },
-        K::Job => C::Job {
-            job_id: core_model::JobId::carried(Ulid::carried("01JOB")),
-        },
     }
 }
 
@@ -325,7 +322,7 @@ fn helms_act_on_a_studio_is_its_own_kind_and_names_its_repository() {
         "{json}"
     );
     assert_eq!(acted.kind(), "studio.helm_acted");
-    assert_eq!(acted.about(), (None, Some("armada".to_string())));
+    assert_eq!(acted.about(), Some("armada".to_string()));
     assert_eq!(
         decode::<Event>("an event", json.as_bytes()).expect("round-trips"),
         acted

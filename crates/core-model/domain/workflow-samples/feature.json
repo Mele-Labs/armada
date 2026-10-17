@@ -107,17 +107,7 @@
           "enabled": true,
           "model": "haiku",
           "prompt_key": "tests_exercise_new_behaviour",
-          "question": "Do these tests exercise the behaviour the scope note described, rather than restating the implementation?",
-          "gaming_check": {
-            "enabled": true,
-            "baseline_ref": "plan.evidence",
-            "flag_if": [
-              "assertion_weakened",
-              "test_scope_narrowed",
-              "tautological_test",
-              "check_config_edited"
-            ]
-          }
+          "question": "Do these tests exercise the behaviour the scope note described, rather than restating the implementation?"
         }
       ],
       "evidence_scope": {
@@ -129,8 +119,7 @@
         "max_context_size": 30,
         "scope_diff_check": true
       },
-      "advance_gate": "auto_if_judge_passes",
-      "on_gaming_flag": "escalate:evidence_suspect"
+      "advance_gate": "auto_if_judge_passes"
     },
     {
       "id": "regression_verify",

@@ -69,13 +69,12 @@ where
         let refusing = Arc::clone(&self);
         let (server, fresh) = Fleet::hold_server(
             Arc::clone(&self),
-            crate::servers::Place::Checkout(crate::checkouts::Checkout::main(served)),
+            crate::checkouts::Checkout::main(served),
             &asked.name,
             ipc::StartedBy::Person,
-            false,
         )
         .await
-        .map_err(|why| refusing.server_refusal(why, None))?;
+        .map_err(|why| refusing.server_refusal(why))?;
         let at = self.now();
         let node = StudioNode::added(
             StudioNodeId::carried(self.mint().ulid()),

@@ -16,6 +16,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::drone::HostPaths;
+use crate::leasing::Reading;
 use crate::scout::ScoutHost;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
@@ -149,7 +150,7 @@ pub(super) fn press(act: RescueAct) -> RescueSlot {
 
 pub(super) fn code(refusal: &Refusal) -> &str {
     match refusal {
-        Refusal::NoSuchJob(e)
+        Refusal::NotFound(e)
         | Refusal::IllegalMove(e)
         | Refusal::Unacceptable(e)
         | Refusal::Fault(e) => &e.code,
@@ -158,7 +159,7 @@ pub(super) fn code(refusal: &Refusal) -> &str {
 
 /// Slot 2 as `GET /worktrees` serves it.
 pub(super) async fn on_the_wire(fleet: &Rescued) -> ipc::WorktreeSlot {
-    let slots = fleet.pool_slots().await.expect("read");
+    let slots = fleet.pool_slots(Reading::Live).await;
     slots
         .iter()
         .map(crate::wire::worktree_slot)
@@ -280,9 +281,8 @@ async fn a_finding_left_reading_by_a_restart_ends_failed() {
     let fleet = rescued(&home);
     stranded(&home, &fleet, Some("fleet/half-done"));
     let manifest = fleet
-        .pool_slots()
+        .pool_slots(Reading::Live)
         .await
-        .expect("read")
         .first()
         .expect("a slot")
         .manifest
@@ -488,49 +488,4 @@ async fn a_stash_keeps_the_work_on_its_branch_and_frees_the_slot() {
         on_the_wire(&fleet).await.held,
         ipc::SlotHolding::Stranded { .. }
     ));
-}
-
-/// **A Job that ended and could not give its slot back shows why, and is
-/// rescued like a stranded slot.** The act ends the Job's claim, so the slot is
-/// free after and the Job's lookup finds it given back.
-#[tokio::test]
-async fn a_kept_job_slot_is_read_and_an_act_ends_the_jobs_claim() {
-    let home = TempDir::new();
-    let fleet = rescued(&home);
-    fleet.vcs().keep_slot(
-        &root(&home),
-        2,
-        "01JOBKILLED",
-        work(Some("armada/killed")),
-        "+fn parse() {}\n",
-    );
-    let src = std::path::PathBuf::from(slot_path(&root(&home), 2)).join("src");
-    std::fs::create_dir_all(&src).expect("a source directory");
-    std::fs::write(src.join("parser.rs"), "fn parse() {}\n").expect("written");
-    std::fs::write(src.join("lexer.rs"), "fn lex() {}\n").expect("written");
-
-    let slot = on_the_wire(&fleet).await;
-    let ipc::SlotHolding::Job { kept, .. } = &slot.held else {
-        panic!("a Job holds it: {:?}", slot.held);
-    };
-    assert!(kept.is_some(), "why it was kept is on the wire");
-    assert!(slot.stranded.is_some(), "what a Scrap would lose is too");
-
-    Arc::clone(&fleet)
-        .rescue_slot(press(RescueAct::Start), None)
-        .await
-        .expect("started");
-    assert_eq!(ended(&fleet).await.state, SlotFindingState::Answered);
-
-    Arc::clone(&fleet)
-        .rescue_slot(press(RescueAct::Stash), None)
-        .await
-        .expect("stashed");
-    let after = on_the_wire(&fleet).await;
-    assert!(
-        matches!(after.held, ipc::SlotHolding::Free),
-        "{:?}",
-        after.held
-    );
-    assert_eq!(after.rescue, None);
 }

@@ -15,7 +15,6 @@ const flaky: Session = {
     { kind: "slot", slot: 3 },
     { kind: "branch", name: "fix/flaky-store", slot: 3 },
     { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/flaky-store", address: "https://example.com/pull/1843", checks: { state: "passed" }, state: "open", auto: false },
-    { kind: "job", id: "52", number: 52, title: "Pin the clock", state: "running", branch: "fix/52-pin-clock", slot: 4 },
   ],
 };
 const notes: Session = {
@@ -42,13 +41,12 @@ describe("searching Sessions", () => {
   test("#1843 finds the Session that owns that pull request", () => {
     expect(ids("#1843")).toEqual(["s2"]);
   });
-  test("a hash is a pull request and not a Job id", () => {
-    expect(ids("#52")).toEqual([]);
+  test("a hash is a pull request and nothing else", () => {
+    expect(ids("#3")).toEqual([]);
   });
-  test("by branch, Job id, slot and title", () => {
+  test("by branch, slot and title", () => {
     expect(ids("flaky-store")).toEqual(["s2"]);
-    expect(ids("job 52")).toEqual(["s2"]);
-    expect(ids("slot 4")).toEqual(["s2"]);
+    expect(ids("slot 3")).toEqual(["s2"]);
     expect(ids("slot 5")).toEqual([]);
     expect(ids("3")).toEqual(["s2"]);
     expect(ids("release")).toEqual(["s3"]);
@@ -59,12 +57,12 @@ describe("searching Sessions", () => {
 });
 
 describe("who owns a chip", () => {
-  test("a Job's own branch and slot belong to the Session that dispatched it", () => {
-    expect(ownerOf(all, { kind: "branch", name: "fix/52-pin-clock" })?.id).toBe("s2");
-    expect(ownerOf(all, { kind: "slot", slot: 4 })?.id).toBe("s2");
+  test("a Session's branch and slot belong to it", () => {
+    expect(ownerOf(all, { kind: "branch", name: "fix/flaky-store" })?.id).toBe("s2");
+    expect(ownerOf(all, { kind: "slot", slot: 3 })?.id).toBe("s2");
   });
   test("a chip nobody holds has no owner", () => {
-    expect(ownerOf(all, { kind: "job", id: "44" })).toBeUndefined();
+    expect(ownerOf(all, { kind: "slot", slot: 44 })).toBeUndefined();
   });
   // An ended Session keeps the pull requests it made on its ledger, but holds nothing.
   test("an ended Session owns nothing, though its ledger still names the pull request", () => {

@@ -14,7 +14,7 @@ const sessionWorkingOn = walk("session-working-on", [
   toSessions,
   { press: open(/Gate policy for every run/), say: "Opened" },
   { look: working, say: "Working on, folded over the box. The todo being done leads" },
-  { hover: inside(working, role("img", /^Working: Run the policy on every Job/)), say: "Each todo is a glyph, named on hover" },
+  { hover: inside(working, role("img", /^Working: Run the policy on every pull request/)), say: "Each todo is a glyph, named on hover" },
   { press: inside(working, button(/^Working on/)), say: "A press opens the rows" },
   { look: inside(working, text("Cover a second run in the gate tests")), say: "The todo being done first, then those still to do, then those done" },
 
@@ -30,7 +30,7 @@ const sessionWorkingOn = walk("session-working-on", [
   { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: tab("Active"), say: "Active" },
   { press: button("Grid"), say: "Grid" },
-  { look: inside(glass, text("Run the policy on every Job")), say: "A tile reads the todo being done" },
+  { look: inside(glass, text("Run the policy on every pull request")), say: "A tile reads the todo being done" },
   { look: inside(glass, text("Running cargo check")), say: "With no todo list, the line Fleet detected" },
 ]);
 

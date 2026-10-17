@@ -14,8 +14,6 @@ use crate::ids::{Instant, ManifestId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BayHolderKind {
-    /// One of Fleet's Jobs.
-    Job,
     /// A Session Fleet hosts.
     Session,
     /// A process that took the lease itself, with `armada worktree lease`: an agent in a terminal, or
@@ -27,10 +25,10 @@ pub enum BayHolderKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BayHolder {
     pub kind: BayHolderKind,
-    /// The Job's or the Session's id. For an `agent`, the id of the agent Session its lease was taken
+    /// The Session's id. For an `agent`, the id of the agent Session its lease was taken
     /// for, else the process's pid.
     pub id: String,
-    /// What it is called now, where Fleet still has it. A Job forgotten since has none.
+    /// What it is called now, where Fleet still has it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 }

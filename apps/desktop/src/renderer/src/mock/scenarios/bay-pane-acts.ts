@@ -99,7 +99,7 @@ function build(): Scenario {
     ...ship,
     name: "bay-pane-acts",
     says: "The flight deck's bay pane: every act of the Worktree Slots panel on a held, free, closed and stranded bay, and each bay's history of leases and checkouts",
-    held: { worktrees: ship.held?.worktrees ?? [], slots },
+    held: { slots },
     draft: { ...ship.draft, bayHistories: HISTORIES },
   };
 }

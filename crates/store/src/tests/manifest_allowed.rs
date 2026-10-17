@@ -1,9 +1,41 @@
 //! Commands a person always-allowed for a whole Manifest — `#836`'s table,
-//! kept apart from any Job's own [`crate::allowing`] row.
+//! kept in a table of its own.
 
-use core_model::{Actor, AllowedCommand, ManifestId, Reach};
+use core_model::{Actor, AllowedCommand, ManifestId};
 
 use crate::tests::{at, open, ulid, TempDir};
+use crate::{Store, WriteError};
+
+/// Rows are made as a store from before the writer went left them.
+trait Allow {
+    fn allow_repository_command(
+        &mut self,
+        manifest_id: &ManifestId,
+        allowed: &AllowedCommand,
+    ) -> Result<(), WriteError>;
+}
+
+impl Allow for Store {
+    fn allow_repository_command(
+        &mut self,
+        manifest_id: &ManifestId,
+        allowed: &AllowedCommand,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO manifest_allowed_commands (manifest_id, run, allowed_at, \"by\") \
+                 VALUES (?1, ?2, ?3, ?4) ON CONFLICT (manifest_id, run) DO NOTHING",
+                (
+                    manifest_id.as_str(),
+                    allowed.run.as_str(),
+                    allowed.allowed_at.as_str(),
+                    allowed.by.as_wire(),
+                ),
+            )
+            .expect("the row is written");
+        Ok(())
+    }
+}
 
 fn manifest_id(value: &str) -> ManifestId {
     ManifestId::carried(ulid(value))
@@ -12,7 +44,6 @@ fn manifest_id(value: &str) -> ManifestId {
 fn allowed(run: &str, instant: &str) -> AllowedCommand {
     AllowedCommand {
         run: run.to_string(),
-        reach: Reach::Repository,
         allowed_at: at(instant),
         by: Actor::Human,
     }

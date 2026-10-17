@@ -14,11 +14,10 @@
 use std::future::Future;
 
 use crate::daemon::Refusal;
-use crate::reference::Resolved;
 use ipc::{
-    AlertList, CheckoutRunList, CheckoutRunSheet, FilesFound, FleetHealth,
-    FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig, ManifestDrift, ManifestFile,
-    ManifestId, ManifestReading, ManifestSummary, ModelChoices, ReportList, RunOutput, WorkflowSummary, WorktreesHeld,
+    CheckoutRunList, CheckoutRunSheet, FilesFound, FleetHealth, ManifestConfig,
+    ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices,
+    RunOutput, WorkflowSummary, WorktreesHeld,
 };
 
 
@@ -32,33 +31,6 @@ use ipc::{
 /// place a partial failure is quietly completed — the v1 bug that lost
 /// twenty-one Jobs, one layer further out.
 pub trait Queries: Send + Sync + 'static {
-    /// The Job a request named, whichever of the three ways it named it: the
-    /// record's ULID, the handle Bridge shows beside it, or the number that
-    /// handle starts with.
-    ///
-    /// **Not an operation, and on no route of its own.** It is what the
-    /// `:job_id` segment goes through before any handler sees it —
-    /// [`Resolved`] is the extractor — so a client that has a handle can call
-    /// every route under `/jobs/:job_id` with it and nothing else changes.
-    ///
-    /// **A number counts within a Manifest.** A Fleet serves several
-    /// repositories, and a number more than one of them holds is refused rather
-    /// than resolved against whichever answered first.
-    ///
-    /// **`within` is a scope, not a count.** Named, a Job another Manifest owns
-    /// is refused whatever form named it; absent is every repository.
-    fn resolve_job(
-        &self,
-        named: String,
-        within: Option<ManifestId>,
-    ) -> impl Future<Output = Result<Resolved, Refusal>> + Send;
-
-    /// `list_jobs` — Jobs with state and reason. `manifest_id` narrows it to
-    /// the Jobs one Manifest owns; absent is every repository.
-    fn list_jobs(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<JobList, Refusal>> + Send;
 
     /// The Manifest every answer to this caller is given inside.
     ///
@@ -73,57 +45,6 @@ pub trait Queries: Send + Sync + 'static {
         named: Option<ManifestId>,
     ) -> impl Future<Output = Result<ManifestId, Refusal>> + Send;
 
-    /// `list_job_board` — the open queue: Jobs no Drone has been started on.
-    ///
-    /// **A [`ipc::JobList`] and not a shape of its own**, as `list_reviews` and
-    /// `get_activity_feed` are. The three differ in which Jobs they carry, not
-    /// in what a Job is, and three near-identical types would be three places
-    /// to forget the partial-failure list.
-    fn list_job_board(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<JobList, Refusal>> + Send;
-
-    /// `list_reviews` — Jobs resting at a gate a person has to answer.
-    ///
-    /// **Not every Job that needs somebody**: one stopped mid-flight is
-    /// `list_alerts`'s `blocked`, and folding the two would put work that is
-    /// holding a Drone into a queue somebody reads at leisure.
-    fn list_reviews(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<JobList, Refusal>> + Send;
-
-    /// `get_activity_feed` — Jobs that are over, newest first.
-    ///
-    /// **Terminal by the registry's own `terminal` column**, never by a list of
-    /// status names kept here. A status added to `job-statuses.toml` joins this
-    /// answer without anything in this workspace being edited.
-    fn get_activity_feed(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<JobList, Refusal>> + Send;
-
-    /// `list_alerts` — what is waiting on a person, split by what the waiting
-    /// costs. See [`ipc::AlertList`] for the line between the two buckets.
-    ///
-    /// **Derived, never stored.** Fleet keeps no Alert record, which is why no
-    /// `alert.raised` event exists to go with this.
-    fn list_alerts(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<AlertList, Refusal>> + Send;
-
-
-    /// Every Job `manifest_id` owns, by id. **Not an operation**, [`Queries::scope`]'s
-    /// shape: what `get_events_since` counts a scoped caller against.
-    fn owned_jobs(
-        &self,
-        manifest_id: ManifestId,
-    ) -> impl Future<Output = Result<Vec<ipc::JobId>, Refusal>> + Send;
-
-
-
     /// `get_health` — the probes Fleet can run on itself.
     ///
     /// **Not Doctor.** Doctor's grid is ten modules probed from three crates
@@ -135,24 +56,9 @@ pub trait Queries: Send + Sync + 'static {
     /// that is unhealthy.
     fn get_health(&self) -> impl Future<Output = Result<FleetHealth, Refusal>> + Send;
 
-    /// `get_usage` — what the fleet has spent, against the ceilings that refuse
-    /// the next Drone.
-    ///
-    /// **Spend, not quota.** No quantity reaches Armada from a Drone's stream,
-    /// so there is no percentage and nothing here claims one —
-    /// `settings.budget-quota-floor-for-interactive-use`.
-    fn get_usage(&self) -> impl Future<Output = Result<FleetUsage, Refusal>> + Send;
-
-    /// `get_manifest_spend` — the costliest and the longest Job against the
-    /// Manifest this Fleet serves, for the budget form's warning.
-    fn get_manifest_spend(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<ipc::ManifestSpend, Refusal>> + Send;
-
     /// `get_manifest` — one Manifest as Fleet resolved it.
     ///
-    /// [`Refusal::NoSuchJob`] is not the refusal here: a Manifest this Fleet
+    /// [`Refusal::NotFound`] is not the refusal here: a Manifest this Fleet
     /// does not serve is [`Refusal::Unacceptable`], a well-formed request
     /// naming something that is not in the record.
     fn get_manifest(
@@ -284,68 +190,6 @@ pub trait Queries: Send + Sync + 'static {
         repository: Option<String>,
     ) -> impl Future<Output = Result<ipc::ManifestProposals, Refusal>> + Send;
 
-    /// `get_job` — one Job in full: its steps and where each got to, the
-    /// criteria it is held to, the branch its worktree is on, and the brief it
-    /// was given.
-    ///
-    /// **What `list_jobs` deliberately leaves behind.** A Board row is a row; a
-    /// detail view is one Job somebody opened, and it cannot be assembled from
-    /// the list without Fleet answering for the fields the list redacts.
-    fn get_job(&self, job_id: JobId) -> impl Future<Output = Result<JobDetail, Refusal>> + Send;
-
-    /// `get_job_events` — every move one Job made, oldest first.
-    ///
-    /// **The path taken, which [`Queries::get_job`] deliberately does not
-    /// carry.** A detail view answers where a Job is now; this answers how it
-    /// got there — every status transition, every step move, every Drone
-    /// arriving and leaving, with the actor and the instant on each.
-    ///
-    /// # A separate operation because a history has no bound
-    ///
-    /// `get_job` is read on opening a Job and is the size of a summary. A
-    /// history grows for as long as the Job lives, and the surface that draws
-    /// it is folded away by default. One read paying for the other, on every
-    /// open, is what a field on [`ipc::JobDetail`] would have cost.
-    ///
-    /// # It replays nothing
-    ///
-    /// The rows are read and rendered. `crates/store/src/fold.rs` is the only
-    /// thing that puts a recorded move back through `Job::transition`, and an
-    /// implementation that folded here would be a second machine.
-    ///
-    /// A Job that is not there is [`Refusal::NoSuchJob`] and never an empty
-    /// history: empty is a real answer, and it means a Job that has not moved.
-    fn get_job_events(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobHistory, Refusal>> + Send;
-
-
-
-    /// `get_diff` — one Job's whole patch, with the file list beside it.
-    ///
-    /// **The expensive half, and the one call that spends it.**
-    /// `WorkProduct` splits the file list from the patch because the bytes are
-    /// large and most steps ask no semantic question, so a call returning both
-    /// would pay for the patch on every gate. A person reading a diff to decide
-    /// whether to take the work is the case those bytes are for — and this is a
-    /// route of its own so that [`Queries::get_job`], read on every open, never
-    /// pays for them.
-    ///
-    /// A Job with no worktree answers with [`ipc::JobDiff::work`] absent rather
-    /// than an empty reading: a Drone that changed nothing is a real and
-    /// different answer, and one shape for both would draw a Job that never ran
-    /// as one that did nothing. A worktree that will not open is
-    /// [`Refusal::Fault`], never an empty patch.
-    fn get_diff(&self, job_id: JobId) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
-
-
-
-
-
-
-
-
     /// `list_workflows` — the workflows Fleet holds, with their steps.
     ///
     /// **What makes a `workflow_id` checkable.** Nothing joined one to a
@@ -403,14 +247,6 @@ pub trait Queries: Send + Sync + 'static {
     /// `list_models` — what a Job may be spawned as, and what it gets when it
     /// names nothing.
     fn list_models(&self) -> impl Future<Output = Result<ModelChoices, Refusal>> + Send;
-
-    /// `list_reports` — every report filed, newest first, with what is known
-    /// about whether the Judge has been right.
-    ///
-    /// **Not scoped to a Job, because a report outlives one.** `armada clean`
-    /// forgets a Job and its report stays; a listing reachable only through a
-    /// Job would lose exactly the reports that most need reading.
-    fn list_reports(&self) -> impl Future<Output = Result<ReportList, Refusal>> + Send;
 
     /// `list_worktrees` — every worktree Fleet is holding disk for, and the
     /// test each one did not pass.
@@ -564,29 +400,6 @@ pub trait Queries: Send + Sync + 'static {
         async { Vec::new() }
     }
 
-    /// Every Job's branch, id and handle, which names the Jobs on a merge line.
-    /// **The default reads the whole list**; a daemon that can answer without
-    /// summarising each Job should, since this is asked every few seconds.
-    fn job_branches(&self) -> impl Future<Output = Vec<(String, ipc::JobId, String)>> + Send {
-        async {
-            self.list_jobs(None)
-                .await
-                .map(|list| {
-                    list.jobs
-                        .into_iter()
-                        .filter_map(|job| Some((job.branch?, job.id, job.handle)))
-                        .collect()
-                })
-                .unwrap_or_default()
-        }
-    }
-
-    /// The Checks each served repository's Manifest declares, by root: what a
-    /// branch queued on its merge line will be gated on. **Empty by default.**
-    fn land_checks(&self) -> impl Future<Output = Vec<(String, Vec<String>)>> + Send {
-        async { Vec::new() }
-    }
-
     /// `observe_land_check` — one Check's log on a served repository's merge
     /// line, by the root, the branch and the Check.
     ///
@@ -609,15 +422,4 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
 
-    /// `list_branches` — the repository's local branches, the base first
-    /// (#1605, spike 022 slice 4). What a Job may start from and land in, read
-    /// through git rather than composed from the worktrees Bridge has seen.
-    ///
-    /// `manifest_id` names the repository, absent being the one Fleet was
-    /// started in. [`Refusal::Unacceptable`] on a repository this Fleet does
-    /// not serve.
-    fn list_branches(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<ipc::Branches, Refusal>> + Send;
 }

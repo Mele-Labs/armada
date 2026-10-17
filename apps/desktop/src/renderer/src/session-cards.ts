@@ -40,7 +40,7 @@ export function pullRequestCardOf(one: Extract<SessionAttachment, { kind: "pull_
 }
 
 /** What hovering a row shows beside it, from what the attachment and the window already hold. */
-export function cardOf(one: Exclude<SessionAttachment, { kind: "job" }>, session: Session, sessions: readonly Session[], known: Known): SessionLedgerCard {
+export function cardOf(one: SessionAttachment, session: Session, sessions: readonly Session[], known: Known): SessionLedgerCard {
   switch (one.kind) {
     case "pull_request":
       return pullRequestCardOf(one);

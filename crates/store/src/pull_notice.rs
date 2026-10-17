@@ -3,12 +3,11 @@
 //!
 //! **One row a (pull request, commit, trigger, recipient)**, which is what makes a notice
 //! once-only: the insert is refused when the row is there, so a restart reads the same answer.
-//! The recipient is plain text (`session:<id>` or `job:<id>`) and no foreign key, as in
-//! `main_fix`: a Job `armada clean` forgets leaves its row.
+//! The recipient is plain text (`session:<id>`) and no foreign key, as in `main_fix`.
 
-use core_model::{JobId, Timestamp, Ulid};
+use core_model::Timestamp;
 
-use crate::error::{fault, LoadJobError, WriteError};
+use crate::error::{fault, WriteError};
 use crate::open::Store;
 
 impl Store {
@@ -108,21 +107,4 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// The Jobs whose worktree branch this is, newest first. **A branch name alone cannot name a
-    /// repository**, so a caller that serves more than one keeps only its own.
-    pub fn jobs_on_branch(&self, branch: &str) -> Result<Vec<JobId>, LoadJobError> {
-        let reading = fault("finding the Jobs on a branch");
-        let mut asking = self
-            .conn
-            .prepare("SELECT job_id FROM jobs WHERE branch = ?1 ORDER BY job_id DESC")
-            .map_err(reading)
-            .map_err(|cause| LoadJobError::Unreadable(crate::error::RowError::Database(cause)))?;
-        asking
-            .query_map((branch,), |row| {
-                Ok(JobId::carried(Ulid::carried(row.get::<_, String>(0)?)))
-            })
-            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
-            .map_err(fault("finding the Jobs on a branch"))
-            .map_err(|cause| LoadJobError::Unreadable(crate::error::RowError::Database(cause)))
-    }
 }

@@ -1,7 +1,7 @@
 // The worktree pool a mock Fleet answers `GET /worktrees` with. Shared by the Cleanup and Slots
 // fleets, so neither imports the other.
 
-import type { JobSummary, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import type { WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 
 const AT = "/Users/user/armada/.armada/slots";
 
@@ -9,15 +9,14 @@ export function slot(n: number, rest: Partial<WorktreeSlot> & Pick<WorktreeSlot,
   return { manifest_id: "armada", slot: n, path: `${AT}/slot-${n}`, base: "main", warm: false, ...rest };
 }
 
-/** `GET /worktrees` over `job`, which holds the first slot. Nothing held for a person to decide. */
-export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
+/** `GET /worktrees`: a hosted Session holds the first slot. Nothing held for a person to decide. */
+export function slotsHeld(now: number): WorktreesHeld {
   const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
   return {
-    worktrees: [],
     slots: [
       slot(1, {
-        held: { state: "job", job_id: job.id, job_title: job.title },
-        branch: `armada/${job.handle}`,
+        held: { state: "hosted_session", session_id: "s-slot-pool", session_title: "Slot pool in Cleanup" },
+        branch: "fleet/slot-pool-in-cleanup-2",
         since: ago(130),
         warm: true,
         behind: 0,
@@ -61,16 +60,10 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
           unpushed: 2,
         },
       }),
-      // A killed Job whose release was refused: its work is still in the slot.
+      // A third stranded slot: its work is still in it.
       slot(8, {
-        held: {
-          state: "job",
-          job_id: "01KEPTJOB",
-          job_title: "Retry the manifest read",
-          job_status: "killed",
-          kept: "5 uncommitted, first crates/api/src/routes.rs",
-        },
-        branch: "armada/14-retry-the-manifest-read",
+        held: { state: "stranded", why: "5 uncommitted, first crates/api/src/routes.rs" },
+        branch: "fleet/retry-the-manifest-read",
         since: ago(26 * 60),
         behind: 3,
         stranded: {

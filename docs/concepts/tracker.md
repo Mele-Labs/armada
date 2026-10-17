@@ -69,11 +69,7 @@ The `jira` provider reads and writes through `acli`, Atlassian's command line, a
 | List the open issues | `project = "ABC" AND statusCategory != Done`, or `project in ("ABC", "OPS") AND ...` for several, or no project clause where only `jql` is given, plus `jql` in parentheses, newest edit first. Whatever the search returns is listed, each under its key |
 | Read one issue | By its key, `ABC-123`, in any project. A reference that is not a key, such as `123`, names no issue and is a 404 without reaching `acli` |
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key. A bare number or another host is not |
-| Comment | `acli jira workitem comment create` on the key in the issue's address |
-| Armada's labels | `armada: in progress` is the label `armada-in-progress`, and `armada: set aside` is `armada-set-aside`: Jira labels hold no whitespace. A label taken off is written with `--remove-labels` alone. A label put on is written as the issue's whole label set, since the reference does not say whether `--labels` adds or replaces |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
-
-**What the `acli` reference settles about labels.** `https://developer.atlassian.com/cloud/acli/reference/commands/jira-workitem-edit/` lists `--labels` as "Edit the labels" and `--remove-labels` as "Remove the labels", and gives no example of either. A removal has its own flag, so it is written as a removal and reads nothing first: a label somebody else sets at the same moment is not touched. Whether `--labels` appends to the labels or replaces them is not said, so an addition still reads the issue's labels and writes them all. **That write can lose a label set between the read and the write.** It stays until someone runs the edit against a real issue and sees which it does.
 
 **Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed. Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads. Whoever first points a repository at Jira runs these and compares, with a real key and project:
 
@@ -82,7 +78,7 @@ acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --f
 acli jira workitem view ABC-1 --fields key,summary,status,resolution,labels --json
 ```
 
-What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document. Also unconfirmed: whether `acli jira workitem edit --labels` adds to the labels or replaces them, and the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
+What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document. Also unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
 
 ## What a person sees
 

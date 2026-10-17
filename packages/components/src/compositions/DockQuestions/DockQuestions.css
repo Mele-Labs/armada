@@ -36,14 +36,7 @@
   flex: none;
 }
 
-.armada-dock-question__title {
-  margin: 0;
-  min-width: 0;
-  font-weight: var(--weight-body);
-  text-wrap: pretty;
-}
-
-/* The kind, on the waiting tone's rule — "needs you, not urgent", as the question box on job detail. */
+/* The kind, on the waiting tone's rule — "needs you, not urgent", as the question box on a Session. */
 .armada-dock-question__label {
   padding-inline-start: var(--space-2);
   border-inline-start: var(--border-width) solid var(--step-waiting);

@@ -4,7 +4,7 @@
 // walk `prCallOwnerWorking` plays it.
 
 import type { MergeLine } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { holding } from "../holding";
@@ -12,7 +12,6 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
 
 const NUMBER = 1904;
 const BRANCH = "fix/pin-store-clock";
@@ -39,7 +38,7 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("pr-call-owner-working", "A pull request with failed checks held by a Session: no call while it works, the call and its thread once it is idle", [], { alsoServed: [repository()] });
+  const base = holding("pr-call-owner-working", "A pull request with failed checks held by a Session: no call while it works, the call and its thread once it is idle");
   const root = repository().root;
   const line: MergeLine = {
     root,
@@ -58,8 +57,8 @@ function build(): Scenario {
     // The one moment: the Session finishes its turn. Nothing is said to it, so the failure is its call again.
     later: [{}],
     draft: {
-      sessions: (board) => {
-        const store = sessionsStore([none, none], none, board, [], [SESSION]);
+      sessions: () => {
+        const store = sessionsStore([SESSION]);
         const heard = new Set<() => void>();
         let settled = false;
         let seen: readonly Session[] | undefined;

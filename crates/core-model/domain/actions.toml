@@ -12,8 +12,7 @@
 # may mean and what it may never be reused for; a second roster of glyphs here
 # is the drift this repository has collected before. The same holds against
 # `enum-verbs.toml`, which carries the word a *state* renders as. Nothing there
-# is an act and no key is spelled in both files — `killed` is a badge, `kill`
-# is this file's.
+# is an act and no key is spelled in both files.
 #
 # The table key is the id an implementation binds to. `shortcut` is the binding
 # spelled exactly as the contract spells it, so a rule compares the two with no
@@ -32,8 +31,8 @@
 #                 An Action with neither a glyph nor a reason fails the gate
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
-#                 list and detail | detail | job board | piloted job
-#   destructive - whether it ends or overrules a Job's record
+#                 list and detail | open studio | dashboard | deck | review | call
+#   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
 #                 yet. Absent means live. The gate refuses anything here that
@@ -48,8 +47,7 @@
 #
 # **`unbuilt` is the other kind of blank, and it is not a gap.** This file was
 # transcribed from a map settled by drawing the Board and the palette together,
-# so it holds acts nobody has written — `p` and `s` when it landed, and job
-# detail's bindings since. The palette displays a binding beside every entry,
+# so it holds acts nobody has written. The palette displays a binding beside every entry,
 # which makes a row nothing answers a key a person will press; the alternative
 # to a column is a list of them in `apps/`, which is the second registry this
 # file exists to prevent. A row loses the field in the change that builds it.
@@ -209,75 +207,6 @@ destructive = false
 confirms = false
 notes = "The same act as Enter, named so the palette can display it — which is the whole reason it has a row of its own. The deck's lists answer it too (Jobs and Sessions, Activity, Bays, Incoming calls, the merge queue), since the deck's list is in this scope; the stage's page, the flight controls and Autopilot do not. `external-link` is not it: that hands a path to something outside Bridge."
 
-[actions.review]
-kind = "Action"
-tier = "Contextual"
-verb = "Review"
-icon = "eye"
-shortcut = "r"
-scope = "list"
-destructive = false
-confirms = false
-notes = "The most-pressed contextual key on the Board: review is on every needs-you row, which is why it holds `r` and redirect moved to `d`. The glyph is reserved to Review and to nothing else. Narrowed from \"list and detail\" by #624: the detail half was never built — nothing in packages/screens binds it — and Job detail's review sits inline in the panel once the Job is open, with no separate thing left for a key to open. Freed `r` at detail scope for `run`, below."
-
-[actions.run]
-kind = "Action"
-tier = "Contextual"
-verb = "Run"
-icon = ""
-icon_absent = "undecided"
-shortcut = "r"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "Opens the run sheet — Journey 9's *Running one inside a Job* — nothing selected. Also opened by **Run…** on the worktree row of *Where things are* and by **Run it here** on a refused Check's row, neither of which is this binding: a control that already reads as an act does not need a second one repeated on it. No glyph — the sheet is not a Check and not evidence, so nothing in the `shield-*` or `file-*` families reads for it, and inventing one is a decision for packages/icons/icons/."
-
-[actions.attest]
-kind = "Action"
-tier = "Contextual"
-verb = "Attest"
-icon = "stamp"
-shortcut = "t"
-scope = "list and detail"
-destructive = false
-confirms = false
-notes = "The glyph is the registry's awaiting-attestation badge, and the act is what the badge is waiting for. A stamp is literally what an attestation performs."
-
-[actions.redirect]
-kind = "Action"
-tier = "Contextual"
-verb = "Redirect"
-icon = "corner-up-right"
-shortcut = "d"
-scope = "list and detail"
-destructive = false
-confirms = false
-notes = "`d` rather than the initial, because `r` is spent on Review. The glyph is the registry's own assignment for Redirect."
-
-[actions.approve]
-kind = "Action"
-tier = "Contextual"
-verb = "Approve"
-icon = ""
-icon_absent = "undecided"
-shortcut = "a"
-scope = "dispatch card"
-destructive = false
-confirms = false
-notes = "The one act that approves, and the only place it happens. Nothing on a list approves — the Board's needs-approval row carries Review, and #217 records that the held-key rule moved here with the act: `a` acts once and needs releasing, because a queue approved by holding one key is what the one-job-one-decision rule exists to prevent. Scoped rather than global for that reason: a binding that approves must not be live on a surface showing fourteen approvable rows."
-
-[actions.restart_step]
-kind = "Action"
-tier = "Contextual"
-verb = "Restart step"
-icon = ""
-icon_absent = "undecided"
-shortcut = "s"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "`rotate-cw` is Redispatch and `refresh-cw` is reserved to churning, so the two rotation glyphs are both spoken for. Restarting one step is neither. Carries no `unbuilt`: Bridge has this act — `Acts.tsx` fires `restart_step` from the step panel and has since #62. What it has no keyboard path to is a different thing from what it cannot do, and #233 read the missing binding as a missing act."
-
 [actions.copy_debug_info]
 kind = "Action"
 tier = "Contextual"
@@ -290,42 +219,6 @@ destructive = false
 confirms = false
 notes = "The contract decides the blank: nothing in the error treatment carries a glyph, and `triangle-alert` and `octagon-alert` are both spoken for. `copy` was not taken either — it means copy an id or a path, and a debug payload is an artifact rather than a value. Widening it is a decision for the icon registry."
 
-[actions.report_job]
-kind = "Action"
-tier = "Contextual"
-verb = "Report this job"
-icon = ""
-icon_absent = "undecided"
-shortcut = "b"
-scope = "detail"
-destructive = false
-confirms = true
-notes = "`b` for bug, and never `r` or `t`, which review and attest hold. The act moves nothing — it records what a person concluded about a Job that already stopped, and leaves the Job exactly where it was — so it is not destructive; it confirms because `b` opens the filing dialog rather than filing anything. Bridge has had it since the reports surface landed, and it reached this registry late: `Report.tsx` renders it as a ghost control in the Job header on the stopped render, which is why the scope is detail and not the list. The glyph is undecided: `flag` reads as the stopped step's badge and `triangle-alert` and `octagon-alert` belong to the error treatment, so a silhouette for filing is a decision for packages/icons/icons/."
-
-[actions.kill]
-kind = "Action"
-tier = "Contextual"
-verb = "Kill"
-icon = "power"
-shortcut = "x"
-scope = "list and detail"
-destructive = true
-confirms = true
-notes = "`x` and never `k`, because `k` sits against `j` and a mistyped navigation keystroke must not end a running job. The glyph is the registry's deliberate-stop mark, which is what kill is against unplug's connection lost."
-
-[actions.kill_and_redispatch]
-kind = "Action"
-tier = "Contextual"
-verb = "Kill & redispatch"
-icon = ""
-icon_absent = "undecided"
-shortcut = "X"
-scope = "detail"
-destructive = true
-confirms = true
-unbuilt = "#291"
-notes = "Shifted `x`, because kill is `x` and this is the same act carried further — a spare letter would be one chosen for convenience, which is what the destructive-key rule refuses. **It is not `kill` followed by `redispatch`**: one confirmation, one outcome, and the Drone's learnings are captured in between. The journey record names it — 3.5 retired `Rephrase and redispatch` in favour of it, and Helm carries it as rung 2 — and nothing answers it yet. The glyph is undecided because `power` is kill's and `rotate-cw` is redispatch's, and a compound is a decision for packages/icons/icons/."
-
 [actions.new_job]
 kind = "Action"
 tier = "Contextual"
@@ -336,114 +229,6 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 15 Oct 2026 `n`, and `⌘N` from inside a field, open the Dispatch panel directly from every surface, a centred sheet over the window with the caret in the request, where a Job, a Session or an Autopilot is chosen; the palette is search only. The Cockpit's Dispatch tile and every New job entry open the same sheet. The Cockpit's own dispatch bar was removed on 13 Oct 2026."
-
-[actions.observe]
-kind = "Action"
-tier = "Contextual"
-verb = "Observe"
-icon = ""
-icon_absent = "undecided"
-shortcut = "v"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "`eye` is the obvious glyph and is reserved to Review, so observing has none. The two acts are close enough that sharing a silhouette would be the collision the reservation exists to prevent."
-
-[actions.submit_for_verification]
-kind = "Action"
-tier = "Contextual"
-verb = "Submit for verification"
-icon = ""
-icon_absent = "undecided"
-shortcut = "u"
-scope = "piloted job"
-destructive = false
-confirms = false
-notes = "Hands a piloted job back to the machinery that checks it. `file-check` is a badge for a submission that landed rather than a control that submits one, and `send` is Dispatch."
-
-[actions.redispatch]
-kind = "Action"
-tier = "Contextual"
-verb = "Redispatch as a new job"
-icon = "rotate-cw"
-shortcut = "e"
-scope = "list and detail"
-destructive = false
-confirms = false
-notes = "The glyph is the registry's own assignment for Redispatch — a single arrow, distinct from the two chasing arrows that mean churning. The long verb is deliberate: a redispatch makes a new Job with a new id, and the short form read as a retry of the Job in front of you. `Kill & Redispatch` is a different act and is not this row."
-
-[actions.move_in_plan]
-kind = "Action"
-tier = "Contextual"
-verb = "Move up / down"
-icon = ""
-icon_absent = "undecided"
-shortcut = "⌥↑ ⌥↓"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus` wherever a list roves, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons/ rather than this file."
-
-[actions.open_output]
-kind = "Action"
-tier = "Contextual"
-verb = "Open the output"
-icon = ""
-icon_absent = "undecided"
-shortcut = "o"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "A Check's own stdout, opened to the layer that can hold it — 2,180 lines on a real suite, which is a reading on this screen with no end, as the patch is. Added 2026-09-08 with the Checks chapter, retired with the Overview reframe of 29 Sep 2026: a chapter that opens a sheet gets a letter, which `open_diff` established with `f`, and this one had none. `o` rather than a spare letter because it is the mnemonic and it is free here — `open` holds `o` on the list, where this act does not exist, so the two never contend for one press. No glyph — the `shield-*` family is a Check's result rather than its output, and minting one belongs in the icon registry rather than here."
-
-[actions.open_diff]
-kind = "Action"
-tier = "Contextual"
-verb = "Open the diff"
-icon = "file-diff"
-shortcut = "f"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "The Job's patch, opened on the sheet that can hold it. The focused Produced chip opened it until the Overview reframe of 29 Sep 2026 retired the chapters; the key is the route that survived. `f` for the file, since `d` is Redirect and `o` is Open, which on a list means a Job — this opens a file inside one and the two must not read as the same key doing different things. The glyph was registered for this row."
-
-[actions.raise_cost_cap]
-kind = "Action"
-tier = "Contextual"
-verb = "Raise the cost cap"
-icon = ""
-icon_absent = "undecided"
-shortcut = "B"
-scope = "detail"
-destructive = false
-confirms = true
-notes = "The first of two budget rows in this registry, added 2026-09-09 with the act; `raise_turn_cap` is the other ceiling. A job past its cost cap waits at `queued` reading `over_budget` until somebody raises the cap — the one reason a queued job carries that does not clear on its own — and there was no key, no route and no control for it. Shifted `B`, because the lowercase mnemonic is spent, `b` being `report_job`, and a budget is the one thing on this screen where the mnemonic is worth reaching for. Shifted rather than a spare letter for the reason `kill_and_redispatch` takes `X`: a letter chosen for convenience is what the destructive-key rule refuses, and this one changes what a job may spend. Not destructive — nothing is ended or overruled, and the job stays exactly where it was — and it confirms because `B` opens a dialog that collects the figure, which is the field-collecting exception the safety rules name. No glyph: `arrow-up-to-line` is the escalation reason `loop_cap`, a ceiling that stopped something, which is the opposite reading, and the registry has no coin, wallet or currency silhouette at all. Minting one is a decision for packages/icons/icons/."
-
-[actions.raise_turn_cap]
-kind = "Action"
-tier = "Contextual"
-verb = "Raise the turn cap"
-icon = ""
-icon_absent = "undecided"
-shortcut = "T"
-scope = "detail"
-destructive = false
-confirms = true
-notes = "The second budget row, added 2026-09-09 with the act, and the ceiling the row above did not cover. A job past its turn cap waits at `queued` reading `over_budget` exactly as one past its cost cap does — and until this there was no key, no route and no number below a compile-time constant, so pressing `B` on such a job raised a ceiling that was not holding it. `T` for turns, uppercase on `raise_cost_cap`'s precedent: `t` is Attest, and a ceiling is worth reaching for a mnemonic rather than taking a spare letter. Not destructive, and it confirms because `T` opens a dialog that collects the figure. No glyph, for the row above's reason and one of its own: `arrow-up-to-line` is the escalation reason `loop_cap`, which is a ceiling that stopped something, and drawing it on the control that clears one inverts it."
-
-[actions.open_stage]
-kind = "Action"
-tier = "Contextual"
-verb = "Open the stage"
-icon = ""
-icon_absent = "undecided"
-shortcut = "g"
-scope = "detail"
-destructive = false
-confirms = false
-notes = "The phase strip's stages are controls: opening one says what that stage is, what it is waiting on and where it stands, so the explanation sits where the question is asked. `g` for the gate the strip draws. No glyph, and this one may never take a generic one — every stage already carries its own mark on its chip, so a silhouette standing for any stage would be a mark competing with the four beneath it. The obvious candidates are refused anyway: the circle-* family is the Judge's, and a question mark inside a circle is that family's outline whatever it is named."
-
-# ----------------------------------------------------- on an open Studio
 
 [actions.add_note]
 kind = "Action"
@@ -558,7 +343,7 @@ shortcut = "e"
 scope = "call"
 destructive = false
 confirms = false
-notes = "Opens the whole of what the owner dispatched the Job with, on a call whose request is longer than its clamp. `e` is redispatch on a list; a call is not a list, and the card says it beside its own button."
+notes = "Opens the whole of what the owner dispatched the Job with, on a call whose request is longer than its clamp. The card says the key beside its own button."
 
 [actions.call_open_walk]
 kind = "Action"
@@ -570,7 +355,7 @@ shortcut = "v"
 scope = "call"
 destructive = false
 confirms = false
-notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_recall` and stays so, and `v` is Observe on a Job detail, a different scope. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
+notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_recall` and stays so. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
 
 [actions.call_best]
 kind = "Action"
@@ -665,7 +450,7 @@ shortcut = "v"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered for the window. `v` is `observe` on a Job's detail and `call_open_walk` on a call: different scopes."
+notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered for the window. `v` is `call_open_walk` on a call: a different scope."
 
 [actions.deck_timeline]
 kind = "Action"
@@ -677,7 +462,7 @@ shortcut = "t"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. `m` shows the map."
+notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's. `m` shows the map."
 
 [actions.deck_search]
 kind = "Action"
@@ -701,7 +486,7 @@ shortcut = "g"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "The first key of a two key chord: `g` and then `c` the Cockpit, `j` Jobs, `s` Sessions or `y` System. The second key is read only for the moment after `g` and is not a binding of its own, which is why the row is `g` and not four keys: the keymap holds a key and not a sequence. Not on a Job's page, where `g` is `open_stage`. `g` is `call_quick` while a call is in front."
+notes = "The first key of a two key chord: `g` and then `c` the Cockpit, `j` Jobs, `s` Sessions or `y` System. The second key is read only for the moment after `g` and is not a binding of its own, which is why the row is `g` and not four keys: the keymap holds a key and not a sequence. `g` is `call_quick` while a call is in front."
 
 [actions.review_panel]
 kind = "Action"

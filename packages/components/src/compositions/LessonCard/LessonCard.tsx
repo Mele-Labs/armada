@@ -7,7 +7,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { LandsMark, landsWord, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, whoWord, type Who } from "../WhoMark/WhoMark";
 
-/** One row of the Job's record an item cites, resolved from its `cite`. */
+/** One row of the Session's record an item cites, resolved from its `cite`. */
 export type RetroCite = {
   /** The record's own `cite`, unique within the record. */
   id: string;
@@ -37,15 +37,14 @@ export type LessonCardItem = {
 
 /** The two answers, and what each does for this item's place. */
 export type LessonAnswers = {
-  agreeLabel: string;
-  agreeTip: string;
+  /** Accept, or Update Kit: only a Kit item has one. Any other item is agreed by starting a Session. */
+  agree?: { label: string; tip: string; onAgree: () => void };
   disagreeTip: string;
-  onAgree: () => void;
   onDisagree: () => void;
   /**
-   * Agree by a Session instead of a Job, `Start Session` beside the agree button. Absent on a Kit
-   * item, which has no repository to start one on. **A press begins work at once**: Fleet sends
-   * the request as the Session's first message, and the host opens the Session running.
+   * `Start Session`, the way to agree with an Armada or Manifest item. Absent on a Kit item, which
+   * has no repository to start one on. **A press begins work at once**: Fleet sends the request as
+   * the Session's first message, and the host opens the Session running.
    */
   startSession?: { tip: string; onStart: () => void };
   /** The answer sent and not yet answered: its button sweeps and the others are held. */
@@ -60,8 +59,6 @@ export type LessonSettled = {
   said: string;
   /** The command Kit was updated with, drawn in monospace beside `said`. */
   command?: string;
-  /** The Job the item proposed, where the surface can open one. */
-  job?: { label: string; onOpen: () => void };
   /** The Session the item started, where the surface can open one. */
   session?: { label: string; onOpen: () => void };
   /** Fleet's words where the Session started and its first message did not go. */
@@ -87,7 +84,7 @@ export type LessonCardProps = {
   evidence?: LessonEvidence;
   answers?: LessonAnswers;
   settled?: LessonSettled;
-  /** The Job the item came from, on the Lessons list, where a press opens its retro. */
+  /** The Session the item came from, on the Lessons list, where a press opens its retro. */
   from?: { label: string; exact?: string; onOpen: () => void };
 };
 
@@ -123,7 +120,7 @@ export function LessonRoute({ who, landsIn }: { who?: Who; landsIn?: Lands }) {
  * words, the headline, what happened, the fix, and the two answers. The record
  * rows it cites are behind a small control.
  *
- * **The Lessons list and a Job's retro sheet draw this one component**, so an
+ * **The Lessons list and a retro sheet draw this one component**, so an
  * item reads the same wherever it is reached. An item written before the
  * headline carries its `statement` alone, drawn as the body with the same
  * answers under it.
@@ -194,11 +191,6 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
               {settled.command === undefined ? null : (
                 <span className="armada-lesson__command mono">{settled.command}</span>
               )}
-              {settled.job === undefined ? null : (
-                <button type="button" className="armada-lesson__job" onClick={settled.job.onOpen}>
-                  {settled.job.label}
-                </button>
-              )}
               {settled.session === undefined ? null : (
                 <button type="button" className="armada-lesson__job" onClick={settled.session.onOpen}>
                   {settled.session.label}
@@ -207,16 +199,18 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
             </span>
           ) : answers === undefined ? null : (
             <>
-              <Tooltip label={answers.agreeTip}>
-                <Button
-                  size="sm"
-                  pending={answers.pressing === "agree"}
-                  disabled={answers.pressing !== undefined && answers.pressing !== "agree"}
-                  onClick={answers.onAgree}
-                >
-                  {answers.agreeLabel}
-                </Button>
-              </Tooltip>
+              {answers.agree === undefined ? null : (
+                <Tooltip label={answers.agree.tip}>
+                  <Button
+                    size="sm"
+                    pending={answers.pressing === "agree"}
+                    disabled={answers.pressing !== undefined && answers.pressing !== "agree"}
+                    onClick={answers.agree.onAgree}
+                  >
+                    {answers.agree.label}
+                  </Button>
+                </Tooltip>
+              )}
               {answers.startSession === undefined ? null : (
                 <Tooltip label={answers.startSession.tip}>
                   <Button

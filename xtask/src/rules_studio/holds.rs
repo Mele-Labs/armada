@@ -2,7 +2,7 @@
 //! sets themselves.
 //!
 //! Each one is a sentence on that page that nothing held: status colour on Run
-//! and Job alone, a relation drawn by the Studio or a person's acceptance, a
+//! alone, a relation drawn by the Studio or a person's acceptance, a
 //! promotion that ends inside Armada, and a node named a word the lexicon does
 //! not ban. Split from [`super`] for size; the set comparisons are there.
 
@@ -13,10 +13,10 @@ use crate::Report;
 use super::registry::Row;
 use super::{as_wire, list, same_set, sources, Kinds, Side, LEXICON, MODEL, REGISTRY, STORE, WIRE};
 
-/// The two kinds that draw in Job colours. `studio.md`: *Run and Job nodes are
-/// the only nodes that take status colour*, because a run reads the same on a
-/// Studio, on the Manifest surface and on a Job's run sheet.
-const STATUS_COLOUR: &[&str] = &["run", "job"];
+/// The one kind that draws in status colour. `studio.md`: *a Run node is the
+/// only node that takes it*, because a run reads the same on a Studio and on
+/// the Manifest surface.
+const STATUS_COLOUR: &[&str] = &["run"];
 
 /// The two answers to *who draws a relation*, and there is no third: an agent
 /// reorganising a person's work is what separates a drawing surface from a
@@ -31,7 +31,6 @@ const WHO: &[&str] = &[
     "helm_on_ask",
     "scout_on_ask",
     "fleet",
-    "dispatch_gate",
 ];
 
 /// What a promotion may start from besides a node kind. **Neither is a legal
@@ -50,22 +49,22 @@ const FROM_ONLY: &[&str] = &["any", "outside"];
 /// edit to the gate and not to data.
 const SANCTIONED: &[(&str, &str)] = &[("run", "Job")];
 
-/// Status colour is Run's and Job's, and a kind that takes it declares no
-/// state: its state is the run's or the Job's own.
+/// Status colour is Run's, and a kind that takes it declares no state: its
+/// state is the run's own.
 pub fn status_colour(kinds: &Kinds, report: &mut Report) {
     let declared = kinds.flagged("status_colour", report);
     let want: BTreeSet<String> = STATUS_COLOUR.iter().map(|k| (*k).to_string()).collect();
     for kind in declared.difference(&want) {
         report.fail(format!(
-            "{REGISTRY} — `{kind}` declares `status_colour`, and {} are the only kinds that take \
-             it. A third would draw a Job's colours over something that is not a Job's",
+            "{REGISTRY} — `{kind}` declares `status_colour`, and {} is the only kind that takes \
+             it. A second would draw a run's colours over something that is not a run",
             list(&want)
         ));
     }
     for kind in want.difference(&declared) {
         report.fail(format!(
-            "{REGISTRY} — `{kind}` does not declare `status_colour`, and it is one of the two \
-             kinds that take it. A run reads the same on a Studio as on a run sheet"
+            "{REGISTRY} — `{kind}` does not declare `status_colour`, and it is the one \
+             kind that takes it. A run reads the same on a Studio as on a run sheet"
         ));
     }
     for row in &kinds.nodes {
@@ -78,7 +77,7 @@ pub fn status_colour(kinds: &Kinds, report: &mut Report) {
         if !states.is_empty() {
             report.fail(format!(
                 "{REGISTRY}:{} — `{}` takes status colour and declares states of its own. Its \
-                 state is read off the run or the Job, so a state written here would be right \
+                 state is read off the run, so a state written here would be right \
                  once",
                 row.line,
                 row.header()
@@ -236,11 +235,9 @@ pub fn added_by_hand(kinds: &Kinds, model: &str, wire: &str, report: &mut Report
 }
 
 /// Every rung ends at a node kind, starts at one or at a declared sentinel, and
-/// names who acts from a closed set. The rung that makes a Job says the same
-/// thing as `dispatches` on a node row, and the two are held equal.
+/// names who acts from a closed set.
 pub fn promotions(kinds: &Kinds, report: &mut Report) {
     let nodes = kinds.node_keys();
-    let mut dispatches_from = BTreeSet::new();
     for row in &kinds.promotions {
         let rung = row
             .string("rung", REGISTRY, report)
@@ -259,25 +256,6 @@ pub fn promotions(kinds: &Kinds, report: &mut Report) {
                 }
             }
         }
-        let makes_a_job = row
-            .arrays
-            .get("to")
-            .is_some_and(|to| to.iter().any(|kind| kind == "job"));
-        if makes_a_job {
-            if let Some(from) = row.arrays.get("from") {
-                dispatches_from.extend(from.iter().filter(|k| nodes.contains(*k)).cloned());
-            }
-        }
-    }
-    let flagged = kinds.flagged("dispatches", report);
-    if flagged != dispatches_from {
-        report.fail(format!(
-            "{REGISTRY} — {} declare `dispatches`, and the rung that makes a Job starts from {}. \
-             The two say the same thing, so a kind in one and not the other is a Dispatch offered \
-             where nothing is filed or withheld where something is",
-            list(&flagged),
-            list(&dispatches_from)
-        ));
     }
 }
 

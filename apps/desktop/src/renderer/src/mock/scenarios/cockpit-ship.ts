@@ -3,20 +3,18 @@
 // (five held, one free, one stranded, one closed), Autopilot off.
 //
 // **Everything the deck reads is something Fleet records.** The tools a drone has used are `session.read`, `session.edited`,
-// `session.ran`, `job.read` and `job.ran` bursts with the `items` they touched, some spelled under the bay's checkout and some
+// `session.ran` bursts with the `items` they touched, some spelled under the bay's checkout and some
 // from the home directory. The bays' holders are `slot.leased` and `slot.released` events with `detail "slot-N"`. The write
 // clashes are the `GET /clashes` list. A bay with no slot event (the free one, the closed one) has no history, and a drone
 // that edited nothing is observed to touch nothing. Two `later` moments carry the story: the Session that was working
 // replies, main goes red once PR 1890 lands, and the fix lands. #2301.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { HubMerged, HubPullRequest, MainStanding, MergeLines, PlanUsage, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld, WriteClash } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionChecks } from "@armada/screens/src/draft/sessions";
-import { queued, review, running } from "@armada/screens/src/fixtures/build/index";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore, type SessionsStore } from "../sessions/script";
 
@@ -25,27 +23,6 @@ const POCKET = "pocket";
 const POCKET_ROOT = "/Users/user/pocket";
 const FORGE = "https://git.example/armada/pull/";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-
-/** A Job of the repository `manifest`, started `minutes` ago, on the step `step` of its workflow. */
-function live(fixture: JobFixture, minutes: number, step?: string, extra: Record<string, unknown> = {}): JobFixture {
-  const patch = { owner_manifest_id: ARMADA, started_at: ago(minutes), ...(step === undefined ? {} : { current_step_id: step }), ...extra };
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
-  if (fixture.watched.state !== "read") return { ...fixture, job };
-  const { reclaimed_at: _also, ...detailJob } = { ...fixture.watched.detail.job, ...patch };
-  return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
-}
-
-/** Step 3 of the bug workflow's six: Fix. */
-const cache = live(asRow(running(), 81, "cache", "Cache the manifest read between dispatches"), 17, "fix", { branch: "armada/81-cache" });
-/** Done with its work and waiting on him; its pull request is checking. */
-const pause = live(asRow(review(), 82, "pause", "Add the pause marker column"), 95, undefined, { branch: "armada/82-pause-column" });
-/** Its store Check failed and it is asking what to do. */
-const reconnect = live(asRow(running(), 83, "reconnect", "Shorten the reconnect wait"), 33, "fix", { asking: true, branch: "armada/83-reconnect" });
-/** Not started: waiting for a bay in the pocket repository. */
-const code = live(asRow(queued(), 84, "code", "Read the pairing code from the runtime file"), 4, undefined, { owner_manifest_id: POCKET });
-const JOBS = [cache, pause, reconnect, code];
-/** Dispatched at the flight deck's second moment: a drone that was not there lifts from its base. */
-const dispatched = live(asRow(running(), 85, "lease", "Retry the claim on a stale lease"), 0, "fix", { branch: "armada/85-lease" });
 
 const say = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const ask = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
@@ -226,9 +203,8 @@ const REPLIED: Partial<Session> = {
 };
 
 /** The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(control: Parameters<typeof sessionsStore>[2], list: readonly Session[] = SESSIONS): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, control, [], list);
+function sessions(list: readonly Session[] = SESSIONS): SessionsStore {
+  const store = sessionsStore(list);
   let moment = 0;
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
   const own = new Set(list.map((one) => one.id));
@@ -342,7 +318,6 @@ function pool(): WorktreesHeld {
   const session = (manifest: string, slot: number, one: Session, branch: string, minutes: number) =>
     bay(manifest, slot, { state: "hosted_session", session_id: one.id, session_title: one.title ?? one.id }, { branch, since: ago(minutes) });
   return {
-    worktrees: [],
     slots: [
       session(ARMADA, 1, queuedOwner, "fleet/gate-policy-every-run", 80),
       session(ARMADA, 2, asking, "fix/cache-key", 17),
@@ -476,17 +451,17 @@ const PLAN = (): PlanUsage => ({
 
 function build(): Scenario {
   const pocketManifest = { ...repository().manifest!, id: POCKET, repository: POCKET, path: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada` };
-  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
-    alsoServed: [{ root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest }],
-  });
-  const jobs = JOBS.map((one) => one.job);
+  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, seven Sessions, four pull requests, main green, eight bays, Autopilot off", [
+    repository(),
+    { root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest },
+  ]);
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs, mergeLines: lines("rest") },
+    state: { ...base.state, repository: null, mergeLines: lines("rest") },
     held: pool(),
-    // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
-    later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
+    // The Session replies, main goes red as 1890 lands, the fix lands.
+    later: [{}, { mergeLines: lines("red") }, { mergeLines: lines("fixed") }],
+    draft: { sessions: (_control, more = []) => sessions([...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

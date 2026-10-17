@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use ipc::door::Reachable;
 
-use crate::tests::fake::{running, FakeDaemon};
+use crate::tests::fake::{FakeDaemon, THE_STUDIO};
 use crate::tests::shapes::{
     run_id, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
 };
@@ -26,12 +26,9 @@ fn wired(daemon: FakeDaemon) -> Router {
     router(Served::by(daemon, run_id(), events))
 }
 
-/// A Fleet holding one running Job, which every case below reaches by handle,
-/// by number or by id.
+/// A Fleet holding one Studio, which every case below reaches by its id.
 fn holding_one() -> FakeDaemon {
-    let daemon = FakeDaemon::new(Broadcaster::new());
-    running(&daemon, "01JOB");
-    daemon
+    FakeDaemon::new(Broadcaster::new())
 }
 
 async fn call(app: &Router, body: &str) -> (StatusCode, String) {
@@ -91,7 +88,7 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    for expected in ["list_jobs", "get_job", "get_events_since", "list_sessions"] {
+    for expected in ["get_studio", "get_events_since", "list_sessions"] {
         assert!(
             body.contains(&format!("\"name\":\"{expected}\"")),
             "the list is missing {expected}"
@@ -102,7 +99,7 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
         "a Bridge-only operation reached the agent's tool set"
     );
     assert!(
-        body.contains("GET /jobs/:job_id"),
+        body.contains("GET /studios/:studio_id"),
         "a tool must name its route"
     );
 }
@@ -113,12 +110,12 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
 /// is not there is what fails here.
 #[tokio::test]
 async fn every_tool_the_door_offers_answers_something_other_than_a_missing_route() {
-    // The Job `1` every path below names is real, so a route that is there and
-    // answers "no such Job" cannot be mistaken for a route that is not.
+    // The Studio every path below names is real, so a route that is there and
+    // answers "no such Studio" cannot be mistaken for a route that is not.
     let app = wired(holding_one());
     for shape in offered() {
         let arguments = format!(
-            r#"{{"job_id":"1","drone_id":"{THE_DRONE}","manifest_id":"{THE_MANIFEST}",
+            r#"{{"studio_id":"{THE_STUDIO}","drone_id":"{THE_DRONE}","manifest_id":"{THE_MANIFEST}",
                "call_id":"{THE_CALL}","kept":"{THE_OUTPUT}","run":"{}","name":"{}",
                "since":"0","q":"src","body":{{}}}}"#,
             THE_FRAME.split('/').next().expect("a run directory"),
@@ -168,26 +165,12 @@ async fn a_tool_call_is_answered_by_the_route_that_serves_the_operation() {
     let (status, body) = call(
         &app,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/call",
-            "params":{"name":"get_job","arguments":{"job_id":"1-a-job"}}}"#,
+            "params":{"name":"get_studio","arguments":{"studio_id":"01STUDIO"}}}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("1-a-job"), "{body}");
+    assert!(body.contains("01STUDIO"), "{body}");
     assert!(body.contains("\"isError\":false"), "{body}");
-}
-
-/// **A handle, not only a ULID.** The `:job_id` extractor resolves all three
-/// forms, and an agent typing what a person types must reach the same Job.
-#[tokio::test]
-async fn a_number_reaches_the_job_a_person_would_have_meant() {
-    let app = wired(holding_one());
-    let (_, body) = call(
-        &app,
-        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call",
-            "params":{"name":"get_job","arguments":{"job_id":"1"}}}"#,
-    )
-    .await;
-    assert!(body.contains("1-a-job"), "{body}");
 }
 
 /// A 404 from the surface is a tool error the model reads, never a transport
@@ -198,12 +181,12 @@ async fn a_refusal_from_the_surface_reaches_the_agent_as_something_to_read() {
     let (status, body) = call(
         &app,
         r#"{"jsonrpc":"2.0","id":4,"method":"tools/call",
-            "params":{"name":"get_job","arguments":{"job_id":"99"}}}"#,
+            "params":{"name":"get_studio","arguments":{"studio_id":"99"}}}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("\"isError\":true"), "{body}");
-    assert!(body.contains("no_such_job"), "{body}");
+    assert!(body.contains("no_such_studio"), "{body}");
 }
 
 /// A command goes through as a POST and its body decodes.
@@ -317,7 +300,7 @@ const LISTING: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":
 async fn a_helm_session_is_listed_what_it_may_call_and_anyone_else_what_they_were() {
     let app = shared(&helm_holding(acting));
     let helm = from(&app, HELM, LISTING).await;
-    assert!(helm.contains("\"name\":\"get_job\""), "{helm}");
+    assert!(helm.contains("\"name\":\"get_studio\""), "{helm}");
     assert!(!helm.contains("\"name\":\"all_done\""), "{helm}");
 
     let anyone = from(&app, ANYONE, LISTING).await;
@@ -335,7 +318,7 @@ async fn read_only_refuses_every_command_and_still_reads() {
             HELM,
             &calling(
                 row.operation,
-                r#"{"job_id":"1","studio_id":"01STUDIO","pid":"1","task_id":"T1","drone_id":"01DRONE","lesson_id":"01JOB-0","repository":"01REPO","number":"1","body":{}}"#,
+                r#"{"studio_id":"01STUDIO","pid":"1","task_id":"T1","drone_id":"01DRONE","lesson_id":"01LESSON-0","repository":"01REPO","number":"1","body":{}}"#,
             ),
         )
         .await;
@@ -351,9 +334,9 @@ async fn read_only_refuses_every_command_and_still_reads() {
         };
         assert!(body.contains(&expected), "{}: {body}", row.operation);
     }
-    let read = from(&app, HELM, &calling("get_job", r#"{"job_id":"1"}"#)).await;
+    let read = from(&app, HELM, &calling("get_studio", r#"{"studio_id":"01STUDIO"}"#)).await;
     assert!(
-        read.contains("1-a-job") && read.contains("\"isError\":false"),
+        read.contains("01STUDIO") && read.contains("\"isError\":false"),
         "{read}"
     );
 }

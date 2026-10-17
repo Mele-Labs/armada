@@ -52,7 +52,7 @@ pub fn room(at_once: u32, standing: &[Standing]) -> u32 {
 pub struct Caps {
     pub until: Option<Timestamp>,
     pub spend_cap_micros: Option<u64>,
-    pub job_cap: Option<u32>,
+    pub session_cap: Option<u32>,
 }
 
 /// What its Sessions have spent and how many it started, which the caps are held to.
@@ -67,7 +67,7 @@ pub struct Spent {
 pub enum Cap {
     Until,
     Spend,
-    Jobs,
+    Sessions,
 }
 
 impl Cap {
@@ -75,14 +75,15 @@ impl Cap {
         match self {
             Cap::Until => "until",
             Cap::Spend => "spend",
-            Cap::Jobs => "jobs",
+            Cap::Sessions => "sessions",
         }
     }
 
     pub fn from_stored(word: &str) -> Option<Cap> {
-        [Cap::Until, Cap::Spend, Cap::Jobs]
+        [Cap::Until, Cap::Spend, Cap::Sessions]
             .into_iter()
             .find(|cap| cap.as_stored() == word)
+            .or((word == "jobs").then_some(Cap::Sessions))
     }
 }
 
@@ -91,7 +92,7 @@ impl fmt::Display for Cap {
         out.write_str(match self {
             Cap::Until => "the time to stop has passed",
             Cap::Spend => "the spend cap is reached",
-            Cap::Jobs => "the Job cap is reached",
+            Cap::Sessions => "the Session cap is reached",
         })
     }
 }
@@ -111,8 +112,8 @@ impl Caps {
         if self.spend_cap_micros.is_some_and(|cap| spent.micros >= cap) {
             return Some(Cap::Spend);
         }
-        if self.job_cap.is_some_and(|cap| spent.started >= cap) {
-            return Some(Cap::Jobs);
+        if self.session_cap.is_some_and(|cap| spent.started >= cap) {
+            return Some(Cap::Sessions);
         }
         None
     }
@@ -142,7 +143,7 @@ impl fmt::Display for Unsettable {
             Unsettable::NoRoom => "Autopilot needs room for at least one Session at once",
             Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
             Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
-            Unsettable::AlreadyOver(Cap::Jobs) => "a Job cap of none would start nothing",
+            Unsettable::AlreadyOver(Cap::Sessions) => "a Session cap of none would start nothing",
         })
     }
 }

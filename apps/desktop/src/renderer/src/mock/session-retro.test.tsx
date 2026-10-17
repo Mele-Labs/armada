@@ -64,8 +64,8 @@ test("The card's Open retro link opens that retro on the Retros page, headed by 
   await expect.element(sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" })).toBeVisible();
 
   const item = sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" });
-  await userEvent.click(item.getByRole("button", { name: "Create Job", exact: true }));
-  await expect.element(item.getByText("Agreed")).toBeVisible();
+  await userEvent.click(item.getByRole("button", { name: "Reject change", exact: true }));
+  await expect.element(item).not.toBeInTheDocument();
 });
 
 test("A second press while one is being written is refused in Fleet's words and the card goes on", async () => {
@@ -110,21 +110,7 @@ test("A refused retro says why and opens nothing", async () => {
   await expect.element(sheet()).not.toBeInTheDocument();
 });
 
-test("The Retros page narrows to Sessions' retros and to Jobs'", { timeout: 40_000 }, async () => {
-  mount(s205SessionRetro);
-  await onScreen();
-  await writeAndOpen();
-  await userEvent.click(sheet().getByRole("button", { name: "Close" }));
-  const list = page.getByRole("list", { name: "Retros" });
-  await userEvent.click(page.getByRole("tab", { name: "Sessions", exact: true }));
-  await expect.element(list.getByRole("button", { name: "Fix the flaky store test · s-01IDLECC" }).first()).toBeVisible();
-  await expect.element(list.getByRole("button", { name: "Job 3" })).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("tab", { name: "Jobs", exact: true }));
-  await expect.element(list.getByRole("button", { name: "Job 3" }).first()).toBeVisible();
-  await expect.element(list.getByRole("button", { name: "Fix the flaky store test · s-01IDLECC" })).not.toBeInTheDocument();
-});
-
-test("Closed, the retro's items stay on the Retros page beside the Jobs', each from its Session and as the agent's way", async () => {
+test("Closed, the retro's items stay on the Retros page beside the other Sessions', each from its Session and as the agent's way", async () => {
   mount(s205SessionRetro);
   await onScreen();
   await writeAndOpen();
@@ -133,7 +119,7 @@ test("Closed, the retro's items stay on the Retros page beside the Jobs', each f
 
   const list = page.getByRole("list", { name: "Retros" });
   await expect.element(list.getByRole("button", { name: "Fix the flaky store test · s-01IDLECC" }).first()).toBeVisible();
-  await expect.element(list.getByRole("button", { name: "Job 3" }).first()).toBeVisible();
+  await expect.element(list.getByRole("button", { name: /^Retire guides 8 and 20/ }).first()).toBeVisible();
   await expect.element(list.getByRole("listitem", { name: "A restart of Fleet killed the subagents" }).getByText("Agent", { exact: true }).last()).toBeVisible();
 });
 

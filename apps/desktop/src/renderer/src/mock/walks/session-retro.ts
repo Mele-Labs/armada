@@ -2,7 +2,7 @@
 // does not take you anywhere: a card appears in the thread where you pressed, says which stage
 // Fleet is at and for how long, and settles the retro's items as the model writes them. When it is
 // written the card folds to one line and its `Open retro` link opens the kept retro on the Retros
-// page, where agreeing with an item proposes a Job.
+// page, where agreeing with an item starts a Session.
 
 import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -43,8 +43,7 @@ const retro = walk("session-retro-live", [
   { look: item("Walks opened in your browser"), say: "Five items, from today's pains" },
   { press: inside(RESET, button("Evidence")), say: "The record rows it cites" },
   { look: inside(RESET, text("Allow git reset --hard origin/main?")), say: "The ask, and how long it waited" },
-  { press: inside(RESET, button("Create Job", { exact: true })), say: "Agree proposes a Job" },
-  { look: inside(RESET, text(/^Agreed$/)), say: "The item reads Agreed" },
+  { press: inside(RESET, button("Start Session", { exact: true })), say: "Start Session agrees with it" },
 ]);
 
 export { retro as "session-retro" };

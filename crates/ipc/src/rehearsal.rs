@@ -1,54 +1,45 @@
-//! A person's run of one Manifest entry in a Job's worktree: what the run sheet
+//! A person's run of one Manifest entry in the main checkout: what the run sheet
 //! lists, what streams while one is going, and what a finished one left.
 //!
-//! **A rehearsal, never a verdict.** Nothing here is a Check row or Evidence,
-//! and no field moves a Job — Journey 9, *A passing Check leaves no verdict
-//! behind*. The shapes are fitted to the run sheet's props (#609).
+//! **A rehearsal, never a verdict.** Nothing here is a Check row or Evidence —
+//! Journey 9, *A passing Check leaves no verdict behind*. The shapes are fitted
+//! to the run sheet's props (#609).
 
 use serde::{Deserialize, Serialize};
 
-use crate::event::{ChangedFile, Missed};
-use crate::ids::{Instant, JobId};
+use crate::event::Missed;
+use crate::ids::Instant;
 use crate::protocol_id::ProtocolId;
 use crate::underway::{OutputClosed, OutputLines};
 
-/// `get_run_sheet`: what can be run in this Job's worktree, and the facts the
-/// sheet's header and notices draw from.
+/// What happened to one file, in the vocabulary a person reads.
+///
+/// **A closed set that is not expected to grow.** Every delta Fleet's reading
+/// can produce has a variant, so a client's `match` on this stays exhaustive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeKind {
+    /// The file did not exist before. Staged or not, an untracked file is added.
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    Copied,
+    /// A file became a directory or a symlink, or the reverse. Not a content
+    /// change.
+    TypeChanged,
+    Conflicted,
+    /// In the diff, and could not be read. **Not an absence of change** — one
+    /// path's reading failed and the rest did not.
+    Unreadable,
+}
+
+/// One file a run or a turn changed: a name and a kind, never bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunSheet {
-    pub job_id: JobId,
-    /// The Commands `setup.requires` names, in its order.
-    pub setup: Vec<RunEntry>,
-    /// Every Check, in the order the Manifest declares them.
-    pub checks: Vec<RunEntry>,
-    /// Every Command `setup.requires` does not name.
-    pub commands: Vec<RunEntry>,
-    /// When the Manifest file was last changed by a commit made at or before
-    /// the Job was created. Absent where no commit in reach touched it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest_edited_at: Option<Instant>,
-    /// Absent worktree, nothing runs: the sheet's Run is disabled and says why.
-    pub worktree_on_disk: bool,
-    /// The worktree's own `armada.yml` declares something other than these
-    /// lists, so a person can be offered its version instead.
-    pub worktree_differs: bool,
-    /// Why the worktree's own `armada.yml` could not be read, where it could not.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub worktree_unreadable: Option<String>,
-    /// A Drone is working in the tree: a run shares it, and Undo is refused.
-    pub drone_working: bool,
-    /// The run in flight on this Job, if one is.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub running: Option<RunUnderway>,
-    /// The Commands declaring `serve`, with this Job's instance of each. Not
-    /// in `commands`: a server is started with `start_server`, never
-    /// `start_run`. Since protocol 10.10.
-    #[serde(default)]
-    pub servers: Vec<crate::servers::ServerEntry>,
-    /// What the worktree's build directories started from. **Absent where the
-    /// Job's Manifest declares no `setup.seed`.** Since protocol 13.46.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seeding: Option<crate::seeding::WorktreeSeeding>,
+pub struct ChangedFile {
+    /// Repository-relative, exactly as git spells it.
+    pub path: String,
+    pub change: ChangeKind,
 }
 
 /// One Check or Command, as the sheet lists it.
@@ -59,8 +50,8 @@ pub struct RunEntry {
     pub run: String,
     /// Whether it declares `narrow`.
     pub narrows: bool,
-    /// The command a narrowed run resolves to against what this Job changed.
-    /// Absent where it declares no `narrow`, and where nothing the Job changed
+    /// The command a narrowed run resolves to against what changed.
+    /// Absent where it declares no `narrow`, and where nothing changed
     /// feeds it — the whole tree is then the only run there is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub narrow_run: Option<String>,
@@ -69,100 +60,8 @@ pub struct RunEntry {
     pub expect_exit_code: i64,
     /// Said, never enforced: a person's own run needs no approval.
     pub destructive: bool,
-    /// Taken from what the Job froze at creation. `false` is read from the
-    /// Manifest Fleet holds now, because the Job froze nothing for this entry.
+    /// Always `false` in the checkout: it reads the Manifest Fleet holds now.
     pub frozen: bool,
-}
-
-/// `start_run`'s body. **A name, never a command line**: what runs is what the
-/// Manifest declares, so nothing a caller sends reaches a process as argv.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StartRun {
-    pub name: String,
-    /// Run what `narrow` resolves to, rather than the whole tree.
-    #[serde(default)]
-    pub narrowed: bool,
-    /// Run the worktree's own `armada.yml` rather than what the Job froze.
-    #[serde(default)]
-    pub worktree_version: bool,
-}
-
-/// A run that has started and not finished. `start_run`'s answer.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunUnderway {
-    /// The run's own id. What `stop_run`, `undo_run` and `get_run_output` take.
-    pub id: String,
-    pub job_id: JobId,
-    pub name: String,
-    /// The command line that is running, narrowed where it was.
-    pub command: String,
-    pub narrowed: bool,
-    /// Elapsed time is counted from here; nothing ticks on the wire.
-    pub started_at: Instant,
-    /// Who asked for this run. **Never absent**: a record from before 23.40
-    /// reads as `outside`. Since 23.40.
-    #[serde(default)]
-    pub requester: crate::Requester,
-}
-
-/// One finished run, as its directory under `.armada` records it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunRecord {
-    pub id: String,
-    pub job_id: JobId,
-    pub name: String,
-    pub command: String,
-    pub narrowed: bool,
-    pub worktree_version: bool,
-    /// Whether the entry came from what the Job froze. See [`RunEntry::frozen`].
-    pub frozen: bool,
-    /// The Commands that ran first, in order.
-    pub required: Vec<String>,
-    pub started_at: Instant,
-    pub ended_at: Instant,
-    pub duration_ms: u64,
-    /// Absent where there was no code: a signal, a budget, a spawn that failed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub exit_code: Option<i32>,
-    pub expect_exit_code: i64,
-    /// How it ended, in a sentence. **Unhued on every surface**: a rehearsal.
-    pub ended: String,
-    /// A person pressed Stop.
-    pub stopped: bool,
-    /// What the run wrote, read from the tree before and after it.
-    pub changed: Vec<ChangedFile>,
-    /// Why the change could not be read, where it could not. Undo is then
-    /// unavailable, and an empty `changed` means nothing.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub changed_unreadable: Option<String>,
-    /// A Drone was working in the tree during the run, so `changed` may hold
-    /// its edits as well as the run's.
-    pub shared_with_drone: bool,
-    /// Where the tree before the run is kept. Absent: nothing to undo from.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snapshot: Option<String>,
-    /// When a person undid it. A run is undone once.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub undone_at: Option<Instant>,
-    /// The log, relative to `ManifestSummary::records_root`.
-    pub log: String,
-    /// Who asked for this run. **Never absent**: a record from before 23.40
-    /// reads as `outside`. Since 23.40.
-    #[serde(default)]
-    pub requester: crate::Requester,
-}
-
-/// `list_runs`: a Job's earlier runs, newest first — and the directories that
-/// would not read, said rather than dropped.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunList {
-    pub job_id: JobId,
-    pub runs: Vec<RunRecord>,
-    pub unreadable: Vec<UnreadableRun>,
-    /// The Checks a Drone asked for on this Job, as their own rows and never
-    /// among `runs`: an asked result is not a rehearsal's. Oldest first. Since 23.40.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub asked_runs: Vec<crate::AskedRun>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,49 +91,13 @@ pub struct NamedRun {
     pub id: String,
 }
 
-/// One message on a run's socket, `observe_run`.
-///
-/// **`observe_job`'s shape, one subject over**: what the log holds, then what
-/// the run prints next, a count where the bound dropped some, and a sentence
-/// saying why it stopped. Output never rides `/events`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "message", rename_all = "snake_case")]
-pub enum RunMessage {
-    Opened(RunOpened),
-    Lines(OutputLines),
-    /// The viewer fell behind and this many live messages were dropped. The
-    /// log keeps them; `get_run_output` reads it.
-    Missed(Missed),
-    Closed(OutputClosed),
-}
-
-/// The first message: whose run this is, and what the opening read left out.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RunOpened {
-    pub protocol_id: ProtocolId,
-    pub job_id: JobId,
-    pub id: String,
-    pub name: String,
-    /// The log, relative to `ManifestSummary::records_root`.
-    pub path: String,
-    /// Whether the run was still going when this opened. `false` is a run
-    /// that has ended, and the history is all of it.
-    pub live: bool,
-    /// Older lines the opening read left out, because the window is bounded.
-    pub skipped: u64,
-}
-
 // ---------------------------------------------------------------------------
 // The checkout's half — Journey 9, *Running one*
 // ---------------------------------------------------------------------------
 //
-// **Its own shapes rather than the Job's with the id left out.** Every type
-// above carries a `job_id` that is required and means something, and the main
-// checkout is not a Job with a blank one: a sentinel there is an id that names
-// no Job, and both sides would have to learn it. What the checkout's half
-// drops is what only a Job has — a frozen Manifest, a worktree that can be
-// gone, a Drone in the tree, a diff to narrow against — so these are smaller
-// shapes, not copies.
+// **A frozen Manifest, a worktree that can be gone, a Drone in the tree and a
+// diff to narrow against are not here**: the tree is the checkout Fleet is
+// running on.
 
 /// `get_checkout_run_sheet`: what can be run in the main checkout, and the
 /// facts the panel's header draws from.
@@ -288,9 +151,9 @@ pub struct WorkspaceCommands {
 
 /// `start_checkout_run`'s body: a name, and the workspace whose file declares it.
 ///
-/// Not [`StartRun`]: there is no frozen Manifest to choose against and no
-/// Job's diff to narrow to, so neither of that type's two flags has an answer
-/// here. A caller cannot ask for one because the field is not there to set.
+/// There is no frozen Manifest to choose against and no diff to narrow to, so
+/// neither flag exists: a caller cannot ask for one because the field is not
+/// there to set.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartCheckoutRun {
     pub name: String,
@@ -414,7 +277,8 @@ pub struct CheckoutRunList {
 }
 
 /// One message on a checkout run's socket, `observe_checkout_run`.
-/// [`RunMessage`]'s four, one subject over.
+/// What the log holds, then what the run prints next, a count where the bound
+/// dropped some, and a sentence saying why it stopped.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "message", rename_all = "snake_case")]
 pub enum CheckoutRunMessage {

@@ -114,8 +114,8 @@ export type StudiosApi = {
    */
   readStudioFrame: (studioId: string, nodeId: string, picture?: string) => Promise<FrameRead>;
   /**
-   * Group, defer, write up, edit a draft, end a Contradiction or dispatch —
-   * #1291. **One capability rather than six**: what `act` names is the route
+   * Group, defer, write up, edit a draft, end a Contradiction or read a link in —
+   * #1291. **One capability rather than seven**: what `act` names is the route
    * main posts to, and every one answers with the Studio whole.
    */
   promoteOnStudio: (studioId: string, promotion: StudioPromotion) => Promise<Outcome>;

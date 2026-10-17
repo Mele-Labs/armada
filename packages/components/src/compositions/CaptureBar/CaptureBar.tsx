@@ -44,21 +44,15 @@ export type CaptureBarProps = {
   /** Scheme, host and port, drawn in full and never abbreviated. The whole address where there is no `run`. */
   address: string;
   /**
-   * The Studio a Note lands on, by name. **`null`: a Job's server, opened to be
+   * The Studio a Note lands on, by name. **`null`: a server opened to be
    * walked** — the bar says so, and offers no Capture, since a Note would have
    * nowhere to land.
    */
   studio: string | null;
-  /**
-   * The Job a note goes to where there is no Studio — the one whose server
-   * this window walks. Capture is offered for it, and the note waits on the
-   * Job until it is sent back.
-   */
-  job?: string;
-  /** The Session a note goes to, where a Session showed this page. Its own prop, never `job`'s. */
+  /** The Session a note goes to, where a Session showed this page. */
   session?: string;
   /**
-   * Open the Job or the Session named in "Notes go to", in Bridge's main window. **Absent: the name
+   * Open the Session named in "Notes go to", in Bridge's main window. **Absent: the name
    * is plain text.**
    */
   onOpenOwner?: () => void;
@@ -76,7 +70,7 @@ export type CaptureBarProps = {
   /** The binding that arms capture, from the action registry. */
   binding: readonly string[];
   /**
-   * Tell the Job or the Session that opened this window that the person walked
+   * Tell the Session that opened this window that the person walked
    * it and it is right. **Absent: no Approve**, as on a Studio's window, which
    * has no owner to tell.
    */
@@ -89,7 +83,7 @@ export type CaptureBarProps = {
   question?: string;
   onShowQuestion?: () => void;
   /**
-   * The panel beside the page, holding the Session's thread or the Job that opened this window. **Absent:
+   * The panel beside the page, holding the Session's thread. **Absent:
    * a Studio's window, which has none.** One press draws it or folds it away.
    */
   panel?: CaptureBarPanel;
@@ -99,7 +93,7 @@ export type CaptureBarProps = {
    */
   variations?: CaptureBarVariations;
   /**
-   * Whether the page is ready to walk, as the Session or the Job that opened it says: `ready` it is
+   * Whether the page is ready to walk, as the Session that opened it says: `ready` it is
    * done and waiting on the person, `working` it is still changing it. Drawn as the Session mark at
    * the bar's start and as the bar's own hue. **Absent: nobody has said.**
    */
@@ -180,7 +174,7 @@ export type CaptureBarVariations = { names: readonly string[]; at: number; onPic
 export const variationLetter = (at: number): string => String.fromCharCode(65 + at);
 
 /** Which panel the window has, whether it is drawn, and the press that changes that. */
-export type CaptureBarPanel = { kind: "session" | "job"; open: boolean; onToggle: (open: boolean) => void };
+export type CaptureBarPanel = { kind: "session"; open: boolean; onToggle: (open: boolean) => void };
 
 /** Whether the bar has a second row to draw — a refusal, the run having ended, or a folded question. */
 export function hasASecondRow(
@@ -190,22 +184,21 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
+  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const approved = approval?.state === "approved";
-  const owner = job ?? session;
-  const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
+  const landsOn = studio !== null ? `Notes land on ${studio}` : session !== undefined ? `Notes go to ${session}` : null;
   const aim =
-    studio === null && owner !== undefined && props.onOpenOwner !== undefined ? (
+    studio === null && session !== undefined && props.onOpenOwner !== undefined ? (
       <>
         Notes go to{" "}
         <button
           type="button"
           className="armada-capture-bar__owner"
-          title={job === undefined ? "Open this Job in Bridge" : "Open this Job in Bridge"}
+          title="Open this Job in Bridge"
           onClick={props.onOpenOwner}
         >
-          {owner}
+          {session}
         </button>
       </>
     ) : (
@@ -236,7 +229,7 @@ export function CaptureBar(props: CaptureBarProps) {
         )}
         <span className="armada-capture-bar__address">{address}</span>
         <span className="armada-capture-bar__aim">
-          {!serving ? "The run ended" : (aim ?? "Walking a Job's server")}
+          {!serving ? "The run ended" : (aim ?? "Walking a server")}
         </span>
         <Button variant="ghost" size="sm" disabled={!serving} onClick={props.onReload}>
           Reload
@@ -275,7 +268,7 @@ export function CaptureBar(props: CaptureBarProps) {
         )}
         {panel === undefined ? null : (
           <Button variant="ghost" size="sm" aria-expanded={panel.open} onClick={() => panel.onToggle(!panel.open)}>
-            {`${panel.open ? "Hide" : "Show"} ${panel.kind === "session" ? "Job" : "Job"}`}
+            {`${panel.open ? "Hide" : "Show"} Job`}
           </Button>
         )}
       </div>

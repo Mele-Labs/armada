@@ -1,48 +1,24 @@
-//! Giving a repository's worktrees, branches and their Jobs' resources back.
+//! Giving back what Fleet's own files hold on disk: the shared base checkouts,
+//! and with `--all` the machine's store and the files beside it.
 //!
-//! # It deletes what a record derives, never what a pattern matches
+//! # It deletes what a derivation names, never what a pattern matches
 //!
 //! A hand-run `git branch -D` over the `armada/*` glob destroyed nine unmerged
-//! branches belonging to no Job. So the branches here are not a list: each is
-//! derived from a record, through the `WorktreeSpec` that derived it in the
-//! first place. **No record, no delete.** A worktree with nothing behind it is
-//! reported and left: evidence, not litter.
+//! branches that were nobody's to delete. So each base checkout is removed through the
+//! `BaseSpec` that derives it. **No derivation, no delete.** A directory under
+//! `.armada/worktrees/` is reported and left: evidence, not litter.
 //!
-//! **Reclaiming a Job's disk is not forgetting the Job.** A folded Job keeps
-//! its row, its log and its results: [`Store::retain_job`] clears only what
-//! this act made stale, the live Drone process. `forget_job` is still real.
-//!
-//! **A row that will not rebuild has no such record to keep.** It carries its
-//! id and its Manifest and is cleared through that same `WorktreeSpec` — the
-//! id came out of this store, not off a glob. Confusing the two left `--all`
-//! as the only recovery from a migration that orphaned four rows.
-//!
-//! # Work nothing has taken is kept, committed or not
-//!
-//! Fleet commits a finished Job's work, so its branch is the only copy. A
-//! branch the base cannot reach is named and left, on the same grounds as an
-//! unclaimed worktree. A checkout holding *uncommitted* work is the same claim
-//! one step earlier — see [`WorkKept`]. `--force` takes both.
-//!
-//! A pool slot is the exception: `--force` gives it back only by the pool's
-//! rules, which keep both. See [`held`].
-
-mod held;
+//! A Session's worktree is a pool slot, which the pool gives back. `armada
+//! worktree` is where one is read and released.
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{BaseSpec, Vcs, WorktreeSpec};
-use adapters::{BranchGone, Reclaimed, UnmergedWork, WorktreeStanding};
+use adapter_traits::{BaseSpec, Vcs};
 use config::Manifest;
-use core_model::{JobId, Timestamp};
 use fleet::runtime::{self, Presence};
-use fleet::{Clock, SystemClock};
-use store::{Forgotten, Retained, Store};
 
 use crate::serve;
 use crate::setup::MANIFEST;
-
-pub use held::{Holding, SlotHeld};
 
 /// The machine files `--all` removes, beside the runtime file itself.
 ///
@@ -64,92 +40,10 @@ const MACHINE_FILES: &[&str] = &[
 /// being forgotten in memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
-    /// This repository's worktrees, branches and Jobs.
+    /// This repository's base checkouts.
     Repository,
     /// And the machine's store and the files beside it.
     AndTheMachine,
-}
-
-/// What the store did with a Job's row, once its worktree and branch were
-/// reclaimed.
-///
-/// **Two shapes because a clean means two different things.** A Job that
-/// folded keeps its record — [`Retained`] — because there is metadata in it
-/// worth keeping. A row that would not rebuild has none, so it still goes
-/// through [`Forgotten`], the same whole deletion `armada clean` used to give
-/// every Job.
-#[derive(Debug)]
-pub enum RecordOutcome {
-    Retained(Retained),
-    Forgotten(Forgotten),
-}
-
-impl RecordOutcome {
-    /// Whether there was a Job row at all, whichever shape answered.
-    pub fn existed(&self) -> bool {
-        match self {
-            RecordOutcome::Retained(retained) => retained.existed,
-            RecordOutcome::Forgotten(forgotten) => forgotten.existed,
-        }
-    }
-}
-
-/// What one Job's clean did.
-#[derive(Debug)]
-pub struct JobCleaned {
-    pub job_id: String,
-    pub title: String,
-    pub reclaimed: Reclaimed,
-    pub record: RecordOutcome,
-}
-
-/// What clearing one unreadable row did.
-///
-/// **Not a [`JobCleaned`].** Nothing here folded into a Job, so there is no
-/// title and no history to report — a row cleared whole and a Job whose
-/// record was kept are different events and are said differently.
-#[derive(Debug)]
-pub struct RowCleared {
-    pub job_id: String,
-    /// Why it would not rebuild. Said as it goes, because after this the row is
-    /// gone and the reason with it.
-    pub why: String,
-    pub reclaimed: Reclaimed,
-    pub record: RecordOutcome,
-}
-
-/// A Job whose checkout holds work nothing has taken.
-///
-/// **Left where it is, and its record with it.** An unmerged branch is kept
-/// because the commit is the only copy; uncommitted work is that with nothing
-/// even holding it, and it is the case that reads as no work at all from
-/// outside — the branch is level with its base, so every merged-ness reading
-/// says the checkout is disposable. The record stays because the record is what
-/// derives the checkout: forgetting it would leave a directory nothing can
-/// name, which is the `unclaimed` state this file already declines to remove.
-///
-/// `--force` takes it, which is the same escape a kept branch has.
-#[derive(Debug)]
-pub struct WorkKept {
-    pub job_id: String,
-    /// The Job's title, or — for a row that would not rebuild and so has none
-    /// — why it would not.
-    pub title: String,
-    pub path: String,
-    /// What `git status --porcelain` reported, so a person can look before
-    /// they decide rather than read a byte count afterwards.
-    pub files: Vec<String>,
-}
-
-/// A Job a person has taken over, whose checkout a clean does not touch.
-///
-/// **Named, because a clean that skipped it silently would leave a person to
-/// wonder whether the act worked.** `docs/concepts/pilot.md`.
-#[derive(Debug)]
-pub struct PilotedKept {
-    pub job_id: String,
-    pub title: String,
-    pub path: String,
 }
 
 /// A machine file `--all` was asked about.
@@ -165,29 +59,16 @@ pub enum FileGone {
 pub struct Cleaned {
     pub repository: PathBuf,
     pub manifest_id: String,
-    pub jobs: Vec<JobCleaned>,
-    /// Worktree directories with no Job behind them. **Left alone.**
+    /// Directories under `.armada/worktrees/`. **Left alone.**
     pub unclaimed: Vec<PathBuf>,
     /// Only with `--all`.
     pub machine: Vec<FileGone>,
-    /// Rows this Manifest owns that would not rebuild, cleared by id.
-    pub unreadable: Vec<RowCleared>,
-    /// Checkouts holding uncommitted work. **Left alone**, records and all.
-    pub uncommitted: Vec<WorkKept>,
-    /// Pool slots a Job still holds. **Left alone**, branches and records too.
-    pub held: Vec<SlotHeld>,
-    /// Jobs a person is working in. **Left alone**, whatever `--force` says.
-    pub piloted: Vec<PilotedKept>,
-    /// Rows that would not rebuild and belong to some other Manifest. Left for
-    /// the repository that owns them, and counted so a person is not told
-    /// nothing about rows they can see in Fleet's boot line.
-    pub unreadable_elsewhere: usize,
     /// The shared base checkouts this clean took, by commit.
     ///
     /// **Every one of them, and not only the ones the base has moved past.**
-    /// Fleet's sweep keeps the current base because a Job is about to want it;
-    /// a clean is a person saying give the disk back, and the checkout is
-    /// remade by the next Job that needs a *before*. Holding one here would be
+    /// Fleet's sweep keeps the current base because a Session is about to want
+    /// it; a clean is a person saying give the disk back, and the checkout is
+    /// remade by the next run that needs a *before*. Holding one here would be
     /// `armada clean` leaving behind the largest directory under `.armada/`.
     pub bases: Vec<String>,
     /// Things that went wrong and did not stop the rest.
@@ -195,29 +76,10 @@ pub struct Cleaned {
 }
 
 impl Cleaned {
-    /// The branches left standing because nothing has taken their commits.
-    ///
-    /// Derived from the Jobs rather than stored beside them: two copies of one
-    /// list is how a summary comes to disagree with the lines above it.
-    pub fn branches_left(&self) -> Vec<&BranchGone> {
-        self.jobs
-            .iter()
-            .map(|job| &job.reclaimed.branch)
-            .chain(self.unreadable.iter().map(|row| &row.reclaimed.branch))
-            .filter(|branch| {
-                matches!(
-                    branch,
-                    BranchGone::Kept { .. } | BranchGone::KeptUnanswered { .. }
-                )
-            })
-            .collect()
-    }
-
     /// Whether anything was removed at all. A clean that did nothing says so
     /// rather than printing an empty list.
     pub fn touched_nothing(&self) -> bool {
-        self.jobs.is_empty()
-            && self.unreadable.is_empty()
+        self.bases.is_empty()
             && self
                 .machine
                 .iter()
@@ -228,8 +90,7 @@ impl Cleaned {
 /// Why a clean did not happen at all.
 #[derive(Debug)]
 pub enum CleanRefused {
-    /// There is no Manifest here, so there is no repository to clean and no id
-    /// to select Jobs by.
+    /// There is no Manifest here, so there is no repository to clean.
     NotARepository {
         path: PathBuf,
     },
@@ -241,9 +102,8 @@ pub enum CleanRefused {
         port: u16,
     },
     RuntimeUnreadable(Box<runtime::ReadError>),
-    StoreUnreadable(Box<store::OpenError>),
     /// The path could not be made absolute, so nothing here could derive a
-    /// worktree from it.
+    /// checkout from it.
     RepositoryUnresolvable {
         path: PathBuf,
         why: std::io::Error,
@@ -252,26 +112,12 @@ pub enum CleanRefused {
 
 /// Clean `root`, as far as `scope` reaches.
 ///
-/// **It reclaims worktrees, branches and a Drone's process, and it keeps
-/// every folded Job's record.** A Job's log, its Drones' transcripts, its
-/// Checks' output and the deliverables its Judge read all sit under the
-/// repository root rather than inside the checkout — `fleet::transcript`,
-/// `fleet::check_output` and `fleet::keeping` derive their paths from it — so
-/// they survive with no exemption written here. `#223` was the one record
-/// that did not: a step's deliverable is written inside the worktree, reaches
-/// no commit because `.armada/*` is ignored, and went with the checkout an
-/// hour after its Job was merged. Anything added here that reaches outside
-/// `.armada/worktrees/` is that defect arriving again. `#69` bounds the four
-/// together. What the store held about a folded Job — `job_events`, Checks,
-/// Judgments, Evidence, footprint, plans, delivery — survives too, through
-/// `Store::retain_job` rather than `Store::forget_job`; a row that would not
-/// rebuild has no such record and is still cleared whole.
-pub fn clean(
-    root: &Path,
-    machine: &Path,
-    scope: Scope,
-    unmerged: UnmergedWork,
-) -> Result<Cleaned, CleanRefused> {
+/// **It gives back the base checkouts and nothing a record holds.** A Session's
+/// transcript, log and results sit under the repository root rather than
+/// inside a checkout, so they survive with no exemption written here. Anything
+/// added here that reaches outside `.armada/bases/` is that defect arriving
+/// again.
+pub fn clean(root: &Path, machine: &Path, scope: Scope) -> Result<Cleaned, CleanRefused> {
     let manifest = read_the_manifest(root)?;
     refuse_a_live_fleet(&machine.join(runtime::FILE_NAME))?;
 
@@ -287,22 +133,10 @@ pub fn clean(
         ..Cleaned::default()
     };
 
-    let db = machine.join(MACHINE_FILES[0]);
-    if db.exists() {
-        let mut store =
-            Store::open(&db).map_err(|why| CleanRefused::StoreUnreadable(Box::new(why)))?;
-        // Read once, before the loop: every Job this sweep retains is stamped
-        // with the same instant, the way `declared_base` answers the same
-        // question for every one of them.
-        let now = SystemClock::new().now();
-        forget_this_manifests_jobs(&mut store, &manifest, &root, unmerged, &now, &mut cleaned);
-    }
-    report_what_no_job_claims(&root, &mut cleaned);
+    report_the_worktrees_left(&root, &mut cleaned);
     cleaned.bases = give_back_the_base_checkouts(&root, &mut cleaned.faults);
 
     if scope == Scope::AndTheMachine {
-        // After the Jobs, never before. Removing the store first would leave
-        // every worktree unclaimed and every branch undeleted.
         cleaned.machine = MACHINE_FILES
             .iter()
             .map(|name| remove(machine, name))
@@ -323,7 +157,7 @@ fn read_the_manifest(root: &Path) -> Result<Manifest, CleanRefused> {
     })
 }
 
-/// **The refusal that matters.** Forgetting Jobs out from under a live Fleet
+/// **The refusal that matters.** Removing the store out from under a live Fleet
 /// leaves it holding records that no longer exist.
 fn refuse_a_live_fleet(runtime_file: &Path) -> Result<(), CleanRefused> {
     match runtime::read(runtime_file) {
@@ -336,355 +170,20 @@ fn refuse_a_live_fleet(runtime_file: &Path) -> Result<(), CleanRefused> {
     }
 }
 
-fn forget_this_manifests_jobs(
-    store: &mut Store,
-    manifest: &Manifest,
-    root: &Path,
-    unmerged: UnmergedWork,
-    now: &Timestamp,
-    cleaned: &mut Cleaned,
-) {
-    let (loaded, unreadable) = match store.load_all_jobs() {
-        Ok(loaded) => (loaded, Vec::new()),
-        // A row that will not rebuild does not hide the rows that will, and it
-        // is not dropped either — it is cleared below, by the id it still has.
-        Err(store::LoadAllError::SomeJobsUnreadable { loaded, failed }) => (loaded, failed),
-        Err(why) => {
-            cleaned
-                .faults
-                .push(format!("the store would not be read: {why}"));
-            return;
-        }
-    };
-
-    // Read once, before the loop: `base:` is the repository's own answer to
-    // what merged means, and a clean that guessed would keep a branch that had
-    // just been merged into the branch the file names.
-    let declared_base = manifest.base().map(str::to_string);
-    let base = declared_base.as_deref();
-
-    // **Before anything is given back**, and not shaped by `--force`: the
-    // worktree is a person's for as long as the Job is piloted.
-    for job in loaded
-        .jobs
-        .iter()
-        .filter(|job| job.owner_manifest_id().as_str() == manifest.id().as_str())
-        .filter(|job| job.status() == core_model::JobStatus::Piloted)
-    {
-        cleaned.piloted.push(PilotedKept {
-            job_id: job.id().as_str().to_string(),
-            title: job.title().as_str().to_string(),
-            path: piloted_path(root, job),
-        });
-    }
-
-    // The id joins the record, the handle names the worktree and the branch,
-    // and the title is what a person reads back. Three values, one pass.
-    let mine: Vec<(JobId, String, String, Option<u32>)> = loaded
-        .jobs
-        .iter()
-        .filter(|job| job.owner_manifest_id().as_str() == manifest.id().as_str())
-        .filter(|job| job.status() != core_model::JobStatus::Piloted)
-        .map(|job| {
-            (
-                job.id().clone(),
-                job.handle(),
-                job.title().as_str().to_string(),
-                job.worktree_slot(),
-            )
-        })
-        .collect();
-
-    for (job_id, handle, title, slot) in mine {
-        match give_back(
-            store,
-            root,
-            &job_id,
-            (&handle, slot),
-            base,
-            unmerged,
-            Keep::Record,
-            now,
-            cleaned,
-        ) {
-            GaveBack::Done { reclaimed, record } => cleaned.jobs.push(JobCleaned {
-                job_id: job_id.as_str().to_string(),
-                title,
-                reclaimed,
-                record,
-            }),
-            GaveBack::HeldUncommitted { path, files } => cleaned.uncommitted.push(WorkKept {
-                job_id: job_id.as_str().to_string(),
-                title,
-                path,
-                files,
-            }),
-            GaveBack::SlotHeld { slot, path, why } => cleaned.held.push(SlotHeld {
-                job_id: job_id.as_str().to_string(),
-                title,
-                slot,
-                path,
-                why,
-            }),
-            GaveBack::Skipped => continue,
-            GaveBack::RepositoryClosed => return,
-        }
-    }
-
-    clear_this_manifests_unreadable_rows(
-        store, manifest, root, base, unmerged, now, unreadable, cleaned,
-    );
-}
-
-/// Where a piloted Job's checkout is: its slot where it holds one, and the path
-/// its handle derives otherwise.
-fn piloted_path(root: &Path, job: &core_model::Job) -> String {
-    let at = root.to_string_lossy();
-    // The handle first and the id where only that is on disk, as `give_back`
-    // reads a checkout cut before Jobs had handles.
-    let named = [job.handle(), job.id().as_str().to_string()]
-        .iter()
-        .filter_map(|name| WorktreeSpec::for_job(&at, name).ok())
-        .collect::<Vec<_>>();
-    let Some(spec) = named
-        .iter()
-        .find(|spec| Path::new(&spec.worktree_path()).exists())
-        .or_else(|| named.first())
-    else {
-        return String::new();
-    };
-    match job.worktree_slot() {
-        Some(slot) => spec.clone().in_slot(slot).worktree_path(),
-        None => spec.worktree_path(),
-    }
-}
-
-/// The rows this store holds and could not fold, removed by the id they carry.
+/// Directories under `.armada/worktrees/`, which nothing makes any more.
 ///
-/// **The Manifest on the row is what selects them**, exactly as the owner on a
-/// rebuilt Job selects it above — a clean in one repository never reaches
-/// another's rows, which is the whole reason `--all` was the wrong recovery.
-fn clear_this_manifests_unreadable_rows(
-    store: &mut Store,
-    manifest: &Manifest,
-    root: &Path,
-    base: Option<&str>,
-    unmerged: UnmergedWork,
-    now: &Timestamp,
-    unreadable: Vec<store::UnreadableRow>,
-    cleaned: &mut Cleaned,
-) {
-    for row in unreadable {
-        let why = row.why.to_string();
-        let Some(named) = row.row else {
-            // Nothing to derive from and nothing to select on. Reported, never
-            // guessed at.
-            cleaned.faults.push(format!(
-                "a row would not rebuild and does not name a Job: {why}"
-            ));
-            continue;
-        };
-        if named.owner_manifest_id.as_str() != manifest.id().as_str() {
-            cleaned.unreadable_elsewhere += 1;
-            continue;
-        }
-        // A row that will not rebuild has no handle to derive; its checkout is
-        // whatever it was named when it was cut, which `give_back` reads off disk.
-        match give_back(
-            store,
-            root,
-            &named.job_id,
-            (named.job_id.as_str(), None),
-            base,
-            unmerged,
-            Keep::Nothing,
-            now,
-            cleaned,
-        ) {
-            GaveBack::Done { reclaimed, record } => cleaned.unreadable.push(RowCleared {
-                job_id: named.job_id.as_str().to_string(),
-                why,
-                reclaimed,
-                record,
-            }),
-            GaveBack::HeldUncommitted { path, files } => cleaned.uncommitted.push(WorkKept {
-                job_id: named.job_id.as_str().to_string(),
-                // A row that would not rebuild has no title to carry, and the
-                // reason it would not is what a person needs instead.
-                title: why,
-                path,
-                files,
-            }),
-            // A row that would not rebuild carries no slot, so none is held.
-            GaveBack::SlotHeld { .. } | GaveBack::Skipped => continue,
-            GaveBack::RepositoryClosed => return,
-        }
-    }
-}
-
-/// Whether an id's row is worth keeping once its resources are given back.
-///
-/// **The caller decides, because only the caller knows whether the id folded
-/// into a Job.** A folded Job has metadata worth keeping; a row that would not
-/// rebuild has none, and is still cleared whole through `Store::forget_job`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Keep {
-    /// Keep the record. Only `job_drone_process` is cleared.
-    Record,
-    /// Keep nothing — the row goes through `Store::forget_job`, as every id
-    /// did before this feature.
-    Nothing,
-}
-
-/// What one id's clean did, and whether the next one is worth attempting.
-enum GaveBack {
-    Done {
-        reclaimed: Reclaimed,
-        record: RecordOutcome,
-    },
-    /// Its checkout holds work nobody has committed, so neither the checkout
-    /// nor the record went. Reported by the caller, which is the one that knows
-    /// the Job's title.
-    HeldUncommitted { path: String, files: Vec<String> },
-    /// A pool slot the Job still holds, so neither its branch nor its record
-    /// was touched.
-    SlotHeld {
-        slot: u32,
-        path: String,
-        why: Holding,
-    },
-    /// This id did not come back; the next may.
-    Skipped,
-    /// The repository itself would not open, so no id will do better.
-    RepositoryClosed,
-}
-
-/// One id's worktree and branch given back, and then its row.
-///
-/// Both callers reach here holding an id this store handed out — a Job that
-/// folded, or a row that would not. Neither holds a name it matched.
-fn give_back(
-    store: &mut Store,
-    root: &Path,
-    job_id: &JobId,
-    (handle, slot): (&str, Option<u32>),
-    base: Option<&str>,
-    unmerged: UnmergedWork,
-    keep: Keep,
-    now: &Timestamp,
-    cleaned: &mut Cleaned,
-) -> GaveBack {
-    // **The handle first, and the id if nothing is there under it.** A worktree
-    // cut before Jobs had handles is named by the id, and it is still a
-    // directory somebody has to get back — so this reads what is on disk rather
-    // than assuming every checkout was made by this build. A Job with neither
-    // has nothing to give back, and the handle is the name reported for it.
-    let under_the_handle = WorktreeSpec::for_job(&root.to_string_lossy(), handle);
-    let under_the_id = WorktreeSpec::for_job(&root.to_string_lossy(), job_id.as_str());
-    let on_disk = |spec: &Result<WorktreeSpec, _>| {
-        spec.as_ref()
-            .is_ok_and(|spec| Path::new(&spec.worktree_path()).exists())
-    };
-    let spec = match (on_disk(&under_the_handle), on_disk(&under_the_id)) {
-        (false, true) => under_the_id,
-        _ => under_the_handle,
-    };
-    let spec = match spec {
-        Ok(spec) => spec,
-        Err(refused) => {
-            cleaned
-                .faults
-                .push(format!("{}: {}", job_id.as_str(), refused.said()));
-            return GaveBack::Skipped;
-        }
-    };
-    // **A slot the Job still holds is the pool's to give back**, and `reclaim`
-    // takes only the branch once it has. Its branch is checked out there until
-    // then, so asking git to delete it only earns a refusal.
-    let spec = match slot.map(|slot| (slot, held::give_back(root, slot, job_id.as_str(), unmerged)))
-    {
-        Some((slot, Some(Ok(())))) => spec.in_slot(slot),
-        Some((slot, Some(Err(why)))) => {
-            return GaveBack::SlotHeld {
-                slot,
-                path: spec.in_slot(slot).worktree_path(),
-                why,
-            }
-        }
-        _ => spec,
-    };
-    // **Before the removal, because after it there is nothing left to ask.**
-    // The same reading `adapters::reclaim` takes on its way to the branch, and
-    // the same one Fleet's own sweep is gated on — one derivation of what is
-    // safe, so a clean and a sweep cannot come to different answers.
-    if unmerged == UnmergedWork::Keep {
-        if let Ok(WorktreeStanding::Dirty { files }) =
-            adapters::standing(&spec, base).map(|stands| stands.worktree)
-        {
-            return GaveBack::HeldUncommitted {
-                path: spec.worktree_path(),
-                files,
-            };
-        }
-    }
-    let reclaimed = match adapters::reclaim(&spec, base, unmerged) {
-        Ok(reclaimed) => reclaimed,
-        Err(why) => {
-            cleaned
-                .faults
-                .push(format!("{} could not be opened: {}", why.repo, why.why));
-            return GaveBack::RepositoryClosed;
-        }
-    };
-    // The worktree first, the record second. Touching the row before the
-    // worktree failed to go would leave a worktree nothing can derive a
-    // branch for. A *kept* branch is not a fault: the worktree went, the row
-    // is settled, and the branch is a git branch a person merges with git.
-    if reclaimed.faulted() {
-        let record = match keep {
-            Keep::Record => RecordOutcome::Retained(Retained::default()),
-            Keep::Nothing => RecordOutcome::Forgotten(Forgotten::default()),
-        };
-        return GaveBack::Done { reclaimed, record };
-    }
-    let outcome = match keep {
-        Keep::Record => store.retain_job(job_id, now).map(RecordOutcome::Retained),
-        Keep::Nothing => store.forget_job(job_id).map(RecordOutcome::Forgotten),
-    };
-    match outcome {
-        Ok(record) => GaveBack::Done { reclaimed, record },
-        Err(why) => {
-            cleaned
-                .faults
-                .push(format!("{}'s row was not settled: {why}", job_id.as_str()));
-            GaveBack::Skipped
-        }
-    }
-}
-
-/// Directories under `.armada/worktrees/` that no Job just accounted for.
-///
-/// **Reported, never removed.** A checkout with no Job behind it is the shape a
-/// half-finished dispatch or a hand-made directory leaves, and both are worth
-/// looking at before anything deletes them.
-fn report_what_no_job_claims(root: &Path, cleaned: &mut Cleaned) {
+/// **Reported, never removed.** A Session works in a pool slot, so what is here
+/// was cut before that and nothing derives it. A directory a person made by
+/// hand is the other shape it can be, and both are worth looking at before
+/// anything deletes them.
+fn report_the_worktrees_left(root: &Path, cleaned: &mut Cleaned) {
     let parent = root.join(".armada").join("worktrees");
     let Ok(entries) = std::fs::read_dir(&parent) else {
         return;
     };
-    let accounted: Vec<&str> = cleaned
-        .jobs
-        .iter()
-        .map(|job| job.job_id.as_str())
-        .chain(cleaned.unreadable.iter().map(|row| row.job_id.as_str()))
-        .collect();
     for entry in entries.flatten() {
         let path = entry.path();
-        let named = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("");
-        if path.is_dir() && !accounted.contains(&named) {
+        if path.is_dir() {
             cleaned.unclaimed.push(path);
         }
     }
@@ -693,11 +192,9 @@ fn report_what_no_job_claims(root: &Path, cleaned: &mut Cleaned) {
 
 /// Take back every shared base checkout, whatever commit it is at.
 ///
-/// **Not keyed to a Job, which is why it is its own walk.** A base checkout
-/// belongs to a commit and is shared by every Job on it, so none of the Job
-/// loops above would ever reach one — and the directory is a whole checkout
-/// plus whatever `setup.requires` installed, which on this repository is the
-/// largest thing under `.armada/`.
+/// A base checkout belongs to a commit and is shared by every run on it. The
+/// directory is a whole checkout plus whatever `setup.requires` installed,
+/// which on this repository is the largest thing under `.armada/`.
 ///
 /// **Through a `BaseSpec` rather than by removing the path the walk read**,
 /// which is `fleet::holding`'s rule and the reason a hand-run glob destroyed
@@ -753,11 +250,10 @@ impl std::fmt::Display for CleanRefused {
             CleanRefused::FleetIsRunning { pid, port } => write!(
                 out,
                 "Fleet is running as pid {pid} on port {port}, and it is holding the \
-                 Jobs you are asking to forget. Stop it first — `kill {pid}` — then \
+                 store you are asking to clean. Stop it first — `kill {pid}` — then \
                  run this again."
             ),
             CleanRefused::RuntimeUnreadable(why) => write!(out, "{why}"),
-            CleanRefused::StoreUnreadable(why) => write!(out, "{why}"),
             CleanRefused::RepositoryUnresolvable { path, why } => {
                 write!(out, "{} could not be resolved: {why}", path.display())
             }

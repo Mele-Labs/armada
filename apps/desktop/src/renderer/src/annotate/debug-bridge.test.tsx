@@ -38,8 +38,6 @@ function capturing() {
 function fleetWith(refuse = false) {
   const sent: { session_id: string; text: string; attachments?: { name: string }[] }[] = [];
   const fleet = {
-    stageAttachment: vi.fn(async () => ({ path: "/tmp/x.png" })),
-    proposeFromRequest: vi.fn(async () => ({ ok: true, jobs: [] }) as never),
     startSession: vi.fn(async (title?: string) =>
       (refuse ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { id: "01DEBUGSESSION00", title, state: "live" } }) as never,
     ),

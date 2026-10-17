@@ -5,7 +5,7 @@
 // holds it. Facts only; nothing is counted. Ported from proto/cockpit-flight-deck. #2301.
 
 import { Fragment, type KeyboardEvent } from "react";
-import { Box, GitBranch, SquareTerminal } from "lucide-react";
+import { GitBranch, SquareTerminal } from "lucide-react";
 import { Tooltip } from "@armada/components";
 import type { BayHistory, BayHolder } from "@armada/protocol";
 
@@ -15,8 +15,7 @@ import { clockOf, shortOf, spanOf } from "./bays";
 const DAY = 24 * 60 * 60_000;
 
 const whoOf = (holder: BayHolder) => holder.title ?? shortOf(holder.id);
-const KIND = { job: "Job", session: "Job", agent: "Agent" } as const;
-const glyphOf = (kind: BayHolder["kind"]) => (kind === "job" ? <Box size={14} aria-hidden /> : <SquareTerminal size={14} aria-hidden />);
+const KIND = { session: "Job", agent: "Agent" } as const;
 const spanText = (one: Stay) =>
   one.from === undefined ? (one.to === undefined ? undefined : `to ${clockOf(one.to)}`) : `${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`;
 
@@ -116,7 +115,7 @@ export function SlotHistory({ history, clock, known, onOpen }: { history: BayHis
                   <span className="deck-history__who">
                     <Tooltip label={kind}>
                       <span className="deck-history__kind" role="img" aria-label={kind}>
-                        {glyphOf(one.holder.kind)}
+                        <SquareTerminal size={14} aria-hidden />
                       </span>
                     </Tooltip>
                     <Tooltip label={one.holder.title ?? one.holder.id}>

@@ -697,7 +697,6 @@ fn a_note_row_says_who_it_was_for_and_what_it_said() {
         panic!("{read:?}");
     };
     assert_eq!(detail.shown(), "to 12-fix-the-writer: take V64 after me");
-    assert!(ipc::mcp::NOTE_FIELDS.contains(&"to") && ipc::mcp::NOTE_FIELDS.contains(&"note"));
 }
 
 /// **The Drone's own record of what it said was broken on main.** Fleet keeps
@@ -719,7 +718,6 @@ fn a_fix_row_names_the_test_said_to_be_broken_on_main() {
         detail.shown(),
         "store::reads_the_last_row under test, broken on main"
     );
-    assert!(ipc::mcp::FIX_FIELDS.contains(&"check") && ipc::mcp::FIX_FIELDS.contains(&"test"));
 }
 
 /// A step that will change nothing has declared that. A blank detail is what a
@@ -806,22 +804,4 @@ fn a_declared_path_under_a_home_directory_does_not_carry_the_operator_s_name() {
         panic!("{read:?}")
     };
     assert_eq!(detail.shown(), "~/Development/armada/crates/fleet");
-}
-
-/// **The drift alarm for the fix, not for the stream.** The keys above are
-/// `ipc::mcp`'s, and the way this blind spot reopens is a field being renamed
-/// there while the decoder keeps the old spelling — which serde answers with
-/// an empty detail and no failure anywhere. So the spellings are asserted
-/// against the lists the tools are actually declared with.
-#[test]
-fn the_armada_keys_read_here_are_the_keys_the_tools_take() {
-    assert!(
-        ipc::mcp::SCOPE_FIELDS.contains(&"context_paths"),
-        "declare_scope's argument is what nothing else in Armada records"
-    );
-    assert!(ipc::mcp::EVIDENCE_FIELDS.contains(&"claimed"));
-    assert!(
-        ipc::mcp::CHECKS_FIELDS.contains(&"only_what_changed"),
-        "run_checks's one argument is what says which of the two runs a step paid for"
-    );
 }

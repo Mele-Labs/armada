@@ -1,21 +1,17 @@
 // Who each entry on the merge line came from: one on a branch and pull request a Session holds,
-// one on a Job's branch, and one nobody here owns. Over the `sessions` scenario with one more
-// Session open. The walk `merge-line-owners` plays it.
+// and two nobody here owns. Over the `sessions` scenario with one more Session open. The walk
+// `merge-line-owners` plays it.
 
 import type { MergeLine } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { review } from "@armada/screens/src/fixtures/build/index";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow } from "../holding";
 import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 
 const PULL = "https://git.example/armada/pull/";
 
-const migrations = asRow(review(), 61, "order-store-migrations", "Order the store migrations");
-const jobBranch = "fix/61-order-store-migrations";
-const owned = { ...migrations, job: { ...migrations.job, branch: jobBranch } };
+const unownedBranch = "fix/61-order-store-migrations";
 
 const more: Session[] = [
   {
@@ -45,7 +41,7 @@ function line(): MergeLine {
     root: repository().root,
     line: [
       { place: 1, branch: "fix/pin-store-clock", pull_request: { number: 1861, url: `${PULL}1861` }, state: "waiting" },
-      { place: 2, branch: jobBranch, pull_request: { number: 1862, url: `${PULL}1862` }, state: "waiting" },
+      { place: 2, branch: unownedBranch, pull_request: { number: 1862, url: `${PULL}1862` }, state: "waiting" },
       { place: 3, branch: "docs/typo-in-the-readme", pull_request: { number: 1863, url: `${PULL}1863` }, state: "waiting" },
     ],
     off: [],
@@ -57,8 +53,7 @@ function line(): MergeLine {
 export const s203MergeLineOwners: Scenario = {
   ...s200Sessions,
   name: "merge-line-owners",
-  says: "A merge line with an entry a Session owns, one a Job owns and one nobody does",
-  state: { ...s200Sessions.state, jobs: [...s200Sessions.state.jobs, owned.job], mergeLines: { lines: [line()] } },
-  reads: { ...s200Sessions.reads, [owned.job.id]: owned },
+  says: "A merge line with an entry a Session owns and two nobody does",
+  state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
   draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
 };

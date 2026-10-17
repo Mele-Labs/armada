@@ -465,6 +465,13 @@ pub struct WindowFailed {
     pub why: String,
 }
 
+/// What `window_failed` answers: whether the owner of the walk was told now. `false` where it was
+/// told already, or nothing is there to hear it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalkTold {
+    pub told: bool,
+}
+
 /// What a press on a waiting item does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

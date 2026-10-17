@@ -247,9 +247,9 @@ fn a_verb_that_reads_differently_in_the_two_places_fails() {
 
 #[test]
 fn a_scope_the_map_annotates_differently_fails() {
-    let found = run(&row("review", WHOLE), &["r  review        (detail only)"]);
+    let found = run(&row("review", WHOLE), &["r  review        (open studio only)"]);
     assert!(
-        found.iter().any(|f| f.contains("is `detail only` here")),
+        found.iter().any(|f| f.contains("is `open studio only` here")),
         "{found:?}"
     );
 }

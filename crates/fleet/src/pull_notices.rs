@@ -15,7 +15,6 @@ use std::sync::Arc;
 use adapter_traits::{
     AgentHarness, CiState, Delivery, PullQueue, Vcs, WatchedCheck, WatchedPull, WorkProduct,
 };
-use core_model::{Component, Envelope, FieldValue, JobId, Level};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -420,7 +419,6 @@ where
             Owner::Session(id) => {
                 matches!(self.told_by_fleet(id, &text).await, Ok(true))
             }
-            Owner::Job(id) => self.job_told(served, id, about, cause, &text).await,
         };
         if done {
             let now = self.now();
@@ -434,38 +432,5 @@ where
             );
         }
         done
-    }
-
-    /// A Job's part: a merge is a note in its log. **A failure is told to nobody**: a Job no longer
-    /// works, so there is no one to send it back to.
-    async fn job_told(
-        &self,
-        served: &Served,
-        id: &JobId,
-        about: &About<'_>,
-        cause: Cause,
-        _text: &str,
-    ) -> bool {
-        let Ok(job) = self.load(id).await else {
-            return true;
-        };
-        if cause == Cause::Merged {
-            self.logged(
-                id,
-                Envelope::new(
-                    self.now(),
-                    Level::Info,
-                    Component::Fleet,
-                    self.run().clone(),
-                    "its pull request merged",
-                )
-                .in_job(id.as_ulid().clone())
-                .with_field("pull_request", FieldValue::Str(about.url.to_string())),
-            );
-            return true;
-        }
-        // A Job no longer works, so a failure has nobody to be sent back to.
-        let _ = (served, job);
-        true
     }
 }

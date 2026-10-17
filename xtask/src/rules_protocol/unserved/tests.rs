@@ -70,7 +70,7 @@ fn an_operation_named_in_the_allowance_does_not_fail() {
 [operations.list_jobs]
 kind = "query"
 
-[operations.pause_job]
+[operations.restart_fleet]
 kind = "command"
 "#;
     let mut report = Report::new("test");
@@ -83,15 +83,15 @@ kind = "command"
 #[test]
 fn an_allowance_for_something_that_is_served_fails() {
     let inventory = r#"
-[operations.pause_job]
+[operations.restart_fleet]
 kind = "command"
 "#;
     let table = r#"
 pub const SERVED: &[Route] = &[
     Route {
-        operation: "pause_job",
+        operation: "restart_fleet",
         method: "POST",
-        path: "/jobs/:job_id/pause",
+        path: "/restart",
     },
 ];
 "#;
@@ -100,7 +100,7 @@ pub const SERVED: &[Route] = &[
     assert!(
         failures(&report)
             .iter()
-            .any(|said| said.contains("pause_job") && said.contains("NOT_BUILT")),
+            .any(|said| said.contains("restart_fleet") && said.contains("NOT_BUILT")),
         "{:?}",
         failures(&report)
     );
@@ -137,14 +137,14 @@ fn every_allowance_carries_a_reason_the_gate_prints() {
     }
     let mut report = Report::new("test");
     check(
-        "[operations.pause_job]\nkind = \"command\"\n",
+        "[operations.restart_fleet]\nkind = \"command\"\n",
         TABLE_SOURCE,
         &mut report,
     );
     assert!(
         findings(&report)
             .iter()
-            .any(|said| said.contains("Retired 2026-09-03")),
+            .any(|said| said.contains("Restarting Fleet is Bridge")),
         "the reason is printed beside the rule, not only held in the source"
     );
 }

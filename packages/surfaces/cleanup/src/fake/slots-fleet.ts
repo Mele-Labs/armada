@@ -1,6 +1,6 @@
-// The worktree pool Cleanup draws, one slot in each state: a Job's, a
-// session's, free, two stranded, a killed Job's that kept its slot, not made yet, warm and cold, and one behind
-// main. A stranded or kept one can be rescued: a Scout reads it a file at a time.
+// The worktree pool Cleanup draws, one slot in each state: a hosted Session's, a
+// session's, free, three stranded, not made yet, warm and cold, and one behind
+// main. A stranded one can be rescued: a Scout reads it a file at a time.
 
 import type {
   ChangeSlotPool,
@@ -89,8 +89,6 @@ export function reshaped(
   }
   const why = ((): Outcome | null => {
     switch (target.held.state) {
-      case "job":
-        return refusedAs("fleet.slot_held", `held by job ${target.held.job_id}`);
       case "session":
         return refusedAs("fleet.slot_held", `held by ${target.held.holder}`);
       case "hosted_session":
@@ -154,13 +152,13 @@ function freed(one: WorktreeSlot): WorktreeSlot {
  * `rescue_slot` on the mock's pool, by Fleet's rules: start and stop move the
  * Scout, scrap, stash and pick up free the slot. A Scrap keeps the branch where
  * it holds commits nothing else has; a Stash commits the uncommitted work to its
- * branch; a Pick up does that and answers the request Fleet proposes a Job from.
+ * branch; a Pick up does that too.
  */
 export function rescued(
   held: WorktreesHeld,
   manifestId: string,
   rescue: RescueSlot,
-): { held: WorktreesHeld; outcome: RescueOutcome; proposed?: string } {
+): { held: WorktreesHeld; outcome: RescueOutcome } {
   const slots = held.slots ?? [];
   const target = slots.find((one) => one.manifest_id === manifestId && one.slot === rescue.slot);
   const answer = (change: WorktreeSlot, outcome: RescueOutcome) => ({
@@ -170,9 +168,7 @@ export function rescued(
   const refuse = (code: string, message: string) => ({ held, outcome: refusedAs(code, message) as RescueOutcome });
   if (target === undefined) return refuse("fleet.no_such_slot", `no slot-${rescue.slot}`);
   if (target.held.state === "busy") return refuse("fleet.slot_busy", "a lease is under way");
-  // A Job that ended and kept its slot is rescued as a stranded one is.
-  const holds = target.held.state === "stranded" || (target.held.state === "job" && target.held.kept !== undefined);
-  if (!holds) return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
+  if (target.held.state !== "stranded") return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
   const reading = target.rescue?.state === "reading";
   const receipt = { manifest_id: manifestId, slot: target.slot };
   switch (rescue.act) {
@@ -212,10 +208,7 @@ export function rescued(
         rescue.act === "scrap"
           ? { ok: true, rescued: { ...receipt, branch, branch_kept: (target.stranded?.unpushed ?? 0) > 0 } }
           : { ok: true, rescued: { ...receipt, branch, committed: "c0ffee1a4d" } };
-      const freedSlot = answer(freed(target), outcome);
-      if (rescue.act !== "pick_up") return freedSlot;
-      const left = (target.rescue?.items ?? []).map((one) => `\n- ${one}`).join("");
-      return { ...freedSlot, proposed: `Continue the work on branch ${branch}.${left === "" ? "" : `\n\nLeft to do:${left}`}` };
+      return answer(freed(target), outcome);
     }
   }
 }

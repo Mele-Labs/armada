@@ -32,7 +32,7 @@ impl Gathered {
         Caps {
             until: self.kept.until.as_deref().map(Timestamp::from_rfc3339),
             spend_cap_micros: self.kept.spend_cap_micros,
-            job_cap: self.kept.job_cap,
+            session_cap: self.kept.session_cap,
         }
     }
 
@@ -51,7 +51,7 @@ impl Gathered {
             at_once: kept.at_once,
             until: kept.until.clone().map(ipc::Instant::carried),
             spend_cap_micros: kept.spend_cap_micros,
-            job_cap: kept.job_cap,
+            session_cap: kept.session_cap,
             state: match self.state() {
                 State::Running => ipc::AutopilotState::Running,
                 State::Paused => ipc::AutopilotState::Paused,
@@ -66,10 +66,10 @@ impl Gathered {
                 .map(|cap| match cap {
                     Cap::Until => ipc::AutopilotCap::Until,
                     Cap::Spend => ipc::AutopilotCap::Spend,
-                    Cap::Jobs => ipc::AutopilotCap::Jobs,
+                    Cap::Sessions => ipc::AutopilotCap::Sessions,
                 }),
             spent_micros: self.spent.micros,
-            jobs_started: self.spent.started,
+            sessions_started: self.spent.started,
             at_work: u32::try_from(at_work).unwrap_or(u32::MAX),
             picks: self.picks.iter().filter_map(pick).collect(),
             fault: None,

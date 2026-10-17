@@ -2,8 +2,7 @@
 // and the same acts to hand it on. A green main has no card. The moments are `main-red-hub`'s: 2 is green, 3 is red with nobody on
 // it.
 
-import type { FixMain } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -13,19 +12,13 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-function standingAt(moment: number, sent: FixMain[] = []): Scenario {
+function standingAt(moment: number): Scenario {
   const { later } = mainRed(repository().root);
   const base = scenarioNamed("main-red-hub")!;
   return {
     ...base,
     state: { ...base.state, ...later[moment - 1]! },
     later: [],
-    behaves: () => ({
-      fixMain: async (fix) => {
-        sent.push(fix);
-        return { ok: true };
-      },
-    }),
   };
 }
 

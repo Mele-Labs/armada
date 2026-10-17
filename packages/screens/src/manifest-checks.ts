@@ -6,8 +6,7 @@
 // is Verify's waiting steps**: nothing else on the wire says a Check was asked for and has not
 // started. No new read, no new wire shape.
 
-import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type ManifestCheckLog, type ManifestCheckRow, type MergeLine, type Requester } from "@armada/protocol";
-import { CHECK_OUTCOME } from "@armada/components";
+import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type MergeLine, type Requester } from "@armada/protocol";
 import type { CheckDetail, CheckListRow, CheckListStatus } from "@armada/components";
 
 import { absoluteOf, clockOf, instant, lasting } from "./duration";
@@ -31,26 +30,12 @@ export type CheckEntry = {
   requester: Requester;
   /** The merge line Check's own names, which its log is asked for by. */
   land?: LandCheckAt;
-  /** When a reported Check ended. A checkout run's end is on its record. */
-  finishedAt?: string;
-  /** Which run of its step, on a reported Check. */
-  attempt?: number;
-  /** How long an asked run took. A gate row has none. */
-  tookMs?: number;
-  /** The Job a reported Check belongs to, which its logs are read under. */
-  job?: { id: string; handle: string };
-  /** The Session whose agent ran it, and the slot it ran in. The page draws its owner chip. */
-  session?: { id: string; slot?: number; run?: number };
-  /** Each of a reported Check's logs, `get_check_output`'s `kept`. */
-  logs?: readonly ManifestCheckLog[];
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
   says?: string;
-  /** A gate that ended without measuring it (`skipped`, `never_ran`). Its status is `waiting`, so the filters read this. */
-  skipped?: true;
 };
 
 /** The filter row's choices, in the order it draws them. */
-export const CHECK_FILTERS = ["all", "active", "waiting", "completed", "passed", "failed", "skipped"] as const;
+export const CHECK_FILTERS = ["all", "active", "waiting", "completed", "passed", "failed"] as const;
 export type CheckFilter = (typeof CHECK_FILTERS)[number];
 
 export const CHECK_FILTER_LABEL: Record<CheckFilter, string> = {
@@ -60,13 +45,11 @@ export const CHECK_FILTER_LABEL: Record<CheckFilter, string> = {
   completed: "Completed",
   passed: "Passed",
   failed: "Failed",
-  skipped: "Skipped",
 };
 
 /**
  * Whether a filter holds an entry. Active is running; Completed is every Check that ended, which
- * is passed, failed and skipped, and a stopped run too. A skipped one is never Waiting, though its
- * list mark is.
+ * is passed and failed, and a stopped run too.
  */
 export function heldBy(filter: CheckFilter, entry: CheckEntry): boolean {
   const { status } = entry;
@@ -76,15 +59,13 @@ export function heldBy(filter: CheckFilter, entry: CheckEntry): boolean {
     case "active":
       return status === "running";
     case "waiting":
-      return status === "waiting" && entry.skipped !== true;
+      return status === "waiting";
     case "completed":
-      return status !== "running" && (status !== "waiting" || entry.skipped === true);
+      return status !== "running" && status !== "waiting";
     case "passed":
       return status === "passed";
     case "failed":
       return status === "failed";
-    case "skipped":
-      return entry.skipped === true;
   }
 }
 
@@ -106,12 +87,10 @@ export function checkEntriesOf(
   sheet: CheckoutRunSheet | undefined,
   runs: readonly CheckoutRunRecord[],
   lines: readonly MergeLine[] = [],
-  reported: readonly ManifestCheckRow[] = [],
 ): CheckEntry[] {
   const land = landEntriesOf(lines);
-  // Reported rows and the line's own come off reads that do not need the sheet, so they stand without it.
-  const asked = reported.map(entryOfReported);
-  if (sheet === undefined) return byRequested([...land, ...asked]);
+  // The line's own come off a read that does not need the sheet, so they stand without it.
+  if (sheet === undefined) return byRequested(land);
   const declared = new Set(sheet.checks.map((one) => one.name));
   const isCheck = (run: { name: string; workspace?: string }) => run.workspace === undefined && declared.has(run.name);
 
@@ -135,16 +114,15 @@ export function checkEntriesOf(
     }
   }
   const ended = [...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord);
-  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...asked]);
+  return byRequested([...out.values(), ...waiting, ...land, ...ended]);
 }
 
 /**
- * When a Check was asked for: its own start, else when Verify asked for it, else when its ruling
- * was written (a gate row has only that). A merge line Check not started takes its turn's latest
+ * When a Check was asked for: its own start, else when Verify asked for it. A merge line Check not started takes its turn's latest
  * start; with none at all it reads as the newest, since the line is running it now.
  */
 export function requestedOf(entry: CheckEntry): number {
-  const at = entry.startedAt ?? entry.requestedAt ?? entry.finishedAt;
+  const at = entry.startedAt ?? entry.requestedAt;
   return at === undefined ? Number.POSITIVE_INFINITY : (instant(at) ?? Number.NEGATIVE_INFINITY);
 }
 
@@ -210,77 +188,23 @@ export type AskerOpens = { to: "merge-line"; branch?: string };
 
 /**
  * Who asked, as one line of bare facts, and where pressing it goes. **Only the merge line opens its requester**,
- * at the branch. Absent `opens` is plain text: a Job's gate or Drone, which has no page to open, a Session, and `outside`.
+ * at the branch. Absent `opens` is plain text: a Session, and `outside`.
  */
 export type Asker = { label: string; opens?: AskerOpens };
 
-export function askerOf(requester: Requester, jobLabel: (jobId: string) => string): Asker {
-  const { kind, job_id: jobId, step, task_id: task, drone_id: drone, branch } = requester;
+export function askerOf(requester: Requester): Asker {
+  const { kind, branch } = requester;
   const said = (...parts: (string | undefined)[]) => parts.filter((one): one is string => one !== undefined).join(" · ");
-  const job = jobId === undefined ? undefined : (requester.handle ?? jobLabel(jobId));
   switch (kind) {
-    case "gate":
-      return { label: said("Gate", job, step) };
-    case "drone_task":
-    case "drone_step":
-      return { label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task) };
     case "merge_line":
       return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
     case "session":
       return { label: "Job" };
     case "outside":
-      return { label: "Started outside a Job" };
+      return { label: "Started outside a Session" };
     default:
-      return { label: said(kind, job, step, task, drone, branch) };
+      return { label: said(kind, branch) };
   }
-}
-
-/** An asked run's own states, which the gate's outcomes do not share. */
-const ASKED_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
-  waiting: { status: "waiting" },
-  running: { status: "running" },
-  passed: { status: "passed" },
-  failed: { status: "failed" },
-  stopped: { status: "stopped" },
-  lost: { status: "stopped", says: "lost" },
-};
-
-/** A gate outcome on the marks a row has, said in the registry's own verb where it is not plain. */
-function gateStatus(outcome: string): { status: CheckListStatus; says?: string; skipped?: true } {
-  if (outcome === "passed") return { status: "passed" };
-  if (outcome === "failed") return { status: "failed" };
-  // A Check the gate has asked for and not finished, which is not an outcome.
-  if (outcome === "waiting" || outcome === "running") return { status: outcome };
-  // A Check the gate has asked for and not finished, which is not an outcome.
-  const verb = CHECK_OUTCOME[outcome]?.verb ?? outcome;
-  // Never started and not run are a Check that was not measured: neither a pass nor a failure.
-  return outcome === "never_ran" || outcome === "skipped"
-    ? { status: "waiting", says: verb, skipped: true }
-    : { status: "failed", says: verb };
-}
-
-/** One gate or asked-run row off the manifest-wide read, as a list entry. */
-export function entryOfReported(row: ManifestCheckRow): CheckEntry {
-  const held: { status: CheckListStatus; says?: string; skipped?: true } =
-    row.source === "asked_run" ? (ASKED_STATE[row.state] ?? { status: "waiting" as const }) : gateStatus(row.state);
-  const key = row.asked_run_id !== undefined ? `run${row.asked_run_id}` : `${row.step}.${row.attempt}.${row.group ?? ""}.${row.name}`;
-  const { session_id: sessionId } = row;
-  return {
-    id: sessionId !== undefined && row.asked_run_id !== undefined ? sessionCheckId(sessionId, row.asked_run_id) : `reported:${row.job_id}:${key}`,
-    name: row.name,
-    status: held.status,
-    command: "",
-    requester: row.requester,
-    ...(row.job_id === undefined ? {} : { job: { id: row.job_id, handle: row.job_handle ?? row.job_id } }),
-    ...(sessionId === undefined ? {} : { session: { id: sessionId, ...(row.requester.slot === undefined ? {} : { slot: row.requester.slot }), ...(row.asked_run_id === undefined ? {} : { run: row.asked_run_id }) } }),
-    ...(row.logs === undefined || row.logs.length === 0 ? {} : { logs: row.logs }),
-    ...(held.says === undefined ? {} : { says: held.says }),
-    ...(held.skipped === undefined ? {} : { skipped: true as const }),
-    ...(row.started_at === undefined ? {} : { startedAt: row.started_at }),
-    ...(row.ended_at === undefined ? {} : { finishedAt: row.ended_at }),
-    ...(row.took_ms === undefined ? {} : { tookMs: row.took_ms }),
-    attempt: row.attempt,
-  };
 }
 
 /** The Checks page's id for a Session's run, which a thread row names to open it. */
@@ -289,7 +213,7 @@ export function sessionCheckId(sessionId: string, run: number): string {
 }
 
 /** One row of the list. */
-export function checkRowOf(entry: CheckEntry, jobLabel: (jobId: string) => string = (id) => id): CheckListRow {
+export function checkRowOf(entry: CheckEntry): CheckListRow {
   const { record } = entry;
   const started = entry.startedAt === undefined ? undefined : clockOf(entry.startedAt);
   const startedExact = entry.startedAt === undefined ? undefined : (absoluteOf(entry.startedAt) ?? undefined);
@@ -298,14 +222,10 @@ export function checkRowOf(entry: CheckEntry, jobLabel: (jobId: string) => strin
     name: entry.name,
     status: entry.status,
     says: entry.says ?? SAYS[entry.status],
-    by: askerOf(entry.requester, jobLabel).label,
+    by: askerOf(entry.requester).label,
     ...(started === undefined ? {} : { started }),
     ...(startedExact === undefined ? {} : { startedExact }),
-    ...(record !== undefined
-      ? { duration: lasting(record.duration_ms) }
-      : entry.tookMs === undefined
-        ? {}
-        : { duration: lasting(entry.tookMs) }),
+    ...(record === undefined ? {} : { duration: lasting(record.duration_ms) }),
   };
 }
 
@@ -316,12 +236,8 @@ export function checkDetailsOf(entry: CheckEntry, requestedBy?: CheckDetail["val
   if (entry.command !== "") details.push({ label: "Command", value: entry.command, mono: true });
   if (requestedBy !== undefined) details.push({ label: "Requested by", value: requestedBy });
   if (entry.land !== undefined) details.push({ label: "Branch", value: entry.land.branch, mono: true });
-  if (entry.attempt !== undefined) details.push({ label: "Run of the step", value: String(entry.attempt) });
   if (entry.requestedAt !== undefined) details.push({ label: "Requested", value: absoluteOf(entry.requestedAt) ?? entry.requestedAt });
   if (entry.startedAt !== undefined) details.push({ label: "Started", value: absoluteOf(entry.startedAt) ?? entry.startedAt });
-  if (record === undefined && entry.finishedAt !== undefined) details.push({ label: "Ended", value: absoluteOf(entry.finishedAt) ?? entry.finishedAt });
-  if (record === undefined && entry.tookMs !== undefined) details.push({ label: "Took", value: lasting(entry.tookMs) });
-  if (record === undefined && entry.job !== undefined) details.push({ label: "Job", value: entry.job.handle, mono: true });
   if (record !== undefined) {
     details.push({ label: "Ended", value: absoluteOf(record.ended_at) ?? record.ended_at });
     details.push({ label: "Took", value: lasting(record.duration_ms) });

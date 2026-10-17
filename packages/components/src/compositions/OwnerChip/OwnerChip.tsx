@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { Box, GitBranch, GitPullRequest, KeyRound, ShieldCheck, ShieldEllipsis, ShieldX, SquareTerminal } from "lucide-react";
+import { GitBranch, GitPullRequest, KeyRound, ShieldCheck, ShieldEllipsis, ShieldX, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -10,7 +10,7 @@ import { sessionGlyphOf } from "../SessionFrame/SessionFrame";
 import type { SessionState } from "../SessionFrame/SessionFrame";
 
 /**
- * A branch, pull request, slot or Job named anywhere in Bridge, and who owns it.
+ * A branch, pull request or slot named anywhere in Bridge, and who owns it.
  *
  * **Where a Session owns what a chip names, hovering the chip draws that
  * Session's card**, and pressing the chip keeps the card up until Escape or a
@@ -22,10 +22,9 @@ import type { SessionState } from "../SessionFrame/SessionFrame";
 export type OwnerChipRef =
   | { kind: "branch"; name: string }
   | { kind: "pull_request"; number: number }
-  | { kind: "slot"; slot: number }
-  | { kind: "job"; id: string; number: number };
+  | { kind: "slot"; slot: number };
 
-/** What the card says of the owner: its title, slot, pull requests, Jobs and last turn. */
+/** What the card says of the owner: its title, slot, pull requests and last turn. */
 export type OwnerSummary = {
   id: string;
   /** What other sessions call it, drawn where the id would be. */
@@ -36,7 +35,6 @@ export type OwnerSummary = {
   said: string;
   slots: readonly number[];
   pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks }[];
-  jobs: readonly { id: string; number: number }[];
   lastTurn?: string;
 };
 
@@ -61,8 +59,6 @@ const NAME = (chip: OwnerChipRef): string => {
       return `Pull request #${chip.number}`;
     case "slot":
       return `Worktree slot ${chip.slot}`;
-    case "job":
-      return `Job ${chip.number}`;
   }
 };
 
@@ -70,7 +66,6 @@ const GLYPH: Record<OwnerChipRef["kind"], LucideIcon> = {
   branch: GitBranch,
   pull_request: GitPullRequest,
   slot: KeyRound,
-  job: Box,
 };
 
 const TEXT = (chip: OwnerChipRef): string => {
@@ -81,8 +76,6 @@ const TEXT = (chip: OwnerChipRef): string => {
       return `#${chip.number}`;
     case "slot":
       return String(chip.slot);
-    case "job":
-      return String(chip.number);
   }
 };
 
@@ -147,11 +140,6 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
             <Chip chip={{ kind: "pull_request", number: pr.number }} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
           </li>
         ))}
-        {owner.jobs.map((job) => (
-          <li key={job.id}>
-            <Chip chip={{ kind: "job", id: job.id, number: job.number }} />
-          </li>
-        ))}
       </ul>
       <Button size="sm" variant="secondary" onClick={onOpen}>
         Open Job
@@ -181,22 +169,5 @@ export function OwnerChip({ chip, children, plain }: OwnerChipProps) {
         </button>
       </Inspect>
     </span>
-  );
-}
-
-/**
- * Who ran something in a slot, as the owner chip draws it: the Session's title, hover for its card.
- * Where no Session owns the slot the slot's chip is drawn plain.
- */
-export function SlotOwner({ slot }: { slot: number }) {
-  const chip: OwnerChipRef = { kind: "slot", slot };
-  const owner = useChipOwner(chip);
-  return (
-    <OwnerChip chip={chip} plain={<Chip chip={chip} />}>
-      <span className="armada-slot-owner">
-        <SquareTerminal size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-slot-owner__name">{owner?.title ?? owner?.address ?? owner?.id}</span>
-      </span>
-    </OwnerChip>
   );
 }

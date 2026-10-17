@@ -23,7 +23,7 @@ pub trait Mods: Send + Sync + 'static {
         scaffold: ScaffoldMod,
     ) -> impl Future<Output = Result<ModScaffolded, Refusal>> + Send;
 
-    /// `set_mod_enabled` — this machine's switch. [`Refusal::NoSuchJob`] (a 404)
+    /// `set_mod_enabled` — this machine's switch. [`Refusal::NotFound`] (a 404)
     /// for a name no folder has.
     fn set_mod_enabled(
         &self,

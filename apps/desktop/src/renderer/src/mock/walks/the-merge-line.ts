@@ -33,7 +33,7 @@ export const theMergeLine = walk("merge-line", [
   { look: inside(ARMADA, text("007088d7ea")), say: "Each with its merge commit" },
   {
     look: inside(inside(ARMADA, role("listitem", "studio/read-in-lands-in-a-zone")), text("Merged")),
-    say: "Its pull request wears the Job's own badge: merged",
+    say: "Its pull request wears the badge: merged",
   },
   { look: inside(ARMADA, role("list", "Sent back")), say: "Sent back: Checks failed, conflict or stopped" },
   {

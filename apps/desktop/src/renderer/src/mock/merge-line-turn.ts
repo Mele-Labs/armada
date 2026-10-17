@@ -1,16 +1,14 @@
 // A merge-line turn with a Check failing in it, one moment at a time: what the owner is told while
-// the turn runs on. Three repositories, each at its own place in the story, and the Job's own log
-// beside them. **Drawn ahead of Fleet**: a line's `notice` and the Job's two notes are not served
-// yet, and nothing here reaches the wire. `the-failed-check-mid-turn.ts` walks it.
+// the turn runs on. Three repositories, each at its own place in the story. **Drawn ahead of
+// Fleet**: a line's `notice` is not served yet, and nothing here reaches the wire. `the-failed-check-mid-turn.ts` walks it.
 //
 //   armada   a batch of three. screens_test fails, rerun fails: a heads-up to all three. The split
 //            names one. The turn ends and that one is sent back; the alert is the verdict.
 //   notes    one branch. The same Check fails: the branch is told at once, then sent back.
 //   scratch  one branch. Told, then the same Check is red on main too: nobody's, the turn holds.
 
-import type { FollowedLandLog, Journalled, LandCheckAt, MergeLine, MergeLineRow, Noted } from "@armada/protocol";
+import type { FollowedLandLog, LandCheckAt, MergeLine, MergeLineRow } from "@armada/protocol";
 import type { MergeLineNotice } from "@armada/components";
-import { note } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -57,8 +55,6 @@ type Moment = {
   armada: { line: MergeLineRow[]; sent_back?: MergeLineRow[]; notice?: MergeLineNotice };
   notes: { line: MergeLineRow[]; sent_back?: MergeLineRow[]; notice?: MergeLineNotice };
   scratch: { line: MergeLineRow[]; notice?: MergeLineNotice };
-  /** What Fleet wrote to the Job's own log by now. */
-  notes_in_log: number;
 };
 
 const SCREENS = "screens_test";
@@ -69,7 +65,6 @@ const MOMENTS: Moment[] = [
     armada: { line: batch(["passed", "passed", "running", "waiting", "waiting"]) },
     notes: { line: [alone(ALONE, ["passed", "running", "waiting"], "notes_test")] },
     scratch: { line: [alone(HELD, ["passed", "running", "waiting"], "ports_test")] },
-    notes_in_log: 0,
   },
   {
     armada: {
@@ -84,7 +79,6 @@ const MOMENTS: Moment[] = [
       line: [alone(HELD, ["passed", "failed", "running"], "ports_test")],
       notice: { kind: "branch", check: "ports_test", branch: HELD },
     },
-    notes_in_log: 1,
   },
   {
     armada: {
@@ -99,7 +93,6 @@ const MOMENTS: Moment[] = [
       line: [alone(HELD, ["passed", "failed", "waiting"], "ports_test")],
       notice: { kind: "main", check: "ports_test", branch: HELD },
     },
-    notes_in_log: 2,
   },
   {
     armada: {
@@ -137,7 +130,6 @@ const MOMENTS: Moment[] = [
       line: [alone(HELD, ["passed", "failed", "waiting"], "ports_test")],
       notice: { kind: "main", check: "ports_test", branch: HELD },
     },
-    notes_in_log: 2,
   },
 ];
 
@@ -158,33 +150,6 @@ function linesAt(at: number, roots: TurnRoots): MergeLine[] {
     line(roots.scratch, moment.scratch),
     queued(roots.bridge),
   ];
-}
-
-/** What Fleet writes to the Job's own log as the turn goes: told it, then told whose it was. */
-const WRITTEN: Noted[] = (() => {
-  return [
-    note("2026-10-05T11:42:10Z", "screens_test failed in the merge line turn", {
-      level: "warn",
-      fields: [
-        { name: "Check", value: "screens_test" },
-        { name: "Rerun", value: "failed" },
-        { name: "Main", value: "green" },
-      ],
-    }),
-    note("2026-10-05T11:44:31Z", "screens_test is fleet/gate-policy-every-run's", {
-      fields: [
-        { name: "Check", value: "screens_test" },
-        { name: "Branch", value: AT_FAULT },
-      ],
-    }),
-  ];
-})();
-
-/** The Job's log at a moment: what it held, and what the turn has written since. */
-export function journalAt(was: Journalled, at: number): Journalled {
-  if (!("log" in was)) return was;
-  const kept = was.log.notes.filter((one) => !WRITTEN.some((added) => added.msg === one.msg));
-  return { ...was, log: { ...was.log, notes: [...kept, ...WRITTEN.slice(0, MOMENTS[at]!.notes_in_log)] } };
 }
 
 export type TurnRoots = { armada: string; notes: string; scratch: string; bridge: string };
@@ -223,14 +188,8 @@ function queued(root: string): MergeLine {
 }
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */
-export function failingTurn(
-  roots: TurnRoots,
-  journal: Journalled,
-): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({
-    mergeLines: { lines: linesAt(n, roots) },
-    journalled: journalAt(journal, n),
-  });
+export function failingTurn(roots: TurnRoots): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: { lines: linesAt(n, roots) } });
   return { first: at(0), later: MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 

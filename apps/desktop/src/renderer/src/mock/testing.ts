@@ -163,12 +163,6 @@ export async function toPageByName(name: string): Promise<void> {
   await userEvent.keyboard(`${name}{Enter}`);
 }
 
-/** A Job's page, from the Cockpit: its row in the list, then the Open in its pane. */
-export async function toJobPage(title: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: title }));
-  await userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Open the Job page" }));
-}
-
 /**
  * A Session's view, from anywhere: the Cockpit, then the Session's row in the Work list, then the stage's own
  * `Session: <title>` region. The Sessions page is gone; this is the only way in. A title given as words is the row's whole
@@ -183,7 +177,7 @@ export async function toSession(title: RegExp | string, scope?: "Active" | "Quie
     await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
     await userEvent.click(page.getByRole("menuitem", { name: scope, exact: true }));
   }
-  // A Job of the same name has a row too; the Session's is the one keyed `session:<id>`, named by its title.
+  // The Session's row is the one keyed `session:<id>`, named by its title.
   const row = () =>
     [...document.querySelectorAll<HTMLElement>('section[aria-label="Work"] [data-row^="session:"]')].find((one) => {
       const name = one.getAttribute("aria-label") ?? "";
@@ -194,18 +188,6 @@ export async function toSession(title: RegExp | string, scope?: "Active" | "Quie
   const view = page.getByRole("region", { name: /^Session: / });
   await expect.element(view).toBeVisible();
   return view;
-}
-
-/** Every Job row the Cockpit's list draws. */
-export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>("[data-job-id]")];
-
-/**
- * Every Job on screen, once at least one row has drawn. **No navigation**:
- * `App` opens on Overview, which is where every Job is listed since the Job
- * Board went. It was a press on the rail's Board row until then.
- */
-export async function listed(): Promise<void> {
-  await expect.poll(() => rows().length).toBeGreaterThan(0);
 }
 
 /**
@@ -238,39 +220,6 @@ export function whenFleet(fleet: Pick<StudioKeeping, "onChange">, held: () => bo
       resolve();
     });
   });
-}
-
-/**
- * Close the panel a node opened, as its Close control does. Nothing open is
- * nothing to close. **Pressed until it is gone**: a picker open inside the
- * panel takes the first press as its own dismissal, as it does for a person.
- */
-export async function closeNode(): Promise<void> {
-  for (let tries = 0; tries < 3; tries += 1) {
-    const closes = page.getByRole("dialog").getByRole("button", { name: /^Close/ }).elements();
-    if (closes.length === 0) return;
-    for (const close of closes) (close as HTMLElement).click();
-    await new Promise((settle) => setTimeout(settle, 50));
-  }
-}
-
-/**
- * A node on the approval canvas pressed, and the panel it opens over the work area.
- * **`at` picks among nodes of one name** — every gate is `Checks` on the
- * canvas, in run order — and the card it opens says whose: `Checks on
- * Restructure`. Pressing an open node closes it, so a test opens each once.
- */
-export async function openNode(name: string, at = 0): Promise<ReturnType<typeof page.getByRole>> {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  // A panel already open lies over the canvas and takes its presses: close it first, as a person would.
-  await closeNode();
-  // Pressed as the walk engine presses, at the node itself: past the gate the
-  // run opens on where the Job is, at full size, and a node above it is
-  // outside the pane, where a pointer cannot reach without panning first.
-  const node = page.getByRole("button", { name: new RegExp(`^${escaped}, `) }).nth(at);
-  await expect.element(node).toBeInTheDocument();
-  (node.element() as HTMLElement).click();
-  return page.getByRole("dialog", { name });
 }
 
 /**

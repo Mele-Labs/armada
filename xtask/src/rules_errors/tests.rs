@@ -71,8 +71,8 @@ fn a_version_and_a_shouted_name_are_not_codes() {
 #[test]
 fn a_real_code_is_a_code() {
     for literal in [
-        "fleet.no_such_job",
-        "api.no_journal_reader",
+        "fleet.no_such_studio",
+        "api.not_reconciled",
         "bridge.fleet.unreachable",
     ] {
         assert!(looks_like_a_code(literal), "`{literal}` was not read");
@@ -190,7 +190,7 @@ fn distinct_codes_collide_with_nothing() {
     collisions(
         &mut report,
         &[
-            declared("fleet.no_such_job", "crates/fleet/src/refusing.rs", 31),
+            declared("fleet.no_such_studio", "crates/fleet/src/refusing.rs", 31),
             declared("fleet.illegal_move", "crates/fleet/src/refusing.rs", 32),
         ],
         "Rust",
@@ -214,9 +214,9 @@ fn the_repository_has_no_duplicate_today() {
 fn both_halves_find_the_codes_the_repository_declares() {
     let (rust, bridge) = collect(&crate::repo_root());
     let named = |half: &[Declaration], code: &str| half.iter().any(|d| d.code == code);
-    assert!(named(&rust, "fleet.no_such_job"), "Rust: {}", rust.len());
+    assert!(named(&rust, "fleet.no_such_studio"), "Rust: {}", rust.len());
     assert!(
-        named(&rust, "api.no_journal_reader"),
+        named(&rust, "api.not_reconciled"),
         "Rust: {}",
         rust.len()
     );
@@ -244,7 +244,7 @@ fn a_rust_code_in_bridges_namespace_fails() {
     borrowed_namespace(
         &mut report,
         &[
-            declared("fleet.no_such_job", "crates/fleet/src/refusing.rs", 31),
+            declared("fleet.no_such_studio", "crates/fleet/src/refusing.rs", 31),
             declared("bridge.fleet.unreachable", "crates/api/src/answers.rs", 9),
         ],
     );

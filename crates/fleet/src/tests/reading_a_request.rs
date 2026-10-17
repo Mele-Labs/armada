@@ -7,7 +7,7 @@ use crate::repositories::reading::{read, Candidate};
 use crate::tests::tmp::TempDir;
 
 /// A repository with these files in it, under a directory named `directory`.
-fn repository(home: &TempDir, directory: &str, manifest: &str, files: &[&str], jobs: usize) -> Candidate {
+fn repository(home: &TempDir, directory: &str, manifest: &str, files: &[&str], sessions: usize) -> Candidate {
     let root = home.path().join(directory);
     for file in files {
         let path = root.join(file);
@@ -15,7 +15,7 @@ fn repository(home: &TempDir, directory: &str, manifest: &str, files: &[&str], j
         std::fs::write(path, b"").expect("a file");
     }
     std::fs::create_dir_all(&root).expect("a root");
-    Candidate::of(manifest, &root.to_string_lossy(), jobs)
+    Candidate::of(manifest, &root.to_string_lossy(), sessions)
 }
 
 fn pushing_to(mut one: Candidate, url: &str) -> Candidate {
@@ -148,7 +148,7 @@ fn nothing_served_is_nothing_meant() {
 }
 
 #[test]
-fn words_that_say_nothing_are_none_and_likely_is_by_jobs() {
+fn words_that_say_nothing_are_none_and_likely_is_by_sessions() {
     let home = TempDir::new();
     let read = read("make it faster", &two(&home));
     assert_eq!(ids(&read), (None, vec!["01POCKET", "01STORE"]), "pocket has nine Jobs to storefront's three");

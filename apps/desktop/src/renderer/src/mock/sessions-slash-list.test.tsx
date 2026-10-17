@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
@@ -16,7 +16,7 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 
 test("the `/` list is what the agent named, and the composer offers it", async () => {
   const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", hosted: { turn: { state: "idle" }, mode: "auto", running: false, commands: ["compact", "review"] } })]);
-  mount(fleet.scenario(onBoard([], { repositories: [ARMADA], picked: ARMADA.root })));
+  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
   await toSession("Fix the flaky store test");
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "/");

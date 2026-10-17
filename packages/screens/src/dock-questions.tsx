@@ -1,182 +1,59 @@
-// Every question waiting on a person, as the dock's cards (#935). Main gathers them from every
+// Every Helm call waiting on a person, as the dock's cards (#935). Main gathers them from every
 // repository Fleet serves; this decides what each card says.
 
-import { JUDGE_ANSWER, Prose, type DockAnswer, type DockQuestion } from "@armada/components";
-import type { JobSummary, JudgeAnswer, RepositorySummary } from "@armada/protocol";
+import type { DockQuestion } from "@armada/components";
+import type { RepositorySummary } from "@armada/protocol";
 import { manifestLabel } from "@armada/shell/src/repository-label";
-import { helmOfferedOf, offeredOf } from "./copy";
+import { helmOfferedOf } from "./copy";
 import { span } from "./duration";
 import { outstandingId, type Outstanding } from "./outstanding";
 
 /** What a person may do from a card. Absent draws the control off. */
 export type DockActs = {
-  /** An answer by its wire name — a Drone's label, a `CommandAnswer`, a `JudgeAnswer`. #936. */
+  /** An answer by its wire name, a `HelmCallAnswer`. #936. */
   onAnswer?: (question: Outstanding, answer: string) => void;
-  /** True while this card's own answer is in flight. Draws its answers off without the "open the job" note. */
+  /** True while this card's own answer is in flight. */
   answering?: (question: Outstanding) => boolean;
   /** Why this card's last answer did not take, in Fleet's own words. Cleared by a fresh attempt. */
   refusalFor?: (question: Outstanding) => string | undefined;
-  /** Point Helm at the card's repository and Job. #944. */
-  onDiscuss?: (question: Outstanding, job: JobSummary) => void;
 };
 
-/** When it was asked, whichever kind it is. */
+/** When it was asked. */
 export function askedAt(question: Outstanding): string {
-  switch (question.kind) {
-    case "drone":
-      return question.asking.asked_at;
-    case "command":
-      return question.waiting.asked_at;
-    case "judge":
-      return question.question.asked_at;
-    case "helm":
-      return question.call.asked_at;
-  }
-}
-
-/** A Job's number, off the handle Fleet derives from it — `12` of `12-the-drone-count`. */
-export function jobNumber(job: JobSummary): string {
-  return /^(\d+)-/.exec(job.handle)?.[1] ?? job.handle;
+  return question.call.asked_at;
 }
 
 /** How long it has waited: a figure at `now`, or where the window has no time to give, a card that reads the clock where it is drawn. */
 const waitingOf = (question: Outstanding, now: number | null): DockQuestion["waiting"] =>
   now === null ? (at: number) => span(askedAt(question), at) ?? undefined : (span(askedAt(question), now) ?? undefined);
 
-/** Every card waiting on a person, split by where it is drawn. #1519. */
-export type DockCards = {
-  /** The block at the top of the dock: a Drone's question and a Judge's, which belong to a Job. */
-  questions: DockQuestion[];
-  /** Helm's own permission asks, drawn at the end of Helm's thread. */
-  asks: DockQuestion[];
-};
-
 /**
- * The cards, by destination.
- *
- * **One producer, two places.** A Drone's question and a Judge's belong to a Job and have no
- * conversation to sit in, so the dock's own block is the only surface they have. A Helm ask has
- * one — the reply it stopped — and a person answering it should not have to scroll past the
- * conversation to find it. Splitting here rather than in Bridge keeps the wording, the ordering
- * and the `acts` wiring in the one place that already holds them.
- *
- * **`onDiscuss` never reaches an ask.** A Helm card names no Job, and `dockQuestionsOf` reads the
- * act only down the branches that have one.
- */
-export function dockCardsOf(
-  questions: readonly Outstanding[],
-  jobs: readonly JobSummary[],
-  repositories: readonly RepositorySummary[],
-  now: number | null,
-  acts: DockActs = {},
-): DockCards {
-  const of = (kept: readonly Outstanding[]) => dockQuestionsOf(kept, jobs, repositories, now, acts);
-  return {
-    questions: of(questions.filter((question) => question.kind !== "helm")),
-    asks: of(questions.filter((question) => question.kind === "helm")),
-  };
-}
-
-/**
- * The cards, oldest first. **A question on a Job the Board does not hold is left out**: it has no
- * number or repository to name, and main re-reads the Board when a move names a Job it lacks.
+ * The cards, oldest first. **A call is drawn without any board behind it**: it names its repository
+ * off the ask itself, and never falls out of the list for a board that does not hold it. #1389.
  */
 export function dockQuestionsOf(
   questions: readonly Outstanding[],
-  jobs: readonly JobSummary[],
   repositories: readonly RepositorySummary[],
   now: number | null,
   acts: DockActs = {},
 ): DockQuestion[] {
-  const byId = new Map(jobs.map((job) => [job.id, job]));
   return [...questions]
     .sort((a, b) => Date.parse(askedAt(a)) - Date.parse(askedAt(b)))
-    .flatMap((question) => {
-      const { onAnswer, answering, refusalFor, onDiscuss } = acts;
-      // **A helm call is drawn without a job**, because it has none: it names
-      // its repository off the ask itself, and never falls out of the list for
-      // a board that does not hold it. #1389.
-      if (question.kind === "helm") {
-        return [
-          {
-            id: outstandingId(question),
-            repository: manifestLabel(question.call.manifest_id, repositories),
-            waiting: waitingOf(question, now),
-            ...askedOf(question),
-            ...(onAnswer === undefined
-              ? { note: "Open Armada on this machine to answer." }
-              : { onAnswer: (answer: string) => onAnswer(question, answer), answering: answering?.(question) }),
-            refusal: refusalFor?.(question),
-          },
-        ];
-      }
-      const job = byId.get(question.job_id);
-      if (job === undefined) return [];
-      const number = jobNumber(job);
-      return [
-        {
-          id: outstandingId(question),
-          repository: manifestLabel(job.owner_manifest_id, repositories),
-          job: number,
-          title: job.title,
-          waiting: waitingOf(question, now),
-          ...askedOf(question),
-          ...(onAnswer === undefined
-            ? { note: `Open job ${number} to answer.` }
-            : { onAnswer: (answer: string) => onAnswer(question, answer), answering: answering?.(question) }),
-          refusal: refusalFor?.(question),
-          ...(onDiscuss === undefined ? {} : { onDiscuss: () => onDiscuss(question, job) }),
-        },
-      ];
-    });
-}
-
-/**
- * What the card says was asked, and the answers its kind offers, in Fleet's order.
- *
- * **What an agent wrote is drawn through `Prose`**: the Drone's question and the
- * Judge's consequence. The criterion's question was fixed before the Judge ran
- * and is not its writing; a command and Helm's rule are machine values; so those
- * stay as they are.
- */
-function askedOf(question: Outstanding): Pick<DockQuestion, "label" | "asked" | "detail" | "answers"> {
-  switch (question.kind) {
-    case "drone":
-      return {
-        label: "The drone asked a question",
-        asked: <Prose text={question.asking.question} />,
-        answers: question.asking.options.map(({ label, consequence }) => ({ id: label, label, consequence })),
-      };
-    case "command": {
-      const { tool, detail, offers, rules, suggested_rule: suggestedRule } = question.waiting;
-      return {
-        label: "The drone wants to run a command it was not given",
-        asked: detail === "" ? `The drone wants to use ${tool}.` : <span className="mono">{detail}</span>,
-        // An answer from a Fleet ahead of this build is left out, `offeredOf`'s rule.
-        answers: offeredOf(offers, { rules, suggestedRule }).map(({ id, label, means }) => ({
-          id,
-          label,
-          consequence: means,
-        })),
-      };
-    }
-    case "helm": {
+    .map((question) => {
+      const { onAnswer, answering, refusalFor } = acts;
       const { tool, detail, rule, offers } = question.call;
       return {
+        id: outstandingId(question),
+        repository: manifestLabel(question.call.manifest_id, repositories),
+        waiting: waitingOf(question, now),
         label: "Helm needs your permission",
         asked: detail === "" ? `Helm wants to use ${tool}.` : <span className="mono">{detail}</span>,
         detail: `Your settings would have to allow ${rule}.`,
         answers: helmOfferedOf(offers).map(({ offer, label, means }) => ({ id: offer, label, consequence: means })),
+        ...(onAnswer === undefined
+          ? { note: "Open Armada on this machine to answer." }
+          : { onAnswer: (answer: string) => onAnswer(question, answer), answering: answering?.(question) }),
+        refusal: refusalFor?.(question),
       };
-    }
-    case "judge":
-      return {
-        label: "Judge refused a criterion and is asking you",
-        asked: question.question.question,
-        detail: <Prose text={question.question.consequence} />,
-        answers: (Object.keys(JUDGE_ANSWER) as JudgeAnswer[]).map(
-          (answer): DockAnswer => ({ id: answer, label: JUDGE_ANSWER[answer].label, consequence: JUDGE_ANSWER[answer].means }),
-        ),
-      };
-  }
+    });
 }

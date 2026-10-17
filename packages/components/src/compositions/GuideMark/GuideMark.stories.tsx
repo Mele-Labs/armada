@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { GuidanceProvider } from "../../guidance";
-import { GUIDE_MERGE_LINE, GUIDE_PROCESSES } from "../../guides";
+import { GUIDE_MERGE_LINE, GUIDE_WORKFLOW } from "../../guides";
 import { GuideMark } from "./GuideMark";
 
 /**
@@ -80,7 +80,7 @@ export const OnlyOneOpensItself: Story = {
     <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", margin: 0 }}>
       <span>Two pieces, both new</span>
       <GuideMark {...args} />
-      <GuideMark guide={GUIDE_PROCESSES} />
+      <GuideMark guide={GUIDE_WORKFLOW} />
     </p>
   ),
   play: async () => {

@@ -172,7 +172,7 @@ fn the_contract_as_347_left_it_fails_on_both_halves() {
         .iter()
         .find(|f| f.contains("`waiting` is a rail value here"))
         .expect("the value half of #347");
-    assert!(value.contains("has no `[states.waiting]`"), "{value}");
+    assert!(value.contains("has no `[verbs.step_state.waiting]`"), "{value}");
     assert!(value.contains("awaiting_human"), "{value}");
 
     // And the knock-on the roster sees: `eye` is lent and nothing borrows it.
@@ -352,7 +352,7 @@ fn a_step_state_annotated_as_not_one_is_named() {
     assert!(
         found
             .iter()
-            .any(|f| f.contains("`stopped` is annotated") && f.contains("[states.stopped]")),
+            .any(|f| f.contains("`stopped` is annotated") && f.contains("[verbs.step_state.stopped]")),
         "{found:?}"
     );
 }

@@ -1,86 +1,32 @@
-//! What this crate proves about itself.
-//!
-//! Six files, and two of them are the point of a milestone step: `reconstruct`
-//! writes a Job's whole history, drops every in-memory copy, reopens the file
-//! and rebuilds the same `Job` from the log alone, and `cursor` does the same
-//! for the inner machine — a Job that advanced a step comes back on the step it
-//! advanced to. The others exist so those mean something — `roundtrip` shows
-//! the row survives, `corrupt` shows a damaged file is refused rather than
-//! opened empty, and `migrate` shows what a migration does to a Job an earlier
-//! one wrote.
-//!
-//! Fixtures here fill **every** optional field. A Job built with `None`
-//! everywhere round-trips through almost no code, and a round-trip test that
-//! passes on an empty record is the kind of green v1 shipped 2,181 of.
+//! What this crate proves about itself: `corrupt` shows a damaged file is
+//! refused rather than opened empty, `migrate` and `named_migrations` show what
+//! a migration does to a file an earlier one wrote, and the rest each hold one
+//! table's reads and writes across a reopen.
 
-mod allowing;
-mod asked_runs;
-pub(crate) mod attempt;
-mod board_memo;
-mod breakages;
-mod carrying_on;
-mod check_runs;
 mod corrupt;
-mod cursor;
-mod delivery;
 mod devices;
-mod drift;
-mod footprint;
-mod forget;
-mod gaming;
-mod gate_manifests;
 mod helm_sessions;
 mod helm_tuning;
-mod iteration;
-mod job_bays;
 mod kit;
 mod lessons;
 mod limits;
-mod lineage;
 mod main_ci;
 mod main_fix;
 mod manifest_allowed;
-mod manifest_snapshot;
-mod merge_line;
 mod migrate;
-mod model_override;
-mod model_per_task;
 mod named_migrations;
-mod pausing;
 mod slot_strandings;
-mod plan;
 mod ports;
 mod preferences;
-mod process;
-mod proposing;
-mod proving;
-mod questioning;
 mod rebuilding;
-mod rechecking;
 mod session_build;
-mod reconstruct;
-mod report;
 mod repositories;
-mod resolved_policies;
-mod resolving;
-mod retain;
-mod retro;
-mod review;
-mod review_model;
-mod review_record;
 mod review_runs;
-mod revision;
-mod roundtrip;
 mod session_checks;
-mod sent_back;
 mod session_ledger;
 mod session_plan;
 mod session_rail;
 mod settings_file;
-mod showing;
-mod signers;
-mod spend;
-mod step_baseline;
 mod studio;
 mod studio_authors;
 mod studio_files;
@@ -89,30 +35,11 @@ mod studio_runs;
 mod studio_sketches;
 mod studio_unfrozen;
 mod studio_zones;
-mod task_drones;
 mod timeline;
 mod timings;
 mod tmp;
-mod tracing;
-mod additions;
-mod triggers;
-mod walk_notes;
-mod waves;
-mod work_plan;
 
-use std::collections::BTreeMap;
-
-use core::sync::atomic::{AtomicU32, Ordering};
-
-use core_model::{
-    AcceptanceCriterion, Actor, AdvanceGate, Attachment, ContextSource, Covers, CriterionId,
-    CriterionSource, DeclarePlanAt, DependencyDirection, DependencyEdge, DispatchOrigin,
-    EvidenceRef, EvidenceScope, EvidenceType, Facts, FrozenWorkflow, GamingCheck, GamingPattern,
-    GateManifest, GateOutcome, GateVerdict, Job, JobId, JobNumber, JudgeCheck, JudgeCriterion,
-    ManifestId, ModelName, Narrowing, NewJob, NotRunReason, PathPattern, Prerequisite, ProposalId,
-    RepoPath, ResolvedCheck, ResolvedStep, ScopeRevision, ScopeRevisionOutcome, StepId, StepSeed,
-    Subject, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WorkflowId, WriteTargets,
-};
+use core_model::{Timestamp, Ulid};
 
 use crate::Store;
 pub use tmp::TempDir;
@@ -121,309 +48,10 @@ pub fn ulid(value: &str) -> Ulid {
     Ulid::carried(value)
 }
 
-pub fn job_id(value: &str) -> JobId {
-    JobId::carried(ulid(value))
-}
-
-/// A title, or a panic. Blank is a case under test in `core-model` and in
-/// `migrate`, never something a fixture here is asked to carry.
-pub fn title(text: &str) -> Title {
-    Title::new(text).expect("a fixture title is never blank")
-}
-
 pub fn at(value: &str) -> Timestamp {
     Timestamp::from_rfc3339(value)
 }
 
-/// The creation instant every fixture uses, so a test that cares about a
-/// timestamp is naming one it set.
-pub fn created_at() -> Timestamp {
-    at("2026-08-26T09:00:00.000Z")
-}
-
 pub fn open(dir: &TempDir) -> Store {
     Store::open(&dir.db()).expect("a fresh store opens")
-}
-
-/// The workflow every fixture Job freezes: the two steps its `job_steps` rows
-/// name, one of them gated, so a round trip carries a Check declaration and a
-/// Judge criterion too.
-pub fn workflow() -> FrozenWorkflow {
-    FrozenWorkflow::frozen(
-        WorkflowId::carried(ulid("01WORKFLOW")),
-        "bug".to_string(),
-        1,
-        vec![
-            ResolvedStep::frozen(
-                StepId::new("reproduce"),
-                "Reproduce".to_string(),
-                Some(EvidenceType::FailingTest),
-                Vec::new(),
-                AdvanceGate::Auto,
-                Vec::new(),
-                None,
-                0,
-                None,
-            ),
-            ResolvedStep::frozen(
-                StepId::new("fix"),
-                "Fix".to_string(),
-                Some(EvidenceType::Diff),
-                vec![
-                    ResolvedCheck::ManifestCheck {
-                        manifest_dir: "packages/a".to_string(),
-                        name: "build".to_string(),
-                        run: "cargo build".to_string(),
-                        expect_exit_code: 0,
-                        // Carried on the shared fixture rather than in a test
-                        // of its own, so every roundtrip in this crate walks a
-                        // Check that declares which paths it covers.
-                        when: Covers::of(vec![PathPattern::parse("crates/**").expect("a pattern")]),
-                        // Carried here for `when`'s reason, and a list of one
-                        // is enough to catch the failure that matters: a
-                        // prerequisite dropped on the way to a row is a Job
-                        // that stops running its own fix and nothing says so.
-                        requires: vec![Prerequisite::resolved(
-                            "fmt".to_string(),
-                            "cargo fmt --all".to_string(),
-                        )],
-                        // Carried here for `when`'s reason, and carrying every
-                        // one of its own keys: a narrowing that came back
-                        // without its `under` would run over every changed path
-                        // rather than every changed crate, and one that came
-                        // back without its `except` would run a Check the whole
-                        // run excludes — neither visible anywhere on the row.
-                        // One that lost its `outside` would run a Bridge-only
-                        // change whole again.
-                        narrow: Some(
-                            Narrowing::declared(
-                                "cargo build".to_string(),
-                                "-p {}".to_string(),
-                                Covers::of(vec![
-                                    PathPattern::parse("crates/**").expect("a pattern")
-                                ]),
-                                Some("crates".to_string()),
-                                vec!["acceptance".to_string()],
-                            )
-                            .with_outside(Covers::of(vec![
-                                PathPattern::parse("apps/**").expect("a pattern"),
-                            ])),
-                        ),
-                        // Carried so every round trip here walks a Check that runs one test by name. #999.
-                        one_test: Some("cargo nextest run -E test(={})".to_string()),
-                        // Not the default, so the round trip carries a word. #849.
-                        runs_at: core_model::RunsAt::Handoff,
-                        places: std::num::NonZeroU32::MIN,
-                        // Declared rather than absent, so the round trip walks
-                        // a Check that says how wide it runs — and absent is
-                        // the case every other fixture here already covers.
-                        // #1444.
-                        width: std::num::NonZeroU32::new(3),
-                        // Declared, so every round trip here walks a Check
-                        // that names its runner and the package it runs in.
-                        runner: Some(core_model::Runner::declared(
-                            "vitest".to_string(),
-                            Some("packages/screens".to_string()),
-                        )),
-                    },
-                    ResolvedCheck::DiffNonempty,
-                    // Carried on the shared fixture for `when`'s reason: every
-                    // round trip in this crate then walks a check whose whole
-                    // content is a path, which is the one kind that comes back
-                    // wrong if the writer and the reader disagree about a key
-                    // name.
-                    ResolvedCheck::ArtifactExists {
-                        target: ".armada/artifacts/fix.md".to_string(),
-                    },
-                ],
-                AdvanceGate::AutoIfJudgePasses,
-                vec![JudgeCheck::declared(
-                    Some(ModelName::new("haiku").expect("a model name")),
-                    2,
-                    vec![JudgeCriterion {
-                        criterion_id: CriterionId::new("c1"),
-                        question: "Does the fix address the cause the note names?".to_string(),
-                        on_refusal: core_model::OnRefusal::Ask,
-                    }],
-                    Some(GamingCheck::declared(
-                        EvidenceRef::parse("root_cause.evidence"),
-                        vec![
-                            GamingPattern::AssertionWeakened,
-                            GamingPattern::CheckConfigEdited,
-                        ],
-                    )),
-                )],
-                // One step carries a scope and one carries none, so a round
-                // trip proves both the value and its absence survive the
-                // column rather than only the value.
-                Some(EvidenceScope::declared(
-                    ContextSource::DroneDeclared,
-                    vec![RepoPath::new("secrets")],
-                    vec![EvidenceRef::parse("root_cause.evidence").expect("a reference")],
-                    true,
-                    Some(DeclarePlanAt::StepStart),
-                )),
-                0,
-                // Carried on the shared fixture for `when`'s reason: one step
-                // names a model and one names none, so every round trip in
-                // this crate walks both the value and its absence. They are not
-                // the same sentence — absent is the step deferring to the Job's
-                // — and a column that lost the difference would silently spawn
-                // every step on the Job's model again.
-                Some(ModelName::new("the-steps-own-model").expect("a model name")),
-            )
-            // Carried on the shared fixture for `when`'s reason: one step
-            // closes a loop and one closes none, so every round trip in this
-            // crate walks the pair and its absence. A frozen loop that came
-            // back empty is a Job whose gate advances past a verdict the
-            // workflow said routes backwards, and nothing would say so.
-            .looping(
-                BTreeMap::from([(GateVerdict::RequestChanges, StepId::new("reproduce"))]),
-                5,
-            )
-            // The same reason again, and with the halves set to different
-            // numbers: one step declares both and one declares neither, so
-            // every round trip in this crate walks the value and its absence.
-            // Absent is the step deferring to what Fleet is running with, which
-            // is not the same sentence as a number, and a column that lost the
-            // difference would put every step back on one constant.
-            .quiet_after(Some(900))
-            .poking(Some(4))
-            // The second step is where this workflow sends its work out, which
-            // is what the shipped definitions do and what the roundtrip has to
-            // carry: a `false` read back over a `true` is a Job whose branch
-            // never goes.
-            .delivering(true)
-            // Walked, so every roundtrip carries it: a `false` read back over a
-            // `true` is a Job whose walk server Fleet never starts.
-            .walking(true),
-        ],
-    )
-}
-
-/// What the next fixture Job is numbered. A live Fleet reads `max + 1` from the
-/// table under the insert's own lock; a fixture has no table yet when it builds
-/// the record, so it counts here instead.
-static NEXT_NUMBER: AtomicU32 = AtomicU32::new(1);
-
-/// A Job with nothing left null: every `Option` filled, every array non-empty.
-pub fn full_new_job(id: &str) -> NewJob {
-    NewJob {
-        id: job_id(id),
-        title: title("fix the off-by-one in the log reader"),
-        workflow: workflow(),
-        owner_manifest_id: ManifestId::carried(ulid("01OWNERMANIFEST")),
-        urgency: Urgency::Incident,
-        atomic: true,
-        model: ModelName::new("a-model-name").expect("a model name"),
-        acceptance_criteria: vec![
-            AcceptanceCriterion {
-                criterion_id: CriterionId::new("c1"),
-                text: "the reported symptom no longer occurs".to_string(),
-                source: CriterionSource::Check,
-                origin: core_model::CriterionOrigin::Unsaid,
-            },
-            AcceptanceCriterion {
-                criterion_id: CriterionId::new("c2"),
-                text: "a test covers the reported symptom".to_string(),
-                source: CriterionSource::Judge,
-                origin: core_model::CriterionOrigin::Unsaid,
-            },
-        ],
-        steps: vec![
-            StepSeed {
-                step_id: StepId::new("reproduce"),
-                ordinal: 0,
-            },
-            StepSeed {
-                step_id: StepId::new("fix"),
-                ordinal: 1,
-            },
-        ],
-        dependencies: vec![
-            DependencyEdge {
-                direction: DependencyDirection::DependsOn,
-                peer: job_id("01UPSTREAM"),
-            },
-            DependencyEdge {
-                direction: DependencyDirection::Blocks,
-                peer: job_id("01DOWNSTREAM"),
-            },
-        ],
-        gate_manifests: vec![
-            GateManifest {
-                manifest_id: ManifestId::carried(ulid("01GATEONE")),
-                outcome: GateOutcome::RanAndPassed,
-            },
-            GateManifest {
-                manifest_id: ManifestId::carried(ulid("01GATETWO")),
-                outcome: GateOutcome::DidNotRun(NotRunReason::ScopeNarrowed),
-            },
-        ],
-        write_targets: Some(WriteTargets::of(vec![
-            RepoPath::new("crates/store/src/lib.rs"),
-            RepoPath::new("docs/practices/rust.md"),
-        ])),
-        subject: Some(Subject {
-            kind: "issue".to_string(),
-            reference: "13".to_string(),
-        }),
-        redispatched_from: Some(job_id("01REPLACED")),
-        proposal_id: Some(ProposalId::carried(ulid("01PROPOSALREAD"))),
-        // **A number of its own per call.** The unique index is on
-        // `(owner_manifest_id, number)` and these fixtures share a Manifest, so
-        // a constant here would make the second insert in any test a conflict —
-        // reported, correctly now, as `JobNumberTaken`.
-        number: JobNumber::carried(NEXT_NUMBER.fetch_add(1, Ordering::Relaxed)),
-        facts: Facts::new("the daemon writes its own log line\nand reads it back"),
-        scope_revisions: vec![ScopeRevision {
-            at_step: Some(StepId::new("fix")),
-            paths_added: vec![RepoPath::new("crates/store/src/read.rs")],
-            paths_removed: vec![RepoPath::new("crates/store/src/gone.rs")],
-            atomic_before: false,
-            atomic_after: true,
-            rationale: "the fix touches the reader too".to_string(),
-            outcome: ScopeRevisionOutcome::recorded("approved"),
-            approved_by: Actor::Human,
-            at: at("2026-08-26T09:30:00.000Z"),
-        }],
-        attachments: vec![Attachment {
-            filename: "before.png".to_string(),
-            mime_type: "image/png".to_string(),
-            byte_size: 4096,
-            storage_ref: "/var/armada/attachments/01FULL/before.png".to_string(),
-        }],
-    }
-}
-
-/// A top-level Job, at `awaiting_approval`.
-pub fn top_level(id: &str) -> Job {
-    Job::create_top_level(full_new_job(id), TopLevelOrigin::HelmDrafted, created_at())
-}
-
-/// The same, numbered the way a live Fleet numbers one: `max + 1` read off the
-/// file this is about to be written to.
-///
-/// **For a test whose file already holds Jobs the fixture counter never saw** —
-/// a migrated file, whose rows V34 backfilled. A live Fleet has no such gap
-/// because it never numbers from anything but the table.
-pub fn top_level_numbered(store: &Store, id: &str) -> Job {
-    let mut new = full_new_job(id);
-    new.number = store
-        .next_job_number(&new.owner_manifest_id)
-        .expect("the next number");
-    Job::create_top_level(new, TopLevelOrigin::HelmDrafted, created_at())
-}
-
-/// A sub-dispatched Job, at `queued`.
-pub fn sub_dispatched(id: &str) -> Job {
-    Job::create_sub_dispatched(
-        full_new_job(id),
-        DispatchOrigin {
-            job_id: job_id("01PARENT"),
-            step_id: Some(StepId::new("plan")),
-            pass: None,
-        },
-        created_at(),
-    )
 }

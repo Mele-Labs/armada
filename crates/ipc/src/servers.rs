@@ -3,13 +3,13 @@
 //!
 //! **Lifecycle facts on `/events`, output on a socket of its own.** A server
 //! prints for as long as it runs, and on the one drop-oldest stream carrying
-//! every Job it would evict the state the Board is drawn from — the run
+//! every subject it would evict the state the Board is drawn from — the run
 //! socket's reason, one subject over.
 
 use serde::{Deserialize, Serialize};
 
 use crate::event::Missed;
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 use crate::protocol_id::ProtocolId;
 use crate::underway::{OutputClosed, OutputLines};
 
@@ -25,13 +25,11 @@ pub enum ServerPhase {
     Exited,
 }
 
-/// Who asked for it. A Drone asks through Fleet's MCP tool and never its
-/// shell, which is how Fleet knows the server exists at all.
+/// Who asked for it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StartedBy {
     Person,
-    Drone,
 }
 
 /// An address a server offers, resolved against the span it runs under.
@@ -61,8 +59,8 @@ pub struct ServerPort {
 /// **Since 18.1.**
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServerCheckout {
-    /// The checkout the server runs in, absolute: a Job's worktree, or a
-    /// repository's main checkout.
+    /// The checkout the server runs in, absolute: a repository's main
+    /// checkout, or a worktree somebody cut by hand.
     pub path: String,
     /// The branch checked out there. Absent for the main checkout, which a
     /// person moves between branches and Fleet does not read per server —
@@ -90,11 +88,7 @@ pub struct ServerState {
     pub id: String,
     /// The Command's name in the Manifest.
     pub name: String,
-    /// Absent: started with no Job, in the main checkout, on its span.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
-    /// The repository it runs in, by its Manifest — a Job's own, or the main
-    /// checkout's. What tells two repositories' main-checkout servers apart.
+    /// The repository it runs in, by its Manifest. What tells two repositories' main-checkout servers apart.
     /// Absent only from a Fleet that predates it. **Since 13.17.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
@@ -108,12 +102,6 @@ pub struct ServerState {
     pub ports: Vec<ServerPort>,
     pub links: Vec<ServerLink>,
     pub started_by: StartedBy,
-    /// Fleet started it because a step asking to be walked stopped for a
-    /// person, on the Manifest's `walk` server. Bridge opens it in its own
-    /// window when that Job is opened. Absent: started by anything else.
-    /// **Since 23.18.**
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub for_review: bool,
     pub started_at: Instant,
     /// When `ready` passed, or `serve` started where there is no `ready`.
     /// Uptime is counted from here; nothing ticks on the wire.
@@ -128,7 +116,7 @@ pub struct ServerState {
     /// failed, whatever its code**, and this says so.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
-    /// A person pressed Stop, or its Job or Fleet ended. `false` on an
+    /// A person pressed Stop, or Fleet ended. `false` on an
     /// `exited` server is one that stopped on its own.
     pub stopped: bool,
     /// The log, relative to `ManifestSummary::records_root`.
@@ -144,18 +132,13 @@ pub struct ServerList {
 
 /// `start_server`'s body. **A name, never a command line and never a port**:
 /// what runs is what the Manifest declares, on the span it runs under. Which
-/// repository's main checkout is `?manifest_id=`, as on every checkout route;
-/// a Job's repository is the Job's own.
+/// repository's main checkout is `?manifest_id=`, as on every checkout route.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartServer {
     pub name: String,
-    /// The Job whose worktree and span it runs in. Absent: a checkout.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
     /// A checkout of that repository to serve, by its path — a worktree
     /// somebody cut by hand to look at another branch. Absent: the main
-    /// checkout. Ignored where `job_id` names a Job, whose worktree is its
-    /// own. **Since 18.2.**
+    /// checkout. **Since 18.2.**
     ///
     /// **A path and never a port**, the field above's rule: what it changes is
     /// which span `${port.NAME}` resolves against, not the number.
@@ -183,7 +166,7 @@ pub struct ServerEntry {
     /// As declared, `${port.NAME}` unresolved.
     pub links: Vec<ServerLink>,
     pub destructive: bool,
-    /// This Job's instance: running, or the last one that ended.
+    /// This holder's instance: running, or the last one that ended.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instance: Option<ServerState>,
 }
@@ -205,8 +188,6 @@ pub struct ServerOpened {
     pub protocol_id: ProtocolId,
     pub id: String,
     pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
     /// The log, relative to `ManifestSummary::records_root`.
     pub path: String,
     /// Still running when this opened. `false`: the history is all of it.

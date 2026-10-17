@@ -16,18 +16,13 @@
 //! test runs.
 
 pub mod adrift;
-pub mod allowance;
 /// The commands a person allowed, kept as a list they can read and take back.
 pub mod allowed;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
 mod amending;
-/// The two lines that tell a Drone to settle a question itself.
-mod answer_mode;
 /// A repository working its own backlog. #2092.
 pub mod autopilot;
-/// The four narrowings of the board, and the one rule each is.
-mod attention;
 /// Saving a workflow definition, and reading the workflow folders again.
 mod authoring;
 pub mod basing;
@@ -58,8 +53,7 @@ pub mod rail_watching;
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
 mod building;
-/// Racing a plain command's work against [`budget::CommandBudget`],
-/// split out of `commanding` at the 900-line refusal, `#897`.
+/// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
 mod catching_up;
@@ -90,18 +84,9 @@ mod files;
 /// A running Check's log, read for `observe_check_output` as it grows.
 mod following;
 mod framing;
-mod gated;
-mod gating;
 mod group;
 pub mod headroom;
 pub mod helm;
-/// What Fleet is holding disk for, and the five tests that decide whether it
-/// may give one back without asking anybody.
-pub mod holding;
-/// A Job's own log, read back and served. **The other side of the file every
-/// `transcript::note` call writes**, and the third voice the activity log was
-/// designed around.
-pub mod journal;
 pub mod judging;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
@@ -109,7 +94,6 @@ pub mod kit;
 pub mod kit_allowlist;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
-mod ledgering;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;
@@ -126,10 +110,6 @@ mod model_downshifting;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;
-/// What each Job is called on disk, answerable without a lock. **Every path
-/// under `.armada/` is named by the handle**, and half the places that write a
-/// Job's log line hold only its id.
-mod naming;
 /// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
 pub mod timeline;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
@@ -186,7 +166,6 @@ mod review_tools;
 mod pull_requesting;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
-mod reclaiming;
 /// Links already on a Studio, read as what their addresses name — `#1394`.
 mod recognising;
 /// Where one repository's records live, off the checkout — the per-repository
@@ -197,16 +176,12 @@ mod refusing;
 /// A person's run of one Manifest entry in a Job's worktree, and Undo from
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
-pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
 /// Which profile a repository claims and syncs as: matched by its owner, or chosen.
 pub mod repository_profiles;
 mod rescuing;
 mod stranding;
-/// What one Job holds on this machine — its processes, what they are burning,
-/// and the disk its worktree has taken. **Read on demand, never on the turn.**
-pub mod resources;
 /// A Job's retro: what got in the way while it ran. `docs/concepts/retro.md`.
 mod retro;
 mod review;
@@ -243,12 +218,6 @@ mod taking_red;
 pub mod signing_in;
 pub mod slots;
 mod sleeping;
-/// The Manifest a Job actually sees — what was snapshotted at its creation,
-/// resolved by every reader `#650` named rather than by `Fleet::manifest`
-/// directly.
-mod snapshotting;
-/// What the fleet has spent, and which Jobs a ceiling is holding.
-mod spending;
 /// The lock on the store, which names a holder past a quarter second.
 mod store_lock;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.
@@ -261,7 +230,6 @@ mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
 mod subagents_resumed;
-mod summarising;
 pub use worktrees_kept::keep_worktrees_warm;
 /// settings.json: the file, its watch's re-read, its save, and the move of the
 /// store's saved rows into it. `docs/concepts/machine.md`, *settings.json*.
@@ -286,24 +254,21 @@ pub mod workspaces;
 mod tests;
 
 pub use adrift::Adrift;
-pub use allowance::{Allowance, Micros, Overspent};
-pub use budget::{CheckBudget, CommandBudget};
+pub use budget::CheckBudget;
 pub use clock::{Clock, SystemClock};
 pub use daemon::{Fittings, Fleet, Host, Reconciled, StartingIn};
 pub use detach::Detached;
 pub use drone::{environment, HostPaths};
 pub use headroom::{Bytes, Headroom, InUse, Machine, Polling, Reading, Short, Spare, TheMachine};
-pub use holding::{GaveBack, Held, Holding, Reclaiming};
 pub use judging::{CallFailed, Explaining, JudgeBudget};
 pub use listener::claimed_listener_port;
 pub use mint::{Mint, UlidMint};
-pub use peer::{NotACaller, PeerOf};
+pub use peer::PeerOf;
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use redaction::Redactor;
 pub use rehearsing::verify_steps;
-pub use reporting::{Counted, Filed, NotFiled};
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
     Staleness, Vacancy, FILE_NAME,
@@ -312,6 +277,5 @@ pub use seeding::{CopyOnWrite, NotCloned, TheVolume};
 pub use slots::Concurrency;
 pub use noticing::Noticing;
 pub use orphans::keep_ending_orphans;
-pub use transcript::{history, log_of, transcript_of};
-pub use trigger_wire::{job_triggers, trigger_definition, trigger_list};
+pub use trigger_wire::{trigger_definition, trigger_list};
 pub use wire::left_out_workflow;

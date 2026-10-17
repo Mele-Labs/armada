@@ -7,7 +7,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    EditManifestProposal, Instant, ManifestProposal, ManifestProposals, StatedCaps, WireError,
+    EditManifestProposal, Instant, ManifestProposal, ManifestProposals, WireError,
     WireValue, WriteManifestProposal,
 };
 
@@ -61,7 +61,6 @@ where
         for draft in propose(&found) {
             held.entry(draft.dir.clone()).or_insert(draft);
         }
-        let allowance = self.machine_allowance();
         ManifestProposals {
             proposals: found
                 .workspaces
@@ -69,10 +68,6 @@ where
                 .filter_map(|one| held.get(&one.dir).map(Draft::answer))
                 .collect(),
             checkout,
-            caps: StatedCaps {
-                cost_micros: allowance.cost().count(),
-                turns: allowance.turns(),
-            },
         }
     }
 

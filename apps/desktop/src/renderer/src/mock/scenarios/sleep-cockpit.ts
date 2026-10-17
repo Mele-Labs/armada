@@ -2,7 +2,7 @@
 // (`mock/sleep.ts`), which arrive as calls once the first press turns the moon off. Both were made in
 // Sessions, which are here to be opened. The walk `sleepCockpit` plays it.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -35,8 +35,7 @@ function build(): Scenario {
   return {
     name: "sleep-cockpit",
     says: "The Cockpit with a night of Sleep decisions to review",
-    state: { ...connected([], [], [repository()]), repository: repository().root },
-    reads: {},
+    state: { ...connected([], [repository()]), repository: repository().root },
     draft: { sessions: (board) => sessions(board, [lunch, naming]) },
   };
 }

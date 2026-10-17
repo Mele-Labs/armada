@@ -1,6 +1,6 @@
 // Setup's registration: its members and its moment come from `@armada/setup/fake`.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { setupApi } from "@armada/setup/fake";
 
 import type { SetupApi, SetupState } from "../../../../shared/api/setup";

@@ -1,8 +1,8 @@
-// Journey 9's run sheet, in a Job's worktree and in the window's own checkout — every channel here
+// The run sheet in the window's own checkout — every channel here
 // is `connection.rehearsal`'s, `rehearsal.ts`. Out of `index.ts` for the gate's length.
 
 import type { IpcMain } from "electron";
-import type { StartCheckoutRun, StartRun } from "@armada/protocol";
+import type { StartCheckoutRun } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -16,31 +16,7 @@ type Hosts = {
 };
 
 export function handleRehearsal({ ipc, connection, windowIdOf }: Hosts): void {
-  // The run sheet, Journey 9. Opened by the sheet rather than by the Job.
-  // Every act below is `connection.rehearsal`'s — see `rehearsal.ts`.
-  ipc.handle(CHANNELS.watchRunSheet, (_event, jobId: string | null) =>
-    connection()?.rehearsal.watchRunSheet(jobId),
-  );
-  // One run's output, `followCheckOutput`'s reason and its own socket for it.
-  ipc.handle(CHANNELS.observeRun, (_event, jobId: string | null, runId: string | null) =>
-    connection()?.rehearsal.observeRun(jobId, runId),
-  );
-  // A rehearsal in this Job's own worktree — no Evidence, nothing on the Job
-  // moves. Opens `observeRun` for the caller the moment the run exists.
-  ipc.handle(CHANNELS.startRun, (_event, jobId: string, body: StartRun) =>
-    connection()?.rehearsal.startRun(jobId, body),
-  );
-  ipc.handle(CHANNELS.stopRun, (_event, jobId: string, runId: string) =>
-    connection()?.rehearsal.stopRun(jobId, runId),
-  );
-  ipc.handle(CHANNELS.undoRun, (_event, jobId: string, runId: string) =>
-    connection()?.rehearsal.undoRun(jobId, runId),
-  );
-  ipc.handle(CHANNELS.listRuns, (_event, jobId: string) => connection()?.rehearsal.listRuns(jobId));
-  ipc.handle(CHANNELS.getRunOutput, (_event, jobId: string, runId: string) =>
-    connection()?.rehearsal.getRunOutput(jobId, runId),
-  );
-  // The same rehearsal in this window's own checkout — the Manifest surface. Held open
+  // A rehearsal in this window's own checkout — the Manifest surface. Held open
   // while that surface is showing or the palette is up, since the palette
   // lists one row per Check and Command off this reading.
   ipc.handle(CHANNELS.watchCheckoutRunSheet, (event, want: boolean) =>

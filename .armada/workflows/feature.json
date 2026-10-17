@@ -7,8 +7,7 @@
 # `handoff` -- Bug's fold. The designed `tests` step is folded into `implement`
 # too: its Drone-per-task already writes the tests as plan tasks, so a step after
 # it had nothing left to move and `diff_nonempty` refused it (Job 3). Its
-# `tests_exercise_behaviour` criterion and its `gaming_check` are carried onto
-# `implement`. `regression_verify`'s question does not vanish
+# `tests_exercise_behaviour` criterion is carried onto `implement`. `regression_verify`'s question does not vanish
 # with its step: it is carried as `implement`'s second criterion, on the diff it
 # was asking about.
 #
@@ -95,7 +94,6 @@
       },
       "retry_limit": 2,
       "follows_plan": true,
-      "drone_per_task": true,
       "mechanical_checks": [
         {
           "type": "every_manifest_check"
@@ -137,17 +135,7 @@
               "criterion_id": "tests_exercise_behaviour",
               "question": "Do the tests in this diff exercise the behaviour the scope note described, rather than restating the implementation?"
             }
-          ],
-          "gaming_check": {
-            "enabled": true,
-            "baseline_ref": "plan.evidence",
-            "flag_if": [
-              "assertion_weakened",
-              "test_scope_narrowed",
-              "tautological_test",
-              "check_config_edited"
-            ]
-          }
+          ]
         }
       ],
       "delivers": false,

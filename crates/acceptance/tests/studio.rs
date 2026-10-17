@@ -26,11 +26,11 @@
 #[allow(dead_code)]
 mod bench;
 
-use ipc::door::{DRAFTING, HELM_ONLY, REACHABLE};
+use ipc::door::{HELM_ONLY, REACHABLE};
 use ipc::{HelmStudioAct, StudioNodeContent};
 
 use bench::studio::{
-    a_capture_sent, a_failed_run, a_long_log, a_server_that_fell_over, a_studio_promoted_to_a_job,
+    a_capture_sent, a_failed_run, a_long_log, a_server_that_fell_over,
     a_studio_with_a_captured_note, a_studio_with_a_node_of_each_forge_kind,
     a_studio_with_a_run_started_from_a_note, a_studio_with_a_server_started_from_a_note,
     a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes, helms_manifest, received_event,
@@ -98,107 +98,6 @@ fn a_pasted_address_is_the_kind_it_names_with_its_own_fields_and_a_page_stays_a_
     assert_eq!(*read_in, None, "how much of it is here waits on a read-in");
 }
 
-/// Step 6's near half: **two Notes are clustered, the Cluster is written up as
-/// an Issue draft, and the Job it was dispatched to stands on the Studio,
-/// linked back to both Notes through `Produced` edges.**
-/// `docs/concepts/studio.md`, *Promotion*.
-///
-/// **The failure this is against is work that arrives with no way back.** A
-/// Job on the Board says nothing about what was worked out to reach it, so
-/// what is held here is the chain: every rung draws the edge that says where
-/// its node came from, and walking those edges from the Job reaches the words
-/// a person captured. A rung that added a node and no edge would render the
-/// same and record nothing.
-#[test]
-fn two_notes_clustered_and_written_up_reach_a_job_node_that_walks_back_to_both() {
-    let studio = received_studio(&a_studio_promoted_to_a_job());
-    let kind = |node: &ipc::StudioNode| match &node.content {
-        StudioNodeContent::Note { .. } => "note",
-        StudioNodeContent::Cluster { .. } => "cluster",
-        StudioNodeContent::IssueDraft { .. } => "issue_draft",
-        StudioNodeContent::Job { .. } => "job",
-        other => panic!("nothing else was promoted onto it: {other:?}"),
-    };
-    let kinds: Vec<_> = studio.nodes.iter().map(kind).collect();
-    assert_eq!(
-        kinds,
-        ["note", "note", "cluster", "issue_draft", "job"],
-        "each rung's node, oldest first"
-    );
-
-    // Every edge a rung drew is the Studio's own, accepted as drawn: a person
-    // accepting a relation is a different act, and none of these waits on one.
-    let produced: Vec<_> = studio
-        .edges
-        .iter()
-        .filter(|edge| edge.kind.as_wire() == "produced")
-        .collect();
-    assert!(
-        produced
-            .iter()
-            .all(|edge| edge.standing.as_wire() == "accepted"),
-        "the Studio draws a Produced edge and nobody accepts one"
-    );
-
-    // Walk back from the Job: the draft, the Cluster, then both Notes.
-    let made = |to: &ipc::StudioNodeId| -> Vec<ipc::StudioNodeId> {
-        produced
-            .iter()
-            .filter(|edge| &edge.to == to)
-            .map(|edge| edge.from.clone())
-            .collect()
-    };
-    let job = studio.nodes.last().expect("the Job node");
-    let [draft] = &made(&job.id)[..] else {
-        panic!("one Issue draft made the Job");
-    };
-    let [cluster] = &made(draft)[..] else {
-        panic!("one Cluster was written up as the draft");
-    };
-    let said: Vec<_> = made(cluster)
-        .iter()
-        .map(
-            |note| match &studio.nodes.iter().find(|one| &one.id == note) {
-                Some(ipc::StudioNode {
-                    content: StudioNodeContent::Note { said, .. },
-                    ..
-                }) => said.clone(),
-                other => panic!("a Cluster is of Notes: {other:?}"),
-            },
-        )
-        .collect();
-    assert_eq!(
-        said,
-        [FIRST_NOTE, SECOND_NOTE],
-        "the Job walks back to both Notes' own words, in the order they were clustered"
-    );
-
-    // A Job node holds a reference and no status: its state is the Board's.
-    assert!(
-        job.state.is_none(),
-        "a Job node's status is read off the Job, never copied here"
-    );
-    let StudioNodeContent::IssueDraft { title, body } = &studio.nodes[3].content else {
-        panic!("the draft");
-    };
-    assert_eq!(title, DRAFT_TITLE);
-    for note in [FIRST_NOTE, SECOND_NOTE] {
-        assert!(
-            body.contains(note),
-            "the draft was written up from the Notes, and says so: {note}"
-        );
-    }
-}
-
-
-/// Steps 1 and 7: **a Studio belongs to a repository, and what a client reads
-/// back is every node, edge and position as a person left them.**
-///
-/// **The failure this is against is a whiteboard that reopens rearranged or
-/// with a relation silently accepted.** A position dropped on the way out puts
-/// a node back where it was added; a standing dropped makes a proposal read as
-/// a person's decision. So the Studio crosses the wire, and what arrives is
-/// held to the record field by field.
 #[test]
 fn a_studio_reads_back_with_every_node_where_it_was_left_and_its_proposal_unaccepted() {
     let graph = a_studio_with_two_notes();
@@ -373,7 +272,7 @@ fn a_captured_note_keeps_where_it_was_pointed_and_no_route_can_rewrite_it() {
 #[test]
 fn no_agent_is_offered_a_persons_act_on_a_studio() {
     let offered = |operation: &str| {
-        [REACHABLE, DRAFTING, HELM_ONLY]
+        [REACHABLE, HELM_ONLY]
             .iter()
             .any(|door| door.iter().any(|row| row.operation == operation))
     };
@@ -480,7 +379,7 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
     assert_eq!(received.kind(), "studio.helm_acted");
     assert_eq!(
         received.about(),
-        (None, Some(REPOSITORY.to_string())),
+        Some(REPOSITORY.to_string()),
         "a poll's tally names the repository"
     );
 

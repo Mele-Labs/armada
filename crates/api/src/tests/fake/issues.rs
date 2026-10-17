@@ -27,7 +27,7 @@ impl Issues for FakeDaemon {
             "214" => IssueState::Open,
             "215" => IssueState::Closed,
             _ => {
-                return Err(Refusal::NoSuchJob(WireError::raised(
+                return Err(Refusal::NotFound(WireError::raised(
                     "fleet.no_such_issue",
                     format!("the tracker has no issue {reference}"),
                     crate::tests::shapes::run_id(),

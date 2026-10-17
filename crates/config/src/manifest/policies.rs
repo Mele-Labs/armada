@@ -87,19 +87,12 @@ impl Manifest {
     /// and one more: the question is asked at a gate and again on every sweep
     /// over an open pull request, so somebody turning it off is answered at the
     /// next sweep rather than at the next restart.
-    ///
-    /// **Not the resolution.** This is one file's answer, and a Job may be
-    /// gated by several — `core_model::AutoMerge::across` folds them
-    /// most-restrictive-wins. A caller acting on this alone would let the least
-    /// cautious gating Manifest decide.
     pub fn auto_merge(&self) -> AutoMerge {
         self.live.read().auto_merge
     }
 
     /// Whether a person signs off on a workflow's review step here.
-    /// **`human_always` where the file says nothing**, and not the resolution
-    /// either — `core_model::ReviewGate::across`. Both for
-    /// [`auto_merge`](Manifest::auto_merge)'s reasons.
+    /// **`human_always` where the file says nothing.**
     pub fn review_gate(&self) -> ReviewGate {
         self.live.read().review_gate
     }

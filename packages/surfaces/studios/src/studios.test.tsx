@@ -231,7 +231,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
 
 /**
  * One node picked reaches the same act, the same route and the same
- * confirmation as eighteen — #1411. Two of each was two paths that drifted, and
+ * confirmation as seventeen — #1411. Two of each was two paths that drifted, and
  * the single one left a captured Note's picture on disk.
  */
 test("Delete 1 node confirms, with Cancel first, and takes the node's edges with it", async () => {
@@ -285,8 +285,6 @@ test("default keeps Studios, so the surface opens on a list and not a read failu
 
   await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
-  // A Job node reads its state off the Board row this window already holds.
-  await expect.element(node(/^Job: /)).toBeVisible();
   // Reopened read-only, so its proposed relations say how to answer and nothing acts on them.
   await page.getByRole("button", { name: /(proposes|proposed): /i }).first().hover();
   await expect.element(page.getByText("Continue to accept or reject.").first()).toBeVisible();
@@ -665,7 +663,7 @@ test("a Note draws the frame it kept, opens it full size, and a Note without one
   expect(offered("Open frame").query()).toBeNull();
 });
 
-test("two Notes clustered, the Cluster written up, the draft edited and dispatched to a Job node", async () => {
+test("two Notes clustered, the Cluster written up and the draft edited", async () => {
   const fleet = studying([]);
   open(fleet.scenario);
   await toSystemPage("Studios");
@@ -698,7 +696,7 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await asked("Write up").click();
   await expect.element(node(/^Issue draft: Counts go stale after what they count changes/)).toBeVisible();
 
-  // Edited before it is sent: what is dispatched is what the person left. The
+  // Edited before anything is done with it: the draft keeps what the person left. The
   // draft lands hanging off the board's right edge, and picking it pans it in.
   await pick(/^Issue draft: Counts go stale after what they count changes/);
   await act("Edit draft");
@@ -707,23 +705,6 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   const saved = () => fleet.studios()[0]!.nodes.find((one) => one.kind === "issue_draft");
   await whenFleet(fleet, () => saved()?.body === "Both counts are read off a row that is stale.");
   expect(saved()).toMatchObject({ body: "Both counts are read off a row that is stale." });
-
-  await pick(/^Issue draft: Counts go stale after what they count changes/);
-  await act("Dispatch");
-  // What is sent is the draft's own text, title first, and a person reads it before pressing.
-  await expect
-    .poll(() => (page.getByRole("textbox", { name: "What is sent" }).element() as HTMLTextAreaElement).value)
-    .toBe("Counts go stale after what they count changes\n\nBoth counts are read off a row that is stale.");
-  await asked("Dispatch").click();
-
-  await whenFleet(fleet, () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "job").length === 1);
-  const studio = fleet.studios()[0]!;
-  const job = studio.nodes.find((one) => one.kind === "job")!;
-  const draft = studio.nodes.find((one) => one.kind === "issue_draft")!;
-  expect(studio.edges.find((edge) => edge.to === job.id)).toMatchObject({
-    from: draft.id,
-    kind: "produced",
-  });
 });
 
 test("a Contradiction is ended as Resolved here, with the answer kept on the node", async () => {
@@ -924,62 +905,6 @@ test("reading an epic in asks what to take, and narrowing leaves what a person w
 });
 
 /**
- * `#1379`'s definition of done, as far as Bridge goes now: paste a milestone's address, read it in, press
- * Dispatch on one issue's node, and the Job node lands. Bridge draws no Job page, so the node opens nothing.
- */
-test("an issue read in is dispatched, and its Job node lands with a Produced edge", async () => {
-  const fleet = studying();
-  open(fleet.scenario);
-  await toSystemPage("Studios");
-  await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  // The Epic fills the board with an Issue per issue — #1293.
-  await pick(/^Epic: Studio/);
-  await act("Read in");
-  await asked("Read in").click();
-  await expect.element(node(/^Issue: An issue cannot be read into a Studio/)).toBeVisible();
-
-  // All three forge kinds dispatch, and the dialog names which it is about:
-  // an issue, a pull request and an epic are three different asks — #1379,
-  // #1394. Reading an Epic in and dispatching it are not rivals either.
-  await pick(/^Pull request: where dispatch landed/);
-  await act("Dispatch");
-  await expect.element(page.getByRole("dialog", { name: "Dispatch this pull request" })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
-
-  await pick(/^Epic: Studio/);
-  await act("Dispatch");
-  await expect.element(page.getByRole("dialog", { name: "Dispatch this epic" })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
-
-  // A Link is an address no adapter recognised: nothing filed to dispatch.
-  await pick(/^Link: why the ids collide/);
-  await expect.poll(() => offered("Dispatch").query()).toBeNull();
-
-  await pick(/^Issue: An issue cannot be read into a Studio/);
-  await act("Dispatch");
-  // The address is the whole request. Nothing is filed — the issue already is.
-  await expect
-    .poll(() => (page.getByRole("textbox", { name: "What is sent" }).element() as HTMLTextAreaElement).value)
-    .toBe("https://example.invalid/o/r/issues/1293");
-  await asked("Dispatch").click();
-
-  // The Job node lands with a `Produced` edge from the node it came from, and
-  // stands at the gate like every other Job.
-  const dispatched = /^Job: An issue cannot be read into a Studio/;
-  await expect.element(node(dispatched)).toBeVisible();
-  const studio = () => fleet.studios()[0]!;
-  const jobNode = () => studio().nodes.find((one) => one.kind === "job")!;
-  const edge = studio().edges.find((one) => one.to === jobNode().id)!;
-  expect(edge.kind).toBe("produced");
-  expect(studio().nodes.find((one) => one.id === edge.from)).toMatchObject({
-    kind: "issue",
-    address: "https://example.invalid/o/r/issues/1293",
-  });
-});
-
-/**
  * #1406's own: a person picks a node holding an address, presses Open, and it
  * opens in their browser with Bridge unchanged behind it.
  *
@@ -1049,36 +974,35 @@ async function pickEvery(): Promise<void> {
  * on a Studio to clear it out and there was no act for it.
  *
  * **One act, one confirmation, one write.** The act counts rather than naming —
- * eighteen titles is the panel that overflowed the window — and what goes with
- * them is said before the press: the edges on them, the picture a captured Note
- * keeps, and that a Job node's Job is left alone.
+ * seventeen titles is the panel that overflowed the window — and what goes with
+ * them is said before the press: the edges on them, and the picture a captured Note
+ * keeps.
  */
 test("every node picked is deleted by one act, confirmed once, and the Studio is left empty", async () => {
-  const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
+  const fleet = studying([everyKind()]);
   open(fleet.scenario);
   await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
   // Reopened read-only, so nothing is deleted until a person continues it.
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect.poll(() => everyNode().length).toBe(18);
+  await expect.poll(() => everyNode().length).toBe(17);
 
   await pickEvery();
   // Counted, never named, and the single-node act is not what is offered here.
-  await expect.element(offered("Delete 18 nodes")).toBeVisible();
+  await expect.element(offered("Delete 17 nodes")).toBeVisible();
   // Picked whole, a fitted board leaves no room above the nodes or below them,
   // and the bar sat past the bottom edge until it learned to sit over them.
-  await act("Delete 18 nodes");
+  await act("Delete 17 nodes");
   const confirm = page.getByRole("dialog");
   await entered(confirm);
   await expect.element(page.getByRole("button", { name: "Cancel" })).toHaveFocus();
   // What goes with them, before the press.
-  await expect.element(confirm.getByText("18 nodes go from this Studio, with the 15 edges on them.")).toBeVisible();
+  await expect.element(confirm.getByText("17 nodes go from this Studio, with the 14 edges on them.")).toBeVisible();
   await expect.element(confirm.getByText(/1 Note going keeps a picture/)).toBeVisible();
-  await expect.element(confirm.getByText(/The Job it names is untouched/)).toBeVisible();
   await expect.element(confirm.getByText("There is no undo.")).toBeVisible();
 
-  await confirm.getByRole("button", { name: "Delete 18 nodes" }).click();
+  await confirm.getByRole("button", { name: "Delete 17 nodes" }).click();
   // One write: the Studio is empty, and every edge went with the nodes.
   await whenFleet(fleet, () => fleet.studios()[0]!.nodes.length === 0);
   expect(fleet.studios()[0]!.edges).toEqual([]);
@@ -1091,7 +1015,7 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
  * rail's Studios link sits beside it, and pressing it is the way back to the list.
  */
 test("an open Studio draws no Back button, and the rail's Studios link returns to the list", async () => {
-  const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
+  const fleet = studying([everyKind()]);
   open(fleet.scenario);
   const rail = page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Studios" });
   await toSystemPage("Studios");

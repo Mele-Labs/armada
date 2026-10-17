@@ -3,7 +3,7 @@
 // The walk `debug-bridge-draft` plays it. The layer is the mock's own, off (`../annotating.tsx`).
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -45,7 +45,7 @@ async function windowShot(): Promise<Uint8Array> {
 }
 
 function build(): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

@@ -8,10 +8,10 @@
 use std::io::{ErrorKind, Write};
 use std::process::{Command, Output, Stdio};
 
-use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, NotTracked, OpenIssue, ReadIssue, Tracker};
 
 use crate::delivery::said;
-use crate::jira::{self, as_label, is_key, JiraSettings};
+use crate::jira::{self, is_key, JiraSettings};
 use crate::under_review::as_written;
 
 /// How many open issues one listing reads, newest edit first.
@@ -102,30 +102,6 @@ impl<R: Run> JiraTracker<R> {
         }
     }
 
-    /// `acli` alone, for a write: whether it worked is its only answer.
-    fn written(&self, args: &[&str], doing: &'static str) -> Result<(), NotTracked> {
-        let args: Vec<String> = args.iter().map(|one| one.to_string()).collect();
-        let run = self
-            .run
-            .run("acli", &args, None)
-            .map_err(|why| missing("acli", &why, doing))?;
-        match run.status.success() {
-            true => Ok(()),
-            false => Err(NotTracked::of(doing, said(&run))),
-        }
-    }
-
-    /// The key an address names in this tracker, refused where it names none:
-    /// nothing that is not an issue's key reaches the CLI.
-    fn key_of(&self, issue: &IssueAddress, doing: &'static str) -> Result<String, NotTracked> {
-        match self.settings.key_in(issue.url()) {
-            Some(key) if is_key(&key) => Ok(key),
-            _ => Err(NotTracked::of(
-                doing,
-                format!("`{}` is not an issue's address on this site", issue.url()),
-            )),
-        }
-    }
 }
 
 fn missing(tool: &str, why: &std::io::Error, doing: &'static str) -> NotTracked {
@@ -187,70 +163,6 @@ impl<R: Run> Tracker for JiraTracker<R> {
         Ok(text.lines().find_map(|line| read_issue_of_line(&self.settings, line)))
     }
 
-    fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
-        let doing = "commenting on the issue";
-        let key = self.key_of(issue, doing)?;
-        self.written(
-            &["jira", "workitem", "comment", "create", "--key", &key, "--body", text],
-            doing,
-        )
-    }
-
-    /// **A removal is written as a removal**: `--remove-labels` is its own flag, so a label
-    /// somebody else set at the same moment is not touched. **An addition writes the whole
-    /// set**, because acli's reference words `--labels` only as "Edit the labels" and does not say
-    /// whether it adds or replaces (`docs/concepts/tracker.md`); the current labels plus the
-    /// added ones, less the removed, is right either way.
-    fn relabel(
-        &self,
-        issue: &IssueAddress,
-        add: &[&str],
-        remove: &[&str],
-    ) -> Result<(), NotTracked> {
-        let doing = "moving the issue's labels";
-        let key = self.key_of(issue, doing)?;
-        let add: Vec<String> = add.iter().map(|one| as_label(one)).collect();
-        let remove: Vec<String> = remove.iter().map(|one| as_label(one)).collect();
-        if add.is_empty() && remove.is_empty() {
-            return Ok(());
-        }
-        let removing = remove.join(",");
-        let mut args = vec!["jira", "workitem", "edit", "--key", key.as_str()];
-        let whole;
-        if !add.is_empty() {
-            let (worked, held) = self.reduced(
-                &["jira", "workitem", "view", &key, "--fields", "labels", "--json"],
-                &jira::labels_filter(),
-                doing,
-            )?;
-            if !worked {
-                return Err(NotTracked::of(doing, held));
-            }
-            let mut labels: Vec<String> = held.lines().map(str::to_string).collect();
-            for one in &add {
-                if !labels.contains(one) {
-                    labels.push(one.clone());
-                }
-            }
-            labels.retain(|one| !remove.contains(one));
-            whole = labels.join(",");
-            args.extend(["--labels", whole.as_str()]);
-        }
-        if !remove.is_empty() {
-            args.extend(["--remove-labels", removing.as_str()]);
-        }
-        args.push("--yes");
-        self.written(&args, doing)
-    }
-
-    /// Nothing in a body closes a Jira issue: its integration with the forge reads the key.
-    fn closing_line(&self, _issue: &IssueAddress) -> Option<String> {
-        None
-    }
-
-    fn title_mark(&self, issue: &IssueAddress) -> Option<String> {
-        self.settings.key_in(issue.url()).filter(|key| is_key(key))
-    }
 }
 
 /// One `@tsv` line of the listing. **A line whose first field is not a key is not an issue**;

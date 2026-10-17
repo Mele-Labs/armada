@@ -17,8 +17,6 @@ export type TrackedIssue = {
   excerpt: string;
   /** The tracker says a pull request already closes it. */
   linked_pull_request: boolean;
-  /** A Job dispatched from it that has not ended. Absent where there is none. */
-  job_id?: string;
 };
 
 /** `GET /issues/:repository`. `stale` is why an older list was answered: the read just tried failed. */

@@ -5,7 +5,7 @@
 // drawn, and nothing that draws knows how to reach the host.
 //
 // **The pieces of state here are the ones a command in flight has**: what the last command answered,
-// and which question an answer is out on. A command that ends somewhere on screen says so through a
+// and which Helm call an answer is out on. A command that ends somewhere on screen says so through a
 // callback rather than by reaching for state it does not own: a re-read's answer is published by
 // `onRead`.
 
@@ -16,10 +16,9 @@ import { useState } from "react";
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
-import { triggerActs } from "./trigger-commands";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
-import type { AlwaysAllowScope, CommandAnswer, HelmCallAnswer, JudgeAnswer, StartCheckoutRun } from "@armada/protocol";
+import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
@@ -35,7 +34,6 @@ import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
  * They exist at all because a screen may not reach for the preload. A screen
  * that did could not be rendered outside the app, which is the whole of why the
  * screens are a layer. */
-export const readReports = (want: boolean): void => void window.armada.readReports(want);
 export const readHeld = (want: boolean): void => void window.armada.readHeld(want);
 // The Studios surface — #1287. The two reads are held by effects, so they are stable here too.
 export const watchStudios = (manifestId: string | readonly string[] | null): void => void window.armada.watchStudios(manifestId);
@@ -85,29 +83,18 @@ export const startStudioServer = (studioId: string, name: string, position: Stud
 /** Open what a Studio node points at. Main reads the address; the renderer sends none. #1406. */
 export const openStudioNode = (studioId: string, nodeId: string) =>
   window.armada.openStudioNode(studioId, nodeId);
-export const reclaimOne = (jobId: string) => window.armada.reclaimWorktree(jobId);
 export const changeSlotPool = (manifestId: string, change: ChangeSlotPool) =>
   window.armada.changeSlotPool(manifestId, change);
 export const rescueSlot = (manifestId: string, rescue: RescueSlot) =>
   window.armada.rescueSlot(manifestId, rescue);
-export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
-export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
-export const pauseOne = (jobId: string) => window.armada.parkJob(jobId);
-export const resumeOne = (jobId: string) => window.armada.resumeJob(jobId);
 /**
- * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, a
- * worktree given back, and a Job paused or resumed. Each receipt is answered
- * to the press that asked for it, because a published notice would outlive the
- * screen it was made on.
+ * What a tile of Cleanup's grid acts with: the pool reshaped or a slot rescued. Each receipt is
+ * answered to the press that asked for it, because a published notice would outlive the screen it
+ * was made on.
  */
 export const slotActs = {
   onChangeSlotPool: changeSlotPool,
   onRescueSlot: rescueSlot,
-  onReclaim: reclaimOne,
-  onDeleteBranch: deleteBranchOne,
-  onForget: forgetOne,
-  onPause: pauseOne,
-  onResume: resumeOne,
 };
 /**
  * What a bay's pane on the Cockpit acts with: the tile panel's acts, under the names `BayManage` reads. A constant, so the deck
@@ -115,17 +102,11 @@ export const slotActs = {
  */
 export const bayActs = {
   onChange: slotActs.onChangeSlotPool,
-  onReclaim: slotActs.onReclaim,
-  onDeleteBranch: slotActs.onDeleteBranch,
-  onForget: slotActs.onForget,
-  onPause: slotActs.onPause,
-  onResume: slotActs.onResume,
+  onRescue: slotActs.onRescueSlot,
 };
-export const readCheckOutput = (jobId: string, kept: string) =>
-  window.armada.readCheckOutput(jobId, kept);
 export const readSessionCheckOutput = (run: number) => window.armada.readSessionCheckOutput(run);
 export const stopSessionCheck = (run: number, force: boolean) => window.armada.stopSessionCheck(run, force);
-/** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
+/** A Session's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);
 export const readLessons = (state: "open" | "accepted") => window.armada.readLessons(state);
 /** The owner's answer to one retro item. */
@@ -181,8 +162,6 @@ export const cloneRepository = (url: string, parent: string) => window.armada.cl
 export const readManifestFile = () => window.armada.readManifestFile();
 export const saveManifestFile = (body: SaveManifestFile) => window.armada.saveManifestFile(body);
 export const editManifest = (body: EditManifest) => window.armada.editManifest(body);
-export const readManifestSpend = () => window.armada.readManifestSpend();
-export const readManifestChecks = () => window.armada.readManifestChecks();
 // Setup: Scan, the proposals, one edit, Write.
 export const readRepositoryScan = () => window.armada.readRepositoryScan();
 export const readManifestProposals = () => window.armada.readManifestProposals();
@@ -201,14 +180,14 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
-export { readAlerts, readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
+export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
   window.armada.setKitServerReach(name, drones);
 export const setManifestServerReach = (name: string, reach: ManifestReach | null) =>
   window.armada.setManifestServerReach(name, reach);
-export const startServer = (name: string, jobId?: string) => window.armada.startServer(name, jobId);
+export const startServer = (name: string) => window.armada.startServer(name);
 export const stopServer = (serverId: string) => window.armada.stopServer(serverId);
 export const openServerLink = (serverId: string, url: string) =>
   window.armada.openServerLink(serverId, url);
@@ -232,9 +211,6 @@ export type Sending = {
   onRead: (state: BridgeState) => void;
 };
 
-/** The answers a card in Helm's dock sends for a question a Drone asked. */
-export type ActingAct = "answer" | "answer_command" | "answer_judge";
-
 /**
  * Every command the window can send, and the state one in flight has.
  *
@@ -244,14 +220,8 @@ export type ActingAct = "answer" | "answer_command" | "answer_judge";
  */
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const triggers = triggerActs(setOutcome);
-  // Which question an answer is in flight on, by the id of the Job that asked it, so its card's controls wait.
-  const [acting, setActing] = useState<string | null>(null);
-  // Which Helm call has an answer in flight, by the call id Fleet minted. **Beside `acting` and not
-  // inside it**: a Helm call is on no Job, so the one flag could not name it. #1389.
+  // Which Helm call has an answer in flight, by the call id Fleet minted, so its card's controls wait. #1389.
   const [answeringHelm, setAnsweringHelm] = useState<string | null>(null);
-  // Which answer that is, so the control that sent it is the one that waits. #1117.
-  const [actingAct, setActingAct] = useState<ActingAct | null>(null);
 
   /**
    * Send main's red to a Session as a message, through the call the Cockpit sends with. **A
@@ -263,56 +233,7 @@ export function useCommands(sending: Sending) {
     if (!answer.ok) setOutcome(answer.outcome);
   }
 
-  /** Hold `acting` with the answer named for as long as `work` is out. #1117. */
-  async function acted<T>(jobId: string, act: ActingAct, work: () => Promise<T>): Promise<T> {
-    setActing(jobId);
-    setActingAct(act);
-    try {
-      return await work();
-    } finally {
-      setActing(null);
-      setActingAct(null);
-    }
-  }
-
-  /**
-   * Answer the question a drone asked, with the label a person picked. There is nothing to confirm:
-   * the answer is one of a closed set the drone itself offered, and it stops the drone waiting rather
-   * than ending anything.
-   */
-  async function answer(jobId: string, questionId: string, chose: string): Promise<Outcome> {
-    return acted(jobId, "answer", async () => {
-      const answered = await window.armada.answerQuestion(jobId, questionId, chose);
-      setOutcome(answered);
-      return answered;
-    });
-  }
-
-  /** Allow or reject a command the drone was not given. The answers are the closed set Fleet offered for that call. */
-  async function answerCommand(
-    jobId: string,
-    call: string,
-    chose: CommandAnswer,
-    note?: string,
-    rule?: string,
-    scope?: AlwaysAllowScope,
-  ): Promise<Outcome> {
-    return acted(jobId, "answer_command", async () => {
-      // A scope only where there is one: every other answer is sent as it was.
-      const answered =
-        scope === undefined
-          ? await window.armada.answerCommand(jobId, call, chose, note, rule)
-          : await window.armada.answerCommand(jobId, call, chose, note, rule, scope);
-      setOutcome(answered);
-      return answered;
-    });
-  }
-
-  /**
-   * Answer one held Helm call. **Not through `acted`**, which holds `acting` on
-   * a Job id — a Helm call has none. What draws the card's own controls off
-   * while this is out is the call id held here. #1389.
-   */
+  /** Answer one held Helm call. What draws the card's own controls off while this is out is the call id held here. #1389. */
   async function answerHelmCall(call: string, chose: HelmCallAnswer, note?: string): Promise<Outcome> {
     setAnsweringHelm(call);
     try {
@@ -322,20 +243,6 @@ export function useCommands(sending: Sending) {
     } finally {
       setAnsweringHelm((held) => (held === call ? null : held));
     }
-  }
-
-  /** Answer the question a judge refusal opened, from the closed set Fleet offers. */
-  async function answerJudge(
-    jobId: string,
-    askedAt: string,
-    answer: JudgeAnswer,
-    note?: string,
-  ): Promise<Outcome> {
-    return acted(jobId, "answer_judge", async () => {
-      const answered = await window.armada.answerJudge(jobId, askedAt, answer, note);
-      setOutcome(answered);
-      return answered;
-    });
   }
 
   /**
@@ -353,15 +260,9 @@ export function useCommands(sending: Sending) {
   return {
     outcome,
     setOutcome,
-    acting,
-    actingAct,
     sendToSession,
-    ...triggers,
-    answer,
-    answerCommand,
     answerHelmCall,
     answeringHelm,
-    answerJudge,
     refresh,
   };
 }

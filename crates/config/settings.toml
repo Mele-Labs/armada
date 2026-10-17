@@ -185,64 +185,6 @@ Where nothing is saved, `config::settings`' table supplies it and carries the ar
 **The value lives in settings.json under `limits.dronesAtOnce`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
-[settings.budget-cost-cap-per-job]
-name = "Budget: $ cost cap per Job"
-scope = "Kit → Manifest"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "config, fleet"
-notes = """
-**Enforced, and it refuses the next dispatch rather than stopping a Drone that is spending.** That is the whole of what it does and it has to be read that way: `cost_micros` reaches Armada on the final result line of a Drone's session and nowhere else, so there is no mid-session figure to interrupt on. A ceiling that reads as "spending stops here" and means "nothing new starts after here" is worse than no ceiling, because it is believed. The case it does catch is the one that matters — a runaway is a sequence of Jobs rather than a single Drone, and the sequence is what admission sees.
-
-**Per Job, and the slash in the old name is gone.** A Drone belongs to a workflow step, so a four-step Job is four Drones; a per-Drone ceiling on that Job is four times the number anybody thought they set, and the Job is what a person approved. `store::job_drone_spend` is the join — one row per Drone, keyed on the Drone so recording twice is recording once, summed per Job.
-
-**It is one of two rows and not one number.** `docs/spikes/005-what-does-a-job-cost.md` priced three identical, identically successful runs of one Job at $0.063, $0.087 and $0.146 — a 2.31x spread on cache warmth alone, with almost none of it attributable to the work. A dollar ceiling tight enough to catch a runaway kills a healthy Job that started cold, so this one is deliberately wide and `budget-turn-cap-per-job` below is what catches what it misses. Whatever refuses a Job says which of the two it was: `queued_reason` reads `over_budget` for both and `budget_hold` beside it names the ceiling, because "over budget" and "took four times as many turns as any other run" are acted on differently.
-
-**Notional dollars.** Spike 5 established that `total_cost_usd` is what a run would have cost at API list price, and a subscription account is not billed per token. The figure is arithmetically exact and denominated in a currency nothing here spends, which makes it a runaway detector rather than an invoice.
-
-**Three tiers, and the precedence is machine, then repository, then the Job's own.** This row said the opposite until Sept 2026 — that a Manifest has no budget cap, that budget is what the Kit/Machine split is for, and that there is no precedence question because there is only one cap. What falsified it was one Job: `01M21BKVPW002DC0ATD1X9T0VF` reached $5.28 against the $5 constant and was refused its last step, a cheap `handoff` over work three gates had already passed, and there was no lever anywhere — no key, no route, no action. A ceiling nobody can move is not a policy, it is a rebuild. So `armada.yml` now carries `drone.cost_cap_micros_per_job`, a Job carries `jobs.cost_cap_micros`, and `fleet::Allowance::at` is the only place the order is written. **There are three tiers rather than the two this row's `scope` names**: there is no Kit, nothing in this workspace parses one, and the third is a Job's own record rather than a file — which is also why it has no merge strategy. A repository or Job stating nothing defers to the tier above; `Some(0)` is a cap of zero and starts nothing, and is deliberately a different value from stating nothing at all.
-
-**Live at every tier, and this is the row where that word earns its keep.** A Job past its cap is refused again at every admission until a number moves, so a cap adopted only at restart would reach every Job except the one that needs it. `config::live` moves the repository's key under a running Fleet and the Job's column is read off the record at each admission. Nothing about a cap is frozen into a Job the way a workflow step is — `config::live::Frozen::DroneExcludePaths` is the counter-example in the same `drone:` block, and it is frozen because a `ResolvedWorkflow` was built from it at boot.
-
-Verification does not read this row — a budget refusal is a Job state, decided by Fleet at admission, and never a gate verdict.
-
-It has no value here for the reason none of Fleet's other dials does — settings.json resolves the machine tier, `limits.costCapDollarsPerJob`, and `config::settings` carries the argument for the number. That tier is still a constant and still needs a rebuild to change; what the two tiers under it buy is that nobody has to. It ships at five dollars, which is roughly fifty of the dearest Job spike 5 measured: not a Job going slightly over, but one that has stopped making progress and kept paying.
-
-**The value lives in settings.json under `limits.costCapDollarsPerJob`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
-[settings.budget-turn-cap-per-job]
-name = "Budget: turn cap per Job"
-scope = "Kit → Manifest"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "config, fleet"
-notes = """
-**Enforced, through the same predicate as the row above** — `fleet::allowance::Fleet::overspent`, which admission asks before it starts a Drone and which the Board's `over_budget` label is answered from. It refuses the next dispatch and stops nothing that is running, for that row's reason.
-
-**The second signal, and the one that actually catches a Drone going wrong.** Spike 5's three runs of one Job turned 7, 7 and 4 times while their prices spread 2.31x, so turns are the steady reading the price is not.
-
-**Two remedies and not one, which corrects what this row said until Sept 2026.** It said that over the dollar cap a person raises the cap or accepts the spend, and that over this one the Drone is going in circles and the brief is what needs rewriting. The second half is true of a Job that is turning and getting nowhere and false of a Job that has finished and is held out of its last step, and nothing told the two apart. Which one it is is a person's reading of the Job in front of them, so both acts exist: `raise_turn_cap` moves the number and `redispatch_job` throws the run away.
-
-Turns are summed across every terminating line of every Drone of the Job. A stream carries one such line per invocation rather than one per process, and `num_turns` on each is that invocation's — which is why turns are added and the cost is not. Measured: `docs/spikes/004-transcript-idle-session.ndjson`.
-
-**A new row, added with the Throughput milestone.** The registry had no turn ceiling; the only nearby rows are `loop_cap`, which bounds a step deliberately redone, and the thrashing norms, which bound one step against `StepNorms`. Neither counts across a whole Job.
-
-**Three tiers, and this row said `Machine` and a single layer until Sept 2026.** The argument for staying flat was that a lever would only buy more circles, and that a repository able to raise its own turn ceiling could opt out of the one signal reading steadily across cache warmth. **What falsified it is the row above's own incident, on the other half of the same constant.** Job `01M22TYSAE0023MADDP5ZQEYGW` finished its work, passed every Check, had its last verdict overruled, and stopped at 393 turns against a 300 constant with a cheap `summarise` never run; capacity was free, nothing was in its way, and there was no key, no route and no act anywhere. Its thirty-five changed files were committed by hand. A ceiling nobody can move is not a policy, it is a rebuild — and that sentence was accepted for dollars two paragraphs up and left unapplied here for a day.
-
-So `armada.yml` now carries `drone.turn_cap_per_job`, a Job carries `jobs.turn_cap`, and `fleet::Allowance::at` is still the only place either order is written. The precedence, the three-tiers-rather-than-two reading of `scope`, and the difference between `Some(0)` and stating nothing are all the row above's, unchanged. What holds a repository back from opting out is not the absence of a lever: it is that a ceiling somebody had to raise is a ceiling somebody read.
-
-**The two ceilings stay two acts.** `raise_cost_cap` and `raise_turn_cap` are separate routes with separate refusals, because a caller told the wrong one moved has been told nothing it can act on. They still resolve into one `fleet::Allowance` and one `exceeded_by` — what tiers is each value, not the pair — and `queued_reason = over_budget` still folds them both, with `budget_hold` beside it saying which.
-
-It has no value here for the reason the row above does not — settings.json resolves the machine tier, `limits.turnCapPerJob`, and that tier no longer needs a rebuild to change; what the two tiers under it buy is that nobody has to wait for one. It ships at three hundred: a four-step Job at a generous thirty turns a step is 120, so three hundred leaves room for a workflow twice that long and still stops a Drone that has been going round for hours.
-
-**The value lives in settings.json under `limits.turnCapPerJob`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
 [settings.budget-quota-floor-for-interactive-use]
 name = "Budget: quota % floor for interactive use"
 scope = "Machine"
@@ -263,18 +205,6 @@ Two things changed on 12 Oct 2026 and neither enforces this row. The mod reports
 The row stays rather than being deleted, because it is where that reasoning lives and because the change is small if `used_percentage` ever reaches the headless stream. It says unenforced out loud for `judge-cost-cap-per-check`'s reason: an unenforced cap is worse than an absent one, because only one of the two is visible as missing.
 
 Also sets Doctor's Claude warn boundary — quota below this floor is warn, since dispatch is gated but the CLI still works. Not authenticated or CLI absent is fail. Doctor does not exist either.
-"""
-
-[settings.concurrency-priority-tiebreak-for-dag-scheduling]
-name = "Concurrency/priority tiebreak for DAG scheduling"
-scope = "Machine"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Global scheduling behaviour. Breaks ties between Jobs that are all ready to run — approved, unblocked and inside resource headroom — by reading a Job's urgency field. It named a tiebreak over a field that did not exist until Aug 2026, which was the checkable evidence that urgency was missing from the Job record rather than deliberately absent. It orders ready work and never bypasses the dispatch approval gate, which nothing weakens.
 """
 
 [settings.retry-policy-on-network-loss-attempts-backoff]
@@ -312,43 +242,6 @@ owner = "Manifest"
 read_by = "fleet"
 notes = """
 Per-repo disk/audit needs. Resolved Aug 2026: the worktree belongs to the Job, not the Drone — "Drone exited" is never grounds to remove one, since rescope-and-respawn reuses the worktree and Pilot hands a human a terminal in it. Removal is driven by Job retention, which resolves the drift risk this row previously carried: nothing deletes on completion, so a retained Job never points at deleted paths. An interrupted Job's worktree is never swept — it may hold uncommitted work. Fleet stops a Drone only at a cap, and the worktree survives that too: a cap ends the spending, never the work.
-"""
-
-[settings.drone-job-timeout]
-name = "Drone/Job timeout"
-scope = "Kit → Manifest"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Job size varies by repo. Documented on Job; enforced by Fleet — a Job is a record, not an actor. Drift risk: Gate-failure retry limit × clarification-round cap can exceed this, so a correctness failure is recorded as an infrastructure timeout.
-"""
-
-[settings.approval-request-timeout-reminder-cadence]
-name = "Approval request timeout / reminder cadence"
-scope = "Kit → Manifest"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Cadence at which Fleet re-prompts on an unanswered approval. Owner is Fleet, which is what holds the timer.
-"""
-
-[settings.job-retention-archival-window]
-name = "Job retention / archival window"
-scope = "Kit → Manifest"
-default = "30 days"
-lifetime = "Daemon start"
-merge_strategy = "REPLACE"
-peer_polarity = "Unconstrained — cosmetic"
-owner = "Fleet"
-read_by = "fleet, store"
-notes = """
-Audit needs vary by repo. Documented on Job; the reaper is Fleet's, the rows are store's. See Worktree cleanup policy for the pair they form. Retention resolved Aug 2026 — this governs per-Job logs at <repo>/.armada/logs/<job-id>.jsonl only, pruned on terminal status after the window. SQLite's append-only tables (job_events, evidence, job_facts) are never deleted, so the log is diagnostic detail and job_events is the permanent record.
 """
 
 [settings.notification-routing-in-app-vs-os-per-event-type]
@@ -399,18 +292,6 @@ notes = """
 Two-tier, explicit in brief. Documented on Kit; enforced by Fleet. Kit holds the default allowlist and a Manifest may extend or restrict it — in either direction. The row previously carried the opposite rule, that an allow-shaped list merges by intersection and a Manifest addition is rejected at config load; that was the config direction rule and it was withdrawn Aug 22 2026. Peer polarity is unchanged: across a Job's several gating Manifests the allowlist still intersects, because a Drone must hold only what every declared Manifest granted. Open finding, filed separately: the allowlist's value was never prevention but the denial record in the approvals table, and nothing now stops a Manifest removing entries and with them the record.
 """
 
-[settings.destructive-op-list-confirm-before-drone-ops-only]
-name = "Destructive-op list (confirm-before) — Drone ops only"
-scope = "Kit → Manifest"
-lifetime = "Live"
-merge_strategy = "APPEND"
-peer_polarity = "Union (deny-shaped)"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Governs Drone-initiated operations that must stop and ask first (rm -rf, force-push, schema drops). Does not govern your own Bridge actions — those always confirm and are not configurable. Opposite polarity to Allowlist despite an identical Scope and an identical-looking strategy: here appending narrows and removing widens. Two rows that look the same in every column and resolve in opposite directions is why Peer polarity exists as a column. The row previously read that a Manifest may only add, which guaranteed a repo could never remove a confirmation Kit required; that was the config direction rule and it was withdrawn Aug 22 2026. Nothing now provides that guarantee — filed as an open finding. Peer polarity is unchanged: deny-shaped, so the list unions across a Job's several gating Manifests.
-"""
-
 [settings.branch-worktree-naming-convention]
 name = "Branch/worktree naming convention"
 scope = "Kit → Manifest"
@@ -420,18 +301,6 @@ peer_polarity = "Unconstrained — cosmetic"
 owner = "Manifest"
 read_by = "adapters, fleet"
 notes = "Cosmetic, teams customize."
-
-[settings.workflow-type-registry-requires-worktree-requires-checks-ref-source]
-name = "Workflow-type registry (requires_worktree, requires_checks, ref_source)"
-scope = "Kit → Manifest"
-lifetime = "Frozen for the Job"
-merge_strategy = "APPEND_AND_REMOVE"
-peer_polarity = "Union (deny-shaped)"
-owner = "Workflow"
-read_by = "fleet, verification"
-notes = """
-requires_checks is valid only if requires_worktree is true (validated at config load). ref_source (default_branch / job_specified_branch) picks which branch gets checked out — a code-review workflow checks out the PR's branch, not main, while still getting an isolated worktree. Resolved before the allowlist check on dispatch.
-"""
 
 [settings.auto-merge-policy-never-checks-pass-always]
 name = "Auto-merge policy (never / checks-pass / always)"
@@ -851,91 +720,6 @@ notes = """
 Relevant where several Claude installations exist on one machine (Claude Code + Claude Desktop).
 """
 
-[settings.gate-failure-retry-limit]
-name = "Gate-failure retry limit"
-scope = "Kit → Manifest"
-default = "3 attempts per step"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Workflow"
-read_by = "verification"
-notes = """
-Named as configurable in the Escalation Taxonomy but had no row until the migration. Also referenced from Drone. Drift risk: see Drone/Job timeout — retries × clarification rounds can outrun the timeout and turn a verification failure into a timeout.
-"""
-
-[settings.sub-dispatch-fan-out-cap]
-name = "Sub-dispatch fan-out cap"
-scope = "Kit → Manifest"
-default = "5 sub-dispatches per Job"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Drone"
-read_by = "fleet"
-notes = "Defined in the Escalation Taxonomy, no row until the migration."
-
-[settings.sub-dispatch-rate-limit]
-name = "Sub-dispatch rate limit"
-scope = "Kit → Manifest"
-default = "n/a — not a setting"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Drone"
-read_by = "fleet"
-notes = """
-DEBT, resolved Aug 2026: there is no configurable worktree root. Worktrees are repo-anchored at <repo>/.armada/worktrees/<job-id> — System Architecture section 7. A setting able to move the worktree off-repo would undo the reason the location was chosen: Pilot is a terminal takeover inside that worktree, and discoverability is the whole argument. Any path Fleet needs is derived, never stored. This row should be deleted.
-"""
-
-[settings.drone-evidence-clarification-round-cap]
-name = "Drone evidence clarification-round cap"
-scope = "Kit → Manifest"
-default = "2–3 (undecided)"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "verification"
-notes = """
-Free rounds before an insufficient-evidence loop escalates as stalled. Does not consume the step's retry_limit — which is what lets the two multiply past the Job timeout. Owner corrected from Drone to Fleet in the Aug 2026 spot-check: a Drone does not count its own rounds and stop, verification counts them, and the enforced consequence is a stall escalation, which is Fleet's. Drone silence threshold (quiet_after) was moved on identical reasoning and this neighbouring row was missed.
-"""
-
-[settings.drone-silence-threshold-quiet-after]
-name = "Drone silence threshold (quiet_after)"
-scope = "Kit → Manifest"
-default = "120 seconds"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-How long a Drone may say nothing before Fleet pokes it, and — once `poke_limit` is spent — escalates the Job as stalled. **Overridable per step, defaulted from `default_gate_policy.quiet_after_seconds`**, the same shape as `iteration_cap` and the two `default_gate_policy` caps below. That per-step tier is what `#60` is for: a formatting step and a large refactor were given the same patience, because there was one number and it was a constant.
-
-**Called "Drone heartbeat/liveness timeout" until `#60`, and the old name is why nothing found this row.** `fleet::Liveness` carries both halves of the pair, cites `poke_limit`'s row for the count and cited no row at all for the duration, and `crates/armada/src/serve.rs` hard-codes both as `PROVISIONAL_LIVENESS`. The heartbeat half of the old name was split out into `drone-heartbeat-interval-heartbeat-interval-minutes` in Aug 2026 and the name was not corrected with it, so the row read as being about a beat Armada does not send.
-
-**It is the silence, not the elapsed time.** `docs/spikes/009-how-long-does-a-step-take.md` measured the longest silence inside an honest step at 79s against a step wall clock whose p90 was 437s: every stuck step it saw was quiet, not long. A step's wall clock is a different dial and is `fleet::StepNorms`'s.
-
-**Two rows and not one pair.** `poke-limit-poke-limit` holds the count that travels with this duration, and they stay separately overridable: a step that deserves more patience per poke does not thereby deserve more pokes, and a repository that wants to be asked more often wants to change one and inherit the other. `fleet::Liveness` is the pair the two resolve into, and no file states a tuple. The product is what must not fire routinely — at the defaults that is about six minutes of silence, four and a half times the longest any honest step produced.
-
-**A step-level override is the watched step's own, and nothing aggregates.** The vigil watches one Drone and a Drone belongs to exactly one step, so the value in force is that step's, re-read at the step boundary. The poke budget resets with it, because the slot holding the count is per step already. A Job spanning four steps is four independent patiences, never a sum and never the strictest of them.
-
-**All three tiers are wired, and there are three rather than the two this row's `scope` names.** There is no Kit; nothing in the workspace parses one. What exists is `crates/armada/src/serve.rs`'s constant, `armada.yml`'s `drone.quiet_after_seconds` — `#414` — and a step's `quiet_after_seconds`. `fleet::Liveness::at` is where all three meet and is the only place the order is written; the answer is held on the slot for as long as the Drone is.
-
-**`lifetime = "Live"` governs this value and not a step's override**, which is the one place the two words could have collided. A step's number rides a WorkflowDef frozen at Job creation and stays what the Job froze; live is what an absent override falls back to, re-read at every step boundary, so a Job declaring nothing follows a change into its next step with no restart. `fleet::Liveness::at` carries the argument.
-
-**The Manifest tier reaches the file, since `#430`.** It did not until then: `armada::Setup::at` read `armada.yml` once at daemon start and `Fleet` held it, so the resolution was redone at every boundary against a file frozen for the daemon's life, and editing it changed nothing until a restart. `armada::watching` now polls the file and `config::live` adopts this key and `poke_limit` from it — the two rows this file marks `Live` with a Manifest tier, and nothing else, because `manifest-checks-init-commands-named-checks` and `manifest-commands-registry` are `Frozen for the Job` and every workflow was resolved against them at start. A save that changes one of those is reported on the console as needing a restart rather than adopted.
-
-**A save that will not parse changes nothing.** The last good numbers stay in force and the refusal is printed: a fleet that stopped because somebody mistyped a number would be worse than one that ignored the edit. And the read is still at the step boundary and only there — `fleet::working::Working` holds the resolved pair for as long as the Drone does, so an edit cannot move the terms a running step began under.
-
-**Armada's own `armada.yml` sets it to 300, and that is a measurement rather than a preference.** Spike 009's 79s maximum was one repository, a warm cache and small changes, and it says so; the shipped 120 is one and a half times it. Measured in this workspace on 3 September 2026, into an empty target directory: `cargo build --workspace --locked` is 37.6s and `cargo nextest run --workspace --exclude acceptance` is 41s — each one tool call producing no Drone output, each already a third of the shipped threshold on its own, and that file's own `drone` comment records the Bridge tests at 6s then 40s before a browser starts. A Drone that runs two of them before it says anything is silent past 120s on work that is going fine. 300 is the top of the band the spike named as separating every case it saw, so it is still a tripwire and not a switch.
-
-Documented on Drone; Fleet is what notices the silence. Distinct from Fleet health-check / resource-poll interval, and from the heartbeat interval, which is how often a Drone is expected to speak rather than how long Fleet waits before speaking to it.
-
-**The value lives in settings.json under `timeouts.droneQuietAfterSeconds`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
 [settings.drone-scope-exclusions-exclude-paths]
 name = "Drone scope exclusions (exclude_paths)"
 scope = "Kit → Manifest"
@@ -1141,27 +925,6 @@ The most of the file `armada.yml`'s `standing_rules` names that one Judge brief 
 **The value lives in settings.json under `limits.standingRulesKib`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
-[settings.judge-read-turns]
-name = "Judge read turns"
-scope = "Machine"
-default = "16"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "Lower is stricter"
-owner = "Judge"
-read_by = "fleet"
-notes = """
-How many turns one Judge call may take, its reads of the repository's checkout and its answer together — `--max-turns` on the call. Decided 2 Oct 2026, when the Judge was let read the repository so it learns what a repository requires of a change the way a Drone does. `JUDGE_READ_TURNS` in `crates/fleet/src/judging.rs`.
-
-**Sixteen, raised from eight on 5 Oct 2026.** A Judge on a plan step ran out at eight (`Reached max turns (8)`), the call failed, and the step stopped on `gate_undecided` with the work never judged. The reasoning below was the first judgement and it was too tight; the cap still bounds a Judge that explores instead of looking something up.
-
-**Eight, a judgement and not a measurement.** A lookup is reading the repository's instructions for agents, a search or two for the doc it points at, reading one to three of them, and answering: five to seven turns, and reads asked together in one turn count once. Eight leaves one spare. Fewer would cut a Judge off mid-lookup, and a call that runs out of turns fails rather than answers — `CallFailed::Refused`, which is never a verdict. More is a Judge exploring rather than looking something up, and every turn is paid on every criterion times `panel_size` at a gate a person is waiting behind, under `PROVISIONAL_JUDGE_BUDGET`'s 120 seconds.
-
-**Not measured on a real gate.** How many turns Judges actually take, and how much a reading call adds to a gate's wait, are the numbers that would move this.
-
-**The value lives in settings.json under `limits.judgeReadTurns`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
 [settings.judge-trigger-set-which-mechanical-results-fire-a-judge-check]
 name = "Judge trigger set (which mechanical results fire a Judge Check)"
 scope = "Kit → Manifest"
@@ -1173,19 +936,6 @@ owner = "Judge"
 read_by = "verification"
 notes = """
 Added by the Aug 2026 config review. Judge is veto-only and blind to the Drone. The row previously read that a Manifest may add triggers and never remove them, because a repo that could remove them could opt out of semantic verification entirely while every other signal still reads green. That guarantee was the config direction rule and it was withdrawn Aug 22 2026 — a Manifest may now extend or restrict the trigger set. The risk the original wording named is real and now reachable; filed as an open finding rather than replaced with a new mechanism. Peer polarity is unchanged: across a Job's several gating Manifests the set unions, because a trigger is a gate and adding one narrows.
-"""
-
-[settings.job-shape-classifier-model]
-name = "Job-shape classifier model"
-scope = "Kit only"
-default = "undecided"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "Member of the Kit set"
-owner = "Fleet"
-read_by = "adapters, fleet"
-notes = """
-Added by the Aug 2026 config review. The second ModelClient consumer, alongside the Judge Check.
 """
 
 [settings.modelclient-endpoint-and-latency-budget]
@@ -1280,19 +1030,6 @@ owner = "Fleet"
 read_by = "fleet"
 notes = "Added by the Aug 2026 config review. Read by Fleet on every spawn; defined nowhere."
 
-[settings.evidence-mcp-host-bind-address]
-name = "Evidence MCP host bind address"
-scope = "Machine"
-default = "undecided"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Added by the Aug 2026 config review. Fleet hosts the Evidence MCP server; what it binds to was never a setting.
-"""
-
 [settings.verification-max-context-size]
 name = "Verification max_context_size"
 scope = "Kit → Manifest"
@@ -1303,19 +1040,6 @@ peer_polarity = "Lower is stricter"
 read_by = "verification"
 notes = """
 Added by the Aug 2026 config review. Named in the crate design as a verification setting and had no row — verification owns real settings but appears in neither the Concepts list nor the Doctor modules. Owner is deliberately empty: the cap bounds all of verification rather than the Judge Check alone, so no concept enforces it, and Judge was only ever the nearest available page. An empty cell is the honest signal, as with both copy-lint rows.
-"""
-
-[settings.loop-iteration-cap-iteration-cap]
-name = "Loop iteration cap (iteration_cap)"
-scope = "Kit → Manifest"
-default = "5 — a step that routes back and declares none"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Ceiling on how many times a step is redone as designed via a loop return; reaching it escalates as loop_cap. Not the retry limit — an iteration is not a failure, never consumes the retry budget, never trips a gate-failure escalation. Set per step on the step that emits the verdict; a step that routes back and declares none takes `config::DEFAULT_ITERATION_CAP`, five, which is the guard against a Job that never terminates now that nothing else declares a loop; a step with no `verdict_routing` has no cap. Named in the Escalation Taxonomy since it was written; no row until Aug 21 2026.
 """
 
 [settings.review-gate-policy-manifest-rule-review-gate]
@@ -1329,46 +1053,6 @@ owner = "Fleet"
 read_by = "config, fleet"
 notes = """
 Resolves a workflow review step's manifest_rule:review_gate. Values: human_always (default) or auto_if_judge_passes. Built in #525, together with the auto-merge row this one's same-shape clause carries; `read_by` gained `config`, which reads the top-level `review_gate:` key. A step declaring this gate and no Judge criterion is legal and holds for a person however the policy resolved — see docs/concepts/manifest.md, *A judgeless step under `auto_if_judge_passes`*. Referenced by the Bug reference sample since it was written and had no row until Aug 21 2026, so the gate resolved against nothing. TIER UNRESOLVED as of Aug 22 2026. The Scope was set to Manifest only deliberately, to avoid the config direction rule: a per-repo override from human_always to auto_if_judge_passes loosens the rule, and the direction rule forbade a Manifest widening what Guild set. That rule is withdrawn, so the reason for the tiering is gone, and Workflow's own prose called this a Kit default with a per-repo override. Filed as an open item. Auto-merge policy rides with it by this row's own same-shape-for-the-same-reason clause. Peer resolution is unaffected: most-restrictive-wins across a Job's several gating Manifests, human_always beating auto_if_judge_passes.
-"""
-
-[settings.poke-limit-poke-limit]
-name = "Poke limit (poke_limit)"
-scope = "Kit → Manifest"
-default = "2 pokes"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-How many nudge prompts a silent Drone gets before the Job escalates as stalled. A liveness counter — nothing arrived at all. Distinct from Drone evidence clarification-round cap, which is a content-sufficiency counter: something arrived via the Evidence MCP tool but was not enough. Both end in the stalled label; they track independently. Set in a WorkflowDef default_gate_policy since the schema was written; no row until Aug 21 2026.
-
-**The count that travels with `quiet_after`, and the second of two rows rather than half of one value.** `#60` weighed folding the pair into a single setting and refused it: a step that deserves more patience per poke does not thereby deserve more pokes, no other row in this file states a tuple, and one key would make overriding either half mean restating both. `fleet::Liveness` is where the two meet, and it holds them as two numbers behind one constructor for that reason.
-
-**Overridable per step, defaulted from `default_gate_policy.poke_limit`**, and the budget resets at each step boundary because the slot that counts spent pokes is per step. A Drone poked twice on step one starts step two with two pokes in hand.
-
-**All three tiers are wired**, exactly as for the duration it travels with. `config::settings` names the number, as `timeouts.dronePokeLimit`, and that is now what an `armada.yml` and a step both fall back to rather than what every step gets. A repository or a step declaring `poke_limit` and nothing else keeps the duration it inherited, which is what two rows buy: `fleet::Liveness::at` resolves the halves separately at both overriding tiers.
-
-**And the Manifest tier is live to the file, since `#430`**, exactly as for the duration it travels with — the row above carries what is watched, what a save that will not parse does, and why a change to `checks:` in the same file is not adopted with it. The two keys are adopted together because they are read together, and each still falls back on its own.
-
-**`poke_limit: 0` is legal wherever it is written**, at `drone.poke_limit` in an `armada.yml` or on a step, and it is not an absent key. It says the Drone gets no nudge at all and the first silence past the threshold escalates — the one place the two keys disagree about zero, since a `quiet_after_seconds: 0` is refused where it is written.
-
-**This repository sets neither key**, and the row above says why it sets the duration and not this. Two nudges is what Armada's own Drones get.
-
-**The value lives in settings.json under `timeouts.dronePokeLimit`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
-[settings.drone-heartbeat-interval-heartbeat-interval-minutes]
-name = "Drone heartbeat interval (heartbeat_interval_minutes)"
-scope = "Kit → Manifest"
-default = "5 minutes"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-How often a Drone is expected to emit a heartbeat. Distinct from Drone silence threshold (quiet_after), which is how long silence runs before Fleet acts, and from Fleet health-check / resource-poll interval, which is Fleet polling its own headroom. Three different quantities that were carried in two rows. Must be shorter than the liveness timeout or every Drone escalates between beats — validate at config load, the same shape as requires_checks needing requires_worktree.
 """
 
 [settings.log-pruning-trigger-sweep-or-timer]
@@ -1409,32 +1093,6 @@ notes = """
 Added 2026-08-21 from the Run and edit a Manifest journey. How long a Check or Command run fired by hand from the Manifest surface keeps its log. Those runs write to ./.armada in their own run directory, one per run — the same tree as Job logs, a separate subtree, so a sweep can take them without touching Job history. Machine-scoped rather than two-tier because the logs are on your disk, and how long you keep them is a fact about your machine, not about a repo a teammate also clones. That reasoning is the Kit/Machine test stated before the split existed. 30 days rather than reusing the Job retention window, because the two age out for different reasons — a Job log is kept as long as its history is worth reading, a rehearsal only as long as you might still be debugging what you just ran.
 
 **The value lives in settings.json under `retention.runLogDays`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
-[settings.judge-call-count-ceiling-default-gate-policy]
-name = "Judge call-count ceiling (default_gate_policy)"
-scope = "Kit → Manifest"
-default = "Today's realistic worst case for criteria x panel_size; unbounded is a legal value"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Judge"
-read_by = "verification"
-notes = """
-Bounds criteria x panel_size per step, overridable per step. Cost is not the driver - twelve calls is cents - but the calls sit at a gate a person is waiting behind, and each is a chance to trip max_context_size, which escalates. Live because acceptance_criteria[] may be appended at an approved widening, so the left factor can climb mid-Job. What happens when the ceiling is hit is not yet stated. Same shape as the aggregate attempt cap and for the same reason: the product becomes stated rather than emergent.
-"""
-
-[settings.aggregate-attempt-cap-default-gate-policy]
-name = "Aggregate attempt cap (default_gate_policy)"
-scope = "Kit → Manifest"
-default = "retry_limit x iteration_cap at today's values; unbounded is a legal value"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Lower is stricter"
-owner = "Workflow"
-read_by = "verification"
-notes = """
-Total attempts across all iterations of a step, overridable per step. Exists because retry_count resets on a loop return by design, so at defaults fifteen attempts pass unobserved and completed_failed is unreachable on a looping step. Defaulted to today's effective product so nothing changes behaviour - the point is that the product becomes stated rather than emergent. A runaway guard for unattended work, not a safety limit: a human watching a loop kills a Job that is not converging. A workflow that legitimately loops many times sets unbounded and accepts that completed_failed is then unreachable on that step. Named in a WorkflowDef default_gate_policy with no row behind it until now.
 """
 
 [settings.port-block-granule]
@@ -1499,25 +1157,6 @@ owner = "Fleet"
 read_by = "fleet"
 notes = """
 How long an interrupted Job may hold a port span before Fleet surfaces it. Crossing it releases nothing and changes no state — it only stops the hold being silent, because the alternative is discovering the accumulation at exhaustion. A reminder rather than a lease: releasing a span whose process may still be bound is the collision the bind-and-connect probe exists to prevent, and a timer would also put Fleet in the business of deciding an interrupted Job is over. Where the reminder renders is governed by How does a person learn the port range is degrading?, and the Doctor precedent argues it is a standing condition rather than a queued decision — a health strip rather than an Alerts row.
-"""
-
-[settings.conflict-clearing-send-cap]
-name = "Conflict-clearing send cap"
-scope = "Machine"
-default = "3 passes in a row"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "Lower is stricter"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-How many times in a row Fleet sends a Job back from its review gate to clear its pull request's conflicts with the base before a person decides; the conflict after that many escalates as `loop_cap`. #1131.
-
-**Only passes that came back unpushed count.** A pass whose delivery pushed a clean merge starts the count again, so a Job that cleared one conflict and waits at review while main moves is sent again; a base that keeps conflicting pass after pass is not. The count is a column on the Job's delivery record, raised by each send and zeroed by a delivery that pushed.
-
-**Not `iteration_cap`**, which bounds a verdict's loop and reads zero where a step declares none. `crates/fleet/src/conflict_resolution.rs` hard-codes this as `CLEARING_SENDS` and carries the argument for the number: three passes that each still conflicted is a base moving faster than a Drone can follow.
-
-**The value lives in settings.json under `limits.conflictClearingSends`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.machine-name]

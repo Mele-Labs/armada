@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use core_model::{ManifestId, Timestamp};
 
-use crate::error::{fault, LoadJobError, WriteError};
+use crate::error::{fault, ReadError, WriteError};
 use crate::open::Store;
 
 /// How many runs of one Check are kept and averaged. Few, so a Check that got
@@ -77,9 +77,9 @@ impl Store {
     pub fn check_timings(
         &self,
         repository: &ManifestId,
-    ) -> Result<BTreeMap<String, Duration>, LoadJobError> {
+    ) -> Result<BTreeMap<String, Duration>, ReadError> {
         let unreadable =
-            |why: rusqlite::Error| LoadJobError::Database(fault("reading Check timings")(why));
+            |why: rusqlite::Error| ReadError::Database(fault("reading Check timings")(why));
         let mut statement = self
             .conn
             .prepare(
@@ -139,9 +139,9 @@ impl Store {
     pub fn one_test_timings(
         &self,
         repository: &ManifestId,
-    ) -> Result<BTreeMap<String, Duration>, LoadJobError> {
+    ) -> Result<BTreeMap<String, Duration>, ReadError> {
         let unreadable = |why: rusqlite::Error| {
-            LoadJobError::Database(fault("reading a fix draft's test timings")(why))
+            ReadError::Database(fault("reading a fix draft's test timings")(why))
         };
         let mut statement = self
             .conn

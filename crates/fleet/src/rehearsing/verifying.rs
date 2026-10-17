@@ -27,7 +27,7 @@ use tokio::sync::oneshot;
 use super::entries::{self, Entry};
 use super::owner::{Checkout, Place};
 use super::record::Record;
-use super::unrehearsable::{Unrehearsable, Whose};
+use super::unrehearsable::Unrehearsable;
 use super::workspace;
 use crate::daemon::Fleet;
 use crate::repositories::Served;
@@ -192,10 +192,7 @@ where
             return Err(self.refused_run(&owner, Unrehearsable::VerifyUnderway));
         }
         if let Some(out) = self.rehearsals().in_flight(&owner) {
-            let why = Unrehearsable::AlreadyRunning {
-                name: out.name,
-                whose: Whose::Checkout,
-            };
+            let why = Unrehearsable::AlreadyRunning { name: out.name };
             return Err(self.refused_run(&owner, why));
         }
         let steps = entries::declared(&manifest).verified();
@@ -251,9 +248,7 @@ where
                 break String::new();
             };
             let place = Place::of_checkout(checkout.clone());
-            let Some(mut tree) = self.tree_at(&place) else {
-                break String::from("this checkout is not on disk");
-            };
+            let mut tree = self.tree_at(&place);
             tree.within.clone_from(&within);
             let (handing, handed) = oneshot::channel();
             let command = entry.run.clone();
@@ -263,8 +258,6 @@ where
                     tree,
                     entry,
                     command,
-                    false,
-                    false,
                     ipc::Requester::outside(),
                     Some(handing),
                 )

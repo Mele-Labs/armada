@@ -186,7 +186,6 @@ fn a_built_in_check_declares_no_paths_and_always_runs() {
     let diff = &resolved.steps()[1].checks()[2];
     assert_eq!(diff, &ResolvedCheck::DiffNonempty);
     assert_eq!(diff.when(), None);
-    assert!(!diff.needs_changed_paths());
     assert!(diff.covers(&[]));
 }
 

@@ -2,11 +2,11 @@
 // and the probes `adapters` and `config` own still unbuilt, as Fleet names them. Open it from the
 // Fleet panel's Doctor row.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { connected, type Scenario } from "../moment";
 
-const state = connected([], [], [repository()]);
+const state = connected([], [repository()]);
 
 export const s200Doctor: Scenario = {
   name: "doctor",
@@ -33,5 +33,4 @@ export const s200Doctor: Scenario = {
       },
     },
   },
-  reads: {},
 };

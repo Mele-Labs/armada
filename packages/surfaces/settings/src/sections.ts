@@ -36,7 +36,7 @@ export function sectionId(section: string): SettingsSectionId {
  * setting's own title, key and description instead.
  */
 const SCHEMA_SECTIONS: readonly SettingsSection[] = [
-  { id: "limits", label: "Limits", palette: "Fleet limits", schema: true, settings: [["Drones at once", "concurrency", "parallel", "memory", "disk", "checks at once", "cost cap", "turn cap", "ports"]] },
+  { id: "limits", label: "Limits", palette: "Fleet limits", schema: true, settings: [["Drones at once", "concurrency", "parallel", "memory", "disk", "checks at once", "ports"]] },
   { id: "timeouts", label: "Timeouts", palette: "Timeouts", schema: true, settings: [["Timeouts", "time limit", "seconds", "wait", "reconnect"]] },
   { id: "retention", label: "Retention", palette: "Retention", schema: true, settings: [["Retention", "keep", "days", "history", "clean up"]] },
   { id: "machine", label: "Machine", palette: "Machine name", schema: true, settings: [["Machine name", "host", "computer", "name"]] },

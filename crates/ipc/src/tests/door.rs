@@ -60,9 +60,9 @@ fn the_tool_set_is_the_inventorys_own_column() {
         "the emitted set is {} rows, which is not an inventory",
         REACHABLE.len()
     );
-    assert!(REACHABLE.iter().any(|row| row.operation == "list_jobs"));
+    assert!(REACHABLE.iter().any(|row| row.operation == "list_sessions"));
     assert!(
-        !REACHABLE.iter().any(|row| row.operation == "observe_job"),
+        !REACHABLE.iter().any(|row| row.operation == "get_review_lists"),
         "a `Bridge only` row reached the agent's tool set"
     );
     assert!(
@@ -361,7 +361,7 @@ fn a_listed_tool_states_the_route_and_its_own_arguments() {
         .contains("NOT SERVED"));
 }
 
-fn id() -> crate::mcp::CallId {
+fn id() -> crate::door::CallId {
     let Asked::Ping { id } = read(
         &json!({ "jsonrpc": "2.0", "id": 7, "method": "ping" })
             .to_string()
@@ -420,7 +420,7 @@ fn the_permission_tool_publishes_the_harnesss_schema_and_not_a_body() {
     }];
     let listed: Value = serde_json::from_str(
         &answer(Answered::Tools {
-            id: crate::mcp::CallId::of(json!(1)),
+            id: crate::door::CallId::of(json!(1)),
             shapes,
         })
         .expect("an answer"),

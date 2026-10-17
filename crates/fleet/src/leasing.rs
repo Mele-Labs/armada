@@ -1,24 +1,19 @@
-//! A Job's worktree is the pool slot it leased: leased at dispatch, recorded
-//! on the Job, looked up after, and given back when the Job ends — or, for a
-//! completed Job, when a person clears it.
-//! `docs/concepts/fleet.md`, *Worktree slots*.
+//! A repository's worktree pool as Fleet reads it: every slot and who holds it,
+//! and a person's change to the pool. `docs/concepts/fleet.md`, *Worktree
+//! slots*.
 //!
-//! **Looked up, and asked whether it is still the Job's.** A slot is reused,
-//! so the record says where the Job's worktree was and the pool's record
-//! beside the slot says whether it still is. A Job cut before the pool has no
-//! slot recorded and keeps the path its handle derives.
+//! A hosted Session leases a slot by its own id and `crate::session_host` gives
+//! it back; this reads the pool and never takes or returns a lease.
 
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, Delivery, SlotChange, SlotHeld, SlotKept, SlotPool, SlotReading, SlotRefused,
-    SlotStanding, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
+    AgentHarness, Delivery, SlotChange, SlotHeld, SlotPool, SlotReading, SlotRefused, Vcs,
+    WorkProduct,
 };
 use api::Refusal;
-use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
 use ipc::{ChangeSlotPool, ManifestId, SlotAct, SlotPoolChanged, WireError};
 
-use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::repositories::Served;
 use crate::session_host::following::{pid_in, process_listing, SlotSession};
@@ -70,15 +65,6 @@ pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
     .collect()
 }
 
-/// The Job a repair's slot holder names, where it is one. A repair's holder is written
-/// `<job id>-repair-<firing or added step>`.
-pub(crate) fn job_of_repair_holder(holder: &str) -> Option<&str> {
-    let holder = holder.strip_suffix("-onto").unwrap_or(holder);
-    let (job, subject) = holder.rsplit_once("-repair-")?;
-    // A firing's number, or an added step's `a1`.
-    (!subject.is_empty() && subject.chars().all(|c| c.is_ascii_alphanumeric())).then_some(job)
-}
-
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
     let manifest = served.manifest();
@@ -94,29 +80,14 @@ pub(crate) fn pool_of(served: &Served) -> SlotPool {
     )
 }
 
-/// Where a Job's record says its worktree is: the slot it leased, or the
-/// derived path of a Job cut before the pool. **Not whether the Job still
-/// holds the slot** — [`Fleet::job_tree`] asks that.
-pub(crate) fn spec_of(root: &str, job: &Job) -> Result<WorktreeSpec, WorktreeSpecRefused> {
-    let spec = WorktreeSpec::for_job(root, &job.handle())?;
-    Ok(match job.worktree_slot() {
-        Some(slot) => spec.in_slot(slot),
-        None => spec,
-    })
-}
-
-/// One slot of a served repository's pool, and the title of the Job holding
-/// it where one does and the store still has it.
+/// One slot of a served repository's pool.
 pub(crate) struct PoolSlot {
     pub(crate) manifest: String,
     pub(crate) base: String,
     pub(crate) reading: SlotReading,
-    pub(crate) job_title: Option<String>,
     /// The hosted Session that holds it, itself or through a process it
     /// started, where one does.
     pub(crate) session: Option<SlotSession>,
-    /// Where the Job holding it is, where the store still has the Job.
-    pub(crate) job_status: Option<JobStatus>,
     /// What it holds, where it is stranded.
     pub(crate) stranded: Option<adapter_traits::StrandedWork>,
     /// What a rescue Scout read of it, where one has.
@@ -137,66 +108,6 @@ pub(crate) enum Reading {
     Kept { whole: bool },
 }
 
-/// A Job's worktree, as the lookup finds it.
-pub(crate) enum JobTree {
-    /// The Job's own: its derived path, or a slot it still holds.
-    Here(WorktreeSpec),
-    /// The record names a slot the Job no longer holds.
-    Lost,
-    /// The Job is paused: its work is on its branch and no checkout holds it.
-    /// `crate::pausing`.
-    Parked,
-}
-
-impl JobTree {
-    pub(crate) fn here(self) -> Option<WorktreeSpec> {
-        match self {
-            JobTree::Here(spec) => Some(spec),
-            JobTree::Lost | JobTree::Parked => None,
-        }
-    }
-}
-
-/// [`Fleet::job_tree`] with the Vcs passed in, so a blocking thread can ask it
-/// without holding Fleet.
-pub(crate) fn job_tree_in<V: Vcs>(
-    vcs: &V,
-    served: &Served,
-    job: &Job,
-) -> Result<JobTree, WorktreeSpecRefused> {
-    // Before the path is derived: a parked Job's derived path is where
-    // nothing is, and reading it as `Here` would be a worktree that is gone.
-    if job.is_parked() {
-        return Ok(JobTree::Parked);
-    }
-    let spec = spec_of(served.root(), job)?;
-    let Some(slot) = spec.slot() else {
-        return Ok(JobTree::Here(spec));
-    };
-    match vcs.slot_standing(&pool_of(served), slot, job.id().as_str()) {
-        SlotStanding::Held => Ok(JobTree::Here(spec)),
-        SlotStanding::HeldBy(_) | SlotStanding::Free | SlotStanding::Gone => Ok(JobTree::Lost),
-    }
-}
-
-/// [`Fleet::reclaimed_spec`] with the Vcs passed in.
-pub(crate) fn reclaimed_spec_in<V: Vcs>(
-    vcs: &V,
-    served: &Served,
-    job: &Job,
-) -> Result<WorktreeSpec, Adrift> {
-    let unworkable = |cause| Adrift::Unworkable {
-        job: job.id().clone(),
-        cause,
-    };
-    match job_tree_in(vcs, served, job).map_err(unworkable)? {
-        JobTree::Here(spec) => Ok(spec),
-        JobTree::Lost | JobTree::Parked => {
-            WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
-        }
-    }
-}
-
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -207,49 +118,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The Job's worktree, looked up: where its record says, and whether a slot
-    /// it names is still its own.
-    pub(crate) fn job_tree(
-        &self,
-        served: &Served,
-        job: &Job,
-    ) -> Result<JobTree, WorktreeSpecRefused> {
-        job_tree_in(self.vcs().as_ref(), served, job)
-    }
-
-    /// [`job_tree`](Fleet::job_tree) for a reader that only wants a worktree
-    /// that is the Job's: `None` for a slot it lost, and for an id that names
-    /// no directory.
-    pub(crate) fn tree_spec(&self, served: &Served, job: &Job) -> Option<WorktreeSpec> {
-        self.job_tree(served, job).ok()?.here()
-    }
-
-    /// What a reclaim, a branch delete or the sweep acts on: the Job's own
-    /// worktree, or — where its slot is no longer its own — only its branch,
-    /// at the derived path nothing is at, so the slot is never read or touched.
-    pub(crate) fn reclaimed_spec(
-        &self,
-        served: &Served,
-        job: &Job,
-    ) -> Result<WorktreeSpec, Adrift> {
-        reclaimed_spec_in(self.vcs().as_ref(), served, job)
-    }
-
     /// Every served repository's pool, slot by slot: what Bridge's Cleanup
     /// draws, read the way `armada worktree --status` reads it.
-    ///
-    /// Tests read it whole; `list_worktrees` loads the Jobs once for both of
-    /// its halves and asks [`pool_slots_among`](Fleet::pool_slots_among).
-    #[cfg(test)]
-    pub(crate) async fn pool_slots(&self) -> Result<Vec<PoolSlot>, Adrift> {
-        let (loaded, _) = self.every_job().await?;
-        Ok(self.pool_slots_among(&loaded.jobs, Reading::Live).await)
-    }
-
-    /// [`pool_slots`](Fleet::pool_slots) over Jobs the caller already loaded,
-    /// so a caller asking for more than the pool reads the store once.
-    pub(crate) async fn pool_slots_among(&self, jobs: &[Job], how: Reading) -> Vec<PoolSlot> {
-        let job_of = |id: &str| jobs.iter().find(|job| job.id().as_str() == id);
+    pub(crate) async fn pool_slots(&self, how: Reading) -> Vec<PoolSlot> {
         let (mut kept, strandings) = {
             let store = self.store().lock().await;
             (
@@ -264,15 +135,9 @@ where
             let pool = pool_of(&served);
             for mut reading in self.pool_read(pool.clone(), how).await {
                 let stranded = reading.work.take();
-                let job = match &reading.held {
-                    // A repair's slot is held under its own id and shown under its Job.
-                    SlotHeld::Job(id) => job_of(id)
-                        .or_else(|| job_of_repair_holder(id).and_then(job_of)),
-                    _ => None,
-                };
                 let session = match &reading.held {
-                    // A Session's lease is written as a Job of its own id.
-                    SlotHeld::Job(id) if job.is_none() => self.session_in_ledger(id).await,
+                    // A hosted Session's lease is written under its own id.
+                    SlotHeld::Hosted(id) => self.session_in_ledger(id).await,
                     SlotHeld::Session(said) => match pid_in(said) {
                         Some(pid) => {
                             if listing.is_none() {
@@ -302,13 +167,10 @@ where
                     },
                     _ => None,
                 };
-                let job_title = job.map(|job| job.title().as_str().to_string());
-                let job_status = job.map(|job| job.status());
                 let last_holder = match (&stranded, &reading.held) {
-                    (Some(_), SlotHeld::Job(_)) => match (job, &session) {
-                        (Some(job), _) => Some(crate::stranding::job_holder(job)),
-                        (None, Some(held)) => Some(self.session_holder(&held.id).await),
-                        (None, None) => None,
+                    (Some(_), SlotHeld::Hosted(_)) => match &session {
+                        Some(held) => Some(self.session_holder(&held.id).await),
+                        None => None,
                     },
                     (Some(_), SlotHeld::Stranded(_)) => match &reading.last_session {
                         Some(id) => Some(self.session_holder(id).await),
@@ -339,9 +201,7 @@ where
                     manifest: manifest.clone(),
                     base: pool.base().to_string(),
                     reading,
-                    job_title,
                     session,
-                    job_status,
                     stranded,
                     rescue,
                     last_holder,
@@ -436,64 +296,5 @@ where
             slot,
             released: None,
         })
-    }
-
-    /// At a terminal status. **A completed Job holds its slot until a person
-    /// clears it**, the owner's decision, so Show again and anything else
-    /// reading its tree still finds it; the slot is marked so `--status` says
-    /// so. Any other end gives it back now, a killed or failed Job's after
-    /// committing what is uncommitted to its branch (`crate::saving`).
-    pub(crate) async fn slot_at_the_end(&self, job: &Job) {
-        if job.status() != JobStatus::CompletedSuccess {
-            self.released_or_saved(job).await;
-            return;
-        }
-        let (Some(slot), Ok(served)) = (job.worktree_slot(), self.served_by(job)) else {
-            return;
-        };
-        self.vcs()
-            .mark_slot_completed(&pool_of(&served), slot, job.id().as_str());
-    }
-
-    /// Give a Job's slot back now it has ended, by the pool's rules. Refused,
-    /// it stays held, the Job's log and `armada worktree --status` say why, and
-    /// so does the answer.
-    pub(crate) async fn released_slot(&self, job: &Job) -> Option<String> {
-        let slot = job.worktree_slot()?;
-        let served = self.served_by(job).ok()?;
-        let pool = pool_of(&served);
-        let id = job.id().as_str();
-        if self.vcs().slot_standing(&pool, slot, id) != SlotStanding::Held {
-            return None;
-        }
-        let (level, said, why) = match self.vcs().release_slot(&pool, slot, id) {
-            Ok(()) => {
-                self.job_gave_back_slot(job).await;
-                (
-                    Level::Info,
-                    "the Job's slot was given back to the pool",
-                    None,
-                )
-            }
-            Err(SlotKept(why)) => (
-                Level::Warn,
-                "the Job ended and its slot stays held, because the pool would not take it back",
-                Some(why),
-            ),
-        };
-        let mut envelope = Envelope::new(
-            self.now(),
-            level,
-            Component::Fleet,
-            self.run().clone(),
-            said,
-        )
-        .in_job(job.id().as_ulid().clone())
-        .with_field("slot", FieldValue::Str(format!("slot-{slot}")));
-        if let Some(why) = &why {
-            envelope = envelope.with_field("because", FieldValue::Str(why.clone()));
-        }
-        self.noted_in_the_log(job.id(), &envelope);
-        why
     }
 }

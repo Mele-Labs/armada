@@ -72,7 +72,6 @@ async fn a_server_started_from_a_studio_holds_the_live_instance_and_a_second_ask
         .await
         .expect("it starts in the main checkout");
     assert!(!started.already_up, "nothing was serving before this");
-    assert_eq!(started.server.job_id, None, "no Job: the main checkout's");
     assert!(
         !started.server.ports.is_empty(),
         "its ports are the checkout's own span, not the Studio's"
@@ -192,12 +191,9 @@ async fn a_command_is_not_a_server_and_a_server_is_not_a_run() {
         matches!(
             Arc::clone(&fleet)
                 .hold_server(
-                    crate::servers::Place::Checkout(crate::checkouts::Checkout::main(
-                        fleet.first()
-                    )),
+                    crate::checkouts::Checkout::main(fleet.first()),
                     "fmt",
                     ipc::StartedBy::Person,
-                    false
                 )
                 .await,
             Err(Unservable::IsACommand { .. })

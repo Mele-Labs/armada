@@ -4,34 +4,29 @@
 
 import { useTileManage } from "@armada/components";
 import type { TileRow } from "@armada/components";
-import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
+import type { WorktreeSlot } from "@armada/protocol";
 
 import { sitting } from "@armada/screens/src/held";
 import { keyOf, useTileActs } from "./tile-acts";
 import type { TileActsIn } from "./tile-acts";
-import { joined } from "./tiles";
 
 export type BayManageProps = TileActsIn & {
   slot: WorktreeSlot;
-  /** Every worktree Fleet holds for a Job: the bay's own is joined to it by job id, else by path. */
-  worktrees: readonly WorktreeHeld[];
 };
 
 /** The acts a pane can send for a bay. Each is absent where the window has no way to send it. */
-export type BayActs = Pick<TileActsIn, "onChange" | "onRescue" | "onReclaim" | "onDeleteBranch" | "onForget" | "onPause" | "onResume">;
+export type BayActs = Pick<TileActsIn, "onChange" | "onRescue">;
 
 /**
  * Drawn under `armada-bay-manage`, which the pane styles. The slot's `key` is the caller's to set per bay, so a confirm left open
  * on one bay is not carried to the next.
  */
-export function BayManage({ slot, worktrees, ...rest }: BayManageProps) {
-  const { worked, acts, reclaims } = useTileActs(rest);
+export function BayManage({ slot, ...rest }: BayManageProps) {
+  const { worked, acts } = useTileActs(rest);
   const key = keyOf(slot.manifest_id, slot.slot);
-  const held = joined([slot], worktrees).bays[0]?.held;
   const heldFor = slot.since === undefined ? null : sitting(slot.since, rest.now);
-  const row: TileRow = { key, name: `slot-${slot.slot}`, slot, ...(heldFor === null ? {} : { heldFor }), ...worked(key, held, slot) };
-  const { onCopied: _copied, ...sends } = reclaims(() => key, () => true);
-  const { body, foot, reading } = useTileManage({ row, ...acts(slot.manifest_id), ...sends });
+  const row: TileRow = { key, name: `slot-${slot.slot}`, slot, ...(heldFor === null ? {} : { heldFor }), ...worked(key) };
+  const { body, foot, reading } = useTileManage({ row, ...acts(slot.manifest_id) });
   return (
     <div className="armada-bay-manage">
       {body}

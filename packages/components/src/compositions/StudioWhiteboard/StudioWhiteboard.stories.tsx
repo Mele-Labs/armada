@@ -43,7 +43,6 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "forge-pull", position: { x: 0, y: 780 }, node: { kind: "pull_request", title: "Dispatch an issue from its node", address: "https://example.invalid/armada/pull/1391", facts: ["#1391", "Merged"] } },
   { id: "forge-epic", position: { x: 340, y: 780 }, node: { kind: "epic", title: "Studio", address: "https://example.invalid/armada/milestone/17", facts: ["#17", "12 of 30 issues"] } },
   { id: "issue", position: { x: 1360, y: 260 }, node: { kind: "issue_draft", state: "draft", title: "The Board's legend is illegible" } },
-  { id: "job", position: { x: 1700, y: 260 }, node: { kind: "job", state: "running", title: "The Board's legend is illegible", facts: ["j-3f2a", "bug"] } },
 ];
 
 /** Every edge kind; each relation once proposed and once accepted. */
@@ -57,7 +56,6 @@ const edges: StudioWhiteboardEdge[] = [
   { id: "e6", source: "note-width", target: "cluster", kind: "produced" },
   { id: "e7", source: "cluster", target: "outline", kind: "produced" },
   { id: "e8", source: "outline", target: "issue", kind: "produced" },
-  { id: "e9", source: "issue", target: "job", kind: "produced" },
   { id: "e10", source: "contradiction", target: "sketch", kind: "produced" },
   { id: "r1", source: "note-legend", target: "note-width", kind: "same_as", proposed: false },
   { id: "r2", source: "sketch", target: "cluster", kind: "same_as", proposed: true, proposer: "Helm proposes" },
@@ -88,7 +86,7 @@ export const EveryKind: Story = {
         await expect(canvas.getAllByText(label)).toHaveLength(2);
       }
       await expect(canvas.getAllByRole("group", { name: /, proposed, waiting on you$/ })).toHaveLength(3);
-      await expect(canvas.getAllByRole("group", { name: / produced / })).toHaveLength(11);
+      await expect(canvas.getAllByRole("group", { name: / produced / })).toHaveLength(10);
     });
 
     await step("a proposed relation is a dot on its line, which opens to be answered and names who proposed it", async () => {
@@ -126,15 +124,15 @@ export const EveryKind: Story = {
     });
 
     await step("a node is selected and moved by keyboard", async () => {
-      const job = canvas.getByRole("group", { name: /^Job: / });
-      job.focus();
+      const cluster = canvas.getByRole("group", { name: /^Cluster: / });
+      cluster.focus();
       await userEvent.keyboard("{Enter}");
-      await expect(args.onSelectionChange).toHaveBeenLastCalledWith(["job"]);
-      const issue = canvas.getByRole("group", { name: /^Issue draft: / });
-      const before = centre(job).y - centre(issue).y;
+      await expect(args.onSelectionChange).toHaveBeenLastCalledWith(["cluster"]);
+      const outline = canvas.getByRole("group", { name: /^Outline: / });
+      const before = centre(cluster).y - centre(outline).y;
       await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
-      await waitFor(() => expect(centre(job).y - centre(issue).y).toBeGreaterThan(before));
-      await expect(args.onNodeMoved).toHaveBeenCalledWith("job", expect.anything(), null);
+      await waitFor(() => expect(centre(cluster).y - centre(outline).y).toBeGreaterThan(before));
+      await expect(args.onNodeMoved).toHaveBeenCalledWith("cluster", expect.anything(), null);
     });
 
     await step("zoom in draws every node larger", async () => {
@@ -169,10 +167,10 @@ export const ReadOnly: Story = {
     });
 
     await step("a node still selects, and an arrow key moves nothing", async () => {
-      const job = canvas.getByRole("group", { name: /^Job: / });
-      job.focus();
+      const cluster = canvas.getByRole("group", { name: /^Cluster: / });
+      cluster.focus();
       await userEvent.keyboard("{Enter}");
-      await expect(args.onSelectionChange).toHaveBeenLastCalledWith(["job"]);
+      await expect(args.onSelectionChange).toHaveBeenLastCalledWith(["cluster"]);
       await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
       await expect(args.onNodeMoved).not.toHaveBeenCalled();
     });
@@ -187,8 +185,8 @@ export const ReadOnly: Story = {
 };
 
 /**
- * Opened *at* a node rather than at nothing — a Job's detail reaching the
- * Studio that dispatched it, #1362.
+ * Opened *at* a node rather than at nothing — a Session's page reaching the
+ * Studio it came from, #1362.
  *
  * **A `play`, because a still cannot tell the two apart.** What has to hold is
  * that the board reports the selection it was given without anyone clicking,
@@ -196,14 +194,14 @@ export const ReadOnly: Story = {
  * every render would take the board back off them.
  */
 export const OpenedAtANode: Story = {
-  args: { nodes, edges, pick: "job", onNodeMoved: fn(), onSelectionChange: fn() },
+  args: { nodes, edges, pick: "cluster", onNodeMoved: fn(), onSelectionChange: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
     // The board draws its nodes after it has measured them, so one is found rather than got.
-    const job = await canvas.findByRole("group", { name: /^Job: / });
-    await waitFor(() => expect(job).toBeVisible());
+    const cluster = await canvas.findByRole("group", { name: /^Cluster: / });
+    await waitFor(() => expect(cluster).toBeVisible());
 
     await step("the node it was opened at is selected, with nothing pressed", async () => {
-      await waitFor(() => expect(args.onSelectionChange).toHaveBeenLastCalledWith(["job"]));
+      await waitFor(() => expect(args.onSelectionChange).toHaveBeenLastCalledWith(["cluster"]));
     });
 
     await step("a person's own pick takes it from there", async () => {

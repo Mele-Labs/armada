@@ -8,7 +8,7 @@ import type { MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
-import served from "./fixtures/build/merge-lines.served.json";
+import served from "./fixtures/merge-lines.served.json";
 import type { Session } from "./draft/sessions";
 import { mergeLineViews, recentSessionsOf } from "./merge-line";
 

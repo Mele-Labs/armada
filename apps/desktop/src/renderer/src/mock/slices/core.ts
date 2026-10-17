@@ -13,8 +13,6 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
   name: "core",
   state: CORE_NOTHING_YET,
   api: (scenario, fleet) => {
-    const summoners = new Set<(to: { jobId: string | null }) => void>();
-    let summoned = false;
     return {
       state: async () => fleet.state(),
       // The mock has no main to diff: every change is the whole state.
@@ -47,17 +45,9 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
         });
         return { ok: true };
       },
-      // A scenario opens its Job the way a pressed notification does — once, though `StrictMode` registers twice.
       onHistory: () => () => undefined,
-      onSummoned: (onGo) => {
-        summoners.add(onGo);
-        if (scenario.opens !== undefined && !summoned) {
-          summoned = true;
-          const to = { jobId: scenario.opens };
-          queueMicrotask(() => summoners.forEach((summoner) => summoner(to)));
-        }
-        return () => summoners.delete(onGo);
-      },
+      // Nothing in the mock presses a notification.
+      onSummoned: () => () => undefined,
       // The mock provides no haptics, so nothing calls this; answered for the type.
       tap: () => undefined,
     };

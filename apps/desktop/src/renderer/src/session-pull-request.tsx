@@ -65,7 +65,6 @@ type PanelProps = {
   lines: MergeLines | null;
   floor: boolean;
   pending: PullRequestAct | undefined;
-  reviewed: boolean;
   sentBack: boolean;
   onAct: PullRequestActsProps["onAct"];
   onSendBack: () => void;
@@ -81,7 +80,6 @@ function SessionPullRequestPanel({
   lines,
   floor,
   pending,
-  reviewed,
   sentBack,
   onAct,
   onSendBack,
@@ -116,7 +114,6 @@ function SessionPullRequestPanel({
         {...(place === undefined ? {} : { place })}
         floor={floor}
         {...(pending === undefined ? {} : { pending })}
-        reviewed={reviewed}
         onAct={onAct}
         onSendBack={onSendBack}
         sentBack={sentBack}

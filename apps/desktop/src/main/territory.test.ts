@@ -13,7 +13,7 @@ import { TerritoryHost } from "./territory";
 const AREAS: RepositoryAreas = {
   repositories: [{ manifest_id: "armada", root: "/r/armada", head: "abc", areas: [{ dir: "crates", files: 3, kids: [{ name: "fleet", files: 2 }] }], omitted: 0 }],
 };
-const TOUCHES: SlotTouches = { repositories: [{ manifest_id: "armada", holders: [{ kind: "job", id: "j1", slot: 1, paths: ["crates/fleet/a.rs"], omitted: 0 }] }] };
+const TOUCHES: SlotTouches = { repositories: [{ manifest_id: "armada", holders: [{ kind: "session", id: "s1", slot: 1, paths: ["crates/fleet/a.rs"], omitted: 0 }] }] };
 
 let listening: Server | undefined;
 afterEach(() => listening?.close());

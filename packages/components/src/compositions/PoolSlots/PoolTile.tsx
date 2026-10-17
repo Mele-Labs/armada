@@ -1,30 +1,22 @@
-import { Anchor, Box, ScanSearch, DoorClosedLocked, DoorOpen, Flame, FolderX, Ghost, KeyRound, LoaderCircle, Mail, Snowflake, SquareDashed, SquareTerminal, Unplug } from "lucide-react";
+import { ScanSearch, DoorClosedLocked, DoorOpen, Flame, FolderX, Ghost, KeyRound, LoaderCircle, Mail, Snowflake, SquareDashed, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useContext } from "react";
-import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
-import { reclaimable } from "@armada/protocol";
+import type { WorktreeSlot } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ChipOwnership, OwnerChip } from "../OwnerChip/OwnerChip";
-import { PausedMark } from "../PausedMark/PausedMark";
 import { Mark } from "./SlotFinding";
-import { holdsSaid } from "./TileHolds";
 import { keyOf, nameOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 /** How a tile is drawn. */
-export type Bay = "held" | "kept" | "busy" | "stranded" | "free" | "ghost";
+export type Bay = "held" | "busy" | "stranded" | "free" | "ghost";
 
 export type State = { bay: Bay; Glyph: LucideIcon; word: string; said: string };
 
 function slotState(slot: WorktreeSlot): State {
   const held = slot.held;
   switch (held.state) {
-    case "job":
-      if (held.kept !== undefined) {
-        return { bay: "kept", Glyph: Anchor, word: "Kept", said: `Kept: ${held.kept}` };
-      }
-      return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
     case "session":
     case "hosted_session":
       return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
@@ -41,20 +33,7 @@ function slotState(slot: WorktreeSlot): State {
   }
 }
 
-/** A Job's worktree outside the pool: held while it runs, kept for what it holds, free to go, or gone. */
-function outsideState(held: WorktreeHeld): State {
-  if (!reclaimable(held)) return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held: its Job has not finished" };
-  if (held.held.length > 0) {
-    return { bay: "kept", Glyph: Anchor, word: "Kept", said: `Kept: ${holdsSaid(held.held)}` };
-  }
-  if (!held.on_disk) return { bay: "ghost", Glyph: FolderX, word: "Gone", said: "Worktree removed" };
-  return { bay: "free", Glyph: DoorOpen, word: "Free", said: "Free: nothing uncommitted or unmerged" };
-}
-
-export function stateOf(row: TileRow): State {
-  if (row.slot !== undefined) return slotState(row.slot);
-  return outsideState(row.held!);
-}
+export const stateOf = (row: TileRow): State => slotState(row.slot);
 
 /** Warm or cold, with its word where `worded`, and named on hover. */
 function Warmth({ warm, worded }: { warm: boolean; worded: boolean }) {
@@ -81,46 +60,11 @@ export function Figure({ shown, said }: { shown: string; said: string }) {
   );
 }
 
-/** The Job holding a tile: its mark and its title, a link that opens it where the host can open one. */
-export function JobLink({ jobId, title, onOpenJob }: { jobId: string; title: string; onOpenJob?: ((jobId: string) => void) | undefined }) {
-  if (onOpenJob === undefined) {
-    return (
-      <span className="armada-bay__job">
-        <Box size={12} strokeWidth={2} aria-hidden />
-        <span>{title}</span>
-      </span>
-    );
-  }
-  return (
-    <button type="button" className="armada-bay__job" onClick={() => onOpenJob(jobId)}>
-      <Box size={12} strokeWidth={2} aria-hidden />
-      <span>{title}</span>
-    </button>
-  );
-}
-
-/** The Job a tile belongs to, from its bay or its worktree reading. */
-export function jobOf(row: TileRow): { jobId: string; title: string } | null {
-  const held = row.slot?.held;
-  if (held?.state === "job") return { jobId: held.job_id, title: held.job_title ?? held.job_id };
-  if (row.slot === undefined && row.held !== undefined) return { jobId: row.held.job_id, title: row.held.job_title };
-  return null;
-}
-
-function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob?: ((jobId: string) => void) | undefined }) {
-  const job = jobOf(row);
-  const held = row.slot?.held;
-  if (job !== null) {
-    return (
-      <>
-        <JobLink jobId={job.jobId} title={job.title} onOpenJob={onOpenJob} />
-        {held?.state === "job" && held.kept !== undefined ? <span className="armada-bay__why">{held.kept}</span> : null}
-      </>
-    );
-  }
-  if (held?.state === "session") return <span className="armada-bay__session">{held.session_title ?? held.holder}</span>;
-  if (held?.state === "hosted_session" && held.session_title !== undefined) return <span className="armada-bay__session">{held.session_title}</span>;
-  if (held?.state === "stranded") return <span className="armada-bay__why">{held.why}</span>;
+function Holder({ row }: { row: TileRow }) {
+  const held = row.slot.held;
+  if (held.state === "session") return <span className="armada-bay__session">{held.session_title ?? held.holder}</span>;
+  if (held.state === "hosted_session" && held.session_title !== undefined) return <span className="armada-bay__session">{held.session_title}</span>;
+  if (held.state === "stranded") return <span className="armada-bay__why">{held.why}</span>;
   return null;
 }
 
@@ -131,30 +75,27 @@ const clock = (instant: string) => CLOCK.format(new Date(instant));
 /**
  * Who held a stranded slot last, under its branch: the mark of what it was and
  * its title, a link where it can still be opened, then what Fleet did about it.
- * A Job opens from its record, which outlives it; a Session only while it is open.
+ * A Session opens only while it is open.
  */
-function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob?: ((jobId: string) => void) | undefined }) {
+function LastHolder({ slot }: { slot: WorktreeSlot }) {
   const ownership = useContext(ChipOwnership);
   const who = slot.stranded?.last_holder;
   if (who === undefined) return null;
-  const job = who.kind === "job";
-  const kind = job ? "Job" : "Job";
-  const Glyph = job ? Box : SquareTerminal;
-  const opens = job ? (onOpenJob === undefined ? undefined : () => onOpenJob(who.id)) : who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
+  const opens = who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
   return (
     <div className="armada-bay__holder">
       {who.title === undefined ? (
-        <Mark said={kind}>
-          <Glyph size={12} strokeWidth={2} aria-hidden />
+        <Mark said="Session">
+          <SquareTerminal size={12} strokeWidth={2} aria-hidden />
         </Mark>
       ) : opens === undefined ? (
         <span className="armada-bay__who">
-          <Glyph size={12} strokeWidth={2} aria-hidden />
+          <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span>{who.title}</span>
         </span>
       ) : (
         <button type="button" className="armada-bay__job" onClick={opens}>
-          <Glyph size={12} strokeWidth={2} aria-hidden />
+          <SquareTerminal size={12} strokeWidth={2} aria-hidden />
           <span>{who.title}</span>
         </button>
       )}
@@ -164,7 +105,7 @@ function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob?: ((job
         </Mark>
       )}
       {who.open ? null : (
-        <Mark said={job ? "Job ended" : "Job closed"}>
+        <Mark said="Job closed">
           <Unplug size={12} strokeWidth={2} aria-hidden />
         </Mark>
       )}
@@ -185,31 +126,20 @@ function ClosedMark() {
 
 /**
  * One tile. **The whole tile opens its panel**, and its name is the button that
- * says so to the keyboard and to a screen reader; the Job link inside it is the
- * one other thing that takes a press.
+ * says so to the keyboard and to a screen reader.
  */
-export function PoolTile({
-  row,
-  open,
-  onOpenJob,
-  onOpen,
-}: {
-  row: TileRow;
-  open: boolean;
-  onOpenJob?: ((jobId: string) => void) | undefined;
-  onOpen: () => void;
-}) {
-  const { slot, held, heldFor, sat } = row;
+export function PoolTile({ row, open, onOpen }: { row: TileRow; open: boolean; onOpen: () => void }) {
+  const { slot, heldFor } = row;
   const name = nameOf(row);
   const state = stateOf(row);
-  const closed = slot?.closed === true;
+  const closed = slot.closed === true;
   const mark = (
     <span className="armada-bay__state" role="img" aria-label={state.said}>
       <state.Glyph size={12} strokeWidth={2} aria-hidden />
     </span>
   );
   const named = (
-    <Tooltip label={slot?.path ?? held?.path ?? name}>
+    <Tooltip label={slot.path}>
       <button type="button" className="armada-bay__name" aria-expanded={open} onClick={onOpen}>
         {name}
       </button>
@@ -229,7 +159,6 @@ export function PoolTile({
       <li className="armada-bay" data-bay={closed ? "closed" : state.bay} {...common}>
         <div className="armada-bay__top">
           {named}
-          {row.paused === undefined ? null : <PausedMark said={row.paused} />}
         </div>
         <div className="armada-bay__open">
           {closed ? (
@@ -247,7 +176,7 @@ export function PoolTile({
               <span aria-hidden>{state.word}</span>
             </span>
           )}
-          {slot !== undefined && state.bay === "free" && !closed ? <Warmth warm={slot.warm} worded /> : null}
+          {state.bay === "free" && !closed ? <Warmth warm={slot.warm} worded /> : null}
         </div>
       </li>
     );
@@ -264,42 +193,40 @@ export function PoolTile({
         {named}
       </div>
       <div className="armada-bay__body">
-        <Holder row={row} onOpenJob={onOpenJob} />
-        {row.paused === undefined ? null : <PausedMark said={row.paused} />}
-        {(slot?.branch ?? held?.branch) === undefined ? null : (
+        <Holder row={row} />
+        {slot.branch === undefined ? null : (
           // A Session that owns the branch is named on hover; where none does, the tooltip is what it was.
           <OwnerChip
-            chip={{ kind: "branch", name: (slot?.branch ?? held?.branch)! }}
+            chip={{ kind: "branch", name: slot.branch }}
             plain={
-              <Tooltip label={(slot?.branch ?? held?.branch)!}>
-                <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>
+              <Tooltip label={slot.branch}>
+                <span className="armada-bay__branch">{slot.branch}</span>
               </Tooltip>
             }
           >
-            <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>
+            <span className="armada-bay__branch">{slot.branch}</span>
           </OwnerChip>
         )}
-        {slot === undefined ? null : <LastHolder slot={slot} onOpenJob={onOpenJob} />}
+        <LastHolder slot={slot} />
         <div className="armada-bay__foot">
-          {slot?.rescue?.state === "answered" ? (
+          {slot.rescue?.state === "answered" ? (
             <Mark said="Finding ready">
               <ScanSearch size={12} strokeWidth={2} aria-hidden />
             </Mark>
           ) : null}
-          {slot?.rescue?.state === "reading" ? (
+          {slot.rescue?.state === "reading" ? (
             <Mark said="Reading">
               <ScanSearch className="armada-finding__reading" size={12} strokeWidth={2} aria-hidden />
             </Mark>
           ) : null}
           {heldFor === undefined ? null : <Figure shown={heldFor} said={`Held for ${heldFor}`} />}
-          {slot === undefined && sat !== undefined ? <Figure shown={sat} said={`Last moved ${sat} ago`} /> : null}
-          {slot?.behind === undefined ? null : (
+          {slot.behind === undefined ? null : (
             <Figure
               shown={`${slot.behind} behind`}
               said={`${slot.behind} ${slot.behind === 1 ? "commit" : "commits"} behind ${slot.base}`}
             />
           )}
-          {slot === undefined ? null : <Warmth warm={slot.warm} worded={false} />}
+          <Warmth warm={slot.warm} worded={false} />
         </div>
       </div>
     </li>

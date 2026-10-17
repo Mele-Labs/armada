@@ -11,7 +11,7 @@ import type { TimelineEvent, WorktreeSlot } from "@armada/protocol";
 import { stateOf as poolStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 
 /** Who held a bay. A past holder can be a Job Fleet still serves; only Sessions are drawn as holding one now. */
-export type Holder = { kind: "session" | "job"; id: string; title?: string | undefined };
+export type Holder = { kind: "session"; id: string; title?: string | undefined };
 
 /** One holder's time on a bay. A start is absent where only the slot's own record names the holder. */
 export type Lease = { holder: Holder; from?: number; to?: number };
@@ -164,12 +164,12 @@ export function bayViewOf(slot: WorktreeSlot, key: string, ledger: Ledger, at: n
   const holder = holderOf(slot);
   const current = ledger.leases.find((one) => one.to === undefined && one.from !== undefined);
   const since = current?.from ?? (slot.since === undefined ? undefined : Date.parse(slot.since));
-  if (holder !== undefined && (live.bay === "held" || live.bay === "kept")) {
+  if (holder !== undefined && live.bay === "held") {
     return {
       ...base,
       state: "leased",
       word: live.word,
-      Glyph: live.bay === "kept" ? live.Glyph : KeyRound,
+      Glyph: KeyRound,
       said: live.said,
       holder,
       ...(slot.branch === undefined ? {} : { branch: slot.branch }),

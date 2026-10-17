@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { GuidanceProvider } from "../../guidance";
-import { GUIDE_COMPLETION } from "../../guides";
+import { GUIDE_MERGE_LINE } from "../../guides";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GuidesSetting } from "./GuidesSetting";
 
@@ -61,7 +61,7 @@ export const TurnsThemAllOff: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "A piece arrives" }));
     await expect(within(document.body).queryAllByRole("dialog")).toHaveLength(0);
     await expect(
-      canvas.getByRole("button", { name: `Open guide ${GUIDE_COMPLETION.number}, ${GUIDE_COMPLETION.title}` }),
+      canvas.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }),
     ).toBeVisible();
   },
 };
@@ -77,7 +77,7 @@ function Later() {
       <button type="button" onClick={() => setArrived(true)}>
         A piece arrives
       </button>
-      {arrived ? <GuideMark guide={GUIDE_COMPLETION} /> : null}
+      {arrived ? <GuideMark guide={GUIDE_MERGE_LINE} /> : null}
     </>
   );
 }

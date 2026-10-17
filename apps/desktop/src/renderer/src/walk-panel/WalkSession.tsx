@@ -14,7 +14,7 @@ export function WalkSession({ sessionId }: { sessionId: string }) {
   useViewing(session === undefined ? undefined : sessionId);
   const openInBridge = () => void window.armada.walkPanel.openInBridge();
   return (
-    <WalkPanel kind="session" title={session?.title ?? sessionId} onOpenInBridge={openInBridge}>
+    <WalkPanel title={session?.title ?? sessionId} onOpenInBridge={openInBridge}>
       {session !== undefined ? (
         // Open, from the thread or the box's Draw, is this Session's whole page on Bridge's window.
         <SessionMini sessionId={sessionId} fill onOpen={(id) => id === sessionId && openInBridge()} />

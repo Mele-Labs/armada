@@ -4,7 +4,6 @@
 import type { StudioNodeFrame, StudioWhiteboardEdge, StudioWhiteboardNode } from "@armada/components";
 import type {
   EpicRead,
-  JobSummary,
   ScoutSource,
   ServerState,
   Studio,
@@ -238,22 +237,6 @@ export type FrameOf = (key: string) => StudioNodeFrame;
 export const NO_FRAME_HELD: FrameOf = () => ({});
 
 /**
- * What a replacement says about where the work came from — #1440. The `produced` edge draws the
- * link and this names the other end, so a Job that replaced another reads as one rather than as a
- * second dispatch somebody asked for.
- *
- * **Read off the row, like the status beside it.** A Job node holds a reference and no copy of
- * anything, and `redispatched_from` is the one record of a redispatch.
- *
- * Nothing is said where the window does not hold the predecessor: a handle nobody can resolve is
- * an id drawn as a fact, which says less than silence.
- */
-function carriedOnFrom(job: JobSummary, jobs: readonly JobSummary[]): string[] {
-  const before = jobs.find((one) => one.id === job.redispatched_from);
-  return before === undefined ? [] : [`carried on from ${before.handle}`];
-}
-
-/**
  * The node as a card: its kind, its state where it has one, a title, and facts.
  * **`null` on a kind this build does not know** — `whiteboardEdges`' rule for an
  * edge, one scope over: a node drawn as a kind it is not is a claim nobody made,
@@ -261,7 +244,6 @@ function carriedOnFrom(job: JobSummary, jobs: readonly JobSummary[]): string[] {
  */
 function cardOf(
   node: StudioNode,
-  jobs: readonly JobSummary[],
   frameOf: FrameOf,
   live: StudioLive,
 ): StudioWhiteboardNode["node"] | null {
@@ -277,13 +259,6 @@ function cardOf(
       return node.kept === undefined
         ? { kind: "run", title: "Not read yet", facts: [node.run_id] }
         : { kind: "run", state: runOutcomeOf(node.kept), title: node.kept.name, facts: runFacts(node.kept) };
-    case "job": {
-      // The Job's state is the Board's, read off the row this window already holds.
-      const job = jobs.find((one) => one.id === node.job_id);
-      return job === undefined
-        ? { kind: "job", title: node.job_id }
-        : { kind: "job", state: job.status, title: job.title, facts: [job.handle, ...carriedOnFrom(job, jobs)] };
-    }
     case "note":
       // **The plate is drawn only where the Note kept a picture.** One that was
       // typed, or captured where no frame could be taken, is an ordinary Note.
@@ -381,12 +356,11 @@ function stateOf<State extends string>(node: StudioNode, first: State): State {
 /** Every node, where a person left it. */
 export function whiteboardNodes(
   studio: Studio,
-  jobs: readonly JobSummary[],
   frameOf: FrameOf = NO_FRAME_HELD,
   live: StudioLive = {},
 ): StudioWhiteboardNode[] {
   return studio.nodes.flatMap((node) => {
-    const card = cardOf(node, jobs, frameOf, live);
+    const card = cardOf(node, frameOf, live);
     if (card === null) return [];
     const placed = { id: node.id, position: node.position, node: card };
     return [node.within === undefined ? placed : { ...placed, within: node.within }];
@@ -445,12 +419,11 @@ export function whiteboardEdges(studio: Studio): StudioWhiteboardEdge[] {
 export function nodeNamed(
   studio: Studio,
   nodeId: string,
-  jobs: readonly JobSummary[],
   live: StudioLive = {},
 ): string {
   const node = studio.nodes.find((one) => one.id === nodeId);
   if (node === undefined) return nodeId;
-  const card = cardOf(node, jobs, NO_FRAME_HELD, live);
+  const card = cardOf(node, NO_FRAME_HELD, live);
   if (card === null) return nodeId;
   return `${STUDIO_NODE_KIND[card.kind]} ${card.title}`;
 }

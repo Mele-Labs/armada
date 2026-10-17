@@ -9,7 +9,7 @@ import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord, WalkStep, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import { isPinned, passThrough, pinned, webOrigin } from "./address";
-import { jobReadiness, sessionReadiness } from "./readiness";
+import { sessionReadiness } from "./readiness";
 import type { PanelSubject } from "./layout";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
 
@@ -41,7 +41,7 @@ export class CaptureWindows {
   /** The sessions main last published, which each Session's window reads its open question off. */
   private sessions: readonly SessionRecord[] | null = null;
   /** Whether the panel is drawn, as last left on a window of each kind. Drawn until a press folds it. */
-  private readonly panelOpen = { session: true, job: true };
+  private readonly panelOpen = { session: true };
 
   constructor(board: CaptureBoard) {
     this.board = board;
@@ -60,12 +60,8 @@ export class CaptureWindows {
     url: string,
     studio: { id: string; name: string | null } | null,
   ): CaptureOpened {
-    // A Job's server opens with no Studio, to be walked, and what is pointed at
-    // there lands on the Job. Any other server still needs its Studio.
-    const server = state.servers.servers.find((one) => one.id === serverId);
-    const job = state.jobs.find((one) => one.id === server?.job_id);
-    const landsOn: LandsOn | null =
-      studio !== null ? { studio } : job === undefined ? null : { job: { id: job.id, handle: job.handle } };
+    // A server's window needs its Studio, for what is pointed at there to land on.
+    const landsOn: LandsOn | null = studio !== null ? { studio } : null;
     if (landsOn === null) return { ok: false, why: "no_studio" };
     const standing = this.open.get(serverId);
     if (standing !== undefined && standing.open) {
@@ -75,7 +71,6 @@ export class CaptureWindows {
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
     const opened = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
-    opened.setReadiness("job" in landsOn ? jobReadiness(job?.status) : undefined);
     this.open.set(serverId, opened);
     return { ok: true };
   }
@@ -175,8 +170,6 @@ export class CaptureWindows {
         continue;
       }
       const server = state.servers.servers.find((one) => one.id === serverId);
-      const owner = window.owner;
-      if (owner?.kind === "job") window.setReadiness(jobReadiness(state.jobs.find((one) => one.id === owner.id)?.status));
       if (server === undefined || server.phase === "exited") window.ended();
     }
     this.ask();
@@ -184,12 +177,12 @@ export class CaptureWindows {
 
   /** Where a window of this kind keeps whether its panel is drawn. `null`: a Studio's, which has none. */
   private kept(landsOn: LandsOn): PanelKept | null {
-    const kind = "session" in landsOn ? "session" : "job" in landsOn ? "job" : null;
+    const kind = "session" in landsOn ? "session" : null;
     if (kind === null) return null;
     return { open: this.panelOpen[kind], keep: (open) => void (this.panelOpen[kind] = open) };
   }
 
-  /** The Session or the Job an IPC call's panel holds, or `null` where the call came from anything but a walk window's panel. */
+  /** The Session an IPC call's panel holds, or `null` where the call came from anything but a walk window's panel. */
   panelFrom(contents: Electron.WebContents): PanelSubject | null {
     for (const window of this.open.values()) {
       const subject = window.open ? window.panelOf(contents) : null;

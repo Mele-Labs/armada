@@ -7,7 +7,7 @@ import { AutopilotBar, type AutopilotBarProps } from "./AutopilotBar";
 const CAPS: AutopilotBarProps["caps"] = [
   { label: "At once", value: "2 of 2 running", fill: 1, reached: true },
   { label: "Spend", value: "$12.40 of $30", fill: 0.41, reached: false },
-  { label: "Jobs", value: "4 started · no cap", fill: 0, reached: false },
+  { label: "Sessions", value: "4 started · no cap", fill: 0, reached: false },
   { label: "Until", value: "07:00 · 5h 41m left", fill: 0.28, reached: false },
 ];
 
@@ -27,13 +27,13 @@ const BASE: AutopilotBarProps = {
   onStart: fn(),
   editing: false,
   onEditing: fn(),
-  current: { atOnce: "2", until: "07:00", spend: "30", jobs: "" },
+  current: { atOnce: "2", until: "07:00", spend: "30", sessions: "" },
   onSave: fn(),
 };
 
-/** Fleet's reading of the sentence below, with the words it read each setting from. Jobs it did not say. */
+/** Fleet's reading of the sentence below, with the words it read each setting from. Sessions it did not say. */
 const READING: NonNullable<AutopilotBarProps["reading"]> = {
-  fields: { atOnce: "2", until: "07:00", spend: "30", jobs: "" },
+  fields: { atOnce: "2", until: "07:00", spend: "30", sessions: "" },
   quoted: { atOnce: "two at a time", until: "until 7am", spend: "$30 max" },
 };
 
@@ -46,7 +46,7 @@ export default meta;
 
 type Story = StoryObj<typeof AutopilotBar>;
 
-/** Running, with a place for every Job it may run at once taken: that cap is lit. */
+/** Running, with a place for every Session it may run at once taken: that cap is lit. */
 export const Running: Story = {};
 
 /**
@@ -68,11 +68,11 @@ export const TurningItOff: Story = {
   },
 };
 
-/** Paused: no new picks, and the Jobs it started carry on. */
+/** Paused: no new picks, and the Sessions it started carry on. */
 export const Paused: Story = {
   args: { state: "paused", caps: CAPS.map((cap) => ({ ...cap, reached: false })) },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · started Sessions finish");
     await userEvent.click(canvas.getByRole("button", { name: "Resume" }));
     await expect(args.onResume).toHaveBeenCalledOnce();
     await expect(canvas.queryByRole("button", { name: "Pause" })).toBeNull();
@@ -102,26 +102,26 @@ function Capped(props: AutopilotBarProps) {
 export const PausedByACap: Story = {
   args: {
     state: "paused",
-    capped: "Job cap reached",
-    current: { atOnce: "2", until: "07:00", spend: "30", jobs: "6" },
+    capped: "Session cap reached",
+    current: { atOnce: "2", until: "07:00", spend: "30", sessions: "6" },
     caps: [
       { label: "At once", value: "1 of 2 running", fill: 0.5, reached: false },
       { label: "Spend", value: "$18.60 of $30", fill: 0.62, reached: false },
-      { label: "Jobs", value: "6 of 6 started", fill: 1, reached: true },
+      { label: "Sessions", value: "6 of 6 started", fill: 1, reached: true },
       { label: "Until", value: "07:00 · 2h 10m left", fill: 0.7, reached: false },
     ],
   },
   render: (args) => <Capped {...args} />,
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Session cap reached");
     await expect(canvas.getByText("6 of 6 started")).toHaveTextContent("6 of 6 started · reached");
     await userEvent.click(canvas.getByRole("button", { name: "Edit caps" }));
     const form = canvas.getByRole("form", { name: "Edit caps" });
     await expect(form).toHaveTextContent("Raise the cap that paused it and save, then resume.");
-    await userEvent.clear(canvas.getByLabelText("Jobs"));
-    await userEvent.type(canvas.getByLabelText("Jobs"), "10");
+    await userEvent.clear(canvas.getByLabelText("Sessions"));
+    await userEvent.type(canvas.getByLabelText("Sessions"), "10");
     await userEvent.click(canvas.getByRole("button", { name: "Save caps" }));
-    await expect(args.onSave).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", jobs: "10" });
+    await expect(args.onSave).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "10" });
     await expect(canvas.queryByRole("form", { name: "Edit caps" })).toBeNull();
   },
 };
@@ -130,7 +130,7 @@ export const PausedByACap: Story = {
 export const ResumeRefusedWhileCapped: Story = {
   args: {
     ...PausedByACap.args,
-    refused: "Autopilot stays paused: the Job cap is reached. Raise it, then resume",
+    refused: "Autopilot stays paused: the Session cap is reached. Raise it, then resume",
   },
 };
 
@@ -180,9 +180,9 @@ export const StartForm: Story = {
     await expect(canvas.getByLabelText("At once")).toHaveValue("2");
     await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
     await expect(canvas.getByText("not said")).toBeInTheDocument();
-    await userEvent.type(canvas.getByLabelText("Jobs"), "5");
+    await userEvent.type(canvas.getByLabelText("Sessions"), "5");
     await userEvent.click(canvas.getByRole("button", { name: "Start Autopilot" }));
-    await expect(args.onStart).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", jobs: "5" });
+    await expect(args.onStart).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "5" });
   },
 };
 

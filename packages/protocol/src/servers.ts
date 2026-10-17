@@ -25,7 +25,7 @@ export type ServerPort = { name: string; port: number };
  * the same server under the same name, and the address answers either way.
  */
 export type ServerCheckout = {
-  /** The checkout it runs in, absolute: a Job's worktree, or a main checkout. */
+  /** The checkout it runs in, absolute: a worktree, or a main checkout. */
   path: string;
   /** The branch checked out there. Absent for a main checkout. */
   branch?: string;
@@ -44,11 +44,8 @@ export type ServerState = {
   /** What `stop_server` and `observe_server` take. */
   id: string;
   name: string;
-  /** Absent: started with no Job, in the main checkout. */
-  job_id?: string;
   /**
-   * The repository it runs in, by its Manifest — a Job's own, or the main
-   * checkout's. Absent only from a Fleet that predates it. Since protocol 13.17.
+   * The repository it runs in, by its Manifest. Absent only from a Fleet that predates it. Since protocol 13.17.
    */
   manifest_id?: string;
   /** Which checkout answers on this server's address. Since protocol 18.1. */
@@ -62,12 +59,6 @@ export type ServerState = {
   links: ServerLink[];
   /** `person` or `drone`. */
   started_by: string;
-  /**
-   * Fleet started it because a step asking to be walked stopped for a person,
-   * on the Manifest's `walk` server. Bridge opens it in its own window when
-   * that Job is opened. Absent: started by anything else. Since protocol 23.18.
-   */
-  for_review?: boolean;
   started_at: string;
   /** Uptime counts from here; nothing ticks on the wire. */
   serving_since?: string;
@@ -90,12 +81,9 @@ export type ServerList = { servers: ServerState[] };
  */
 export type StartServer = {
   name: string;
-  /** Absent: a checkout, on its span. */
-  job_id?: string;
   /**
    * A checkout of that repository to serve, by its path — a worktree cut by
-   * hand to look at another branch. Absent: the main checkout. Ignored where
-   * `job_id` names a Job. Since protocol 18.2.
+   * hand to look at another branch. Absent: the main checkout. Since protocol 18.2.
    */
   checkout?: string;
 };
@@ -113,7 +101,7 @@ export type ServerEntry = {
   /** As declared, `${port.NAME}` unresolved. */
   links: ServerLink[];
   destructive: boolean;
-  /** This Job's instance: running, or the last that ended. */
+  /** The instance: running, or the last that ended. */
   instance?: ServerState;
 };
 
@@ -128,7 +116,6 @@ export type ServerOpened = {
   protocol_id: ProtocolId;
   id: string;
   name: string;
-  job_id?: string;
   path: string;
   /** Still running when this opened. `false`: the history is all of it. */
   live: boolean;

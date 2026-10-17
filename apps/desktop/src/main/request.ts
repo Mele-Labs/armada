@@ -8,15 +8,14 @@
 
 import type {
   CheckOutputRead,
-  BriefRead,
   FrameRead,
   Holdings,
   Outcome,
   TransportFault,
 } from "@armada/protocol";
-import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
+import type { FleetLimits, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
-import type { JobRetro, Lessons, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type { Lessons, LessonsRead, Retro, RetroRead, RetroSubject } from "@armada/protocol";
 import type {
   AskLessonAnswer,
   AskLessonRead,
@@ -26,12 +25,11 @@ import type {
   LessonReviewRead,
 } from "@armada/screens/src/lessons/review-wire";
 import type { ServerList } from "@armada/protocol";
-import type { BriefContents, CheckOutput } from "@armada/protocol";
+import type { CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
 import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
 import { Agent, fetch, type Dispatcher } from "undici";
-import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { Picked } from "./picked";
 import { HOST } from "./runtime-file";
 
@@ -119,22 +117,6 @@ export function followCommandSeconds(seconds: number): void {
  * this comment.
  */
 export const MODEL_CALL_MS = 150_000;
-
-/**
- * What `POST /jobs/:id/rerun_checks` waits. **Sized off Fleet's own ceiling on
- * the work it re-runs, not off `PROVISIONAL_CHECK_BUDGET` alone.**
- * `PROVISIONAL_STEP_NORMS` in `crates/armada/src/serve.rs` gives a step's own
- * wall clock as fifteen hundred seconds — one over-budget Check plus a p90
- * step's own work — and this route starts no Drone and does none of that
- * work, only the Checks and the gate behind them. So nothing it waits on can
- * outlast the clock Fleet already runs the same work inside. Five minutes on
- * top, `COMMAND_MS`'s margin at this route's scale, so a Job stuck past its
- * own ceiling answers with Fleet's own coded refusal rather than Bridge's
- * abort — `MODEL_CALL_MS`'s reason. Nothing generates this from the Rust
- * constant; the two are coupled by this comment. Past 300 s only through `FLEET`.
- */
-export const CHECKS_MS = 1_800_000;
-
 /**
  * No wait at all. **What `POST /jobs/from_request` takes**, and the only route
  * that does.
@@ -164,17 +146,6 @@ export const NO_WAIT = 0;
  * loopback is a machine in trouble, not a large image.
  */
 const FRAME_MS = 30_000;
-
-/**
- * A route under one Job. The id is a path segment, so it is encoded.
- *
- * **Beside `ask` rather than beside the acts**, because two modules send acts
- * now: `command.ts` and `clearing.ts`. A copy in each is the same three lines
- * twice, and the one that drifts is whichever is edited second.
- */
-export function route(jobId: string, operation: string): string {
-  return `/jobs/${encodeURIComponent(jobId)}/${operation}`;
-}
 
 /** Bridge names itself on every request, so Fleet tells a press here from an agent's (23.12). */
 export const CALLER = { "x-armada-caller": "bridge" } as const;
@@ -242,18 +213,6 @@ export async function ask(
 }
 
 /**
- * Whether a body is a Job row. Two fields, not the whole shape: a full check
- * would be a third statement of a type `crates/ipc` already owns and the
- * codegen has yet to emit — this only has to tell a Job from a route that
- * answered something else.
- */
-export function isJobSummary(body: unknown): body is JobSummary {
-  if (typeof body !== "object" || body === null) return false;
-  const row = body as Partial<JobSummary>;
-  return typeof row.id === "string" && typeof row.status === "string";
-}
-
-/**
  * The workflows, the Manifests and the models Fleet holds. Three calls, being
  * three operations in the inventory.
  *
@@ -261,23 +220,13 @@ export function isJobSummary(body: unknown): body is JobSummary {
  * Fleet refuses an id that has gone, so the worst case is a picker offering one
  * value too many rather than a form with nothing in it.
  *
- * `repository` is the root New job's ask answered, where the pick cannot name
- * it: on All, #959 keeps the Board there, so `leftOut` — the one field here
- * that is scoped at all — must be read against what was answered rather than
- * `picked`. `null`, the default, is every other caller; the pick still names
- * it, as it always did.
  */
-export async function holdingsOf(
-  port: number,
-  held: Holdings,
-  picked: Picked,
-  repository: string | null = null,
-): Promise<Holdings> {
+export async function holdingsOf(port: number, held: Holdings, picked: Picked): Promise<Holdings> {
   const [workflows, manifests, models, leftOut] = await Promise.all([
     ask(port, "GET", "/workflows"),
     ask(port, "GET", "/manifests"),
     ask(port, "GET", "/models"),
-    leftOutAsked(port, picked, repository),
+    leftOutAsked(port, picked),
   ]);
   return {
     workflows: workflows.ok === true ? (workflows.body as WorkflowSummary[]) : held.workflows,
@@ -289,16 +238,11 @@ export async function holdingsOf(
 }
 
 /**
- * `/workflows/left_out`, named by the pick or by `repository` — `holdingsOf`'s
- * one scoped field, and `composingOf`'s. `null` where a repository not set up
- * has no catalogue to have left anything out of; the two callers read that
- * differently, so it is theirs to interpret rather than this function's.
+ * `/workflows/left_out`, named by the pick — `holdingsOf`'s one scoped field. `null` where a
+ * repository not set up has no catalogue to have left anything out of.
  */
-async function leftOutAsked(port: number, picked: Picked, repository: string | null): Promise<Answer | null> {
-  const path =
-    repository === null
-      ? picked.manifest("/workflows/left_out")
-      : picked.manifestOf("/workflows/left_out", repository);
+async function leftOutAsked(port: number, picked: Picked): Promise<Answer | null> {
+  const path = picked.manifest("/workflows/left_out");
   return path === null ? null : await ask(port, "GET", path);
 }
 
@@ -307,32 +251,18 @@ export async function repositoriesOf(port: number): Promise<RepositoryList | nul
   const answer = await ask(port, "GET", "/repositories");
   return answer.ok === true ? (answer.body as RepositoryList) : null;
 }
-
-/**
- * How full the fleet is. **`null` where Fleet did not answer**, rather than the
- * last reading kept — unlike `holdingsOf` above, and for the opposite reason:
- * a workflow roster is stable and a stale one is nearly right, and this is a
- * live count that is wrong the moment a Job moves. A bar that keeps drawing
- * "2 of 2" off an answer it could not get is saying something it does not know.
- */
-export async function capacityOf(port: number): Promise<FleetCapacity | null> {
-  const answer = await ask(port, "GET", "/capacity");
-  return answer.ok === true ? (answer.body as FleetCapacity) : null;
-}
-
-/**
- * Fleet's three admission limits, and what Armada ships them at.
- *
- * **`null` where Fleet did not answer**, `capacityOf`'s reason: a failed read
- * keeping the last figures would let the panel draw values nobody can save
- * over any more.
- */
-/** Each served repository's merge line. `null` where Fleet did not answer, `capacityOf`'s reason. */
+/** Each served repository's merge line. `null` where Fleet did not answer. */
 export async function mergeLinesOf(port: number): Promise<MergeLines | null> {
   const answer = await ask(port, "GET", "/merge_lines");
   return answer.ok === true ? (answer.body as MergeLines) : null;
 }
 
+/**
+ * Fleet's three admission limits, and what Armada ships them at.
+ *
+ * **`null` where Fleet did not answer**: a failed read keeping the last figures would let the panel
+ * draw values nobody can save over any more.
+ */
 export async function limitsOf(port: number): Promise<FleetLimits | null> {
   const answer = await ask(port, "GET", "/limits");
   return answer.ok === true ? (answer.body as FleetLimits) : null;
@@ -364,49 +294,18 @@ export async function preferencesOf(port: number): Promise<Preferences | null> {
  * Asked once per connection rather than on a timer: the reading changes when
  * somebody saves a file, and `manifest.reread` is what says so. This is for the
  * window that opened *after* the save, which an event cannot reach.
- *
- * `repository` is New job's own answered root, on `holdingsOf`'s terms above:
- * `null`, the default, keeps reading the pick, as every caller but the
- * composer on All does.
  */
-export async function manifestReadingOf(
-  port: number,
-  picked: Picked,
-  repository: string | null = null,
-): Promise<ManifestReading | null> {
-  const path =
-    repository === null ? picked.manifest("/manifest/reading") : picked.manifestOf("/manifest/reading", repository);
+export async function manifestReadingOf(port: number, picked: Picked): Promise<ManifestReading | null> {
+  const path = picked.manifest("/manifest/reading");
   if (path === null) return null;
   const answer = await ask(port, "GET", path);
   return answer.ok === true ? ((answer.body as ManifestReading | null) ?? null) : null;
 }
-
-/**
- * `leftOut` and the Manifest reading for the repository New job's ask
- * answered — #959, and the one place both are read for a composer on All
- * rather than for `BridgeState`. Both taken through `Picked.manifestOf`,
- * since the pick stays on All throughout and cannot name what was answered.
- *
- * **A refusal, not `holdingsOf`'s `[]` or `manifestReadingOf`'s `null`.**
- * Those two keep drawing whatever was last held on a failed read, because
- * they are re-asked on a timer against a repository that stays picked; this
- * is asked once, for a repository nothing has read before, so there is no
- * old value under it to fall back to.
- */
-export async function composingOf(port: number, picked: Picked, repository: string): Promise<ComposingRead> {
-  const [leftOut, reading] = await Promise.all([
-    leftOutAsked(port, picked, repository),
-    manifestReadingOf(port, picked, repository),
-  ]);
-  if (leftOut === null) return { ok: false, outcome: NOT_SET_UP };
-  return { ok: true, leftOut: leftOut.ok === true ? (leftOut.body as LeftOutWorkflow[]) : [], reading };
-}
-
 /**
  * Every server Fleet holds — each Job's and the main checkout's — and the last
  * instance of each that ended.
  *
- * **`null` where Fleet did not answer**, `capacityOf`'s reason: a server's
+ * **`null` where Fleet did not answer**, a failed read keeps nothing: a server's
  * phase is live and a stale list would draw a *Serving* row for one that has
  * since exited. Read once per connection, like the capacity and the Manifest
  * reading beside it — after that, `server.*` on `/events` carries each row
@@ -418,37 +317,12 @@ export async function serversOf(port: number): Promise<ServerList | null> {
 }
 
 /**
- * One Check's own output, read into the app.
+ * One Check a Session's agent ran, read into the app by its run id.
  *
- * **A read that answers rather than one that is held.** `reader.ts` is for the
- * reads a Job moving invalidates. A recorded output cannot move, it is asked
- * for by one reader about one Check, and it is a test runner's whole log — so
- * it sits here beside `capacityOf` rather than becoming another `JobReader`.
- *
- * `kept` is the row's own file name, the last component of `CheckRun`'s
- * `output_path`. **Nothing here composes a path**: `artifacts.ts` owns that
- * rule, and Fleet resolves the name against its own record before it opens
- * anything.
- *
- * The refusal is carried through whole. On this route it is either the Job
- * being gone, which the panel is already saying, or no row of it holding an
- * output under that name — the Check's own business, said inside the reading.
+ * **A read that answers rather than one that is held.** A recorded output cannot move, it is asked
+ * for by one reader about one Check, and it is a test runner's whole log. The refusal is carried
+ * through whole.
  */
-export async function checkOutputOf(
-  port: number,
-  jobId: string,
-  kept: string,
-): Promise<CheckOutputRead> {
-  const answer = await ask(
-    port,
-    "GET",
-    `/jobs/${encodeURIComponent(jobId)}/checks/${encodeURIComponent(kept)}/output`,
-  );
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, output: answer.body as CheckOutput };
-}
-
-/** One Check a Session's agent ran, by its run id. `checkOutputOf`'s shape, on the route a Session's run has. */
 export async function sessionCheckOutputOf(port: number, run: number): Promise<CheckOutputRead> {
   const answer = await ask(port, "GET", `/sessions/checks/${encodeURIComponent(String(run))}/output`);
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
@@ -465,30 +339,14 @@ export async function stopSessionCheck(port: number, run: number, force: boolean
 }
 
 /**
- * One kept brief, read into the app: `checkOutputOf`'s shape, on
- * `GET /jobs/:job_id/briefs/:name` (protocol 21.11). `name` is the last part of
- * a `brief_path`; Fleet refuses one that would leave the Job's briefs.
- */
-export async function briefOf(port: number, jobId: string, name: string): Promise<BriefRead> {
-  const answer = await ask(port, "GET", `/jobs/${encodeURIComponent(jobId)}/briefs/${encodeURIComponent(name)}`);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, brief: answer.body as BriefContents };
-}
-
-/**
- * One retro, read into the app: `briefOf`'s shape, on `GET /jobs/:job_id/retro` for a Job
- * (protocol 23.12) and `GET /sessions/:session_id/retro?n=` for a Session. Asked when a surface opens it and again on focus, since nothing on `/events`
+ * One Session's retro, read into the app: `GET /sessions/:session_id/retro?n=`. Asked when a surface opens it and again on focus, since nothing on `/events`
  * says a retro was written.
  */
 export async function retroOf(port: number, subject: RetroSubject): Promise<RetroRead> {
-  // **Routed by whose retro it is**, with no retry on the other route: a Session's `n` names an older one.
-  const path =
-    subject.kind === "job"
-      ? route(subject.id, "retro")
-      : `/sessions/${encodeURIComponent(subject.id)}/retro${subject.n === undefined ? "" : `?n=${Math.trunc(subject.n)}`}`;
+  const path = `/sessions/${encodeURIComponent(subject.id)}/retro${subject.n === undefined ? "" : `?n=${Math.trunc(subject.n)}`}`;
   const answer = await ask(port, "GET", path);
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, retro: answer.body as JobRetro };
+  return { ok: true, retro: answer.body as Retro };
 }
 
 /**

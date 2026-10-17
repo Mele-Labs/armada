@@ -3,67 +3,26 @@
 //! dependency is scoped here alone, so nothing else *can* read a row. `ipc` is
 //! the other place bytes enter the process, from the wire.
 //!
-//! **`job_events` is authoritative** for `status`, `current_step_id` and every
-//! `job_steps` row; the `jobs` row is for everything else, so nothing here
-//! returns a Job by reading its status column — [`fold`](mod@fold) is the
-//! replay. The cost is a field with no event being authoritative only on the
-//! row, checked rather than assumed: [`RowError::ColumnNotReconstructable`].
-//!
 //! **Query functions never return pre-filtered results**, but the parse
 //! failures alongside them. v1 wrote `.filter_map(Result::ok)` after a store
-//! call and dropped twenty-one real Jobs with no error anywhere — the bug was
+//! call and dropped twenty-one real rows with no error anywhere — the bug was
 //! at the call site, and a signature handing back a bare `Vec` invites it.
-//! [`LoadAllError::SomeJobsUnreadable`] carries both sets.
 //!
 //! **A corrupt store is refused and an empty one created**, on six checks in
 //! `open.rs` that are each fatal: silently starting empty over a database that
-//! exists means somebody loses work and is shown a clean Board.
+//! exists means somebody loses work and is shown a clean slate.
 //!
-//! **Nothing here reads a clock**: a transition's instant is on the event and
-//! creation's is an argument to [`Store::insert_job`]. Schema versioning is a
-//! migration list and a version row, applied on open, and `job_events` is
-//! append-only in the database itself, by trigger.
+//! **Nothing here reads a clock.** Schema versioning is a migration list and a
+//! version row, applied on open.
+//!
+//! **The Job tables are left, unread.** Sessions replaced Jobs; no migration
+//! drops what a Job wrote, and nothing here reads or writes it. `retired`
+//! holds the SQL that made them, which the frozen list still runs.
 
-// `columns::workflow`'s `json!` of one frozen step nests deep enough on its
-// own — every Check, every judge criterion, every narrowing — that one more
-// key (`places`, #1102) crossed the default limit. Raised rather than
-// restructured: the nesting mirrors the record's own shape.
-#![recursion_limit = "256"]
-
-/// How a Job meets a command its Drone was not granted, and what a person
-/// allowed it.
-mod allowing;
-/// What a person decides at a Job's approval gate, and the issue it came from.
-/// Spike 022, slice 4.
-mod approval;
-/// The Checks a Drone asked for mid-step, each its own row. Since V113.
-mod asked_runs;
-mod asking;
-mod attempt;
-/// That a person asked the forge to merge a Job's pull request when its checks pass.
-mod auto_merge_asked;
-/// A test broken on main, and the Job drafted to fix it. #999.
-mod breakages;
 /// What Fleet told a session about the build it now runs, so it is told once.
 mod build_notice;
-/// The tree a Job's Checks last passed on, for `merge_by: push`.
-mod check_runs;
-mod checked;
-mod columns;
-/// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
-mod crew;
-/// The Drone pointer, where it now lives: one column per step.
-mod delivery;
-mod drift;
 mod devices;
-mod drone;
 mod error;
-mod fold;
-mod footprint;
-mod forget;
-mod gaming;
-mod gate_manifests;
-mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
 /// The model and effort a person chose for a Helm conversation.
@@ -71,7 +30,6 @@ mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
-mod issue_writeback;
 mod session_build;
 mod session_plan;
 mod session_rail;
@@ -80,166 +38,70 @@ mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
-/// Which bay a Job held, and when it took and gave it back.
-mod job_bays;
-/// Where a verdict's own question was kept, and the column that points at it.
-mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The 113 migrations the numbered list held, frozen.
 mod legacy_migrations;
+/// The SQL of migrations whose tables belong to Jobs, which are gone. Unread.
+mod retired;
 /// The Fleet limits a person saved, one row or none.
 mod limits;
-/// A redispatch read backwards: which Job replaced this one.
-mod lineage;
 /// Main's CI on the forge, per repository, and the failed jobs of a red.
 mod main_ci;
-/// Which Job took each red main, and which one fixed it.
+/// Which Session took each red main, and which one fixed it.
 mod main_fix;
 /// Commands a person always-allowed for a whole Manifest, kept here instead
-/// of a commit on some Job's branch.
+/// of a commit on some Session's branch.
 mod manifest_allowed;
-/// What the Manifest read at Job creation, kept whole and off the Job row's
-/// own fields.
-mod manifest_snapshot;
-/// The merge line Fleet keeps for each repository it serves: entries, the turn,
-/// and the size a turn takes.
-mod merge_line;
 /// Reads the `migrations/` directory; the build script includes it too.
 #[cfg(test)]
 mod migration_files;
 /// What a migration is, and the table recording which names a file has had.
 mod migrations;
-/// The model a person chose for a Job's later steps.
+/// The default model's step down while the plan's window is spent.
 mod model_downshift;
-mod model_override;
-/// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
-mod model_per_task;
-/// The note a boundary is holding, and the column it waits in.
-mod note;
-mod numbering;
 mod open;
-/// The marker on a paused Job, and the slot it gave up. Since V111.
-mod pausing;
-/// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
-mod pending_evidence;
-mod piloting;
-/// What a step said its work would be, kept after the slot that held it is
-/// gone.
-mod plan;
-/// The span of ports a Job's worktree holds, or a no-Job server run holds.
+/// The span of ports a checkout's server run holds, and Fleet's own listener.
 mod ports;
 /// A person's preferences, one row per name, kept beside `limits`.
 mod preferences;
 /// `settings.json`, the Machine's settings file: parsed and written here, read
 /// against `config`'s registry everywhere else.
 pub mod settings_file;
-/// Which operating-system process is working a Job, so a restart can ask.
-mod process;
-mod proposing;
-/// What a repository's Checks said about a commit — **the one per-Check record
-/// here that is not keyed by a Job.**
-mod proving;
 /// What Fleet told a Session about one it follows, so it is told once.
 mod linked_told;
 /// A Session dispatched to wait on another, until its condition is met.
 mod session_waits;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
-/// A pull request's title and comment count, kept past the merge.
-mod pull_request_kept;
-mod questioning;
-mod read;
-/// Giving a Job's resources back without giving up its record.
-mod rechecking;
-/// Which comments on a Job's pull request have already reached a Drone.
-mod remarks;
-/// What a person says went wrong, kept after the Job it is about is gone.
-mod report;
 mod repositories;
-/// What a gate's two policies resolved to, per run. #1683.
-mod resolved_policies;
-/// A ULID, a whole handle or a bare number in, one Job out — **a second way
-/// in and never a second key.**
-mod resolving;
-mod retain;
-mod retrace;
-/// A Job's retro, the door each move came through and a Drone's notes. V100.
+/// The shape of one retro item.
 mod retro;
-mod reuse;
-/// The review Fleet composed at a Job's gate — the one builder's text, kept
-/// beside the Job rather than only in the pull request it may also carry.
-mod review;
-mod review_dismissals;
-mod review_followups;
-mod review_model;
-mod review_record;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
-mod review_view;
-mod revision;
 mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
 mod blank_sessions;
 mod session_retro;
-/// The frames a step's harness produced, and where each one was kept.
-mod showing;
-mod shown_again;
-/// Which pool slot a Job's worktree is.
-mod slot;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
 /// its verdict and items since V107.
 mod slot_rescues;
 /// What Fleet did about a stranded slot on its own: told its holder, started a Scout.
 mod slot_strandings;
-/// What a Job's Drones have cost it: one row per Drone, summed per Job.
-mod spend;
-/// What a step's worktree held when it began, kept so a restart measures the
-/// same step against the same start.
-mod step_baseline;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
-/// Which Drone was put on which task, and what it handed in. Spike 022, 1b.
-mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
 /// What Fleet saw happen, for the Cockpit's timeline.
 mod timeline;
-/// What a person said while walking a Job's served mock. Since V102.
-mod walk_notes;
-/// An Epic's waves: the pass on a member, when its pull request merged, and
-/// what finishes a Job. Spike 022, slice 6.
-mod waves;
-/// A Job's plan and its tasks, kept as every change made to them. Not
-/// [`plan`](mod@plan), which is a step's declared scope.
-mod work_plan;
-#[cfg(feature = "wreckage")]
-mod wreckage;
-mod write;
 
 #[cfg(test)]
 mod tests;
-/// Steps added to one Job, beside its frozen workflow.
-mod additions;
-/// The Triggers frozen onto a Job at approval, and every firing of one.
-mod triggers;
 
-pub use additions::{Edited, NewAddition, Removal};
-pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
-pub use asking::OpenJudgeQuestion;
-pub use attempt::Attempted;
-pub use check_runs::{CheckOutcome, CheckRun};
-pub use crew::{ExtraEnded, TaskEdit};
-pub use delivery::{Currency, Delivery, Unsettled};
 pub use devices::{Device, PushSubscription};
-pub use drift::ScopeDrift;
-pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};
-pub use fold::{Moved, RecordedEvent};
-pub use footprint::Footprinted;
-pub use forget::Forgotten;
-pub use groups::GroupCoord;
+pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
@@ -247,45 +109,24 @@ pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, Ke
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
-pub use issue_writeback::{WriteBackOwed, WrittenBack};
-pub use job_bays::KeptBay;
 pub use model_downshift::KeptDownshift;
 pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;
-pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use main_fix::{MainFix, TakenBy, TakenHow};
-pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
-pub use pending_evidence::PendingEvidence;
-pub use piloting::{KeptPilot, PilotExit};
-pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
-pub use process::DroneProcess;
-pub use proving::Proved;
-pub use pull_request_kept::KeptPullRequest;
-pub use read::{Loaded, RowIdentity, StatusRepair, UnreadableRow};
-pub use report::Report;
-pub use resolving::{NamedJob, ResolveJobError};
-pub use retain::Retained;
-pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
-pub use review::Review;
+pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,
 };
-pub use showing::KeptFrame;
-pub use shown_again::{ShownAgain, SpecNamed};
 pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
-pub use spend::{DroneSpend, PastSpend, Spend};
-pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
-pub use task_drones::{TaskDrone, TaskHandIn};
+pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
-pub use walk_notes::{KeptWalkNote, WalkNoteRemoved, WalkServed};
-pub use work_plan::{PlanHand, PlanNotKept};

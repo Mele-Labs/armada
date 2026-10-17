@@ -31,7 +31,7 @@ const share = (used: number, of: number) => (of <= 0 ? 0 : Math.min(1, used / of
 
 /** Each cap, used of its limit, lit where it is reached. A cap not set says so. */
 export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
-  const { at_work, at_once, spent_micros, spend_cap_micros, jobs_started, job_cap, until, capped_by, state } = autopilot;
+  const { at_work, at_once, spent_micros, spend_cap_micros, sessions_started, session_cap, until, capped_by, state } = autopilot;
   const live = state !== "stopped";
   const ends = until === undefined ? NaN : Date.parse(until);
   const began = Date.parse(autopilot.started_at);
@@ -40,9 +40,9 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
     spend_cap_micros === undefined
       ? { label: "Spend", value: `${dollars(spent_micros)} · no cap`, fill: 0, reached: false }
       : { label: "Spend", value: `${dollars(spent_micros)} of ${dollars(spend_cap_micros)}`, fill: share(spent_micros, spend_cap_micros), reached: capped_by === "spend" || spent_micros >= spend_cap_micros },
-    job_cap === undefined
-      ? { label: "Jobs", value: `${jobs_started} started · no cap`, fill: 0, reached: false }
-      : { label: "Jobs", value: `${jobs_started} of ${job_cap} started`, fill: share(jobs_started, job_cap), reached: capped_by === "jobs" || jobs_started >= job_cap },
+    session_cap === undefined
+      ? { label: "Sessions", value: `${sessions_started} started · no cap`, fill: 0, reached: false }
+      : { label: "Sessions", value: `${sessions_started} of ${session_cap} started`, fill: share(sessions_started, session_cap), reached: capped_by === "sessions" || sessions_started >= session_cap },
     until === undefined || Number.isNaN(ends)
       ? { label: "Until", value: "no time set", fill: 0, reached: false }
       : {
@@ -54,10 +54,10 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
   ];
 }
 
-/** Which cap paused it, as the bar's state names it: `Job cap reached`. A person's own Pause needs no naming. */
+/** Which cap paused it, as the bar's state names it: `Session cap reached`. A person's own Pause needs no naming. */
 export function cappedOf(autopilot: Autopilot): string | undefined {
   if (autopilot.state !== "paused" || autopilot.capped_by === undefined) return undefined;
-  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { jobs: "Job cap reached", spend: "spend cap reached", until: "time to stop passed" };
+  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { sessions: "Session cap reached", spend: "spend cap reached", until: "time to stop passed" };
   return reached[autopilot.capped_by];
 }
 
@@ -104,7 +104,7 @@ export const NEXT_UP_ROWS = 8;
 /**
  * What Autopilot is choosing from, in the tracker's order: the open issues it has not picked this
  * run, numbered, then the ones it passes over with the reason. Fleet's own rules, read off what the
- * issue list carries; a Job's source issue is not on the Board row, so that rule is Fleet's alone.
+ * issue list carries; a Session's source issue is not on its row, so that rule is Fleet's alone.
  */
 export function nextUpOf(autopilot: Autopilot, issues: IssueList | undefined): NextUp[] {
   if (issues === undefined) return [];
@@ -130,14 +130,14 @@ export function fieldsOf(settings: AutopilotSettings): AutopilotFields {
     atOnce: String(settings.at_once),
     until: settings.until === undefined ? "" : clockOf(settings.until),
     spend: settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
-    jobs: settings.job_cap === undefined ? "" : String(settings.job_cap),
+    sessions: settings.session_cap === undefined ? "" : String(settings.session_cap),
   };
 }
 
 /** Fleet's reading of a sentence: the fields, and the words each was read from, keyed as the fields are. */
 export function readingOf(proposal: AutopilotSettings & { quoted?: AutopilotQuoted }): AutopilotReading {
-  const { at_once, until, spend_cap_micros, job_cap } = proposal.quoted ?? {};
-  const quoted = { atOnce: at_once, until, spend: spend_cap_micros, jobs: job_cap };
+  const { at_once, until, spend_cap_micros, session_cap } = proposal.quoted ?? {};
+  const quoted = { atOnce: at_once, until, spend: spend_cap_micros, sessions: session_cap };
   const said = Object.fromEntries(Object.entries(quoted).filter(([, words]) => words !== undefined && words.trim() !== ""));
   return { fields: fieldsOf(proposal), quoted: said };
 }
@@ -164,7 +164,7 @@ function nextAt(text: string, now: number): string | undefined {
 /** The fields the person confirmed, as the start Fleet takes, or what is wrong with one of them. */
 export function settingsFrom(instruction: string, fields: AutopilotFields, now: number): { ok: true; settings: AutopilotSettings } | { ok: false; why: string } {
   const atOnce = whole(fields.atOnce);
-  if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Jobs, 1 or more." };
+  if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Sessions, 1 or more." };
   const settings: AutopilotSettings = { instruction: instruction.trim(), at_once: atOnce };
   if (fields.until.trim() !== "") {
     const until = nextAt(fields.until, now);
@@ -176,10 +176,10 @@ export function settingsFrom(instruction: string, fields: AutopilotFields, now: 
     if (!(spend > 0)) return { ok: false, why: "Spend is an amount in dollars, like 30." };
     settings.spend_cap_micros = Math.round(spend * 1_000_000);
   }
-  if (fields.jobs.trim() !== "") {
-    const jobs = whole(fields.jobs);
-    if (!(jobs >= 1)) return { ok: false, why: "Jobs is a whole number, 1 or more, or blank for no cap." };
-    settings.job_cap = jobs;
+  if (fields.sessions.trim() !== "") {
+    const sessions = whole(fields.sessions);
+    if (!(sessions >= 1)) return { ok: false, why: "Sessions is a whole number, 1 or more, or blank for no cap." };
+    settings.session_cap = sessions;
   }
   return { ok: true, settings };
 }

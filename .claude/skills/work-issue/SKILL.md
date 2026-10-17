@@ -330,8 +330,10 @@ and green in the agent's report.
 **Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a
 merge or a conflict, a doc or registry edit, a fix whose cause the brief already
 names. Design, visual work and anything that crosses the seam stays on the
-default model. The owner asked for this on 2 Oct 2026, for the same reason as
-the rule above.
+default model, passed by name when the type pins `sonnet`. A lookup, or a run
+whose only job is to report what failed, goes to `model: "haiku"`. The owner
+asked for this on 2 Oct 2026, for the same reason as the rule above;
+`docs/practices/subagents.md` has which type takes what.
 
 **An agent that stalls takes its uncommitted work with it.** Confirmed 17 Sep
 2026: two `bridge-engineer` agents in a row, each briefed to move the Board's

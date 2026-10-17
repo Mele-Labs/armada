@@ -1,54 +1,22 @@
 // The Checks filter row's rules: what each filter holds.
 
 import { expect, test } from "vitest";
-import type { ManifestCheckRow, MergeLines } from "@armada/protocol";
+import type { CheckListStatus } from "@armada/components";
+import type { MergeLines } from "@armada/protocol";
 
-import { CHECK_FILTERS, checkEntriesOf, entryOfReported, heldBy, type CheckEntry } from "./manifest-checks";
+import { CHECK_FILTERS, checkEntriesOf, heldBy, type CheckEntry } from "./manifest-checks";
 
-function row(source: string, state: string, job = "J1"): ManifestCheckRow {
-  return {
-    source,
-    requester: { kind: "gate", job_id: job },
-    job_id: job,
-    job_handle: job,
-    job_title: job,
-    step: "s",
-    attempt: 1,
-    name: state,
-    state,
-  };
-}
+const entryAt = (status: CheckListStatus): CheckEntry => ({ id: status, name: status, status, command: "", requester: { kind: "outside" } });
 
-const one = (source: string, state: string): CheckEntry => entryOfReported(row(source, state));
-
-test("each filter holds the states it names, and Completed holds passed, failed, skipped and stopped", () => {
-  const states: [string, string][] = [
-    ["asked_run", "running"],
-    ["gate", "passed"],
-    ["gate", "failed"],
-    ["gate", "timed_out"],
-    ["gate", "skipped"],
-    ["gate", "never_ran"],
-    ["asked_run", "stopped"],
-  ];
-  const held = (filter: (typeof CHECK_FILTERS)[number]) =>
-    states.filter(([source, state]) => heldBy(filter, one(source, state))).map(([, state]) => state);
-  expect(held("all")).toHaveLength(7);
+test("each filter holds the statuses it names, and Completed holds passed, failed and stopped", () => {
+  const statuses: CheckListStatus[] = ["running", "waiting", "passed", "failed", "stopped"];
+  const held = (filter: (typeof CHECK_FILTERS)[number]) => statuses.filter((status) => heldBy(filter, entryAt(status)));
+  expect(held("all")).toHaveLength(5);
   expect(held("active")).toEqual(["running"]);
-  expect(held("waiting")).toEqual([]);
+  expect(held("waiting")).toEqual(["waiting"]);
   expect(held("passed")).toEqual(["passed"]);
-  expect(held("failed")).toEqual(["failed", "timed_out"]);
-  expect(held("skipped")).toEqual(["skipped", "never_ran"]);
-  expect(held("completed")).toEqual(["passed", "failed", "timed_out", "skipped", "never_ran", "stopped"]);
-});
-
-test("a gate row or a Drone's run Fleet reports waiting is Waiting, and a gate row running is Active", () => {
-  const held = (filter: (typeof CHECK_FILTERS)[number], source: string, state: string) => heldBy(filter, one(source, state));
-  for (const source of ["gate", "asked_run"]) {
-    expect(held("waiting", source, "waiting")).toBe(true);
-    expect(held("completed", source, "waiting")).toBe(false);
-  }
-  expect(held("active", "gate", "running")).toBe(true);
+  expect(held("failed")).toEqual(["failed"]);
+  expect(held("completed")).toEqual(["passed", "failed", "stopped"]);
 });
 
 test("a Check asked for and not started is Waiting alone", () => {
@@ -56,14 +24,14 @@ test("a Check asked for and not started is Waiting alone", () => {
   expect(CHECK_FILTERS.filter((filter) => heldBy(filter, waiting))).toEqual(["all", "waiting"]);
 });
 
-test("a Job whose branch is queued behind another has its Checks in Waiting, as Fleet lists them", () => {
-  const requester = { kind: "merge_line", branch: "fleet/mine", job_id: "J1", handle: "7-mine" };
+test("a branch queued behind another has its Checks in Waiting, as Fleet lists them", () => {
+  const requester = { kind: "merge_line", branch: "fleet/mine" };
   const lines: MergeLines = {
     lines: [
       {
         root: "/repo",
         line: [
-          { branch: "fleet/ahead", place: 1, state: "gating", checks: [{ name: "ipc_test", state: "running", started_at: "2026-10-07T10:00:00Z", requester: { kind: "merge_line", branch: "fleet/ahead", job_id: "J0" } }] },
+          { branch: "fleet/ahead", place: 1, state: "gating", checks: [{ name: "ipc_test", state: "running", started_at: "2026-10-07T10:00:00Z", requester: { kind: "merge_line", branch: "fleet/ahead" } }] },
           { branch: "fleet/mine", place: 2, state: "waiting", checks: [{ name: "ipc_test", state: "waiting", requester }, { name: "fleet_test", state: "waiting", requester }] },
         ],
         off: [],

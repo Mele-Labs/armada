@@ -1,22 +1,20 @@
 // A Session open on the flight deck's stage, with enough on its record that a report about it carries something to read: its
-// directory, model, context, branch and slot, a Job and a pull request whose Check failed, a question it waits on him for, a
+// directory, model, context, branch and slot, a pull request whose Check failed, a question it waits on him for, a
 // thread, and the timeline's entries for it. Report starts a Session beside it, as the wired draft does, and the walk lands on it.
 // The claims are in `walks/cockpit-report-session.ts`.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding, servedFrom } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const migrate = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
-/** The repository the Job's fixture is of, which is the one the deck's Sessions work in. */
-const OWNER = migrate.manifests[0]!.id;
-const ROOT = servedFrom(migrate.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
 const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
@@ -50,7 +48,6 @@ const REPORTED: Session = {
   attachments: [
     { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
     { kind: "pull_request", number: 1861, title: "Pin the store clock", branch: "fix/pin-store-clock", address: "https://git.example/armada/pull/1861", checks: { state: "failed", failing: "desktop_test" }, state: "open", auto: false },
-    { kind: "job", id: migrate.job.id, number: 83, title: migrate.job.title, state: "running", branch: "armada/83-migrate" },
   ],
   waitingFor: [{ id: `q:${ago(8)}`, text: "Revert the push to main, or leave it?", since: ago(8), source: "agent" }],
 };
@@ -70,16 +67,14 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const board = [{ ...migrate, job: { ...migrate.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
-  const base = holding("cockpit-report-session", "The flight deck with one Session open that has a branch, a pull request with a red Check, a Job and a question waiting on him", board);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("cockpit-report-session", "The flight deck with one Session open that has a branch, a pull request with a red Check and a question waiting on him");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
+    state: { ...base.state, repository: null },
     draft: {
       events: EVENTS,
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [REPORTED]);
+      sessions: () => {
+        const store = sessionsStore([REPORTED]);
         // The ship holds this Session and the ones a report starts beside it, not the usual fixtures.
         const own = new Set([REPORTED.id]);
         // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.

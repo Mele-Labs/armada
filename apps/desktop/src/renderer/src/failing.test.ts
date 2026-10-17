@@ -38,32 +38,11 @@ function failedAt(path: string) {
   }).commandFailure;
 }
 
-test("a 404 on a pending route is not implemented, and names its issue", () => {
-  const failure = failedAt("/jobs/01J/tasks/T1/pilot");
-
-  expect(failure?.payload.code).toBe("bridge.not_implemented");
-  expect(failure?.headline).toBe("Not implemented");
-});
-
 test("a 404 on a route nothing lists as pending still reads as the two sides disagreeing", () => {
-  const failure = failedAt("/jobs/01J/kill_drone");
+  const failure = failedAt("/sessions/s1/unknown");
 
   expect(failure?.payload.code).toBe("bridge.command.unanswerable");
-  expect(failure?.headline).toBe("Fleet answered 404 on POST /jobs/01J/kill_drone, and Bridge could not read it");
-});
-
-test("a pending route's other status is not claimed as unbuilt: only the router's 404 is", () => {
-  const outcome = refusedWith(500, "", { method: "POST", path: "/jobs/01J/tasks/T1/pilot" });
-  const failure = failingIn({
-    connection: CONNECTED,
-    bridge: BRIDGE,
-    readAt: 0,
-    outcome,
-    raised: [],
-    now: 0,
-  }).commandFailure;
-
-  expect(failure?.payload.code).toBe("bridge.command.unanswerable");
+  expect(failure?.headline).toBe("Fleet answered 404 on POST /sessions/s1/unknown, and Bridge could not read it");
 });
 
 const APART: Connection = {

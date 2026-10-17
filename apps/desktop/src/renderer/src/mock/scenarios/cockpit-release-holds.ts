@@ -1,20 +1,19 @@
-// Two Sessions of one repository on the flight deck. The first is working and holds two slots, a branch, a pull request, a Job and a
+// Two Sessions of one repository on the flight deck. The first is working and holds two slots, a branch, a pull request and a
 // need; the second holds a slot and a branch of its own. Release answers as Fleet's `release_session_holds` does, for the rows ticked:
 // a hand moves each to the Session picked, and a release gives each back, committing a slot's files first, except the slot whose checkout is on no
 // branch, which stays and says why. The claims are in `walks/cockpit-release-holds.ts`.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { HeldRow, HoldsReleased, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding, servedFrom } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const migrate = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
-const OWNER = migrate.manifests[0]!.id;
-const ROOT = servedFrom(migrate.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 /** The slot whose checkout is on no branch: a release cannot commit its files, so it stays. */
 const DETACHED = 6;
@@ -33,7 +32,6 @@ const HOLDER: Session = {
     { kind: "slot", slot: DETACHED },
     { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
     { kind: "pull_request", number: 1861, title: "Pin the store clock", branch: "fix/pin-store-clock", address: "https://git.example/armada/pull/1861", checks: { state: "passed" }, state: "open", auto: false },
-    { kind: "job", id: migrate.job.id, number: 83, title: migrate.job.title, state: "running", branch: "armada/83-migrate" },
   ],
   needs: [{ path: "crates/store/migrations", what: "the next migration number" }],
 };
@@ -59,20 +57,17 @@ function rowOf(one: SessionAttachment): HeldRow | undefined {
   if (one.kind === "slot") return { kind: "slot", target: String(one.slot) };
   if (one.kind === "branch") return { kind: "branch", target: one.name };
   if (one.kind === "pull_request" && one.state !== "merged") return { kind: "pr", target: String(one.number) };
-  if (one.kind === "job") return { kind: "job", target: one.id };
   return undefined;
 }
 
 function build(): Scenario {
-  const board = [{ ...migrate, job: { ...migrate.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
-  const base = holding("cockpit-release-holds", "The flight deck with two Sessions of one repository, the first working and holding two slots, a branch, a pull request, a Job and a need", board);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("cockpit-release-holds", "The flight deck with two Sessions of one repository, the first working and holding two slots, a branch, a pull request and a need");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
+    state: { ...base.state, repository: null },
     draft: {
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [HOLDER, TAKER]);
+      sessions: () => {
+        const store = sessionsStore([HOLDER, TAKER]);
         const own = new Set([HOLDER.id, TAKER.id]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];

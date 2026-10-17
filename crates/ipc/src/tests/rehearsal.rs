@@ -3,32 +3,20 @@
 use core_model::Timestamp;
 
 use crate::{
-    decode, encode, ChangeKind, ChangedFile, CheckoutRunDiff, Cursor, Delivered, DiffAgainst,
-    Event, Instant, JobId, Missed, OutputClosed, OutputEnded, OutputLines, ProtocolId,
-    RunDiffReading, RunMessage, RunOpened, RunRecord, StreamMessage,
+    decode, encode, ChangeKind, ChangedFile, CheckoutRunDiff, CheckoutRunMessage,
+    CheckoutRunOpened, CheckoutRunRecord, Cursor, Delivered, DiffAgainst, Event, Instant, Missed,
+    OutputClosed, OutputEnded, OutputLines, ProtocolId, RunDiffReading, StreamMessage,
 };
 
 fn at(text: &str) -> Instant {
     Instant::from(&Timestamp::from_rfc3339(text))
 }
 
-/// #1064: both seed readings are spelled by `state`, as a Verify step is.
+/// #1064: a declared seed is spelled by `state`, as a Verify step is.
 #[test]
-fn a_worktrees_seeding_and_a_declared_seed_are_spelled_by_state() {
-    use crate::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
+fn a_declared_seed_is_spelled_by_state() {
+    use crate::{DeclaredSeed, SeedWarmth};
 
-    let seeded = WorktreeSeeding::Seeded {
-        commit: "a787".to_string(),
-        paths: vec!["target".to_string()],
-    };
-    assert_eq!(
-        encode(&seeded).expect("plain data"),
-        r#"{"state":"seeded","commit":"a787","paths":["target"]}"#
-    );
-    assert_eq!(
-        encode(&WorktreeSeeding::Unrecorded).expect("plain data"),
-        r#"{"state":"unrecorded"}"#
-    );
     let declared = DeclaredSeed {
         paths: vec!["target".to_string()],
         warmed_by: vec!["warm_build".to_string()],
@@ -47,15 +35,12 @@ fn a_worktrees_seeding_and_a_declared_seed_are_spelled_by_state() {
     );
 }
 
-fn a_record() -> RunRecord {
-    RunRecord {
+fn a_record() -> CheckoutRunRecord {
+    CheckoutRunRecord {
         id: "01RUN".to_string(),
-        job_id: JobId::carried("01JOB"),
         name: "fmt".to_string(),
+        workspace: None,
         command: "cargo fmt --all".to_string(),
-        narrowed: false,
-        worktree_version: false,
-        frozen: false,
         required: Vec::new(),
         started_at: at("2026-09-11T10:00:00.000Z"),
         ended_at: at("2026-09-11T10:00:04.000Z"),
@@ -67,14 +52,11 @@ fn a_record() -> RunRecord {
         changed: vec![ChangedFile {
             path: "src/lib.rs".to_string(),
             change: ChangeKind::Modified,
-            outside_plan: false,
-            lines: None,
         }],
         changed_unreadable: None,
-        shared_with_drone: false,
-        snapshot: Some("refs/armada/rehearsals/01RUN".to_string()),
+        undoable: true,
         undone_at: None,
-        log: ".armada/runs/01JOB/01RUN/output.log".to_string(),
+        log: ".armada/runs/main/01RUN/output.log".to_string(),
         requester: crate::Requester::outside(),
     }
 }
@@ -87,27 +69,26 @@ fn delivered(event: Event) -> String {
     .expect("plain data")
 }
 
-/// The run socket speaks `observe_job`'s four messages, spelled the same way.
+/// The checkout run socket speaks the four messages the other sockets do.
 #[test]
 fn a_runs_socket_speaks_the_four_messages_the_other_sockets_do() {
-    let spelled = |message: RunMessage| encode(&message).expect("plain data");
-    let opened = spelled(RunMessage::Opened(RunOpened {
+    let spelled = |message: CheckoutRunMessage| encode(&message).expect("plain data");
+    let opened = spelled(CheckoutRunMessage::Opened(CheckoutRunOpened {
         protocol_id: ProtocolId::current(),
-        job_id: JobId::carried("01JOB"),
         id: "01RUN".to_string(),
         name: "test".to_string(),
-        path: ".armada/runs/1-job/01RUN/output.log".to_string(),
+        path: ".armada/runs/main/01RUN/output.log".to_string(),
         live: true,
         skipped: 0,
     }));
     assert!(opened.contains("\"message\":\"opened\""), "{opened}");
-    let lines = spelled(RunMessage::Lines(OutputLines {
+    let lines = spelled(CheckoutRunMessage::Lines(OutputLines {
         lines: vec!["Compiling ipc".to_string()],
     }));
     assert!(lines.contains("\"message\":\"lines\""), "{lines}");
-    let missed = spelled(RunMessage::Missed(Missed { dropped: 4 }));
+    let missed = spelled(CheckoutRunMessage::Missed(Missed { dropped: 4 }));
     assert!(missed.contains("\"dropped\":4"), "{missed}");
-    let closed = spelled(RunMessage::Closed(OutputClosed {
+    let closed = spelled(CheckoutRunMessage::Closed(OutputClosed {
         because: OutputEnded::Finished,
     }));
     assert!(closed.contains("\"because\":\"finished\""), "{closed}");
@@ -116,31 +97,20 @@ fn a_runs_socket_speaks_the_four_messages_the_other_sockets_do() {
 /// `/events` carries a run's end and never its output.
 #[test]
 fn a_runs_end_travels_under_the_name_the_inventory_declares() {
-    let finished = delivered(Event::RunFinished(a_record()));
-    assert!(finished.contains("\"kind\":\"run.finished\""), "{finished}");
+    let finished = delivered(Event::CheckoutRunFinished(a_record()));
+    assert!(
+        finished.contains("\"kind\":\"checkout_run.finished\""),
+        "{finished}"
+    );
     let back: StreamMessage = decode("a stream message", finished.as_bytes()).expect("it reads");
     let StreamMessage::Event(Delivered {
-        event: Event::RunFinished(record),
+        event: Event::CheckoutRunFinished(record),
         ..
     }) = back
     else {
         panic!("not the end of a run");
     };
     assert_eq!(record, a_record());
-}
-
-/// A run with nothing to undo from says so by leaving the key out, not by
-/// sending a null a reader would have to know about.
-#[test]
-fn a_record_with_no_snapshot_carries_no_key_for_one() {
-    let mut record = a_record();
-    record.snapshot = None;
-    record.exit_code = None;
-    let json = encode(&record).expect("plain data");
-    assert!(!json.contains("\"snapshot\""), "{json}");
-    assert!(!json.contains("\"exit_code\""), "{json}");
-    let back: RunRecord = decode("a run record", json.as_bytes()).expect("it reads");
-    assert_eq!(back, record);
 }
 
 /// A checkout run's diff says what it was measured against, and a snapshot
@@ -217,10 +187,10 @@ fn a_verify_step_carries_its_state_flat_and_reads_back() {
     assert_eq!(back, verify);
 }
 
-/// **A record written before 23.40 reads as outside a Job**, which is what it
+/// **A record written before 23.40 reads as outside**, which is what it
 /// was: nothing in Armada asked for it.
 #[test]
-fn a_run_record_from_before_the_requester_reads_as_outside_a_job() {
+fn a_run_record_from_before_the_requester_reads_as_outside() {
     let mut value: serde_json::Value =
         serde_json::from_str(&encode(&a_record()).expect("plain data")).expect("json");
     value
@@ -228,7 +198,7 @@ fn a_run_record_from_before_the_requester_reads_as_outside_a_job() {
         .expect("an object")
         .remove("requester");
     let older = value.to_string();
-    let read: RunRecord = decode("an older run", older.as_bytes()).expect("it reads");
+    let read: CheckoutRunRecord = decode("an older run", older.as_bytes()).expect("it reads");
     assert_eq!(read.requester, crate::Requester::outside());
     assert!(encode(&read)
         .expect("plain data")

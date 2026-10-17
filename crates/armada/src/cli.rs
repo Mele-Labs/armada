@@ -40,8 +40,8 @@ pub enum Verb {
     Run { name: String },
     /// The Checks a change hits, from the paths read on stdin.
     Covers,
-    /// Worktrees, branches and Jobs, given back.
-    Clean { everything: bool, force: bool },
+    /// Base checkouts, given back; with `--all`, the machine's store as well.
+    Clean { everything: bool },
     /// The agent's door, spoken on stdin and stdout for an agent standing in
     /// this repository. Started by an agent's MCP client, never by a person.
     Mcp,
@@ -82,7 +82,7 @@ const VERBS: &[(&str, &str)] = &[
     ),
     (
         "clean",
-        "give this repository's worktrees, branches and Jobs back",
+        "give this repository's base checkouts back",
     ),
     (
         MCP,
@@ -202,7 +202,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             args: rest.to_vec(),
         }),
         "clean" => {
-            let positional = positionals(rest, &["--all", "--force"], &mut faults);
+            let positional = positionals(rest, &["--all"], &mut faults);
             at_most_one("clean", &positional, &mut faults);
             if let Some(given) = positional.first() {
                 faults.push(Fault::StandingTakesNoPath {
@@ -212,7 +212,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             }
             Some(Verb::Clean {
                 everything: rest.iter().any(|arg| arg == "--all"),
-                force: rest.iter().any(|arg| arg == "--force"),
             })
         }
         WORKTREE => worktree::read(rest, &mut faults),
@@ -448,34 +447,13 @@ impl fmt::Display for Usage {
             }
             let shape = match *verb {
                 "serve" => "serve [<path>]".to_string(),
-                "clean" => "clean [--all] [--force]".to_string(),
+                "clean" => "clean [--all]".to_string(),
                 MCP => MCP.to_string(),
                 COVERS => format!("{COVERS} < <paths>"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;
         }
-        writeln!(out)?;
-        writeln!(
-            out,
-            "  clean keeps a branch whose commits are not on the base branch, and names"
-        )?;
-        writeln!(
-            out,
-            "  it. --force deletes it, and the work on it, along with the rest."
-        )?;
-        writeln!(
-            out,
-            "  It leaves a worktree slot a Job holds, and names it. --force gives back"
-        )?;
-        writeln!(
-            out,
-            "  a completed or kept Job's slot, unless it is dirty or holds unlanded"
-        )?;
-        writeln!(
-            out,
-            "  commits, then deletes its branch. A Job that has not ended keeps its slot."
-        )?;
         Ok(())
     }
 }

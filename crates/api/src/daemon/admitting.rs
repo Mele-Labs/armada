@@ -12,7 +12,7 @@
 //! the answer arrives as a [`HelmReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
-use ipc::door::{Reachable, DRAFTING, HELM_ONLY, REACHABLE};
+use ipc::door::{Reachable, HELM_ONLY, REACHABLE};
 
 use crate::mcp::Caller;
 
@@ -115,11 +115,9 @@ impl From<Redirector> for Steerer {
 }
 
 /// Every row a Helm session could be offered before its daemon decides: what
-/// any agent is offered, the `Drafts only` rows no other agent is, and the
-/// `Helm only` rows no other agent is (`#1150`).
+/// any agent is offered, and the `Helm only` rows no other agent is (`#1150`).
 pub fn offerable() -> impl Iterator<Item = &'static Reachable> {
     REACHABLE
         .iter()
-        .chain(DRAFTING.iter())
         .chain(HELM_ONLY.iter())
 }

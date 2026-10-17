@@ -21,8 +21,6 @@ import { MANIFEST_CHANNELS, MANIFEST_NOTHING_YET } from "./api/manifest";
 import type { ManifestState } from "./api/manifest";
 import { SETUP_CHANNELS, SETUP_NOTHING_YET } from "./api/setup";
 import type { SetupState } from "./api/setup";
-import { ADDED_STEPS_CHANNELS, ADDED_STEPS_NOTHING_YET } from "./api/added-steps";
-import type { AddedStepsState } from "./api/added-steps";
 import { TRIGGERS_CHANNELS, TRIGGERS_NOTHING_YET } from "./api/triggers";
 import type { TriggersState } from "./api/triggers";
 import { WORKFLOWS_CHANNELS, WORKFLOWS_NOTHING_YET } from "./api/workflows";
@@ -35,10 +33,10 @@ import { OVERVIEW_CHANNELS, OVERVIEW_NOTHING_YET } from "./api/overview";
 import type { OverviewState } from "./api/overview";
 import { CLEANUP_CHANNELS, CLEANUP_NOTHING_YET } from "./api/cleanup";
 import type { CleanupState } from "./api/cleanup";
-import { REPORTS_CHANNELS, REPORTS_NOTHING_YET } from "./api/reports";
-import type { ReportsState } from "./api/reports";
-import { JOBS_CHANNELS, JOBS_NOTHING_YET } from "./api/jobs";
-import type { JobsState } from "./api/jobs";
+import { DISPATCH_CHANNELS } from "./api/dispatch";
+import { CHECKS_CHANNELS, CHECKS_NOTHING_YET } from "./api/checks";
+import type { ChecksState } from "./api/checks";
+import { LESSONS_CHANNELS } from "./api/lessons";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
 import { SLEEP_CHANNELS } from "./api/sleep";
@@ -107,13 +105,11 @@ export type BridgeState = CoreState &
   SetupState &
   WorkflowsState &
   TriggersState &
-  AddedStepsState &
   HelmState &
   SettingsState &
   OverviewState &
   CleanupState &
-  ReportsState &
-  JobsState &
+  ChecksState &
   SessionsState;
 
 /**
@@ -131,13 +127,11 @@ export const NOTHING_YET: BridgeState = {
   ...SETUP_NOTHING_YET,
   ...WORKFLOWS_NOTHING_YET,
   ...TRIGGERS_NOTHING_YET,
-  ...ADDED_STEPS_NOTHING_YET,
   ...HELM_NOTHING_YET,
   ...SETTINGS_NOTHING_YET,
   ...OVERVIEW_NOTHING_YET,
   ...CLEANUP_NOTHING_YET,
-  ...REPORTS_NOTHING_YET,
-  ...JOBS_NOTHING_YET,
+  ...CHECKS_NOTHING_YET,
   ...SESSIONS_NOTHING_YET,
 };
 
@@ -153,13 +147,13 @@ export const CHANNELS = {
   ...SETUP_CHANNELS,
   ...WORKFLOWS_CHANNELS,
   ...TRIGGERS_CHANNELS,
-  ...ADDED_STEPS_CHANNELS,
   ...HELM_CHANNELS,
   ...SETTINGS_CHANNELS,
   ...OVERVIEW_CHANNELS,
   ...CLEANUP_CHANNELS,
-  ...REPORTS_CHANNELS,
-  ...JOBS_CHANNELS,
+  ...DISPATCH_CHANNELS,
+  ...CHECKS_CHANNELS,
+  ...LESSONS_CHANNELS,
   ...SESSIONS_CHANNELS,
   ...SLEEP_CHANNELS,
   ...ACCOUNTS_CHANNELS,

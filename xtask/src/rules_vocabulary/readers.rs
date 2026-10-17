@@ -3,7 +3,7 @@
 //!
 //! Four times in one day a word on screen turned out to be one somebody typed
 //! into a component while the registry that owns it sat generated and unread —
-//! `SILENCE` (#346), `CHANGE_KIND` (#465), the `step_state` glyph (#347), then
+//! `SILENCE` (#346, since removed), `CHANGE_KIND` (#465), the `step_state` glyph (#347), then
 //! five at once (#468). Each was found by an agent that happened to need the
 //! answer, because nothing else could: the generated file compiles, the rule
 //! beside this one proves it matches its registries, and both stay green while
@@ -75,33 +75,6 @@ const AHEAD_OF_ITS_SURFACE: &[(&str, &str)] = &[
          one variant's gaps at the point they render it, which is what a surface \
          needs; nothing yet draws the whole list, and the surface that would is \
          Doctor's, which is not built",
-    ),
-    (
-        "URGENCIES",
-        "Behind its surface rather than ahead of it. The hand-entry form was the \
-         one field that set a Job's urgency, and the owner took that form out on \
-         23 September 2026; `ProposeFromRequest` carries no urgency, so Fleet's \
-         own default holds and nothing in Bridge offers the words. The registry \
-         is still authoritative — Fleet reads `urgency` as its scheduling \
-         tiebreak — and the surface that would draw it again is a fifth field on \
-         the dispatch card, which nobody has asked for",
-    ),
-    // Task #34: the Fleet-side Job deletion removes these three with their enums.
-    (
-        "RESUMPTION",
-        "Its only reader was the Job lineage line, deleted with the Jobs surface. \
-         The `Resumption` enum is still Fleet's, so the registry rows stay until the \
-         Job deletion removes both",
-    ),
-    (
-        "GAMING_PATTERN",
-        "Its only reader was the Job overrule dialog, deleted with the Jobs surface. \
-         `GamingPattern` is still Fleet's judge vocabulary, and goes with the Job deletion",
-    ),
-    (
-        "SILENCE",
-        "Its only reader was the Job story's silence clause, deleted with the Jobs \
-         surface. `Silence` is still Fleet's and goes with the Job deletion",
     ),
 ];
 

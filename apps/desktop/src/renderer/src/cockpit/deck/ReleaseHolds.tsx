@@ -5,15 +5,15 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Box, GitBranch, GitPullRequest, KeyRound, Link } from "lucide-react";
+import { GitBranch, GitPullRequest, KeyRound, Link } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, Checkbox, Dialog, Select, Tooltip } from "@armada/components";
 import type { HeldRow, HoldsReleased, Session } from "@armada/screens/src/draft/sessions";
 
 import { heldKey, releaseKeyOf, type Held } from "./session-tiles";
 
-const GLYPH: Record<Held["kind"], LucideIcon> = { slot: KeyRound, branch: GitBranch, pr: GitPullRequest, job: Box, need: Link };
-const SAID: Record<Held["kind"], string> = { slot: "Slot", branch: "Branch", pr: "Pull request", job: "Job", need: "Need" };
+const GLYPH: Record<Held["kind"], LucideIcon> = { slot: KeyRound, branch: GitBranch, pr: GitPullRequest, need: Link };
+const SAID: Record<Held["kind"], string> = { slot: "Slot", branch: "Branch", pr: "Pull request", need: "Need" };
 
 const kindOf = (kind: string): Held["kind"] | undefined => (Object.hasOwn(GLYPH, kind) ? (kind as Held["kind"]) : undefined);
 
