@@ -2,7 +2,7 @@
 
 import { openJobIn } from "@armada/jobs";
 
-import type { AppContext } from "../../../shared/annotations";
+import { sessionFacts, type AppContext } from "../../../shared/annotations";
 import type { BridgeState } from "../../../shared/bridge";
 import { gridOf, summaryOf } from "../doctor/grid";
 import { openSessionIn } from "../open-session";
@@ -34,15 +34,6 @@ export function contextOf(state: ContextState, doc: Document = document): AppCon
   }
   const sessionId = openSessionIn(doc);
   const session = sessionId === undefined || state.sessions.state !== "read" ? undefined : state.sessions.sessions.find((one) => one.id === sessionId);
-  if (session !== undefined) {
-    context.session = {
-      id: session.id,
-      ...(session.title === undefined ? {} : { title: session.title }),
-      state: session.state,
-      harness: session.harness,
-      cwd: session.cwd,
-      ...(session.end_reason === undefined ? {} : { endReason: session.end_reason }),
-    };
-  }
+  if (session !== undefined) context.session = sessionFacts(session);
   return context;
 }
