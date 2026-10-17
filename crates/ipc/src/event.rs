@@ -225,6 +225,10 @@ pub enum Event {
     // `docs/concepts/pull-review.md`, *Agent runs*.
     #[serde(rename = "review_run.changed")]
     ReviewRunChanged { run: ReviewRun },
+    // A place held up for a walk of a pull request moved: checking out, starting, ready, failed or
+    // closed, whole. `docs/concepts/pull-review.md`, *Walk*.
+    #[serde(rename = "review_walk.changed")]
+    ReviewWalkChanged { walk: crate::review_walks::ReviewWalk },
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),

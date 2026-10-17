@@ -1,0 +1,8 @@
+[operations.close_review_walk]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Close a held walk: stop its server and give its slot back"
+notes = """
+`DELETE /review_walks/:repository/:id`, `repository` a manifest id, `id` a `ReviewWalk.id`. Answers the `ReviewWalk`, `closed`. Idempotent: a walk already closed or never held is answered `closed`.
+"""

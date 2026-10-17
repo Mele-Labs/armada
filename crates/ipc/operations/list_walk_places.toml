@@ -1,0 +1,8 @@
+[operations.list_walk_places]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every place Fleet remembers a change runs, by repository and area of code"
+notes = """
+`GET /walk_places`. `RememberedPlaces`, across every served repository, ordered by repository then area. These are what "Where changes run" lists and edits.
+"""

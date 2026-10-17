@@ -1,0 +1,14 @@
+[operations.open_review_walk]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Hold up the place a pull request's change runs for a walk: nothing for a deployed one, a checkout started in a slot for a pulled-down one"
+notes = """
+`POST /review_walks/:repository`, `repository` a manifest id, body `OpenReviewWalk`: `number` and `place`. **Answers at once** with a `ReviewWalk`; its progress arrives as `review_walk.changed` (`checking_out`, `starting`, `ready` or `failed`).
+
+A `deployed` place is `ready` at once and Fleet holds nothing. **A `pull` place is held by Fleet**: it leases a bay (a slot of the repository's pool) with the pull request's head checked out, starts the place's `command` there as a server under the same machinery `start_server` uses (its own process group, log and `server.*` events, run in the slot), and polls the place's address (else its API base) until it answers. A server that exits first, or an address that never answers within the wait, is a `failed` walk with the reason and the slot is given back before the event is published. **The command is the person's own, typed in the sheet or remembered from it, and an agent never writes one**; it runs a pull request's code on this machine, which is what he asked for by choosing to pull it down.
+
+**Held until closed.** `close_review_walk` stops the server and gives the slot back, and Bridge calls it when the walk window closes or Bridge quits. A walk Bridge never closed is closed by Fleet after the person's last look at it was a day ago, and a restart of Fleet ends its servers and gives back its slots the next time any review walk call is made.
+
+A 422 `fleet.walk_place_invalid` as `save_walk_place`'s, and a 500 `fleet.review_pull_request_unreadable` where the forge would not give the head to check out.
+"""

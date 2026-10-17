@@ -72,6 +72,7 @@ export * from "./piloting";
 export * from "./pull-requests";
 export * from "./pull-reviews";
 export * from "./review-runs";
+export * from "./review-walks";
 export * from "./issues";
 export * from "./autopilot";
 export * from "./servers";

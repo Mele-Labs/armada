@@ -1,0 +1,10 @@
+[operations.save_walk_place]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Remember where changes to an area of a repository run, replacing the place kept for that area"
+notes = """
+`PUT /walk_places/:repository`, `repository` a manifest id, body `SaveWalkPlace`: `area` (a directory of at most two parts, no trailing slash, no `..`) and `place`. One place a repository and area. Answers the `RememberedPlace` as kept. The sheet that asks him where a change runs saves with "Remember for <area>" checked by default; editing a place in "Where changes run" is this call too.
+
+A 422 `fleet.walk_place_invalid` for a place with neither an address nor an API base, an address that is not http or https, a `pull` place with no command, a `deployed` place with a command, or an area that is not a directory path inside the repository.
+"""
