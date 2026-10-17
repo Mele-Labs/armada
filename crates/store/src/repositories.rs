@@ -3,7 +3,7 @@
 
 use core_model::Timestamp;
 
-use crate::error::{fault, LoadAllError, WriteError};
+use crate::error::{fault, ReadError, WriteError};
 use crate::open::Store;
 
 /// Version 57 — the repositories a Fleet serves, and one main-checkout span
@@ -63,19 +63,19 @@ impl Store {
     }
 
     /// Every repository remembered, in the order each was first added.
-    pub fn remembered_repositories(&self) -> Result<Vec<String>, LoadAllError> {
+    pub fn remembered_repositories(&self) -> Result<Vec<String>, ReadError> {
         let reading = fault("reading the repositories Fleet serves");
         let mut asked = self
             .conn
             .prepare("SELECT root FROM fleet_repositories ORDER BY added_at, rowid")
             .map_err(reading)
-            .map_err(LoadAllError::Database)?;
+            .map_err(ReadError::Database)?;
         let rows = asked
             .query_map([], |row| row.get::<_, String>("root"))
             .map_err(fault("reading the repositories Fleet serves"))
-            .map_err(LoadAllError::Database)?;
+            .map_err(ReadError::Database)?;
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(fault("reading a repository Fleet serves"))
-            .map_err(LoadAllError::Database)
+            .map_err(ReadError::Database)
     }
 }

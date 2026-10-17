@@ -23,6 +23,9 @@ pub enum Unreadable {
     Edge(EdgeRefused),
 }
 
+/// **A Job node a Studio held before Jobs were folded into Sessions is not
+/// read, nor is an edge that touches one.** The rows stay in the file; nothing
+/// below draws, edits or sweeps them, and a Studio that held one still opens.
 impl Store {
     pub(super) fn nodes_on(&self, studio_id: &StudioId) -> Result<Vec<StudioNode>, StudioError> {
         let mut asking = self
@@ -30,7 +33,7 @@ impl Store {
             .prepare(
                 "SELECT id, kind, state, content, x, y, created_at, added_by, within \
                  FROM studio_nodes \
-                 WHERE studio_id = ?1 ORDER BY created_at, id",
+                 WHERE studio_id = ?1 AND kind <> 'job' ORDER BY created_at, id",
             )
             .map_err(database("reading a Studio's nodes"))?;
         let rows = asking
@@ -95,7 +98,10 @@ impl Store {
             .prepare(
                 "SELECT id, from_node, to_node, kind, standing, created_at, added_by \
                  FROM studio_edges \
-                 WHERE studio_id = ?1 ORDER BY created_at, id",
+                 WHERE studio_id = ?1 \
+                   AND from_node NOT IN (SELECT id FROM studio_nodes WHERE kind = 'job') \
+                   AND to_node NOT IN (SELECT id FROM studio_nodes WHERE kind = 'job') \
+                 ORDER BY created_at, id",
             )
             .map_err(database("reading a Studio's edges"))?;
         let rows = asking

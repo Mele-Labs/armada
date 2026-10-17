@@ -5,7 +5,7 @@ use rusqlite::Connection;
 
 use super::migrate::recorded_version;
 use crate::migrations::{MIGRATIONS, SCHEMA_VERSION_KEY};
-use crate::tests::{at, job_id, open, TempDir};
+use crate::tests::{at, open, TempDir};
 use crate::{PortClaimant, Store, KNOWN_SCHEMA_VERSION};
 
 #[test]
@@ -61,8 +61,9 @@ fn version_fifty_six(dir: &TempDir, job: &str) {
     .expect("one claim of each kind");
 }
 
-/// **V57 carries the Job's and the listener's claims**, releases the main
-/// checkout's that named no repository, and remembers repositories after.
+/// **V57 carries the listener's claim and the Job's, which nothing reads**,
+/// releases the main checkout's that named no repository, and remembers
+/// repositories after.
 #[test]
 fn a_store_at_version_fifty_six_is_rebuilt_around_repositories() {
     let dir = TempDir::new();
@@ -72,14 +73,7 @@ fn a_store_at_version_fifty_six_is_rebuilt_around_repositories() {
 
     let every = store.every_port_claim().expect("read");
     let held: Vec<(PortClaimant, u16)> = every.into_iter().map(|c| (c.claimant, c.base)).collect();
-    let job = job_id("01PORTREPOSITORIES000001");
-    assert_eq!(
-        held,
-        [
-            (PortClaimant::Job(job), 41_000),
-            (PortClaimant::FleetListener, 41_016)
-        ]
-    );
+    assert_eq!(held, [(PortClaimant::FleetListener, 41_016)]);
     store
         .remember_repository("/repos/mailer", &at("2026-09-13T09:05:00.000Z"))
         .expect("the new table is there");

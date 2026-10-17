@@ -1,9 +1,6 @@
 //! Every Studio a repository keeps, with its nodes and edges. `#1285`.
 //!
-//! **Kept until a person deletes it.** No foreign key reaches `jobs`, so
-//! `forget_job` has nothing to delete here, and no sweep names these tables.
-//! A Job node's reference is text for the same reason: a forgotten Job leaves
-//! the node that pointed at it standing.
+//! **Kept until a person deletes it.** No sweep names these tables.
 //!
 //! **No write offers new content, but a scout's and a sweep's.** A node is
 //! added, moved or removed, and a Note is fixed at capture because nothing
@@ -14,14 +11,12 @@
 //! **Every write touches its Studio**, in the same transaction, so the list a
 //! person reads orders by the last thing that happened on each.
 
-mod carrying_on;
 mod content;
 mod framing;
 mod reading;
 mod reading_in;
 mod scouting;
 mod sweeping;
-mod tracing;
 
 use core_model::{
     ManifestId, Recognised, Rewritten, Studio, StudioAuthor, StudioEdge, StudioEdgeId,
@@ -33,10 +28,8 @@ use rusqlite::{OptionalExtension, Transaction};
 use crate::error::{fault, DatabaseFault};
 use crate::open::Store;
 
-pub use carrying_on::JobOnStudio;
 pub use content::UnreadableContent;
 pub use reading::Unreadable;
-pub use tracing::DispatchedFrom;
 
 use reading::studio_row;
 

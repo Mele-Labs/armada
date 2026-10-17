@@ -3,8 +3,9 @@
 //!
 //! **Two tables, and the second is not the first's child.** `sessions` is one row
 //! a session. `ledger_attachments` is what a holder has taken or done, keyed by
-//! `(holder_kind, holder_id)` with no foreign key, so a Job or a need can hold
-//! rows too without a table of its own.
+//! `(holder_kind, holder_id)` with no foreign key, so another kind of holder can
+//! hold rows too without a table of its own. An earlier build's rows held by a Job
+//! stay and are passed over.
 //!
 //! **`kind` is open text and `state` is not.** A new kind of attachment is a new
 //! word and no migration; a released slot and a spent need both read as a
@@ -77,21 +78,18 @@ pub struct KeptSession {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HolderKind {
     Session,
-    Job,
 }
 
 impl HolderKind {
     pub fn as_text(self) -> &'static str {
         match self {
             HolderKind::Session => "session",
-            HolderKind::Job => "job",
         }
     }
 
     fn of(text: &str) -> Option<HolderKind> {
         match text {
             "session" => Some(HolderKind::Session),
-            "job" => Some(HolderKind::Job),
             _ => None,
         }
     }
@@ -104,13 +102,6 @@ pub struct Holder {
 }
 
 impl Holder {
-    pub fn job(id: impl Into<String>) -> Holder {
-        Holder {
-            kind: HolderKind::Job,
-            id: id.into(),
-        }
-    }
-
     pub fn session(id: impl Into<String>) -> Holder {
         Holder {
             kind: HolderKind::Session,
@@ -154,7 +145,7 @@ impl AttachmentState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptAttachment {
     pub holder: Holder,
-    /// Open: `slot`, `branch`, `pr`, `job`, `studio`, `subagent`, `message`, `artifact`, and
+    /// Open: `slot`, `branch`, `pr`, `studio`, `subagent`, `message`, `artifact`, and
     /// whatever a later holder needs.
     pub kind: String,
     /// The repository a slot or branch is of; empty where there is none.
@@ -171,7 +162,7 @@ pub struct KeptAttachment {
 pub struct SessionSearch<'a> {
     pub manifest_id: Option<&'a str>,
     pub state: Option<SessionState>,
-    /// A title, a branch, a pull request number, a Job id or a slot.
+    /// A title, a branch, a pull request number or a slot.
     pub text: Option<&'a str>,
 }
 
@@ -318,8 +309,7 @@ impl Store {
                         OR EXISTS (
                             SELECT 1 FROM ledger_attachments a
                             WHERE a.holder_kind = 'session' AND a.holder_id = sessions.id
-                              AND ((a.kind IN ('pr', 'slot', 'job') AND a.target = ?5)
-                                   OR (a.kind = 'job' AND a.target LIKE ?6 ESCAPE '\\')
+                              AND ((a.kind IN ('pr', 'slot') AND a.target = ?5)
                                    OR (a.kind = 'branch' AND a.target LIKE ?4 ESCAPE '\\'))))
                  ORDER BY last_seen_at DESC, id"
             ))
@@ -333,7 +323,6 @@ impl Store {
                     text,
                     text.map(|text| format!("%{}%", literally(text))),
                     bare,
-                    text.map(|text| format!("{}%", literally(text))),
                 ],
                 kept_session,
             )

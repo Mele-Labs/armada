@@ -1,16 +1,9 @@
-//! A [`Tracker`] scripted by a test: the issues it lists, every write it was
-//! asked for, and whether those writes are refused. #91.
+//! A [`Tracker`] scripted by a test: the issues it lists and reads. It has no
+//! write to record, because the trait has none.
 
 use std::sync::Mutex;
 
-use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, ReadIssue, Tracker};
-
-/// One write the fake was asked for, in the order it was asked.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TrackerWrite {
-    Commented { url: String, text: String },
-    Relabelled { url: String, add: Vec<String>, remove: Vec<String> },
-}
+use adapter_traits::{FromOutside, NotTracked, OpenIssue, ReadIssue, Tracker};
 
 #[derive(Debug, Default)]
 pub struct FakeTracker {
@@ -18,29 +11,18 @@ pub struct FakeTracker {
     closed: Mutex<Vec<ReadIssue>>,
     listings: Mutex<usize>,
     unreadable: Mutex<Option<String>>,
-    refusing: Mutex<Option<String>>,
-    writes: Mutex<Vec<TrackerWrite>>,
-    titling: Mutex<bool>,
 }
 
 impl FakeTracker {
-    /// Lists nothing and takes every write.
+    /// Lists nothing.
     pub fn empty() -> FakeTracker {
         FakeTracker::default()
     }
 
-    /// Lists `issues` and takes every write.
+    /// Lists `issues`.
     pub fn listing(issues: Vec<OpenIssue>) -> FakeTracker {
         let tracker = FakeTracker::default();
         *tracker.issues.lock().expect("issues") = issues;
-        tracker
-    }
-
-    /// A tracker that links by the pull request's title: it marks the title with the issue's
-    /// reference and has no closing line for the body.
-    pub fn linking_by_title() -> FakeTracker {
-        let tracker = FakeTracker::default();
-        *tracker.titling.lock().expect("titling") = true;
         tracker
     }
 
@@ -80,30 +62,11 @@ impl FakeTracker {
 
     pub fn answers_again(&self) {
         *self.unreadable.lock().expect("unreadable") = None;
-        *self.refusing.lock().expect("refusing") = None;
-    }
-
-    /// Every write is refused with `said`, and none is kept.
-    pub fn refuses_writes(&self, said: &str) {
-        *self.refusing.lock().expect("refusing") = Some(said.to_string());
     }
 
     /// How many times the issues were listed.
     pub fn listings(&self) -> usize {
         *self.listings.lock().expect("listings")
-    }
-
-    /// Every write taken, oldest first.
-    pub fn writes(&self) -> Vec<TrackerWrite> {
-        self.writes.lock().expect("writes").clone()
-    }
-
-    fn take(&self, doing: &'static str, write: TrackerWrite) -> Result<(), NotTracked> {
-        if let Some(said) = self.refusing.lock().expect("refusing").clone() {
-            return Err(NotTracked::of(doing, said));
-        }
-        self.writes.lock().expect("writes").push(write);
-        Ok(())
     }
 }
 
@@ -147,43 +110,5 @@ impl Tracker for FakeTracker {
             .find(|issue| issue.reference == reference)
             .cloned();
         Ok(listed.or(closed))
-    }
-
-    fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
-        self.take(
-            "commenting on the issue",
-            TrackerWrite::Commented {
-                url: issue.url().to_string(),
-                text: text.to_string(),
-            },
-        )
-    }
-
-    fn relabel(
-        &self,
-        issue: &IssueAddress,
-        add: &[&str],
-        remove: &[&str],
-    ) -> Result<(), NotTracked> {
-        self.take(
-            "moving the issue's labels",
-            TrackerWrite::Relabelled {
-                url: issue.url().to_string(),
-                add: add.iter().map(|one| one.to_string()).collect(),
-                remove: remove.iter().map(|one| one.to_string()).collect(),
-            },
-        )
-    }
-
-    /// The reference itself, so a test can find it in a body.
-    fn closing_line(&self, issue: &IssueAddress) -> Option<String> {
-        match *self.titling.lock().expect("titling") {
-            true => None,
-            false => Some(format!("Closes {}", issue.reference())),
-        }
-    }
-
-    fn title_mark(&self, issue: &IssueAddress) -> Option<String> {
-        (*self.titling.lock().expect("titling")).then(|| issue.reference().to_string())
     }
 }
