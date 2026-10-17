@@ -27,7 +27,7 @@ export function chipCardOf(dot: Dot): SessionLedgerCard {
       ...(card.review === undefined ? [] : [{ label: "Review", value: REVIEW[card.review] }]),
       ...(card.conflicts === true ? [{ label: "Main", value: "Conflicts", tone: "failed" as const }] : []),
       ...(card.byHand === true ? [{ label: "Merge", value: MERGE_BY_HAND }] : []),
-      ...(card.owner === undefined ? [] : [{ label: "Session", value: card.owner.title }]),
+      ...(card.owner === undefined ? [] : [{ label: "Job", value: card.owner.title }]),
     ],
   };
 }

@@ -89,7 +89,7 @@ export function stoppingOf(autopilot: Autopilot, sessions: readonly Started[]): 
     const session = sessionOf(pick, sessions);
     return session !== undefined && session.dead === undefined && !waiting.includes(pick);
   });
-  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Sessions carry on.";
+  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs carry on.";
   const withdrawn = waiting.length === 0 ? "" : ` ${listed(waiting)}, picked and not started, ${waiting.length === 1 ? "is" : "are"} withdrawn.`;
   const carry = going.length === 0 ? "" : ` ${listed(going)} ${going.length === 1 ? "keeps" : "keep"} going to the end.`;
   return `Stop ends Autopilot.${withdrawn}${carry}`;

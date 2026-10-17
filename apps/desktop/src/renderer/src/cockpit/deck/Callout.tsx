@@ -14,10 +14,10 @@ import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
 
 /** The glyph of each kind of thing the map says something about. */
-const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Session: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
+const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Job: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
 
 /** The kinds a press on the focused thing opens. */
-const OPENS: ReadonlySet<string> = new Set(["Session", "Bay", "Main"]);
+const OPENS: ReadonlySet<string> = new Set(["Job", "Bay", "Main"]);
 
 /** The status token a state's tone is drawn in. */
 const STATE_TONE = { calm: "var(--fg-muted)", ask: "var(--status-awaiting-review)", bad: "var(--status-completed-failed)", good: "var(--status-completed-success)" } as const;

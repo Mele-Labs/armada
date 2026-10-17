@@ -103,7 +103,7 @@ function Marks({ view }: { view: BayView }) {
         </Mark>
       )}
       {last === undefined || last.open ? null : (
-        <Mark said="Session closed">
+        <Mark said="Job closed">
           <Unplug size={12} aria-hidden />
         </Mark>
       )}
@@ -124,7 +124,7 @@ function Warmth({ view }: { view: BayView }) {
 
 /** The kind of whoever holds a leased bay. */
 function Kind({ view }: { view: BayView }) {
-  return view.state === "leased" && view.holder !== undefined ? <Mark said="Session">{kindGlyph()}</Mark> : null;
+  return view.state === "leased" && view.holder !== undefined ? <Mark said="Job">{kindGlyph()}</Mark> : null;
 }
 
 /** The state as a glyph, its word in the tooltip. */

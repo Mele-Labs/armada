@@ -85,7 +85,7 @@ export type DroneProps = {
 
 export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, labelled, muted, away, focused, dim, play, facts, loop, alive, call, leaving, onSelect, onTip }: DroneProps) {
   const wide = 20;
-  const said = `Session, ${drone.said}`;
+  const said = `Job, ${drone.said}`;
   const show = (event: { currentTarget: Element }) => onTip(droneTip(drone, facts, ShieldCheck), event.currentTarget);
   const launching = play?.kind === "launch" && from !== undefined;
   // Fleet's clashes are between parties, so a drone with no path under it carries its mark as much as one over a plot.

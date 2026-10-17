@@ -31,11 +31,11 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
   { id: "ask", label: "Ask for update", text: "Update" },
   { id: "land", label: "Auto land", text: "Auto land" },
-  { id: "compact", label: "Compact session context", text: "Compact" },
-  { id: "report", label: "Report issue with session", text: "Report" },
+  { id: "compact", label: "Compact job context", text: "Compact" },
+  { id: "report", label: "Report issue with job", text: "Report" },
   { id: "map", label: "Map", text: "Map" },
   { id: "judge", label: "Judge", text: "Judge" },
-  { id: "release", label: "Release everything the Session holds", text: "Release" },
+  { id: "release", label: "Release everything the Job holds", text: "Release" },
   { id: "artifacts", label: "Artifacts", text: "Artifacts" },
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
@@ -54,7 +54,7 @@ export const plain = (text: string) => ({ text, files: [], sketches: [], tags: [
 
 /** Why the Session cannot be spoken to, or nothing where it can. */
 export function mute(session: Session): string | undefined {
-  if (session.dead === "ended") return "The Session ended";
+  if (session.dead === "ended") return "The Job ended";
   if (session.dead === "quiet") return "The terminal is not listening";
   return undefined;
 }
@@ -123,13 +123,13 @@ export const releaseKeyOf = (to: Session | undefined, all = true): string => (to
 export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, wrong = false): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
   // What the Session made or used can be read after it ended; the layers are drawn from what Bridge holds.
-  if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Session has no subagents";
-  if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Session has run no Checks";
+  if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Job has no subagents";
+  if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Job has run no Checks";
   if (!wrong) off.slot = "Nothing is wrong with the slot";
   // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
   if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
-  else if (heldOf(session).length === 0) off.release = "The Session holds nothing";
+  else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   const silent = mute(session);
   if (silent !== undefined) {
     off.judge = silent;

@@ -177,7 +177,7 @@ function MoreRows() {
     return () => seen.disconnect();
   }, []);
   return (
-    <li className="deck-list__more" ref={mark} role="status" aria-label="Loading more Sessions">
+    <li className="deck-list__more" ref={mark} role="status" aria-label="Loading more Jobs">
       <LoaderCircle size={14} strokeWidth={2} aria-hidden />
     </li>
   );
@@ -206,7 +206,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
       plain
       triggerLabel={said ?? "Filter"}
       {...(said === undefined ? {} : { triggerAriaLabel: `Filter: ${said}` })}
-      searchLabel="Search Work"
+      searchLabel="Search Jobs"
       search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
       open={open}
       onOpenChange={setSearching}
@@ -217,7 +217,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
 }
 
 /** What a linked Session's link glyph is called: the plan group it was handed, where it was. */
-const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${linked.group}`);
+const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Job" : `Linked Job, handed from ${linked.group}`);
 
 /** What each thing a Session waits on is called, by the item's source. */
 const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
@@ -285,9 +285,9 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section ref={panel} className="deck-panel deck-list" aria-label="Work" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <header className="deck-band" {...folded.band}>
-        Work
+        Jobs
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>

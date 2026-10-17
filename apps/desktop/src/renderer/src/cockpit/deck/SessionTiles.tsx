@@ -113,16 +113,16 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
     return true;
   };
   const tip: Record<SessionTileId, string> = {
-    ask: "Ask the Session for an update",
+    ask: "Ask the Job for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
-    compact: "Compact the Session's context",
-    report: "Report an issue with the Session",
+    compact: "Compact the Job's context",
+    report: "Report an issue with the Job",
     map: "Map",
     judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
-    release: "Release or hand over everything the Session holds",
-    artifacts: "Everything the Session made or used",
+    release: "Release or hand over everything the Job holds",
+    artifacts: "Everything the Job made or used",
     subagents: "Every subagent",
-    checks: "The Checks the Session ran",
+    checks: "The Checks the Job ran",
     slot: trouble?.said ?? "Slot",
   };
   const dialog = releasing ? (

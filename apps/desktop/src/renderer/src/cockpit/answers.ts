@@ -303,12 +303,12 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       // A judge's concern reaches the agent only on his press; dismissing it tells the agent nothing.
       if (given.source === "judge") {
         const work = draft?.work;
-        return work === undefined ? [] : [oneTap("Send to session", () => work.sendConcern(waiting.sessionId, given.id)), oneTap("Dismiss", () => work.dismissConcern(waiting.sessionId, given.id))];
+        return work === undefined ? [] : [oneTap("Send to job", () => work.sendConcern(waiting.sessionId, given.id)), oneTap("Dismiss", () => work.dismissConcern(waiting.sessionId, given.id))];
       }
       // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
       if (given.source === "done") {
         return [
-          oneTap("End session", () => (draft?.close?.(waiting.sessionId), finish())),
+          oneTap("End job", () => (draft?.close?.(waiting.sessionId), finish())),
           oneTap("Keep going", () =>
             wait("Keep going", async (): Promise<Told> => {
               const kept = await dismissWaiting(waiting.sessionId, given.id);
@@ -349,12 +349,12 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
     if ((item.key.startsWith("main:") || item.key.startsWith("pull:")) && pull !== undefined) {
-      if (owner !== undefined) return [oneTap("Open the Session", () => hosts.onOpenSession(owner.id)), oneTap("Poke", () => poke(owner))];
+      if (owner !== undefined) return [oneTap("Open the Job", () => hosts.onOpenSession(owner.id)), oneTap("Poke", () => poke(owner))];
       const start = startOf(item, views);
       const started =
         start === undefined || dispatching === undefined
           ? []
-          : [oneTap("Start a Session", () => (dispatching.choose("session"), dispatching.openSheet(start.brief, start.root), finish()))];
+          : [oneTap("Start a Job", () => (dispatching.choose("session"), dispatching.openSheet(start.brief, start.root), finish()))];
       return [...started, oneTap("Attach", () => setAttaching(true))];
     }
     return [];

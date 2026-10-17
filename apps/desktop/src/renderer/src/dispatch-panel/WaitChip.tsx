@@ -9,7 +9,7 @@ import { Tooltip } from "@armada/components";
 import { SessionMenu, type Offered } from "./SessionMenu";
 import { cycled, type Cycle, type WaitChip as Chip, type WaitPart } from "./waits";
 
-const TIPS: Record<WaitPart, string> = { on: "The Session it waits on", when: "When it starts", base: "Where it starts from", needs: "What it needs" };
+const TIPS: Record<WaitPart, string> = { on: "The Job it waits on", when: "When it starts", base: "Where it starts from", needs: "What it needs" };
 
 export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; sessions: readonly Offered[]; disabled: boolean; onLeave: () => void }) {
   const menuId = useId();
@@ -75,7 +75,7 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
             type="button"
             className="armada-wait__part armada-wait__part--session"
             data-his={his("on") || undefined}
-            aria-label={`Session ${chip.on.title}`}
+            aria-label={`Job ${chip.on.title}`}
             aria-haspopup="listbox"
             aria-expanded={menu !== null}
             disabled={disabled || others.length === 0}
@@ -101,7 +101,7 @@ export function WaitChip({ chip, sessions, disabled, onLeave }: { chip: Chip; se
           </>
         )}
       </div>
-      {menu === null ? null : <SessionMenu id={menuId} label="Sessions" sessions={others} active={menu} onHover={setMenu} onChoose={(one) => (setMenu(null), chip.set("on", one.id))} />}
+      {menu === null ? null : <SessionMenu id={menuId} label="Jobs" sessions={others} active={menu} onHover={setMenu} onChoose={(one) => (setMenu(null), chip.set("on", one.id))} />}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { clockOf, shortOf, spanOf } from "./bays";
 const DAY = 24 * 60 * 60_000;
 
 const whoOf = (holder: BayHolder) => holder.title ?? shortOf(holder.id);
-const KIND = { job: "Job", session: "Session", agent: "Agent" } as const;
+const KIND = { job: "Job", session: "Job", agent: "Agent" } as const;
 const glyphOf = (kind: BayHolder["kind"]) => (kind === "job" ? <Box size={14} aria-hidden /> : <SquareTerminal size={14} aria-hidden />);
 const spanText = (one: Stay) =>
   one.from === undefined ? (one.to === undefined ? undefined : `to ${clockOf(one.to)}`) : `${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`;
