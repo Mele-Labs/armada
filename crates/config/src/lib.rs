@@ -36,6 +36,8 @@ mod live;
 mod loops;
 mod manifest;
 mod resolve;
+/// The review tools a pull request is asked with, from Armada, Kit and the repository.
+pub mod review_tools;
 mod roster;
 mod runners;
 mod scope;

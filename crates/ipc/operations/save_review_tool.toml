@@ -1,0 +1,12 @@
+[operations.save_review_tool]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Write one review tool or explanation in Kit's folder or the repository's own"
+notes = """
+`POST /review_tools/:repository`, body `SaveReviewTool`: `scope` (`kit` for `~/.armada/review-tools/`, `repository` for `<repository>/.armada/review-tools/`), `kind`, `name`, `prompt` and `overwrite`. Answers `ReviewTools`, read again, so the caller sees what runs now.
+
+**Checked before anything is written**: a blank name or prompt is a 422 `fleet.review_tool_blank`, a name that is no words (its id would be empty) a 422 `fleet.review_tool_not_a_name`, and an id already defined in that scope a 422 `fleet.review_tool_exists` naming the file unless `overwrite` is `true`. 500 `fleet.review_tool_unwritable` where the file cannot be written. The file that held the id is the one replaced, whatever it is called.
+
+`agent_access` is `Helm only`, `save_workflow`'s reason: what is written decides what every review on this machine, or in this repository, asks an agent. Bridge's Add sheet is the person's own press.
+"""

@@ -323,8 +323,28 @@
 .pr-list__failed,
 .pr-reader__said,
 .pr-yours__refused,
+.pr-add__said,
+.pr-run__failed,
 .pr-change__said { margin: 0; padding: var(--space-1) var(--space-3); overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.pr-yours__refused { color: var(--status-completed-failed); }
+.pr-yours__refused,
+.pr-add__said,
+.pr-run__failed { color: var(--status-completed-failed); }
+.pr-add__said { margin-right: auto; align-self: center; padding: 0; }
+.pr-run__failed { display: flex; align-items: center; gap: var(--space-2); }
+.pr-add__left { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-3) 0 0; padding: 0; list-style: none; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-add__left-row { overflow-wrap: anywhere; }
+.pr-add__left-file { display: block; color: var(--fg-subtle); }
+
+/* How serious a finding is: three bars, one to three of them filled. */
+.pr-severity { display: inline-flex; flex: none; align-items: flex-end; gap: calc(var(--border-width) * 2); height: var(--space-4); }
+.pr-severity i { display: block; width: calc(var(--border-width) * 3); border-radius: var(--border-width); background: var(--border-strong); }
+.pr-severity i:nth-child(1) { height: 40%; }
+.pr-severity i:nth-child(2) { height: 70%; }
+.pr-severity i:nth-child(3) { height: 100%; }
+.pr-severity[data-severity="low"] i:nth-child(-n + 1),
+.pr-severity[data-severity="medium"] i:nth-child(-n + 2),
+.pr-severity[data-severity="high"] i { background: var(--fg-default); }
+.pr-severity[data-severity="high"] i { background: var(--status-completed-failed); }
 
 /* ---- Keyboard ------------------------------------------------------------------------------------------- */
 

@@ -656,6 +656,26 @@ impl FakeVcs {
         self.slots.reseated.lock().expect("not poisoned").clone()
     }
 
+    /// Script the head a bay leased to read a pull request is checked out at.
+    pub fn reading_pull_requests_at(&self, head: &str) {
+        *self.review_head.lock().expect("not poisoned") = Some(Ok(head.to_string()));
+    }
+
+    /// Script the sentence the forge refuses a pull request's head with.
+    pub fn refusing_pull_request_heads(&self, said: &str) {
+        *self.review_head.lock().expect("not poisoned") = Some(Err(said.to_string()));
+    }
+
+    /// Every bay leased to read a pull request, as `(pull request, holder)`, in order.
+    pub fn review_bays_leased(&self) -> Vec<(u64, String)> {
+        self.review_leases.lock().expect("not poisoned").clone()
+    }
+
+    /// Every bay given back after a read, as `(slot, holder)`, in order.
+    pub fn review_bays_released(&self) -> Vec<(u32, String)> {
+        self.review_releases.lock().expect("not poisoned").clone()
+    }
+
     /// Every slot given back, and by which Job, in order.
     pub fn released_slots(&self) -> Vec<(u32, String)> {
         self.slots.released()

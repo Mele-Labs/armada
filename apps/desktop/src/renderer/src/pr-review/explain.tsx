@@ -3,16 +3,16 @@
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
-import { Bot, BookOpen, Check, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal, X } from "lucide-react";
+import { Bot, BookOpen, Check, CircleX, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, X } from "lucide-react";
 import { Button, Kbd, Prose, PrMark, SessionComposer, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { SOURCE_MARK } from "./marks";
+import { RunFailed, SOURCE_MARK } from "./marks";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { ThemeBlock } from "./themes";
-import { bySession, onlyExplanations, toolsOf } from "./tools";
+import { onlyExplanations, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
@@ -35,9 +35,9 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
           <Kbd>{capOf(REVIEW_KEYS.quick)}</Kbd>
         </Tooltip>
       </h3>
-      <div className="pr-explainer__pick" aria-disabled={!reviews.agentsBuilt || undefined}>
+      <div className="pr-explainer__pick">
         <Tabs
-          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: reviews.agentsBuilt ? one.checks : "Not built yet" }))}
+          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
           value={work.kind ?? ""}
           onChange={(id) => chooseQuick(store, pr, id)}
         />
@@ -49,7 +49,7 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
 
 /**
  * Chooses a quick action, by the id of the explanation or `ask`. **A choice with no kept result asks first**, since it spends
- * tokens, and one that is kept (or a Session's own) opens at once. One place for the strip's press and for its key.
+ * tokens, and one that is kept opens at once. One place for the strip's press and for its key.
  */
 export function chooseQuick(store: ReviewStore, pr: ReviewPr, id: string): void {
   const snap = store.get();
@@ -57,7 +57,7 @@ export function chooseQuick(store: ReviewStore, pr: ReviewPr, id: string): void 
   const def = kinds.find((one) => one.id === id);
   if (def === undefined) return store.show(pr.key, id);
   const kept = (snap.work[pr.key] ?? NO_WORK).explains[def.id];
-  if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) store.explain(pr.key, def);
+  if (kept !== undefined && kept.state !== "idle") store.explain(pr.key, def);
   else store.spend(def.name, () => store.explain(pr.key, def));
 }
 
@@ -68,7 +68,7 @@ export function Explained({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; 
   const chosen = onlyExplanations(toolsOf(reviews, pr.manifestId)).find((one) => one.id === work.kind);
   const asked = work.asks.find((one) => one.id === work.kind);
   if (chosen !== undefined) return <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />;
-  return asked === undefined ? null : <Answer pr={pr} asked={asked} />;
+  return asked === undefined ? null : <Answer asked={asked} />;
 }
 
 /** What he asked of this pull request: one row each, his words in full, and what was kept under them. */
@@ -90,6 +90,8 @@ function Asks({ pr }: { pr: ReviewPr }) {
               <span className="pr-review__mark" data-checks="running">
                 <PrMark Glyph={LoaderCircle} said="Answering" tone="running" />
               </span>
+            ) : one.run.state === "failed" ? (
+              <PrMark Glyph={CircleX} said={`Failed. ${one.run.said}`} tone="failed" />
             ) : kept === undefined ? null : (
               <PrMark
                 Glyph={stale ? RefreshCw : History}
@@ -114,10 +116,10 @@ function Asks({ pr }: { pr: ReviewPr }) {
 }
 
 /** What he asked, and what came back. Its keeping, Run again and Remove are on its row in the panel above. */
-function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
+function Answer({ asked }: { asked: Asked }) {
   const running = asked.run.state === "running";
   const kept = asked.run.state === "done";
-  const body = pr.answers.find((one) => new RegExp(one.when, "i").test(asked.words))?.body;
+  const body = asked.answer;
   return (
     <div className="pr-what" role="region" aria-label="Answer">
       <header className="pr-what__head">
@@ -132,6 +134,8 @@ function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
             <PrMark Glyph={LoaderCircle} said="Answering" tone="running" />
           </span>
         </p>
+      ) : asked.run.state === "failed" ? (
+        <RunFailed said={asked.run.said} />
       ) : !kept ? null : body === undefined ? (
         <p className="pr-results__clean">
           <PrMark Glyph={Check} said="Nothing to add" tone="success" />
@@ -149,33 +153,29 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
   const run = work.explains[def.id];
   const running = run?.state === "running";
   const kept = run?.state === "done" ? run : undefined;
-  const fromSession = bySession(pr, def);
-  const stale = !fromSession && kept !== undefined && kept.head !== pr.head;
+  const stale = kept !== undefined && kept.head !== pr.head;
   const source = SOURCE_MARK[def.source];
-  const by = fromSession ? { Glyph: SquareTerminal, said: "Written by the Session that made this pull request" } : { Glyph: Bot, said: "Explained by an agent when you chose it" };
-  const account: Account | undefined = pr.accounts[def.id];
+  const account: Account | undefined = work.accounts[def.id];
   return (
     <div className="pr-what" role="region" aria-label={def.name} data-source={def.source}>
       <header className="pr-what__head">
         <h3 className="pr-what__title">{def.name}</h3>
         <PrMark Glyph={source.Glyph} said={source.said} />
-        <span className="pr-what__source" data-by={fromSession ? "session" : "agent"}>
-          <PrMark Glyph={by.Glyph} said={by.said} />
+        <span className="pr-what__source" data-by="agent">
+          <PrMark Glyph={Bot} said="Explained by an agent when you chose it" />
         </span>
         <span className="pr-what__acts">
-          {kept === undefined || fromSession ? null : (
+          {kept === undefined ? null : (
             <PrMark
               Glyph={stale ? RefreshCw : History}
               said={stale ? `Out of date. Explained on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Explained ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
             />
           )}
-          {fromSession ? null : (
-            <Tooltip label="Explain again, for this pull request">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}>
-                <RotateCw size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          )}
+          <Tooltip label="Explain again, for this pull request">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.spend(def.name, () => store.explainAgain(pr.key, def))}>
+              <RotateCw size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
         </span>
       </header>
       {running ? (
@@ -184,6 +184,8 @@ function Chosen({ pr, def, send, onOpenLink }: { pr: ReviewPr; def: ToolDef; sen
             <PrMark Glyph={LoaderCircle} said="Explaining" tone="running" />
           </span>
         </p>
+      ) : run?.state === "failed" ? (
+        <RunFailed said={run.said} />
       ) : kept === undefined ? null : def.id === "how-it-works" ? (
         <>
           <Prose text={pr.explanation.summary} />
@@ -285,15 +287,13 @@ const NONE: readonly never[] = [];
  */
 export function AskComposer({ pr }: { pr: ReviewPr }) {
   const store = useReviewStore()!;
-  const built = useReviews().agentsBuilt;
-  const bar = (
+  return (
     <div className="pr-ask-bar">
       <Tooltip label="Ask about this pull request" shortcut={capOf(REVIEW_KEYS.ask)}>
         <Kbd>{capOf(REVIEW_KEYS.ask)}</Kbd>
       </Tooltip>
       <SessionComposer
         working={false}
-        disabled={!built}
         bare
         label="Ask about this PR"
         send="secondary"
@@ -315,5 +315,4 @@ export function AskComposer({ pr }: { pr: ReviewPr }) {
       />
     </div>
   );
-  return built ? bar : <Tooltip label="Not built yet" asChild>{bar}</Tooltip>;
 }

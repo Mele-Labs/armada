@@ -1,10 +1,10 @@
 // The review surface's state, held outside React so what was open, read or drafted stays as it was when the Reviews
 // tab is left and come back to. **Built per window**, as Sessions are, and handed down by `ReviewsFrom`.
 //
-// Two halves with a seam between them. **Fleet's** (this file): the four lists read from the forge when the tab opens
+// Two halves with a seam between them. **The forge's** (this file): the four lists read from the forge when the tab opens
 // and on Refresh and never polled, a pull request's page read when it is opened, its patches read when a change is
 // shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the quick actions,
-// Ask, the tools and Natural Search, which are fixtures for now and which wave 2 replaces without touching this half.
+// Ask and the tools, which are runs Fleet keeps, and Natural Search, which is still a fixture.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -12,12 +12,12 @@ import type { ReactNode } from "react";
 import type { PullRequestPage, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
-import type { AgentFixtures, AgentPr, Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
+import type { Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, SearchFixtures, ToolDef, Verdict, View } from "./model";
 import { linesOfPatch } from "./patch";
 import type { ReviewSource } from "./source";
 import { createAgentActs, type AgentActs } from "./store-agent";
 
-export { AGENT_MS } from "./store-agent";
+export { AGENT_MS, NO_SEARCH } from "./store-agent";
 
 const EMPTY: PrWork = {
   page: { state: "unread" },
@@ -25,6 +25,8 @@ const EMPTY: PrWork = {
   refused: undefined,
   submitting: false,
   explains: {},
+  accounts: {},
+  wire: {},
   kind: undefined,
   asks: [],
   view: "explanation",
@@ -69,8 +71,6 @@ export type ReviewStore = AgentActs & {
 let ids = 0;
 const nextId = (prefix: string) => `${prefix}${(ids += 1)}`;
 
-const NO_AGENT: AgentPr = { explanation: { summary: "", themes: [] }, explainedBy: "agent", accounts: {}, answers: [], asked: [] };
-
 /** A pull request until its page is read: only what the row says. */
 const stubPage = (row: PullReviewRow): PullRequestPage => ({
   manifest_id: row.manifest_id,
@@ -92,12 +92,12 @@ const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
-/** The store for a window, over what Fleet serves and the fixtures the agent is driven by. */
-export function createReviewStore(source: ReviewSource, agent: AgentFixtures): ReviewStore {
+/** The store for a window, over what Fleet serves and the fixtures Natural Search is driven by. */
+export function createReviewStore(source: ReviewSource, search: SearchFixtures): ReviewStore {
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
   let snapshot: ReviewSnapshot = {
-    agentsBuilt: agent.built,
+    searchBuilt: search.built,
     prs: [],
     fetchedAt: undefined,
     fetching: false,
@@ -109,9 +109,8 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
     searching: false,
     askFirst: true,
     spending: undefined,
-    armada: agent.tools.armada,
-    kit: agent.tools.kit,
-    repository: agent.tools.repository,
+    tools: {},
+    leftOut: {},
     work: {},
   };
   const set = (next: Partial<ReviewSnapshot>) => {
@@ -123,27 +122,10 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
   const prOf = (key: string) => snapshot.prs.find((one) => one.key === key);
   const mend = (key: string, by: Partial<ReviewPr>) => set({ prs: snapshot.prs.map((one) => (one.key === key ? { ...one, ...by } : one)) });
 
-  const made = createAgentActs(agent, { get: () => snapshot, set, work, change, prOf, timers, nextId });
-  // **Where nothing runs behind the agent half, nothing it would answer is asked**: a result drawn for a run that never happened is a false one.
-  const acts: AgentActs = agent.built
-    ? made
-    : {
-        ...made,
-        find: () => undefined,
-        rerunFind: () => undefined,
-        spend: () => undefined,
-        explain: () => undefined,
-        explainAgain: () => undefined,
-        show: () => undefined,
-        ask: () => undefined,
-        askAgain: () => undefined,
-        runTool: (key, tool) => (tool.agent ? undefined : change(key, { view: tool.id })),
-        rerun: () => undefined,
-      };
+  const acts = createAgentActs(search, source, { get: () => snapshot, set, work, change, mend, prOf, timers, nextId });
 
   const prOfRow = (row: PullReviewRow, lists: readonly PrList[], was: ReviewPr | undefined): ReviewPr => {
     const key = keyOf(row);
-    const fixture = agent.prs[key] ?? NO_AGENT;
     return {
       key,
       repository: row.repository,
@@ -158,14 +140,10 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
       updatedAt: row.updated_at,
       lists,
       ...(row.team === undefined ? {} : { team: row.team }),
-      ...(fixture.holder === undefined ? {} : { holder: fixture.holder }),
+      ...(row.holder === undefined ? {} : { holder: row.holder }),
       body: was?.body ?? "",
       page: was?.page ?? stubPage(row),
-      explanation: fixture.explanation,
-      explainedBy: fixture.explainedBy,
-      accounts: fixture.accounts,
-      answers: fixture.answers,
-      asked: fixture.asked,
+      explanation: was?.explanation ?? { summary: "", themes: [] },
     };
   };
 
@@ -184,6 +162,7 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
       mend(key, { page, body: page.body ?? "", head });
       // A commit pushed since the patches were read makes them stale: they are read again where their change is shown.
       change(key, { page: { state: "read" }, threads: page.threads ?? [], review: page.review, ...(head === now.head ? {} : { patches: {} }) });
+      if (head !== now.head) acts.patched(key);
     });
   };
 
@@ -220,13 +199,19 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
       work: Object.fromEntries(
         prs.map((one) => {
           const review = byKey.get(one.key)?.row.review ?? kept[one.key]?.review ?? "none";
-          return [one.key, kept[one.key] === undefined ? { ...EMPTY, ...acts.initial(one), review } : { ...kept[one.key]!, review }];
+          return [one.key, kept[one.key] === undefined ? { ...EMPTY, review } : { ...kept[one.key]!, review }];
         }),
       ),
     });
-    // The pull request open in the reader is read again, since a commit may have been pushed to it.
-    if (snapshot.open !== undefined && prOf(snapshot.open) !== undefined) readPage(snapshot.open);
+    for (const manifestId of new Set(prs.map((one) => one.manifestId))) acts.readTools(manifestId);
+    // The pull request open in the reader is read again, since a commit may have been pushed to it, and so are its runs.
+    if (snapshot.open !== undefined && prOf(snapshot.open) !== undefined) {
+      readPage(snapshot.open);
+      acts.readRuns(snapshot.open);
+    }
   };
+
+  source.onRun(acts.apply);
 
   return {
     ...acts,
@@ -243,7 +228,11 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
     setTab: (tab) => set({ tab }),
     open: (open) => {
       set({ open });
-      if (open !== undefined) readPage(open);
+      if (open === undefined) return;
+      readPage(open);
+      acts.readRuns(open);
+      const pr = prOf(open);
+      if (pr !== undefined) acts.readTools(pr.manifestId);
     },
     setSearching: (searching) => set({ searching }),
     setView: (key, view) => change(key, { view }),
@@ -260,6 +249,7 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
         if (!answer.ok) return keep({ state: "said", said: answer.said });
         const patch = answer.value.patch;
         keep(patch === undefined ? { state: "said", said: answer.value.said ?? "No lines changed in this file." } : { state: "read", lines: linesOfPatch(path, patch) });
+        acts.patched(key);
       });
     },
     addDraft: (key, draft) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...draft }] }),
@@ -323,7 +313,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { agentsBuilt: false, prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { searchBuilt: false, prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

@@ -309,6 +309,10 @@ mod pull_registry;
 /// Since 23.83.
 mod pull_request_panel;
 mod pull_review_lists;
+/// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
+mod review_runs;
+/// The review tools and explanations a repository has, and writing one.
+mod review_tools;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
