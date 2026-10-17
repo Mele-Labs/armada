@@ -10,7 +10,7 @@
 import type { Check, Doing } from "./doing";
 import type { Areas } from "./areas";
 import type { Play } from "./plays";
-import { gridOf, type PillGrid } from "./pills";
+import { gridOf, pillRect, type PillGrid } from "./pills";
 import type { Pr, Subject } from "./ship";
 import type { Clash, Touch } from "./touches";
 
@@ -167,13 +167,16 @@ export type FileAct = "write" | "edit" | "remove";
 /** A file of a repository, drawn as a small bar on the plot of its directory. */
 export type FileIn = { path: string; act?: FileAct };
 
-/** A file's bar as laid out: where it lies on its plot, in the layout's own units. */
-export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile };
+/** A file's bar as laid out: where it lies on its plot, in the layout's own units. A file with a pill is lit on it, and `pill` is which. */
+export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile; pill?: number };
 
 export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[] };
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
 const BARE_FILES = 8;
+
+/** The least a lit pill is drawn, so a file in a crowded plot can still be seen. */
+const LIT = { w: 7, h: 2.6 };
 
 export type Layout = {
   territories: Territory[];
@@ -260,9 +263,25 @@ export function layoutOf(
     // A touched path belongs to the plot with the longest path that begins it.
     const tileOf = (path: string) => tiles.filter((t) => path === t.path || path.startsWith(`${t.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
 
-    // The files of a plot are bars in rows across it, in the order the repository lists them, each as wide as the plot allows.
+    // A file a plot has a pill for is lit on it. Any other is a bar in rows across the plot, in the order the repository lists them, each as wide as the plot allows.
     for (const tile of tiles) {
-      const mine = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
+      const touched = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
+      if (touched.length === 0) continue;
+      const grid = tile.pills;
+      const place = new Map<string, number>(grid === undefined ? [] : grid.names.map((name, i): [string, number] => [`${tile.path}/${name}`, i]));
+      const mine: FileIn[] = [];
+      for (const one of touched) {
+        const i = place.get(one.path);
+        if (grid === undefined || i === undefined) {
+          mine.push(one);
+          continue;
+        }
+        // Lit larger than a fine pill so it can be seen, about the pill's middle.
+        const r = pillRect(grid, i);
+        const [w, h] = [Math.max(r.w, LIT.w), Math.max(r.h, LIT.h)];
+        const [cx, cy] = [r.x + r.w / 2, r.y + r.h / 2];
+        bars.set(one.path, { path: one.path, act: one.act, rect: { x: cx - w / 2, y: cy - h / 2, w, h }, cx, cy, tile, pill: i });
+      }
       if (mine.length === 0) continue;
       const bw = Math.max(8, Math.min(22, (tile.rect.w - 10) / 3.2));
       const bh = Math.max(3, bw * 0.34);

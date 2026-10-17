@@ -48,13 +48,14 @@ function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p
   }
 }
 
-/** The files of a plot, a pill for each, quiet on its top and rising with it. */
-function drawPills(b: PlaneBuilder, tile: Tile, height: number, p: Palette): void {
+/** The files of a plot, a pill for each, quiet on its top and rising with it. A file being worked on is drawn as a bar in the place of its pill. */
+function drawPills(b: PlaneBuilder, tile: Tile, height: number, lit: ReadonlySet<number>, p: Palette): void {
   const grid = tile.pills;
   if (grid === undefined) return;
   const tone = fade(p.fg, 0.2);
   const z = height + 0.2;
   for (let i = 0; i < grid.count; i += 1) {
+    if (lit.has(i)) continue;
     const r = pillRect(grid, i);
     b.quad(r.x, r.y * FLAT, r.w, r.h * FLAT, z, tone);
   }
@@ -158,12 +159,14 @@ function drawSurvey(b: PlaneBuilder, cx: number, cy: number, z: number, big: num
 export function drawTiles(b: PlaneBuilder, s: PixiSceneIn, p: Palette, heights: ReadonlyMap<string, number>, ringAlpha: (key: string) => number): void {
   const bars = new Map<string, Bar[]>();
   for (const bar of s.layout.bars.values()) bars.set(bar.tile.path, [...(bars.get(bar.tile.path) ?? []), bar]);
+  const none = new Set<number>();
   const tiles = s.layout.territories.flatMap((one) => one.tiles).sort((a, c) => a.rect.y + a.rect.h - (c.rect.y + c.rect.h) || a.rect.x + a.rect.w - (c.rect.x + c.rect.w));
   for (const tile of tiles) {
     const height = heights.get(tile.path) ?? 0;
     drawSlab(b, tile, height, s, p);
-    drawPills(b, tile, height, p);
-    for (const bar of bars.get(tile.path) ?? []) drawBar(b, bar, height, p);
+    const mine = bars.get(tile.path) ?? [];
+    drawPills(b, tile, height, mine.length === 0 ? none : new Set(mine.flatMap((bar) => (bar.pill === undefined ? [] : [bar.pill]))), p);
+    for (const bar of mine) drawBar(b, bar, height, p);
   }
   for (const one of s.builds) {
     const alpha = ringAlpha(one.build.key);
