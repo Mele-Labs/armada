@@ -1,14 +1,15 @@
 //! What the phone may see of a Session.
 //!
-//! **An allowlist, built field by field**, as [`crate::phone`] is for a Job. There
-//! is no field for a transcript, a file, a message, a working directory or an
+//! **An allowlist, built field by field**, never by serialising Fleet's record and
+//! removing what is unwanted, so a field Fleet adds tomorrow does not reach the
+//! phone until somebody writes it here. There is no field for a transcript, a file, a message, a working directory or an
 //! environment value, and so none to fill. A Terminal Session has an ask only
 //! while Fleet holds its question: [`held_ask`] judges that, and both the row
 //! and the answer route read it there.
 
 use ipc::{
     AskedChoice, AskedQuestion, HelmCallAnswer, HelmCallInFlight, SessionOrigin, SessionRecord,
-    SessionState,
+    SessionStanding, SessionState,
 };
 use serde::Serialize;
 
@@ -54,6 +55,12 @@ pub struct PhoneSession {
     /// `hosted` or `terminal`.
     pub kind: &'static str,
     pub waiting: bool,
+    /// A turn is running, whether or not it has gone quiet.
+    pub working: bool,
+    /// Instants, so the phone counts the ages itself.
+    pub started_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub waiting_since: Option<String>,
     /// A hosted Session's, or a Terminal Session's while Fleet holds it.
@@ -131,6 +138,9 @@ impl PhoneSession {
             repository: repository.map(str::to_string),
             kind: if hosted { "hosted" } else { "terminal" },
             waiting: waiting_on.is_some(),
+            working: matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
+            started_at: record.started_at.as_str().to_string(),
+            ended_at: record.ended_at.as_ref().map(|at| at.as_str().to_string()),
             waiting_since: waiting_on.map(|asked| asked.asked_at.as_str().to_string()),
             ask: held_ask(record, now)
                 .filter(|_| record.state == SessionState::Live)
