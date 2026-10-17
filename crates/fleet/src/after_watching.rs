@@ -56,19 +56,6 @@ fn pull_wire(pull: &ipc::Attachment) -> Option<WaitPull> {
     Some(WaitPull { number: pull.target.parse().ok()?, branch: pull.detail.get("branch").cloned().unwrap_or_default() })
 }
 
-/// The title of a plan group or task.
-fn part_title(plan: &ipc::SessionPlan, id: &str) -> String {
-    for group in &plan.groups {
-        if group.id == id {
-            return group.title.clone();
-        }
-        if let Some(task) = group.tasks.iter().find(|one| one.id == id) {
-            return task.text.clone();
-        }
-    }
-    id.to_string()
-}
-
 /// A wait read against the Session it waits on, as Fleet now observes it. Pure.
 pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
     let title = on.title.clone().unwrap_or_else(|| on.id.as_str().to_string());
@@ -76,7 +63,7 @@ pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
     let seen = pull.and_then(pull_wire);
     match wait.condition.as_str() {
         "group_done" | "task_done" => match on.plan.as_ref().filter(|plan| crate::session_host::after::plan_part_done(plan, wait)) {
-            Some(plan) => Verdict::Met { said: format!("{} is done in {title}", part_title(plan, &wait.part)), pull: seen },
+            Some(plan) => Verdict::Met { said: format!("{} is done in {title}", crate::session_host::after::plan_part_title(plan, &wait.part).unwrap_or_else(|| wait.part.clone())), pull: seen },
             None => Verdict::Waiting { pull: seen },
         },
         "pr_pushed" => match &seen {

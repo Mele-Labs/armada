@@ -157,6 +157,7 @@ impl Sessions for FakeDaemon {
             needs: String::new(),
             brief: String::new(),
             pull: None,
+            part_title: None,
             by: ipc::WaitBy::You,
         })
     }

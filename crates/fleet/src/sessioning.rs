@@ -47,7 +47,7 @@ pub(crate) struct LedgerReads {
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
     /// The wait of a Session still waiting on another, and the title of the one it waits on.
-    wait: Option<(store::KeptWait, Option<String>)>,
+    wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -338,7 +338,11 @@ where
             .filter(|one| one.started_at.is_none())
             .map(|one| {
                 let title = store.session(&one.on_session).ok().flatten().and_then(|on| on.title);
-                (one, title)
+                let part = (!one.part.is_empty())
+                    .then(|| store.session_plan(&one.on_session).ok().flatten())
+                    .flatten()
+                    .and_then(|plan| crate::session_host::after::plan_part_title(&crate::plan_record::wire(&plan), &one.part));
+                (one, title, part)
             });
         Ok(LedgerReads {
             wait,
@@ -430,7 +434,7 @@ where
         record.waits = reads
             .wait
             .filter(|_| session.state == store::SessionState::Live)
-            .map(|(wait, title)| crate::session_host::after::wait_wire(&wait, title));
+            .map(|(wait, title, part)| crate::session_host::after::wait_wire(&wait, title, part));
         self.rail_drawn(session, &reads.rail, &mut record);
         record
     }

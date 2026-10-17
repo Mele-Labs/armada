@@ -94,7 +94,7 @@ pub(crate) fn pull_of(wait: &KeptWait) -> Option<WaitPull> {
 }
 
 /// The wait as the record carries it.
-pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>) -> SessionWait {
+pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>, part_title: Option<String>) -> SessionWait {
     SessionWait {
         on: SessionLink { id: ipc::SessionId::carried(&wait.on_session), title: on_title.unwrap_or_else(|| wait.on_session.clone()) },
         condition: condition_of(wait),
@@ -102,8 +102,19 @@ pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>) -> SessionWai
         needs: wait.needs.clone(),
         brief: wait.brief.clone(),
         pull: pull_of(wait),
+        part_title,
         by: by_of(wait),
     }
+}
+
+/// The title of a group or task of a plan.
+pub(crate) fn plan_part_title(plan: &ipc::SessionPlan, id: &str) -> Option<String> {
+    plan.groups.iter().find_map(|group| {
+        if group.id == id {
+            return Some(group.title.clone());
+        }
+        group.tasks.iter().find(|task| task.id == id).map(|task| task.text.clone())
+    })
 }
 
 // ---- What the rows and the messages say ------------------------------------------------------------------
@@ -305,6 +316,13 @@ where
         let _ = self.published_hosted(&wait.on_session).await;
     }
 
+    /// The wait as the wire carries it, with the titles it names read now.
+    async fn wait_wired(&self, wait: &KeptWait) -> SessionWait {
+        let on_title = self.session_title(&wait.on_session).await;
+        let part = self.plan_parts(&wait.on_session).await.into_iter().find(|one| one.id == wait.part).map(|one| one.title);
+        wait_wire(wait, Some(on_title), part)
+    }
+
     /// What a waiting Session is called: its title, else the first line of its brief.
     async fn waiting_title(&self, wait: &KeptWait) -> String {
         let found = self.store().lock().await.session(&wait.session_id).ok().flatten();
@@ -473,7 +491,7 @@ where
             now.base = base_kept(base).to_string();
         }
         if now == was {
-            return Ok(wait_wire(&was, Some(self.session_title(&was.on_session).await)));
+            return Ok(self.wait_wired(&was).await);
         }
         now.by = by_kept(by).to_string();
         self.store().lock().await.keep_wait(&now).map_err(|why| self.ledger_fault(why))?;
@@ -503,7 +521,7 @@ where
         let _ = self.published_hosted(&now.on_session).await;
         // The waiting Session's record carries the wait, so the watcher reads the new condition against what it sees.
         let _ = self.published_hosted(&waiting).await;
-        Ok(wait_wire(&now, Some(on_title)))
+        Ok(self.wait_wired(&now).await)
     }
 
     /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.

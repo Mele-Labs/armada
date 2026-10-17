@@ -41,6 +41,8 @@ export type SessionWait = {
   /** The words it was dispatched with, which it starts on. */
   brief: string;
   pull?: WaitPull;
+  /** The title of the group or task a `group_done` or `task_done` condition names, as the plan of the Session waited on has it now. */
+  part_title?: string;
   by: WaitBy;
 };
 

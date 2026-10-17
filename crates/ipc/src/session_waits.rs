@@ -85,6 +85,10 @@ pub struct SessionWait {
     /// one. Fleet picks the first and keeps it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull: Option<WaitPull>,
+    /// The title of the group or task a `group_done` or `task_done` condition names, as the plan of the
+    /// Session waited on has it now. Absent where the plan no longer holds it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part_title: Option<String>,
     pub by: WaitBy,
 }
 
