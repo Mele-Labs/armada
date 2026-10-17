@@ -141,16 +141,28 @@ fn a_name_that_could_climb_or_name_a_second_folder_is_refused_before_anything_is
 }
 
 #[test]
-fn a_link_out_of_the_folder_reads_nothing_and_one_inside_it_reads() {
+fn a_link_out_of_the_folder_reads_where_it_stays_in_the_home_and_nothing_beyond_it() {
     let at = Scratch::new("links");
     at.plant(&at.0.join("outside/SKILL.md"), "outside");
+    at.plant(&at.home().join("dotfiles/skills/mine/SKILL.md"), "# Mine");
     at.plant(&at.repo().join("real.md"), "# Real");
     fs::create_dir_all(at.home().join(".claude/skills")).unwrap();
     std::os::unix::fs::symlink(at.0.join("outside"), at.home().join(".claude/skills/out")).unwrap();
+    std::os::unix::fs::symlink(at.home().join("dotfiles/skills/mine"), at.home().join(".claude/skills/mine")).unwrap();
+    std::os::unix::fs::symlink("/etc", at.home().join(".claude/skills/etc")).unwrap();
     std::os::unix::fs::symlink(at.0.join("outside/SKILL.md"), at.repo().join("CLAUDE.md")).unwrap();
     std::os::unix::fs::symlink(at.repo().join("real.md"), at.repo().join("AGENTS.md")).unwrap();
 
+    assert_eq!(
+        read(at.read(ItemKind::Skill, "mine", ItemWhose::Kit)),
+        ("~/.claude/skills/mine/SKILL.md".into(), true, "# Mine".into(), false),
+        "a dotfiles link that stays in the home"
+    );
     assert!(why(at.read(ItemKind::Skill, "out", ItemWhose::Kit)).contains("a link to outside"));
+    why(at.read(ItemKind::Skill, "etc", ItemWhose::Kit));
+    fs::create_dir_all(at.home().join(".claude/agents")).unwrap();
+    std::os::unix::fs::symlink("/etc/hosts", at.home().join(".claude/agents/hosts.md")).unwrap();
+    assert!(why(at.read(ItemKind::Subagent, "hosts", ItemWhose::Kit)).contains("a link to outside"), "a link to /etc");
     assert!(why(at.read(ItemKind::MemoryFile, "CLAUDE.md", ItemWhose::Repository)).contains("a link to outside"));
     assert_eq!(read(at.read(ItemKind::MemoryFile, "AGENTS.md", ItemWhose::Repository)).2, "# Real");
 }

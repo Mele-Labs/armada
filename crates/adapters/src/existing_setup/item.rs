@@ -2,8 +2,8 @@
 //!
 //! **Only the one file the kind and whose imply, and never outside the folder that holds it.** A
 //! name is the query's: one that could climb or name a second folder is refused before anything
-//! is opened, and the file is resolved through every link and must still be under that folder, so
-//! a link out of it reads nothing.
+//! is opened, and the file is resolved through every link and must still be under that folder or
+//! the person's home, so a link to anywhere else reads nothing.
 
 use std::fs;
 use std::io::Read;
@@ -84,7 +84,7 @@ fn find(home: &str, asked: &ItemAsked<'_>) -> Result<ItemRead, String> {
         _ => "output style",
     };
     let relative = found.ok_or_else(|| format!("No {what} called `{}` is in {}.", asked.name, under.named()))?;
-    read_under(&under, &relative, asked.cap)
+    read_under(&under, &relative, &home, asked.cap)
 }
 
 /// The folder a skill, an agent or a style of this whose is kept in.
@@ -127,7 +127,7 @@ fn memory_file(home: &Path, asked: &ItemAsked<'_>) -> Result<ItemRead, String> {
         (Under { base: repository(asked.root)?, lead: "", owner: "the repository's ", dir: String::new() }, name.to_string())
     };
     let relative = parts(&relative).ok_or_else(refused)?;
-    read_under(&under, &relative, asked.cap)
+    read_under(&under, &relative, home, asked.cap)
 }
 
 /// The session's repository root, which Fleet supplies and the query does not.
@@ -237,14 +237,16 @@ fn joined(at: &str, name: &str) -> String {
 }
 
 /// The file at `relative` under `under`, resolved through every link, and refused where that lands
-/// outside the folder.
-fn read_under(under: &Under, relative: &str, cap: usize) -> Result<ItemRead, String> {
+/// outside both the folder and the person's home. **A link out to the home is followed**, as Kit
+/// follows one (`home.rs`): it is where a dotfiles repository puts what it links in.
+fn read_under(under: &Under, relative: &str, home: &Path, cap: usize) -> Result<ItemRead, String> {
     let shown = under.shown(relative);
     let gone = || format!("Nothing is at {shown} now.");
     let folder = fs::canonicalize(under.folder()).map_err(|_| gone())?;
     let file = fs::canonicalize(under.folder().join(relative)).map_err(|_| gone())?;
-    if !file.starts_with(&folder) {
-        return Err(format!("{shown} is a link to outside {}, and Armada reads nothing there.", under.named()));
+    let home = fs::canonicalize(home).ok();
+    if !file.starts_with(&folder) && !home.is_some_and(|home| file.starts_with(home)) {
+        return Err(format!("{shown} is a link to outside {} and your home, and Armada reads nothing there.", under.named()));
     }
     if !file.is_file() {
         return Err(format!("{shown} is not a file."));
