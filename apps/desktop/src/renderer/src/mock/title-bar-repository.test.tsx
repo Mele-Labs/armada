@@ -20,8 +20,8 @@ test("Retros names the pick in the title row, All says so, and the Cockpit draws
   // The pick is made on the Cockpit, where the picker is, and the title row follows it elsewhere.
   await userEvent.click(page.getByRole("tab", { name: "Cockpit" }));
   expect(tag()).toBeNull();
-  await userEvent.click(page.getByText("All repositories"));
-  await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
+  await userEvent.click(page.getByRole("combobox", { name: "Repository" }));
+  await userEvent.click(page.getByRole("option", { name: "storefront" }));
   expect(tag()).toBeNull();
   await userEvent.click(page.getByRole("tab", { name: "Retros", exact: true }));
   await expect.element(page.getByTitle("storefront")).toHaveTextContent("storefront");

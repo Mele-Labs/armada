@@ -184,7 +184,7 @@ export function Lessons({
   });
 
   return (
-    <div className="armada-screen__overview">
+    <div className="armada-screen__overview armada-lessons-page">
       {read?.ok === false ? (
         <Alert tone="escalated" title="Retros could not be read">
           {said(read.outcome)}
@@ -214,6 +214,7 @@ export function Lessons({
         </>
       ) : (
         <>
+          <h1 className="armada-page__title">Retros</h1>
           <div className="armada-lessons__bar">
             {/* Where the fix lands, one place a tab. No count on any of them. */}
             <Tabs

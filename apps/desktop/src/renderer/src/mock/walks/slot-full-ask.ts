@@ -10,7 +10,7 @@ const choice = (name: string) => inside(needs, role("radio", name, { exact: true
 
 const slotFullAsk = walk("slot-full-ask", [
   { look: inside(incoming, button(/Chart the timeline/)), say: "A call: every slot is in use" },
-  { look: inside(inside(region("Jobs and Sessions"), button(/Chart the timeline/)), role("img", "Waiting on you")), say: "Its row reads Waiting on you, though its turn is running" },
+  { look: inside(inside(region("Work", { exact: true }), button(/Chart the timeline/)), role("img", "Waiting on you")), say: "Its row reads Waiting on you, though its turn is running" },
   { press: inside(incoming, button(/Chart the timeline/)), say: "It opens the Session" },
   { press: inside(needs, button(/^Needs you/)), say: "The same call is in its Needs you band" },
   { look: choice("Wait for a slot"), say: "1 waits for a slot" },

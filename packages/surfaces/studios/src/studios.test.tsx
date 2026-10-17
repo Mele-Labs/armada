@@ -258,18 +258,18 @@ test("Delete 1 node confirms, with Cancel first, and takes the node's edges with
   expect(fleet.studios()[0]!.edges).toEqual([]);
 });
 
-test("on All repositories the surface asks for one, since a Studio belongs to one", async () => {
+test("on All repositories the surface asks for none: a Studio belongs to one repository, and the page lists each one's", async () => {
   const fleet = studying();
   open({ ...fleet.scenario, state: { ...fleet.scenario.state, repository: null } });
   await toSystemPage("Studios");
-  await expect.element(page.getByText("Pick a repository to open its Studios")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Studios", level: 1 })).toBeVisible();
+  expect(page.getByText("Pick a repository to open its Studios").query()).toBeNull();
+  expect(page.getByRole("button", { name: "Choose a repository", exact: true }).query()).toBeNull();
 });
 
-/** Studios from the rail, answering the surface's own ask for a repository. */
+/** Studios from the rail: no repository is asked for first. */
 async function openStudios(): Promise<void> {
   await toSystemPage("Studios");
-  await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
-  await page.getByRole("menuitem", { name: "armada", exact: true }).first().click();
 }
 
 const FAILED = "This repository's Studios could not be read";
@@ -619,7 +619,8 @@ test("a scenario keeping no Studios draws no list and no sentence, and not a rea
   open("empty-store");
   await openStudios();
 
-  await expect.element(page.getByRole("button", { name: "New Studio" })).toBeVisible();
+  // On All a repository that keeps none draws no panel, so there is no New Studio to press either.
+  await expect.element(page.getByRole("heading", { name: "Studios", level: 1 })).toBeVisible();
   expect(page.getByRole("table").query()).toBeNull();
   expect(page.getByText("No Studios yet.", { exact: false }).query()).toBeNull();
   expect(page.getByText(FAILED).query()).toBeNull();
