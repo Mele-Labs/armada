@@ -905,6 +905,34 @@ Bridge draws it from the wire, with no state of its own:
 
 A Session that is idle when Fleet starts and already needs the owner is not told: `needs` is read as a move. A notice for a parent that ended is dropped.
 
+## A Session that waits on another
+
+A Session can be dispatched to **start when another Session reaches a point**, with that Session's handoff first. The owner approved the design on 16 Oct 2026 (walk `sessionAfterAnother`).
+
+| | |
+|---|---|
+| What waits | A Session with no message sent: it holds its brief, takes **no slot and runs no process**. The wait is a fact on its record (`waits`), kept in `session_waits` and absent once it has started. It stands in Work under the Session it waits on, in the state `after` |
+| The condition | `ends` (the default), `group_done` (a group of the plan of the Session waited on), `task_done` (one task), `pr_pushed`, `pr_lands`. Fleet **reads it from what it observes**: the Session's state, its plan's progress and its pull request events, never from an agent's call. The first pull request seen is the one `pr_pushed` and `pr_lands` mean, and it is kept |
+| Where it starts from | `main` (the default) or `branch`, the branch of that pull request. Dispatch defaults `pr_pushed` to `branch` |
+| The start | Once, when the condition is met: the first message is the **handoff of the Session waited on** (the builder `hand_to_session` uses) followed by the brief. A restart cannot start it twice |
+| Who sets it | Dispatch, from a brief that tags a Session with `@` and the words after it, read by the proposer (`read_session_wait`); or an agent's `start_another_session` with `after`. A reading that cannot be had is the defaults: it ends, from `main`, asking nothing |
+| The Session waited on | Is told what the waiting one needs, once, and woken if idle, as any news. It may change the condition or the base with `change_waiting`, which is allowed only for a Session that waits on it; the owner may change any. Each change writes a `waiter` row in both threads. The owner can start a waiting Session at once (`start_waiting_now`) |
+| Refused before anything is made | The Session waited on is unknown, is the Session itself, has ended, or has no such group or task in its plan |
+
+> **Rule.** A waiting Session starts on what Fleet observed, and what it waits for can be changed by the Session it waits on.
+> Why: the Session doing the work knows when the point is reached and what is needed of it, and a hand that cannot move the condition leaves a Session waiting on a point that will not come.
+
+The owner's Session sends that message when the condition is met. An agent's waiting Session holds it for the owner instead, as any start an agent makes, so nothing runs until he sends it.
+
+Bridge draws it from the wire, with no state of its own:
+
+| Where | What |
+|---|---|
+| Dispatch | The sentence over the request, `Starts when [Session] [condition] · from [base] · needs [..]`, filled by the proposer's reading: the defaults at once, its answer when it arrives, and a send waits for the answer. `⌥A` opens Dispatch with `@` typed |
+| Work | The waiting row's state line says when it starts. `docs/concepts/cockpit.md` |
+| The waiting Session | Its brief, who it waits on, the condition (changeable), what it needs and where it starts from, and **Start now** |
+| The threads | A `waiter` row: in the thread of the Session waited on when it is dispatched, changed or started; in the waiting Session's own thread when its condition is changed |
+
 ## In Bridge
 
 Bridge reads every live session from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot, pull request or Job, across every repository. A thread is read with `get_session` when a window first opens it, then followed by `session.row`. The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
