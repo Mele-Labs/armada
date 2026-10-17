@@ -23,10 +23,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const DESKTOP = join(HERE, "..");
 const REPOSITORY = join(DESKTOP, "..", "..");
 
-const USAGE = "usage: trace-map [--map css|pixi] [--label name] [--idle 10] [--busy 10] [--pan 5] [--size 1440x900] [--url http://localhost:<port>]";
+const USAGE = "usage: trace-map [--map css|pixi] [--label name] [--idle 10] [--busy 10] [--pan 5] [--quiet] [--size 1440x900] [--url http://localhost:<port>]";
 
 function parse(argv) {
-  const asked = { map: "css", label: "baseline", idle: 10, busy: 10, pan: 5, size: { width: 1440, height: 900 }, url: undefined };
+  const asked = { map: "css", label: "baseline", idle: 10, busy: 10, pan: 5, quiet: false, size: { width: 1440, height: 900 }, url: undefined };
   for (let at = 0; at < argv.length; at += 1) {
     const one = argv[at];
     const value = () => argv[(at += 1)];
@@ -36,6 +36,7 @@ function parse(argv) {
     else if (one === "--busy") asked.busy = Number(value());
     else if (one === "--pan") asked.pan = Number(value());
     else if (one === "--url") asked.url = value();
+    else if (one === "--quiet") asked.quiet = true;
     else if (one === "--size") {
       const match = /^(\d+)x(\d+)$/.exec(value() ?? "");
       if (match === null) throw new Error(`--size takes WIDTHxHEIGHT\n${USAGE}`);
@@ -115,6 +116,11 @@ async function open(browser, asked, base) {
   if (asked.map === "pixi") await page.locator(".bf-pixi canvas").first().waitFor({ state: "attached", timeout: 120_000 });
   // The map's arrival animations and the first layout settle before anything is read.
   await sleep(4000);
+  // `--quiet` measures the page as it is after a minute with no input: the mark `still.ts` sets then, which the mock's entry does not run.
+  if (asked.quiet) {
+    await page.evaluate(() => document.documentElement.setAttribute("data-idle", ""));
+    await sleep(1000);
+  }
   return { context, page, thrown };
 }
 

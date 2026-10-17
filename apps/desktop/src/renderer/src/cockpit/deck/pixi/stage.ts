@@ -59,6 +59,7 @@ export class Stage {
   private readonly playStart = new Map<string, number>();
   private palette: Palette | undefined;
   private frame = 0;
+  private quiet = false;
   private size: Size = { width: 0, height: 0 };
   private cam: Cam | undefined;
   private scene: PixiSceneIn | undefined;
@@ -136,8 +137,13 @@ export class Stage {
     void document.fonts.ready.then(() => this.restyle());
     // A theme put on the page, a mod's edited, or reduced motion asked for changes the tokens under every colour here. The loader adopts
     // its sheet before it sets `data-theme`, so the tokens are already the new ones when this runs.
-    this.themed = new MutationObserver(() => this.restyle());
-    this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    // `data-still` and `data-idle` (`still.ts`) are a window nobody is looking at: nothing is drawn and the ticker stops until they are cleared.
+    this.themed = new MutationObserver((records) => {
+      if (records.some((one) => one.attributeName === "data-theme")) this.restyle();
+      this.settle();
+    });
+    this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-still", "data-idle"] });
+    this.settle();
     this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.still.addEventListener("change", this.restyle);
     this.sync(true);
@@ -150,6 +156,19 @@ export class Stage {
     this.palette = readPalette(this.host);
     this.sync(true);
   };
+
+  /** Whether the window is hidden, unfocused or idle: the ticker stops with the pose held, and starts again when it is not. */
+  private settle(): void {
+    const root = document.documentElement;
+    const quiet = root.hasAttribute("data-still") || root.hasAttribute("data-idle");
+    if (quiet === this.quiet) return;
+    this.quiet = quiet;
+    if (quiet) {
+      cancelAnimationFrame(this.frame);
+      this.frame = 0;
+      this.app?.ticker.stop();
+    } else this.wake();
+  }
 
   // ---- What the page tells it -------------------------------------------------------------------------------
 
@@ -434,7 +453,7 @@ export class Stage {
   /** Something changed: draw it. On the ticker if it will keep changing, otherwise once on the next animation frame. */
   private wake(): void {
     const app = this.app;
-    if (app === undefined) return;
+    if (app === undefined || this.quiet) return;
     if (this.easing) {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
