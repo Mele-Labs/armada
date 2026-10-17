@@ -257,6 +257,7 @@ where
             } => {
                 // What is said between the lease and the move is the agent
                 // standing down, and the person is not shown it.
+                let text = adapters::terminal_thread::agent_said(&text);
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
