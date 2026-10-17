@@ -32,3 +32,26 @@ async fn a_message_past_two_megabytes_reaches_the_daemon() {
         "the fake daemon is what answered"
     );
 }
+
+/// The route is hand-written, so a typo in it is a runtime 500: the query must reach the daemon
+/// whole, a path with a space and a `&` in it among the rest.
+#[tokio::test]
+async fn a_clash_file_is_asked_over_the_router_and_answers_both_patches() {
+    let events = Broadcaster::new();
+    let app = router(Served::by(FakeDaemon::new(events.clone()), run_id(), events));
+    let ask = |query: &str| {
+        Request::builder().method("GET").uri(format!("/clashes/file?{query}")).body(Body::empty()).expect("a well-formed request")
+    };
+    let response = app
+        .clone()
+        .oneshot(ask("session_id=s-1&other_kind=main&other_id=main&path=src%2Fa%20%26%20b.rs"))
+        .await
+        .expect("an answer");
+    assert_eq!(response.status(), StatusCode::OK);
+    let said = response.into_body().collect().await.expect("a body").to_bytes();
+    let said = String::from_utf8_lossy(&said);
+    assert!(said.contains("\"ours\"") && said.contains("\"theirs\""), "{said}");
+
+    let unknown_kind = app.oneshot(ask("session_id=s-1&other_kind=job&other_id=j&path=a")).await.expect("an answer");
+    assert_eq!(unknown_kind.status(), StatusCode::BAD_REQUEST, "a kind that is not a ClashSide");
+}

@@ -43,6 +43,7 @@ import type {
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { buildChangeOf, type BuildChange } from "./build-change";
+import { clashFileRead } from "./clash-file-read";
 import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
@@ -639,6 +640,7 @@ export class WiredStore {
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
     pullRequestFile: async (id, number, path) => fileRead(await this.api.readPullRequestFile(id, number, path)),
+    clashFile: async (id, other, path) => clashFileRead(await this.api.readClashFile(id, other, path)),
     writePullRequest: async (id, number, write) => pageRead(await this.api.writePullRequest(id, number, write)),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
     openWindow: (id, url) => void this.api.openSessionWindow(id, url),

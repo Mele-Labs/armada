@@ -1,10 +1,13 @@
 // Write clashes: where two agents' changes in one repository would conflict. A slice imports
 // protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { Outcome, WriteClash } from "@armada/protocol";
+import type { ClashFile, ClashSide, Outcome, WriteClash } from "@armada/protocol";
 
 /** What reading the clashes came to: every standing clash on the manifests Fleet lists, or the refusal to word. */
 export type WriteClashesRead = { ok: true; value: WriteClash[] } | { ok: false; outcome: Outcome };
+
+/** What reading one file of a clash came to: each side's patch, or the refusal to word. */
+export type ClashFileAnswer = { ok: true; value: ClashFile } | { ok: false; outcome: Outcome };
 
 export type ClashesApi = {
   /**
@@ -12,8 +15,14 @@ export type ClashesApi = {
    * manifests those are. A Fleet before protocol 23.81 answers none rather than a refusal.
    */
   getWriteClashes: () => Promise<WriteClashesRead>;
+  /**
+   * `GET /clashes/file`: one file of the clash between a Session and `other`, as each side changed it. **Names no Manifest**:
+   * Fleet finds the clash by the Session. A Fleet without the route answers a transport 404.
+   */
+  readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string) => Promise<ClashFileAnswer>;
 };
 
 export const CLASHES_CHANNELS = {
   getWriteClashes: "bridge:get-write-clashes",
+  readClashFile: "bridge:read-clash-file",
 } as const;
