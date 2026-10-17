@@ -4,4 +4,4 @@
   size = "16px"
   status = "Proposed"
   reserved = "An upload on a wireframed screen of another product. Never adding a row to the shared home, which is `arrow-up-from-line`, and never ahead of main, which is `arrow-up`."
-  notes = "Minted 16 Oct 2026 with the `screen` node for `show_sketch`. `arrow-up-from-line` stood in until now and is reserved against being an upload. Pair of `download`."
+  notes = "Added with the `screen` node. `arrow-up-from-line` is reserved against being an upload. Pair of `download`."

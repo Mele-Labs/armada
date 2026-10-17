@@ -83,23 +83,69 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 
 **Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues. An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
 
-| Part | Types |
+**Rule.** The tree is `ScreenElement` in `packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
+
+| Element | Takes |
 |---|---|
-| Layout | `row`, `column`, `grid` with `cols`; each has `children`, `gap`, `pad` and `border` |
-| Frame | `window` with `chrome` of `desktop`, `browser` or `phone` |
-| Parts | `nav`, `panel`, `tabs`, `list`, `table`, `button`, `field`, `text`, `image`, `avatar`, `badge`, `divider`, `spacer`, `chat`, `modal` |
+| `row`, `column` | `children`, `gap`, `pad`, `border` |
+| `grid` | `cols` of 1 to 12, `children`, `gap`, `pad`, `border` |
+| `window` | `chrome` of `desktop`, `browser` or `phone`; `title`, `url`, `children` |
+| `nav` | `brand`, `items`, `active`, `actions`, `vertical` |
+| `panel` | `title`, `icon`, `actions`, `gap`, `pad`, `children` |
+| `tabs` | `items`, `active` |
+| `list` | `rows` of `text`, `meta`, `icon`, `selected` |
+| `table` | `columns`, `rows` |
+| `button` | `text`, `icon`, `variant` of `primary`, `secondary` or `ghost` |
+| `field` | `label`, `value`, `placeholder`, `kind` of `input`, `textarea`, `select`, `checkbox`, `toggle` or `search` |
+| `text` | `text`, or `lines` bars; `style` of `heading`, `title`, `body` or `caption` |
+| `image` | `label` |
+| `avatar`, `badge` | `text` |
+| `divider`, `spacer` | Nothing |
+| `chat` | `messages` of `from` as `me` or `them`, and `text` |
+| `modal` | `title`, `children` |
 
-**Rule.** Every element takes `id`, `step`, `size` and `align`. A `size` of `auto` takes the content, `fill` shares what is left, and a number is the weight of its share.
+### Sizing
 
-**Rule.** A `gap` or a `pad` is `none`, `sm`, `md` or `lg`. Nothing inside a screen is written in pixels.
+**Rule.** Every element takes `id`, `step`, `size` and `align`. A `size` of `auto` takes the content, `fill` shares what is left along the parent's axis, and a number is the weight of its share.
+
+**Rule.** `size` is a share only in a `row` or a `column`, and a grid cell ignores it.
+
+**Rule.** A part stretches across its parent's cross axis. A `button`, `badge` and `avatar` keep their own size in a column, and a `button`, `badge`, `avatar`, `text`, `field` and `tabs` sit centred in a row.
+
+**Rule.** An `align` of `start`, `center`, `end` or `stretch` wins over both.
+
+**Rule.** A `gap` or a `pad` is `none`, `sm`, `md` or `lg`. Layouts default to a `sm` gap and no `pad`, and a panel's body to `sm` and `md`. Nothing inside a screen is written in pixels.
+
+### Icons
 
 **Rule.** An element's `icon` is a registry glyph from `SCREEN_ICONS`, kept apart from `SCENE_ICONS`, and any other name fails the whole scene. A bare string in `items` or `actions` is the words of a button, and `{ icon }` is a button of a glyph alone.
 
-**Rule.** An element's `step` joins the scene's step order. The element is ringed while its step plays and the rest of the screen stands back. A `modal` with a `step` comes up when its step does.
+**Rule.** A screen has no `house`, which the registry reserves to the shared home. A Home item takes `layout-dashboard`.
+
+### Steps and modals
+
+**Rule.** An element's `step` joins the scene's step order, beside the steps of nodes and arrows. While it plays the element is ringed and the rest of the screen stands back.
+
+**Rule.** A screen that holds the step in an element does not stand back, and the other nodes do. A screen with a `step` of its own lights as a box does, with its ring on the sheet.
+
+**Rule.** Under a part that stands back nothing else is decided, and under the ringed element nothing stands back.
+
+**Rule.** A `modal` with a `step` is hidden until its step plays and stays up after it. A `modal` with none is always up.
+
+**Rule.** The ring is on a modal's dialog and never on the scrim round it.
 
 **Rule.** An arrow joins whole screens, so two screens and an arrow are a screen flow.
 
-**Rule.** Share on a scene holding a screen draws the screen's outer frame and its title in the image and names it in the Mermaid text. The elements inside are not exported.
+### Sharing
+
+**Rule.** Save as web page and Save as image draw a screen as the canvas does: its own HTML in a `foreignObject`, with the kit's rules and the theme's token values written into the file. Nothing is fetched.
+Why: the browser that opens the file lays the screen out, so the file holds no measurements of it.
+
+**Rule.** The web page holds the screen at rest and once for each step an element of it carries, and its player shows the one for the step playing. The image holds the screen at rest.
+
+**Rule.** Save as image reads its picture from a data address, because Chromium taints a canvas for a `foreignObject` loaded from an object address.
+
+**Rule.** Copy as Mermaid names a screen as one node with its title, or its id where it has none, and nothing inside it.
 
 ## Reading a sketch
 

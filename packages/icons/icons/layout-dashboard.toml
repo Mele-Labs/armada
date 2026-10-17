@@ -10,4 +10,4 @@
     group = "Sketch screens"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 16 Oct 2026 with the `screen` node for `show_sketch`. A wireframe often has a Home item, and `house` is reserved to the shared home and never a home screen, so the landing page takes the glyph that already means one: panes on a grid."
+    notes = "Added with the `screen` node for `show_sketch`. A wireframe often has a Home item, and `house` is reserved against a home screen, so the landing page takes the glyph that already means one: panes on a grid."

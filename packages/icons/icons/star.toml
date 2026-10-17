@@ -4,4 +4,4 @@
   size = "16px"
   status = "Proposed"
   reserved = "A favourite or a rating on a wireframed screen of another product. Never rank, a pinned row or an important one in Armada's own surfaces: `compass` refused it as rank, `pin` pins and `flag` is reserved."
-  notes = "Minted 16 Oct 2026 with the `screen` node for `show_sketch`. Starring and rating are the common ways a product marks one it wants back, and `bookmark` reads as saved for later."
+  notes = "Added with the `screen` node. Starring and rating are the common ways a product marks one it wants back, and `bookmark` reads as saved for later."
