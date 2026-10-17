@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { DebugPayload } from "@armada/components";
 import type { BridgeIdentity, Outcome } from "@armada/protocol";
+import type { BuildFailed } from "@armada/shell";
 import { CopiedToast, FailureToast, GuidanceToast, SaidToast, ToastRegion, watchUncaught } from "@armada/shell";
 import type { Raised } from "./failing";
 import { failedCommand, guidanceOf, raisedFailure } from "./failing";
@@ -24,7 +25,12 @@ import type { RefusedAct } from "./tell";
  * The toasts standing, oldest first. Each command answer that failed raises
  * one, and so does each throw no boundary saw; guidance replaces its own kind.
  */
-export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void; tell: (sentence: string, act?: RefusedAct) => void } {
+export function useRaised(outcome: Outcome | null): {
+  raised: Raised[];
+  lower: (key: number) => void;
+  tell: (sentence: string, act?: RefusedAct) => void;
+  raiseBuildFailed: (buildFailed: BuildFailed) => void;
+} {
   const [raised, setRaised] = useState<Raised[]>([]);
   const next = useRef(0);
   const raise = useCallback((one: Omit<Raised, "key">) => {
@@ -49,7 +55,8 @@ export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (
       raise({ outcome: { ok: false, why: "refused", error: { code: "bridge.not_sent", message, run_id: "", fields: act === undefined ? {} : actFields(act), chain: [] } } }),
     [raise],
   );
-  return { raised, lower, tell };
+  const raiseBuildFailed = useCallback((buildFailed: BuildFailed) => raise({ buildFailed }), [raise]);
+  return { raised, lower, tell, raiseBuildFailed };
 }
 
 /** An act as the refusal's fields: its name, each part of the request, then what the card showed. A structured part is JSON. */
