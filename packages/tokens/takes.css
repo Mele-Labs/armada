@@ -49,7 +49,8 @@
   /* ---- Type roles. The steps stay; these say which step a thing is for. ---- */
   --weight-light: 300;     /* a large figure: the number is the content, so it is thin */
   --weight-title: 600;
-  --text-head: 12px;       --leading-head: 16px;     /* a panel header: small tracked caps */
+  --text-head: 13px;       --leading-head: 16px;     /* a panel header: tracked caps in the display face */
+  --text-nav: 15px;        /* the places in the title bar: the loudest type on screen */
   --text-title: 20px;      --leading-title: 28px;    /* a page or sheet title */
   --text-figure: var(--text-2xl);                    /* the rare large number */
   --tracking-title: -0.012em;
@@ -131,37 +132,49 @@
     var(--bg-base);
 }
 
-/* ---- A: HUD. Chakra Petch, squared and technical, over Inter and JetBrains Mono ------------------------ */
+/* ---- A: HUD. Chakra Petch, squared and angular, over Inter and JetBrains Mono ---------------------------- */
 :root[data-type="a"] {
   --font-display: "Chakra Petch", var(--font-sans);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-title: var(--font-display);
-  --font-figure: var(--font-mono);
+  --font-figure: var(--font-display);
   --weight-head: 600;
-  --tracking-head: 0.16em;
-  --text-head: 13px;
+  --tracking-head: 0.18em;
+  --text-head: 14px;
+  --text-nav: 15px;  --weight-nav: 600;  --tracking-nav: 0.12em;
+  /* A row: a firm title, a mono age under it. */
+  --text-row: 15px;  --weight-row: 600;  --tracking-row: 0;
+  --text-meta: 12px;
 }
 
-/* ---- B: Wide. Michroma for the panel headers alone, over IBM Plex ------------------------------------------ */
+/* ---- B: Wide. Michroma for headers and the places alone, over IBM Plex ------------------------------------- */
 :root[data-type="b"] {
   --font-display: "Michroma", var(--font-sans);
   --font-title: var(--font-sans);
   --font-figure: var(--font-mono);
   --weight-head: 400;
-  --tracking-head: 0.1em;
-  /* Michroma runs wide: the same line at a smaller size, in caps and nowhere else. */
-  --text-head: 11px;
+  --tracking-head: 0.12em;
+  /* Michroma runs wide, so it gets a little room and is set in caps and nowhere else. */
+  --text-head: 12px;
+  --text-nav: 12px;  --weight-nav: 400;  --tracking-nav: 0.08em;
+  /* A row: Plex at its ordinary weight, the title a notch up from its meta. */
+  --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
+  --text-meta: 12.5px;
 }
 
-/* ---- C: Modern. Space Grotesk over Geist and Geist Mono --------------------------------------------------- */
+/* ---- C: Modern. Space Grotesk, geometric, over Geist and Geist Mono ----------------------------------------- */
 :root[data-type="c"] {
   --font-display: "Space Grotesk", var(--font-sans);
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-title: var(--font-display);
-  --font-figure: var(--font-mono);
-  --weight-head: 600;
-  --tracking-head: 0.12em;
-  --text-head: 13px;
+  --font-figure: var(--font-display);
+  --weight-head: 700;
+  --tracking-head: 0.1em;
+  --text-head: 14px;
+  --text-nav: 16px;  --weight-nav: 500;  --tracking-nav: 0.04em;
+  /* A row: Geist a half-weight lighter and tighter, so it reads as lean against A's firm one. */
+  --text-row: 15px;  --weight-row: 450;  --tracking-row: -0.012em;
+  --text-meta: 12px;
 }

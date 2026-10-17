@@ -72,6 +72,7 @@
   text-transform: uppercase;
 }
 :root[data-type] .armada-card-title { color: var(--fg-muted); }
+:root[data-type] .deck-list__repository { font-size: calc(var(--text-head) - 1.5px); line-height: var(--leading-sm); }
 :root[data-type] .armada-card-header { padding-bottom: var(--space-2); }
 
 /* A title is stronger than a header and reads as a sentence: sentence case, a touch tight. */
@@ -82,11 +83,28 @@
 }
 :root[data-type] .armada-account-screen__title { font-size: var(--text-title); line-height: var(--leading-title); }
 
-/* Metadata is quieter: the regular weight, figures that line up. */
-:root[data-type] :is(.deck-row__said, .deck-bay__time) { font-weight: var(--weight-body); font-variant-numeric: tabular-nums; }
+/* The places in the title bar are the loudest type on screen: the display face, caps, tracked to the face. */
+:root[data-type] .deck-places .armada-tabs__tab {
+  font-family: var(--font-display);
+  font-size: var(--text-nav);
+  font-weight: var(--weight-nav);
+  letter-spacing: var(--tracking-nav);
+}
+:root[data-type] .deck-places .armada-tabs__tab--active { font-weight: var(--weight-nav); }
+
+/* A row has three voices: the title in the body face, firm; the meta in the mono, small; the age with it. */
+:root[data-type] .deck-row__title { font-size: var(--text-row); font-weight: var(--weight-row); letter-spacing: var(--tracking-row); }
+:root[data-type] .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+:root[data-type] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-row); }
+:root[data-type] :is(.deck-row__said, .deck-bay__time) {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+}
 
 /* A large figure is light and tight; the bay's number is the one in the Cockpit. */
-:root[data-type] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name) {
+:root[data-type] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-autopilot__cap dd, .armada-title-bar__usage-meter) {
   font-family: var(--font-figure);
   font-weight: var(--weight-light);
   letter-spacing: var(--tracking-figure);
