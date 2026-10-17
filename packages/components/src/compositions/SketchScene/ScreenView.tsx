@@ -50,7 +50,7 @@ function Glyph({ name, size = 16 }: { name: ScreenIcon; size?: number }) {
 function Act({ act, variant = "ghost", compact = false }: { act: ScreenAct; variant?: "primary" | "secondary" | "ghost"; compact?: boolean }) {
   const one = typeof act === "string" ? { text: act } : act;
   return (
-    <span className="armada-wf__button" data-variant={variant} data-compact={compact || undefined} data-icon-only={one.text === undefined || undefined}>
+    <span className="armada-wireframe__button" data-variant={variant} data-compact={compact || undefined} data-icon-only={one.text === undefined || undefined}>
       {one.icon === undefined ? null : <Glyph name={one.icon} size={compact ? 14 : 16} />}
       {one.text === undefined ? null : <span>{one.text}</span>}
     </span>
@@ -67,7 +67,7 @@ function Items({ items, active }: { items: readonly ScreenAct[]; active: string 
   return items.map((act, at) => {
     const one = typeof act === "string" ? { text: act } : act;
     return (
-      <span key={`${one.text ?? one.icon ?? ""}${String(at)}`} className="armada-wf__item" data-active={sameItem(act, active) || undefined} data-icon-only={one.text === undefined || undefined}>
+      <span key={`${one.text ?? one.icon ?? ""}${String(at)}`} className="armada-wireframe__item" data-active={sameItem(act, active) || undefined} data-icon-only={one.text === undefined || undefined}>
         {one.icon === undefined ? null : <Glyph name={one.icon} />}
         {one.text === undefined ? null : <span>{one.text}</span>}
       </span>
@@ -85,18 +85,18 @@ function Field({ el, root }: { el: Extract<ScreenElement, { type: "field" }>; ro
   const on = el.value === "on";
   return (
     <div {...root} data-kind={kind}>
-      {el.label === undefined || kind === "checkbox" || kind === "toggle" ? null : <span className="armada-wf__label">{el.label}</span>}
+      {el.label === undefined || kind === "checkbox" || kind === "toggle" ? null : <span className="armada-wireframe__label">{el.label}</span>}
       {kind === "checkbox" || kind === "toggle" ? (
-        <span className="armada-wf__choice">
-          <span className="armada-wf__mark" data-kind={kind} data-on={on || undefined}>
+        <span className="armada-wireframe__choice">
+          <span className="armada-wireframe__mark" data-kind={kind} data-on={on || undefined}>
             {kind === "checkbox" && on ? <Check size={12} strokeWidth={2.5} aria-hidden /> : null}
           </span>
           {el.label === undefined ? null : <span>{el.label}</span>}
         </span>
       ) : (
-        <span className="armada-wf__control" data-placeholder={el.value === undefined || undefined}>
+        <span className="armada-wireframe__control" data-placeholder={el.value === undefined || undefined}>
           {kind === "search" ? <Search size={14} strokeWidth={1.75} aria-hidden /> : null}
-          <span className="armada-wf__value">{shown ?? " "}</span>
+          <span className="armada-wireframe__value">{shown ?? " "}</span>
           {kind === "select" ? <ChevronDown size={14} strokeWidth={1.75} aria-hidden /> : null}
         </span>
       )}
@@ -114,7 +114,7 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
   // Under a part that stands back, nothing else is decided: it is one faded thing.
   const down: Ctx = dim ? { ...ctx, at: undefined } : { ...ctx, inside: ctx.inside || current };
   const root: Roots = {
-    className: `armada-wf armada-wf--${el.type}`,
+    className: `armada-wireframe armada-wireframe--${el.type}`,
     "data-axis": ctx.axis,
     "data-align": el.align,
     // A modal rings its dialog, not the scrim round it.
@@ -143,62 +143,62 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root} data-chrome={el.chrome}>
           {el.chrome === "desktop" ? (
-            <div className="armada-wf__chrome">
-              <span className="armada-wf__dots" aria-hidden>
+            <div className="armada-wireframe__chrome">
+              <span className="armada-wireframe__dots" aria-hidden>
                 <span />
                 <span />
                 <span />
               </span>
-              <span className="armada-wf__window-title">{el.title}</span>
+              <span className="armada-wireframe__window-title">{el.title}</span>
             </div>
           ) : el.chrome === "browser" ? (
-            <div className="armada-wf__chrome">
-              <div className="armada-wf__tabstrip">
-                <span className="armada-wf__tab">{el.title ?? " "}</span>
+            <div className="armada-wireframe__chrome">
+              <div className="armada-wireframe__tabstrip">
+                <span className="armada-wireframe__tab">{el.title ?? " "}</span>
               </div>
-              <div className="armada-wf__toolbar">
+              <div className="armada-wireframe__toolbar">
                 <ChevronLeft size={16} strokeWidth={1.75} aria-hidden />
                 <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
                 <RefreshCw size={14} strokeWidth={1.75} aria-hidden />
-                <span className="armada-wf__address">
+                <span className="armada-wireframe__address">
                   <Lock size={12} strokeWidth={1.75} aria-hidden />
                   <span>{el.url}</span>
                 </span>
               </div>
             </div>
           ) : (
-            <div className="armada-wf__chrome">
-              <span className="armada-wf__clock">9:41</span>
-              <span className="armada-wf__signal" aria-hidden>
+            <div className="armada-wireframe__chrome">
+              <span className="armada-wireframe__clock">9:41</span>
+              <span className="armada-wireframe__signal" aria-hidden>
                 <span />
                 <span />
                 <span />
-                <span className="armada-wf__battery" />
+                <span className="armada-wireframe__battery" />
               </span>
             </div>
           )}
-          <div className="armada-wf__window-body">
+          <div className="armada-wireframe__window-body">
             <Kids el={el} ctx={down} axis="column" />
           </div>
-          {el.chrome === "phone" ? <span className="armada-wf__home" aria-hidden /> : null}
+          {el.chrome === "phone" ? <span className="armada-wireframe__home" aria-hidden /> : null}
         </div>
       );
     case "nav":
       return (
         <div {...root} data-vertical={el.vertical || undefined}>
           {el.brand === undefined ? null : (
-            <span className="armada-wf__brand">
-              {el.vertical ? null : <span className="armada-wf__logo" aria-hidden />}
+            <span className="armada-wireframe__brand">
+              {el.vertical ? null : <span className="armada-wireframe__logo" aria-hidden />}
               <span>{el.brand}</span>
             </span>
           )}
           {el.items === undefined ? null : (
-            <span className="armada-wf__items">
+            <span className="armada-wireframe__items">
               <Items items={el.items} active={el.active} />
             </span>
           )}
           {el.actions === undefined ? null : (
-            <span className="armada-wf__actions">
+            <span className="armada-wireframe__actions">
               {el.actions.map((act, at) => (
                 <Act key={String(at)} act={act} />
               ))}
@@ -210,13 +210,13 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root}>
           {el.title === undefined && el.icon === undefined && el.actions === undefined ? null : (
-            <div className="armada-wf__head">
+            <div className="armada-wireframe__head">
               {el.icon === undefined ? null : <Glyph name={el.icon} size={14} />}
-              <span className="armada-wf__head-title">{el.title}</span>
+              <span className="armada-wireframe__head-title">{el.title}</span>
               {el.actions?.map((act, at) => <Act key={String(at)} act={act} variant="secondary" compact />)}
             </div>
           )}
-          <div className="armada-wf__panel-body" data-gap={el.gap ?? "sm"} data-pad={el.pad ?? "md"}>
+          <div className="armada-wireframe__panel-body" data-gap={el.gap ?? "sm"} data-pad={el.pad ?? "md"}>
             <Kids el={el} ctx={down} axis="column" />
           </div>
         </div>
@@ -225,7 +225,7 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root}>
           {el.items.map((one, at) => (
-            <span key={`${one}${String(at)}`} className="armada-wf__tab-item" data-active={one === el.active || undefined}>
+            <span key={`${one}${String(at)}`} className="armada-wireframe__tab-item" data-active={one === el.active || undefined}>
               {one}
             </span>
           ))}
@@ -235,10 +235,10 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root}>
           {el.rows.map((one, at) => (
-            <div key={`${one.text}${String(at)}`} className="armada-wf__row" data-selected={one.selected || undefined}>
+            <div key={`${one.text}${String(at)}`} className="armada-wireframe__row" data-selected={one.selected || undefined}>
               {one.icon === undefined ? null : <Glyph name={one.icon} size={14} />}
-              <span className="armada-wf__row-text">{one.text}</span>
-              {one.meta === undefined ? null : <span className="armada-wf__meta">{one.meta}</span>}
+              <span className="armada-wireframe__row-text">{one.text}</span>
+              {one.meta === undefined ? null : <span className="armada-wireframe__meta">{one.meta}</span>}
             </div>
           ))}
         </div>
@@ -281,7 +281,7 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root} data-style={style} data-bars>
           {Array.from({ length: lines }, (_, at) => (
-            <span key={String(at)} className="armada-wf__bar" style={{ inlineSize: lines > 1 && at === lines - 1 ? "60%" : BAR_WIDTHS[at % BAR_WIDTHS.length] }} aria-hidden />
+            <span key={String(at)} className="armada-wireframe__bar" style={{ inlineSize: lines > 1 && at === lines - 1 ? "60%" : BAR_WIDTHS[at % BAR_WIDTHS.length] }} aria-hidden />
           ))}
         </div>
       );
@@ -289,11 +289,11 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
     case "image":
       return (
         <div {...root}>
-          <svg className="armada-wf__cross" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          <svg className="armada-wireframe__cross" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
             <line x1="0" y1="0" x2="100" y2="100" vectorEffect="non-scaling-stroke" />
             <line x1="100" y1="0" x2="0" y2="100" vectorEffect="non-scaling-stroke" />
           </svg>
-          {el.label === undefined ? null : <span className="armada-wf__caption">{el.label}</span>}
+          {el.label === undefined ? null : <span className="armada-wireframe__caption">{el.label}</span>}
         </div>
       );
     case "avatar":
@@ -319,7 +319,7 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
       return (
         <div {...root}>
           {el.messages.map((one, at) => (
-            <p key={String(at)} className="armada-wf__message" data-from={one.from}>
+            <p key={String(at)} className="armada-wireframe__message" data-from={one.from}>
               {one.text}
             </p>
           ))}
@@ -328,12 +328,12 @@ function Part({ el, ctx }: { el: ScreenElement; ctx: Ctx }) {
     case "modal":
       return (
         <div {...root} data-hidden={hidden || undefined}>
-          <div className="armada-wf__dialog" data-current={current || undefined}>
-            <div className="armada-wf__head">
-              <span className="armada-wf__head-title">{el.title}</span>
+          <div className="armada-wireframe__dialog" data-current={current || undefined}>
+            <div className="armada-wireframe__head">
+              <span className="armada-wireframe__head-title">{el.title}</span>
               <X size={16} strokeWidth={1.75} aria-hidden />
             </div>
-            <div className="armada-wf__panel-body" data-gap="sm" data-pad="md">
+            <div className="armada-wireframe__panel-body" data-gap="sm" data-pad="md">
               <Kids el={el} ctx={down} axis="column" />
             </div>
           </div>

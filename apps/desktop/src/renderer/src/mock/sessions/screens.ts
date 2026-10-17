@@ -74,7 +74,7 @@ const OPEN: ScreenElement = {
           gap: "sm",
           pad: "sm",
           children: [
-            { type: "panel", title: "Field", children: [{ type: "image", label: "Field" }] },
+            { type: "panel", title: "Field", children: [{ type: "image" }] },
             {
               type: "panel",
               title: "Progress",
