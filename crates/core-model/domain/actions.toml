@@ -522,7 +522,7 @@ shortcut = "/"
 scope = "review"
 destructive = false
 confirms = false
-notes = "Puts up the box a find is written in, in place of the list. Mock-backed until agent runs land: nothing is searched on the forge."
+notes = "Puts up the box a Natural Search is written in, in place of the list. Sending it asks first, since a Drone looks across every repository."
 
 [actions.review_quick]
 kind = "Action"
@@ -559,6 +559,18 @@ scope = "review"
 destructive = false
 confirms = false
 notes = "Shows or hides the description of the open pull request, which tucks away once an explanation is chosen."
+
+[actions.review_where]
+kind = "Action"
+tier = "Contextual"
+verb = "Show where changes run"
+icon = ""
+icon_absent = "undecided"
+shortcut = "W"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Opens the sheet of places Armada remembers a change runs, by repository and area, from anywhere on the Reviews tab outside a text box. Each can be edited or forgotten there. `W` is the capital: `w` is `call_recall`, in the dashboard scope."
 
 [actions.deck_tabs]
 kind = "Action"

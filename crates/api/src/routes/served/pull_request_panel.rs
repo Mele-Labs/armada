@@ -49,4 +49,49 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/review_runs/:repository/:number",
     },
+    Route {
+        operation: "start_review_search",
+        method: "POST",
+        path: "/review_searches",
+    },
+    Route {
+        operation: "get_review_searches",
+        method: "GET",
+        path: "/review_searches",
+    },
+    Route {
+        operation: "forget_review_search",
+        method: "POST",
+        path: "/review_searches/forget",
+    },
+    Route {
+        operation: "find_walk_place",
+        method: "GET",
+        path: "/walk_finds/:repository/:number",
+    },
+    Route {
+        operation: "list_walk_places",
+        method: "GET",
+        path: "/walk_places",
+    },
+    Route {
+        operation: "save_walk_place",
+        method: "POST",
+        path: "/walk_places/:repository",
+    },
+    Route {
+        operation: "forget_walk_place",
+        method: "POST",
+        path: "/walk_places/:repository/:id/forget",
+    },
+    Route {
+        operation: "open_review_walk",
+        method: "POST",
+        path: "/review_walks/:repository",
+    },
+    Route {
+        operation: "close_review_walk",
+        method: "POST",
+        path: "/review_walks/:repository/:id/close",
+    },
 ];

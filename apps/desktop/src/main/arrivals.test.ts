@@ -49,7 +49,7 @@ function fakeHost(
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
-    reviews: { changed: () => {} },
+    reviews: { changed: () => {}, walkChanged: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
@@ -135,8 +135,18 @@ describe("a review run, off `review_run.changed`", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
     const run = { manifest_id: "armada", number: 7, kind: "tool", name: "risks", head: "abc1234", state: "running", started_at: "2026-10-16T10:00:00Z" };
-    applyArrival({ ...host, reviews: { changed } }, JSON.stringify({ message: "event", cursor: 9, event: { kind: "review_run.changed", run } }), FLEET);
+    applyArrival({ ...host, reviews: { changed, walkChanged: () => {} } }, JSON.stringify({ message: "event", cursor: 9, event: { kind: "review_run.changed", run } }), FLEET);
     expect(changed).toHaveBeenCalledWith(run);
+  });
+});
+
+describe("a held review walk, off `review_walk.changed`", () => {
+  it("is told to the windows whole", () => {
+    const { host } = fakeHost();
+    const walkChanged = vi.fn();
+    const walk = { id: "w1", manifest_id: "armada", number: 7, state: "starting", slot: 3, address: "http://localhost:5173" };
+    applyArrival({ ...host, reviews: { changed: () => {}, walkChanged } }, JSON.stringify({ message: "event", cursor: 10, event: { kind: "review_walk.changed", walk } }), FLEET);
+    expect(walkChanged).toHaveBeenCalledWith(walk);
   });
 });
 

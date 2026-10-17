@@ -72,6 +72,8 @@ mod preferring;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
+/// Natural Search and the Walk tool's routes, beside a pull request's runs.
+mod review_walks;
 mod receipts;
 mod reconciling;
 /// The run sheet's routes: a person's run of one Manifest entry in a Job's

@@ -249,7 +249,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // that much lower in this document.
   const lowered = (box: CaptureBox): CaptureBox => ({ ...box, y: box.y + strip() });
   const studio = state.studio === null ? null : (state.studio.name ?? UNTITLED_STUDIO);
-  const aim = state.serving ? `Onto ${studio ?? state.session?.title ?? ""}` : "The run ended — nothing more is captured";
+  // A pull request's walk with no Session holding it keeps its notes in Armada, which the bar words as a Studio's name.
+  const keptIn = state.review !== undefined && state.review.holder === undefined ? "Armada" : null;
+  const aim = state.serving ? `Onto ${studio ?? state.session?.title ?? state.review?.holder ?? keptIn ?? ""}` : "The run ended — nothing more is captured";
   const panel = state.panel;
 
   return (
@@ -258,8 +260,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
         <CaptureBar
           {...(state.shown.name === null ? {} : { run: state.shown.name })}
           address={state.shown.address}
-          studio={studio}
-          {...(state.session === undefined ? {} : { session: state.session.title })}
+          studio={studio ?? keptIn}
+          {...(state.session !== undefined ? { session: state.session.title } : state.review?.holder === undefined ? {} : { session: state.review.holder })}
           {...(state.session === undefined ? {} : { onOpenOwner: () => void api.openOwner() })}
           serving={state.serving}
           armed={armed}

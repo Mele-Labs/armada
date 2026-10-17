@@ -381,6 +381,53 @@ where
         self.review_runs_read(manifest_id, number).await
     }
 
+    async fn start_review_search(
+        self: std::sync::Arc<Self>,
+        start: ipc::StartReviewSearch,
+    ) -> Result<ipc::ReviewRun, Refusal> {
+        self.review_search_started(start).await
+    }
+
+    async fn get_review_searches(&self) -> Result<ipc::ReviewRuns, Refusal> {
+        self.review_searches_read().await
+    }
+
+    async fn forget_review_search(&self, forget: ipc::ForgetReviewSearch) -> Result<ipc::ReviewRuns, Refusal> {
+        self.review_search_forgotten(forget).await
+    }
+
+    async fn find_walk_place(&self, manifest_id: ManifestId, number: u64) -> Result<ipc::WalkPlaceFound, Refusal> {
+        self.walk_place_found(manifest_id, number).await
+    }
+
+    async fn list_walk_places(&self) -> Result<ipc::RememberedPlaces, Refusal> {
+        self.walk_places_listed().await
+    }
+
+    async fn save_walk_place(
+        &self,
+        manifest_id: ManifestId,
+        save: ipc::SaveWalkPlace,
+    ) -> Result<ipc::RememberedPlace, Refusal> {
+        self.walk_place_saved(manifest_id, save).await
+    }
+
+    async fn forget_walk_place(&self, manifest_id: ManifestId, id: String) -> Result<ipc::RememberedPlaces, Refusal> {
+        self.walk_place_forgotten(manifest_id, id).await
+    }
+
+    async fn open_review_walk(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        open: ipc::OpenReviewWalk,
+    ) -> Result<ipc::ReviewWalk, Refusal> {
+        self.review_walk_opened(manifest_id, open).await
+    }
+
+    async fn close_review_walk(&self, manifest_id: ManifestId, id: String) -> Result<ipc::ReviewWalk, Refusal> {
+        self.review_walk_closed(manifest_id, id).await
+    }
+
     async fn resolve_review_thread(
         &self,
         manifest_id: ManifestId,

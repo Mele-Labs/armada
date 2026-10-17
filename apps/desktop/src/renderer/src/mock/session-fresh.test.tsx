@@ -50,7 +50,10 @@ function served(fleet: FakeSessionsFleet): Scenario {
 async function open(title: string, view: "Active" | "Ended" = "Active") {
   await toSession(title, view);
 }
-const mark = () => page.getByRole("button", { name: "Fresh start" });
+const more = () => page.getByRole("button", { name: "More" });
+const item = (name: string) => page.getByRole("menuitem", { name });
+/** Opens the head's More menu; the fresh start's acts are in it or they are not. */
+const openMore = () => userEvent.click(more());
 
 test("The composer's Model select reads the version the process resolved, and the alias or the default before it has said", async () => {
   const scenario = served(new FakeSessionsFleet(records(), threads()));
@@ -70,18 +73,26 @@ test("The composer's Model select reads the version the process resolved, and th
   await expect.element(page.getByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
 });
 
-test("A Session past 300k of context, or a day, offers a fresh start, and a small new one or an ended one does not", async () => {
+test("A Session past 300k of context, or a day, offers New Job in its More menu, and a small new one or an ended one does not", async () => {
   mount(served(new FakeSessionsFleet(records(), threads())));
   await onScreen();
 
   await open("Big one");
-  await expect.element(mark()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Fresh start" })).not.toBeInTheDocument();
+  await openMore();
+  await expect.element(item("New Job")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
   await open("Old one");
-  await expect.element(mark()).toBeVisible();
+  await openMore();
+  await expect.element(item("New Job")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
   await open("Small one");
-  await expect.element(mark()).not.toBeInTheDocument();
+  await openMore();
+  await expect.element(item("New Job")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
   await open("Ended one", "Ended");
-  await expect.element(mark()).not.toBeInTheDocument();
+  await openMore();
+  await expect.element(item("New Job")).not.toBeInTheDocument();
 });
 
 test("Fork starts a new Session from the conversation as it stands, and the old one is left as it was", async () => {
@@ -90,14 +101,14 @@ test("Fork starts a new Session from the conversation as it stands, and the old 
   await onScreen();
 
   await open("Big one");
-  await userEvent.click(mark());
-  await userEvent.click(page.getByRole("dialog", { name: "Fresh start" }).getByRole("button", { name: "Fork" }));
+  await openMore();
+  await userEvent.click(item("Fork"));
 
   await expect.poll(() => fleet.calls.forkedAt).toEqual([{ sessionId: BIG, at: "m2" }]);
   await expect.element(page.getByRole("group", { name: "Forked from Big one" })).toBeVisible();
 });
 
-test("New Session asks the old one for its handoff and opens a new one whose first message is the reply", async () => {
+test("New Job asks the old one for its handoff and opens a new one whose first message is the reply", async () => {
   const fleet = new FakeSessionsFleet(records(), threads());
   fleet.startsNow = true;
   fleet.keepsRows = true;
@@ -108,8 +119,8 @@ test("New Session asks the old one for its handoff and opens a new one whose fir
   await onScreen();
 
   await open("Big one");
-  await userEvent.click(mark());
-  await userEvent.click(page.getByRole("dialog", { name: "Fresh start" }).getByRole("button", { name: "New Session" }));
+  await openMore();
+  await userEvent.click(item("New Job"));
 
   // The old Session is asked, in words of the person's, and nothing is typed.
   await expect.poll(() => fleet.calls.sent[0]).toMatchObject({ session_id: BIG, text: HANDOFF_ASK });

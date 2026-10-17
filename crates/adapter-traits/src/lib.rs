@@ -489,6 +489,18 @@ pub trait Vcs {
         Ok(())
     }
 
+    /// The paths the person's commits changed on the repository's default branch, newest first and
+    /// each once: the last `commits` commits `authors` wrote, by name or by email. **The
+    /// repository's own configured identity is added to `authors` here**, so a person whose commits
+    /// carry a name the forge does not know is still found. History is read and nothing is
+    /// written; a repository that will not answer has none.
+    fn paths_touched_by(
+        &self,
+        pool: &SlotPool,
+        authors: &[alloc::string::String],
+        commits: usize,
+    ) -> alloc::vec::Vec<alloc::string::String>;
+
     /// Delete the local branch an act cut for itself, once its work is
     /// committed or the act ended failed. **Handed the spec the branch was cut
     /// from and never a name**, so it can delete one act's branch and no other;

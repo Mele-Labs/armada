@@ -1087,6 +1087,10 @@ impl Vcs for FakeVcs {
         self.noted(self.slots.release(pool, slot, holder).map_err(|kept| kept.0))
     }
 
+    fn paths_touched_by(&self, _pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
+        self.history_read(authors, commits)
+    }
+
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
         self.slots.standing(pool, slot, job_id)
     }

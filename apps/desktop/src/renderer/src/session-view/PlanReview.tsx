@@ -8,6 +8,7 @@ import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit";
+import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
 export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boolean; plan: WorkPlan; ed: PlanEditing; onApprove: () => void; onClose: () => void }) {
@@ -34,6 +35,7 @@ export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boole
   );
   const groups = viewOf(plan, ed.marks);
   return (
+    <OverTheApp open={open}>
     <Sheet kind="plan-review" open={open} floating floor={floor} size="widest" title="Plan" controls={settled} footer={marked || !plan.approved ? foot : undefined} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="sv-review">
         <div className="sv-review__groups">
@@ -51,5 +53,6 @@ export function PlanReview({ open, plan, ed, onApprove, onClose }: { open: boole
         )}
       </div>
     </Sheet>
+    </OverTheApp>
   );
 }
