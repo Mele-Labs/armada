@@ -32,7 +32,7 @@ export const Reported: Story = {
     const card = await screen.findByRole("tooltip");
     await expect(within(card).getByText("Knows").nextElementSibling).toHaveTextContent("19");
     await expect(within(card).getByText("armada:mechanic").nextElementSibling).toHaveTextContent("Armada · sonnet");
-    await expect(within(card).getByText("mcp__github__pull_request_read").nextElementSibling).toHaveTextContent("github");
+    await expect(within(card).getByText("mcp__forge__pull_request_read").nextElementSibling).toHaveTextContent("forge");
 
     await userEvent.click(within(card).getByRole("button", { name: "Show all" }));
     await expect(args.onOpen).toHaveBeenCalledOnce();

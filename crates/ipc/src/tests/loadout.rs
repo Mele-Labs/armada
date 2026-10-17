@@ -12,8 +12,8 @@ fn the_mods_equipped_and_used_facts_read_as_the_contract_spells_them() {
         "a fact",
         br#"{"kind":"equipped","loadout":{"items":[
             {"kind":"skill","name":"land","source":"repository"},
-            {"kind":"mcp_server","name":"github","source":"mcp","from":"github","state":"connected"},
-            {"kind":"tool","name":"mcp__github__get_me","source":"mcp","from":"github","state":"deferred","tokens":120},
+            {"kind":"mcp_server","name":"forge","source":"mcp","from":"forge","state":"connected"},
+            {"kind":"tool","name":"mcp__forge__get_me","source":"mcp","from":"forge","state":"deferred","tokens":120},
             {"kind":"output_style","name":"Explanatory","source":"built_in"},
             {"kind":"rules","name":"policy","source":"managed"}]}}"#,
     )

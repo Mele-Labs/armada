@@ -68,7 +68,7 @@ async fn the_latest_list_and_turn_ride_the_record_and_a_repeat_publishes_nothing
     assert_eq!(first.loadout_summary, None, "nothing equipped is no summary");
     let mut watching = fleet.events().subscribe();
 
-    let list = vec![item(LoadoutKind::Skill, "land"), item(LoadoutKind::Tool, "Read"), item(LoadoutKind::Rules, "CLAUDE.md")];
+    let list = vec![item(LoadoutKind::Skill, "land"), item(LoadoutKind::Tool, "Read"), item(LoadoutKind::Rules, "AGENTS.md")];
     let record = fleet.report_session(report(equipped(list.clone()))).await.unwrap();
     let summary = record.loadout_summary.expect("a summary");
     assert_eq!((summary.knows, summary.told, summary.latest_turn), (2, 1, None));

@@ -12,7 +12,7 @@ import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
-import type { LoadoutItemAsk } from "@armada/screens/src/draft/sessions";
+import type { LoadoutKind, LoadoutSource } from "@armada/protocol";
 
 type Hosts = {
   ipc: IpcMain;
@@ -34,6 +34,8 @@ const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as co
 // **A request main cannot read is not a lost connection**: an answer missing from a list here
 // was told to the owner as Fleet not connected, while it was (16 Oct 2026).
 const unread = { ok: false, outcome: { ok: false, why: "not_understood" } } as const;
+
+type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
 
 /** A Loadout row as the window sent it, its four fields text and nothing else; Fleet refuses a kind or a source it does not know. */
 function loadoutItemAsk(value: unknown): LoadoutItemAsk | undefined {

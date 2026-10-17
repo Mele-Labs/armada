@@ -100,7 +100,7 @@ pub struct LoadoutUse {
     /// When the turn it was made in began, which groups uses by turn.
     pub turn_started_at: Instant,
     pub kind: LoadoutUseKind,
-    /// The skill's name, the tool's (`mcp__github__get_me`) or the subagent's type.
+    /// The skill's name, the tool's (`mcp__forge__get_me`) or the subagent's type.
     pub name: String,
     pub source: LoadoutSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -29,7 +29,7 @@ export const Read: Story = {
     await expect(within(sheet).getByRole("button", { name: latest })).toHaveAttribute("aria-expanded", "true");
     const used = within(sheet).getByRole("list", { name: `Used in the turn at ${turnSaid(TURNS[1]!.started_at)}` });
     await expect(within(used).getByText("armada:mechanic").parentElement).toHaveTextContent("Armada · sonnet");
-    await expect(within(used).getByText("mcp__github__pull_request_read").parentElement).toHaveTextContent("github · by armada:mechanic");
+    await expect(within(used).getByText("mcp__forge__pull_request_read").parentElement).toHaveTextContent("forge · by armada:mechanic");
 
     await userEvent.click(within(sheet).getByRole("button", { name: earlier }));
     await expect(within(sheet).getByRole("button", { name: earlier })).toHaveAttribute("aria-expanded", "true");
@@ -88,8 +88,8 @@ export const OpensAnItem: Story = {
     const skill = within(within(knows).getByRole("region", { name: "Skills" })).getByRole("button", { name: /^work-issue/ });
     await userEvent.click(skill);
     const panel = await screen.findByRole("dialog", { name: "work-issue" });
-    await expect(panel).toHaveTextContent(".claude/skills/work-issue/SKILL.md");
-    await expect(within(panel).getByText("Work one GitHub issue")).toBeInTheDocument();
+    await expect(panel).toHaveTextContent(".harness/skills/work-issue/SKILL.md");
+    await expect(within(panel).getByText("Work one issue")).toBeInTheDocument();
     await expect(skill).toHaveAttribute("aria-current", "true");
 
     await userEvent.click(within(within(sheet).getByRole("region", { name: "Told" })).getByRole("button", { name: /Armada session rules/ }));
@@ -108,12 +108,12 @@ export const OpensAnItem: Story = {
 
 /** An MCP server reads nothing: its panel lists the tools the Loadout gave it, each with its state. */
 export const OpensAServer: Story = {
-  args: { onOpenItem: fn(), opened: { item: { kind: "mcp_server", name: "github", source: "mcp", from: "github" } } },
+  args: { onOpenItem: fn(), opened: { item: { kind: "mcp_server", name: "forge", source: "mcp", from: "forge" } } },
   render: (args) => <Opening {...args} />,
   play: async () => {
-    const panel = await screen.findByRole("dialog", { name: "github" });
+    const panel = await screen.findByRole("dialog", { name: "forge" });
     const tools = within(panel).getByRole("region", { name: "Tools" });
-    await expect(within(tools).getByText("mcp__github__search_code").parentElement).toHaveTextContent("Deferred");
+    await expect(within(tools).getByText("mcp__forge__search_code").parentElement).toHaveTextContent("Deferred");
     await expect(within(tools).queryByText("Read")).not.toBeInTheDocument();
   },
 };

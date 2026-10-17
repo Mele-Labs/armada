@@ -29,11 +29,14 @@ export type LoadoutItemPanelProps = {
  * handed to Prose as the fenced block it reads as.
  */
 function fencedFrontMatter(body: string): string {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(body);
-  if (match === null) return body;
-  const runs = match[1]!.match(/`+/g) ?? [];
+  const lines = body.split("\n");
+  if (lines[0]?.replace(/\r$/, "") !== "---") return body;
+  const close = lines.findIndex((line, at) => at >= 2 && line.trimEnd() === "---");
+  if (close === -1) return body;
+  const inner = lines.slice(1, close).join("\n").replace(/\r$/, "");
+  const runs = inner.match(/`+/g) ?? [];
   const fence = "`".repeat(Math.max(3, ...runs.map((one) => one.length + 1)));
-  return `${fence}yaml\n${match[1]}\n${fence}\n\n${body.slice(match[0].length)}`;
+  return `${fence}yaml\n${inner}\n${fence}\n\n${lines.slice(close + 1).join("\n")}`;
 }
 
 const STATE_SAID: Partial<Record<NonNullable<LoadoutItem["state"]>, string>> = { loaded: "Loaded", deferred: "Deferred" };

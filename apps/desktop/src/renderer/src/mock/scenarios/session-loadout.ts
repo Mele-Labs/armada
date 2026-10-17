@@ -1,6 +1,6 @@
 // A Session whose agent reported its Loadout: skills from the repository, Armada, Kit and a plugin, two MCP servers
-// of which one failed, and four turns, the third dispatching `armada:mechanic` on sonnet, calling a GitHub MCP tool
-// and a repository skill. What a row opens is served for a repository skill, an Armada agent file, CLAUDE.md and the
+// of which one failed, and four turns, the third dispatching `armada:mechanic` on sonnet, calling a forge MCP tool
+// and a repository skill. What a row opens is served for a repository skill, an Armada agent file, AGENTS.md and the
 // session rules, and a built in tool says why it has no file. The walk `session-loadout` plays it.
 
 import type { LoadoutItem, LoadoutSummary, LoadoutTurn, LoadoutUse, RepositorySummary, SessionLoadout, SessionRow } from "@armada/protocol";
@@ -33,7 +33,7 @@ const ITEMS: LoadoutItem[] = [
   item("subagent", "armada:mechanic", "armada"),
   item("subagent", "Explore", "built_in"),
   item("subagent", "general-purpose", "built_in"),
-  item("mcp_server", "github", "mcp", { from: "github", state: "connected" }),
+  item("mcp_server", "forge", "mcp", { from: "forge", state: "connected" }),
   item("mcp_server", "gitnexus", "mcp", { from: "gitnexus", state: "failed" }),
   item("mcp_server", "armada-fleet", "armada", { state: "connected" }),
   item("tool", "Read", "built_in", { state: "loaded" }),
@@ -41,12 +41,12 @@ const ITEMS: LoadoutItem[] = [
   item("tool", "Bash", "built_in", { state: "loaded" }),
   item("tool", "Grep", "built_in", { state: "loaded" }),
   item("tool", "Agent", "built_in", { state: "loaded" }),
-  item("tool", "mcp__github__pull_request_read", "mcp", { from: "github", state: "loaded" }),
-  item("tool", "mcp__github__search_code", "mcp", { from: "github", state: "deferred" }),
+  item("tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", state: "loaded" }),
+  item("tool", "mcp__forge__search_code", "mcp", { from: "forge", state: "deferred" }),
   item("tool", "mcp__armada-fleet__list_jobs", "armada", { state: "deferred" }),
-  item("memory_file", "CLAUDE.md", "repository", { tokens: 2_100 }),
+  item("memory_file", "AGENTS.md", "repository", { tokens: 2_100 }),
   item("memory_file", "docs/practices/bridge.md", "repository", { tokens: 4_800 }),
-  item("memory_file", "~/.claude/CLAUDE.md", "kit", { tokens: 600 }),
+  item("memory_file", "~/.harness/AGENTS.md", "kit", { tokens: 600 }),
   item("memory_file", "Organisation policy", "managed", { tokens: 300 }),
   item("output_style", "Explanatory", "kit"),
   item("rules", "Armada session rules", "armada"),
@@ -67,7 +67,7 @@ const TURNS: LoadoutTurn[] = [
   turn(6, (t) => [use(t, "skill", "armada-components", "repository"), use(t, "tool", "Edit", "built_in"), use(t, "tool", "Bash", "built_in")]),
   turn(14, (t) => [
     use(t, "subagent", "armada:mechanic", "armada", { model: "sonnet" }),
-    use(t, "tool", "mcp__github__pull_request_read", "mcp", { from: "github", by: "armada:mechanic" }),
+    use(t, "tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", by: "armada:mechanic" }),
     use(t, "skill", "commit-message", "repository"),
     use(t, "tool", "Bash", "built_in", { by: "armada:mechanic" }),
   ]),
@@ -78,7 +78,7 @@ const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };
 
 const WORK_ISSUE = `---
 name: work-issue
-description: How to work one GitHub issue: worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
+description: How to work one issue: worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
 ---
 
 # Working one issue
@@ -105,7 +105,7 @@ const MECHANIC = `---
 name: mechanic
 description: Fixes a Check that failed on a Session's branch, and pushes the fix. Dispatched by Armada when a Check fails.
 model: sonnet
-tools: Read, Edit, Bash, Grep, mcp__github__pull_request_read
+tools: Read, Edit, Bash, Grep, mcp__forge__pull_request_read
 ---
 
 You are Armada's mechanic. A Check failed on the branch you were given.
@@ -118,7 +118,7 @@ You are Armada's mechanic. A Check failed on the branch you were given.
 Report what failed, what you changed and the Check's result.
 `;
 
-const CLAUDE_MD = `# Armada
+const AGENTS_MD = `# Armada
 
 A macOS app that dispatches coding agents against git repositories and verifies their work before advancing them. Rust daemon, Electron app, one repo.
 
@@ -142,11 +142,11 @@ Progress. Keep your own multi-step work in your task list with TaskCreate and Ta
 
 /** What a row opens, by `loadoutKeyOf`, as `read_loadout_item` answers. Anything else is not found. */
 const BODIES: Record<string, LoadoutItemBody> = {
-  [loadoutKeyOf({ kind: "skill", name: "work-issue", source: "repository" })]: { what: "read", path: ".claude/skills/work-issue/SKILL.md", format: "markdown", body: WORK_ISSUE },
+  [loadoutKeyOf({ kind: "skill", name: "work-issue", source: "repository" })]: { what: "read", path: ".harness/skills/work-issue/SKILL.md", format: "markdown", body: WORK_ISSUE },
   [loadoutKeyOf({ kind: "subagent", name: "armada:mechanic", source: "armada" })]: { what: "read", path: "agents/mechanic.md", format: "markdown", body: MECHANIC },
-  [loadoutKeyOf({ kind: "memory_file", name: "CLAUDE.md", source: "repository" })]: { what: "read", path: "CLAUDE.md", format: "markdown", body: CLAUDE_MD },
+  [loadoutKeyOf({ kind: "memory_file", name: "AGENTS.md", source: "repository" })]: { what: "read", path: "AGENTS.md", format: "markdown", body: AGENTS_MD },
   [loadoutKeyOf({ kind: "rules", name: "Armada session rules", source: "armada" })]: { what: "read", format: "text", body: RULES },
-  [loadoutKeyOf({ kind: "tool", name: "Read", source: "built_in" })]: { what: "not_read", why: "Read is built into Claude Code. It has no file to read." },
+  [loadoutKeyOf({ kind: "tool", name: "Read", source: "built_in" })]: { what: "not_read", why: "Read is built into the agent. It has no file to read." },
 };
 
 const TOLD = new Set<LoadoutItem["kind"]>(["output_style", "rules", "injection"]);
@@ -164,7 +164,7 @@ const records = () => [
     usage: { context_tokens: 96_200, context_window: 1_000_000 },
     loadout_summary: SUMMARY,
     attachments: [held("slot", "2"), held("branch", "fix/mechanic-checks")],
-    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
+    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "vendor-opus-5-5" },
   }),
 ];
 
@@ -172,7 +172,7 @@ const threads = (): Record<string, SessionRow[]> => ({
   [ID]: [
     { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The mechanic pushed without running the Checks. Find out why." },
     { kind: "message", id: "m2", at: at(14), from: { kind: "agent" }, text: "Sent armada:mechanic to read the pull request." },
-    { kind: "message", id: "m3", at: at(22), from: { kind: "agent" }, text: "It ran on sonnet and read the pull request through GitHub's MCP server. gitnexus failed to connect, so it had no code graph." },
+    { kind: "message", id: "m3", at: at(22), from: { kind: "agent" }, text: "It ran on sonnet and read the pull request through the forge MCP server. gitnexus failed to connect, so it had no code graph." },
   ],
 });
 
