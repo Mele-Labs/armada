@@ -1,0 +1,75 @@
+/* The new look, a design mock the owner walks with `?look=new`. Nothing here applies until the page
+   carries `data-look="new"` on its root, so the app without one draws as before and a walk can compare the two.
+
+   Not in the cascade `styles.css` declares and not generated: when he adopts it, the roles move into
+   `src/typography.css` and the scales into `src/spacing.css`, and this file goes.
+
+   Colour is the theme system's. Nothing here sets a ground, a text colour, an accent or a status hue; a token
+   below that looks like one is a `color-mix` of the theme's own, so Dark, Light and a mod's theme carry through.
+   Faces stay IBM Plex: the family is deferred.
+
+   What it changes is the type roles, the spacing and radius rhythm, the four shadow and border levels, the
+   material, and the motion on top of them. The steps `--text-2xs` to `--text-2xl` and `--space-*` are left as
+   they are: the Cockpit's panels are laid out on them, and its layout does not move. */
+
+/* ---- The look ------------------------------------------------------------------------------- */
+:root[data-look="new"] {
+  /* Surfaces are main's: no sheen, no texture, no gradient. Elevation is a hairline and a small neutral shadow. */
+  --head-rule: var(--border-subtle);
+  --bg-step: color-mix(in srgb, var(--fg-default) 6%, transparent);  /* a row under the pointer: one flat step */
+  --bg-step-strong: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised));  /* an active segment: one step over its track */
+
+  --font-display: var(--font-sans);
+  --font-title: var(--font-sans);
+  --font-figure: var(--font-mono);
+  --weight-light: 400;     /* Plex Sans is vendored from 400 up */
+  --weight-head: 600;
+  --tracking-head: 0.12em;
+  --weight-nav: 600;  --tracking-nav: 0.08em;
+  --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
+  --text-meta: 12.5px;
+  --weight-title: 600;
+  --text-head: 13px;       --leading-head: 16px;     /* a panel header: tracked caps in the display face */
+  --text-nav: 15px;        /* the places in the title bar: the loudest type on screen */
+  --text-title: 20px;      --leading-title: 28px;    /* a page or sheet title */
+  --text-figure: var(--text-2xl);                    /* the rare large number */
+  --tracking-title: -0.012em;
+  --tracking-figure: -0.02em;
+
+  /* ---- Rhythm. Panels breathe; the grid the Cockpit sits on does not move. ---- */
+  --pad-card: 24px;
+  --gap-section: 32px;
+  --pad-panel: var(--space-4);
+  --gap-stack: var(--space-3);
+  --radius-sm: 3px;   /* main's */
+  --radius-md: 6px;   /* controls and rows */
+  --radius-lg: 8px;   /* panels, cards and menus */
+
+  /* ---- Four levels of lift. A shadow and the edge that goes with it. ----
+     rest      a card on the canvas, a button at rest
+     hover     the same thing under the pointer
+     lifted    picked up: dragged, pressed into focus, an open card
+     overlay   a layer over everything: menu, popover, dialog, sheet */
+  --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-hover: 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-lifted: 0 4px 12px rgb(0 0 0 / 0.4);
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.5);
+  --edge-rest: var(--border-subtle);
+  --edge-hover: var(--border-default);
+  --edge-lifted: var(--border-strong);
+  --edge-overlay: color-mix(in srgb, var(--border-strong) 82%, var(--fg-default));
+  --shadow-card: var(--shadow-rest);
+
+  /* ---- Motion. Transform and opacity; reduced motion zeroes the durations and `motion.css` stops the rest. ---- */
+  --lift: -1px;
+  --pop-from: 0.97;
+  --pop-rise: -4px;
+}
+
+/* A light theme's shadows are slate and lighter, not black. */
+:root[data-look="new"][data-theme="light"] {
+  --shadow-rest: 0 1px 2px rgb(15 23 42 / 0.08);
+  --shadow-hover: 0 2px 6px rgb(15 23 42 / 0.1);
+  --shadow-lifted: 0 4px 12px rgb(15 23 42 / 0.12);
+  --shadow-overlay: 0 8px 24px rgb(15 23 42 / 0.16);
+}
