@@ -209,15 +209,6 @@ async fn the_job_that_opened_the_merging_pull_request_is_found() {
     let merge = kept(&fleet).await.unwrap().merge.unwrap();
     assert_eq!(merge.number, 1);
     assert_eq!(merge.job.as_ref(), Some(job.id()));
-    let titled = the_hub(&fleet)
-        .await
-        .main
-        .unwrap()
-        .merge
-        .unwrap()
-        .job
-        .unwrap();
-    assert_eq!(titled.title, job.title().as_str());
 }
 
 #[tokio::test]
@@ -418,7 +409,6 @@ async fn open_pull_requests_are_listed_once_a_visit_with_their_ci() {
         "main is green, so a failure is the branch's own"
     );
     assert_eq!(hub.pull_requests[0].author.as_deref(), Some("nick"));
-    assert!(hub.fixing.is_none());
 }
 
 #[tokio::test]
@@ -509,7 +499,6 @@ async fn the_hub_names_a_reds_jobs_and_a_fix_still_running_does_not_clear_it() {
     assert_eq!(main.failed[0].check.as_deref(), Some("test"));
     assert_eq!(main.failed[0].tests, ["tests::one", "tests::nested::two"]);
     assert_eq!(main.merge.as_ref().map(|merge| merge.number), Some(1815));
-    assert!(main.merge.unwrap().job.is_none(), "a person's");
 
     forge.head_is(Some(TWO));
     forge.runs_on(TWO, vec![run("ci", "21", CiState::Pending)]);

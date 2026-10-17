@@ -1,8 +1,7 @@
-//! Taking a Job over, as the fake answers it: the status moves and nothing
-//! else does. What the real thing ends and hands over is
-//! `fleet::piloting`'s, against a scripted Fleet.
+//! Ending a pilot, as the fake answers it: the status moves and nothing else does. What the real
+//! thing does is `fleet::piloting`'s, against a scripted Fleet.
 
-use ipc::{HandoffBundle, JobId, JobSummary, PilotNote, TakeOver};
+use ipc::{JobId, JobSummary, PilotNote};
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
@@ -27,44 +26,6 @@ impl FakeDaemon {
 }
 
 impl Piloting for FakeDaemon {
-    async fn take_over(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        request: TakeOver,
-    ) -> Result<JobSummary, Refusal> {
-        let status = {
-            let jobs = self.jobs.lock().expect("not poisoned");
-            let job = jobs
-                .iter()
-                .find(|job| job.id == job_id)
-                .ok_or_else(|| self.no_such_job(&job_id))?;
-            job.status.as_wire().to_string()
-        };
-        self.move_to(&job_id, &status, "piloted", "human")?;
-        let mut jobs = self.jobs.lock().expect("not poisoned");
-        let job = jobs
-            .iter_mut()
-            .find(|job| job.id == job_id)
-            .ok_or_else(|| self.no_such_job(&job_id))?;
-        job.piloted = Some(ipc::Piloted {
-            reason: match request.outcome {
-                ipc::PilotOutcome::TakeOver => "take_over",
-                ipc::PilotOutcome::RestartStep => "restart_step",
-            }
-            .to_string(),
-            session_id: request.session_id,
-            since: ipc::Instant::carried("2026-10-07T09:00:00.000Z"),
-            exit: None,
-            ended_at: None,
-            note: None,
-        });
-        Ok(job.clone())
-    }
-
-    async fn get_handoff(&self, job_id: JobId) -> Result<HandoffBundle, Refusal> {
-        Err(self.not_piloted(&job_id))
-    }
-
     async fn submit_for_verification(
         self: std::sync::Arc<Self>,
         job_id: JobId,

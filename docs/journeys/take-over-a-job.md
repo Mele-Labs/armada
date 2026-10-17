@@ -6,6 +6,8 @@ Design fidelity: drawn. Analysis: Complete. UI/UX design: Complete.
 
 ---
 
+**Taking a Job over from a Session is gone (17 Oct 2026):** `take_over` and the Session it opened are removed, and only the exits for a Job already piloted remain on Job detail. See [Pilot](../concepts/pilot.md). The flow below is kept until Jobs are deleted.
+
 **Trigger:** A Drone is stuck, going the wrong way, or working on something you would rather do yourself.
 
 **Concepts touched:** Pilot, Drone, Job.

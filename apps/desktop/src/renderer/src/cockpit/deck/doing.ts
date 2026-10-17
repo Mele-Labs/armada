@@ -16,13 +16,11 @@ export type Doing = "read" | "write" | "run";
 /** How a Check stands, for the ring a running drone circles on: running now, passed, failing. */
 export type Check = "run" | "ok" | "bad";
 
-/** The timeline kinds that say what a tool did. A Job's `job.files` names one file and is not a burst. */
+/** The timeline kinds that say what a tool did. */
 const DOING: Partial<Record<TimelineKind, Doing>> = {
   "session.read": "read",
-  "job.read": "read",
   "session.edited": "write",
   "session.ran": "run",
-  "job.ran": "run",
 };
 
 /** How long after its `at` a burst can still be the present: the longest it stays open, and the quiet that closes it. */

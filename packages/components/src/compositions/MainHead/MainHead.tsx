@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactNode } from "react";
-import { Box, Clock, GitMerge, Hammer, Monitor, SquareTerminal } from "lucide-react";
+import { Clock, GitMerge, Hammer, Monitor, SquareTerminal } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -20,11 +20,8 @@ import { RegisteredOwner, type RegisteredOwnerRow } from "../RegisteredOwner/Reg
  * red, each a link, then either the Job that took it or the two ways to hand it to one.
  */
 
-/** A Job, by its id and what it is called. */
-export type HubJob = { id: string; title: string };
-
 /** A Job the work can be sent back to. */
-export type RecentJob = HubJob & { branch: string };
+export type RecentJob = { id: string; title: string; branch: string };
 
 /** A Session, by its id and what it is called. */
 export type HubSession = { id: string; title: string };
@@ -57,9 +54,7 @@ export type MainRed = {
     branch?: string;
     /** Absent draws the branch as text. */
     branchUrl?: string;
-    /** The Job whose pull request it was. Absent for a person's. */
-    job?: HubJob;
-    /** The Session whose pull request it was. Absent for a Job's or a person's. Wins over `job` where both are named. */
+    /** The Session whose pull request it was. Absent for a person's. */
     session?: HubSession;
   };
 };
@@ -70,7 +65,7 @@ export type MainRed = {
  */
 export type HeldElsewhere = {
   machine: string;
-  holder: { kind: "session" | "job"; id: string };
+  holder: { kind: "session"; id: string };
   since: string;
 };
 
@@ -84,12 +79,11 @@ export type MainState =
   /** `checking` non-empty is only checks running on main: the mark says so, and no band is drawn. */
   | { state: "green"; checking?: readonly MainChecking[] }
   /**
-   * `taken` is the Job working on it, `takenBySession` the Session where a Session holds it instead:
-   * absent until one is. **`checking` non-empty is a held red**: a newer run may already have fixed
+   * `takenBySession` is the Session working on it: absent until one is. **`checking` non-empty is a held red**: a newer run may already have fixed
    * it, so the band is caution, says so, and offers no way to hand it to a Job. Absent or empty is a
    * red to act on.
    */
-  | { state: "red"; red: MainRed; taken?: HubJob; takenBySession?: HubSession; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
+  | { state: "red"; red: MainRed; takenBySession?: HubSession; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
 
 /**
  * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, a
@@ -177,7 +171,6 @@ export type MainRedBandProps = {
   onOpenLink: (url: string) => void;
   /** Opens the failed Check's log. Absent, the Check is not a press. */
   onOpenCheck?: (check: string) => void;
-  onOpenJob?: (jobId: string) => void;
   /** Opens the Session that merged. Absent, its title is not a press. */
   onOpenSession?: (sessionId: string) => void;
   /**
@@ -189,10 +182,10 @@ export type MainRedBandProps = {
   now?: number;
 };
 
-export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenJob, onOpenSession, onFix, now }: MainRedBandProps) {
-  const { red, taken, takenBySession, elsewhere } = main;
-  // A Job or a Session holds it here: the acts are moot, and the Fixing row names it.
-  const heldHere = taken !== undefined || takenBySession !== undefined;
+export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenSession, onFix, now }: MainRedBandProps) {
+  const { red, takenBySession, elsewhere } = main;
+  // A Session holds it here: the acts are moot, and the Fixing row names it.
+  const heldHere = takenBySession !== undefined;
   const checking = main.checking ?? [];
   const held = checking.length > 0;
   // The acts draw only where something listens, and not where a held red or a Job on it makes them moot.
@@ -312,10 +305,10 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
                     {red.merge.branch}
                   </a>
                 )}
-                <MergeOwner merge={red.merge} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
+                <MergeOwner merge={red.merge} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
                 {!asks ? null : (
                   <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
-                    {red.merge.session !== undefined || red.merge.job !== undefined ? "Send back" : "Send back to…"}
+                    {red.merge.session !== undefined ? "Send back" : "Send back to…"}
                   </Button>
                 )}
               </dd>
@@ -336,25 +329,6 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
             <>
               <dt>Fixing</dt>
               <dd className="armada-main-red__taken">{claim}</dd>
-            </>
-          )}
-          {taken === undefined ? null : (
-            <>
-              <dt>Fixing</dt>
-              <dd className="armada-main-red__taken">
-                <Tooltip label="Working on it" asChild>
-                  <span className="armada-fixing-mark" data-state="fixing" role="img" aria-label="Working on it">
-                    <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
-                  </span>
-                </Tooltip>
-                {onOpenJob === undefined ? (
-                  <span>{taken.title}</span>
-                ) : (
-                  <button type="button" className="armada-main-red__link" onClick={() => onOpenJob(taken.id)}>
-                    {taken.title}
-                  </button>
-                )}
-              </dd>
             </>
           )}
           {takenBySession === undefined ? null : (
@@ -449,24 +423,15 @@ function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewher
 }
 
 /**
- * Who merged: the Session that owns the pull request, else the Job. Its registry icon says which,
- * as a pull request row on the line draws it, and its title opens it. Nobody known draws nothing.
+ * Who merged: the Session that owns the pull request, by its registry icon and its title, which
+ * opens it. Nobody known draws nothing.
  */
-function MergeOwner({
-  merge,
-  onOpenJob,
-  onOpenSession,
-}: {
-  merge: NonNullable<MainRed["merge"]>;
-  onOpenJob?: (jobId: string) => void;
-  onOpenSession?: (sessionId: string) => void;
-}) {
-  const owner = merge.session !== undefined ? { kind: "Session", Icon: SquareTerminal, one: merge.session, open: onOpenSession } : merge.job !== undefined ? { kind: "Job", Icon: Box, one: merge.job, open: onOpenJob } : undefined;
-  return owner === undefined ? null : <OwnerLink {...owner} />;
+function MergeOwner({ merge, onOpenSession }: { merge: NonNullable<MainRed["merge"]>; onOpenSession?: (sessionId: string) => void }) {
+  return merge.session === undefined ? null : <OwnerLink kind="Session" Icon={SquareTerminal} one={merge.session} open={onOpenSession} />;
 }
 
-/** A Session or a Job by its registry icon and its title, which opens it where something listens. */
-function OwnerLink({ kind, Icon, one, open }: { kind: string; Icon: typeof Box; one: HubJob | HubSession; open: ((id: string) => void) | undefined }) {
+/** A Session by its registry icon and its title, which opens it where something listens. */
+function OwnerLink({ kind, Icon, one, open }: { kind: string; Icon: typeof SquareTerminal; one: HubSession; open: ((id: string) => void) | undefined }) {
   return (
     <span className="armada-main-red__owner">
       <Tooltip label={kind} asChild>
@@ -546,15 +511,11 @@ function FixDialog({
   onFix: (choice: FixChoice) => void;
 }) {
   const [request, setRequest] = useState(() => briefOf(red));
-  const jobs = culpritFirst(recent, red.merge?.job);
+  const jobs = culpritFirst(recent, undefined);
   const sessions = culpritFirst(recentSessions, red.merge?.session);
-  // The culprit is chosen before the owner looks: the Session if one merged it, else the Job.
+  // The culprit is chosen before the owner looks: the Session that merged it.
   const [picked, setPicked] = useState<Picked>(() =>
-    red.merge?.session !== undefined && sessions[0]?.id === red.merge.session.id
-      ? { kind: "session", id: red.merge.session.id }
-      : red.merge?.job !== undefined && jobs[0]?.id === red.merge.job.id
-        ? { kind: "job", id: red.merge.job.id }
-        : null,
+    red.merge?.session !== undefined && sessions[0]?.id === red.merge.session.id ? { kind: "session", id: red.merge.session.id } : null,
   );
   if (kind === "new") {
     return (
@@ -616,7 +577,6 @@ function FixDialog({
               <span className="armada-main-fix__job">
                 <span>{one.title}</span>
                 <span className="mono armada-main-fix__branch">{one.branch}</span>
-                {mark(one.id, red.merge?.job)}
               </span>
             </Radio>
           ))}

@@ -1,13 +1,11 @@
-//! What Fleet serves for taking a Job over. Since 23.49.
+//! What Fleet serves for ending a pilot. Since 23.49.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Piloting, Refusal};
-use core_model::PilotReason;
-use ipc::{HandoffBundle, JobId, JobSummary, PilotNote, PilotOutcome, TakeOver};
+use ipc::{JobId, JobSummary, PilotNote};
 
-use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
 
 impl<H, V, W> Piloting for Fleet<H, V, W>
@@ -20,34 +18,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// **This route marks the Job and names the Session; it does not start
-    /// one.** `start_session` with a `pilot` does both in one call
-    /// (`session_host::piloting`), and is what Bridge uses.
-    async fn take_over(
-        self: Arc<Self>,
-        job_id: JobId,
-        request: TakeOver,
-    ) -> Result<JobSummary, Refusal> {
-        let reason = match request.outcome {
-            PilotOutcome::TakeOver => PilotReason::TakeOver,
-            PilotOutcome::RestartStep => PilotReason::RestartStep,
-        };
-        let session = request.session_id.filter(|id| !id.trim().is_empty());
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                Fleet::take_over(&fleet, &job_id.to_domain(), reason, session.as_deref()).await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
-    }
-
-    async fn get_handoff(&self, job_id: JobId) -> Result<HandoffBundle, Refusal> {
-        self.handoff_bundle(job_id).await
-    }
-
     /// **Not budgeted.** The request waits for the Checks, however long they
     /// take, as `rerun_checks` does.
     async fn submit_for_verification(

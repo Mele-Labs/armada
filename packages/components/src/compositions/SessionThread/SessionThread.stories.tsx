@@ -27,7 +27,7 @@ export default meta;
 type Story = StoryObj<typeof SessionThread>;
 
 const ROWS: SessionThreadRow[] = [
-  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], tags: [{ kind: "session", id: "s2", title: "Release notes script" }, { kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
+  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], tags: [{ kind: "session", id: "s2", title: "Release notes script" }] },
   { id: "2", at: "14:03:14", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
   { id: "3", at: "14:03:21", kind: "lease", slot: 3, branch: "fix/flaky-store" },
   { id: "4", at: "14:03:28", kind: "message", from: "agent", text: "The test reads the wall clock." },
@@ -333,33 +333,6 @@ export const QuestionsSkipped: Story = {
   play: async ({ canvas, args }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Skip" }));
     await expect(args.onAnswer).toHaveBeenCalledWith("refuse");
-  },
-};
-
-/** A Job taken over from a gate or an escalation: no Drone said what it was stuck on, so the Drone's account is not drawn, and neither is any other group with nothing in it. */
-export const HandedOverWithNoAccount: Story = {
-  args: {
-    rows: [
-      {
-        id: "h1",
-        at: "14:03:07",
-        kind: "handoff",
-        job: { number: 55, title: "Cap the retry backoff" },
-        slot: 3,
-        branch: "fix/retry-backoff",
-        step: { id: "regression_verify", label: "Verify the fix" },
-        attempts: 3,
-        refusals: [],
-        plan: { outside: ["crates/retry/src/loop.rs"], unwritten: [] },
-      },
-    ],
-  },
-  play: async ({ canvas }) => {
-    const handoff = canvas.getByRole("region", { name: "Handed over: Job 55" });
-    await expect(within(handoff).getByText("Stopped on")).toBeInTheDocument();
-    await expect(within(handoff).getByText("written, not declared")).toBeInTheDocument();
-    await expect(within(handoff).queryByText("Judge refused")).toBeNull();
-    await expect(within(handoff).queryByText("Trying to")).toBeNull();
   },
 };
 

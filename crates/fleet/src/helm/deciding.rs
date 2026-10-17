@@ -547,9 +547,7 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "kill_job",
         "kill_drone",
         "kill_one_drone",
-        // Taking a Job over ends its Drone, and closing one as superseded ends
-        // the Job.
-        "take_over",
+        // Closing a Job as superseded ends the Job.
         "close_as_superseded",
         "kill_process",
         "kill_processes",

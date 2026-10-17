@@ -42,7 +42,7 @@ export function windowOf(events: readonly TimelineEvent[], now: number): ReplayW
 export const startAt = (window: ReplayWindow, wanted: number | undefined): number => Math.max(window.from, wanted ?? window.from);
 
 /** What an event says about where its subject stands: the kinds that make a drone or a pull request. A later event does not. */
-const STARTS: ReadonlySet<TimelineKind> = new Set(["job.created", "job.started", "session.started", "pr.opened"]);
+const STARTS: ReadonlySet<TimelineKind> = new Set(["session.started", "pr.opened"]);
 
 /** A drone as its last event before the playhead left it: working through a Check, idle after, calling between an ask and its answer. */
 function asOf(base: DroneIn, last: TimelineEvent): DroneIn {

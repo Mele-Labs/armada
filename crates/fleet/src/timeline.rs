@@ -3,7 +3,7 @@
 //! `docs/practices/protocol.md`, *The Fleet's timeline*, has the reasoning.
 //!
 //! ```text
-//!  Broadcaster.tap ── events::Hearing ──┐   a Job's moves, a Session row
+//!  Broadcaster.tap ── events::Hearing ──┐   a Session row
 //!  merge_lines::keep_reading ───────────┼─▶ Timeline::note ─▶ queue ─▶ writer ─▶ store
 //!  the answering commands, the slot ────┘                                   └▶ timeline.appended
 //! ```
@@ -27,12 +27,11 @@ use tokio::task::JoinHandle;
 use crate::clock::Clock;
 
 pub(crate) use merge::Between;
-pub(crate) use tools::{tool_of, Act, Doer, JobToolsSeen};
+pub(crate) use tools::{tool_of, Act, Doer};
 
 /// What it happened to, before the wire spells it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Subject {
-    Job(String),
     Session(String),
     Pull(u64, Option<String>),
     Main,
@@ -143,7 +142,6 @@ impl Fact {
 
     fn entry(self) -> store::TimelineEntry {
         let (subject_kind, subject_id, subject_url) = match self.subject {
-            Subject::Job(id) => ("job", id, None),
             Subject::Session(id) => ("session", id, None),
             Subject::Pull(number, url) => ("pull_request", number.to_string(), url),
             Subject::Main => ("main", String::new(), None),
@@ -248,7 +246,7 @@ where
 {
     let timeline = fleet.timeline().clone();
     let mut unwritten = timeline.unwritten.lock().ok()?.take()?;
-    let hearing = events::Hearing::new(Arc::clone(fleet.names()), timeline.clone());
+    let hearing = events::Hearing::new(timeline.clone());
     fleet.events().tap(move |event| hearing.hear(event));
     Some(tokio::spawn(async move {
         let mut tick = tokio::time::interval(tools::TICK);
@@ -280,8 +278,7 @@ where
 {
     /// Keep one entry, then tell the clients it exists. **A store that will not
     /// take it loses the entry**, which is the whole of what a failed write to
-    /// a record of what happened can honestly be; a Job's is said in the Job's
-    /// own log, and the rest have no log to be said in.
+    /// a record of what happened can honestly be.
     async fn timeline_written(&self, entry: store::TimelineEntry) {
         let kept = self.store().lock().await.append_timeline(&entry);
         match kept {
@@ -294,12 +291,6 @@ where
                     self.road_moved(holders).await;
                 }
             }
-            Err(why) if entry.subject_kind == "job" => self.said_about_the_ledger(
-                &core_model::JobId::carried(core_model::Ulid::carried(entry.subject_id)),
-                core_model::Level::Warn,
-                "the timeline could not keep an entry about the Job",
-                Some(&why.to_string()),
-            ),
             Err(_) => {}
         }
     }
@@ -349,25 +340,6 @@ where
             events: window.events.iter().filter_map(wire).collect(),
             cut: window.cut,
         })
-    }
-
-    /// A person's answer to a Job, entered under the Job it settled.
-    pub(crate) fn job_answered(&self, job: &ipc::JobId, says: String) {
-        let id = job.to_domain();
-        let handle = self.names().of(&id);
-        let manifest = self.names().owner_of(&id);
-        self.timeline().note(
-            Fact::new(
-                self.timeline().now(),
-                TimelineKind::JobAnswered,
-                Subject::Job(job.as_str().to_string()),
-                TimelineTone::Run,
-                says,
-            )
-            .titled(handle)
-            .in_repository(manifest)
-            .live(),
-        );
     }
 
     /// A person's answer to a Session, entered under the Session it settled.
@@ -434,19 +406,6 @@ where
         );
     }
 
-    /// A Job was given a pool slot, or gave it back.
-    pub(crate) fn job_slot(&self, job: &core_model::Job, slot: u32, leased: bool) {
-        self.worktrees_memory().announced();
-        self.timeline().note(slot_fact(
-            self.timeline().now(),
-            Subject::Job(job.id().as_str().to_string()),
-            Some(job.handle()),
-            Some(job.owner_manifest_id().as_str().to_string()),
-            slot,
-            leased,
-        ));
-    }
-
     /// A Session was given a pool slot, or gave it back.
     pub(crate) fn session_slot(
         &self,
@@ -498,35 +457,6 @@ pub(crate) fn lasted(millis: i64) -> String {
     }
 }
 
-/// What a person's answer to a Drone's question reads as.
-pub(crate) fn question_answer_says(answer: &ipc::ChosenAnswer) -> String {
-    match (&answer.chose, answer.decisions.len(), answer.mode) {
-        (Some(label), ..) => format!("Answered: {label}"),
-        (None, 0, Some(mode)) => format!("Answered: {}", mode_says(mode)),
-        (None, n, _) => format!("Answered {n} decisions"),
-    }
-}
-
-/// What a person's answer to a command reads as.
-pub(crate) fn command_answer_says(answer: ipc::CommandAnswer) -> String {
-    match answer {
-        ipc::CommandAnswer::AllowForJob => "Answered: allow",
-        ipc::CommandAnswer::AlwaysAllow => "Answered: always allow",
-        ipc::CommandAnswer::Reject => "Answered: reject",
-    }
-    .to_string()
-}
-
-/// What a person's answer to a Judge reads as.
-pub(crate) fn judge_answer_says(answer: ipc::JudgeAnswer) -> String {
-    match answer {
-        ipc::JudgeAnswer::Agree => "Answered: agree",
-        ipc::JudgeAnswer::DisagreeOnce => "Answered: disagree",
-        ipc::JudgeAnswer::DisagreeAlways => "Answered: disagree always",
-    }
-    .to_string()
-}
-
 /// What a person's answer to a Session's permission card reads as.
 pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
     match answer {
@@ -538,14 +468,6 @@ pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
         ipc::HelmCallAnswer::AllowForSession => "Answered: allow the folder for this session",
     }
     .to_string()
-}
-
-/// The mode a person left an answer to, as a word.
-pub(crate) fn mode_says(mode: ipc::AnswerMode) -> &'static str {
-    match mode {
-        ipc::AnswerMode::Best => "think it through",
-        ipc::AnswerMode::Quick => "get it done",
-    }
 }
 
 /// Whose road an entry is a stop of.
@@ -573,7 +495,6 @@ fn road_stop(entry: &store::TimelineEntry) -> Option<RoadOf> {
 pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
     let entry = &kept.entry;
     let subject = match entry.subject_kind.as_str() {
-        "job" => TimelineSubject::Job { id: ipc::JobId::carried(&entry.subject_id) },
         "session" => TimelineSubject::Session { id: ipc::SessionId::carried(&entry.subject_id) },
         "pull_request" => TimelineSubject::PullRequest {
             number: entry.subject_id.parse().ok()?,

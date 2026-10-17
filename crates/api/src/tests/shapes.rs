@@ -855,8 +855,8 @@ pub fn fleet_timeline(ask: &ipc::TimelineAsk) -> ipc::FleetTimeline {
         entry(
             1,
             "2026-10-12T10:00:00.000Z",
-            ipc::TimelineKind::JobStarted,
-            ipc::TimelineSubject::Job { id: ipc::JobId::carried("01JOB") },
+            ipc::TimelineKind::SessionStarted,
+            ipc::TimelineSubject::Session { id: ipc::SessionId::carried("01SESSION") },
         ),
         entry(
             2,

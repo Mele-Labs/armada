@@ -82,7 +82,7 @@ where
             return Err(refused(job_id, Unpilotable::Busy));
         };
         let job = self.load(job_id).await?;
-        let pilot = self.standing_pilot(&job).await?;
+        self.standing_pilot(&job).await?;
         if let Some(open) = job
             .steps()
             .iter()
@@ -96,13 +96,7 @@ where
             ));
         }
         let moved = self
-            .left_by(
-                &job,
-                pilot,
-                PilotExit::Attested,
-                note,
-                Target::CompletedSuccess,
-            )
+            .left_by(&job, PilotExit::Attested, note, Target::CompletedSuccess)
             .await?;
         self.noted_exit(&moved, PilotExit::Attested, note);
         Ok(moved)
@@ -120,9 +114,9 @@ where
             return Err(refused(job_id, Unpilotable::Busy));
         };
         let job = self.load(job_id).await?;
-        let pilot = self.standing_pilot(&job).await?;
+        self.standing_pilot(&job).await?;
         let moved = self
-            .left_by(&job, pilot, PilotExit::Superseded, note, Target::Superseded)
+            .left_by(&job, PilotExit::Superseded, note, Target::Superseded)
             .await?;
         self.noted_exit(&moved, PilotExit::Superseded, note);
         self.warned_dependants_of(&moved).await;
@@ -157,7 +151,7 @@ where
         worktree: &Worktree,
     ) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
-        let pilot = self.standing_pilot(&job).await?;
+        self.standing_pilot(&job).await?;
         let (step, entering) = step_to_verify(&job)?;
         let submission = self.submission_of_a_person(&job, &step, worktree).await?;
         // **The baseline the step began from**, so `diff_nonempty` asks whether
@@ -183,12 +177,7 @@ where
             .carried_on(&ruling, job_id, &step, Leaving::Pilot(entering), worktree)
             .await
         {
-            Ok(carried) => {
-                if let Some(pilot) = &pilot {
-                    self.handed_back(&carried, pilot).await;
-                }
-                Ok(carried)
-            }
+            Ok(carried) => Ok(carried),
             Err(why) => {
                 self.pilot_reopened_for(job_id).await;
                 Err(why)
@@ -202,7 +191,7 @@ where
     /// Drone.
     async fn handed_to_a_fresh_drone(&self, job_id: &JobId) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
-        let pilot = self.standing_pilot(&job).await?;
+        self.standing_pilot(&job).await?;
         self.stamped_ended(job_id, PilotExit::Submitted, None).await;
         let moved = async {
             let running = self.move_job(&job, Target::Running, Actor::Human).await?;
@@ -210,12 +199,7 @@ where
         }
         .await;
         match moved {
-            Ok(queued) => {
-                if let Some(pilot) = &pilot {
-                    self.handed_back(&queued, pilot).await;
-                }
-                Ok(queued)
-            }
+            Ok(queued) => Ok(queued),
             Err(why) => {
                 self.pilot_reopened_for(job_id).await;
                 Err(why)
@@ -265,29 +249,20 @@ where
     }
 
     /// Leave `piloted` for `to`, ending the pilot as `exit`. **The pilot is
-    /// stamped ended and the Session gives the worktree back before the Job
-    /// moves**, so the summary the move publishes already says how it ended and
-    /// a terminal move's own teardown finds the slot as the Job's. A move that
-    /// fails puts all of it back.
+    /// stamped ended before the Job moves**, so the summary the move publishes
+    /// already says how it ended. A move that fails puts it back.
     async fn left_by(
         &self,
         job: &Job,
-        pilot: Option<KeptPilot>,
         exit: PilotExit,
         note: Option<&str>,
         to: Target,
     ) -> Result<Job, Adrift> {
         self.stamped_ended(job.id(), exit, note).await;
-        if let Some(pilot) = &pilot {
-            self.handed_back(job, pilot).await;
-        }
         match self.move_job(job, to, Actor::Human).await {
             Ok(moved) => Ok(moved),
             Err(why) => {
                 self.pilot_reopened_for(job.id()).await;
-                if let Some(session) = pilot.and_then(|pilot| pilot.session) {
-                    self.handed_to(job, &session).await;
-                }
                 Err(why)
             }
         }

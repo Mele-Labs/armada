@@ -102,7 +102,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 
 The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
-**A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
+**A Session no longer takes a Job's slot and branch over (17 Oct 2026).** `take_over` is removed, so no row is written with `detail.handed` reading `job <id>`, and the exits of a Job already piloted are on Job detail alone. [Pilot](pilot.md) holds the history.
 
 ### Whose slot it is
 
@@ -799,7 +799,9 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 ## Started on a piloted Job
 
-`start_session` takes an optional `pilot` (`job_id`, `outcome`), and that one call is the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
+**Removed 17 Oct 2026.** `start_session` no longer takes `pilot`, a thread no longer opens with a `handoff` row, and Fleet no longer hands a Job's worktree to a Session. What follows describes the act as it was built.
+
+`start_session` took an optional `pilot` (`job_id`, `outcome`), and that one call was the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
 
 **Ending the pilot, or closing the Session while the Job is still piloted, hands the worktree back to the Job.** The Session's lease is cleared, so its next process starts in the repository and its next write leases a slot of its own. A close parks nothing in that case: the checkout is the Job's, not the Session's to commit.
 
@@ -1037,7 +1039,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | `issue` | The number | `issue #214 "title"` and its address. A tag's title begins with `#` and the number, and the line drops that so the number is said once |
 | `branch` | The name | The branch |
 
-**`@` offers the other Sessions, and once letters follow it the repository's files that match them.** Bridge offers no Job to tag (17 Oct 2026); Fleet still accepts the `job` kind. A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
+**`@` offers the other Sessions, and once letters follow it the repository's files that match them.** Neither Bridge nor Fleet offers a Job to tag (17 Oct 2026): the `job` kind is removed from the wire. A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
 
 **`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, or on the key where the tracker names issues by one (`#ops` offers `OPS-7` and `OPS-12`, whatever the case), and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
 

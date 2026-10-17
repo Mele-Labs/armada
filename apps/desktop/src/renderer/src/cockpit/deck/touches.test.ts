@@ -17,10 +17,9 @@ const burst = (kind: TimelineEvent["kind"], subject: TimelineEvent["subject"], i
   return { id: count, at: new Date(Date.parse("2026-10-14T12:00:00Z") - minutes * 60_000).toISOString(), kind, subject, tone: "run", says: `Edited ${items?.length ?? 0} files`, ...(items === undefined ? {} : { detail: items[0], items }), live: true };
 };
 const session = (id: string) => ({ kind: "session", id }) as const;
-const job = (id: string) => ({ kind: "job", id }) as const;
 
 const sources = {
-  keyOf: (event: TimelineEvent) => (event.subject.kind === "session" || event.subject.kind === "job" ? `${event.subject.kind}:${event.subject.id}` : undefined),
+  keyOf: (event: TimelineEvent) => (event.subject.kind === "session" ? `session:${event.subject.id}` : undefined),
   rootsOf: () => [SLOT],
 };
 
@@ -68,10 +67,7 @@ test("a burst that kept no items touches nothing, and only the newest 25 of one 
   expect(touched.get("session:s2")).toEqual([{ path: "crates/fleet", w: 25 }]);
 });
 
-test("a Job's edit event names one file, which is a touch; its footprint names them all", () => {
-  const files = burst("job.files", job("j1"), undefined);
-  const named = { ...files, detail: `${SLOT}/packages/protocol/src/x.ts` };
-  expect(touchesFromEvents([named], sources).get("job:j1")).toEqual([{ path: "packages/protocol", w: 1 }]);
+test("a footprint names every file it holds", () => {
   expect(touchesOfFootprint([{ path: "crates/ipc/src/a.rs" }, { path: "crates/ipc/src/b.rs" }, { path: "docs/x.md" }, { path: "README.md" }])).toEqual([
     { path: "crates/ipc", w: 2 },
     { path: "docs", w: 1 },

@@ -9,7 +9,6 @@ use ipc::{JobId, JobSummary};
 
 use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
-use crate::timeline::{command_answer_says, judge_answer_says, question_answer_says};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -31,7 +30,6 @@ where
         job_id: JobId,
         answer: ipc::ChosenAnswer,
     ) -> Result<JobSummary, Refusal> {
-        let (asked_of, says) = (job_id.clone(), question_answer_says(&answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -59,7 +57,6 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -84,7 +81,6 @@ where
             answer.rule.as_deref(),
         )
         .kept_in(answer.scope);
-        let (asked_of, says) = (job_id.clone(), command_answer_says(answer.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -97,7 +93,6 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -108,7 +103,6 @@ where
         job_id: JobId,
         answered: ipc::JudgeAnswered,
     ) -> Result<JobSummary, Refusal> {
-        let (asked_of, says) = (job_id.clone(), judge_answer_says(answered.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -126,7 +120,6 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 }

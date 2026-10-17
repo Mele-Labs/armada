@@ -1,10 +1,9 @@
 //! An agent takes a pull request nobody is working. The pull watch attaches a pull request to
-//! whoever held its branch; this is for the one it could not place, which a Session or Job that
+//! whoever held its branch; this is for the one it could not place, which a Session that
 //! notices it claims for itself. `claim_pull_request`.
 
 use adapter_traits::{AgentHarness, Delivery, PullRequestStanding, Vcs, WorkProduct};
 use api::{Caller, Refusal};
-use core_model::JobId;
 use ipc::{ClaimPullRequest, ManifestId, PullRequestClaimed};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -31,51 +30,28 @@ where
         claim: ClaimPullRequest,
     ) -> Result<PullRequestClaimed, Refusal> {
         let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
-        // Placed by the connection: a hosted session, then a Drone's Job, then the id a terminal
-        // session passes.
-        let me = match caller.as_ref() {
-            Some(caller) => self
-                .session_holding(caller)
-                .map(Owner::Session)
-                .or_else(|| self.caller_of(caller).ok().map(Owner::Job)),
-            None => None,
-        }
-        .map(Ok)
-        .or_else(|| {
-            let session = claim
-                .session_id
-                .as_ref()
-                .map(|id| id.as_str().trim().to_string())
-                .filter(|id| !id.is_empty());
-            let job = claim
-                .job_id
-                .as_ref()
-                .filter(|id| !id.as_str().trim().is_empty());
-            match (session, job) {
-                (Some(_), Some(_)) => Some(Err(refuse(
-                    "a pull request is claimed by a session or a Job, not both".into(),
-                ))),
-                (Some(id), None) => Some(Ok(Owner::Session(id))),
-                (None, Some(job)) => Some(Ok(Owner::Job(job.to_domain()))),
-                (None, None) => None,
-            }
-        })
-        .transpose()?
-        .ok_or_else(|| refuse("a pull request is claimed by a session or a Job, and this call is neither".into()))?;
-        let served = match &me {
-            Owner::Session(id) => {
-                let manifest = self
-                    .store()
-                    .lock()
-                    .await
-                    .session(id)
-                    .map_err(|why| self.ledger_fault(why))?
-                    .and_then(|session| session.manifest_id)
-                    .ok_or_else(|| refuse(format!("session {id} is in no repository Fleet serves")))?;
-                self.served_named(Some(&ManifestId::carried(&manifest)))?
-            }
-            Owner::Job(job) => self.served_by_id(job).map_err(|why| self.refusal(why))?,
-        };
+        // Placed by the connection: a hosted session, then the id a terminal session passes.
+        let id = caller
+            .as_ref()
+            .and_then(|caller| self.session_holding(caller))
+            .or_else(|| {
+                claim
+                    .session_id
+                    .as_ref()
+                    .map(|id| id.as_str().trim().to_string())
+                    .filter(|id| !id.is_empty())
+            })
+            .ok_or_else(|| refuse("a pull request is claimed by a session, and this call is not one".into()))?;
+        let me = Owner::Session(id.clone());
+        let manifest = self
+            .store()
+            .lock()
+            .await
+            .session(&id)
+            .map_err(|why| self.ledger_fault(why))?
+            .and_then(|session| session.manifest_id)
+            .ok_or_else(|| refuse(format!("session {id} is in no repository Fleet serves")))?;
+        let served = self.served_named(Some(&ManifestId::carried(&manifest)))?;
         let root = served.root().to_string();
         let number = claim.number;
         // **Asked for by its number**, not found in the watch: the watch reads the hundred updated
@@ -90,11 +66,8 @@ where
             if owner == me {
                 continue;
             }
-            let live = match &owner {
-                Owner::Session(_) => true,
-                Owner::Job(job) => self.job_is_live(job).await,
-            };
-            if live {
+            // A Job that held it is gone from every surface; only a Session still working keeps it.
+            if matches!(owner, Owner::Session(_)) {
                 return Err(refuse(format!(
                     "#{number} is held by {}, who is still working",
                     owner.key()
@@ -103,10 +76,7 @@ where
         }
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();
-        let holder = match &me {
-            Owner::Session(id) => Holder::session(id),
-            Owner::Job(job) => Holder::job(job.as_str()),
-        };
+        let holder = Holder::session(&id);
         let mut store = self.store().lock().await;
         // What an ended holder still has standing is given back to it.
         for row in store
@@ -144,13 +114,14 @@ where
                 false,
             )
             .map_err(|why| self.ledger_fault(why))?;
-        let record = match (&me, changed) {
-            (Owner::Session(id), true) => store
-                .session(id)
+        let record = if changed {
+            store
+                .session(&id)
                 .ok()
                 .flatten()
-                .and_then(|session| self.ledger_row(&store, &session).ok()),
-            _ => None,
+                .and_then(|session| self.ledger_row(&store, &session).ok())
+        } else {
+            None
         };
         drop(store);
         if let Some(record) = record {
@@ -158,30 +129,13 @@ where
         }
         // **Never the claim's to fail**: a store that is off, signed out or out of reach leaves
         // the claim made here and the row unwritten.
-        let taker = match &me {
-            Owner::Session(id) => Taker::Session(id.clone()),
-            Owner::Job(job) => Taker::Job(job.clone()),
-        };
+        let taker = Taker::Session(id.clone());
         let _ = self.pull_request_registered(&root, number, &taker).await;
         Ok(PullRequestClaimed {
             number,
             branch,
             url,
-            holder_kind: match me {
-                Owner::Session(_) => "session",
-                Owner::Job(_) => "job",
-            }
-            .into(),
-            holder_id: match &me {
-                Owner::Session(id) => id.clone(),
-                Owner::Job(job) => job.as_str().to_string(),
-            },
+            holder_id: id,
         })
-    }
-
-    async fn job_is_live(&self, job: &JobId) -> bool {
-        self.job_detail(ipc::JobId::from(job))
-            .await
-            .is_ok_and(|detail| !detail.job.status.domain().is_terminal())
     }
 }

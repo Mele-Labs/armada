@@ -10,15 +10,12 @@ use crate::adrift::Adrift;
 use crate::piloting::Unpilotable;
 use crate::tests::admitted::admit;
 use crate::tests::daemon::{a_fleet, a_proposal};
-use crate::tests::piloting::{changed, running, Fixture};
+use crate::tests::piloting::{changed, running, taken_over, Fixture};
 use crate::tests::tmp::TempDir;
 
-async fn piloted(fleet: &Fixture, home: &TempDir, session: Option<&str>) -> JobId {
+async fn piloted(fleet: &Fixture, home: &TempDir) -> JobId {
     let id = running(fleet, home, "a Job a person took over").await;
-    fleet
-        .take_over(&id, PilotReason::TakeOver, session)
-        .await
-        .expect("taken over");
+    taken_over(fleet, &id, PilotReason::TakeOver).await;
     id
 }
 
@@ -53,7 +50,7 @@ fn journal(home: &TempDir, handle: &str) -> Vec<String> {
 async fn submitting_runs_the_gates_and_the_job_leaves_piloted_with_no_drone() {
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet(&home, changed()));
-    let id = piloted(&fleet, &home, Some("pilot-1")).await;
+    let id = piloted(&fleet, &home).await;
 
     let after = Fleet::submit_for_verification(Arc::clone(&fleet), &id)
         .await
@@ -75,20 +72,13 @@ async fn submitting_runs_the_gates_and_the_job_leaves_piloted_with_no_drone() {
         row.piloted.and_then(|pilot| pilot.exit).as_deref(),
         Some("submitted")
     );
-    // The Session gives the worktree back and the Job holds it again.
     let store = fleet.store().lock().await;
-    let held = store.attachments_of(&Holder::session("pilot-1")).unwrap();
-    assert!(
-        held.iter()
-            .all(|row| row.state == AttachmentState::GivenBack),
-        "{held:?}"
-    );
     let job_rows = store.attachments_of(&Holder::job(id.as_str())).unwrap();
     assert!(
         job_rows
             .iter()
             .any(|row| row.kind == "slot" && row.state == AttachmentState::Standing),
-        "{job_rows:?}"
+        "the Job holds the worktree again: {job_rows:?}"
     );
 }
 
@@ -96,7 +86,7 @@ async fn submitting_runs_the_gates_and_the_job_leaves_piloted_with_no_drone() {
 async fn a_submission_the_gates_refuse_leaves_the_job_piloted_and_the_pilot_standing() {
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::untouched()));
-    let id = piloted(&fleet, &home, None).await;
+    let id = piloted(&fleet, &home).await;
 
     let after = Fleet::submit_for_verification(Arc::clone(&fleet), &id)
         .await
@@ -125,10 +115,7 @@ async fn submitting_a_restart_step_hands_the_worktree_to_a_fresh_drone_at_the_st
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet(&home, changed()));
     let id = running(&fleet, &home, "restart it").await;
-    fleet
-        .take_over(&id, PilotReason::RestartStep, None)
-        .await
-        .expect("taken over");
+    taken_over(&fleet, &id, PilotReason::RestartStep).await;
 
     let queued = Fleet::submit_for_verification(Arc::clone(&fleet), &id)
         .await
@@ -153,7 +140,7 @@ async fn submitting_a_restart_step_hands_the_worktree_to_a_fresh_drone_at_the_st
 async fn attesting_is_refused_while_a_step_has_not_advanced() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, changed());
-    let id = piloted(&fleet, &home, None).await;
+    let id = piloted(&fleet, &home).await;
 
     let refused = fleet
         .attest_complete(&id, Some("done by hand"))
@@ -178,10 +165,7 @@ async fn an_attested_job_completes_recorded_as_attested_and_never_as_verified() 
     let home = TempDir::new();
     let fleet = a_fleet(&home, changed());
     let id = running_with_every_step_advanced(&fleet, &home).await;
-    fleet
-        .take_over(&id, PilotReason::TakeOver, Some("pilot-2"))
-        .await
-        .expect("taken over");
+    taken_over(&fleet, &id, PilotReason::TakeOver).await;
 
     let done = fleet
         .attest_complete(&id, Some("the plan was wrong and the outcome is right"))
@@ -202,19 +186,13 @@ async fn an_attested_job_completes_recorded_as_attested_and_never_as_verified() 
             .any(|line| line.contains("not verified")),
         "the log says no gate ran"
     );
-    let store = fleet.store().lock().await;
-    assert!(store
-        .attachments_of(&Holder::session("pilot-2"))
-        .unwrap()
-        .iter()
-        .all(|row| row.state == AttachmentState::GivenBack));
 }
 
 #[tokio::test]
 async fn closing_as_superseded_is_its_own_terminal_state_and_releases_a_dependant_with_a_warning() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, changed());
-    let upstream = piloted(&fleet, &home, None).await;
+    let upstream = piloted(&fleet, &home).await;
     let mut waiting = a_proposal("waits on the upstream");
     waiting.dependencies = vec![ipc::DependencyEdge {
         direction: ipc::DependencyDirection::from_wire("depends_on").expect("a direction"),
@@ -263,10 +241,7 @@ async fn submitting_a_job_taken_from_a_gate_runs_the_gates_again_and_holds_it_at
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet_reviewing_the_first_step(&home, changed()));
     let id = at_the_gate(&fleet, &home).await;
-    fleet
-        .take_over(&id, PilotReason::TakeOver, None)
-        .await
-        .expect("taken over from the gate");
+    taken_over(&fleet, &id, PilotReason::TakeOver).await;
 
     let after = Fleet::submit_for_verification(Arc::clone(&fleet), &id)
         .await

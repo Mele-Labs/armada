@@ -145,7 +145,6 @@ where
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: Some(ForkFrom {
                     session_id: SessionId::carried(old),
                     at,

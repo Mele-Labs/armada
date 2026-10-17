@@ -53,13 +53,12 @@ type Host = {
   lines: MergeLines | null;
   settings: SettingsList | null;
   openSession: (id: string) => void;
-  openJob: (jobId: string) => void;
   /** The words held in Helm's thread while they go. */
   words: HelmWords;
 };
 
 /** What the dock is given to draw Helm as a Session, and the sheets its chips open, drawn once beside the dock. */
-export function useHelmHosted({ manifestId, goes, held, board, workflows, onApprove, lines, settings, openSession, openJob, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
+export function useHelmHosted({ manifestId, goes, held, board, workflows, onApprove, lines, settings, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = useHelmSession(manifestId);
@@ -138,7 +137,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
         {...(draft.stop === undefined ? {} : { onStop: () => draft.stop?.(session.id) })}
         onOpenWindow={(url) => draft.openWindow?.(session.id, url)}
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
-        onOpenSent={(target) => (target.kind === "session" ? openSession(target.id) : openJob(target.id))}
+        onOpenSent={(target) => openSession(target.id)}
         // Helm runs in auto, so a permission is not asked here: what holds it is a question it put.
         {...(questions === undefined || session.asked === undefined
           ? {}

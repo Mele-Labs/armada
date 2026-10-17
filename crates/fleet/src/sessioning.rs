@@ -1234,14 +1234,12 @@ where
             .attachments_at(kind, target, manifest.as_deref())
             .map_err(|why| self.ledger_fault(why))?;
         let mut holders = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let title = match row.holder.kind {
-                store::HolderKind::Session => store
-                    .session(&row.holder.id)
-                    .map_err(|why| self.ledger_fault(why))?
-                    .and_then(|session| session.title),
-                store::HolderKind::Job => None,
-            };
+        // A Job's row is left out: the wire names no Job as a holder.
+        for row in rows.iter().filter(|row| row.holder.kind == store::HolderKind::Session) {
+            let title = store
+                .session(&row.holder.id)
+                .map_err(|why| self.ledger_fault(why))?
+                .and_then(|session| session.title);
             holders.push(held_wire(row, title));
         }
         Ok(Owners { holders })
@@ -1321,13 +1319,7 @@ fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
 
 fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Ownership {
     ipc::Ownership {
-        holder: ipc::Holder {
-            kind: match row.holder.kind {
-                store::HolderKind::Session => ipc::HolderKind::Session,
-                store::HolderKind::Job => ipc::HolderKind::Job,
-            },
-            id: row.holder.id.clone(),
-        },
+        holder: ipc::Holder { kind: ipc::HolderKind::Session, id: row.holder.id.clone() },
         attachment: attachment_wire(row),
         title,
     }

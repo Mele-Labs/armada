@@ -1,4 +1,4 @@
-// A Session's `@` offers the Sessions, then the Jobs. Once letters follow it the files that match
+// A Session's `@` offers the Sessions. Once letters follow it the files that match
 // them show under those, at most five, and choosing one writes `@path` into the line as plain text.
 // Pull requests and branches are not under `@`: pull requests are `#`'s. Over `composer-at-groups`.
 
@@ -12,9 +12,8 @@ const composerAtGroups = walk("composer-at-groups", [
   { press: inside(region("Work", { exact: true }), button("Store migration spike")), say: "A Session" },
   { type: "@", into: message, say: "An at sign opens what can be tagged" },
   { look: role("group", "Sessions"), say: "The other Sessions come first" },
-  { look: role("group", "Jobs"), say: "Then the Jobs" },
   { type: "@re", into: message, say: "A few letters after it" },
-  { look: role("group", "Files"), say: "Files that match them show under the Jobs" },
+  { look: role("group", "Files"), say: "Files that match them show under the Sessions" },
   { look: role("option", /sessions\.tsx/), say: "Each is a name and the folder it is in" },
   { press: role("option", /sessions\.tsx/), say: "One chosen" },
   { look: text("@apps/desktop/src/renderer/src/sessions.tsx"), say: "It is written into the line as plain text" },

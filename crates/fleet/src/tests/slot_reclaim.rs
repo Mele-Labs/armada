@@ -53,7 +53,6 @@ fn merged_pull(branch: &str, rig: &Rig) -> MergedPulled {
             merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
             commit: None,
         },
-        job: None,
     }
 }
 

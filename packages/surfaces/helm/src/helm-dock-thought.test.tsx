@@ -78,7 +78,7 @@ function dock(wiring: Wiring = {}) {
     open,
     startNew,
   };
-  mount(<Dock rows={wiring.rows ?? []} thread={thread} onAsk={onAsk} routing={routing} onOpenSent={(target) => open({ ...MATCH, ...target })} />);
+  mount(<Dock rows={wiring.rows ?? []} thread={thread} onAsk={onAsk} routing={routing} onOpenSent={(target) => open({ ...MATCH, id: target.id })} />);
   return { onAsk, send, open, startNew };
 }
 

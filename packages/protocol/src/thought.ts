@@ -15,12 +15,12 @@ export type ReadThought = {
 };
 
 /** What a thought may go to. */
-export type ThoughtKind = "session" | "job";
+export type ThoughtKind = "session";
 
-/** The Session or Job a thought goes to, named so a person can tell which. */
+/** The Session a thought goes to, named so a person can tell which. */
 export type ThoughtTarget = {
   kind: ThoughtKind;
-  /** A Session's id, or a Job's. */
+  /** A Session's id. */
   id: string;
   /** What a person calls it. */
   title: string;

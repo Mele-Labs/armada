@@ -40,14 +40,14 @@ fn a_reading_is_told_apart_by_its_kind() {
 #[test]
 fn a_target_with_nothing_optional_leaves_both_out() {
     let job = ThoughtTarget {
-        kind: ThoughtKind::Job,
-        id: "01JOB".into(),
+        kind: ThoughtKind::Session,
+        id: "01SESSION".into(),
         title: "Pin the clock".into(),
         manifest_id: None,
         slot: None,
     };
     let json = encode(&job).expect("plain data");
-    assert_eq!(json, r#"{"kind":"job","id":"01JOB","title":"Pin the clock"}"#);
+    assert_eq!(json, r#"{"kind":"session","id":"01SESSION","title":"Pin the clock"}"#);
     assert_eq!(decode::<ThoughtTarget>("a target", json.as_bytes()).expect("round-trips"), job);
 }
 
@@ -76,13 +76,13 @@ fn the_words_and_where_they_went_round_trip() {
 fn the_audit_event_is_spelled_as_declared_and_names_no_words() {
     let routed = Event::HelmThoughtRouted(HelmThoughtRouted {
         manifest_id: ManifestId::carried("armada"),
-        to: ThoughtKind::Job,
-        id: "01JOB".into(),
+        to: ThoughtKind::Session,
+        id: "01SESSION".into(),
         at: Instant::carried("2026-10-12T09:00:00.000Z"),
     });
     assert_eq!(routed.kind(), "helm.thought_routed");
     let json = encode(&routed).expect("plain data");
     assert!(json.contains(r#""kind":"helm.thought_routed""#), "{json}");
-    assert!(json.contains(r#""to":"job""#), "{json}");
+    assert!(json.contains(r#""to":"session""#), "{json}");
     assert!(!json.contains("text"), "{json}");
 }

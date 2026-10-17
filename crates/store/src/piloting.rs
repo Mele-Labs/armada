@@ -1,32 +1,15 @@
-//! Who took a Job over, and how the pilot ended. `docs/concepts/pilot.md`.
+//! How a taken-over Job's pilot ended. `docs/concepts/pilot.md`.
 //!
-//! **One row a Job, replaced when it is taken over again.** The Job's own log
-//! and transitions keep every earlier pilot; this row is the current one and
-//! the last one's exit, which is what a surface reads.
-//!
-//! **The mark is a row with no `piloted_at`**, and it names the run of Fleet
-//! that set it. A Fleet that died between marking and moving leaves a mark no
-//! later run honours, so a Drone's unbidden pull cannot be let through by a
-//! mark nobody is waiting on.
+//! **One row a Job.** The Job's own log and transitions keep every earlier
+//! pilot; this row is the current one and the last one's exit, which is what a
+//! surface reads. Nothing writes a pilot any more, so only a Job taken over
+//! before that has one; the table and its Narrative and Session columns stay
+//! and are not read.
 
 use core_model::{JobId, PilotReason, Timestamp};
 
 use crate::error::{fault, DatabaseFault, LoadJobError, RowError, WriteError};
 use crate::open::Store;
-
-/// What a Drone said it was stuck on, as `escape_hatch` carried it.
-///
-/// **Not Evidence**: Evidence is proof tied to an advance gate and this states
-/// that no proof is coming. Nothing here is read as a claim about the work.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Narrative {
-    /// What the step was meant to produce.
-    pub trying_to: String,
-    /// The specific thing preventing it.
-    pub blocked_by: String,
-    /// What was attempted, and what each attempt produced.
-    pub tried: String,
-}
 
 /// How a pilot ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,13 +47,8 @@ impl PilotExit {
 pub struct KeptPilot {
     pub job: JobId,
     pub reason: PilotReason,
-    /// The Session the person is piloting from, where they said.
-    pub session: Option<String>,
-    pub marked_run: String,
-    pub marked_at: Timestamp,
-    /// Absent while only the mark stands.
+    /// Absent where the row was only ever a mark.
     pub piloted_at: Option<Timestamp>,
-    pub narrative: Option<Narrative>,
     pub exit: Option<PilotExit>,
     pub ended_at: Option<Timestamp>,
     /// What the person said when they attested or superseded.
@@ -84,78 +62,37 @@ impl KeptPilot {
     }
 }
 
-const COLUMNS: &str = "job_id, reason, session_id, marked_run, marked_at, piloted_at, trying_to, \
-                       blocked_by, tried, exit_how, ended_at, note";
+const COLUMNS: &str = "job_id, reason, piloted_at, exit_how, ended_at, note";
 
 fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPilot> {
     let unknown = |at: usize, what: String| {
         rusqlite::Error::InvalidColumnType(at, what, rusqlite::types::Type::Text)
     };
     let reason: String = row.get(1)?;
-    let exit: Option<String> = row.get(9)?;
-    let said: [Option<String>; 3] = [row.get(6)?, row.get(7)?, row.get(8)?];
+    let exit: Option<String> = row.get(3)?;
     Ok(KeptPilot {
         job: JobId::carried(core_model::Ulid::carried(row.get::<_, String>(0)?)),
         reason: PilotReason::from_wire(&reason)
             .ok_or_else(|| unknown(1, format!("a reason {reason} this build does not know")))?,
-        session: row.get(2)?,
-        marked_run: row.get(3)?,
-        marked_at: Timestamp::from_rfc3339(row.get::<_, String>(4)?),
         piloted_at: row
-            .get::<_, Option<String>>(5)?
+            .get::<_, Option<String>>(2)?
             .map(Timestamp::from_rfc3339),
-        narrative: match said {
-            [None, None, None] => None,
-            [trying_to, blocked_by, tried] => Some(Narrative {
-                trying_to: trying_to.unwrap_or_default(),
-                blocked_by: blocked_by.unwrap_or_default(),
-                tried: tried.unwrap_or_default(),
-            }),
-        },
         exit: match exit {
             None => None,
             Some(text) => {
                 Some(PilotExit::from_column(&text).ok_or_else(|| {
-                    unknown(9, format!("an exit {text} this build does not know"))
+                    unknown(3, format!("an exit {text} this build does not know"))
                 })?)
             }
         },
         ended_at: row
-            .get::<_, Option<String>>(10)?
+            .get::<_, Option<String>>(4)?
             .map(Timestamp::from_rfc3339),
-        note: row.get(11)?,
+        note: row.get(5)?,
     })
 }
 
 impl Store {
-    /// Mark a Job for the handoff, replacing whatever pilot it last had.
-    pub fn mark_for_pilot(
-        &mut self,
-        job: &JobId,
-        reason: PilotReason,
-        session: Option<&str>,
-        run: &str,
-        at: &Timestamp,
-    ) -> Result<(), WriteError> {
-        self.conn
-            .execute(
-                "INSERT OR REPLACE INTO job_pilots (job_id, reason, session_id, marked_run, \
-                 marked_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                (job.as_str(), reason.as_wire(), session, run, at.as_str()),
-            )
-            .map_err(fault("marking a job for a pilot"))?;
-        Ok(())
-    }
-
-    /// Forget the Job's pilot at whatever stage it was. **For a take over that
-    /// failed**, so a mark outlives no pull.
-    pub fn drop_pilot(&mut self, job: &JobId) -> Result<(), WriteError> {
-        self.conn
-            .execute("DELETE FROM job_pilots WHERE job_id = ?1", (job.as_str(),))
-            .map_err(fault("dropping a pilot"))?;
-        Ok(())
-    }
-
     /// Take an exit back, for a move that failed after the pilot was stamped
     /// ended. **Returns whether one was ended.**
     pub fn pilot_reopened(&mut self, job: &JobId) -> Result<bool, WriteError> {
@@ -167,32 +104,6 @@ impl Store {
                 (job.as_str(),),
             )
             .map_err(fault("reopening a pilot"))?;
-        Ok(changed == 1)
-    }
-
-    /// The Job moved to `piloted`: stamp it, and keep the narrative the Drone
-    /// brought where it brought one. **Returns whether a mark was there to
-    /// stamp.**
-    pub fn pilot_began(
-        &mut self,
-        job: &JobId,
-        at: &Timestamp,
-        narrative: Option<&Narrative>,
-    ) -> Result<bool, WriteError> {
-        let changed = self
-            .conn
-            .execute(
-                "UPDATE job_pilots SET piloted_at = ?2, trying_to = ?3, blocked_by = ?4, \
-                 tried = ?5 WHERE job_id = ?1 AND piloted_at IS NULL",
-                (
-                    job.as_str(),
-                    at.as_str(),
-                    narrative.map(|said| said.trying_to.as_str()),
-                    narrative.map(|said| said.blocked_by.as_str()),
-                    narrative.map(|said| said.tried.as_str()),
-                ),
-            )
-            .map_err(fault("stamping a pilot"))?;
         Ok(changed == 1)
     }
 

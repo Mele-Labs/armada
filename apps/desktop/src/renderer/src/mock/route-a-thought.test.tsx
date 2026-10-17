@@ -5,7 +5,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { Outcome, ThoughtRead, ThoughtReading } from "@armada/protocol";
+import type { ThoughtRead, ThoughtReading } from "@armada/protocol";
 import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -13,13 +13,6 @@ unmountAfterEach();
 const helm = () => page.getByRole("complementary", { name: "Helm" });
 const box = () => helm().getByRole("textbox", { name: "Ask Helm" });
 const SENT_CHIP = (what: string) => page.getByRole("button", { name: `Sent to ${what}` });
-
-const SAID = "Job 54 is not running a Drone that can be told";
-const REFUSAL: Outcome = {
-  ok: false,
-  why: "refused",
-  error: { code: "fleet.redirect_refused", message: SAID, run_id: "mock", fields: {}, chain: [] },
-};
 
 /** Type a message in Helm's box and send it with ↵, as the walk does. */
 async function say(words: string): Promise<void> {
@@ -36,12 +29,6 @@ const thought = (target?: Extract<ThoughtReading, { kind: "thought" }>["target"]
   ok: true,
   reading: target === undefined ? { kind: "thought" } : { kind: "thought", target },
 });
-
-const BILLING_JOB = (app: ReturnType<typeof mount>) => {
-  const job = app.scenario.state.jobs.find((one) => one.title === "Retry failed invoice charges with backoff");
-  if (job === undefined) throw new Error("the moment holds the billing Job");
-  return job;
-};
 
 test("words sent to a Session arrive as its message, are recorded once, and never reach Helm's own session", async () => {
   const app = mount("route-a-thought");
@@ -72,48 +59,6 @@ test("words sent to a Session arrive as its message, are recorded once, and neve
   expect(asked).not.toHaveBeenCalled();
   // The card is gone, and pressing the chip is the row's own act.
   expect(helm().getByRole("group", { name: "Send to", exact: true }).query()).toBeNull();
-});
-
-test("words sent to a Job are a redirect to its Drone, recorded with the Job's repository", async () => {
-  const app = mount("route-a-thought");
-  const job = BILLING_JOB(app);
-  const redirected = vi.spyOn(app.api, "redirectDrone");
-  const recorded = vi.spyOn(app.api, "recordThoughtSent");
-  const asked = vi.spyOn(app.api, "askHelm");
-  reading(app, thought({ kind: "job", id: job.id, title: job.title, manifest_id: "billing" }));
-  await openHelm();
-
-  const words = "retries should back off longer after the third failed charge";
-  await say(words);
-  await expect.element(helm().getByText("billing", { exact: true })).toBeVisible();
-  await userEvent.keyboard("{Enter}");
-  await expect.element(SENT_CHIP("Job Retry failed invoice charges with backoff")).toBeVisible();
-
-  expect(redirected).toHaveBeenCalledWith(job.id, words);
-  expect(recorded).toHaveBeenCalledWith("armada", words, { kind: "job", id: job.id, title: job.title, manifest_id: "billing" });
-  expect(asked).not.toHaveBeenCalled();
-});
-
-test("a delivery Fleet refuses is said in Fleet's words, leaves no row, and keeps the card and the words", async () => {
-  const app = mount("route-a-thought");
-  const job = BILLING_JOB(app);
-  app.api.redirectDrone = async () => REFUSAL;
-  const recorded = vi.spyOn(app.api, "recordThoughtSent");
-  const asked = vi.spyOn(app.api, "askHelm");
-  reading(app, thought({ kind: "job", id: job.id, title: job.title, manifest_id: "billing" }));
-  await openHelm();
-
-  await say("retries should back off longer after the third failed charge");
-  await expect.element(helm().getByRole("group", { name: "Send to", exact: true })).toBeVisible();
-  await userEvent.keyboard("{Enter}");
-
-  await expect.element(page.getByText(SAID).first()).toBeVisible();
-  expect(recorded).not.toHaveBeenCalled();
-  expect(asked).not.toHaveBeenCalled();
-  expect(SENT_CHIP("Job Retry failed invoice charges with backoff").query()).toBeNull();
-  // Nothing was lost: the card still offers the words another way.
-  await expect.element(helm().getByRole("group", { name: "Send to", exact: true })).toBeVisible();
-  await expect.element(helm().getByRole("button", { name: "Ask Helm" })).toBeVisible();
 });
 
 test("a read that failed is a question, and the words go to Helm", async () => {
