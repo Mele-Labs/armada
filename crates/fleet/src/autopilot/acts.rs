@@ -1,12 +1,13 @@
 //! The acts a person takes on an Autopilot, as `api::Autopilots` serves them.
 //!
-//! **Pause and Stop never stop a Job that is spending**: that is the Job's own Pause. Pause stops
-//! the picks; Stop also withdraws a pick whose Job has never had a Drone, and ends it.
+//! **Pause and Stop never stop a Session that is working.** Pause stops the picks; Stop also
+//! withdraws a pick whose Session has never run, closing it, and ends Autopilot.
 //! The owner's call of 11 Oct 2026, `2026-10-11-pause-drains-stop-withdraws.md`.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Autopilots, Redirector, Refusal};
-use core_model::TopLevelOrigin;
+use api::{Autopilots, HostedSessions, Refusal};
 use ipc::{
     Autopilot, AutopilotList, AutopilotProposal, AutopilotQuoted, AutopilotSettings, ManifestId,
     ProposeAutopilot, WireError,
@@ -15,7 +16,7 @@ use store::KeptAutopilot;
 
 use super::bounds::{NotNow, NotResumed, PickState, State};
 use super::sentence::settings_from;
-use super::wire::job_id;
+use super::starting::Issue;
 use crate::daemon::Fleet;
 
 const NO_AUTOPILOT: &str = "fleet.no_autopilot";
@@ -101,7 +102,7 @@ where
             .map_err(|why| self.faulted(why))
     }
 
-    /// Withdraw every started pick whose Job has never had a Drone: the Job is killed, as the
+    /// Withdraw every started pick whose Session has never run: the Session is closed, as the
     /// person's act, and the pick reads `withdrawn`.
     async fn withdrawn(&self, kept: KeptAutopilot) -> Result<(), Refusal> {
         let gathered = self
@@ -109,8 +110,8 @@ where
             .await
             .map_err(|why| self.refusal(why))?;
         for pick in &gathered.picks {
-            let (Some(job), Some(standing)) =
-                (&pick.started_job, gathered.standing.get(&pick.pick_id))
+            let (Some(session), Some(standing)) =
+                (&pick.started_session, gathered.standing.get(&pick.pick_id))
             else {
                 continue;
             };
@@ -119,9 +120,8 @@ where
             {
                 continue;
             }
-            self.kill_job(&job_id(job))
-                .await
-                .map_err(|why| self.refusal(why))?;
+            self.close_session(ipc::CloseSession { session_id: ipc::SessionId::carried(session) })
+                .await?;
             self.store()
                 .lock()
                 .await
@@ -345,10 +345,11 @@ where
         Ok(self.autopilot_wire(&gathered))
     }
 
-    /// Through the proposer and to the gate, as `propose_from_request` would take the issue's
-    /// address: a person is choosing now. **Claimed before the call**, so two presses make one Job.
+    /// A Session on the issue, as a person's choice: the same start a sure pick makes, with the
+    /// picker's workflow where it chose one. **Claimed before the start**, so two presses make one
+    /// Session.
     async fn dispatch_set_aside(
-        &self,
+        self: Arc<Self>,
         manifest_id: ManifestId,
         pick_id: String,
     ) -> Result<Autopilot, Refusal> {
@@ -367,30 +368,21 @@ where
             ));
         }
         let made = self
-            .proposing_from(
-                &pick.issue_url,
-                None,
-                Vec::new(),
+            .session_on_issue(
                 &served,
-                Redirector::Person,
-                TopLevelOrigin::Manual,
+                &Issue { url: &pick.issue_url, title: &pick.issue_title, excerpt: "" },
+                pick.workflow_id.as_deref(),
                 None,
             )
             .await;
         let mut store = self.store().lock().await;
-        let kept_job = match &made {
-            Ok(jobs) => jobs.first().map(|job| job.id().as_str().to_string()),
-            Err(_) => None,
-        };
-        match kept_job {
-            Some(job) => store.move_autopilot_pick(&pick_id, "started", "started", Some(&job)),
-            None => store.move_autopilot_pick(&pick_id, "started", "set_aside", None),
+        match &made {
+            Ok(session) => store.move_autopilot_pick(&pick_id, "started", "started", Some(session)),
+            Err(_) => store.move_autopilot_pick(&pick_id, "started", "set_aside", None),
         }
         .map_err(|why| self.faulted(why))?;
         drop(store);
-        if let Err(why) = made {
-            return Err(self.refusal(why));
-        }
+        made?;
         self.answered(self.kept_autopilot(&manifest_id).await?)
             .await
     }

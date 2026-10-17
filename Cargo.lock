@@ -1281,7 +1281,6 @@ dependencies = [
  "aes-gcm",
  "axum",
  "base64",
- "core-model",
  "futures-util",
  "hkdf",
  "http-body-util",

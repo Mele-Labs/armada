@@ -24,8 +24,6 @@ import {
   usedFact,
   customTitleIn,
   ghAct,
-  isDispatch,
-  jobIdsIn,
   mayMoveBranch,
   needAct,
   micros,
@@ -74,7 +72,6 @@ const HELD_WAIT_MS = 25_000
 const HELD_FETCH_MS = 35_000
 const SILENT_MS = 30_000
 const DOCS_ACTS = ['create', 'batch', 'update']
-const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
 
 type Dollar = Door & Pick<Engine, 'command' | 'process' | 'prompt' | 'session'>
 
@@ -632,13 +629,6 @@ async function stored($: Dollar, id: string): Promise<Task[] | undefined> {
   return storedTasks(files)
 }
 
-async function dispatched($: Dollar, via: string, text: string): Promise<void> {
-  const [id] = await current($)
-  for (const job of jobIdsIn(text)) {
-    say($, id, { kind: 'attached', attachment: { kind: 'job', target: job, detail: { via } } })
-  }
-}
-
 async function spawned(
   $: Dollar,
   target: string,
@@ -1139,16 +1129,6 @@ export const register: Register = on => {
   on('tool.check', async ($, e, next) =>
     allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>)) ? { decision: 'allow' as const } : next(e),
   )
-
-  for (const name of DISPATCHES) {
-    on('tool.call', { tool: `mcp__armada-fleet__${name}` }, async ($, e, next) => {
-      const ran = await next(e)
-      if (isDispatch(e.tool) && ran.deny === undefined && ran.isError !== true) {
-        void dispatched($, name, ran.text ?? '').catch(() => undefined)
-      }
-      return ran
-    })
-  }
 
   for (const tool of ['Artifact', 'Write', 'Read', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
     on('tool.call', { tool }, async ($, e, next) => {

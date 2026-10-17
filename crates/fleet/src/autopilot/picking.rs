@@ -81,7 +81,7 @@ pub fn candidates(open: &[OpenIssue], taken: &BTreeSet<String>) -> Vec<Candidate
 }
 
 /// A pick the picker was sure of. **No public constructor**: [`read_pick`] is the only thing
-/// that makes one, so a Job that skips the dispatch gate is always one the picker was sure of.
+/// that makes one, so a Session that starts unasked is always one the picker was sure of.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SurePick {
     issue: Candidate,

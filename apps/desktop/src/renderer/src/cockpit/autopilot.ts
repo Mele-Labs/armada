@@ -3,8 +3,9 @@
 // start form's fields both ways. Pure, so the words and the arithmetic are checked without a window.
 // #2092, #2105, `docs/concepts/autopilot.md`.
 
-import type { Autopilot, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList, JobSummary } from "@armada/protocol";
+import type { Autopilot, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList } from "@armada/protocol";
 import type { AutopilotCap, AutopilotFields, AutopilotReading } from "@armada/components";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 const two = (n: number) => String(n).padStart(2, "0");
 
@@ -66,22 +67,29 @@ function listed(picks: readonly AutopilotPick[]): string {
   return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
-/** The picks whose Job has never had a Drone: Stop withdraws them. */
-export function notStarted(autopilot: Autopilot, jobs: readonly JobSummary[]): AutopilotPick[] {
+/** The part of a Session that says whether its agent has run. */
+type Started = Pick<Session, "id" | "dead" | "lastTurnAt" | "turn">;
+
+/** The Session a started pick opened, where the window holds it. */
+const sessionOf = (pick: AutopilotPick, sessions: readonly Started[]) =>
+  pick.state === "started" && pick.session_id !== undefined ? sessions.find((one) => one.id === pick.session_id) : undefined;
+
+/** The picks whose Session has never run: Stop withdraws them. */
+export function notStarted(autopilot: Autopilot, sessions: readonly Started[]): AutopilotPick[] {
   return autopilot.picks.filter((pick) => {
-    const job = pick.state === "started" && pick.job_id !== undefined ? jobs.find((one) => one.id === pick.job_id) : undefined;
-    return job !== undefined && job.started_at === undefined && job.ended_at === undefined;
+    const session = sessionOf(pick, sessions);
+    return session !== undefined && session.dead === undefined && session.lastTurnAt === undefined && session.turn.state === "idle";
   });
 }
 
 /** What Stop does to this run, said before it is pressed: what is withdrawn, and what carries on. */
-export function stoppingOf(autopilot: Autopilot, jobs: readonly JobSummary[]): string {
-  const waiting = notStarted(autopilot, jobs);
+export function stoppingOf(autopilot: Autopilot, sessions: readonly Started[]): string {
+  const waiting = notStarted(autopilot, sessions);
   const going = autopilot.picks.filter((pick) => {
-    const job = pick.state === "started" ? jobs.find((one) => one.id === pick.job_id) : undefined;
-    return job !== undefined && job.started_at !== undefined && job.ended_at === undefined;
+    const session = sessionOf(pick, sessions);
+    return session !== undefined && session.dead === undefined && !waiting.includes(pick);
   });
-  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs finish.";
+  if (waiting.length === 0 && going.length === 0) return "Stop ends Autopilot. Picks that have not started are withdrawn, and started Sessions carry on.";
   const withdrawn = waiting.length === 0 ? "" : ` ${listed(waiting)}, picked and not started, ${waiting.length === 1 ? "is" : "are"} withdrawn.`;
   const carry = going.length === 0 ? "" : ` ${listed(going)} ${going.length === 1 ? "keeps" : "keep"} going to the end.`;
   return `Stop ends Autopilot.${withdrawn}${carry}`;

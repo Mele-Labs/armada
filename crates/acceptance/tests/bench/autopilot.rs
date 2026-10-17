@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::{Environment, Model, OpenIssue};
 use config::ResolvedWorkflow;
-use core_model::{JobStatus, Timestamp, WorkflowId};
+use core_model::{Timestamp, WorkflowId};
 use fleet::autopilot::{Asking, Standing};
 use fleet::prompts::Prompts;
 use fleet::JudgeBudget;
@@ -109,11 +109,12 @@ pub fn the_workflows() -> BTreeMap<WorkflowId, ResolvedWorkflow> {
         .collect()
 }
 
-/// One of the Autopilot's Jobs, as room is counted over it.
-pub fn standing(status: JobStatus, waiting_on_a_person: bool, ever_ran: bool) -> Standing {
+/// One of the Autopilot's Sessions, as room is counted over it.
+pub fn standing(live: bool, waiting_on_a_person: bool, ever_ran: bool) -> Standing {
     Standing {
-        status,
+        live,
         waiting_on_a_person,
+        working: true,
         ever_ran,
     }
 }
