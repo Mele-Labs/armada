@@ -117,6 +117,13 @@ refuses if it cannot be. Two callers: an agent, through Bash, after a merge that
 Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
 (*Restarting from Bridge*, below).
 
+**Bridge is launched from a copy of Electron's app named Armada**, made under
+`node_modules/.cache/armada-bridge/` with a changed `Info.plist` and an ad hoc
+signature (no Apple certificate), and handed to `electron-vite preview` as
+`ELECTRON_EXEC_PATH`. That is what puts "Armada" in the menu bar, Dock and app
+switcher of an unpackaged Bridge. It is rebuilt only when Electron's version
+changes.
+
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
 `Armada/` touched). Sessions load the mod from there, so after a restart the

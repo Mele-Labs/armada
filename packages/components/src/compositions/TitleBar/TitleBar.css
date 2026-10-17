@@ -25,9 +25,11 @@
   flex: none;
   height: var(--h-title-bar);
   padding-inline: var(--space-3);
-  /* Flush with the window's ground and no rule under it, so the row reads as part of the cockpit
-   * below rather than chrome above it: the panels carry the frames (the owner, 10 Oct 2026). */
-  background: var(--bg-base);
+  /* No ground of its own and no rule under it, so the row reads as part of the cockpit below
+   * rather than chrome above it: the panels carry the frames (the owner, 10 Oct 2026). A flat
+   * --bg-base here cut the shell's light pool off at the row's foot, and that edge read as a
+   * divider (the owner, 16 Oct 2026). */
+  background: transparent;
   -webkit-app-region: drag;
   container-type: inline-size;
 }
