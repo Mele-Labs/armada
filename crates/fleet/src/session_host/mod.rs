@@ -28,14 +28,9 @@ pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
-mod pilot_words;
+mod pausing;
 mod reach_folders;
-mod piloting;
 pub(crate) mod planning;
-pub(crate) use pilot_words::{
-    PILOT_CHANGED, PILOT_CHECKS_FAILED, PILOT_FOR_GOOD, PILOT_JUDGE_REFUSED, PILOT_NARRATIVE,
-    PILOT_OPENING, PILOT_OUTSIDE_PLAN, PILOT_RECORD, PILOT_RESTART, PILOT_STOPPED, PILOT_WORKTREE,
-};
 mod places;
 mod process;
 pub(crate) mod proposing;
@@ -43,7 +38,6 @@ pub mod queueing;
 pub(crate) mod slot_asking;
 pub(crate) mod releasing;
 mod rows;
-pub(crate) use rows::UserLine;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 /// A judge reading a Session's work, and sending or dismissing what it raised.

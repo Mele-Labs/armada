@@ -45,7 +45,7 @@ function stateOf(session: Session): string {
 function attachmentLine(one: SessionAttachment): [label: string, value: string] | undefined {
   switch (one.kind) {
     case "job":
-      return ["Job", `#${one.number} ${one.title}, ${one.state}, branch ${one.branch}, id ${one.id}${one.looking === true ? ", one it was told to look at" : ""}`];
+      return ["Job", `#${one.number} ${one.title}, ${one.state}, branch ${one.branch}, id ${one.id}`];
     case "pull_request": {
       const checks = one.checks.state === "failed" ? `checks failed (${one.checks.failing})` : `checks ${one.checks.state}`;
       return ["Pull request", `#${one.number} ${one.title}, ${one.state}, ${checks}, branch ${one.branch}, ${one.address}`];

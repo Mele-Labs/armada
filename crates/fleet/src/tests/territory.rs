@@ -10,10 +10,8 @@ use axum::http::StatusCode;
 use ipc::SlotHolderKind;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
-use super::concurrency::one_scoped_step;
-use super::daemon::{fittings, one};
+use super::daemon::fittings;
 use super::http::call;
-use super::needs::git;
 use super::tmp::TempDir;
 use crate::daemon::Fleet;
 use crate::slots::Concurrency;
@@ -41,7 +39,6 @@ fn a_rig() -> Rig {
     git(home.path(), &["add", "."]);
     git(home.path(), &["commit", "--quiet", "-m", "start"]);
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
-    fittings.starting().workflows = one(one_scoped_step());
     fittings.concurrency = Concurrency::of(2);
     Rig {
         fleet: Arc::new(Fleet::assembled(fittings)),
@@ -68,48 +65,6 @@ impl Rig {
         self.fleet.vcs().hold_slot(&self.root(), n, by);
         at
     }
-}
-
-#[tokio::test]
-async fn a_served_repositorys_areas_are_its_directories_to_depth_two_with_the_files_of_each_and_a_repeated_read_at_one_head_reads_git_once() {
-    let rig = a_rig();
-
-    let first = rig.fleet.repository_areas().await.expect("read");
-    let again = rig.fleet.repository_areas().await.expect("read");
-
-    let [served] = first.repositories.as_slice() else {
-        panic!("one repository is served: {first:?}");
-    };
-    assert_eq!(served.manifest_id.as_str(), rig.manifest());
-    assert_eq!(served.root, rig.root());
-    let head = std::process::Command::new("git")
-        .args(["-C", &rig.root(), "rev-parse", "main"])
-        .output()
-        .unwrap();
-    assert_eq!(served.head, String::from_utf8_lossy(&head.stdout).trim());
-    let seen: Vec<(&str, u32, Vec<(&str, u32)>)> = served
-        .areas
-        .iter()
-        .map(|area| {
-            (area.dir.as_str(), area.files, area.kids.iter().map(|kid| (kid.name.as_str(), kid.files)).collect())
-        })
-        .collect();
-    assert_eq!(
-        seen,
-        vec![("crates", 3, vec![("fleet", 2), ("ipc", 1)]), ("docs", 1, vec![])],
-        "the largest first, a file at the top in none"
-    );
-    assert_eq!(served.omitted, 0);
-    assert_eq!(again, first);
-    assert_eq!(rig.fleet.territory().tree_reads(), 1, "the second read asked git for the head only");
-
-    write(&rig.home, "docs/e.md", "x\n");
-    git(rig.home.path(), &["add", "."]);
-    git(rig.home.path(), &["commit", "--quiet", "-m", "main moves"]);
-    let moved = rig.fleet.repository_areas().await.expect("read");
-
-    assert_eq!(rig.fleet.territory().tree_reads(), 2, "a new head is read again");
-    assert_eq!(moved.repositories[0].areas[1].files, 2);
 }
 
 #[test]
@@ -194,4 +149,15 @@ async fn both_reads_are_served_where_the_router_says() {
     let touches: ipc::SlotTouches = ipc::decode("touches", &touches_body).expect("decodes");
     assert_eq!(areas.repositories.len(), 1);
     assert!(touches.repositories.is_empty() || touches.repositories[0].holders.is_empty());
+}
+
+fn git(repo: &std::path::Path, args: &[&str]) {
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+        .args(args)
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success(), "git {args:?}: {run:?}");
 }

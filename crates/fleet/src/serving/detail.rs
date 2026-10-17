@@ -14,10 +14,7 @@ use ipc::{JobDelivery, JobDetail, JobId, JobReview, JobSpend};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::footprint::kept;
 use crate::wire::{step_facts, step_moves};
-
-mod sent_back;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -31,18 +28,9 @@ where
 {
     /// One Job in full, folded from its log like every other read.
     ///
-    /// # The footprint read is spent only where there is one to read
-    ///
-    /// This call is made on every open of a Job, which is the argument that put
-    /// the history and the patch on routes of their own. A footprint is neither
-    /// — it is a path and a word per file — and it is written at the terminal
-    /// transition, so a Job that is still going has none. Asking only for a
-    /// Job that has stopped is what keeps an open of a running Job costing
-    /// exactly what it cost before, and `footprint` absent on one of them is
-    /// the truth rather than an omission.
-    ///
-    /// **The wait a redirect left is on this read and on no other**, because it
-    /// is held in the slot rather than written down — `Fleet::redirect_awaited`.
+    /// **A read of the record and nothing else.** Jobs are no longer dispatched or worked, so
+    /// everything a live Job carried in memory — a Drone's wait, a question, a Check under way,
+    /// what was stuck — is absent, and the rest is what the store holds.
     pub(crate) async fn job_detail(&self, job_id: JobId) -> Result<JobDetail, Refusal> {
         let job = self
             .load(&job_id.to_domain())
@@ -53,7 +41,6 @@ where
             .await
             .map_err(|why| self.refusal(why))?;
         let (
-            ran,
             flagged,
             moves,
             ran_every_attempt,
@@ -62,12 +49,8 @@ where
             frames,
             started_at,
             ended_at,
-            asked,
         ) = {
             let store = self.store().lock().await;
-            let ran = store
-                .step_checks(job.id())
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             // Every attempt's, for `judged_every_attempt`'s reason below: a
             // flag that refused an earlier run belongs to that run's record.
             let flagged = store
@@ -107,12 +90,7 @@ where
             // `started_at`'s own reason, and `JobSummary::ended_at`'s.
             let ended_at = crate::wire::job_ended_at(&store, job.id())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            // The Checks a Drone asked for, apart from the gate's rows above.
-            let asked = store
-                .asked_runs(job.id(), self.run())
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             (
-                ran,
                 flagged,
                 moves,
                 ran_every_attempt,
@@ -121,28 +99,7 @@ where
                 frames,
                 started_at,
                 ended_at,
-                asked,
             )
-        };
-        // The plans are read with the footprint and only with it: they are what
-        // it is measured against, and a running Job has neither — its live
-        // reading is marked from the slot, where the step being watched is the
-        // step that declared.
-        let recorded = match job.status().is_terminal() {
-            false => None,
-            true => {
-                let store = self.store().lock().await;
-                let kept = store
-                    .footprint(job.id())
-                    .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-                let plans = match kept.is_some() {
-                    false => Vec::new(),
-                    true => store
-                        .step_plans(job.id())
-                        .map_err(|why| self.refusal(Adrift::Reading(why)))?,
-                };
-                kept.map(|footprint| (footprint, plans))
-            }
         };
         // Read for every Job, not only a finished one. Delivery is written when
         // the Job *enters* its delivering step — `crate::landing`'s module
@@ -162,15 +119,6 @@ where
         let delivery = match came_to.is_empty() {
             true => None,
             false => {
-                // **Never a forge call.** `get_job` is read on every
-                // open of a Job; what Fleet's own rotation last read
-                // live is served from memory — `Sweep::pr_detail` — and
-                // absent here is a pull request the rotation has not
-                // reached yet, or one that has already settled.
-                let pull_request_detail = match &came_to.pull_request {
-                    Some(url) => self.sweeping().lock().await.pr_detail.get(url).cloned(),
-                    None => None,
-                };
                 // **Off the record, so it outlives the merge** where the
                 // reading above does not. Only beside an address: a title
                 // with no pull request to click names nothing.
@@ -197,8 +145,8 @@ where
                     commit: came_to.commit,
                     pushed: came_to.pushed,
                     pull_request: came_to.pull_request,
-                    pull_request_detail,
-                    landed: came_to.landed.as_ref().and_then(crate::noticing::settled),
+                    pull_request_detail: None,
+                    landed: came_to.landed.as_ref().and_then(crate::attention::settled),
                     unpushed: came_to.unpushed,
                     pull_request_title: kept.title,
                     pull_request_comments: kept.comments,
@@ -235,15 +183,6 @@ where
             // with it.
             _ => None,
         };
-        let queued = self.queued_reason(&job).await?;
-        // **Read for every Job, unlike the footprint above.** That one is
-        // absent until a Job finishes; this one is what a person watching a
-        // running Job wants most, and it is one indexed query. The cap
-        // travels with the figure because neither half is readable alone.
-        // **The allowance this Job is held to, not the installation's.** A
-        // person who raised this Job's cap reads the figure they set beside the
-        // spend, and a detail still drawing the machine-wide number would say
-        // the Job was over budget on a Job admission is about to start.
         let allowance = self.allowance_for(&job);
         let spent = self
             .spend_of(job.id())
@@ -257,138 +196,35 @@ where
             turn_cap: allowance.turns(),
             ran_ms: spent.ran_ms,
             drones: spent.drones,
-            commander_cost_micros: self
-                .store()
-                .lock()
-                .await
-                .commander_cost_for(job.id())
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?,
+            commander_cost_micros: 0,
         });
-        // Before `step_facts`, which consumes the Check runs: the
-        // classification reads them to answer whether an override is available,
-        // and reading them twice would be a second answer to one question.
-        let stuck = self.why_stuck(&job, reason.as_ref(), &ran).await;
-        // A read, and only ever a read — `crate::overlap` says why it is
-        // reachable from here and from nothing on the dispatch path.
-        let overlaps = self
-            .write_scope_overlaps(&job)
-            .await
-            .map_err(|why| self.refusal(why))?;
         let mut detail = JobDetail::of(
             &job,
             reason.as_ref(),
-            queued.reason,
-            queued.budget,
-            self.resumption(&job),
+            None,
+            None,
+            None,
             started_at,
             ended_at,
             &step_facts(
-                self.aloft(),
-                self.underway(),
-                self.served_by(&job)
-                    .map_err(|why| self.refusal(why))?
-                    .records_root(),
                 &job,
                 ran_every_attempt,
                 judged_every_attempt,
                 flagged,
                 resolved,
                 frames,
-                asked,
                 &moves,
             ),
-            recorded
-                .as_ref()
-                .map(|(footprint, plans)| kept(footprint, plans)),
-            self.redirect_awaited(job.id()).await,
-            crate::questioning::question_awaited(&job),
-            stuck.as_ref(),
-            overlaps,
+            None,
+            None,
+            None,
+            None,
+            None,
             delivery,
             spend,
             review,
         );
-        // After the constructor for `show_again`'s reason: the setting is a
-        // store read, the waiting command is on the slot, and what a refused
-        // row may be answered with is the Manifest's and the harness's.
-        detail.when_blocked = Some(self.when_blocked_of(job.id()).await);
-        detail.command_waiting = self.command_awaited(job.id()).await;
-        // **Only where `answer_judge` would take the answer**, which is
-        // `awaiting_review` alone; anywhere else it is an offer the answer
-        // refuses. The row stays as the record, and a killed Job's step stays
-        // `awaiting_human` because `[statuses.killed]` freezes it where it stood.
-        if job.status() == core_model::JobStatus::AwaitingReview {
-            detail.judge_question = self.judge_question_of(job.id()).await;
-        }
-        detail.when_refused = Some(self.when_refused_of(job.id()).await);
-        detail.allowed_commands = self
-            .allowed_of(job.id())
-            .await
-            .iter()
-            .map(ipc::AllowedCommandRow::from)
-            .collect();
-        detail.repository_allowed_commands = self
-            .repository_allowed(&self.served_by(&job).map_err(|why| self.refusal(why))?)
-            .await
-            .iter()
-            .map(ipc::AllowedCommandRow::from)
-            .collect();
-        detail.model_override = self.model_override_of(job.id()).await;
-        detail.review_model_override = self.review_model_override_of(job.id()).await;
-        let chosen = self.commander_choice_of(job.id()).await;
-        detail.commander_model_override = chosen.model;
-        detail.commander_effort_override = chosen.effort;
-        // `asking` on the row is the Drone's question, and a card the Commander
-        // put out counts too: `summarised` says the same.
-        detail.commander_card = self.card_out_of(&job).await;
-        detail.job.asking |= detail.commander_card.is_some();
-        detail.tiers = ipc::TierModels::from(&self.tiers_of(job.id()).await);
-        self.approval_served(&job, &mut detail).await;
-        self.sent_back_served(&job, &mut detail).await;
-        detail.review_step = job
-            .workflow()
-            .steps()
-            .iter()
-            .find(|s| s.evidence_type() == Some(core_model::EvidenceType::Review))
-            .map(|s| s.label().to_string());
-        detail.job.frozen_by = queued.frozen_by.iter().map(ipc::ManifestId::from).collect();
-        detail.breakages = self
-            .breakages_of(&job)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        // The row nested here is built inside `JobDetail::of`, so its counts are
-        // filled from the same reading as the plan beside it.
-        let plan = self
-            .plan_of(job.id())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        detail.job.tasks = plan.as_ref().map(|plan| plan.counts().into());
-        // The pilot is on this row too: a Job a person attested is told apart
-        // from one that passed by `piloted.exit`, and the detail's header draws
-        // from this row, not the Board's.
-        {
-            let store = self.store().lock().await;
-            detail.job.piloted = self.piloted_on_row(&store, &job);
-            detail.job.bays = crate::summarising::bays_on_row(&store, &job);
-        }
-        let runs = self
-            .group_runs_of(job.id())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        detail.work_plan = match plan.as_ref() {
-            Some(plan) => Some(self.served_plan(job.id(), plan, &runs).await),
-            None => None,
-        };
-        detail.wave_rounds = self
-            .wave_rounds_of(&job)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        // Beside the record, never in the worktree, so a reclaimed checkout
-        // still shows what was said about it — `crate::walk_notes`.
-        detail.walk_notes = self
-            .walk_notes_of(job.id())
-            .await
-            .map_err(|why| self.refusal(why))?;
+        detail.job.bays = crate::summarising::bays_on_row(&*self.store().lock().await, &job);
         // The frozen set and every firing, joined: a Trigger no moment has
         // reached is `pending`.
         detail.triggers = {
@@ -401,10 +237,6 @@ where
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             crate::job_triggers(&frozen, &firings)
         };
-        detail.additions = self
-            .additions_served(job.id())
-            .await
-            .map_err(|why| self.refusal(why))?;
         let phoned = self
             .store()
             .lock()
@@ -412,41 +244,6 @@ where
             .created_from_phone(job.id())
             .map_err(|why| self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(why))))?;
         detail.created_via = phoned.then(|| core_model::Via::Phone.into());
-        let reviewed = self
-            .store()
-            .lock()
-            .await
-            .confidence_record(job.id())
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        let dismissed = self
-            .store()
-            .lock()
-            .await
-            .dismissals(job.id())
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        let followed = self
-            .store()
-            .lock()
-            .await
-            .followups(job.id())
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        detail.confidence = reviewed.as_ref().map(|record| {
-            ipc::JobConfidence::of(record)
-                .without(&dismissed)
-                .following(&followed)
-        });
-        if let Some(stuck) = detail.stuck.as_mut() {
-            for refused in &mut stuck.refused {
-                let command = (refused.tool == "Bash").then(|| refused.detail.clone());
-                let offered = self
-                    .offers_after(&job, &refused.tool, command.as_deref())
-                    .await;
-                refused.offers = offered.answers;
-                refused.withheld = offered.withheld;
-                refused.rules = offered.rules;
-                refused.suggested_rule = offered.suggested_rule;
-            }
-        }
         // One indexed read on every open, because a Job that was replaced is
         // otherwise a dead end — `store::lineage`. The handle is composed here
         // rather than in the store, `core_model` owning that one string.
@@ -461,8 +258,7 @@ where
                 handle: core_model::handle_of(found.number, &found.title),
             });
         // The same column followed forwards, so the header can name what this
-        // Job replaced rather than print its id — `#1474`. One handle, composed
-        // here beside the other one.
+        // Job replaced rather than print its id — `#1474`.
         detail.replaces = self
             .store()
             .lock()
@@ -487,28 +283,52 @@ where
                 name: found.name.map(|name| name.as_str().to_string()),
                 node_id: ipc::StudioNodeId::from(&found.node_id),
             });
-        // After the constructor, because it is read off the worktree and the
-        // Manifest as well as the record — `crate::showing_again`.
-        detail.show_again = Some(
-            self.showing_again_of(&job)
-                .await
-                .map_err(|why| self.refusal(why))?,
-        );
-        // Last, because it reads what is above: the breakages, the overlaps and
-        // the steps' rulings, with the asks that excuse a quiet Drone.
-        let stuck_drone = self
-            .stuck_drone_of(
-                &job,
-                detail.asking.is_some() || detail.command_waiting.is_some(),
-            )
-            .await
-            .map_err(|why| self.refusal(why))?;
-        detail.issues = crate::job_issues::issues_of(&detail, stuck_drone);
-        let awaited = self
-            .jobs_waited_on(&job, &detail)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        detail.waiting = crate::job_waiting::waiting_of(&detail, awaited);
         Ok(detail)
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// What a Job's worktree holds, where it still has one.
+    ///
+    /// **`None` is "there is nothing to read"** — one whose worktree has been reclaimed, or whose
+    /// slot is no longer its own — and it is a different answer from a reading that found no
+    /// change. A directory that will not open is an error rather than either.
+    pub(crate) fn worktree_of(
+        &self,
+        job: &core_model::Job,
+    ) -> Result<Option<adapter_traits::Worktree>, Adrift> {
+        let served = self.served_by(job)?;
+        let Some(spec) = self
+            .job_tree(&served, job)
+            .map_err(|cause| Adrift::Unworkable {
+                job: job.id().clone(),
+                cause,
+            })?
+            .here()
+        else {
+            return Ok(None);
+        };
+        if !std::path::Path::new(&spec.worktree_path()).is_dir() {
+            return Ok(None);
+        }
+        let branch = job
+            .branch()
+            .map(|branch| branch.as_str().to_string())
+            .unwrap_or_else(|| spec.branch());
+        // **The Manifest's base rides along**, because a patch measured against anything else is a
+        // smaller claim than the Job's work and nothing downstream can tell.
+        Ok(Some(self.based(
+            &served,
+            adapter_traits::Worktree::at(spec.worktree_path(), branch),
+        )))
     }
 }

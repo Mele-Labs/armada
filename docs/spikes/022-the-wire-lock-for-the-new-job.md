@@ -200,7 +200,7 @@ breaking changes — the waiting word, `failed`, and a Judge and a Check signing
 the Record — with the store migration, the new `TaskCounts` fields, and the
 writers that sign as a Judge and as a Check. 1b lands one Drone per task, one
 at a time. 1a's scope includes the files that write those rows:
-`crates/fleet/src/gate.rs`, `crates/fleet/src/settling.rs` and
+The `gate` module (deleted since), the `settling` module (deleted since) and
 `crates/fleet/src/judging/`.
 
 ### 8. A tier on the Job's model map left empty
@@ -251,7 +251,7 @@ one of his answers above.
 | Difficulty tiers | A map on the Job, a tier on the task | #1530, 22 Sep |
 | A tier left empty | Armada picks, and the Drone's row says what it ran | Answer 8 |
 | A task's model | A person picks it directly, over the map | `.claude/decisions/2026-09-30-a-person-can-pick-a-tasks-model.md` |
-| A model nobody holds | Refused, as `set_model` refuses one today | `crates/fleet/src/job_settings.rs` |
+| A model nobody holds | Refused, as `set_model` refuses one today | the `job_settings` module (deleted since) |
 | A per-Job Drone cap | Yes, inside the machine's; stored in slice 4, enforced in slice 5 | #1550, 22 Sep |
 | The machine's cap | Recounted in Drones | #1530, 22 Sep |
 | Who goes first when full | Every running Job keeps one agent | Answer 2 |
@@ -446,7 +446,7 @@ rows that carry the group, and `cases_at_boundary` waits on #1274 with `cases`.
 | `BranchView`, `BranchesAnswer` | A new branch-list read | New route | Minor | git, through the Vcs adapter | 4 |
 
 **Which `CompleteWhen` values Fleet honours** follows `COMPLETE_WHEN_SERVED` in
-`packages/surfaces/jobs/src/draft/landing.ts`. `delivered` is honoured from slice 4,
+`packages/screens/src/draft/landing.ts`. `delivered` is honoured from slice 4,
 and `all_members_landed` from slice 6. `pr_merged` stays unserved by #1532's
 decision, `pr_opened` has no writer that tells it from `delivered`, and the
 approval body refuses both.
@@ -534,10 +534,10 @@ type to the wire.
 
 | Draft | Says | True under the lock | Slice |
 |---|---|---|---|
-| `packages/surfaces/jobs/src/draft/task.ts`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
-| `packages/surfaces/jobs/src/draft/task.ts`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
-| `packages/surfaces/jobs/src/draft/task.ts`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
-| `packages/surfaces/jobs/src/draft/proposal.ts`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
+| `packages/screens/src/draft/task.ts`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
+| `packages/screens/src/draft/task.ts`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
+| `packages/screens/src/draft/task.ts`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
+| `packages/screens/src/draft/proposal.ts`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
 
 ## The issues filed since
 
@@ -559,7 +559,7 @@ type to the wire.
 | #250 | Piloting one task | Left out below |
 
 **#1752's latest comment decides 1b's shape.** Drones were offered
-`update_task` and told to call it in `crates/fleet/src/crossing.rs`, and across
+`update_task` and told to call it in the `crossing` module (deleted since), and across
 this machine two of eleven did. So Fleet writes a task's state, and fills `shown`
 from the hand-in the task's own Drone already makes, or `the_evidence_accounts_for_itself`
 refuses every task with an `expects`.
@@ -584,7 +584,7 @@ socket each, for 21.4's reason: one order on one clock.
 
 **Today the live half of that socket follows one Drone at a time.** Only the
 backfill interleaves every Drone the Job has had. `Turns::feeding`
-(`crates/api/src/observing.rs`) gives each Drone a channel of its own and moves
+(the `observing` module (deleted since)) gives each Drone a channel of its own and moves
 the Job's slot onto it with `send_replace`. A viewer already watching stays on
 the old Drone's channel until it closes, and one arriving later hears only the
 newest, so two Drones at once would each be heard by half the viewers. Slice 5
@@ -603,7 +603,7 @@ slice 5's channel removes the gap.
 **Claim: a Job's plan is worked by a Drone per task, group by group, and I can
 see and act on each task, each group and each Drone.** One acceptance test,
 written before slice 1a and added to slice by slice, in a new file beside
-`crates/acceptance/tests/drone_per_step.rs`.
+The `drone_per_step` tests (deleted since).
 
 ```
 1a ──► 1b ──► 2 ──► 3 ──► 4 ──► 6
@@ -624,7 +624,7 @@ a task without being told which task, so slice 3 keeps only the tier and the
 edit.
 
 **Slice 5 waits on slice 3 as well as 2.** Both spawn Drones in
-`crates/fleet/src/spawning.rs` — slice 3 to resolve each one's model, slice 5
+The `spawning` module (deleted since) — slice 3 to resolve each one's model, slice 5
 to run several — and both add commands to `crates/fleet/src/commanding.rs`.
 
 ### What every slice that ships wire also writes
@@ -686,10 +686,10 @@ close.
 
 - `TaskState` gains `handed_in` and `failed`. The `task_state` vocabulary lands
   in `crates/core-model/domain/enum-verbs.toml` with every row, from
-  `packages/surfaces/jobs/src/draft/words.ts`, and the draft's `classifying` word goes.
+  `packages/screens/src/draft/words.ts`, and the draft's `classifying` word goes.
 - `Actor` gains `judge` and `check`. The rows a Judge's verdict and a Check's
-  outcome write are signed by them, in `crates/fleet/src/gate.rs`,
-  `crates/fleet/src/settling.rs` and `crates/fleet/src/judging/`.
+  outcome write are signed by them, in the `gate` module (deleted since),
+  the `settling` module (deleted since) and `crates/fleet/src/judging/`.
 - The migration sits on top of V87 and moves `KNOWN_SCHEMA_VERSION`.
 - `TaskCounts` gains its two fields, placed as the bundle above says.
 - **Nothing writes `handed_in` or `failed` yet.** 1b writes `handed_in`, and
@@ -697,10 +697,10 @@ close.
 
 Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/envelope.rs`,
 `crates/core-model/domain/enum-verbs.toml`, `xtask/src/rules_enums.rs`,
-`crates/ipc/src/work_plan.rs`, `crates/ipc/src/enums.rs`, `crates/fleet/src/gate.rs`,
-`crates/fleet/src/settling.rs`, `crates/fleet/src/judging/`, `crates/store/src/migrations.rs`,
-`crates/store/src/fold.rs`, `packages/surfaces/jobs/src/draft/words.ts`,
-`packages/surfaces/jobs/src/draft/task.ts`, and the wire set above.
+`crates/ipc/src/work_plan.rs`, `crates/ipc/src/enums.rs`, the `gate` module (deleted since),
+The `settling` module (deleted since), `crates/fleet/src/judging/`, `crates/store/src/migrations.rs`,
+`crates/store/src/fold.rs`, `packages/screens/src/draft/words.ts`,
+`packages/screens/src/draft/task.ts`, and the wire set above.
 
 ### 1b — Task by task, each by its own Drone
 
@@ -726,17 +726,17 @@ Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/en
 - The step's Checks and Judge run once, at the step's end, as one group. A Drone
   that exits without handing in stops the step, as today.
 
-Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
-`crates/fleet/src/crossing.rs`, `crates/fleet/src/work_plan.rs`,
-`crates/fleet/src/drones_had.rs`, `crates/fleet/src/evidence.rs`,
-`crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/job/workflow.rs`,
+Write scope: the `spawning` module (deleted since), the `briefing` module (deleted since),
+The `crossing` module (deleted since), the `work_plan` module (deleted since),
+The `drones_had` module (deleted since), the `evidence` module (deleted since),
+`crates/core-model/src/job/work_plan.rs`, the `workflow` module (deleted since),
 `crates/config/src/workflow/step.rs`, `crates/core-model/domain/workflowdef-fields.toml`,
 `.armada/workflows/`, `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`,
 `docs/concepts/plan.md`, `docs/contracts/agent-prompt.md`, and the wire set above.
 
 **Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
 Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
-for no task on today's Fleet (`packages/surfaces/jobs/src/task-live.ts`). This slice
+for no task on today's Fleet (the Jobs package, since deleted). This slice
 is what turns them on.
 
 ### 2 — Groups, and a task that failed
@@ -781,8 +781,8 @@ retries run out.
 | `.claude/decisions/2026-09-22-a-test-runs-at-its-last-group.md` | Deferred with #1274: every group runs every gate Check over the whole copy |
 | #1530's *the whole set runs again before the pull request is offered* | Placed: the gate of the step before handoff runs every Manifest Check after its last group — feature's `tests`, and bug's and refactor's `implement` |
 
-Write scope: `crates/fleet/src/gate.rs`, `crates/fleet/src/checking.rs`,
-`crates/fleet/src/settling.rs`, `crates/fleet/src/work_plan.rs`,
+Write scope: the `gate` module (deleted since), the `checking` module (deleted since),
+The `settling` module (deleted since), the `work_plan` module (deleted since),
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs`,
 `crates/store/src/migrations.rs`, `crates/store/src/fold.rs`, `crates/ipc/src/enums.rs`,
 `crates/ipc/src/checks.rs`, `crates/ipc/src/history.rs`, `crates/ipc/src/work_plan.rs`,
@@ -809,11 +809,11 @@ and the wire set above.
   which it ran.
 - The draft comments on tier and model above are corrected.
 
-Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
+Write scope: the `job_settings` module (deleted since), the `spawning` module (deleted since),
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs`,
 `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`, `crates/ipc/src/detail.rs`,
-`packages/protocol/src/pending.ts`, `packages/surfaces/jobs/src/draft/task.ts`,
-`packages/surfaces/jobs/src/draft/proposal.ts`, and the wire set above.
+`packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts`,
+`packages/screens/src/draft/proposal.ts`, and the wire set above.
 
 ### 4 — Deciding what a Job will be, and how it lands
 
@@ -839,10 +839,10 @@ Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
 - A second cursor on the pull-request rotation's interval asks whether a linked
   issue moved, as answer 5 sets out.
 
-Write scope: `crates/fleet/src/proposing.rs`, `crates/fleet/src/commanding.rs`,
-`crates/fleet/src/policy.rs`, `crates/fleet/src/noticing.rs`, `crates/fleet/src/delivery.rs`,
+Write scope: the `proposing` module (deleted since), `crates/fleet/src/commanding.rs`,
+The `policy` module (deleted since), `crates/fleet/src/noticing.rs`, the `delivery` module (deleted since),
 `crates/adapters/src/worktree.rs`, `crates/core-model/src/job/fields.rs`,
-`crates/core-model/src/job/declared.rs`, `crates/ipc/src/job.rs`, `crates/ipc/src/detail.rs`,
+The `declared` module (deleted since), `crates/ipc/src/job.rs`, `crates/ipc/src/detail.rs`,
 `crates/adapters/src/issue_lookup.rs`, `packages/protocol/src/pending.ts`, the three
 documents, and the wire set above.
 
@@ -874,9 +874,9 @@ documents, and the wire set above.
   names no path and goes unseen, and the plan tells the person so.
 - `docs/contracts/system-architecture.md` is amended in the same change.
 
-Write scope: `crates/fleet/src/slots.rs`, `crates/fleet/src/admitting.rs`,
+Write scope: `crates/fleet/src/slots.rs`, the `admitting` module (deleted since),
 `crates/fleet/src/resources.rs`, `crates/fleet/src/commanding.rs`,
-`crates/fleet/src/spawning.rs`, `crates/fleet/src/ending.rs`, `crates/api/src/observing.rs`,
+The `spawning` module (deleted since), the `ending` module (deleted since), the `observing` module (deleted since),
 `crates/core-model/src/job/work_plan.rs`, `crates/ipc/src/work_plan.rs`,
 `crates/ipc/src/mcp/planning.rs`, `crates/ipc/src/resources.rs`, `crates/ipc/src/limits.rs`,
 `crates/config/settings.toml`, `docs/contracts/system-architecture.md`, a new module
@@ -906,7 +906,7 @@ it end that task's Drone alone.
 - A merged pull request records when it merged, read off the forge. A parent
   completes when every member has landed.
 
-Write scope: `crates/fleet/src/sub_dispatch.rs`, `crates/fleet/src/noticing.rs`,
+Write scope: the sub-dispatch module (deleted since), `crates/fleet/src/noticing.rs`,
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/fields.rs`,
 `crates/store/src/migrations.rs`, `crates/store/src/read.rs`, `crates/ipc/src/job.rs`,
 `crates/ipc/src/detail.rs`, and the wire set above.

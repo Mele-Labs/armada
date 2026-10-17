@@ -244,7 +244,6 @@ where
             effort: hosting.as_ref().and_then(|hosting| hosting.effort.clone()),
             mode: hosting.as_ref().map(|hosting| super::serving::mode_of(&hosting.mode)),
             root: None,
-            pilot: None,
             fork: None,
             request: None,
             after: None,
@@ -339,6 +338,8 @@ where
                     proposed: String::new(),
                     turn_model: None,
                     turn_effort: None,
+                    paused_at: None,
+                    paused_resuming: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what

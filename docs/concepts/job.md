@@ -82,7 +82,7 @@ The full set of Job statuses — each with its meaning, its reason values and wh
 
 ## Transitions
 
-A top-level Job enters at `awaiting_approval`. A sub-dispatched Job enters at `awaiting_approval` too, one Job of its parent's wave, and is released with the wave by `approve_wave`; one made before 23.13 entered at `queued`. A Job dispatched from a request enters at `proposing`, before either.
+A top-level Job enters at `awaiting_approval`. A sub-dispatched Job, which Fleet no longer creates, entered at `awaiting_approval` too, one Job of its parent's wave; one made before 23.13 entered at `queued`. A Job dispatched from a request enters at `proposing`, before either.
 
 ### Reading the request is a status, and approval is what locks
 
@@ -650,6 +650,8 @@ leaves nothing to hold the Job until, and reads as an ordinary ending.
 
 ## Taking a Job over
 
+**Removed 17 Oct 2026: a Job can no longer be taken over, and `get_handoff` is gone.** `take_over` is removed with the Session it opened (see [Pilot](pilot.md)); a Job already `piloted` keeps its row and the three exits below. What follows describes the act as it was built.
+
 [Pilot](pilot.md) is the fifth act on a stopped or running Job, and the only one that hands its worktree to a person. `take_over` ends the Drone where one is live, stops the step it was on, and moves the Job to `piloted`. It works from `running`, `awaiting_review`, `awaiting_repair`, `escalated` and `awaiting_attestation`, and is refused on any other status.
 
 **A piloted Job is not scheduled and takes no working slot.** No Drone is on it, no turn moves it, and admission, auto-release, the build sweep, `armada clean` and every reclaim leave its worktree alone. A reclaim says so rather than skipping it: `{job} is piloted: a person is working in its worktree`.
@@ -744,7 +746,7 @@ Empty and absent are different claims: a Drone saying it left nothing behind is 
 
 Why: a ULID sorts by time, so the Jobs minted together share nearly every character, and the two hardest to tell apart are the two a person most needs to. A git-style short prefix was rejected for that reason — it degrades exactly where it is needed. Before this, every merged pull request read *from NickMele/armada/01M222EJWH004FA17WAMCQEKXR*.
 
-**All three forms name the Job, everywhere a Job is named.** `/jobs/:job_id` and its twenty-odd siblings, `./scripts/job`, and the sibling ids a Drone passes to `dispatch_job` each take a ULID, a whole handle, or the number that handle starts with. The ULID stays the key and nothing joins on anything else — this is a second way *in*, not a second key. Which Job a number names is a fact about a Manifest's table, so a number handed no Manifest is refused rather than resolved against whichever repository answered first: `crates/store/src/resolving.rs`.
+**All three forms name the Job, everywhere a Job is named.** `/jobs/:job_id` and its twenty-odd siblings and `./scripts/job` each take a ULID, a whole handle, or the number that handle starts with. The ULID stays the key and nothing joins on anything else — this is a second way *in*, not a second key. Which Job a number names is a fact about a Manifest's table, so a number handed no Manifest is refused rather than resolved against whichever repository answered first: `crates/store/src/resolving.rs`.
 
 **A title naming a credential is carried by its number alone.** A branch is pushed to a forge and never passes the report redactor, so a title reading `AGENT_API_TOKEN=…` was redacted on a report's Title line and written out in full on the Branch line beside it. `crates/core-model/src/job/handle.rs` holds the guard, and shares one credential-name list with `fleet::redaction`.
 

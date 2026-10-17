@@ -26,7 +26,7 @@ export type SessionState = "live" | "ended";
  */
 export type AttachmentState = "standing" | "spent" | "given_back";
 
-export type HolderKind = "session" | "job";
+export type HolderKind = "session";
 
 export type Holder = { kind: HolderKind; id: string };
 
@@ -285,15 +285,14 @@ export type ForkThisSession = { title: string; message: string; at?: string };
 export type SessionHeld = { session_id: string; title: string; fork: boolean };
 
 /**
- * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
- * `session_id` or `job_id` names the claimant where the connection places none, which is Bridge's case:
- * exactly one of the two. Fleet refuses
+ * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session holds.
+ * `session_id` names the claimant where the connection places none, which is Bridge's case. Fleet refuses
  * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
  */
-export type ClaimPullRequest = { number: number; session_id?: string; job_id?: string };
+export type ClaimPullRequest = { number: number; session_id?: string };
 
-/** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
-export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
+/** What `claim_pull_request` answers: the pull request now held, and by which Session. */
+export type PullRequestClaimed = { number: number; branch: string; url: string; holder_id: string };
 
 /**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job

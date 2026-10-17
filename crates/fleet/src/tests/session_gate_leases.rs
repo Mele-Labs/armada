@@ -239,7 +239,7 @@ async fn the_ledger_draws_every_slot_the_session_holds_its_subagents_included() 
 
 /// What the permission door says to a call the session made, placed by its connection.
 async fn at_the_door(rig: &Rig, tool: &str, input: &str) -> ipc::RunOrNot {
-    use api::{Admitting, Conversations};
+    use api::Conversations;
     let asking: ipc::AskingToRun = ipc::decode(
         "an ask",
         format!(r#"{{"tool_name":"{tool}","input":{input}}}"#).as_bytes(),

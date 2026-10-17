@@ -1,6 +1,6 @@
 // Helm routes a thought into running work. Fleet reads where the words belong (`read_thought`);
-// delivering them is the paths that already exist. A Session gets a message, a Job a redirect to
-// its Drone, and a new one opens the Dispatch panel. Once the words have arrived Fleet is told, and
+// delivering them is the paths that already exist. A Session gets a message, and a new one opens
+// the Dispatch panel. Once the words have arrived Fleet is told, and
 // keeps a row for them in Helm's thread, which is where the dock draws it from.
 
 import type { RepositorySummary } from "@armada/protocol";
@@ -20,7 +20,6 @@ type Host = {
   repositories: readonly RepositorySummary[];
   dispatching: Dispatching;
   openSession: (id: string) => void;
-  openJob: (jobId: string) => void;
   /** Sketches drawn in Helm's box, by id: a thought sent to a Session carries them. */
   sketchesOf: (ids: readonly string[]) => DrawnSketch[];
   /** What a thought went with, as the wire takes it, for the row Fleet keeps. */
@@ -28,12 +27,12 @@ type Host = {
 };
 
 /** The dock's routing: Fleet's reading, and the acts the words may go through. */
-export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob, sketchesOf, carryOf }: Host): ThoughtRouting {
+export function useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf, carryOf }: Host): ThoughtRouting {
   const draft = useSessionsDraft();
   // The conversation the dock shows, whose thread keeps the row for words sent on.
   const manifestId = state.helm.state === "none" ? undefined : state.helm.manifestId;
 
-  /** The words reached the Session or Job: Fleet keeps a row for them. A refusal is said, the words having arrived. */
+  /** The words reached the Session: Fleet keeps a row for them. A refusal is said, the words having arrived. */
   async function recorded(target: RouteTarget, text: string, carry?: ThoughtCarry): Promise<void> {
     if (manifestId === undefined) return;
     try {
@@ -57,32 +56,24 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
       return target === undefined ? { kind: "thought" } : { kind: "thought", match: routeTargetOf(target, repositories) };
     },
     send: async (target, text, carry?: ThoughtCarry) => {
-      if (target.kind === "session") {
-        if (draft === undefined) {
-          askToTell(`Not sent to "${target.title}": Sessions are not served`);
-          return false;
-        }
-        // The composer's own send, with what went with the words: a refusal is already a toast, in Fleet's words.
-        const arrived = await draft.send(target.id, {
-          text,
-          files: carry?.files ?? [],
-          sketches: sketchesOf(carry?.sketches.map((one) => one.id) ?? []),
-          tags: (carry?.tags ?? []) as readonly SessionTag[],
-        });
-        if (arrived === false) return false;
-      } else {
-        const outcome = await window.armada.redirectDrone(target.id, text);
-        if (!outcome.ok) {
-          askToTell(refusalWords(outcome));
-          return false;
-        }
+      if (draft === undefined) {
+        askToTell(`Not sent to "${target.title}": Sessions are not served`);
+        return false;
       }
-      await recorded(target, text, target.kind === "session" ? carry : undefined);
+      // The composer's own send, with what went with the words: a refusal is already a toast, in Fleet's words.
+      const arrived = await draft.send(target.id, {
+        text,
+        files: carry?.files ?? [],
+        sketches: sketchesOf(carry?.sketches.map((one) => one.id) ?? []),
+        tags: (carry?.tags ?? []) as readonly SessionTag[],
+      });
+      if (arrived === false) return false;
+      await recorded(target, text, carry);
       return true;
     },
-    open: (target) => (target.kind === "session" ? openSession(target.id) : openJob(target.id)),
-    startNew: (kind, text) => {
-      dispatching.choose(kind);
+    open: (target) => openSession(target.id),
+    startNew: (text) => {
+      dispatching.choose("session");
       dispatching.openSheet(text);
     },
   };

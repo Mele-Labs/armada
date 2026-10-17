@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { FixingMainMark, MainMark, MainRedBand, type MainRed, type RecentJob, type RecentSession } from "./MainHead";
+import { FixingMainMark, MainMark, MainRedBand, type MainRed, type RecentSession } from "./MainHead";
 
 /**
  * Main's state at the head of the merge line. Green is a mark and its tooltip. Red is a frame with
- * the Check, the test and the merge that turned it red, each a link, then either the Job working on
- * it or the two ways to hand it to one. Drawn ahead of Fleet.
+ * the Check, the test and the merge that turned it red, each a link, then either the Session working on
+ * it or the ways to hand it to one. Drawn ahead of Fleet.
  */
 const meta = {
   title: "Compositions/Main head",
@@ -18,8 +18,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const PULL = "https://git.example/armada/pull/";
-
-const JOB = { id: "job-1", title: "Cache the manifest read between dispatches" };
 
 const MERGE = {
   number: 1812,
@@ -35,12 +33,6 @@ const RED: MainRed = {
   merge: MERGE,
 };
 
-const RECENT: RecentJob[] = [
-  { id: "job-3", title: "Debounce the Job Board's resize handler", branch: "armada/3-debounce" },
-  { ...JOB, branch: "armada/1-cache" },
-  { id: "job-2", title: "Fold the two notification routes into one", branch: "armada/2-notify" },
-];
-
 const SESSION = { id: "session-1", title: "Show who merged on the head" };
 
 const RECENT_SESSIONS: RecentSession[] = [
@@ -50,10 +42,8 @@ const RECENT_SESSIONS: RecentSession[] = [
 
 const args = {
   main: { state: "red", red: RED } as const,
-  recent: RECENT,
   onOpenLink: fn(),
   onOpenCheck: fn(),
-  onOpenJob: fn(),
   onOpenSession: fn(),
   onFix: fn(),
 };
@@ -68,7 +58,7 @@ export const Green: Story = {
 };
 
 /**
- * Main is red and nobody has it: the facts, each a link, and the two ways to hand it to a Job. The
+ * Main is red and nobody has it: the facts, each a link, and the ways to hand it to a Session. The
  * Check opens its log; the others open their address.
  */
 export const RedWithNobodyOnIt: Story = {
@@ -80,60 +70,36 @@ export const RedWithNobodyOnIt: Story = {
     await expect(args.onOpenLink).toHaveBeenCalledWith(`${PULL}1812`);
     await userEvent.click(canvas.getByRole("link", { name: "nick/ports-cleanup" }));
     await expect(args.onOpenLink).toHaveBeenCalledWith("https://git.example/armada/tree/nick/ports-cleanup");
-    await expect(canvas.getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: /^Send back to/ })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
   },
 };
 
-/** A Job has it: the two ways are gone, and the Job is a link. Nobody is asked anything. */
-export const RedWithAJobOnIt: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } }, taken: JOB } },
+/** A Session has it: the ways to hand it on are gone, and the Session is a link. Nobody is asked anything. */
+export const RedWithASessionOnIt: Story = {
+  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, session: SESSION } }, takenBySession: SESSION } },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Working on it" })).toBeVisible();
-    // The Job is named twice: as the merge's owner, and as the one fixing.
-    const named = canvas.getAllByRole("button", { name: JOB.title });
+    // The Session is named twice: as the merge's owner, and as the one fixing.
+    const named = canvas.getAllByRole("button", { name: SESSION.title });
     await expect(named).toHaveLength(2);
     await userEvent.click(named[1]!);
-    await expect(args.onOpenJob).toHaveBeenCalledWith("job-1");
+    await expect(args.onOpenSession).toHaveBeenCalledWith("session-1");
   },
 };
 
-/** A new Job, its brief filled in from what failed and left there to edit. */
-export const DispatchANewJob: Story = {
+/** A new Session: the brief is filled in from what failed and handed on, for the Dispatch panel to open on. */
+export const DispatchANewSession: Story = {
   args,
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Job" }));
-    const dialog = within(document.body).getByRole("dialog", { name: "Dispatch a Job to fix main" });
-    const attached = within(dialog).getByRole("list", { name: "Attached" });
-    await expect(within(attached).getAllByRole("listitem")).toHaveLength(4);
-    await expect(within(dialog).getByRole("textbox", { name: "Brief" })).toHaveValue(
-      "screens_test fails on main.\nTest: merge-line.test.ts > folds a line's failed Check onto the panel\nMerged in #1812 (nick/ports-cleanup).",
-    );
-    await userEvent.click(within(dialog).getByRole("button", { name: "Dispatch" }));
-    await expect(args.onFix).toHaveBeenCalledWith({ kind: "new", request: expect.stringContaining("screens_test fails on main.") });
-    // Sent: the dialog is put away.
-    await expect(within(document.body).queryByRole("dialog")).toBeNull();
-  },
-};
-
-/**
- * The work goes back to an earlier Job. The culprit's own comes first wherever it is among the
- * recent, and is chosen before the owner looks.
- */
-export const SendBackToAJob: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } } } },
-  play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
-    const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
-    const jobs = within(dialog).getAllByRole("radio");
-    await expect(jobs[0]).toHaveAccessibleName(/^Cache the manifest read between dispatches/);
-    await expect(within(dialog).getByRole("img", { name: "Merged #1812" })).toBeVisible();
-    await expect(jobs[0]).toBeChecked();
-    await expect(within(dialog).queryByRole("textbox", { name: "Message" })).toBeNull();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Send back" }));
-    await expect(args.onFix).toHaveBeenCalledWith({ kind: "back", job: "job-1" });
+    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Session" }));
+    await expect(args.onFix).toHaveBeenCalledWith({
+      kind: "newSession",
+      request: "screens_test fails on main.\nTest: merge-line.test.ts > folds a line's failed Check onto the panel\nMerged in #1812 (nick/ports-cleanup).",
+    });
   },
 };
 
@@ -160,17 +126,17 @@ export const SendBackToASession: Story = {
   },
 };
 
-/** A person's pull request has no Job: the recent Jobs come as they were, newest first. */
+/** A person's pull request has no Session: the recent Sessions come as they were, newest first, with none chosen. */
 export const SendBackToAPersonsPullRequest: Story = {
-  args,
+  args: { ...args, recentSessions: RECENT_SESSIONS },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: /^Send back to/ }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
-    const jobs = within(dialog).getAllByRole("radio");
-    await expect(jobs[0]).toHaveAccessibleName(/^Debounce the Job Board's resize handler/);
+    const sessions = within(dialog).getAllByRole("radio");
+    await expect(sessions[0]).toHaveAccessibleName(/^Rework the Cockpit deck cards/);
     await expect(within(dialog).queryByRole("img", { name: /^Merged/ })).toBeNull();
     await expect(within(dialog).getByRole("button", { name: "Send back" })).toBeDisabled();
-    await expect(within(dialog).getAllByRole("radio").filter((one) => (one as HTMLInputElement).checked)).toHaveLength(0);
+    await expect(sessions.filter((one) => (one as HTMLInputElement).checked)).toHaveLength(0);
   },
 };
 
@@ -197,31 +163,27 @@ export const JobMarks: Story = {
  * test read out of the log there is no Test row. The dialog's attached facts say the same.
  */
 export const UnmappedCiJob: Story = {
-  args: { ...args, main: { state: "red", red: { check: "test-all", unmapped: true, merge: RED.merge } } },
+  args: { ...args, recentSessions: RECENT_SESSIONS, main: { state: "red", red: { check: "test-all", unmapped: true, merge: RED.merge } } },
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText("CI job")).toBeVisible();
     await expect(canvas.queryByText("Check")).toBeNull();
     await expect(canvas.queryByText("Test")).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Job" }));
-    const dialog = within(document.body).getByRole("dialog", { name: "Dispatch a Job to fix main" });
+    await userEvent.click(canvas.getByRole("button", { name: /^Send back/ }));
+    const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
     const attached = within(dialog).getByRole("list", { name: "Attached" });
     await expect(within(attached).getAllByRole("listitem")).toHaveLength(3);
     await expect(within(attached).getByText("CI job")).toBeVisible();
-    await expect(within(dialog).getByRole("textbox", { name: "Brief" })).toHaveValue(
-      "test-all fails on main.\nMerged in #1812 (nick/ports-cleanup).",
-    );
   },
 };
 
 /**
  * What the forge reports and nothing more: two CI jobs, neither a Check, one with a test read out of
- * its log, and no pull request to blame. Nothing is a link, and without a listener the two ways to
- * hand the red to a Job are not offered.
+ * its log, and no pull request to blame. Nothing is a link, and without a listener the ways to
+ * hand the red to a Session are not offered.
  */
 export const RedFromCiAlone: Story = {
   args: {
     main: { state: "red", red: { check: "test-all", unmapped: true, also: [{ check: "lint-all", unmapped: true, test: "tests::one" }] } },
-    recent: RECENT,
     onOpenLink: fn(),
     onOpenCheck: fn(),
   },
@@ -232,7 +194,7 @@ export const RedFromCiAlone: Story = {
     await expect(canvas.getByText("tests::one")).toBeVisible();
     await expect(canvas.queryByRole("link")).toBeNull();
     await expect(canvas.queryByText("Broke in")).toBeNull();
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
   },
 };
@@ -245,7 +207,7 @@ export const DirectPush: Story = {
   args: { ...args, main: { state: "red", red: { check: "screens_test" } } },
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.queryByText("Broke in")).toBeNull();
-    await expect(canvas.getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Send back to…" }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
     await expect(within(dialog).getByRole("button", { name: "Send back" })).toBeDisabled();
@@ -255,7 +217,7 @@ export const DirectPush: Story = {
 /**
  * Main is red and a newer commit's CI is still running, which may already have fixed it. The frame
  * is caution, one plain line names the pull request that is running, and the red's own rows stay
- * under it. Neither way to hand it to a Job is offered.
+ * under it. Neither way to hand it to a Session is offered.
  */
 export const HeldWhileChecksRun: Story = {
   args: { ...args, main: { state: "red", red: RED, checking: [{ commit: "d".repeat(40), number: 1852, url: `${PULL}1852` }] } },
@@ -267,7 +229,7 @@ export const HeldWhileChecksRun: Story = {
     await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
     await expect(canvas.getByRole("button", { name: "screens_test" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "#1812" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
   },
 };
@@ -305,7 +267,7 @@ export const GreenWhileChecksRun: Story = {
 
 const NOW = Date.parse("2026-10-14T21:30:00Z");
 const MINUTES = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
-const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "job", id: "7be40d15" }, since: MINUTES(12) } as const;
+const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "session", id: "7be40d15" }, since: MINUTES(12) } as const;
 
 /**
  * Another machine holds the red: its chip, with `monitor` naming the machine, and the claim's age.
@@ -314,11 +276,11 @@ const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "job", id: "7be40d
 export const HeldElsewhere: Story = {
   args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: ELSEWHERE } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("group", { name: "Job 7be40d15, work-mac-mini" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "Session 7be40d15, work-mac-mini" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "work-mac-mini" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Claimed 12m ago" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Take over" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
   },
 };
@@ -342,7 +304,7 @@ export const TakeOverAsksOnce: Story = {
     const ask = within(document.body).getByRole("dialog", { name: "Take over from work-mac-mini" });
     await expect(within(ask).getByRole("img", { name: "Claimed 3h ago, stale" })).toBeVisible();
     await userEvent.click(within(ask).getByRole("button", { name: "Take over" }));
-    await expect(args.onFix).toHaveBeenCalledWith({ kind: "takeOver" });
+    await expect(args.onFix).toHaveBeenCalledWith({ kind: "takeOver", request: expect.stringContaining("screens_test fails on main.") });
     await expect(within(document.body).queryByRole("dialog")).toBeNull();
   },
 };
@@ -364,12 +326,11 @@ export const TakeOverCancelled: Story = {
 export const ClaimNotMade: Story = {
   args: { ...args, onFix: fn(async () => "claim_not_made" as const) },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Job" }));
-    await userEvent.click(within(within(document.body).getByRole("dialog")).getByRole("button", { name: "Dispatch" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Session" }));
     await expect(await canvas.findByText("Not made, store unreachable")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
     await expect(args.onFix).toHaveBeenCalledTimes(2);
-    await expect(args.onFix).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "new" }));
+    await expect(args.onFix).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "newSession" }));
   },
 };
 

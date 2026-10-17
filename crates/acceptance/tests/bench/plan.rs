@@ -10,23 +10,16 @@
 //! `fleet::work_plan::permitted` would allow it** — that predicate is
 //! `pub(crate)`, so `fleet`'s own tests assert it.
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
-use std::time::Duration;
 
-use adapter_traits::{Environment, Footprint, Model, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{Vcs, Worktree, WorktreeSpec};
 use core_model::{
-    Attempt, DeclaredPaths, EvidenceType, Facts, FrozenWorkflow, Job, JobId, JobNumber, ManifestId,
-    ModelName, NewJob, PlanAuthor, PlanChange, PlanEntry, PlanRefused, RepoPath, StepEvidence,
-    StepId, StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WhenRefused, WorkPlan,
-};
-use fleet::{
-    rule_on, Asked, AtStep, CheckBudget, JudgeBudget, Judging, Keeping, Marking, Policies, Ruling,
+    Attempt, Facts, FrozenWorkflow, Job, JobId, JobNumber, ManifestId,
+    ModelName, NewJob, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
+    StepId, StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WorkPlan,
 };
 use ipc::mcp::{answer, read, Answered, Incoming, NotAnArgument, NotRecorded, PlanCall};
 use ipc::{Event, JobDetail, JobSummary};
-use testkit::{FakeJudge, FakeVcs, FakeWorkProduct};
-use verification::{Claimed, Lifted, NotClaimed, Request, ShownBy, Submission};
+use testkit::FakeVcs;
 
 use super::board::detail;
 use super::{criteria, REPO_ROOT};
@@ -362,128 +355,8 @@ pub fn refused(tool: &str, arguments: &str) -> (NotAnArgument, String) {
     (why, sent)
 }
 
-/// A Judge that should never be asked, for a step whose gate carries no
-/// `judge_checks` — every case but [`gated_on_implement`].
-fn no_judge() -> Judging {
-    Judging {
-        client: Arc::new(FakeJudge::that_fails("a Judge that should never be asked")),
-        budget: JudgeBudget::of(Duration::from_secs(20)),
-        default_model: Model::named("the-cheap-model").expect("a model name"),
-        second_opinion_model: Model::named("the-second-model").expect("a model name"),
-        environment: Environment::nothing(),
-        marking: Marking::detached(),
-        asked: Asked::nowhere(),
-        standing: verification::Standing::unstated(),
-        reading: None,
-        wording: verification::Wording::shipped(),
-    }
-}
 
-/// The plan step's gate, handed the plan `fleet::settling` would read off the
-/// store.
-pub async fn gated_on_the_plan(planned: &Planned, plan: Option<WorkPlan>) -> Ruling {
-    let at = AtStep::named(
-        planned.job.workflow(),
-        &StepId::new(PLAN),
-        &planned.worktree,
-    )
-    .expect("the plan step");
-    let submitted = Submission::submitted(
-        EvidenceType::Plan,
-        Claimed("The fix is planned as four tasks."),
-        ShownBy("the plan recorded with record_plan"),
-        NotClaimed(""),
-    )
-    .expect("a well-formed submission");
-    rule_on(
-        at,
-        Request::of(&planned.job),
-        &submitted,
-        None,
-        &Lifted::of(&planned.job),
-        &[],
-        fleet::Began::At(&Footprint::nothing()),
-        &[],
-        &FakeWorkProduct::untouched(),
-        CheckBudget::of(Duration::from_secs(5)),
-        &fleet::Room::ignoring_the_machine(fleet::ChecksAtOnce::of(4)),
-        &no_judge(),
-        &Keeping::of(REPO_ROOT, &planned.job.handle()),
-        Policies::unstated(),
-        &fleet::Announcing::nowhere(),
-        &BTreeMap::new(),
-        &[],
-        WhenRefused::default(),
-        &[],
-        plan.as_ref(),
-        None,
-    )
-    .await
-}
 
-/// Implement's gate, handed the recorded evidence a later step's
-/// `reference_docs` reaches through `AtStep::baseline` — the plan step's row
-/// replaced by the plan as it stands, exactly as `fleet::work_plan::with_the_plan`
-/// replaces it before a real gate runs. `judge` is what answers
-/// `tasks_match_the_diff`; its own `.asked()` is what a test reads the brief
-/// back from.
-pub async fn gated_on_implement(
-    planned: &Planned,
-    plan: WorkPlan,
-    judge: Arc<FakeJudge>,
-) -> Ruling {
-    let at = AtStep::named(
-        planned.job.workflow(),
-        &StepId::new(IMPLEMENT),
-        &planned.worktree,
-    )
-    .expect("the implement step");
-    let submitted = Submission::submitted(
-        EvidenceType::Diff,
-        Claimed("Two tasks are done and one is dropped."),
-        ShownBy("the diff"),
-        NotClaimed(""),
-    )
-    .expect("a well-formed submission");
-    let recorded = vec![(
-        StepId::new(PLAN),
-        StepEvidence {
-            evidence_type: EvidenceType::Plan,
-            claimed: plan.rendered(),
-            shown_by: String::from("Fleet's own record of the plan"),
-            not_claimed: String::new(),
-        },
-    )];
-    let judging = Judging {
-        client: judge,
-        ..no_judge()
-    };
-    let declared = DeclaredPaths::of(vec![RepoPath::new("src/log.rs")]);
-    rule_on(
-        at,
-        Request::of(&planned.job),
-        &submitted,
-        Some(&declared),
-        &Lifted::of(&planned.job),
-        &[],
-        fleet::Began::At(&Footprint::nothing()),
-        &recorded,
-        &FakeWorkProduct::changed(&["src/log.rs"]),
-        CheckBudget::of(Duration::from_secs(5)),
-        &fleet::Room::ignoring_the_machine(fleet::ChecksAtOnce::of(4)),
-        &judging,
-        &Keeping::of(REPO_ROOT, &planned.job.handle()),
-        Policies::unstated(),
-        &fleet::Announcing::nowhere(),
-        &BTreeMap::new(),
-        &[],
-        WhenRefused::default(),
-        &[],
-        None,
-        None,
-    )
-    .await
-}
 
 /// The row as a Board receives it.
 pub fn received_row(row: &JobSummary) -> JobSummary {

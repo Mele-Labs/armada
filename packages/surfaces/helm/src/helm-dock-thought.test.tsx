@@ -78,7 +78,7 @@ function dock(wiring: Wiring = {}) {
     open,
     startNew,
   };
-  mount(<Dock rows={wiring.rows ?? []} thread={thread} onAsk={onAsk} routing={routing} onOpenSent={(target) => open({ ...MATCH, ...target })} />);
+  mount(<Dock rows={wiring.rows ?? []} thread={thread} onAsk={onAsk} routing={routing} onOpenSent={(target) => open({ ...MATCH, id: target.id })} />);
   return { onAsk, send, open, startNew };
 }
 
@@ -112,16 +112,16 @@ test("with text in the box, N H Esc and ↵ are not answers: the card stays and 
   expect(onAsk).not.toHaveBeenCalled();
 });
 
-test("with text in the box, S and J are not answers either", async () => {
+test("with text in the box, S is not an answer either", async () => {
   const { onAsk, startNew } = dock({ read: noMatch });
   await say();
   await expect.element(newCard()).toBeVisible();
 
   await box().fill("x");
-  await userEvent.keyboard("sj");
+  await userEvent.keyboard("s");
   await userEvent.keyboard("{Escape}");
 
-  expect(typed()).toBe("xsj");
+  expect(typed()).toBe("xs");
   await expect.element(newCard()).toBeVisible();
   expect(startNew).not.toHaveBeenCalled();
   expect(onAsk).not.toHaveBeenCalled();
@@ -166,20 +166,13 @@ test("H asks Helm with the words as typed, on a match and on the new stage", asy
   expect(newCard().query()).toBeNull();
 });
 
-test("S and J start a Session or a Job with the words, and Esc puts the card away", async () => {
+test("S starts a Session with the words, and Esc puts the card away", async () => {
   const session = dock({ read: noMatch });
   await say();
   await expect.element(newCard()).toBeVisible();
   await userEvent.keyboard("s");
-  expect(session.startNew).toHaveBeenCalledExactlyOnceWith("session", WORDS);
+  expect(session.startNew).toHaveBeenCalledExactlyOnceWith(WORDS);
   expect(newCard().query()).toBeNull();
-  unmount();
-
-  const job = dock({ read: noMatch });
-  await say();
-  await expect.element(newCard()).toBeVisible();
-  await userEvent.keyboard("j");
-  expect(job.startNew).toHaveBeenCalledExactlyOnceWith("job", WORDS);
   unmount();
 
   const away = dock();

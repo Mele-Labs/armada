@@ -1,39 +1,32 @@
-// What the owner can do from the flight deck that Fleet answers: Reply, Stop, Fix and Merge, and Open.
+// What the owner can do from the flight deck that Fleet answers: Reply, Stop, Merge and Open.
 //
 // **Each act is Fleet's or it is not offered.** Nothing is done locally and then said to have happened: a pull request is
-// not marked landed, a Session is not marked stopped, main is not marked fixed. Where Fleet has no way to do an act for a
-// subject, `can` says so and the surface leaves the press off rather than drawing it dead. A Session's merge is the
-// by-number act on its pull request; a Job's merge is the command the review gate already sends, handed in by the page
-// that owns commands, because the Cockpit's hosts do not carry it. #2301.
+// not marked landed, a Session is not marked stopped. Where Fleet has no way to do an act for a subject, `can` says so and
+// the surface leaves the press off rather than drawing it dead. A Session's merge is the by-number act on its pull
+// request. #2301.
 
 import { useMemo } from "react";
-import type { Outcome } from "@armada/protocol";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
 import type { CockpitProps } from "./props";
-import type { Main, Subject } from "./ship";
+import type { Subject } from "./ship";
 
-type Hosts = Pick<CockpitProps, "onKill" | "onFix" | "onOpen" | "onOpenSession" | "onOpenLink">;
-
-/** What a page that owns commands can add: the Job's merge. Absent, a Job's Merge is not offered. */
-export type Extra = { onMergeJob?: ((jobId: string) => void | Promise<void>) | undefined };
+type Hosts = Pick<CockpitProps, "onOpenSession" | "onOpenLink">;
 
 export type Acts = {
   reply: (subject: Subject, text: string) => void;
   stop: (subject: Subject) => void;
   merge: (subject: Subject) => void;
-  fix: (main: Main) => void;
   open: (subject: Subject) => void;
   /** Whether Fleet has the act for this one. A press that is not offered is left off. */
   can: {
     stop: (subject: Subject) => boolean;
     merge: (subject: Subject) => boolean;
-    fix: () => boolean;
   };
 };
 
-/** What a ring's button, a Session's flight control and the Plan panel ask a Session or a Job's Commander. A plan ticks only where the task list names its tasks word for word. */
+/** What a ring's button, a Session's flight control and the Plan panel ask a Session. A plan ticks only where the task list names its tasks word for word. */
 export const ASK_FOR_UPDATE = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
 /**
@@ -45,16 +38,12 @@ export async function askForUpdate(draft: SessionsDraft | undefined, sessionId: 
   return (await draft.send(sessionId, { text: ASK_FOR_UPDATE, files: [], sketches: [], tags: [] })) !== false;
 }
 
-/** Asks a Job's Commander for an update. The words queue for its next turn and never interrupt one. */
-export const askJobForUpdate = (askCommander: (jobId: string, text: string) => Promise<Outcome>, jobId: string): Promise<Outcome> => askCommander(jobId, ASK_FOR_UPDATE);
-
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
-export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts & Extra): Acts {
-  const { onKill, onFix, onOpen, onOpenSession, onOpenLink, onMergeJob } = hosts;
+export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
+  const { onOpenSession, onOpenLink } = hosts;
   const can: Acts["can"] = {
-    stop: (subject) => (subject.kind === "session" ? draft?.stop !== undefined : subject.kind === "job" && onKill !== undefined),
-    merge: (subject) => subject.pr !== undefined && (subject.kind === "session" ? draft !== undefined : subject.kind === "job" && onMergeJob !== undefined),
-    fix: () => onFix !== undefined,
+    stop: (subject) => subject.kind === "session" && draft?.stop !== undefined,
+    merge: (subject) => subject.pr !== undefined && subject.kind === "session" && draft !== undefined,
   };
   return {
     reply: (subject, text) => {
@@ -62,29 +51,22 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts & Extra): 
     },
     stop: (subject) => {
       if (subject.kind === "session") draft?.stop?.(subject.id);
-      else if (subject.kind === "job") onKill?.(subject.id);
     },
     merge: (subject) => {
       const pr = subject.pr;
       if (pr === undefined) return;
       if (subject.kind === "session") void draft?.act(subject.id, pr.number, "merge");
-      else if (subject.kind === "job") void onMergeJob?.(subject.id);
-    },
-    fix: (main) => {
-      onFix?.({ root: main.root });
     },
     open: (subject) => {
-      if (subject.kind === "job") onOpen(subject.id);
-      else if (subject.kind === "session") onOpenSession(subject.id);
+      if (subject.kind === "session") onOpenSession(subject.id);
       else if (subject.pr !== undefined) onOpenLink(subject.pr.url);
     },
     can,
   };
 }
 
-export function useShipActs(props: Hosts, extra: Extra = {}): Acts {
+export function useShipActs(props: Hosts): Acts {
   const draft = useSessionsDraft();
-  const { onKill, onFix, onOpen, onOpenSession, onOpenLink } = props;
-  const { onMergeJob } = extra;
-  return useMemo(() => actsOf(draft, { onKill, onFix, onOpen, onOpenSession, onOpenLink, onMergeJob }), [draft, onKill, onFix, onOpen, onOpenSession, onOpenLink, onMergeJob]);
+  const { onOpenSession, onOpenLink } = props;
+  return useMemo(() => actsOf(draft, { onOpenSession, onOpenLink }), [draft, onOpenSession, onOpenLink]);
 }

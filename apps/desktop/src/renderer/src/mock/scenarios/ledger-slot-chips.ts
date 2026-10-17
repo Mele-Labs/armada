@@ -26,7 +26,7 @@ const holding: Session = {
     { kind: "slot", slot: 9 },
     { kind: "branch", name: "store/split-migrations", slot: 2 },
     { kind: "branch", name: "store/migration-lock", slot: 3 },
-    { kind: "branch", name: "store/backfill-orders", slot: 5, handed: { job: 41 } },
+    { kind: "branch", name: "store/backfill-orders", slot: 5 },
     { kind: "branch", name: "store/drop-legacy-index", slot: 8 },
     { kind: "branch", name: "store/migration-docs", slot: 11 },
   ],

@@ -209,9 +209,9 @@ export type StudiosProps = {
   /**
    * Open the composer with a Sketch's drawing on its pad, made from that node —
    * the owner's call of 1 Oct 2026. **The pictures are copies the composer
-   * owns**, so leaving the Studio does not take them off its pad.
+   * owns**, so leaving the Studio does not take them off its pad. Absent draws no Dispatch.
    */
-  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
+  onDispatchSketch?: (nodeId: string, drawing: Drawing) => void;
   /** Where a person put a node down: its spot from the corner of the frame it landed in, `null` the board. */
   onMoveNode: (nodeId: string, position: { x: number; y: number }, within: string | null) => Promise<Outcome>;
   /**
@@ -227,10 +227,9 @@ export type StudiosProps = {
   /** One rung of promotion — cluster, outline, defer, write up, edit, settle, dispatch. */
   onPromote: (promotion: StudioPromotion) => Promise<Outcome>;
   /**
-   * Read one Job whole, which is what a Board row's press does — #1379. The
-   * Studio stays open underneath it, so closing the Job comes back here.
+   * Read one Job whole — #1379. The Studio stays open underneath it. Absent draws no Open Job.
    */
-  onOpenJob: (jobId: string) => void;
+  onOpenJob?: (jobId: string) => void;
   /**
    * Hand one node's own address to the system browser — #1406. **A Studio and a
    * node, never an address**: main reads it off the record it published, so no
@@ -709,7 +708,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected?.kind === "sketch"
       ? [
           { id: "sketch", label: "Open", press: () => sketch.opened(selected) },
-          ...(live
+          ...(live && props.onDispatchSketch !== undefined
             ? [{ id: "sketch-dispatch", label: "Dispatch", press: () => dispatchSketch(selected) }]
             : []),
         ]
@@ -717,9 +716,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
-    ...(openable === undefined
+    ...(openable === undefined || props.onOpenJob === undefined
       ? []
-      : [{ id: "job", label: "Open Job", press: () => props.onOpenJob(openable.id) }]),
+      : [{ id: "job", label: "Open Job", press: () => props.onOpenJob?.(openable.id) }]),
     // **A server's links and its Stop are acts on the node**, for the reason
     // every act here is: the board is a drag surface, and a button inside a card
     // is a press fighting a drag — #1345, and `StudioNode`'s own rule.
@@ -780,7 +779,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
         const src = read.ok ? URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })) : "";
         return { ...one, src };
       }),
-    ).then((pictures) => props.onDispatchSketch(node.id, { ...drawing, pictures }));
+    ).then((pictures) => props.onDispatchSketch?.(node.id, { ...drawing, pictures }));
   }
 
   /** Hand the node's address to whatever browses the web here — #1406. */

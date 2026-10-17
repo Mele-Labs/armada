@@ -152,43 +152,6 @@ where
         self.session_retro_view(&session, kept).await
     }
 
-    /// Write the retro of the Session that has been owed one longest. `None`
-    /// where none is owed. **Given up on the first failure**: a Job's retro
-    /// is not tried again either.
-    pub(crate) async fn reflect_next_session(self: &Arc<Self>) -> Option<String> {
-        let owed = self.store().lock().await.sessions_owed_a_retro().ok()?;
-        let id = owed.into_iter().next()?;
-        let runtime = self.hosts().of(&id);
-        if runtime.writing_retro.swap(true, Ordering::AcqRel) {
-            return Some(id);
-        }
-        let _free = FreeOnDrop(Arc::clone(&runtime));
-        let wrote = async {
-            let (session, last) = self.session_and_last_retro(&id).await?;
-            let since = last.map(|kept| kept.covers_to);
-            let until = self.now().as_str().to_string();
-            let gathered = self
-                .session_sources(&session, since.as_deref(), &until, None)
-                .await?;
-            if !has_news(&gathered.thread, since.as_deref(), &until) {
-                return Err(self.nothing_new(&id));
-            }
-            let mut live = self.retro_opened(&id, RetroStage::ReadingRecord).await;
-            let wrote = self
-                .written_for(&session, since.as_deref(), &until, None, &mut live)
-                .await;
-            self.retro_closed(&mut live, &wrote, |kept| kept.retro_id)
-                .await;
-            wrote
-        }
-        .await;
-        if wrote.is_err() {
-            let at = self.now();
-            let _ = self.store().lock().await.skip_session_retro(&id, &at);
-        }
-        Some(id)
-    }
-
     fn nothing_new(&self, id: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             NOTHING_NEW,
@@ -250,7 +213,7 @@ where
             .await
             .map_err(|why| failed(&format!("the call failed: {why}")))?;
         let known = cites(&gathered.record);
-        let items: Vec<RetroLine> = super::writing::read(&said, &known, &gathered.record.refusals)
+        let items: Vec<RetroLine> = super::writing::read(&said, &known)
             .map_err(|why| failed(&format!("the answer would not read: {why}")))?;
         let at = self.now();
         let model = ask.model().as_str().to_string();

@@ -7,7 +7,6 @@
 // the row. Read `get_session` once and follow `session.row`.
 
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
-import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
@@ -31,12 +30,6 @@ export type StartSession = {
   /** Absent is `auto`. */
   mode?: SessionMode;
   /**
-   * Take a Job over and start the session on its worktree, in one call. Since 23.51. The session's
-   * repository is the Job's, so `manifest_id` is not read. Refused with the 409 `take_over` gives, and
-   * no session is made.
-   */
-  pilot?: { job_id: string; outcome: PilotOutcome };
-  /**
    * Start as a copy of an ended or dead session's conversation. Since 23.69. A new session with its own
    * id and ledger, holding none of the old one's. Refused 409 `fleet.session_fork_live` for a live one.
    * `at`, since 23.79, is the thread row the copy ends at, included; with it the old session may be live and
@@ -52,29 +45,28 @@ export type StartSession = {
    * The words the person dispatched. Since 23.91. Fleet reads them once with the Job proposer's model and
    * fills in the title, workflow, model and effort this start leaves unset; the answer is not waited on.
    * The session is answered at once with `proposal.reading` true, and its process starts on the answer.
-   * Not read with `pilot`, `fork` or `root`.
+   * Not read with `fork` or `root`.
    */
   request?: string;
   /**
    * A Session this one waits on, and when it starts. With it `request` is the brief and nothing is sent: the Session holds
    * its brief, no slot and no process until the condition is met, and then starts on the other Session's handoff followed
-   * by the brief. The Session waited on is told. Not read with `pilot`, `fork` or `root`.
+   * by the brief. The Session waited on is told. Not read with `fork` or `root`.
    */
   after?: StartAfter;
 };
 
-export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
+export type TagKind = "session" | "pull_request" | "branch" | "issue";
 
 /** What a message names with `@`. Fleet writes the line that tells the agent. */
 export type SessionTag = {
   kind: TagKind;
-  /** A session's id, a Job's id, a pull request's or an issue's number, or a branch's name. */
+  /** A session's id, a pull request's or an issue's number, or a branch's name. */
   id: string;
   /** An issue's or a pull request's reads `#2214 The title`. */
   title: string;
   /** The forge's address for an issue or a pull request. Absent for any other kind. */
   url?: string;
-  job?: { number: number; branch: string; slot: number; state: string };
 };
 
 /** A picture or file sent with a message. `data` is base64. */
@@ -151,6 +143,15 @@ export type MoveSession = { session_id: string; manifest_id: string };
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
+/** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
+export type PauseSession = { session_id: string };
+
+/** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). Starts no turn. Since 23.92. */
+export type ResumeSession = { session_id: string };
+
+/** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */
+export type SessionPaused = { at: string; resuming: boolean };
+
 /**
  * `POST /sessions/workflow`: the person picked the Session's workflow in a panel, or cleared it. Since 23.91.
  * Answers the `SessionRecord`. A Session that has run is told at once; one that has not, with its first turn.
@@ -207,6 +208,8 @@ export type HostedFacts = {
    * has, and after a Fleet restart until one starts.
    */
   commands?: string[];
+  /** Set while the person has paused the session. Since 23.92. */
+  paused?: SessionPaused;
 };
 
 /** Who said a row. Another session that wrote to this one is named. */
@@ -363,37 +366,6 @@ export type SessionRow =
       place: WindowPlace;
       window: string;
       answer?: string;
-    }
-  /**
-   * What a piloted session starts with, first in its thread: the Job's worktree handed over and what
-   * Fleet knew when its Drone stopped, as the bundle's structured fields. Since 23.51.
-   */
-  | {
-      kind: "handoff";
-      id: string;
-      at: string;
-      job_id: string;
-      number: number;
-      title: string;
-      /** `take_over` or `restart_step`. */
-      reason: string;
-      slot?: number;
-      branch: string;
-      /** The step the Job stopped on. Absent where none did. */
-      step?: { id: string; label: string };
-      attempts: number;
-      /** What the Judge refused on that step, in its own words. */
-      refusals?: string[];
-      plan: {
-        /** False is no plan, and `outside` is then empty rather than everything. */
-        declared: boolean;
-        /** Files the worktree holds changed that the plan did not cover. */
-        outside?: string[];
-        /** Paths the plan named that nothing changed under. */
-        unwritten?: string[];
-      };
-      /** Absent where no Drone said what it was stuck on. */
-      narrative?: DroneNarrative;
     }
   /** A call put to the person. Replaced as it is answered. */
   | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string }

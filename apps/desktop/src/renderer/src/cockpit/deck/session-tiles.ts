@@ -78,7 +78,7 @@ export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; target: st
 
 /** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
 export function heldOfAttachment(one: SessionAttachment): Held | undefined {
-  if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` };
+  if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: "Slot" };
   if (one.kind === "branch") return { kind: "branch", target: one.name, name: one.name, said: "Branch" };
   if (one.kind === "pull_request" && one.state !== "merged") return { kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" };
   if (one.kind === "job") return { kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" };

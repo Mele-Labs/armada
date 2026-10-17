@@ -1,5 +1,4 @@
-// What a tag is on the wire: its kind and the forge's address go with an issue or a pull request, and a Job's
-// own facts with a Job.
+// What a tag is on the wire: its kind and the forge's address go with an issue or a pull request.
 
 import { describe, expect, it } from "vitest";
 
@@ -25,16 +24,5 @@ describe("a tag as the wire has it", () => {
     const branch = wireTagOf({ kind: "branch", id: "fix/flaky-store", title: "fix/flaky-store" });
     expect(branch).toEqual({ kind: "branch", id: "fix/flaky-store", title: "fix/flaky-store" });
     expect("url" in branch).toBe(false);
-  });
-
-  it("sends a Job with the facts the ledger holds it by, once its slot is known", () => {
-    const job = { number: 55, branch: "55-cap-the-retry-backoff", state: "running" as const };
-    expect(wireTagOf({ kind: "job", id: "01J55", title: "55 Cap the retry backoff", job: { ...job, slot: 3 } })).toEqual({
-      kind: "job",
-      id: "01J55",
-      title: "55 Cap the retry backoff",
-      job: { ...job, slot: 3 },
-    });
-    expect("job" in wireTagOf({ kind: "job", id: "01J55", title: "55 Cap the retry backoff", job })).toBe(false);
   });
 });

@@ -16,7 +16,6 @@ import { BoardEmptyState, Button } from "@armada/components";
 import { Studios, type OpenStudio } from "@armada/studios";
 import { Boundary, repositoryLabel } from "@armada/shell";
 
-import type { Drawing } from "@armada/screens/src/draft/sketch";
 
 import type { BridgeState } from "../../shared/bridge";
 import {
@@ -61,10 +60,6 @@ export type StudiosSurfaceProps = {
   onOpenChange: (open: OpenStudio | null) => void;
   selectedNode: string | null;
   onSelectNode: (nodeId: string | null) => void;
-  /** Open one Job whole — the Board's own press, reached from a Job node (#1379). */
-  onOpenJob: (jobId: string) => void;
-  /** The composer, with a Sketch's drawing on its pad — 1 Oct 2026. */
-  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
   /** The clock the window ticks on, for how long a server node has been up — #1345. */
   now: number;
   onCopied: (value: string) => void;
@@ -155,7 +150,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
         onAddSketch={(drawing, position, within) => addStudioSketch(openId ?? "", drawing, position, within ?? null)}
         onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
-        onDispatchSketch={props.onDispatchSketch}
         onMoveNode={(nodeId, position, within) => moveStudioNode(openId ?? "", nodeId, position, within)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}
@@ -164,9 +158,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         // A node's own address, to the system browser through main — #1406.
         // Nothing opens inside Bridge: no surface navigates.
         onOpenAddress={openStudioNode}
-        // The Studio stays standing under the Job, so closing it comes back to
-        // the whiteboard with the node reading whatever the Job is doing now.
-        onOpenJob={props.onOpenJob}
         // What the checkout declares, what Fleet is holding, and the clock.
         // **The live holder, never a copy**: a Run node holding a server reads
         // its state off this list, so a Studio left open stays right — #1345.

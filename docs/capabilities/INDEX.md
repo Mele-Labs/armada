@@ -22,10 +22,6 @@ only its steps does not need one.
 - [`drone-per-step.md`](drone-per-step.md) — a Drone belongs to a workflow step
   rather than to a Job, ending when its step ends so that what crosses the
   boundary is the record rather than the session.
-- [`epic-as-one-job.md`](epic-as-one-job.md) — one approval dispatches a
-  milestone's work, its children entering already approved as part of their
-  parent, with a question to a person as an event on a Job rather than a
-  conversation.
 - [`merge-line.md`](merge-line.md) — merges take turns onto `main`, and a branch
   whose base moved is merged with it and reruns the Checks the combination hits
   before it lands, and a branch that declared a need on a path (`armada need`)

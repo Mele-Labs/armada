@@ -10,18 +10,18 @@
 
 ## Why Fleet reads it, and not a Drone
 
-Bridge talks to Fleet and nothing else, and a person choosing what to dispatch has no Drone running. So the backlog in Bridge needs Fleet itself to read the tracker. `../capabilities/epic-as-one-job.md`, *The tracker is an adapter for Bridge*, carries the argument. The credential stays where the forge CLI already keeps it, in the operator's own environment, and no Drone receives it.
+Bridge talks to Fleet and nothing else, and a person choosing what to dispatch has no Drone running. So the backlog in Bridge needs Fleet itself to read the tracker. The credential stays where the forge CLI already keeps it, in the operator's own environment, and no Drone receives it.
 
 ## What it does
 
 | Act | When | Where |
 |---|---|---|
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
-| Comment that a Job started | The first pass after the Job leaves the queue | `crates/fleet/src/writing_back.rs` |
+| Comment that a Job started | The first pass after the Job leaves the queue | the `writing_back` module (deleted since) |
 | Comment the pull request's address | The first pass after the Job opens one, and again if it opens another | the same |
 | Put a label on | `armada: in progress` while it works; `armada: set aside` while it is escalated or its retries are spent | the same |
 | Take Armada's label off | When the Job ends, landed or not | the same |
-| Close the issue | Never directly. The pull request carries the tracker's closing, so merging it closes the issue: a closing line in the body, or a mark in the title where the tracker links by title | `closing_its_issue`, read by `crates/fleet/src/delivery.rs` |
+| Close the issue | Never directly. The pull request carries the tracker's closing, so merging it closes the issue: a closing line in the body, or a mark in the title where the tracker links by title | `closing_its_issue`, read by the `delivery` module (deleted since) |
 
 ## Rules
 
@@ -111,6 +111,4 @@ What to look for: each issue has `key` and `fields.summary` (or `summary`), `fie
 |---|---|
 | A label put on without a read | Until `--labels` is known to add rather than replace |
 | A Job's address outside Bridge | The started comment names the Job by number and title, since there is no link to give |
-| A milestone's issues on their own | `../journeys/dispatch-a-milestone.md`, step 1 |
-| A Drone reading the same issues through a tool | `../capabilities/epic-as-one-job.md` |
 | The Cockpit lane Autopilot chooses from | Autopilot's Bridge half, `#2092`. Its picker already reads this list, held the same five minutes: [autopilot.md](autopilot.md) |

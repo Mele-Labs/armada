@@ -1,8 +1,8 @@
 // Sleep mode, reviewed from the Cockpit. Sleep is still on when the owner comes back, and the moon on the
 // Menu button says so. What Sleep decided is a call in Incoming calls, "Decided while you slept", and
 // pressing it opens the call in the stage: the question, what Sleep chose set apart, and its acts: Agree,
-// Change, Open the Session or the Job, Later and Dismiss. A decision from a Session ends
-// in that Session's own box, which is how it is changed; one from a Job reveals a plain box. Over
+// Change, Open the Session, Later and Dismiss. A decision from a Session ends
+// in that Session's own box, which is how it is changed. Over
 // `sleep-cockpit`; the night itself is the mock's (`mock/sleep.ts`).
 
 import { button, inside, region, role, text, walk } from "../walk";
@@ -12,11 +12,9 @@ const incoming = region("Incoming calls");
 const call = (title: string) => inside(incoming, button(new RegExp(`^Decided while you slept: ${title}`)));
 const lunch = region(/^Decided while you slept: Order the lunch/);
 const branch = region(/^Decided while you slept: Name the branch/);
-const job = region(/^Decided while you slept: Shorten the reconnect wait/);
 
 const sleepCockpit = walk("sleep-cockpit", [
   { look: moon, say: "Sleep is on: the moon rides on the Menu button" },
-  { look: inside(incoming, button(/^Check failed/)), say: "What blocks a Job is there as it always is" },
   { press: call("Order the lunch"), say: "A decision Sleep made, opened from Incoming calls" },
   { look: lunch, say: "The header says it was decided while he slept; under it the question, and set apart, what Sleep chose" },
   { look: inside(lunch, text("Large")), say: "What Sleep chose" },
@@ -28,12 +26,6 @@ const sleepCockpit = walk("sleep-cockpit", [
   { look: branch, say: "A second decision, from another Session" },
   { press: button(/Change/), say: "Change goes to the box" },
   { type: "feat\n", into: inside(branch, role("textbox", "Message")), say: "Enter sends the correction to the Session, and the card leaves" },
-  { press: call("Shorten the reconnect wait"), say: "A decision from a Job" },
-  { look: job, say: "It has no Session box" },
-  { press: button(/Change/), say: "Change reveals a plain box here" },
-  { look: inside(job, role("textbox", "Change")), say: "The box, focused" },
-  { key: "Escape", on: inside(job, role("textbox", "Change")), say: "Esc puts it away" },
-  { press: button(/Dismiss/), say: "Dismiss takes the decision away for good" },
 ]);
 
 const opening = walk("sleep-cockpit", [

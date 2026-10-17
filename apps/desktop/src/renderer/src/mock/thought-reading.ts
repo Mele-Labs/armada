@@ -1,17 +1,15 @@
 // Helm's reading of a thought, as the mock Fleet answers `read_thought`. **A keyword scorer, not a
-// model**: it reads the words against every live Session and running Job a scenario holds, whatever
+// model**: it reads the words against every live Session a scenario holds, whatever
 // repository, and names the best match if one clears the bar. Only a scenario about routing a thought
 // answers with it; every other mock Fleet reads everything as a question (`helm-api.ts`).
 //
 // A Session is read by its title (weighted) and its ledger: the branch and pull request titles it holds.
-// A Job is read by its title.
 
-import type { JobSummary, SessionRecord, ThoughtRead, ThoughtReading, ThoughtTarget } from "@armada/protocol";
+import type { SessionRecord, ThoughtRead, ThoughtReading, ThoughtTarget } from "@armada/protocol";
 
 /** What a scenario holds that a thought could go to. */
 export type ThoughtWorld = {
   sessions: readonly SessionRecord[];
-  jobs: readonly JobSummary[];
 };
 
 /** How long Helm takes to read, so the mark turning can be seen. */
@@ -76,17 +74,6 @@ export function readThought(text: string, world: ThoughtWorld): ThoughtReading {
           ...(slotOf(one) === undefined ? {} : { slot: slotOf(one)! }),
         },
         score: score(thought, one.title!, ledgerOf(one)),
-      })),
-    ...world.jobs
-      .filter((one) => one.status === "running")
-      .map((one) => ({
-        target: {
-          kind: "job" as const,
-          id: one.id,
-          title: one.title,
-          manifest_id: one.owner_manifest_id,
-        },
-        score: score(thought, one.title, ""),
       })),
   ];
   const best = candidates.sort((a, b) => b.score - a.score)[0];

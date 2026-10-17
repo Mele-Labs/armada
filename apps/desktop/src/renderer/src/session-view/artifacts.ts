@@ -2,7 +2,7 @@
 // as `LedgerEntry` rows that know where each press goes) and from the thread: the files its drones touched, the commits and the commands it ran.
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
-import { Box, GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
+import { GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
 import { ARTIFACT, BACKGROUND, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
@@ -121,11 +121,6 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
         }),
   );
 
-  add(
-    "job",
-    "Jobs",
-    newest(attachmentsOf(session, "job")).map((one) => ({ key: `job:${one.id}`, Glyph: Box, said: "Job", title: `#${one.number} ${one.title}`, sub: one.branch, ...open(entryOf(entries, "job", one.id)) })),
-  );
   add(
     "studio",
     "Studios",

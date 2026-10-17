@@ -73,7 +73,7 @@ impl Autopilots for FakeDaemon {
     }
 
     async fn dispatch_set_aside(
-        &self,
+        self: std::sync::Arc<Self>,
         _manifest_id: ManifestId,
         _pick_id: String,
     ) -> Result<Autopilot, Refusal> {

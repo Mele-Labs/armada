@@ -8,14 +8,13 @@
 // it has read, and the last refusal in words.
 //
 // **Where Fleet serves something this build has no screen for, or none yet, the act is absent from
-// the draft and the screen leaves it off.** Nothing here shows fixture data. Pilot is one call, which
-// takes the Job over and starts the Session on its worktree, and the `/` list is what the agent's own
+// the draft and the screen leaves it off.** Nothing here shows fixture data. The `/` list is what the agent's own
 // init line named.
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import { EFFORTS } from "@armada/jobs/draft/tuning";
+import { EFFORTS } from "@armada/screens/src/draft/tuning";
 import type { ProposedField, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -264,13 +263,6 @@ export class WiredStore {
     });
   }
 
-  /** Where a Session about a Job starts: the Job's own repository, so All never has to ask. */
-  private rootOfJob(tag: SessionTag | undefined): string | undefined {
-    if (tag?.kind !== "job") return undefined;
-    const manifest = this.inputs?.jobs.find((one) => one.id === tag.id)?.owner_manifest_id;
-    return manifest === undefined ? undefined : this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifest)?.root;
-  }
-
   /** The queue as it now stands, in this window and in storage, and whoever reads it told. */
   private keepQueued(next: readonly QueuedIdea[]): void {
     this.queuedNow = next;
@@ -379,8 +371,7 @@ export class WiredStore {
   private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">): Promise<string | undefined> {
     this.say(undefined);
     // A start that waits on nothing is the call it always was.
-    const at = root ?? this.rootOfJob(tag);
-    const done = after === undefined ? await this.api.startSession(undefined, at, request, tuning) : await this.api.startSession(undefined, at, request, tuning, this.afterOf(after));
+    const done = after === undefined ? await this.api.startSession(undefined, root, request, tuning) : await this.api.startSession(undefined, root, request, tuning, this.afterOf(after));
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -414,15 +405,6 @@ export class WiredStore {
       this.recompute();
     }
     return true;
-  }
-
-  /** One call: the Job is taken over and a Session starts on its worktree. Resolves to the Session once the window holds it. */
-  private async piloting(jobId: string, outcome: "take_over" | "restart_step"): Promise<string | undefined> {
-    this.say(undefined);
-    const done = await this.api.pilotJob(jobId, outcome);
-    if (!done.ok) return void this.say(done.outcome);
-    await this.held(done.value.id);
-    return done.value.id;
   }
 
   /** One call: a new Session starts as a copy of a dead one's conversation. Resolves to it once the window holds it. */
@@ -623,7 +605,6 @@ export class WiredStore {
     queue: (idea) => this.changeQueued((ideas) => [...ideas, { id: newIdeaId(), ...idea }]),
     startQueued: (id) => this.startingQueued(id),
     dropQueued: (id) => this.changeQueued((ideas) => ideas.filter((one) => one.id !== id)),
-    pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     handOff: (id, group) => this.handing(id, group),
     forkAt: (id, at) => this.forkingAt(id, at),
@@ -683,7 +664,6 @@ export class WiredStore {
     // A pull request no Session holds is named by its repository's Manifest; Fleet reads the hub again after a merge.
     actInRepository: (root, number, act) => this.actingInRepository(root, number, act),
     said: () => this.refusal,
-    taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),
     send: (id, sent) => this.sending(id, sent),
     tune: (id, tuning) =>
@@ -697,7 +677,6 @@ export class WiredStore {
       ),
     command: (id, text) => void this.plain(this.api.runSessionCommand(id, text)),
     act: (id, number, act) => this.acting(id, number, act),
-    reviews: "fleet",
     get models() {
       return store.inputs?.holds.models?.models ?? NONE;
     },

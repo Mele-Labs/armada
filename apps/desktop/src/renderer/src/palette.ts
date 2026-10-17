@@ -10,7 +10,7 @@
 // only one of them that drew it. It is `packages/shell/src/surfaces.ts` now,
 // beside both.
 //
-// # A row that cannot act says why, except an act on a Job with none focused
+// # A row that cannot act says why, except an act with nothing to act on
 //
 // The contract's rule about a registered binding nothing answers is that the
 // palette may draw it disabled or leave it out, **on a fact rather than on a
@@ -19,27 +19,13 @@
 // kind: an act Bridge has, which cannot reach anything at this moment or from
 // this surface.
 //
-// **An act on one Job, with no Job focused, is left out** (`absentIn`). The
-// owner settled it on 2026-09-17: six dimmed rows all saying "no job focused"
-// were the first thing the palette showed and said nothing a person could act
-// on. The shortcuts are still learned, just once a Job is focused, where every
-// one of those rows can act. Copy debug info with no failure on screen is left
-// out too (12 Oct 2026), so "debug" ↵ lands on Debug Bridge. Every other
-// dormant row is still drawn and still says why.
-//
-// # What is dormant here is a to-do list, not a design
-//
-// Most of the reasons below name a control on job detail that the palette
-// cannot press because `JobDetail` owns the dialog and `App` does not hold a
-// handle to it. That is a wiring gap and it is written as one. The three that
-// are not: nothing serves an attestation, nothing pilots a job, and observing
-// is automatic on an open Job rather than an act.
+// **The acts on one Job are left out** (`absentIn`). Bridge has no page that reads a Job, so
+// none of them has anything to act on, and a dimmed row saying so is the first thing the palette
+// would show. Copy debug info with no failure on screen is left out too (12 Oct 2026), so
+// "debug" ↵ lands on Debug Bridge. Every other dormant row is still drawn and still says why.
 
 import type { StudioNodeByHandKind } from "@armada/components";
 import type { PaletteChoice } from "@armada/shell";
-
-/** What the palette says when the act needs a Job and none is under the cursor. */
-const NO_JOB = "no job focused";
 
 /** What the palette says when the act is on a Studio's rail and no Studio is open. */
 const NO_STUDIO = "open a Studio first";
@@ -50,18 +36,30 @@ export const FLEET_DOWN = "Fleet is not connected";
 /** What the palette says of Debug Bridge where the annotation layer is not loaded, as in a packaged app. */
 const NOT_DEV = "needs Bridge under pnpm dev";
 
-/** The acts that need a Job to act on. With none focused, the palette leaves them out. */
-const ON_ONE_JOB = ["open", "review", "attest", "redirect", "kill", "redispatch", "restart_step"] as const;
+/** The acts on one Job, or on a Job's page, which nothing in Bridge reads any more. */
+const ON_ONE_JOB = [
+  "open",
+  "review",
+  "attest",
+  "redirect",
+  "kill",
+  "redispatch",
+  "restart_step",
+  "close",
+  "report_job",
+  "observe",
+  "submit_for_verification",
+  "open_diff",
+  "open_stage",
+  "move_in_plan",
+] as const;
 
 /**
- * The acts the palette leaves out rather than dims: an act on one Job, where
- * no Job is open and the Board's cursor is on none; and Copy debug info with no
- * failure on screen, which the owner had out of the way on 12 Oct 2026 so that
- * "debug" ↵ is Debug Bridge.
+ * The acts the palette leaves out rather than dims: an act on one Job; and Copy debug info with no
+ * failure on screen, which the owner had out of the way on 12 Oct 2026 so that "debug" ↵ is Debug Bridge.
  */
-export function absentIn(where: { reading: boolean; cursor: string | null; failing?: boolean }): readonly string[] {
-  const onOneJob = !where.reading && where.cursor === null ? ON_ONE_JOB : [];
-  return where.failing === false ? [...onOneJob, "copy_debug_info"] : onOneJob;
+export function absentIn(where: { failing?: boolean }): readonly string[] {
+  return where.failing === false ? [...ON_ONE_JOB, "copy_debug_info"] : ON_ONE_JOB;
 }
 
 /**
@@ -73,10 +71,6 @@ export function absentIn(where: { reading: boolean; cursor: string | null; faili
  * exists to avoid.
  */
 export function dormantIn(where: {
-  /** Whether one Job is open, which is what makes the context `detail`. */
-  reading: boolean;
-  /** The Job the cursor is on, on the Board. */
-  cursor: string | null;
   /** Whether a failure is on screen for Copy debug info to copy. */
   failing: boolean;
   /** Whether Fleet is connected, which is what Refresh reads from. */
@@ -91,42 +85,12 @@ export function dormantIn(where: {
   /** The same for the rail's four Add kinds — `useStudioAddOff`. */
   studioAdd?: string | null;
 }): Readonly<Record<string, string | undefined>> {
-  const noJob = !where.reading && where.cursor === null ? NO_JOB : undefined;
   return {
-    // The four signposts. On the Board each opens the Job the cursor is on,
-    // which is `keys.ts`'s reading of them: none of Review, Attest or Redirect
-    // happens on a list, and what the verb carries is why you are being sent
-    // there. On detail you are already there.
-    open: where.reading ? "the job is already open" : noJob,
-    review: where.reading ? "the job's own Review control" : noJob,
-    attest: where.reading ? "nothing serves an attestation yet" : noJob,
-    redirect: where.reading ? "the job's own Redirect control" : noJob,
-
     // Copy debug info takes a `Failure`, and a healthy Job has none — the
     // finding `keys.ts` recorded when it claimed `c` and reached nothing. The
     // palette can do better than the row could: where a failure *is* on
     // screen, this is the act that copies it.
     copy_debug_info: where.failing ? undefined : "no failure on screen to copy",
-
-    // Acts on one Job, and the Board's cursor is what they act on.
-    kill: noJob,
-    redispatch: noJob,
-    restart_step: where.reading ? undefined : "open a job first",
-
-    // Job detail's own controls and its own keys. `App` raises neither, so the
-    // palette cannot press them — a wiring gap, written as one.
-    report_job: "the job's own Report control",
-    observe: "a job that is open is already observed",
-    // The issue that answers it is on the Pilot row above, from the
-    // registry, so it is not repeated here — and a literal issue
-    // reference in a renderer string reads to the design gate as a hex
-    // colour, which is its own finding.
-    submit_for_verification: "nothing pilots a job yet",
-    // A key alone since the Overview reframe retired the story's chapters, and
-    // only on the Overview tab, which is where `useDetailKeys` is bound.
-    open_diff: "a job's Overview, with f",
-    open_stage: "the phase strip",
-    move_in_plan: "a focused group or task on Plan, with ⌥↑ and ⌥↓",
 
     // The rail's Note, Link, Sketch and Zone, which these rows arm as their
     // keys do, and Run, which its row opens as `R` does — 2 Oct 2026. Each is
@@ -137,9 +101,7 @@ export function dormantIn(where: {
     add_zone: where.studioAdd === null ? NO_STUDIO : where.studioAdd,
     start_studio_run: where.studioRun === null ? NO_STUDIO : where.studioRun,
 
-    // Global acts with no surface behind them. The rail carries the Job Board
-    // and nothing else — four disabled rows would be a promise Armada does not
-    // keep, which is `Shell.tsx`'s own reasoning about the rail.
+    // Global acts with no surface behind them.
     //
     // Helm's dock is built (#944) and `⌘J` opens it, but that state is
     // `Shell.tsx`'s own `useDock` and `App` holds no handle to it — a wiring
@@ -158,10 +120,8 @@ export function dormantIn(where: {
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",
-    // The Back trail (`packages/surfaces/jobs/src/trail.ts`) answers ⌘[ inside a
-    // Job after a jump between panels, and only there; `App` holds no handle
-    // to it, and there is no forward yet.
-    history: "⌘[ goes back after a jump inside a job; no forward yet",
+    // `history.ts` answers ⌘[ and ⌘] from the window, and the palette has no handle to it.
+    history: "⌘[ and ⌘] go back and forward",
     refresh: where.live ? undefined : FLEET_DOWN,
     debug_bridge: where.debuggable !== true ? NOT_DEV : where.live ? undefined : FLEET_DOWN,
   };
@@ -169,9 +129,7 @@ export function dormantIn(where: {
 
 /** What the app has to be able to do for a chosen row to mean anything. */
 export type PaletteHands = {
-  openJob: (jobId: string) => void;
   openSession: (sessionId: string) => void;
-  closeJob: () => void;
   compose: () => void;
   /**
    * Go to a place in Navigation, by the id the surfaces list gave it.
@@ -192,7 +150,6 @@ export type PaletteHands = {
    */
   run: (entryId: string) => void;
   copyDebugInfo: () => void;
-  confirm: (act: "kill_job" | "redispatch" | "restart_step", jobId: string) => void;
   /**
    * Go to the settings row's own screen, by the id `settings` was given.
    *
@@ -207,7 +164,7 @@ export type PaletteHands = {
   debugBridge: () => void;
   /** Re-read everything Fleet holds — `⇧⌘R`'s act. */
   refresh: () => void;
-  /** A row about every Job at once, by the id `PaletteBoardRow` was given. */
+  /** A row about the window as a whole, by the id `PaletteBoardRow` was given. */
   board: (id: string) => void;
   /** Pick a repository, as the title row's picker does; `null` is All repositories. */
   pickRepository: (root: string | null) => void;
@@ -228,20 +185,13 @@ const ADD_ROW: Readonly<Record<string, StudioNodeByHandKind>> = {
 /**
  * Carry out a chosen row.
  *
- * **The Job an act acts on is the open one, or the one under the cursor** —
- * in that order, because a Job read whole is unambiguously what is in front of
- * you and the Board's cursor is only what is in front of you when nothing is.
- *
  * **Nothing here decides whether the palette closes.** Choosing a row closes
  * it, which is the component's rule and the right one — every act below either
  * moves the screen or puts the cursor somewhere, and a list still covering
  * what you just asked for is a list you have to dismiss twice.
  */
-export function carryOut(choice: PaletteChoice, job: string | null, hands: PaletteHands): void {
+export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
   switch (choice.of) {
-    case "job":
-      hands.openJob(choice.id);
-      return;
     case "session":
       hands.openSession(choice.id);
       return;
@@ -261,24 +211,14 @@ export function carryOut(choice: PaletteChoice, job: string | null, hands: Palet
       hands.pickRepository(choice.root);
       return;
     case "act":
-      act(choice.id, job, hands);
+      act(choice.id, hands);
   }
 }
 
-function act(id: string, job: string | null, hands: PaletteHands): void {
+function act(id: string, hands: PaletteHands): void {
   switch (id) {
-    // The four signposts, which open the Job rather than performing the verb.
-    case "open":
-    case "review":
-    case "attest":
-    case "redirect":
-      if (job !== null) hands.openJob(job);
-      return;
     case "new_job":
       hands.compose();
-      return;
-    case "close":
-      hands.closeJob();
       return;
     case "copy_debug_info":
       hands.copyDebugInfo();
@@ -297,16 +237,6 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
     case "add_sketch":
     case "add_zone":
       hands.studioAdd(ADD_ROW[id]!);
-      return;
-    case "restart_step":
-    case "redispatch":
-      // Neither is destructive by the registry's reading — a restart puts a
-      // fresh Drone on the same worktree and a redispatch mints a new Job —
-      // and both still confirm, because `App` has always confirmed them and
-      // the confirmation is where what survives is stated.
-      if (job !== null) {
-        hands.confirm(id === "restart_step" ? "restart_step" : "redispatch", job);
-      }
       return;
     default:
       // An act the registry carries and this build does not answer. `dormantIn`

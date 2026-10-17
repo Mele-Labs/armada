@@ -28,13 +28,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
-use adapters::{BranchStanding, Reclaimed, Standing, UnmergedWork, WorktreeStanding};
+use adapters::{BranchStanding, Reclaimed, Standing, WorktreeStanding};
 use core_model::{
-    Component, DependencyDirection, Envelope, FieldValue, Job, JobId, JobStatus, Level, Timestamp,
+    DependencyDirection, Job, JobId, JobStatus, Timestamp,
 };
 
-use crate::adrift::Adrift;
-use crate::converging::elapsed;
 use crate::daemon::Fleet;
 use crate::leasing::reclaimed_spec_in;
 use crate::repositories::Served;
@@ -177,182 +175,6 @@ pub struct Swept {
     pub bases: Vec<String>,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    /// Every worktree Fleet is holding disk for, and why each one is held.
-    ///
-    /// **Ordered by Job id and complete**, including the ones this Fleet would
-    /// reclaim on its own — a caller that filtered to the held ones would be
-    /// reading a list the sweep is about to change, and the two answers must
-    /// come from one call. `#385` draws this, and reads
-    /// [`Holding::offerable`] rather than deciding for itself.
-    ///
-    /// A Job with no checkout and no branch left is not in the answer at all.
-    /// There is nothing to give back and nothing to hold.
-    pub async fn worktrees_held(&self) -> Result<Vec<Holding>, Adrift> {
-        let (loaded, _) = self.every_job().await?;
-        Ok(self.held_among(Arc::new(loaded.jobs)).await)
-    }
-
-    /// [`worktrees_held`](Fleet::worktrees_held) over Jobs the caller already
-    /// loaded, so a caller asking for more than this reads the store once.
-    ///
-    /// **The git half runs off the runtime and side by side.** Each Job's
-    /// checkout is its own handful of processes and none depends on another,
-    /// so asking costs the slowest one rather than the sum.
-    pub(crate) async fn held_among(&self, jobs: Arc<Vec<Job>>) -> Vec<Holding> {
-        let mine: Vec<(usize, Served)> = jobs
-            .iter()
-            .enumerate()
-            // **This repository's Jobs only.** One store serves the machine and
-            // a `WorktreeSpec` is derived from *this* Fleet's root, so another
-            // Manifest's Job would name a path under a repository it never ran
-            // in. `armada clean` selects on the same column for the same reason.
-            .filter_map(|(at, job)| Some((at, self.served_by(job).ok()?)))
-            .collect();
-        let board: Vec<&Job> = mine.iter().map(|(at, _)| &jobs[*at]).collect();
-        let (vcs, asked) = (Arc::clone(self.vcs()), Arc::clone(&jobs));
-        let read = tokio::task::spawn_blocking(move || {
-            adapters::concurrently(&mine, |(at, served)| {
-                standing_of(vcs.as_ref(), served, &asked[*at])
-            })
-        })
-        .await
-        .expect("git panicked reading the worktrees held");
-        board
-            .iter()
-            .zip(read)
-            .filter_map(|(job, read)| holding_of(job, &board, read?))
-            .collect()
-    }
-
-    /// Reclaim every worktree that passes all five tests, if a sweep is due.
-    ///
-    /// **Empty on nearly every turn**, and empty is three different silences:
-    /// too soon since the last sweep, nothing held at all, and nothing held
-    /// that was provably safe. None is worth a line — what a person wants to
-    /// hear about is disk that came back, and that is all this returns.
-    ///
-    /// A fault reclaiming one Job does not stop the next: the answer is per
-    /// Job, and one repository refusing to open is the only thing that would
-    /// make every one of them fail the same way.
-    pub(crate) async fn reclaim_what_is_safe(&self) -> Result<Swept, Adrift> {
-        if !self.due_to_sweep().await {
-            return Ok(Swept::default());
-        }
-        // On the sweep's clock rather than every tick: finding the base commit
-        // opens the repository. Spawned, not awaited — `crate::seeding`.
-        self.warm_seeds_on_the_sweep();
-        let held = self.worktrees_held().await?;
-        let mut gave_back = Vec::new();
-        for one in held.iter().filter(|one| one.provably_safe()) {
-            if let Some(taken) = self.gave_back(&one.job).await {
-                gave_back.push(taken);
-            }
-        }
-        // **On this sweep rather than a second one.** Two things walking
-        // `.armada/` on two clocks is how a directory comes to be taken by
-        // whichever one nobody was thinking about, and the one test a base
-        // checkout has — that the base has moved past its commit — needs no
-        // Job and no store read.
-        Ok(Swept {
-            jobs: gave_back,
-            bases: self.bases_gone_by(),
-        })
-    }
-
-    /// Whether enough time has passed, stamping the sweep either way.
-    ///
-    /// The clock is the injected one, so a test decides when a sweep comes due
-    /// rather than waiting for it — the shape `notice_a_merge` already has.
-    async fn due_to_sweep(&self) -> bool {
-        let now = self.now();
-        let mut last = self.swept().lock().await;
-        if let Some(before) = last.as_ref() {
-            if elapsed(before, &now) < self.reclaiming().interval() {
-                return false;
-            }
-        }
-        *last = Some(now);
-        true
-    }
-
-    /// Take one Job's disk back and write down that it was taken.
-    ///
-    /// **[`UnmergedWork::Keep`] even here**, where the branch has already been
-    /// read as merged. The setting is not a parameter on this seam — a live
-    /// Fleet must never be the thing that destroys work nobody has taken — and
-    /// a second reading that disagreed with the first would be caught by it
-    /// rather than acted on.
-    ///
-    /// **A slot goes back to the pool, never away.** A Job that ended holding
-    /// one because its release was refused is given the release again here,
-    /// now that every test has passed; `adapters::reclaim` then leaves the
-    /// slot's directory to the pool and takes only the branch. A completed
-    /// Job's slot is not: it is held until a person clears the Job.
-    async fn gave_back(&self, job: &JobId) -> Option<GaveBack> {
-        let loaded = self.load(job).await.ok()?;
-        if self.held_until_cleared(&loaded) {
-            return None;
-        }
-        self.released_slot(&loaded).await;
-        let served = self.served_by(&loaded).ok()?;
-        let spec = self.reclaimed_spec(&served, &loaded).ok()?;
-        let target = self.target_of(&served, job).await;
-        let reclaimed = adapters::reclaim(&spec, target.as_deref(), UnmergedWork::Keep)
-            .inspect_err(|cause| self.noted_unreclaimed(job, &cause.why))
-            .ok()?;
-        self.noted_reclaimed(job, &reclaimed);
-        self.worktrees_memory().changed();
-        Some(GaveBack {
-            job: job.clone(),
-            reclaimed,
-        })
-    }
-
-    /// Write into the Job's own log that Fleet took its disk.
-    ///
-    /// **The Job's log and not Fleet's stdout.** Fleet's console is the
-    /// operator's and is not where anybody reads a Job, so a sweep that only
-    /// reported there would leave the Job's own record saying nothing about
-    /// what happened to it — which is the surprise this whole line exists to
-    /// prevent.
-    fn noted_reclaimed(&self, job: &JobId, reclaimed: &Reclaimed) {
-        let envelope = Envelope::new(
-            self.now(),
-            Level::Info,
-            Component::Fleet,
-            self.run().clone(),
-            "fleet reclaimed this job's worktree, every safety test having passed",
-        )
-        .in_job(job.as_ulid().clone())
-        .with_field("worktree", FieldValue::Str(said_of(&reclaimed.worktree)))
-        .with_field("branch", FieldValue::Str(said_of_branch(&reclaimed.branch)));
-        self.noted_in_the_log(job, &envelope);
-    }
-
-    fn noted_unreclaimed(&self, job: &JobId, why: &str) {
-        let envelope = Envelope::new(
-            self.now(),
-            Level::Warn,
-            Component::Fleet,
-            self.run().clone(),
-            "a worktree every safety test passed was not given back",
-        )
-        .in_job(job.as_ulid().clone())
-        .with_field("cause", FieldValue::Str(why.to_string()));
-        self.noted_in_the_log(job, &envelope);
-    }
-}
-
 /// Where one Job's worktree is and what git says is in it, or `None` where
 /// there is nothing to give back. **The blocking half of a holding**: it
 /// reads the pool and the checkout.
@@ -460,20 +282,6 @@ fn dependents_still_running(job: &JobId, board: &[&Job]) -> Vec<JobId> {
         .collect()
 }
 
-/// What became of the checkout, in one line for the Job's log.
-fn said_of(worktree: &adapters::WorktreeGone) -> String {
-    use adapters::WorktreeGone::*;
-    match worktree {
-        Removed { path } => format!("removed {path}"),
-        RecordCleared { path } => format!("the record for {path} was cleared"),
-        DirectoryRemoved { path } => format!("removed the directory {path}"),
-        Absent { path } => format!("nothing at {path}"),
-        Locked { path, reason } => format!("{path} is locked: {reason}"),
-        NotRemoved { path, why } => format!("{path} was not removed: {why}"),
-        Pooled { path } => format!("{path} is a pool slot, given back rather than removed"),
-    }
-}
-
 /// What became of the branch. **The tip is carried on every arm that has one**,
 /// because a deleted branch is recoverable from its SHA and from nothing else.
 pub(crate) fn said_of_branch(branch: &adapters::BranchGone) -> String {
@@ -489,5 +297,48 @@ pub(crate) fn said_of_branch(branch: &adapters::BranchGone) -> String {
         } => format!("kept {branch} at {tip}: {commits} commits {base} cannot reach"),
         KeptUnanswered { branch, tip, why } => format!("kept {branch} at {tip}: {why}"),
         NotDeleted { branch, why } => format!("{branch} was not deleted: {why}"),
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// [`worktrees_held`](Fleet::worktrees_held) over Jobs the caller already
+    /// loaded, so a caller asking for more than this reads the store once.
+    ///
+    /// **The git half runs off the runtime and side by side.** Each Job's
+    /// checkout is its own handful of processes and none depends on another,
+    /// so asking costs the slowest one rather than the sum.
+    pub(crate) async fn held_among(&self, jobs: Arc<Vec<Job>>) -> Vec<Holding> {
+        let mine: Vec<(usize, Served)> = jobs
+            .iter()
+            .enumerate()
+            // **This repository's Jobs only.** One store serves the machine and
+            // a `WorktreeSpec` is derived from *this* Fleet's root, so another
+            // Manifest's Job would name a path under a repository it never ran
+            // in. `armada clean` selects on the same column for the same reason.
+            .filter_map(|(at, job)| Some((at, self.served_by(job).ok()?)))
+            .collect();
+        let board: Vec<&Job> = mine.iter().map(|(at, _)| &jobs[*at]).collect();
+        let (vcs, asked) = (Arc::clone(self.vcs()), Arc::clone(&jobs));
+        let read = tokio::task::spawn_blocking(move || {
+            adapters::concurrently(&mine, |(at, served)| {
+                standing_of(vcs.as_ref(), served, &asked[*at])
+            })
+        })
+        .await
+        .expect("git panicked reading the worktrees held");
+        board
+            .iter()
+            .zip(read)
+            .filter_map(|(job, read)| holding_of(job, &board, read?))
+            .collect()
     }
 }

@@ -1,17 +1,15 @@
-// The ship as the flight deck reads it: one list of subjects (a Job, a Session or a pull request nobody owns), each
+// The ship as the flight deck reads it: one list of subjects (a Session or a pull request nobody owns), each
 // with the one phase it is in, the one mark that says how it stands and the pull request that is a phase of it; main
-// per repository, the bays, Autopilot, and the calls. Read off what the window already holds (the Board, the Sessions,
-// the merge line, the pool), and nothing here is a second vocabulary: a Session's state is its `standing` through
+// per repository, the bays, Autopilot, and the calls. Read off what the window already holds (the Sessions, the merge
+// line, the pool), and nothing here is a second vocabulary: a Session's state is its `standing` through
 // `session-state.ts`. **Nothing is held locally.** A pull request is landed when the forge says so, a Session is
-// stopped when Fleet says its turn is, and main is being fixed when the merge line says a Job is on it. #2301.
+// stopped when Fleet says its turn is, and main is being fixed when the merge line says a Session is on it. #2301.
 
 import { useEffect, useMemo } from "react";
-import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { sessionGlyphOf, since } from "@armada/components";
-import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { ofPicked } from "@armada/screens";
+import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/jobs/draft/now";
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { stateOf } from "../../session-state";
@@ -21,10 +19,10 @@ import type { CockpitProps } from "./props";
 import { callKindOf, sessionIdOf, waitingOf } from "../waiting";
 
 /** What the ship reads: the window's state and the hosts `useItems` raises its calls through, so the title bar can read it without the Cockpit's other props. */
-export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "nowViews" | "nows" | "onWantHeld"> & Hosts;
+export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "onWantHeld"> & Hosts;
 
 /** Where a subject stands in the one pipeline the strips board draws as columns. */
-/** Where a Job or Session stands, whatever path it is on: the words the timeline's groups use. */
+/** Where a Session stands, whatever path it is on: the words the timeline's groups use. */
 export type Phase = "needs" | "working" | "held" | "done";
 export const PHASES: readonly Phase[] = ["needs", "working", "held", "done"];
 
@@ -45,12 +43,12 @@ export type Pr = {
   queue?: { state: string; position?: number };
   author?: string;
   stage: "checking" | "red" | "queued" | "ready" | "landed";
-  owner?: { kind: "job" | "session"; id: string; title: string };
+  owner?: { kind: "session"; id: string; title: string };
 };
 
 export type Subject = {
   key: string;
-  kind: "job" | "session" | "pr";
+  kind: "session" | "pr";
   id: string;
   title: string;
   root: string;
@@ -67,10 +65,9 @@ export type Subject = {
   call?: string;
   pr?: Pr;
   slot?: number;
-  step?: { at: number; of: number; label: string };
   /** The last lines of what it is doing, for Peek. */
   peek: string[];
-  /** A Session's turn is open, so Stop applies. A Job that is not over. */
+  /** A Session's turn is open, so Stop applies. */
   stoppable: boolean;
   repliable: boolean;
   /** Its pull request can be merged now. */
@@ -99,7 +96,7 @@ export type Main = {
   broke?: { number: number; title: string };
   fixing: boolean;
   /** Who merged the pull request that turned it red. */
-  by?: { kind: "job" | "session"; id: string; title: string };
+  by?: { kind: "session"; id: string; title: string };
 };
 
 export type Bay = {
@@ -107,7 +104,7 @@ export type Bay = {
   repo: string;
   slot: number;
   state: "free" | "held" | "closed";
-  holder?: { kind: "job" | "session"; id: string; title: string };
+  holder?: { kind: "session"; id: string; title: string };
   branch?: string;
 };
 
@@ -122,9 +119,9 @@ export type Ship = {
   calls: readonly Item[];
   prs: readonly Pr[];
   repos: readonly { root: string; name: string }[];
-  /** The Jobs and Sessions with a Check running now: a Job's own, or one on the pull request a Job or Session holds. */
+  /** The Sessions with a Check running now, on the pull request a Session holds. */
   running: ReadonlySet<string>;
-  /** The Jobs and Sessions waiting on an answer from the person: a question, a waiting item, a gate. Their call stays until answered. */
+  /** The Sessions waiting on an answer from the person: a question, a waiting item, a gate. Their call stays until answered. */
   asking: ReadonlySet<string>;
 };
 
@@ -137,25 +134,11 @@ function sessionMark(session: Session): Mark {
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
 
-function jobMark(job: JobSummary): Mark {
-  if (job.asking === true) return { Glyph: ShieldX, said: "Check failed", tone: "bad" };
-  if (job.status === "awaiting_review") return { Glyph: Eye, said: "Awaiting review", tone: "ask" };
-  if (job.status === "queued") return { Glyph: CircleDashed, said: "Queued", tone: "calm" };
-  return { Glyph: Bot, said: "Drone working", tone: "calm" };
-}
-
 function peekOfSession(session: Session): string[] {
   return session.rows
     .filter((row) => row.kind === "message" || row.kind === "tool" || row.kind === "check")
     .slice(-3)
     .map((row) => (row.kind === "check" ? `${row.name} ${row.state}` : one(row.text)));
-}
-
-function peekOfJob(view: NowView | undefined): string[] {
-  const drone = view?.running?.find((one) => one.of === "drone");
-  const lines = drone?.tail ?? (drone?.line === undefined ? [] : [drone.line]);
-  const checks = (view?.running ?? []).filter((one) => one.of === "check").map((one) => `${one.name} ${one.state}`);
-  return [...lines.slice(-2), ...checks].slice(-3);
 }
 
 const ageOf = (iso: string | undefined, now: number) => (iso === undefined ? undefined : `${Math.max(0, Math.round((now - Date.parse(iso)) / 60_000))}m`);
@@ -172,35 +155,25 @@ function stageOf(pull: Pick<HubPullRequest, "ci" | "queue">): Pr["stage"] {
 const ciOf = (ci: string | undefined): Pr["ci"] => (ci === "passed" || ci === "failed" || ci === "waiting_on_main" ? ci : "running");
 
 type Inputs = {
-  jobs: readonly JobSummary[];
   sessions: readonly Session[];
   lines: readonly MergeLine[];
   slots: readonly WorktreeSlot[];
   repositories: readonly RepositorySummary[];
-  workflows: readonly { id: string; steps: readonly { step_id: string; label: string }[] }[];
-  nows: Readonly<Record<string, NowView>> | undefined;
   calls: readonly Item[];
   now: number;
 };
 
 /** Pure: the ship from what the window holds. */
 export function shipOf(input: Inputs): Ship {
-  const { jobs, sessions, lines, slots, repositories, workflows, nows, calls, now } = input;
+  const { sessions, lines, slots, repositories, calls, now } = input;
   const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root ?? repositories[0]?.root ?? "";
   const nameOfRoot = (root: string) => repositories.find((one) => one.root === root)?.manifest?.repository ?? root;
   const repos = lines.map((line) => ({ root: line.root, name: nameOfRoot(line.root) }));
 
   // Pull requests, every one the forge lists, open first and then the newest landed.
   const prs: Pr[] = [];
-  const owners = {
-    byJob: (pull: { number: number; branch: string; job?: HubJob }) => (pull.job ?? jobs.filter((job) => job.branch === pull.branch).map((job) => ({ id: job.id, title: job.title }))[0]),
-    bySession: (pull: { number: number; branch: string }) =>
-      sessions.find((one) => one.dead === undefined && one.attachments.some((a) => (a.kind === "pull_request" && (a.number === pull.number || a.branch === pull.branch)) || (a.kind === "branch" && a.name === pull.branch))),
-  };
-  const ownerOf = (pull: { number: number; branch: string; job?: HubJob }): Pr["owner"] => {
-    const job = owners.byJob(pull);
-    if (job !== undefined) return { kind: "job", id: job.id, title: job.title };
-    const session = owners.bySession(pull);
+  const ownerOf = (pull: { number: number; branch: string }): Pr["owner"] => {
+    const session = sessions.find((one) => one.dead === undefined && one.attachments.some((a) => (a.kind === "pull_request" && (a.number === pull.number || a.branch === pull.branch)) || (a.kind === "branch" && a.name === pull.branch)));
     return session === undefined ? undefined : { kind: "session", id: session.id, title: session.title ?? session.id };
   };
   for (const line of lines) {
@@ -228,40 +201,10 @@ export function shipOf(input: Inputs): Ship {
       prs.push({ key: `pr:${line.root}:${pull.number}`, root: line.root, number: pull.number, title: pull.title, branch: pull.branch, url: pull.url, ci: "passed", stage: "landed", ...(owner === undefined ? {} : { owner }) });
     }
   }
-  const prOf = (owner: { kind: "job" | "session"; id: string }) => prs.find((one) => one.owner?.kind === owner.kind && one.owner.id === owner.id && one.stage !== "landed") ?? prs.find((one) => one.owner?.kind === owner.kind && one.owner.id === owner.id);
+  const prOf = (owner: { id: string }) => prs.find((one) => one.owner?.id === owner.id && one.stage !== "landed") ?? prs.find((one) => one.owner?.id === owner.id);
   const callOf = (find: (item: Item) => boolean) => calls.find(find)?.key;
 
   const subjects: Subject[] = [];
-  for (const job of jobs) {
-    if (/completed|killed|rejected|superseded|failed/.test(job.status)) continue;
-    const mark = jobMark(job);
-    const pr = prOf({ kind: "job", id: job.id });
-    const steps = workflows.find((one) => one.id === job.workflow_id)?.steps ?? [];
-    const at = steps.findIndex((step) => step.step_id === job.current_step_id);
-    const root = rootOf(job.owner_manifest_id);
-    const needs = mark.tone === "ask" || mark.tone === "bad";
-    subjects.push({
-      key: `job:${job.id}`,
-      kind: "job",
-      id: job.id,
-      title: job.title,
-      root,
-      repo: nameOfRoot(root),
-      manifest: job.owner_manifest_id,
-      mark,
-      phase: needs ? "needs" : job.status === "queued" ? "held" : "working",
-      needs,
-      alarm: false,
-      ...(callOf((item) => item.job?.id === job.id) === undefined ? {} : { call: callOf((item) => item.job?.id === job.id)! }),
-      ...(pr === undefined ? {} : { pr }),
-      ...(at < 0 ? {} : { step: { at: at + 1, of: steps.length, label: steps[at]!.label } }),
-      peek: peekOfJob(nows?.[job.id]),
-      stoppable: job.status !== "queued",
-      repliable: false,
-      mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
-    });
-  }
-
   for (const session of sessions) {
     if (session.helm === true) continue;
     if (session.dead !== undefined) {
@@ -291,7 +234,7 @@ export function shipOf(input: Inputs): Ship {
     }
     const mark = sessionMark(session);
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
-    const pr = prOf({ kind: "session", id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
+    const pr = prOf({ id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
     const needs = mark.tone === "ask";
     const stuck = stateOf(session).state === "stuck";
     const redPr = pr !== undefined && pr.stage === "red";
@@ -357,7 +300,7 @@ export function shipOf(input: Inputs): Ship {
     const red = main.state === "red";
     const first = main.failed?.[0];
     const merge = main.merge;
-    const fixing = red && (line.hub?.fixing !== undefined || line.hub?.fixing_session !== undefined);
+    const fixing = red && line.hub?.fixing_session !== undefined;
     return [
       {
         root: line.root,
@@ -366,7 +309,7 @@ export function shipOf(input: Inputs): Ship {
         ...(first === undefined ? {} : { check: first.check ?? first.name }),
         ...(first?.tests?.[0] === undefined ? {} : { test: first.tests[0] }),
         ...(merge === undefined ? {} : { broke: { number: merge.number, title: prs.find((one) => one.number === merge.number)?.title ?? merge.branch ?? "" } }),
-        ...(merge?.session === undefined ? merge?.job === undefined ? {} : { by: { kind: "job" as const, id: merge.job.id, title: merge.job.title } } : { by: { kind: "session" as const, id: merge.session.id, title: merge.session.title ?? merge.session.id } }),
+        ...(merge?.session === undefined ? {} : { by: { kind: "session" as const, id: merge.session.id, title: merge.session.title ?? merge.session.id } }),
         fixing,
       },
     ];
@@ -375,8 +318,7 @@ export function shipOf(input: Inputs): Ship {
 
   const bays: Bay[] = slots.map((slot) => {
     const held = slot.held;
-    const holder: Bay["holder"] =
-      held.state === "job" ? { kind: "job", id: held.job_id, title: held.job_title ?? held.job_id } : held.state === "hosted_session" ? { kind: "session", id: held.session_id, title: held.session_title ?? held.session_id } : undefined;
+    const holder: Bay["holder"] = held.state === "hosted_session" ? { kind: "session", id: held.session_id, title: held.session_title ?? held.session_id } : undefined;
     return {
       root: rootOf(slot.manifest_id),
       repo: nameOfRoot(rootOf(slot.manifest_id)),
@@ -388,25 +330,21 @@ export function shipOf(input: Inputs): Ship {
   });
 
   const running = new Set<string>();
-  for (const job of jobs) if ((nows?.[job.id]?.running ?? []).some((one) => one.of === "check" && one.state === "running")) running.add(`job:${job.id}`);
   for (const pr of prs) if (pr.stage === "checking" && pr.owner !== undefined) running.add(`${pr.owner.kind}:${pr.owner.id}`);
-  // A Session counts for the Jobs it owns.
-  for (const session of sessions) if (session.attachments.some((a) => a.kind === "job" && running.has(`job:${a.id}`))) running.add(`session:${session.id}`);
 
-  // A Job or Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is. One that
+  // A Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is. One that
   // asks (a question, a waiting item, a gate) keeps it until answered; a reply, a done turn or a stuck one is a call until seen.
   // The key carries the turn, so the next reply is a new call.
-  const asking = new Set(subjects.filter((one) => (one.kind === "job" && one.needs) || (one.kind === "session" && stateOf(sessions.find((s) => s.id === one.id)!).state === "waiting")).map((one) => one.key));
+  const asking = new Set(subjects.filter((one) => one.kind === "session" && stateOf(sessions.find((s) => s.id === one.id)!).state === "waiting").map((one) => one.key));
   const raised = [...calls];
   for (const subject of subjects) {
     if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
-    const job = subject.kind === "job" ? jobs.find((one) => one.id === subject.id) : undefined;
     const session = subject.kind === "session" ? sessions.find((one) => one.id === subject.id) : undefined;
     const at = session?.lastTurnAt;
     // What the Session waits on keeps the label its own call had before he looked, so the call returns as it was.
     const waits = session === undefined ? undefined : waitingOf(session).filter((one) => one.source !== "replied").sort((a, b) => Date.parse(b.since) - Date.parse(a.since))[0];
     const item: Item = {
-      key: `${subject.kind}:${subject.id}:needs:${at ?? job?.status ?? ""}`,
+      key: `${subject.kind}:${subject.id}:needs:${at ?? ""}`,
       icon: subject.mark.Glyph,
       kind: waits === undefined ? subject.mark.said : callKindOf(waits.source),
       title: subject.title,
@@ -416,7 +354,6 @@ export function shipOf(input: Inputs): Ship {
       where: subject.repo ?? "",
       body: [],
       acts: () => null,
-      ...(job === undefined ? {} : { job }),
     };
     raised.push(item);
     subject.call = item.key;
@@ -444,7 +381,7 @@ export const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["pick
 
 /** The ship, live. `hosts` is what `useItems` raises calls through. */
 export function useShip(props: ShipProps, hold = true): Ship {
-  const { state, now, picked, nowViews, nows } = props;
+  const { state, now, picked } = props;
   const hosts: Hosts = props;
   const sessions = useSessions();
   // Fleet serves the worktree pool only while someone draws the bays, and these bodies draw them.
@@ -454,23 +391,19 @@ export function useShip(props: ShipProps, hold = true): Ship {
     onWantHeld?.(true);
     return () => onWantHeld?.(false);
   }, [onWantHeld, hold]);
-  const calls = useItems("command-central", state, picked, nowViews, hosts, NONE);
+  const calls = useItems("command-central", state, picked, hosts, NONE);
   // A Session read is one that no longer needs him: build again when any Session's time does.
   const viewed = useViewedVersion();
   return useMemo(
     () =>
       shipOf({
-        // Narrowed as the Board and Sessions are; the id lookups elsewhere keep every Job.
-        jobs: ofPicked(state.jobs, picked),
         sessions,
         lines: state.mergeLines?.lines ?? [],
         slots: slotsOf(state, picked),
         repositories: state.holds.repositories ?? [],
-        workflows: state.holds.workflows,
-        nows,
         calls,
         now,
       }),
-    [state, sessions, picked, nows, calls, now, viewed],
+    [state, sessions, picked, calls, now, viewed],
   );
 }

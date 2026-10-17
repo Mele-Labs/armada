@@ -48,43 +48,6 @@ pub const PROMPT_JUDGE_SECOND_AT_LINE: Words = Words("prompts.judgeSecondAtLine"
 pub const PROMPT_JUDGE_SECOND_REMOVED_LINE: Words = Words("prompts.judgeSecondRemovedLine");
 pub const PROMPT_JUDGE_SECOND_HOW_TO_WEIGH: Words = Words("prompts.judgeSecondHowToWeigh");
 pub const PROMPT_JUDGE_SECOND_ANSWER: Words = Words("prompts.judgeSecondAnswer");
-pub const PROMPT_JUDGE_CONVERGE_OPENING: Words = Words("prompts.judgeConvergeOpening");
-pub const PROMPT_JUDGE_CONVERGE_DECLARED: Words = Words("prompts.judgeConvergeDeclared");
-pub const PROMPT_JUDGE_CONVERGE_OFF_PLAN: Words = Words("prompts.judgeConvergeOffPlan");
-pub const PROMPT_JUDGE_CONVERGE_LAST_TIME: Words = Words("prompts.judgeConvergeLastTime");
-pub const PROMPT_JUDGE_CONVERGE_LAST_TIME_RULE: Words = Words("prompts.judgeConvergeLastTimeRule");
-pub const PROMPT_JUDGE_CONVERGE_DIFF: Words = Words("prompts.judgeConvergeDiff");
-pub const PROMPT_JUDGE_CONVERGE_WRITTEN: Words = Words("prompts.judgeConvergeWritten");
-pub const PROMPT_JUDGE_CONVERGE_NOTHING_WRITTEN: Words =
-    Words("prompts.judgeConvergeNothingWritten");
-pub const PROMPT_JUDGE_CONVERGE_TOO_BIG: Words = Words("prompts.judgeConvergeTooBig");
-pub const PROMPT_JUDGE_CONVERGE_NOTHING_ELSE: Words = Words("prompts.judgeConvergeNothingElse");
-pub const PROMPT_JUDGE_CONVERGE_ALONGSIDE: Words = Words("prompts.judgeConvergeAlongside");
-pub const PROMPT_JUDGE_CONVERGE_QUESTION: Words = Words("prompts.judgeConvergeQuestion");
-pub const PROMPT_JUDGE_CONVERGE_CITES_DIFF: Words = Words("prompts.judgeConvergeCitesDiff");
-pub const PROMPT_JUDGE_CONVERGE_CITES_FILE: Words = Words("prompts.judgeConvergeCitesFile");
-pub const PROMPT_JUDGE_CONVERGE_ANSWER: Words = Words("prompts.judgeConvergeAnswer");
-pub const PROMPT_JUDGE_WIDEN_OPENING: Words = Words("prompts.judgeWidenOpening");
-pub const PROMPT_JUDGE_WIDEN_STEP: Words = Words("prompts.judgeWidenStep");
-pub const PROMPT_JUDGE_WIDEN_DELIVERABLE: Words = Words("prompts.judgeWidenDeliverable");
-pub const PROMPT_JUDGE_WIDEN_HELD: Words = Words("prompts.judgeWidenHeld");
-pub const PROMPT_JUDGE_WIDEN_ASKED: Words = Words("prompts.judgeWidenAsked");
-pub const PROMPT_JUDGE_WIDEN_FENCED: Words = Words("prompts.judgeWidenFenced");
-pub const PROMPT_JUDGE_WIDEN_WHY: Words = Words("prompts.judgeWidenWhy");
-pub const PROMPT_JUDGE_WIDEN_QUESTION: Words = Words("prompts.judgeWidenQuestion");
-pub const PROMPT_JUDGE_WIDEN_ANSWER: Words = Words("prompts.judgeWidenAnswer");
-pub const PROMPT_OUTCOME_VERIFIED_ALL: Words = Words("prompts.outcomeVerifiedAll");
-pub const PROMPT_OUTCOME_VERIFIED_NONE_COVERED: Words = Words("prompts.outcomeVerifiedNoneCovered");
-pub const PROMPT_OUTCOME_VERIFIED_SOME: Words = Words("prompts.outcomeVerifiedSome");
-pub const PROMPT_OUTCOME_ACCEPTED: Words = Words("prompts.outcomeAccepted");
-pub const PROMPT_OUTCOME_GO_ON: Words = Words("prompts.outcomeGoOn");
-pub const PROMPT_OUTCOME_LAST: Words = Words("prompts.outcomeLast");
-pub const PROMPT_OUTCOME_HANDED_BACK: Words = Words("prompts.outcomeHandedBack");
-pub const PROMPT_OUTCOME_SENT_BACK: Words = Words("prompts.outcomeSentBack");
-pub const PROMPT_OUTCOME_WORK_AGAIN: Words = Words("prompts.outcomeWorkAgain");
-pub const PROMPT_BASE_UP_TO_DATE: Words = Words("prompts.baseUpToDate");
-pub const PROMPT_BASE_CONFLICTED: Words = Words("prompts.baseConflicted");
-pub const PROMPT_BASE_NOT_MOVED: Words = Words("prompts.baseNotMoved");
 
 pub(super) const JUDGE: &[Entry] = &[
     prompt(PromptSection::Judge, PROMPT_JUDGE_OPENING, "What it is doing", "What a Judge is told before anything else.", &[]),
@@ -127,40 +90,4 @@ pub(super) const JUDGE: &[Entry] = &[
     prompt(PromptSection::JudgeSecondReading, PROMPT_JUDGE_SECOND_REMOVED_LINE, "A removed line", "{file} is where the removed line was.", &["file"]),
     prompt(PromptSection::JudgeSecondReading, PROMPT_JUDGE_SECOND_HOW_TO_WEIGH, "How to weigh it", "How the second reader weighs the flag.", &[]),
     prompt(PromptSection::JudgeSecondReading, PROMPT_JUDGE_SECOND_ANSWER, "How it answers", "How the second reader answers. Fleet reads its last two lines.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_OPENING, "What it is doing", "What a convergence look is told first.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_DECLARED, "Declared paths", "The line the declared paths follow.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_OFF_PLAN, "Off the plan", "The line the paths changed outside the plan follow.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_LAST_TIME, "Last time", "The line what failed last time follows.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_LAST_TIME_RULE, "After a failure", "How a look answers past a failed attempt.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_DIFF, "The diff", "The line the diff follows where it is the product.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_WRITTEN, "The file so far", "{file} is the file the step writes.", &["file"]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_NOTHING_WRITTEN, "An empty file", "{file} is the file the step writes.", &["file"]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_TOO_BIG, "A file too big", "{why} says why it is not shown.", &["why"]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_NOTHING_ELSE, "Nothing else changed", "Where nothing beside the file changed.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_ALONGSIDE, "The diff alongside", "The line the diff beside a file follows.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_QUESTION, "The question", "The convergence question.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_CITES_DIFF, "Cite the diff", "What a finding names where the diff is the product.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_CITES_FILE, "Cite the file", "What a finding names where a file is the product.", &[]),
-    prompt(PromptSection::JudgeConvergence, PROMPT_JUDGE_CONVERGE_ANSWER, "How it answers", "How a convergence look answers. {cited} is one of the two above.", &["cited"]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_OPENING, "What it is doing", "What a widening look is told first.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_STEP, "The step", "{step} is the step's label.", &["step"]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_DELIVERABLE, "The step's file", "{file} is the file the step writes.", &["file"]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_HELD, "Declared paths", "The line the declared paths follow.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_ASKED, "Asked-for paths", "The line the paths asked for follow.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_FENCED, "Fenced paths", "What the look is told about paths the step was fenced out of.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_WHY, "The asker's reason", "The line the asker's reason follows.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_QUESTION, "The question", "The widening question.", &[]),
-    prompt(PromptSection::JudgeWidening, PROMPT_JUDGE_WIDEN_ANSWER, "How it answers", "How a widening look answers. Fleet reads the answer by these field names.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_VERIFIED_ALL, "Outcome: every check passed", "The opening when the gate passed and every declared check ran. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_VERIFIED_NONE_COVERED, "Outcome: no check covered it", "The opening when no declared check covers what changed. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_VERIFIED_SOME, "Outcome: some checks ran", "The opening when only the checks covering what changed ran. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_ACCEPTED, "Outcome: accepted by a person", "The opening when a person accepted the step. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_GO_ON, "Outcome: go on", "What follows the opening when another step comes next. {step} is that step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_LAST, "Outcome: the last part", "What follows the opening when the step was the last.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_HANDED_BACK, "Outcome: handed back", "The line the failed checks follow when the work goes back to its Drone. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_SENT_BACK, "Outcome: sent back by the Judges", "The line the Judges' findings follow when they agreed and the work goes back to its Drone. {step} is the step.", &["step"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_WORK_AGAIN, "Outcome: work it again", "The close of a hand-back.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_BASE_UP_TO_DATE, "The base moved: brought up to date", "{base} is the base branch and {commits} how many commits it moved.", &["base", "commits"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_BASE_CONFLICTED, "The base moved: conflicts left", "{base} is the base branch and {files} the files with markers.", &["base", "files"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_BASE_NOT_MOVED, "The base moved: could not follow", "{base} is the base branch.", &["base"]),
 ];

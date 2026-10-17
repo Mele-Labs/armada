@@ -1,6 +1,5 @@
 # Epic -- a milestone dispatched as one Job. Its product is not a diff, it is
-# other Jobs. #215; `docs/capabilities/epic-as-one-job.md` is the reasoning at
-# length, `crates/core-model/domain/workflows.toml` the catalogue row, and
+# other Jobs. #215; `crates/core-model/domain/workflows.toml` the catalogue row, and
 # `bug.json` beside this file what every definition here holds to.
 #
 # **This is the only definition that ships with `may_dispatch_jobs`**, on

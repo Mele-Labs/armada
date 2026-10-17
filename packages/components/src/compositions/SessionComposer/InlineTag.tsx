@@ -1,15 +1,15 @@
-import { Box, GitBranch, GitPullRequest, SquareTerminal, Ticket } from "lucide-react";
+import { GitBranch, GitPullRequest, SquareTerminal, Ticket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * What a message tags: **`@` another Session or a Job**, **`#` an issue or a pull request by its
+ * What a message tags: **`@` another Session**, **`#` an issue or a pull request by its
  * number**, whose `id` is the number and whose `title` leads with it, `#2214 The title`. A branch is
  * still a kind a message can carry, though neither trigger offers one.
  */
 export type ComposerTag = {
-  kind: "session" | "job" | "pull_request" | "branch" | "issue";
+  kind: "session" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request, sent with it. */
@@ -28,7 +28,6 @@ export function titleWithoutReference(tag: Pick<ComposerTag, "kind" | "id" | "ti
 
 export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
   session: SquareTerminal,
-  job: Box,
   pull_request: GitPullRequest,
   branch: GitBranch,
   issue: Ticket,
@@ -69,4 +68,4 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   );
 }
 
-const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
+const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" };

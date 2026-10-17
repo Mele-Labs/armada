@@ -1,29 +1,27 @@
-// Dispatch, as the window holds it: one draft, one entry. `n`, the Cockpit's Dispatch tile, every New job and
+// Dispatch, as the window holds it: one draft, one entry. `n`, the Cockpit's Dispatch tile, every New session and
 // a dispatch row chosen in the palette open the one sheet over the window. The entry reads this and owns no
-// word of it, so leaving it (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
+// word of it, so leaving it (Esc, a press outside) loses nothing. A Session and an Autopilot are the kinds:
 //
-//   Job        needs a repository: read from the words by Fleet, else the row of chips takes the keys. Sends `proposeFrom`.
-//   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session, on the model and effort
+//   Session    needs a repository: read from the words by Fleet, else the row of chips takes the keys. Starts and opens the Session, on the model and effort
 //              picked beside the act. A brief that tags a Session with `@` waits on it (the proposer reads when, from where and what is needed
-//              into the sentence over the request): it holds its words and starts when the condition is met. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Jobs and Sessions list instead and opens nothing.
-//   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
+//              into the sentence over the request): it holds its words and starts when the condition is met. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Work list instead and opens nothing.
+//   Autopilot  needs a repository, as a Session does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
-// A Job or an Autopilot sent leaves a strip over the title bar's field (`DispatchedStrip`), holding the latest
+// An Autopilot sent leaves a strip over the title bar's field (`DispatchedStrip`), holding the latest
 // send until the next dispatch or a dismiss; ↵ or a press opens it. A Session opens itself and leaves none.
 //
 // **The words are read here at the moment of an act and never subscribed to**: this runs in `App`, and a key typed
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
+import { REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind } from "@armada/components";
 import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { localNow, readingOf, settingsFrom } from "../cockpit/autopilot";
-import { useDispatchKind } from "../remembered-views";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
@@ -49,27 +47,16 @@ const queuesOn = (event: KeyboardEvent<HTMLElement>) => isPressed("queue_session
 type Host = {
   state: BridgeState;
   repositories: readonly RepositorySummary[];
-  /** A Job's request and the repository it is for. Resolves to what Fleet refused it with, if it did. */
-  proposeFrom: (request: string, attachments: readonly [], repository: string | null) => Promise<string | null>;
   openSession: (sessionId: string) => void;
-  /** The Job's detail. */
-  openJob: (jobId: string) => void;
   /** The repository's Autopilot lane on the Cockpit. */
   openAutopilot: (root: string) => void;
-  said: (sentence: string) => void;
 };
 
-/** The latest Job or Autopilot sent. */
+/** The latest Autopilot sent. */
 type Sent = {
-  kind: "job" | "autopilot";
   title: string;
-  /** The Jobs on the Board before the send. The Job the send made is not among them. */
-  before: ReadonlySet<string>;
-  /** The Job it made, once Fleet has named it on the call. */
-  jobId?: string;
-  /** An Autopilot's repository. */
-  root?: string;
-  refused?: string;
+  /** The repository it runs in. */
+  root: string;
   /** Tells this send from the one after it. */
   token: number;
 };
@@ -86,7 +73,7 @@ export type Dispatching = {
   sheet: boolean;
   /** A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named. */
   openSheet: (words: string, root?: string) => void;
-  /** Every New job and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
+  /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
   /** ⌥A: the panel on a Session, with an `@` typed at the end of the request and its menu open. Absent where a Session cannot wait. */
   openAfter?: () => void;
@@ -113,27 +100,21 @@ export function useDispatching(): Dispatching | undefined {
   return useContext(Held);
 }
 
-/** A Job's request is a long sentence and a title is a line. */
-const firstLine = (words: string) => words.trim().split("\n")[0] ?? "";
-
-export function useDispatch({ state, repositories, proposeFrom, openSession, openJob, openAutopilot, said: tell }: Host): Dispatching {
+export function useDispatch({ state, repositories, openSession, openAutopilot }: Host): Dispatching {
   const draft = useSessionsDraft();
   const [recent, recall] = useRecentRepositories();
-  const [chosen, remember] = useDispatchKind();
-  // Autopilot is chosen for this opening only and never remembered: the next dispatch is for a Job again.
+  // Autopilot is chosen for this opening only and never remembered: the next dispatch is for a Session again.
   const [autopilot, setAutopilot] = useState(false);
   const served = typeof window.armada?.proposeAutopilot === "function";
-  const kinds: DispatchKind[] = ["job", ...(draft === undefined ? [] : ["session" as const]), ...(served ? ["autopilot" as const] : [])];
-  const kind: DispatchKind = autopilot && served ? "autopilot" : draft === undefined ? "job" : chosen;
+  const kinds: DispatchKind[] = [...(draft === undefined ? [] : ["session" as const]), ...(served ? ["autopilot" as const] : [])];
+  const kind: DispatchKind = autopilot && served ? "autopilot" : "session";
 
   const [picked, pick, clearPicked] = useKept<string | null>("dispatch:repository", null);
-  const [settings, setSettings, clearSettings] = useKept<DispatchSettingsValue>("dispatch:job-settings", {});
   const [sheet, setSheet] = useState(false);
   const [autopilotAsked, setAutopilotAsked] = useState(false);
   // ⌥A pressed outside the sheet: the request is given its `@` and the menu once it is drawn.
   const [afterAsked, setAfterAsked] = useState(false);
   const [sheetGrown, setSheetGrown] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [asking, setAsking] = useState<"send" | "queue" | "chip" | false>(false);
   // The act is waiting on the repository being read, and then on Fleet's answer to it.
   const [waiting, setWaiting] = useState<false | "start" | "queue">(false);
@@ -159,12 +140,10 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     forgetKept(TUNING);
     forgetKept(AFTER);
     clearPicked();
-    clearSettings();
     setAsking(false);
     setWaiting(false);
     setSending(false);
     setSheet(false);
-    setSettingsOpen(false);
     setRead(undefined);
     setRefused(undefined);
     setAutopilot(false);
@@ -172,56 +151,20 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   }
 
   /** The strip for what was just sent. */
-  function leave(send: Pick<Sent, "kind" | "title"> & Partial<Pick<Sent, "root">>): number {
-    const token = (sends.current += 1);
-    setLatest({ ...send, before: new Set(state.jobs.map((job) => job.id)), token });
-    return token;
+  function leave(send: Pick<Sent, "title" | "root">) {
+    setLatest({ ...send, token: (sends.current += 1) });
   }
 
-  // Fleet names the Job on the call from its first move, well before the proposer answers. A call
-  // still standing from an earlier send names a Job that was on the Board before this one.
-  const proposed = state.proposing?.job_id;
-  useEffect(() => {
-    if (proposed === undefined) return;
-    setLatest((now) => (now?.kind === "job" && now.jobId === undefined && !now.before.has(proposed) ? { ...now, jobId: proposed } : now));
-  }, [proposed, latest?.token]);
-  const made = latest?.kind === "job" && latest.jobId !== undefined ? state.jobs.find((job) => job.id === latest.jobId) : undefined;
-  const sentView: SentView | undefined =
-    latest === undefined
-      ? undefined
-      : {
-          id: latest.token,
-          kind: latest.kind,
-          title: made === undefined ? latest.title : firstLine(made.title),
-          ready: latest.kind === "autopilot" || latest.jobId !== undefined,
-          ...(latest.refused === undefined ? {} : { refused: latest.refused }),
-        };
+  const sentView: SentView | undefined = latest === undefined ? undefined : { id: latest.token, kind: "autopilot", title: latest.title };
 
   function openSent() {
     if (latest === undefined) return;
-    if (latest.kind === "job") {
-      if (latest.jobId === undefined) return;
-      openJob(latest.jobId);
-    } else if (latest.root !== undefined) (openAutopilot(latest.root), setAutopilotAsked(true));
+    openAutopilot(latest.root);
+    setAutopilotAsked(true);
     setLatest(undefined);
   }
 
   const manifestOf = (at: string) => repositories.find((one) => one.root === at)?.manifest?.id;
-
-  function sendJob(at: string) {
-    const words = wordsNow();
-    const title = firstLine(words);
-    const request = words.trim();
-    recall(at);
-    clearAll();
-    const mine = leave({ kind: "job", title });
-    // A refusal is said on the strip while it is still the latest send, and as a notice once it is not.
-    void proposeFrom(request, [], at).then((told) => {
-      if (told === null) return;
-      if (sends.current === mine) setLatest((now) => (now?.token === mine ? { ...now, refused: told } : now));
-      else tell(told);
-    });
-  }
 
   function startSession(at: string) {
     if (draft === undefined) return;
@@ -281,23 +224,21 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       if (!answer.ok) return (setSending(false), setRefused(said(answer.outcome)));
       recall(at);
       clearAll();
-      leave({ kind: "autopilot", title: optionsFor(repositories, []).find((one) => one.root === at)?.name ?? at, root: at });
+      leave({ title: optionsFor(repositories, []).find((one) => one.root === at)?.name ?? at, root: at });
     });
   }
 
   function proceed(at: string) {
     if (kind === "session") startSession(at);
-    else if (kind === "job") sendJob(at);
     else if (read === undefined) readAutopilot(at);
     else startAutopilot(at);
   }
 
   const choose = (next: DispatchKind) => {
     setAutopilot(next === "autopilot");
-    if (next !== "autopilot") remember(next);
   };
 
-  const cycle = () => choose(kinds[(kinds.indexOf(kind) + 1) % kinds.length] ?? "job");
+  const cycle = () => choose(kinds[(kinds.indexOf(kind) + 1) % kinds.length] ?? "session");
 
   const typed = (next: string) => {
     stamp.current += 1;
@@ -310,22 +251,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     setSending(false);
   };
 
-  const body: ReactNode =
-    kind === "job" ? (
-      <DispatchSettings
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        settings={settings}
-        onSettings={setSettings}
-        workflows={state.holds.workflows}
-        {...(state.holds.leftOut === undefined ? {} : { leftOut: state.holds.leftOut })}
-        models={state.holds.models?.models ?? []}
-        machineCap={state.limits?.concurrency ?? null}
-        disabled={state.connection.state !== "connected"}
-      />
-    ) : kind === "autopilot" && (read !== undefined || refused !== undefined) ? (
-      <AutopilotBody read={read} onRead={setRead} refused={refused} />
-    ) : undefined;
+  const body: ReactNode = kind === "autopilot" && (read !== undefined || refused !== undefined) ? <AutopilotBody read={read} onRead={setRead} refused={refused} /> : undefined;
 
   const collapse = () => {
     setAsking(false);
@@ -356,16 +282,17 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
               : found;
 
     // The sentence over the request: what the proposer read of the words, and his hand over it. A new Session picked on it is written into the words.
-    const read = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    // Not `read`, which is the Autopilot's reading of the words and names the act below.
+    const sentence = kind === "session" ? draft?.readsWait?.(words) : undefined;
     const wait =
-      read === undefined
+      sentence === undefined
         ? undefined
-        : chipOf(read, hand, planPartsOf(live.find((one) => one.id === read.on.id)), (part, value) => {
+        : chipOf(sentence, hand, planPartsOf(live.find((one) => one.id === sentence.on.id)), (part, value) => {
             if (part === "on") {
               const next = offered.find((one) => one.id === value);
-              if (next !== undefined) typed(retagged(words, read.on.title, next.title));
+              if (next !== undefined) typed(retagged(words, sentence.on.title, next.title));
             }
-            setHand(handled(read, hand, part, value));
+            setHand(handled(sentence, hand, part, value));
           });
 
     /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */
@@ -408,14 +335,13 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       asking: asking !== false,
       onAsking: (next) => setAsking(next ? "chip" : false),
       onPick: (at) => {
-        if (asking === "send" && kind === "job") return sendJob(at);
         if (asking === "send" && kind === "session") return (setAsking(false), startSession(at));
         if (asking === "queue") return (setAsking(false), queueSession(at));
         pick(at);
         if (asking === "send") (setAsking(false), readAutopilot(at));
         else setAsking(false);
       },
-      act: kind === "job" ? "Dispatch" : kind === "session" ? "Start" : read === undefined ? "Read it" : "Start Autopilot",
+      act: kind === "session" ? "Start" : read === undefined ? "Read it" : "Start Autopilot",
       sending: sending || waiting === "start",
       onAct: act,
       ...(kind === "session" && draft !== undefined
@@ -432,7 +358,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
             ...(draft.queue === undefined ? {} : { onQueue: queue, queueing: waiting === "queue" }),
           }
         : {}),
-      // Offered from any kind, since ⌥A on a Job's request turns it into a Session's.
+      // Offered from any kind, since ⌥A on an Autopilot's request turns it into a Session's.
       ...(draft?.readsWait === undefined ? {} : { wait: { sessions: offered, ...(wait === undefined ? {} : { chip: wait }) }, focusAfter: afterAsked, onAfterFocused: () => setAfterAsked(false) }),
       onCollapse: collapse,
       onFieldKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {

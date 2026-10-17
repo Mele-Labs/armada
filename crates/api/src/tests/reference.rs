@@ -12,7 +12,6 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
-use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -23,32 +22,10 @@ use crate::{router, Broadcaster, Served};
 /// handle `1-a-job`, so all three forms have something to name.
 async fn holding_a_job() -> (Router, String) {
     let events = Broadcaster::new();
-    let app = router(Served::by(
-        FakeDaemon::new(events.clone()),
-        run_id(),
-        events,
-    ));
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/jobs")
-                .header("content-type", "application/json")
-                .body(Body::from(crate::tests::shapes::A_PROPOSAL))
-                .expect("a well-formed request"),
-        )
-        .await
-        .expect("the router answers");
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("a body")
-        .to_bytes()
-        .to_vec();
-    let created: ipc::JobSummary = ipc::decode("a job", &body).expect("the Job that was created");
-    (app, created.id.as_str().to_string())
+    let daemon = FakeDaemon::new(events.clone());
+    crate::tests::fake::running(&daemon, "01JOB");
+    let app = router(Served::by(daemon, run_id(), events));
+    (app, "01JOB".to_string())
 }
 
 async fn status(app: &Router, uri: &str) -> StatusCode {
@@ -86,7 +63,7 @@ async fn the_other_routes_take_them_too() {
     let (app, id) = holding_a_job().await;
 
     for named in ["1-a-job", "1", id.as_str()] {
-        for route in ["events", "evidence", "resources"] {
+        for route in ["events"] {
             assert_eq!(
                 status(&app, &format!("/jobs/{named}/{route}")).await,
                 StatusCode::OK,
@@ -105,7 +82,7 @@ async fn a_second_segment_is_read_beside_the_job() {
     assert_eq!(
         status(
             &app,
-            &format!("/jobs/1-a-job/calls/{}/explain", crate::tests::shapes::THE_CALL)
+            "/jobs/1-a-job/events"
         )
         .await,
         StatusCode::OK

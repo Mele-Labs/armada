@@ -40,9 +40,9 @@ pub const FIX_FIELDS: &[&str] = &[
 
 /// A test a Drone says is broken on main, and the fix it asks for.
 ///
-/// **The last four are `dispatch_job`'s**, for its reason: a drafted Job is
-/// judged against its frozen workflow, so the Drone names one rather than Fleet
-/// guessing the nearest fit. Every text field is required and none may be blank;
+/// **The last four are a proposal's**: a drafted Job is judged against its
+/// frozen workflow, so the Drone names one rather than Fleet guessing the
+/// nearest fit. Every text field is required and none may be blank;
 /// `acceptance_criteria` may be empty.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DraftFix {

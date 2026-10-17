@@ -11,7 +11,6 @@ fn issue_tag() -> SessionTag {
         kind: TagKind::Issue,
         id: "214".to_string(),
         title: "#214 The title".to_string(),
-        job: None,
         url: Some("https://forge.invalid/o/r/issues/214".to_string()),
     }
 }

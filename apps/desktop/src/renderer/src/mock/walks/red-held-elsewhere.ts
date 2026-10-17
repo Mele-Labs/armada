@@ -1,15 +1,12 @@
 // Main is red and another machine holds the claim. The band names the holder by its chip and age,
-// Take over replaces Dispatch and asks once, and a store that cannot be reached refuses a Dispatch.
+// Take over replaces Dispatch and asks once, then opens the Dispatch panel on a Session.
 // Over `red-held-elsewhere`.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, walk } from "../walk";
 
 const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
 const ASK = dialog("Take over from nick-mbp");
-const DISPATCH = dialog("Dispatch a Job to fix main");
-
-const FIXING = "Fix components_test on main";
 
 const heldElsewhere = walk("red-held-elsewhere", [
   { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
@@ -25,26 +22,7 @@ const heldElsewhere = walk("red-held-elsewhere", [
   { look: inside(ASK, role("group", /^Session 9c74d82e, nick-mbp/)), say: "Asked once, with the claim in it" },
   { look: inside(ASK, role("img", /^Claimed 3h ago, stale$/)), say: "And its age" },
   { press: inside(ASK, button("Take over", { exact: true })), say: "Replace it" },
-  { later: inside(RED, button("Take over")), say: "The claim is ours" },
-  { look: inside(RED, button(FIXING)), say: "Fixing here, as a Job of this machine is shown" },
-  { look: inside(RED, role("img", "Working on it")), say: "Working on it" },
-  { later: inside(RED, button(FIXING)), say: "The fix lands" },
-  { look: inside(MERGE, role("img", "Main is green")), say: "Main is green" },
-  { later: inside(MERGE, role("img", "Main is green")), say: "Main is red again, and nobody holds it" },
-  { press: inside(RED, button("Dispatch a new Job")), say: "Dispatch a new Job" },
-  { press: inside(DISPATCH, button("Dispatch", { exact: true })), say: "Dispatch it" },
-  { look: inside(RED, text("Not made, store unreachable")), say: "The store could not be reached: the claim was not made" },
-  { press: inside(RED, button("Try again")), say: "Try again" },
-  { later: inside(RED, button("Dispatch a new Job")), say: "The claim is made" },
-  { look: inside(RED, button(FIXING)), say: "Fixing here" },
-  { later: inside(RED, button(FIXING)), say: "The fix lands" },
-  { later: inside(MERGE, role("img", "Main is green")), say: "Main is red again, and another machine has just claimed it" },
-  { press: inside(RED, button("Dispatch a new Job")), say: "Dispatch a new Job, before this machine has read that claim" },
-  { press: inside(DISPATCH, button("Dispatch", { exact: true })), say: "Dispatch it" },
-  { look: inside(RED, text("Held on another machine")), say: "Refused: another machine holds it" },
-  { later: inside(RED, button("Try again")), say: "Fleet reads the claim" },
-  { look: inside(RED, role("group", /^Job c41e90a7, work-mac-mini/)), say: "Drawn as any held red is: its holder and its age" },
-  { look: inside(RED, button("Take over")), say: "With Take over" },
+  { look: role("textbox", "Request"), say: "The Dispatch panel opens on a Session, holding the brief" },
 ]);
 
 export { heldElsewhere as "red-held-elsewhere" };

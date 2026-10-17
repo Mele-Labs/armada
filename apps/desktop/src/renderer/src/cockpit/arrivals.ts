@@ -19,15 +19,13 @@ export function arrived(held: Held, calls: readonly Item[]): Item[] {
   return calls.filter((one) => !held.has(one.key));
 }
 
-/** One toast: what it says, the Job state its dot wears (none for a Session), and the call it opens. */
+/** One toast: what it says, and the call it opens. */
 export type Alert = {
   /** The call a press brings to the front: the one that has waited longest of those that arrived. */
   key: string;
   /** Every call it speaks for, so it can go when none of them stands. */
   keys: readonly string[];
   sentence: string;
-  /** The Job state stem, hyphenated as the status tokens are; omitted where the call is not a Job's. */
-  status?: string;
 };
 
 /** Oldest first; a call with no readable date last, and the key as the tiebreak. */
@@ -41,19 +39,17 @@ function oldestFirst(a: Item, b: Item): number {
 /**
  * What to say about a batch that arrived together, or `null` for none.
  *
- * **Five at once is one toast.** The reasoning is the system notification's: a dispatch whose Jobs reach
- * their gates together is one event to a person and five to the machine. One call names itself; several
- * say how many, in the cockpit's word for them (a Session's question is a call, and not a job), and a press lands on the first.
+ * **Five at once is one toast.** The reasoning is the system notification's: five Sessions asking
+ * together are one event to a person and five to the machine. One call names itself; several
+ * say how many, in the cockpit's word for them (a Session's question is a call), and a press lands on the first.
  */
 export function alertOf(fresh: readonly Item[]): Alert | null {
   if (fresh.length === 0) return null;
   const ordered = [...fresh].sort(oldestFirst);
   const first = ordered[0]!;
-  const status = ordered.length === 1 ? first.job?.status.replaceAll("_", "-") : undefined;
   return {
     key: first.key,
     keys: ordered.map((one) => one.key),
     sentence: ordered.length === 1 ? `“${first.title}” needs you.` : `${ordered.length} calls need you.`,
-    ...(status === undefined ? {} : { status }),
   };
 }

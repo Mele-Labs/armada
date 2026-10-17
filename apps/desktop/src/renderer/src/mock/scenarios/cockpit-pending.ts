@@ -3,8 +3,8 @@
 // Job whose workflow is still being settled, which lands later. The walk `cockpit-pending` plays it,
 // and each wait stands until one of its steps lets Fleet go (`cockpit-routes.ts`).
 
-import { featureRunning } from "@armada/jobs/fake";
-import { proposing, running } from "@armada/jobs/fixtures/build/index";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
+import { proposing, running } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -65,7 +65,7 @@ function build(): Scenario {
     later: [{}, {}, {}, { jobs: [cache.job, mainChecks.job, landed] }],
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [SESSION]);
+        const store = sessionsStore([none, none], none, control, [], [SESSION]);
         const { held, ...clocks } = SLOW_FLEET;
         // Fleet answers when the walk lets it, so the waiting state stands as long as a person wants to look at it.
         const hold = held ? gate() : undefined;

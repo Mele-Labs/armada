@@ -1,15 +1,14 @@
 // A bay's history: every lease and every branch checkout, newest first, on a rail that joins the rows in time, under a strip of
 // the last day in blocks so that quiet and busy stretches read at a glance. A lease is one row: who took it, when, for how long
 // and on which branch; a checkout is a row of its own, from one branch to the next at a commit. Days are headed on the rail. A
-// history Fleet cut has a rail that fades out below its last row. Pressing a lease opens the Job or Session when the ship still
+// history Fleet cut has a rail that fades out below its last row. Pressing a lease opens the Session when the ship still
 // holds it. Facts only; nothing is counted. Ported from proto/cockpit-flight-deck. #2301.
 
 import { Fragment, type KeyboardEvent } from "react";
-import { GitBranch, SquareTerminal } from "lucide-react";
+import { Box, GitBranch, SquareTerminal } from "lucide-react";
 import { Tooltip } from "@armada/components";
 import type { BayHistory, BayHolder } from "@armada/protocol";
 
-import { kindGlyph } from "./BayRows";
 import { rowsOf, type Stay } from "./bay-history";
 import { clockOf, shortOf, spanOf } from "./bays";
 
@@ -17,7 +16,7 @@ const DAY = 24 * 60 * 60_000;
 
 const whoOf = (holder: BayHolder) => holder.title ?? shortOf(holder.id);
 const KIND = { job: "Job", session: "Session", agent: "Agent" } as const;
-const glyphOf = (kind: BayHolder["kind"]) => (kind === "agent" ? <SquareTerminal size={14} aria-hidden /> : kindGlyph(kind, 14));
+const glyphOf = (kind: BayHolder["kind"]) => (kind === "job" ? <Box size={14} aria-hidden /> : <SquareTerminal size={14} aria-hidden />);
 const spanText = (one: Stay) =>
   one.from === undefined ? (one.to === undefined ? undefined : `to ${clockOf(one.to)}`) : `${clockOf(one.from)} to ${one.to === undefined ? "now" : clockOf(one.to)}`;
 
@@ -29,7 +28,7 @@ function dayOf(at: number, clock: number): string {
   return new Date(at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export function SlotHistory({ history, clock, known, onOpen }: { history: BayHistory; clock: number; known: ReadonlySet<string>; onOpen: (holder: { kind: "job" | "session"; id: string }) => void }) {
+export function SlotHistory({ history, clock, known, onOpen }: { history: BayHistory; clock: number; known: ReadonlySet<string>; onOpen: (holder: { kind: "session"; id: string }) => void }) {
   const rows = rowsOf(history);
   const stays = rows.flatMap((one) => (one.kind === "stay" ? [one.stay] : []));
   const start = clock - DAY;
@@ -112,7 +111,7 @@ export function SlotHistory({ history, clock, known, onOpen }: { history: BayHis
                   tabIndex={tab}
                   aria-label={`${kind} ${whoOf(one.holder)}`}
                   aria-disabled={!live || undefined}
-                  onClick={() => live && one.holder.kind !== "agent" && onOpen({ kind: one.holder.kind, id: one.holder.id })}
+                  onClick={() => live && one.holder.kind === "session" && onOpen({ kind: "session", id: one.holder.id })}
                 >
                   <span className="deck-history__who">
                     <Tooltip label={kind}>

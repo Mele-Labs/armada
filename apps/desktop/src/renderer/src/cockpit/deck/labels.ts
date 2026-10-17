@@ -18,7 +18,7 @@ export function bodiesOf(drones: readonly Pick<DroneIn, "key" | "kind">[], place
   return drones.flatMap((one) => {
     const there = place(one.key);
     if (there === undefined) return [];
-    const w = (one.kind === "job" ? 34 : 26) * big;
+    const w = 26 * big;
     return [{ key: one.key, l: there.x - w, r: there.x + w, t: there.y - there.up - 30 * big, b: there.y - there.up + 22 * big }];
   });
 }

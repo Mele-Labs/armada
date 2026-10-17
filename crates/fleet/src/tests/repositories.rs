@@ -7,15 +7,16 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::http::StatusCode;
-use core_model::{Actor, JobId, JobStatus, Target};
-use ipc::{AddRepository, ManifestSummary, RepositoryList, RepositoryScan, RunId, WireError};
+use ipc::{ManifestSummary, RepositoryList, RepositoryScan, RunId, WireError};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::repositories::{
     Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotSaved,
 };
-use crate::tests::daemon::{a_proposal, fitted_with, manifest, one};
+use crate::tests::daemon::fitted_with;
+use crate::tests::daemon::manifest;
+use crate::tests::daemon::one;
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;
 
@@ -202,23 +203,6 @@ pub(crate) fn code(body: &[u8]) -> String {
     refused.code
 }
 
-fn in_the_second(title: &str) -> ipc::ProposeJob {
-    let mut asked = a_proposal(title);
-    asked.owner_manifest_id = ipc::ManifestId::carried(SECOND);
-    asked
-}
-
-/// A Job the store says is `running`, with no Drone anywhere.
-async fn running(fleet: &Fixture, asked: ipc::ProposeJob) -> JobId {
-    let job = fleet.propose(asked).await.expect("proposed");
-    let job = fleet.approve(job.id()).await.expect("approved");
-    fleet
-        .move_job(&job, Target::Running, Actor::Fleet)
-        .await
-        .expect("moved to running");
-    job.id().clone()
-}
-
 /// **A Fleet started in one repository adds a second by folder**, and both
 /// Manifests list — the first one first.
 #[tokio::test]
@@ -311,99 +295,6 @@ async fn a_folder_that_is_not_a_repository_or_is_already_served_is_refused() {
         assert_eq!(code(&body), "fleet.repository_served");
     }
     assert_eq!(planted.served(), [folder], "and nothing refused was served");
-}
-
-/// **A Job in each repository is created against that repository's own
-/// Checks**, and a number both repositories hold names no one Job.
-#[tokio::test]
-async fn a_job_in_each_repository_is_held_to_its_own_checks() {
-    let home = TempDir::new();
-    let second = second_repository(&home);
-    let folder = second.root.clone();
-    let planted = Arc::new(Planted::nothing().with(&folder, second));
-    let fleet = Arc::new(a_fleet_reading(&home, &planted));
-    fleet
-        .added_repository(AddRepository { path: folder })
-        .await
-        .expect("the second repository is served");
-
-    let first = fleet
-        .propose(a_proposal("in the first"))
-        .await
-        .expect("a Job in the first");
-    let second = fleet
-        .propose(in_the_second("in the second"))
-        .await
-        .expect("a Job in the second");
-    let named = |job: &core_model::Job| -> Vec<String> {
-        let steps = job.workflow().steps().iter();
-        steps
-            .flat_map(|step| {
-                step.checks()
-                    .iter()
-                    .filter_map(|check| check.name().map(str::to_string))
-            })
-            .collect()
-    };
-    assert_eq!(first.owner_manifest_id().as_str(), FIRST);
-    assert!(
-        named(&first).is_empty(),
-        "the fixture's Manifest declares no Check"
-    );
-    assert_eq!(second.owner_manifest_id().as_str(), SECOND);
-    assert_eq!(
-        named(&second),
-        ["deliver"],
-        "the second's Job is held to the second's Check"
-    );
-
-    let app = served(&fleet);
-    let (status, body) = call(&app, "GET", "/jobs/1", "").await;
-    assert_ne!(status, StatusCode::OK, "both repositories hold a Job 1");
-    assert!(String::from_utf8_lossy(&body).contains("no one Job"));
-}
-
-/// **A restart serves again what was added, and reconciles both.** A
-/// remembered folder that is gone is said, and stays remembered.
-#[tokio::test]
-async fn a_restart_serves_again_what_was_added_and_reconciles_both() {
-    let home = TempDir::new();
-    let folder = second_repository(&home).root;
-    let (first, second) = {
-        let planted = Arc::new(Planted::nothing().with(&folder, second_repository(&home)));
-        let fleet = a_fleet_reading(&home, &planted);
-        let asked = AddRepository {
-            path: folder.clone(),
-        };
-        fleet.added_repository(asked).await.expect("served");
-        (
-            running(&fleet, a_proposal("mid-flight in the first")).await,
-            running(&fleet, in_the_second("mid-flight in the second")).await,
-        )
-    };
-
-    let planted = Arc::new(Planted::nothing().with(&folder, second_repository(&home)));
-    let restarted = a_fleet_reading(&home, &planted);
-    assert!(restarted.served_again().await.is_empty());
-    assert_eq!(planted.served(), [folder.clone()], "and watched again");
-    let reconciled = restarted.reconcile().await.expect("reconciled");
-    assert_eq!(reconciled.interrupted, vec![first.clone(), second.clone()]);
-    for job in [&first, &second] {
-        let status = restarted.load(job).await.expect("there").status();
-        assert_eq!(status, JobStatus::Escalated);
-    }
-
-    let gone = a_fleet_reading(&home, &Arc::new(Planted::nothing()));
-    assert_eq!(
-        gone.served_again().await.len(),
-        1,
-        "a folder that is gone is said"
-    );
-    let again = a_fleet_reading(&home, &planted);
-    assert!(
-        again.served_again().await.is_empty(),
-        "and still remembered"
-    );
 }
 
 /// **Each repository's main checkout claims its own span**, so two servers

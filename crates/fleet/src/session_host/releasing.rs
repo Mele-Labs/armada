@@ -32,7 +32,7 @@ where
 {
     /// [`change_slot_pool`](Fleet::change_slot_pool), with a `release` whose
     /// holder is a session Fleet hosts taken here, where the ledger can be asked.
-    /// Any other holder, a Commander's or a terminal's, goes the way it always did.
+    /// Any other holder, a terminal's, goes the way it always did.
     pub(crate) async fn slot_pool_changed(
         &self,
         asked: ChangeSlotPool,

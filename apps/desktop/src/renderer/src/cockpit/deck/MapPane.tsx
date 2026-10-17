@@ -1,22 +1,12 @@
-// The two places the battlefield is drawn: the map, which is the stage when nothing is picked, and a Job's mission, the same plane
-// cut down to the one Job in the canvas's place. Both read the field with the same hook, and both carry the same picked event and
-// the same replay, so a dot of Activity and a replay say the same thing wherever they are drawn. #2301.
+// The place the battlefield is drawn: the map, which is the stage when nothing is picked. It carries the picked event and the
+// replay, so a dot of Activity and a replay say the same thing wherever they are drawn. #2301.
 
-import { useMemo } from "react";
 import { Orbit } from "lucide-react";
-import { stepThatWorksTheGroups } from "@armada/jobs";
-import { taskGroupsOf } from "@armada/jobs/draft/group";
 
 import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";
-import { missionOf, type SceneIn } from "./mission";
-import type { DroneIn } from "./layout";
-import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
 import { moveCursor, select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
-import { jobBuildOf } from "./build";
-import { CLOCK_MS, quantized } from "./field";
-import { touchesOfFootprint } from "./touches";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
 
@@ -78,109 +68,5 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
         />
       </div>
     </section>
-  );
-}
-
-/**
- * A Job's mission: the battlefield's world cut down to the one Job. Its workflow is laid along a route of pins, the plots it touches
- * stand beside the route, its drone hovers over the step at work, and its Sessions and Drones stand near the steps they serve. The
- * same acts, the same feed and the same replay as the map; the field is read once, by the same hook, and cut to what is the Job's own.
- */
-export function JobMission({ props, ship, listed, subject, run }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; subject: Subject; run: Run }) {
-  const field = useField(props, ship, listed);
-  const { replay, calls, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey } = field;
-  const job = subject.key;
-  const begun = drones.some((one) => one.key === job);
-  const mission = useMemo(() => (run.whole === null ? undefined : missionOf(run.whole, run.drones, begun)), [run.whole, run.drones, begun]);
-  // The Job's drone, what it dispatched or was attached, and a small drone for each Drone working a task of a step. A stopped Job's
-  // footprint places its drone where the edits were, which is all a running Job's observed bursts do not yet say.
-  const footprint = run.whole?.footprint?.files;
-  const cluster = useMemo<DroneIn[]>(() => {
-    const own = drones
-      .filter((one) => one.key === job || one.parent === job)
-      .map((one) => ({ ...one, shown: true, ...(one.key === job && one.touches.length === 0 && footprint !== undefined ? { touches: touchesOfFootprint(footprint) } : {}) }));
-    const tasks = run.whole === null ? [] : taskGroupsOf(run.whole).flatMap((group) => group.tasks.map((task) => ({ task, group: group.id })));
-    const extra = run.drones
-      .filter((one) => one.state === "running" && one.task !== undefined && one.id !== run.whole?.job.assigned_drone)
-      .map<DroneIn>((one) => ({
-        key: `drone:${one.id}`,
-        kind: "session",
-        title: tasks.find((t) => t.task.id === one.task)?.task.title ?? one.id,
-        root: subject.root,
-        said: "Working",
-        hue: "calm",
-        spin: true,
-        hover: true,
-        ping: false,
-        stuck: false,
-        flare: false,
-        working: true,
-        parent: job,
-        touches: [],
-        shown: true,
-      }));
-    return [...own, ...extra];
-  }, [drones, job, run.drones, run.whole, subject.root, footprint]);
-  const serves = useMemo(() => {
-    const out = new Map<string, string>();
-    for (const one of run.drones) {
-      if (one.task === undefined) continue;
-      const group = run.whole === null ? undefined : taskGroupsOf(run.whole).find((g) => g.tasks.some((t) => t.id === one.task));
-      const pin = group === undefined ? undefined : `group:${group.id}`;
-      out.set(`drone:${one.id}`, pin !== undefined && mission?.fans.size ? pin : `step:${one.step}`);
-    }
-    return out;
-  }, [run.drones, run.whole, mission]);
-  const scene = useMemo<Omit<SceneIn, "big" | "wide" | "clashes"> | undefined>(
-    () => (mission === undefined ? undefined : { mission, repo: { root: subject.root, name: subject.repo }, drones: cluster, job, serves, pad: cluster.find((one) => one.key === job)?.slot }),
-    [mission, cluster, job, serves, subject.root, subject.repo],
-  );
-  // The ring of the Job's plan lies at the waypoint of the step that works it, or where the Job is at when no step is named for it.
-  const clock = quantized(props.now, CLOCK_MS);
-  const standing = useMemo(() => (run.whole === null ? undefined : jobBuildOf(run.whole, job, clock)), [run.whole, job, clock]);
-  const worksAt = run.whole === null ? undefined : stepThatWorksTheGroups(run.whole);
-  const standAt = worksAt === undefined ? mission?.live : `step:${worksAt}`;
-  const keys = useMemo(() => new Set(cluster.map((one) => one.key)), [cluster]);
-  const mine = useMemo(() => crates.filter((pr) => pr.owner === job), [crates, job]);
-  const numbers = new Set(mine.map((pr) => pr.number));
-  const bay = scene?.pad;
-  const bays = useMemo(() => new Map([...pads].filter(([key]) => key === bay)), [pads, bay]);
-  const trails = useMemo(() => new Map([...flightTrails].filter(([key]) => keys.has(key))), [flightTrails, keys]);
-  const asking = useMemo(() => new Map([...calls].filter(([key]) => keys.has(key))), [calls, keys]);
-  if (scene === undefined) return <div className="deck-job__reading" role="status" aria-busy aria-label="Reading the run" />;
-  return (
-    <>
-      <Overlays props={props} field={field} />
-      <Battlefield
-        repos={[]}
-        drones={cluster}
-        pads={bays}
-        goals={goals}
-        prs={mine}
-        trails={trails}
-        plays={drawn.filter((play) => (play.key !== undefined && keys.has(play.key)) || (play.number !== undefined && numbers.has(play.number)))}
-        facts={facts}
-        calls={asking}
-        clashes={clashes}
-        focus={replay === undefined && focusKey !== undefined && keys.has(focusKey) ? focusKey : undefined}
-        selected={undefined}
-        scene={scene}
-        builds={standing === undefined ? undefined : [standing]}
-        standAt={standAt}
-        onSelect={(key) => {
-          const other = key === job ? undefined : ship.subjects.find((one) => one.key === key);
-          if (other !== undefined) select(selOfSubject(other));
-        }}
-        onPad={(key) => select({ kind: "slot", key })}
-        onGoal={() => {
-          const pr = mine[0] === undefined ? undefined : ship.prs.find((one) => one.key === mine[0]!.key);
-          if (pr !== undefined) select(selOfPr(pr));
-        }}
-        onPr={(key) => {
-          const pr = ship.prs.find((one) => one.key === key);
-          if (pr !== undefined) select(selOfPr(pr));
-        }}
-      />
-    </>
   );
 }

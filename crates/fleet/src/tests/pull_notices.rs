@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use adapter_traits::{CiState, FromOutside, PullQueue, RecentlyMerged, WatchedCheck, WatchedPull};
 use api::{HostedSessions, Sessions};
-use core_model::{JobId, JobStatus};
 use ipc::{
     ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
     StartSession, TakeHeld,
@@ -17,11 +16,9 @@ use store::{AttachmentState, Holder, KeptAttachment};
 use testkit::{Delivered, FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::main_ci::{run, ONE};
-use super::main_fix::{a_finished_job, a_fleet_holding_bug};
-use super::reviewing::at_the_gate;
+use super::main_fix::a_fleet_holding_bug;
 use super::session_host::{Shared, StandIn};
 use crate::daemon::Fleet;
-use crate::tests::daemon::a_fleet_gated_on_a_person;
 use crate::tests::slot_leases::{leased, released, By};
 use crate::tests::tmp::TempDir;
 
@@ -130,7 +127,6 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
                 after: None,
@@ -234,40 +230,6 @@ pub(super) fn a_rig() -> Rig {
         Duration::from_secs(600),
     );
     Rig::around(fleet, stand_in, home)
-}
-
-fn a_rig_at_a_gate() -> (Rig, TempDir) {
-    let home = TempDir::new();
-    let stand_in = Arc::new(StandIn::default());
-    let fleet = a_fleet_gated_on_a_person(
-        &home,
-        FakeWorkProduct::changed(&["src/log.rs"]),
-        "implement",
-        FakeVcs::new(),
-    )
-    .hosting_sessions_on(
-        Arc::new(Shared(Arc::clone(&stand_in))),
-        Duration::from_secs(600),
-    );
-    (Rig::around(fleet, stand_in, TempDir::new()), home)
-}
-
-pub(super) async fn owns_pull(rig: &Rig, job: &JobId, number: u64) {
-    rig.fleet
-        .store()
-        .lock()
-        .await
-        .record_delivery(
-            job,
-            &store::Delivery {
-                commit: None,
-                pushed: None,
-                pull_request: Some(format!("https://forge.invalid/armada/pull/{number}")),
-                landed: None,
-                unpushed: None,
-            },
-        )
-        .unwrap();
 }
 
 #[tokio::test]
@@ -421,61 +383,6 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
 }
 
 #[tokio::test]
-async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
-    let rig = a_rig();
-    let finished = a_finished_job(&rig.fleet, &rig._home, "fix the reader").await;
-    let session = rig.a_hosted_session_on(1).await;
-    rig.holds(
-        Holder::session(&session),
-        "pr",
-        "1",
-        AttachmentState::Spent,
-    )
-    .await;
-    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
-    rig.fleet
-        .vcs()
-        .main_ci
-        .recently_merged_are(Some(vec![RecentlyMerged {
-            number: 1,
-            title: FromOutside::verbatim("Fix the reader"),
-            branch: FromOutside::verbatim("armada/1"),
-            url: FromOutside::verbatim("https://forge.invalid/armada/pull/1"),
-            author: None,
-            merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
-            commit: None,
-        }]));
-    let served = rig.fleet.repositories().served().remove(0);
-    rig.fleet.notice_merged(&served).await;
-
-    rig.reads().await;
-
-    let sent = rig.runs_sent_to_the_session();
-    assert!(
-        sent.iter().any(|line| line.contains("#1 merged into")),
-        "{sent:?}"
-    );
-    // The act that gives the branch back, named where the session reads it: told only that
-    // they "can be released", a session tried `git branch -D` and asked the owner (#2343).
-    assert!(
-        sent.iter().any(|line| line.contains("finish_up releases its slot and deletes its branch")),
-        "{sent:?}"
-    );
-    assert!(
-        rig.told(&format!("job:{}", finished.id().as_str()), 1, "merged")
-            .await
-    );
-    let job = rig.fleet.load(finished.id()).await.unwrap();
-    assert_eq!(
-        job.status(),
-        JobStatus::CompletedSuccess,
-        "a merge sends nothing back"
-    );
-    let (loaded, _) = rig.fleet.every_job().await.unwrap();
-    assert_eq!(loaded.jobs.len(), 1, "and starts nothing");
-}
-
-#[tokio::test]
 async fn a_merge_reaches_the_session_that_opened_it_after_its_slot_was_released() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(1).await;
@@ -556,45 +463,6 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
     assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
 }
 
-#[tokio::test]
-async fn a_job_at_its_review_gate_is_sent_back_with_the_failure_and_a_session_is_told_too() {
-    let (rig, home) = a_rig_at_a_gate();
-    let job_id = at_the_gate(&rig.fleet, &home).await;
-    owns_pull(&rig, &job_id, 12).await;
-    let session = rig.a_hosted_session_on(12).await;
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![failing(12)]));
-
-    rig.reads().await;
-
-    let job = rig.fleet.load(&job_id).await.unwrap();
-    assert_eq!(
-        job.status(),
-        JobStatus::Queued,
-        "the work went back, as a requested change does"
-    );
-    let note = job
-        .redirect_waiting()
-        .expect("the failure waits for the next Drone");
-    assert!(
-        format!("{note:?}").contains("#12 failed its checks"),
-        "{note:?}"
-    );
-    assert!(
-        rig.runs_sent_to_the_session()
-            .iter()
-            .any(|line| line.contains("#12 failed")),
-        "{session}"
-    );
-
-    rig.restarts().await;
-    rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 1);
-    assert!(
-        rig.told(&format!("job:{}", job_id.as_str()), 12, "checks_failed")
-            .await
-    );
-}
-
 /// A rig whose repository holds `branch`, as one with the pull request's branch on it does.
 fn a_rig_holding(branch: Option<&str>) -> Rig {
     let home = TempDir::new();
@@ -610,58 +478,6 @@ fn a_rig_holding(branch: Option<&str>) -> Rig {
         Duration::from_secs(600),
     );
     Rig::around(fleet, stand_in, home)
-}
-
-async fn redispatched_for_a_failing_pull_request(
-    rig: &Rig,
-) -> (core_model::Job, Option<core_model::Landing>) {
-    let earlier = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![failing(1)]));
-
-    rig.reads().await;
-    rig.reads().await;
-    rig.restarts().await;
-    rig.reads().await;
-
-    let (loaded, _) = rig.fleet.every_job().await.unwrap();
-    assert_eq!(loaded.jobs.len(), 2, "one carried-on Job and no more");
-    let carried = loaded
-        .jobs
-        .iter()
-        .find(|job| job.id() != earlier.id())
-        .unwrap()
-        .clone();
-    assert_eq!(carried.redispatched_from(), Some(earlier.id()));
-    let landing = rig
-        .fleet
-        .store()
-        .lock()
-        .await
-        .landing(carried.id())
-        .unwrap();
-    (carried, landing)
-}
-
-#[tokio::test]
-async fn a_job_that_ended_is_redispatched_once_onto_its_pull_requests_branch() {
-    let rig = a_rig_holding(Some("armada/1"));
-    let (_, landing) = redispatched_for_a_failing_pull_request(&rig).await;
-    let landing = landing.expect("a landing was kept");
-    assert_eq!(
-        landing.from_ref.as_ref().map(|it| it.as_str()),
-        Some("armada/1")
-    );
-    assert_eq!(
-        landing.target.as_ref().map(|it| it.as_str()),
-        Some("armada/1")
-    );
-}
-
-#[tokio::test]
-async fn a_pull_request_whose_branch_is_gone_is_redispatched_on_a_fresh_branch() {
-    let rig = a_rig_holding(None);
-    let (_, landing) = redispatched_for_a_failing_pull_request(&rig).await;
-    assert!(landing.is_none(), "cut from the base, as a red main is");
 }
 
 #[tokio::test]
@@ -869,7 +685,6 @@ impl Rig {
                 ipc::ClaimPullRequest {
                     number,
                     session_id: Some(SessionId::carried(id)),
-                    job_id: None,
                 },
             )
             .await
@@ -941,58 +756,6 @@ async fn a_pull_request_that_is_not_open_is_not_claimed() {
     rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
     rig.fleet.vcs().main_ci.watched_are(Some(vec![]));
     assert!(rig.claims("s-claims", 33).await.is_err());
-}
-
-#[tokio::test]
-async fn a_person_attaches_an_open_pull_request_to_a_job_they_picked() {
-    let rig = a_rig_holding(None);
-    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(40, vec![])]));
-
-    let claimed = rig
-        .fleet
-        .claim_pull_request(
-            None,
-            ipc::ClaimPullRequest {
-                number: 40,
-                session_id: None,
-                job_id: Some(ipc::JobId::from(job.id())),
-            },
-        )
-        .await
-        .expect("attached");
-
-    assert_eq!(
-        (claimed.holder_kind.as_str(), claimed.holder_id.as_str()),
-        ("job", job.id().as_str())
-    );
-    assert_eq!(
-        rig.standing_holders_of_pull(40).await,
-        vec![job.id().as_str().to_string()]
-    );
-}
-
-#[tokio::test]
-async fn a_claim_naming_both_a_session_and_a_job_is_refused() {
-    let rig = a_rig_holding(None);
-    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
-    rig.a_session_that_worked("s-both", "armada/0", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(41, vec![])]));
-
-    let refused = rig
-        .fleet
-        .claim_pull_request(
-            None,
-            ipc::ClaimPullRequest {
-                number: 41,
-                session_id: Some(SessionId::carried("s-both")),
-                job_id: Some(ipc::JobId::from(job.id())),
-            },
-        )
-        .await;
-
-    assert!(refused.is_err());
-    assert!(rig.standing_holders_of_pull(41).await.is_empty());
 }
 
 impl Rig {

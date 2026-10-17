@@ -1,5 +1,5 @@
-// The ideas saved to start later, as the deck's list draws and walks them: in their repository's group, above its Sessions and
-// Jobs, or at the head of the flat list where there are no groups. Each row's key is its own, so the cursor and the keys can rest on it.
+// The ideas saved to start later, as the deck's list draws and walks them: in their repository's group, above its Sessions,
+// or at the head of the flat list where there are no groups. Each row's key is its own, so the cursor and the keys can rest on it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";

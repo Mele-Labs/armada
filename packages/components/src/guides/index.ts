@@ -15,7 +15,6 @@ import { GUIDE_COMPLETION } from "./001-when-is-a-job-done";
 import { GUIDE_MEMBER_LINK } from "./002-how-do-jobs-land-in-order";
 import { GUIDE_DISPATCH } from "./003-how-do-i-dispatch-a-job";
 import { GUIDE_GROUP_ORDER } from "./004-why-does-only-one-group-run-at-a-time";
-import { GUIDE_GROUP_BOUNDARY } from "./005-when-do-checks-run";
 import { GUIDE_PLAN_ASKS } from "./006-how-do-i-change-the-plan";
 import { GUIDE_TIERS } from "./007-which-model-does-each-task-get";
 import { GUIDE_ALWAYS_LOOKS } from "./009-what-do-the-tick-boxes-on-a-step-do";
@@ -37,7 +36,6 @@ export {
   GUIDE_MEMBER_LINK,
   GUIDE_DISPATCH,
   GUIDE_GROUP_ORDER,
-  GUIDE_GROUP_BOUNDARY,
   GUIDE_PLAN_ASKS,
   GUIDE_TIERS,
   GUIDE_ALWAYS_LOOKS,
@@ -61,10 +59,13 @@ export {
  * graph moved to the Plan tab on 25 September 2026, so the guide had nothing
  * left to explain and was retired rather than rewritten.
  *
+ * 5 explained the bar under a plan group, which went when the plan board lost its
+ * last screen with the Jobs deletion of October 2026.
+ *
  * 8 explained the run tree's step bar, which went with the Overview reframe of
  * 29 September 2026. 20 explained drift, and no screen draws `run.drift`.
  */
-export const RETIRED_GUIDE_NUMBERS: readonly number[] = [8, 11, 20];
+export const RETIRED_GUIDE_NUMBERS: readonly number[] = [5, 8, 11, 20];
 
 export const GUIDES: readonly Guide[] = [
   GUIDE_JOB,
@@ -74,7 +75,6 @@ export const GUIDES: readonly Guide[] = [
   GUIDE_MEMBER_LINK,
   GUIDE_PLAN,
   GUIDE_GROUP_ORDER,
-  GUIDE_GROUP_BOUNDARY,
   GUIDE_PLAN_ASKS,
   GUIDE_TIERS,
   GUIDE_DRONE,

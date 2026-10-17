@@ -4,16 +4,15 @@
 use std::collections::BTreeSet;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
-    AnswerSessionAsk, HelmCallAnswer, JobRequest, ManifestSummary, ProposedPlan, QuestionAnswer,
-    SessionList, SessionOrigin, SessionState, WireError,
+    AnswerSessionAsk, HelmCallAnswer, ManifestSummary, QuestionAnswer, SessionList, SessionOrigin,
+    SessionRecord, SessionState, StartSession, WireError,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::phone::PhoneJob;
 use crate::phone_sessions::{held_ask, PhoneSession};
 use crate::reads::{json, port, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
 use crate::{fleet_client, Gateway};
@@ -24,17 +23,36 @@ const NOT_ASKING: &str = "That Session is not waiting on an answer.";
 const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open it again.";
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
+/// How many ended Sessions the Done list holds.
+const DONE_SHOWN: usize = 50;
 const NO_SUCH_REPOSITORY: &str = "Armada does not know that repository. Pick one from the list.";
 
-pub async fn sessions(State(gateway): State<Gateway>) -> Response {
-    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a session list").await {
+#[derive(Deserialize)]
+pub struct Wanted {
+    state: Option<String>,
+}
+
+/// The live Sessions, or with `?state=ended` the ones that are over, newest first.
+pub async fn sessions(State(gateway): State<Gateway>, Query(wanted): Query<Wanted>) -> Response {
+    let state = match wanted.state.as_deref() {
+        None | Some("live") => SessionState::Live,
+        Some("ended") => SessionState::Ended,
+        Some(_) => return refusal(StatusCode::BAD_REQUEST, "Ask for state=live or state=ended."),
+    };
+    let path = if state == SessionState::Live { "/sessions?state=live" } else { "/sessions?state=ended" };
+    let list = match required::<SessionList>(&gateway, path, "a session list").await {
         Ok(list) => list.sessions,
         Err(refused) => return refused,
     };
     let labels = repositories(&gateway).await;
-    let rows: Vec<PhoneSession> = list
-        .iter()
-        .filter(|record| record.state == SessionState::Live)
+    let mut kept: Vec<&SessionRecord> = list.iter().filter(|record| record.state == state).collect();
+    if state == SessionState::Ended {
+        let over = |record: &SessionRecord| record.ended_at.as_ref().map(|at| at.as_str().to_string());
+        kept.sort_by(|a, b| (over(b), b.id.as_str()).cmp(&(over(a), a.id.as_str())));
+        kept.truncate(DONE_SHOWN);
+    }
+    let rows: Vec<PhoneSession> = kept
+        .into_iter()
         .map(|record| {
             let repository = record
                 .manifest_id
@@ -197,34 +215,31 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
                 .into_response()
         }
     };
-    let request = JobRequest {
-        request: dispatching.text,
-        client_ref: None,
-        attachments: Vec::new(),
-        settings: None,
+    let start = StartSession {
+        manifest_id: manifest.id.clone(),
+        title: None,
+        model: None,
+        effort: None,
+        mode: None,
+        fork: None,
+        root: None,
+        request: Some(dispatching.text),
+        after: None,
     };
-    let Ok(sent) = ipc::encode(&request) else {
+    let Ok(sent) = ipc::encode(&start) else {
         return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);
     };
-    let path = format!(
-        "/jobs/from_request?manifest_id={}",
-        ipc::door::encoded(manifest.id.as_str())
-    );
-    let answer = match post(&gateway, &path, sent).await {
+    let answer = match post(&gateway, "/sessions/start", sent).await {
         Ok(answer) => answer,
         Err(refused) => return refused,
     };
-    if answer.status != 201 {
+    if answer.status != 200 {
         return passed(&answer);
     }
-    match ipc::decode::<ProposedPlan>("a proposed plan", &answer.body) {
-        Ok(plan) => {
-            let jobs = plan
-                .jobs
-                .iter()
-                .map(|job| PhoneJob::of(job, Some(manifest.repository.as_str())))
-                .collect();
-            let mut made = json(&Dispatched { jobs });
+    match ipc::decode::<SessionRecord>("a session", &answer.body) {
+        Ok(record) => {
+            let session = PhoneSession::of(&record, Some(manifest.repository.as_str()), gateway.pairing.now());
+            let mut made = json(&Dispatched { session });
             *made.status_mut() = StatusCode::CREATED;
             made
         }
@@ -234,5 +249,5 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
 
 #[derive(Serialize)]
 struct Dispatched {
-    jobs: Vec<PhoneJob>,
+    session: PhoneSession,
 }

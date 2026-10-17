@@ -2,7 +2,7 @@
 // (#1091) widened it past the left column's Fleet to Overview's own Needs you, Running,
 // Queued and Other, so the bag is keyed by name rather than a fixed pair.
 //
-// **`localStorage`, not a Fleet preference.** `where_things_are_open` (`where-open.ts`) is
+// **`localStorage`, not a Fleet preference.** `where_things_are_open` was
 // Fleet-wide because more than one Bridge window can watch the same daemon; a panel fold is this
 // window's own layout and Fleet's closed preference set (`fleet.unknown_preference`) has no room
 // for a name without a wire change outside either issue's scope. Reported.

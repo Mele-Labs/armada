@@ -10,46 +10,15 @@
 use std::future::Future;
 
 use ipc::{
-    CheckoutRunRecord, CheckoutRunUnderway, JobId, NamedRun, RunRecord, RunUnderway,
-    StartCheckoutRun, StartRun,
+    CheckoutRunRecord, CheckoutRunUnderway, NamedRun,
+    StartCheckoutRun,
 };
 
 use crate::daemon::Refusal;
 
 pub trait Rehearsing: Send + Sync + 'static {
-    /// `start_run` — run one Check or Command in this Job's worktree, as a
-    /// rehearsal: no Evidence, no Check row, nothing on the Job moves.
-    ///
-    /// **By `Arc`, for [`Commands::show_again`](super::Commands::show_again)'s reason**: the run is a task of
-    /// its own and outlives the request. It answers once the run is underway;
-    /// the output and the end arrive as events.
-    ///
-    /// [`Refusal::IllegalMove`] where the worktree is gone or a run is already
-    /// out on this Job; [`Refusal::Unacceptable`] where nothing declares the
-    /// name, or a narrowed run has nothing to narrow to.
-    fn start_run(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        run: StartRun,
-    ) -> impl Future<Output = Result<RunUnderway, Refusal>> + Send;
 
-    /// `stop_run` — end the run's process group, and answer with its record
-    /// once it is written. [`Refusal::IllegalMove`] on a run not in flight.
-    fn stop_run(
-        &self,
-        job_id: JobId,
-        run: NamedRun,
-    ) -> impl Future<Output = Result<RunRecord, Refusal>> + Send;
 
-    /// `undo_run` — put back what one run changed, from the snapshot taken
-    /// before it. **Never a discard**: a Drone's work is uncommitted until
-    /// delivery. [`Refusal::IllegalMove`] while a Drone works in the tree, while
-    /// a run is in flight, or where a path the run changed has moved since.
-    fn undo_run(
-        &self,
-        job_id: JobId,
-        run: NamedRun,
-    ) -> impl Future<Output = Result<RunRecord, Refusal>> + Send;
 
     /// `start_checkout_run` — run one Check or Command in the main checkout,
     /// as a rehearsal: no Evidence, no Check row, and no Job to move.

@@ -6,8 +6,8 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
-import { completedSuccess } from "@armada/jobs/fixtures/build/index";
-import { featureRunning } from "@armada/jobs/fake";
+import { completedSuccess } from "@armada/screens/src/fixtures/build/index";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import { asRow, holding } from "../holding";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -50,5 +50,5 @@ export const s210QuickDispatch: Scenario = {
   ...base,
   state: { ...base.state, holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) } },
   // A Session starts in the repository it is given and is listed under it, as Fleet lists one by the Manifest it started in.
-  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, [], board, [], [], [], owners) },
+  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, board, [], [], [], owners) },
 };

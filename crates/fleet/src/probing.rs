@@ -150,6 +150,16 @@ where
         }
     }
 
+    /// What the machine has left, read on a blocking thread: it is three processes and about
+    /// eighty milliseconds, which is not something to hold a runtime worker for.
+    async fn machine_reading(&self) -> Option<crate::headroom::Reading> {
+        let machine = std::sync::Arc::clone(self.machine());
+        tokio::task::spawn_blocking(move || machine.read())
+            .await
+            .ok()
+            .flatten()
+    }
+
     /// CPU, memory and disk, with memory and disk held against the thresholds
     /// admission itself uses. **CPU is printed and never the reason** — nothing
     /// admits or refuses on it.

@@ -1,59 +1,17 @@
-//! What a Job looks like as a Board row, and why one that is queued has not
-//! started.
+//! What a Job looks like as a Board row.
 //!
 //! **Split from the trait impls, not from a line count.** `serving` and
 //! `commanding` are the operations — one method per row of the inventory, each
-//! answering what a caller asked. These are what several of them need, and
-//! neither is an operation: `summarised` is called on every Job in a list, and
-//! `queued_reason` is a read of the whole board taken to answer about one row.
-//!
-//! **Nothing here is stored.** A `queued` Job's reason is worked out from the
-//! board as it stands, because headroom frees on its own and a reason written
-//! down is wrong from the moment it is written.
-
-use std::collections::BTreeMap;
+//! answering what a caller asked. This is what several of them need, and it is
+//! not an operation: `summarised` is called on every Job in a list.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{
-    BudgetHold, Job, JobId as CoreJobId, JobStatus as CoreJobStatus, ManifestId,
-    QueuedReason as CoreQueuedReason,
-};
+use core_model::Job;
 
 use ipc::JobSummary;
 
-use crate::admitting::clear_to_run;
-use crate::allowance::Overspent;
 use crate::daemon::Fleet;
-use crate::sub_dispatch::waiting_on_children;
-
-/// Why an approved Job has not started, and — where that is a ceiling — which
-/// of the two.
-///
-/// **One answer and not two reads.** `Fleet::overspent` names the ceiling
-/// already; folding that to `over_budget` and then asking again would be two
-/// readings of one board taken at two instants. Every caller wants both fields
-/// or neither, which is why they travel as one value.
-pub(crate) struct Waiting {
-    pub(crate) reason: Option<CoreQueuedReason>,
-    /// **Absent unless `reason` is `over_budget`.** It qualifies that label and
-    /// says nothing on its own.
-    pub(crate) budget: Option<BudgetHold>,
-    /// The frozen gating Manifests: on a queued Job where `reason` is `frozen`,
-    /// and on a Job at a gate whose merge or next step the freeze holds.
-    pub(crate) frozen_by: Vec<ManifestId>,
-}
-
-impl Waiting {
-    /// Nothing is holding this Job, or what holds it is not a ceiling.
-    fn on(reason: Option<CoreQueuedReason>) -> Waiting {
-        Waiting {
-            reason,
-            budget: None,
-            frozen_by: Vec::new(),
-        }
-    }
-}
 
 /// The bays a Job has held, for its row. **A history the store cannot read leaves the row without
 /// it**, as the marks beside it do. Read on every path that builds a row a client replaces its own
@@ -81,21 +39,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// A Job as a Board row, with the reason its last transition stored and
-    /// whether its Drone is waiting on somebody. **The slot read is free on
-    /// every row but the working ones** — `command_awaited` answers `None`
-    /// without touching the store for a Job that holds no slot.
+    /// A Job as a Board row, with the reason its last transition stored.
     pub(crate) async fn summarised(&self, job: &Job) -> Result<JobSummary, Refusal> {
         let reason = self
             .last_reason(job.id())
             .await
             .map_err(|why| self.refusal(why))?;
-        let queued = self.queued_reason(job).await?;
-        // **A command a person is being asked about waits on them too**, and
-        // the Board says so the same way: the Drone holds its session and its
-        // spend until somebody answers. A Drone's own question is the record's,
-        // and `JobSummary::of` reads it there.
-        let asking = self.command_awaited(job.id()).await.is_some();
         let started_at = self
             .job_started_at(job.id())
             .await
@@ -111,132 +60,17 @@ where
         let mut summary = JobSummary::of(
             job,
             reason.as_ref(),
-            queued.reason,
-            queued.budget,
-            asking,
-            self.resumption(job),
+            None,
+            None,
+            false,
+            None,
             started_at,
             ended_at,
         );
-        summary.last_told_at = self.told_at(job.id()).as_ref().map(ipc::Instant::from);
-        summary.frozen_by = queued.frozen_by.iter().map(ipc::ManifestId::from).collect();
-        summary.tasks = self
-            .task_counts(job.id())
-            .await
-            .map_err(|why| self.refusal(why))?;
         {
             let store = self.store().lock().await;
-            summary.fixes_main = self.fixes_main_of(&store, job);
-            summary.piloted = self.piloted_on_row(&store, job);
-            summary.alert = self.alert_on_row(&store, job);
             summary.bays = bays_on_row(&store, job);
-            // **A card the Job's Commander put out waits on the owner as a
-            // Drone's question does**, so the Job reads `asking` and sits in
-            // Your move. Not a status: a running Job keeps running.
-            summary.asking |= !job.status().is_terminal()
-                && store.open_commander_card(job.id()).ok().flatten().is_some();
         }
         Ok(summary)
-    }
-
-    /// Why an approved Job has not started, worked out from the board as it
-    /// stands rather than read from anything.
-    ///
-    /// **Nothing is read for a Job that is not `queued`**, which is every row
-    /// but the waiting ones — the board read is the cost, and a status that
-    /// cannot have this reason must not pay it.
-    ///
-    /// The dependency half is [`clear_to_run`], the budget half is
-    /// `Fleet::overspent` and the resource half is `Fleet::room_for_another` —
-    /// all three the predicates admission itself uses, asked in the order
-    /// admission asks them. A second answer here is how a Board comes to say a
-    /// Job is blocked while Fleet is starting it.
-    ///
-    /// **`None` is the registry's `none`** — approved, unblocked, inside its
-    /// budget, and there is room. **Nothing is stored**: headroom frees on its
-    /// own, so a reason written down is wrong from the moment it is. The budget
-    /// half does not free on its own and is still computed here, because what
-    /// changes it is a person raising the cap and a stored label would survive
-    /// that.
-    pub(crate) async fn queued_reason(&self, job: &Job) -> Result<Waiting, Refusal> {
-        // Nothing lands from a gate while frozen, so a gate's row names the freeze too.
-        if job.status() == CoreJobStatus::AwaitingReview {
-            return Ok(Waiting {
-                reason: None,
-                budget: None,
-                frozen_by: self.frozen_by(job),
-            });
-        }
-        if job.status() != CoreJobStatus::Queued {
-            return Ok(Waiting::on(None));
-        }
-        // **Before the freeze**: the marker is the Job's own, and lifting a
-        // freeze would not start it. A resume found no slot and is waiting,
-        // which falls through to `waiting_on_resources` below. Admission's own
-        // predicate, in `next_queued`.
-        if job.pause().is_some_and(|pause| !pause.resuming) {
-            return Ok(Waiting::on(Some(CoreQueuedReason::Paused)));
-        }
-        // **Next, and for the pause's reason**: the question is the Job's own,
-        // and only the answer starts it. Admission's own predicate.
-        if job.waiting_on_an_answer() {
-            return Ok(Waiting::on(Some(CoreQueuedReason::AwaitingAnswer)));
-        }
-        // **First, because nothing below would start the Job while it holds**,
-        // and only a person lifts it. Admission's own predicate.
-        let frozen_by = self.frozen_by(job);
-        if !frozen_by.is_empty() {
-            return Ok(Waiting {
-                reason: Some(CoreQueuedReason::Frozen),
-                budget: None,
-                frozen_by,
-            });
-        }
-        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
-        let standing: BTreeMap<CoreJobId, CoreJobStatus> = loaded
-            .jobs
-            .iter()
-            .map(|held| (held.id().clone(), held.status()))
-            .collect();
-        if !clear_to_run(job, &standing) {
-            return Ok(Waiting::on(Some(CoreQueuedReason::BlockedByDependency)));
-        }
-        // **The same label as the edge above, because it is the same fact from
-        // the Board's side.** The registry gives a `queued` Job no reason
-        // meaning "waiting on the Jobs it created"; a Job held for its children
-        // is held for work that has to finish first, which is what the
-        // dependency label says. The mechanism differs — provenance rather than
-        // an edge — and that difference is not a Board fact.
-        let owed = self.merges_owed().await.map_err(|why| self.refusal(why))?;
-        let children = crate::sub_dispatch::children_standing(&loaded.jobs, &owed);
-        if waiting_on_children(job, &children, self.waits_on_merges(job).await) {
-            return Ok(Waiting::on(Some(CoreQueuedReason::BlockedByDependency)));
-        }
-        // **Before the machine reading, and not only because admission asks it
-        // first.** Headroom frees on its own and a spent budget does not, so a
-        // Job that is both would be told it is waiting for something that is
-        // already on its way when the thing actually holding it needs a person.
-        // The dollars and the turns fold to this one label, and which of the
-        // two it was rides beside it: the same read answers both, and the two
-        // take different acts.
-        if let Some(over) = self.overspent(job).await.map_err(|why| self.refusal(why))? {
-            return Ok(Waiting {
-                reason: Some(CoreQueuedReason::OverBudget),
-                budget: Some(match over {
-                    Overspent::Cost => BudgetHold::CostCap,
-                    Overspent::Turns => BudgetHold::TurnCap,
-                }),
-                frozen_by: Vec::new(),
-            });
-        }
-        // The same three `admit_next` folds, so a Board row never disagrees
-        // with what Fleet is doing — `crate::admitting`.
-        let mut slots = self.slots().lock().await;
-        let room = self.room_for(&mut slots).await;
-        drop(slots);
-        let short = !room.granted() || self.volume_is_short(job).await || self.slot_is_short(job);
-        Ok(Waiting::on(
-            short.then_some(CoreQueuedReason::WaitingOnResources),
-        ))
     }
 }

@@ -33,12 +33,12 @@ test("the key sheet lists every deck act with the keymap's own keys, and the map
   expect(keySheetOf().map((group) => group.head)).toEqual(expect.arrayContaining(["Map", "Replay"]));
 });
 
-test("the page chord lists its four second keys after the registry's first", () => {
+test("the page chord lists its three second keys after the registry's first", () => {
   const first = formatSlot(slotsOf("deck_page")[0]!);
   const pages = keySheetOf()
     .find((group) => group.head === "Pages")!
     .rows.filter((row) => row.keys[0] === first);
-  expect(pages.map((row) => row.keys[1])).toEqual(["c", "j", "s", "y"]);
+  expect(pages.map((row) => row.keys[1])).toEqual(["c", "s", "y"]);
 });
 
 test("the sheet lists Open with Enter and with o, and Settings with its own key", () => {

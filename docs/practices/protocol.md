@@ -551,92 +551,29 @@ are torn down before its span is released.
 
 `GET /helm/observe`, `POST /helm/tune` and `GET /helm/file` are gone, with the socket's messages (`opened`, `asked`, `fresh`, `unanswered`, `sent`, `facts`, `missed`, `closed`) and the types that carried them. Helm is a hosted Session, and its thread is read the way a Session's is: *Helm is a Session*, below. The Commander socket after this section is the same shape and is still served; it was copied from this one and now keeps the relay on its own.
 
-## The Commander socket: one Job's conversation
+## The Commander routes: retired
 
-`GET /jobs/:job_id/commander/observe` is the Helm socket's shape with a Job for
-its subject, and the same relay in `crates/api/src/conversing.rs`. It opens with
-the thread so far, then carries every message after it. `POST
-/jobs/:job_id/commander/ask` takes the owner's words and answers 202 at once,
-because the turn is the socket's. `crates/ipc/src/commander.rs` has the types and
-`packages/protocol/src/commander.ts` is Bridge's half, written by hand.
+The Commander's socket (`observe_commander`), its words (`ask_commander`), its card
+and the owner's pick (`ask_the_owner`, `answer_commander_card`), its repair Drone
+(`send_repair_drone`), its model choice (`set_commander_model`), the `walk_failed`
+that woke it are gone from Fleet: no route serves them and none is in
+`crates/ipc/operations/`. Fleet no longer publishes the `commander.changed` and
+`commander.card` events; their rows stay declared there only while the event
+variants stay on the wire. The Commander
+was deleted with the Jobs it steered (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
+Their types stay in `crates/ipc` and `packages/protocol/src` until the Job types
+are deleted, and `JobDetail.commander_model_override`, `commander_effort_override`
+and `commander_card` are always absent.
 
-**Who reads it.** Bridge's Job panel (`#2169`). `agent_access` is `No` on both: a
-Commander's words are the owner's to write, and a session must not drive or read
-another.
+## The wave routes: retired
 
-| What happened | What the viewer is told |
-| --- | --- |
-| The owner wrote | `asked`, at once, even while a turn is being written |
-| Fleet started a turn | `woke` for each reason, once, then the session's own `row`s ending in `ended` with what the turn cost |
-| The stored session was gone | `fresh` / `session_not_found`, then the rows of the new session |
-| A turn did not come back | `unanswered`, with why |
-| The Job has no worktree | **409 on `ask_commander`**, and the socket opens on an empty thread |
-
-**`commander.changed` is on `/events`** and says whether the Commander is at
-work, `idle` or `working`, for the Job's card to draw without opening the
-socket. It is published when the first queued input starts the turns and when
-the last one ends.
-
-**Nothing on it advances a Job.** A `row` is what the session said, read as what
-it said.
-
-### The Commander's card
-
-A card is the one question a Commander puts to the owner, and it outlives the
-turn that raised it. `POST /jobs/:job_id/commander/card` (`ask_the_owner`) takes
-`text` (what is wrong), `reach` (what is out of its reach), `question` and
-`options`, and answers 200 with the card as stored. `POST
-/jobs/:job_id/commander/card/answer` (`answer_commander_card`) takes the card's
-id and the option's id, and nothing else. `crates/ipc/src/commander_card.rs` has
-the types and `packages/protocol/src/commander.ts` is Bridge's half.
-
-| Rule | How it is held |
-| --- | --- |
-| Only a Commander raises one | `agent_access = "Commander only"`, a fourth table beside `Helm only` that the door lists to a Commander and to no one else, and the route refuses a call the door did not place as a Commander's |
-| The owner answers, never an agent | `answer_commander_card` is `agent_access = "No"` |
-| Two to four options, none blank or alike | The body does not decode otherwise, as a Drone's question's rule |
-| An option's id is its place | A card carries no ids of its own to invent; an answer names `1` to `4` |
-| One card out per Job | A second is a 409 naming the question already waiting |
-| A stale answer is refused | A card that is not the one out, or an option it never offered, is a 409 and nothing is kept |
-| It waits however long he takes | Kept in `commander_cards`, not held on a call; a Fleet that restarts still has it |
-
-**Counted as the Job waiting on the owner.** While a card is out
-`JobSummary.asking` reads `true` and `JobDetail.commander_card` carries it, which
-is what puts the Job in Your move and in `list_alerts`' blocked list. Nothing
-else moves: a running Job keeps running, and an escalated one stays escalated
-with the card beside it. `commander.card` on `/events` is `job.asking`'s shape,
-two messages per card: the card going out, and none coming back.
-
-**Answering wakes the Commander.** The answer is kept first, then `wake_commander`
-is called with the question and the label he picked as its reason, and the
-answer says `woke: false` where the Commander could not start.
-
-### The Commander's repair
-
-`POST /jobs/:job_id/commander/repair` (`send_repair_drone`) puts a repair Drone on
-the Job's own branch and worktree. The body is `broke`, one of `merge_conflict`,
-`dependencies`, `missing_binary` and `worktree`, and nothing else: there is no
-field for a branch, a path or a command. It answers 202 with `RepairSent`
-(`job_id`, `step_id`, `drone_id`, `broke`), because the Drone has not finished;
-Fleet restarts the step it names when the Drone hands in.
-`crates/ipc/src/commander_repair.rs` has the types and
-`packages/protocol/src/commander.ts` is Bridge's half.
-
-| Rule | How it is held |
-| --- | --- |
-| Only a Commander sends one | `agent_access = "Commander only"`, and the route refuses a call the door did not place as a Commander's, so the move that puts the step back is always signed Commander |
-| Offered where `restart_step` is, and after a failed preparation | The same reading (`Stuck::of`) decides both, with `Stuck::unprepared` for a Job escalated `not_prepared` before any step began; `RepairSent.step_id` is then the first step. A 409 where the Job is not held for a person, a Drone is on it, its worktree is gone (a redispatch), no step stopped, or the Job never had a Drone for any other reason |
-| One at a time per Job | A second repair, or a person's `restart_step`, is a 409 while one is out, and still is after a Fleet restart until the Commander has been woken for the repair the last Fleet lost |
-| Not `add_job_step` | The repair is gated as the step it unblocks; a step the Commander wrote would be gated as its own |
-
-**Nothing new crosses to Bridge.** The thread shows the Commander's call as a
-row, with `broke` in its argument, and the Job's log carries Fleet's line naming
-the step, the branch and the Drone.
-
-**`set_commander_model`** takes `model` and `effort`, both sent and either
-`null`, and answers with the Job's summary. `JobDetail.commander_model_override`
-and `commander_effort_override` read the choice back. `agent_access` is `Helm
-only`.
+`POST /jobs/:job_id/approve_wave` and the `dispatch_job` MCP tool are gone from Fleet,
+with the wave a plan proposed, the sub-dispatch that created its members and the wait
+a parent held on them. No route serves them and no operation in `crates/ipc/operations/`
+names them; `JobDetail.wave_rounds` is never filled. `fleet.wave_refused` is no longer
+raised. A Session's linked Sessions and *after another* are not waves and stay. The
+wave types stay in `crates/ipc` and `packages/protocol/src` until the Job types go
+(`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
 
 ## Changes before IDs
 
@@ -1721,7 +1658,7 @@ built before this sends neither.
 **A gate that defers had no way to say what it deferred to.** A step declaring
 `manifest_rule:review_gate` draws as *the repository decides*, and a reader could not tell whether
 a person would be asked or nobody would — the owner, 29 September 2026, reading that row. Fleet
-already resolves both policies at every gate (`crates/fleet/src/policy.rs`), so this reports a
+already resolves both policies at every gate (the `policy` module (deleted since)), so this reports a
 value it computes rather than computing a new one.
 
 **Reported, not resolved, and that is the whole of what crosses.** One Manifest's word, not the
@@ -1803,12 +1740,12 @@ machine runs, and Bridge mirrors the code the way it mirrors
 `fleet.proposer_stopped`.
 **Absent stays absent**: a call that names no model reaches `ProposeJob.model`
 null, which has always meant configuration decides. Land-as-one is deliberately
-not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
+not here — the `proposal` module (deleted since)'s header carries the 3 Sep 2026 ruling
 that how the work lands follows from having read the code, and the owner kept it
 when it was put beside the model.
 
 **Fields that are settled, never a transcript.** Fleet reads the answer's prefix
-in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
+in one place (the `proposing` module (deleted since), `Settled::of`), and a field
 crosses only once its own line has ended — so a client either has a title or has
 none, and never has `Say which of the two giv`. The raw text does not cross:
 `answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
@@ -1824,7 +1761,7 @@ still stands for the text itself, which is why nothing beside the count carries
 one.
 
 **Bridge draws each field where the Job already draws it**, through one fold
-(`filled`, in `packages/surfaces/jobs/src/proposal.ts`): the settled workflow is the
+(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
 row's Workflow column, the settled title is the row's title, the done-when lines
 are the Job's criteria and the settings are its urgency. The wait inside
 Overview's lead says which of the four the call has got to, because that is the
@@ -2569,9 +2506,7 @@ one, and `merged_at`, when its pull request merged; `JobDelivery` gains `merged_
 `LandingRule` gains `complete_when`. Each is absent where empty, so a 23.12 Bridge connects behind
 the banner and reads a wave as Jobs at their gate.
 
-| Route | Body | Answers | Refused |
-|---|---|---|---|
-| `POST /jobs/:job_id/approve_wave`, `approve_wave` | `ApproveWave`: `jobs`, every Job of the wave by id | The parent's `JobSummary`, `queued` | 409 `fleet.wave_refused` unless the parent is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there; 409 `fleet.not_under_review` off its gate |
+`POST /jobs/:job_id/approve_wave` is retired; see *The wave routes: retired*.
 
 **One act releases the wave.** Each member takes `awaiting_approval -> queued` as a person's act,
 as `edit_job` left it, and the parent's plan step advances without the step after it being
@@ -2608,7 +2543,7 @@ its number alone, in one column, as it did.
 
 | Field | On | Carries | Absent |
 |---|---|---|---|
-| `wave_rounds` | `JobDetail` | `WaveRound { pass, approach }` per pass, oldest first: the approach the Job's plan last recorded in that pass | A Job whose workflow has no step that proposes Jobs, or none of whose passes has recorded a plan |
+| `wave_rounds` | `JobDetail` | Retired: Fleet no longer fills it | Always |
 | `waits_on` | `JobSummary` | The ids of the Jobs this one waits on: its `depends_on` edges, which `JobDetail.dependencies` serves whole | A Job that waits on nothing |
 
 **A pass is counted as `dispatched_pass` counts it**: one, plus every return the roll-up sent onto
@@ -3009,7 +2944,7 @@ proposal can now arrive with it set, and the approval's own body still replaces 
 `continue_from` is none.
 
 **Pick up uses the proposer, not a workflow of its own.** Fleet assigns no workflow by default
-(`crates/fleet/src/proposing.rs`), so the request, the branch and the Finding's items, goes to the
+(the `proposing` module (deleted since)), so the request, the branch and the Finding's items, goes to the
 proposer as a dispatched request does, and the head of its plan is cut from the branch. A plan's
 other Jobs wait on the head and are cut from the base.
 
@@ -3258,7 +3193,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 ## Protocol 23.50: taking a Job over
 
-`docs/concepts/pilot.md`. **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
+`docs/concepts/pilot.md`. *`take_over` and `get_handoff` are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
@@ -3274,7 +3209,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 ## Protocol 23.51: a session started on a Job, and the commands an agent names
 
-`docs/concepts/session.md`, *Started on a piloted Job*. **Additive only**: two optional fields, one row kind, and no operation. 23.50 is the take over and its exits.
+`docs/concepts/session.md`, *Started on a piloted Job*. *`StartSession.pilot` and the `handoff` row are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: two optional fields, one row kind, and no operation. 23.50 is the take over and its exits.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3356,7 +3291,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `get_merge_lines` | `MergeLineCheck.requester.job_id` and `handle` | On a branch some Job owns. Absent on one none does. A Bridge from before 23.64 ignores them |
 | `get_merge_lines` | `MergeLineEntry.checks` on a queued branch | A branch in `line` with state `waiting` that a Job owns lists the Manifest's declared Checks, each `waiting` and naming the Job, until the line gates it and writes its own. Absent on a branch no Job owns |
 
-**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/surfaces/jobs/src/manifest-checks.ts`.
+**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/screens/src/manifest-checks.ts`.
 ## Protocol 23.68: steps added to one Job, and the repository's Draft default
 
 `docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit. The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
@@ -3634,6 +3569,19 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 
 **Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal. A Bridge before it never calls it. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
 
+## Protocol 23.92: a Session paused and resumed
+
+`docs/concepts/session.md`, *Pausing a Session*. **Additive only**: two operations, three types and one optional field. There is no number to bump: the protocol ID moves with the files below.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `pause_session` (`POST /sessions/pause`) | `PauseSession`: `session_id` | Answers the `SessionRecord` with `hosted.paused` set. Ends the turn, commits the slot's work to the branch (WIP, no push), frees the slot. `Helm only` |
+| `resume_session` (`POST /sessions/resume`) | `ResumeSession`: `session_id` | Answers the record; `hosted.paused` is absent once a slot is held, and `resuming` while it waits for one. Starts no turn. `Helm only` |
+| `HostedFacts.paused` | `SessionPaused`: `at`, `resuming` | Absent unless paused. Carried on `session.changed`, which is published on every change; no new event kind |
+| 409 `fleet.session_not_pausable`, `fleet.session_already_paused`, `fleet.session_not_paused`, `fleet.session_pause_refused` | | A terminal Session is 422 `fleet.session_command_refused`, as for a stop |
+
+**Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`. A Bridge before it ignores the field and never calls the routes. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.79: a Session forked at a message
 
 `docs/concepts/session.md`, *A fork at a message*. **Additive only**: one optional field on `ForkFrom`, one 422 and one key in an existing detail. No new operation.
@@ -3758,8 +3706,8 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 | `get_autopilot` (`GET /autopilots/:repository`) | nothing | Answers `Autopilot`: the settings, `state`, `capped_by`, the figures `spent_micros`, `jobs_started` and `at_work` read now, and `picks`. 409 `fleet.no_autopilot` |
 | `propose_autopilot` (`POST /autopilots/:repository/proposal`) | `ProposeAutopilot`: `sentence`, `local_now?` | Answers `AutopilotSettings`. One model call; **starts and keeps nothing**. 500 `fleet.autopilot_not_read` |
 | `start_autopilot` (`POST /autopilots/:repository`) | `AutopilotSettings`: `instruction`, `at_once`, `until?`, `spend_cap_micros?`, `job_cap?` | A 201 with `Autopilot`. 409 `fleet.autopilot_running`, 422 `fleet.autopilot_unsettable` |
-| `pause_autopilot`, `resume_autopilot`, `stop_autopilot` (`POST /autopilots/:repository/pause`, `/resume`, `/stop`) | nothing | Answer `Autopilot`. 409 `fleet.autopilot_not_running`, `fleet.autopilot_not_paused`, `fleet.autopilot_stopped`. Stop kills each picked Job that never had a Drone and marks its pick `withdrawn` |
-| `dispatch_set_aside`, `dismiss_set_aside` (`POST /autopilots/:repository/picks/:pick_id/dispatch`, `/dismiss`) | nothing | Answer `Autopilot`. Dispatch proposes the issue to the approval gate as `propose_from_request` would. 409 `fleet.pick_not_set_aside` |
+| `pause_autopilot`, `resume_autopilot`, `stop_autopilot` (`POST /autopilots/:repository/pause`, `/resume`, `/stop`) | nothing | Answer `Autopilot`. 409 `fleet.autopilot_not_running`, `fleet.autopilot_not_paused`, `fleet.autopilot_stopped`. Stop closes each picked Session that never ran and marks its pick `withdrawn` |
+| `dispatch_set_aside`, `dismiss_set_aside` (`POST /autopilots/:repository/picks/:pick_id/dispatch`, `/dismiss`) | nothing | Answer `Autopilot`. Dispatch starts a Session on the issue, as a sure pick does. 409 `fleet.pick_not_set_aside` |
 | `autopilot.changed` (event) | `Autopilot` | On each act, each pick, a cap reached, and a pass that finds the figures moved. Whole, so a reconnecting Bridge replaces what it holds |
 
 **A Job a sure pick starts is an ordinary `job.created` and `job.state_changed`**, its last move by `fleet` rather than `human`: no new kind says a Job skipped the gate, since the origin on its row does.
@@ -3955,7 +3903,7 @@ its row changes.
 
 ## When a Job's Drone was last told
 
-`JobSummary.last_told_at`, optional and additive: when a person, Helm or a Commander last sent the Job's Drone
+`JobSummary.last_told_at`, optional and additive: when a person or Helm last sent the Job's Drone
 words (`redirect_drone`, or the answer to a command it was refused) or restarted a step (`restart_step`).
 Bridge reads it to decide that a failing pull request or red main the Job owns has somebody on it again, so
 the Cockpit raises no call for it.
@@ -4360,6 +4308,45 @@ Since 16 Oct 2026. `docs/concepts/sketch-pane.md`, *Screens*, and `docs/concepts
 | `Attachment.detail.scene` on the `sketch` artifact | Fleet writes, Bridge reads | Unchanged in shape: the scene is JSON text, so Bridge's `parseScene` reads the new kind with no DTO to mirror |
 
 **Skew.** A Bridge before this draws a scene holding a screen as an empty frame, because `parseScene` refuses a kind it does not know. The IDs differ, so the two are refused regardless. The scene stays under the sketch byte cap: a desktop screen of the 16 Oct layout measured 2560 bytes.
+
+## Autopilot starts Sessions, not Jobs
+
+`docs/concepts/autopilot.md`, `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. A pick starts a Session briefed on its issue, and the figures count Sessions. **One field is renamed and none is added.** The protocol ID moves with `crates/ipc/src/autopilot.rs`, and there is no number to take. The migration `20261017T0900Z-autopilot.started_session` has a name and not a number, and is additive.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `AutopilotPick.job_id` | Fleet writes, Bridge reads | Replaced by `session_id`: the Session the pick started, opened in the Cockpit. A pick of an earlier build carries none |
+| `Autopilot.at_work`, `spent_micros` | Fleet writes, Bridge draws | Count the Sessions it started: live, at work, and not waiting on a person, and their reported cost. Same fields, same types |
+| `Autopilot.jobs_started`, `job_cap`, `AutopilotCap` `jobs` | Fleet writes, Bridge draws | Unchanged by name, and count Sessions started. Renaming them is for the pass that deletes Jobs |
+| `AutopilotPickState` `withdrawn` | Fleet writes | A Session closed at Stop because it had never run, where it was a Job killed |
+| `dispatch_set_aside` | Bridge calls | Starts a Session at once, where it drafted a Job to the approval gate. The route and the answer are unchanged |
+
+**Skew.** A Bridge before this reads a pick with no `job_id` and cannot open it; the IDs differ, so the two are refused regardless. **The event stream is untouched** beyond the `autopilot.changed` each Autopilot already publishes. The lifeboat is untouched.
+
+## Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire
+
+Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, `docs/concepts/pilot.md` and `docs/concepts/session.md`. **Removal only**: no field, operation or event kind is added, so every change below is a Bridge or Fleet that still sends or reads it. The protocol ID moves with the hash of `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. Where a wire type had a Job arm beside a Session arm, the Job arm is gone and Fleet stops producing the value.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `take_over` (`POST /jobs/:job_id/take_over`), `get_handoff` (`GET /jobs/:job_id/handoff`) | Fleet removes, Bridge stops calling | Operations, routes, MCP tools and the DTOs `TakeOver`, `PilotOutcome`, `HandoffBundle`, `HandoffWorktree`, `StoppedOn`, `DroneNarrative` |
+| `StartSession.pilot` (`PilotFrom`) | Bridge stops sending, Fleet stops reading | The Session started on a Job's worktree, with the Job's slot and branch handed to it |
+| `SessionRow` kind `handoff` (`HandoffStep`, `HandoffPlan`) | Fleet stops writing, Bridge stops drawing | The first row of a piloted Session's thread |
+| `TimelineKind` `job.created`, `job.queued`, `job.started`, `job.step`, `job.check`, `job.judged`, `job.files`, `job.read`, `job.ran`, `job.asked`, `job.answered`, `job.landed`, `job.failed` | Fleet stops writing, Bridge stops drawing | Fleet appends no entry for a Job. `slot.leased` and `slot.released` are a Session's alone |
+| `TimelineSubject` `job` | Fleet stops writing, Bridge stops drawing | The subject is `session`, `pull_request` or `main` |
+| `MergeLineHub.fixing`, `HubPullRequest.job`, `HubMerged.job`, `MainMerge.job`, `HubJob` | Fleet removes, Bridge stops reading | `MergeLineHub.fixing_session` and `MainMerge.session` are the owners |
+| `HolderKind` `job` (`FixingElsewhere.holder`, `ClaimHolder`, `Holder`, `Ownership`) | Fleet writes `session` only, Bridge reads `session` only | A Job's claim in the central store is not drawn |
+| `ClaimPullRequest.job_id`, `PullRequestClaimed.holder_kind` | Bridge stops sending, Fleet removes | `claim_pull_request` is a Session's; `holder_id` is its id |
+| `ThoughtKind` `job`, `ThoughtTarget.kind` `job` (`read_thought`, `record_thought_sent`) | Fleet stops offering, Bridge stops sending | A thought routes to a Session or to none |
+| `TagKind` `job`, `Mention` Job arm, `SessionAttachment.job` (`TaggedJob`) | Bridge stops sending, Fleet stops reading | The composer offers no Job after `@` |
+| `SessionSummary.jobs` | Fleet removes | The Jobs a Session holds that have not finished |
+| `who_owns`, `armada need`'s `mine` and `ahead` | Fleet writes Session holders only | A Job holder is omitted, not renamed |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. Nothing here needs a reader that tolerates the old shape.
+
+**Left, because a Job surface still reads it.** `JobSummary.piloted` and the three exits (`submit_for_verification`, `attest_complete`, `close_as_superseded`) for a Job already piloted; `SlotHolding::Job`, `SlotHolderKind::Job`, `BayHolderKind::Job` and `ClashSide::Job`; `FixMain.job` and `fix_main`; `pilot_task`; the `kind=job` parameter of `who_owns`; and the `job` attachment kind that review dispatch still writes. A later group removes them with the Job surface.
+
+**The event stream.** This change makes the open risk below no better and no worse in kind: it removes the Job producers of timeline entries, so the stream carries fewer events. It adds no bounded broadcast and no "you missed N events" message, so a minimised Bridge against several Drones still has nothing pushing back.
 
 ## Open questions
 

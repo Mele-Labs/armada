@@ -94,7 +94,7 @@ test("Release is off where the Session holds nothing or nothing serves it", () =
 });
 
 test("a ledger row's Release names the row as the tile's confirmation does, and a spent pull request or an artifact has none", () => {
-  expect(heldOfAttachment({ kind: "slot", slot: 7, handed: { job: 83 } } as never)).toEqual({ kind: "slot", target: "7", name: "slot-7", said: "Slot of piloted Job #83" });
+  expect(heldOfAttachment({ kind: "slot", slot: 7 } as never)).toEqual({ kind: "slot", target: "7", name: "slot-7", said: "Slot" });
   expect(heldKey({ kind: "branch", target: "fix/a" })).toBe("branch:fix/a");
   expect(heldOfAttachment({ kind: "pull_request", number: 4, title: "A", state: "merged" } as never)).toBeUndefined();
   expect(heldOfAttachment({ kind: "artifact", id: "x", title: "X", form: "page" } as never)).toBeUndefined();

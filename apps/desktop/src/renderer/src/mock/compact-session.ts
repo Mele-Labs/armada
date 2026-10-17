@@ -5,7 +5,7 @@
 // Over the Cockpit; the Session's `work` is draft data. Outside `scenarios/`, where every export is read as a row: the rows there are this, once for the
 // walk `compactSessionView` and once for `compactCallsInThread`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 
@@ -281,7 +281,7 @@ const lessons = other(LESSONS, "Write the lessons page", { rows: [agent("l-1", "
 
 function sessions(control: BoardControl): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [main, prune, names, audit, fold, lessons]);
+  const base = sessionsStore([none, none], none, control, [], [main, prune, names, audit, fold, lessons]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   const own = new Set([MAIN, PRUNE, NAMES, AUDIT, FOLD, LESSONS]);

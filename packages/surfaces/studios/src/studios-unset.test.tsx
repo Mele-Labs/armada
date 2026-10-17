@@ -52,8 +52,8 @@ test("no repository set up: Studios says so and offers Setup, rather than a pick
 const panelTitles = () =>
   [...document.querySelectorAll(".armada-studios-page > .armada-card .armada-card-title")].map((one) => one.textContent ?? "");
 
-test("every-state on All draws one panel for each repository that keeps Studios, and asks for no repository", async () => {
-  const scenario = scenarioNamed("every-state")!;
+test("default on All draws one panel for each repository that keeps Studios, and asks for no repository", async () => {
+  const scenario = scenarioNamed("default")!;
   mount({ ...scenario, state: { ...scenario.state, repository: null } }, SLICES);
   await openStudios();
 

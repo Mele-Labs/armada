@@ -53,7 +53,7 @@ export function panelKey(id: PanelId): string {
 }
 
 /** The second key of `g`: where it goes, by surface id the window resolves. */
-export const PAGE_LETTERS = { c: "cockpit", j: "jobs", s: "sessions", y: "system" } as const;
+export const PAGE_LETTERS = { c: "cockpit", s: "sessions", y: "system" } as const;
 export type PageLetter = keyof typeof PAGE_LETTERS;
 
 export type SheetRow = { keys: readonly string[]; does: string };
@@ -139,7 +139,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Pages",
       rows: [
-        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "jobs" ? "Jobs" : place === "sessions" ? "Sessions" : "System" })) : []),
+        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Sessions" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
         ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },

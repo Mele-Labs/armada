@@ -1,22 +1,16 @@
-//! Noticing an edit to `armada.yml`, and what reaches a Job because of it.
+//! Noticing an edit to `armada.yml`.
 //!
-//! Three subjects, and they are separable on purpose:
+//! Two subjects, and they are separable on purpose:
 //!
 //! | | What it proves | What it needs |
 //! |---|---|---|
 //! | [`settling`] | one save is one read, however many events it made | no filesystem, no clock anybody waits on |
 //! | the watch | a rename over the target is noticed at all | a real file and a real poller |
-//! | the resolution | the new number is what the next step is given | a Job, and `fleet::Liveness::at` |
-//!
-//! **The third is the one `#430` is about.** A reload that reached a `Manifest`
-//! nothing consulted would be this defect with more code in it.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use config::{Adopted, LoadError, Manifest, Moved};
-use core_model::StepId;
-use fleet::Liveness;
 use tokio::sync::mpsc;
 
 use crate::tests::TempDir;
@@ -180,52 +174,6 @@ async fn an_edit_that_will_not_parse_is_said_and_leaves_the_fleet_alone() {
     // claim: a mistyped number costs the edit, never the running Jobs.
     assert_eq!(manifest.quiet_after_seconds(), Some(300));
     assert_eq!(manifest.poke_limit(), Some(2));
-}
-
-/// The one that matters: the number a Job's next step is given moves.
-#[tokio::test(flavor = "multi_thread")]
-async fn an_edit_reaches_the_next_step_of_a_running_job() {
-    let repository = TempDir::new();
-    repository.write("armada.yml", PATIENT);
-    let file = repository.path().join("armada.yml");
-    let (manifest, reloads) = Manifest::reloadable(&file).expect("it loads");
-    let (told, mut readings) = mpsc::unbounded_channel();
-
-    // A Job whose step declares no patience of its own, which is what falls
-    // back to the Manifest tier — the tier `#430` says is live and was not.
-    let job = testkit::asking(
-        "make the suite pass",
-        "the reader drops a line",
-        &["it passes"],
-    );
-    let step = StepId::new("the-step");
-    // What the composition root is running with, and what a step boundary
-    // resolves against it. `fleet::Liveness::at` is the only place the order of
-    // the three tiers is written.
-    let constant = Liveness::of(Duration::from_secs(120), 2);
-    assert_eq!(
-        constant.at(&manifest, &job, &step).quiet_after(),
-        Duration::from_secs(300)
-    );
-
-    let _watching = watch_every(Arc::new(reloads), QUICK_POLL, QUICK_SETTLE, move |read| {
-        let _ = told.send(summarised(read));
-    })
-    .expect("a watch on a file that is there");
-
-    repository.write(
-        "armada.yml",
-        &PATIENT.replace("quiet_after_seconds: 300", "quiet_after_seconds: 45"),
-    );
-    next(&mut readings).await.expect("it parsed");
-
-    // Resolved again, as the next step boundary would. No restart, no second
-    // `Setup`, and the Job is the one that was already there.
-    assert_eq!(
-        constant.at(&manifest, &job, &step).quiet_after(),
-        Duration::from_secs(45)
-    );
-    assert_eq!(constant.at(&manifest, &job, &step).pokes(), 2);
 }
 
 /// `LoadError` is not `Clone` and a test does not need it to be: what a reading

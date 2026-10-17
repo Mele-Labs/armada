@@ -1,45 +1,14 @@
-// What the Phone Gateway sends the phone (crates/pocket/src/phone.rs, live.rs).
-// Hand-mirrored: the Gateway trims Fleet's Job to an allowlist, so this is not
-// `@armada/protocol`'s JobSummary and nothing here is generated.
+// What the Phone Gateway sends the phone (crates/pocket/src/phone_sessions.rs, live.rs).
+// Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
+// `@armada/protocol`'s SessionRecord and nothing here is generated.
 
-export type PhoneStep = { at: number; of: number; name: string };
-
-export type PhoneCheck = { name: string; passed: boolean };
-
-export type PhoneJob = {
-  id: string;
-  title: string;
-  repository?: string;
-  /** The status as Fleet spells it, e.g. `escalated`, `awaiting_review`. */
-  status: string;
-  /** Why it stopped: the escalation trigger's name. */
-  reason?: string;
-  /** A Drone is waiting on an answer. */
-  asking: boolean;
-  step?: PhoneStep;
-  /** RFC 3339 instants; the phone counts ages itself. */
-  created_at: string;
-  started_at?: string;
-  ended_at?: string;
-  waiting_since?: string;
-  verdict?: "pass" | "veto";
-  checks?: PhoneCheck[];
-  pull_request?: string;
-};
-
-/** GET /api/needs */
-export type NeedsBody = { needs: PhoneJob[]; sessions: PhoneSession[] };
-/** GET /api/jobs?state=running|done */
-export type JobsBody = { jobs: PhoneJob[] };
-/** GET /api/jobs/:id is a PhoneJob. */
+/** GET /api/needs: the live Sessions waiting on the owner, oldest wait first. */
+export type NeedsBody = { sessions: PhoneSession[] };
 
 /** One `data:` line of GET /api/live. `resync` means read the lists again. */
 export type LiveChange = {
-  change: "created" | "status" | "step" | "landed" | "forgotten" | "resync";
-  job_id?: string;
-  title?: string;
-  status?: string;
-  reason?: string;
+  change: "session" | "resync";
+  session_id?: string;
 };
 
 export type PhoneChoice = { label: string; description?: string };
@@ -67,11 +36,16 @@ export type PhoneSession = {
   repository?: string;
   kind: "hosted" | "terminal";
   waiting: boolean;
+  /** A turn is running. */
+  working: boolean;
+  /** RFC 3339 instants; the phone counts ages itself. */
+  started_at: string;
+  ended_at?: string;
   waiting_since?: string;
   ask?: PhoneAsk;
 };
 
-/** GET /api/sessions (live Sessions). */
+/** GET /api/sessions (live Sessions), or with `?state=ended` the ones that are over, newest first. */
 export type SessionsBody = { sessions: PhoneSession[] };
 
 /** One question's choice: the option labels, or the person's own words. */
@@ -91,14 +65,6 @@ export type AnswerBody = {
 /** GET /api/repositories: the labels `DispatchBody.repository` may be. */
 export type RepositoriesBody = string[];
 
-/** POST /api/jobs. 201 with the Jobs the text became; 400 for an unknown repository. */
+/** POST /api/sessions. 201 with the Session the text started; 400 for an unknown repository. */
 export type DispatchBody = { text: string; repository: string };
-export type DispatchedBody = { jobs: PhoneJob[] };
-
-/** POST /api/jobs/:id/approve | restart_step | kill | redispatch | approve_review.
- *  Every one answers 204, or Fleet's status with its sentence as text. */
-export type ActBody = Record<string, never>;
-/** POST /api/jobs/:id/redirect */
-export type RedirectBody = { text: string };
-/** POST /api/jobs/:id/request_changes */
-export type RequestChangesBody = { reason: string };
+export type DispatchedBody = { session: PhoneSession };

@@ -13,12 +13,8 @@
 //! step — but its push would be refused for the same reason, and it is
 //! stopped here with the reason instead of at a pull request that conflicts.
 
-use std::sync::Arc;
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
-use adapter_traits::{AgentHarness, BaseFetched, Delivery, Vcs, WorkProduct};
-use core_model::{Component, Envelope, FieldValue, JobId, Level};
-
-use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -31,47 +27,4 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Fetch `base` from the remote, in the repository `dir` is in.
-    ///
-    /// `Ok` is a base now current, or one with no remote copy to be stale
-    /// against. `Err` is a fetch that failed, already written to the Job's log
-    /// at `Warn`. **Callers hold `merge_end`**: two fetches of one tracking ref
-    /// can refuse each other.
-    pub(crate) async fn base_fetched(
-        &self,
-        job_id: &JobId,
-        dir: &str,
-        base: &str,
-    ) -> Result<(), Adrift> {
-        let (vcs, dir, owned_base) = (Arc::clone(self.vcs()), dir.to_string(), base.to_string());
-        // Off the runtime: a fetch is the network, and is bounded only by its
-        // own timeout. `#693`.
-        let fetched = tokio::task::spawn_blocking(move || vcs.fetch_base(&dir, &owned_base))
-            .await
-            .expect("git panicked fetching the base");
-        let BaseFetched::Failed { remote, said } = fetched else {
-            return Ok(());
-        };
-        let envelope = Envelope::new(
-            self.now(),
-            Level::Warn,
-            Component::Fleet,
-            self.run().clone(),
-            format!(
-                "the base `{base}` could not be fetched from `{remote}`, so the branch was not \
-                 brought up to date: merging a base this machine holds an old copy of would \
-                 leave the pull request conflicting"
-            ),
-        )
-        .in_job(job_id.as_ulid().clone())
-        .with_field("remote", FieldValue::Str(remote.clone()))
-        .with_field("base", FieldValue::Str(base.to_string()))
-        .with_field("cause", FieldValue::Str(said.clone()));
-        self.noted_in_the_log(job_id, &envelope);
-        Err(Adrift::NotDelivered {
-            job: job_id.clone(),
-            doing: "fetching the base from the remote",
-            said: format!("`{remote}/{base}`: {said}"),
-        })
-    }
 }

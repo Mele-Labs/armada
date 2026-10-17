@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { GuidanceProvider } from "../../guidance";
-import { GUIDE_GROUP_BOUNDARY, GUIDE_PROCESSES } from "../../guides";
+import { GUIDE_MERGE_LINE, GUIDE_PROCESSES } from "../../guides";
 import { GuideMark } from "./GuideMark";
 
 /**
@@ -31,10 +31,10 @@ type Story = StoryObj<typeof GuideMark>;
  * to ask what it means.
  */
 export const BesideALabel: Story = {
-  args: { guide: GUIDE_GROUP_BOUNDARY, onScreen: false },
+  args: { guide: GUIDE_MERGE_LINE, onScreen: false },
   render: (args) => (
     <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", margin: 0 }}>
-      <span>7 checks ran at this boundary</span>
+      <span>Ahead of the line</span>
       <GuideMark {...args} />
     </p>
   ),
@@ -45,7 +45,7 @@ export const BesideALabel: Story = {
  * puts that guide on screen, with its number and its title.
  */
 export const OpensItsCard: Story = {
-  args: { guide: GUIDE_GROUP_BOUNDARY, onScreen: false },
+  args: { guide: GUIDE_MERGE_LINE, onScreen: false },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const guide = args.guide;
@@ -75,7 +75,7 @@ export const OpensItsCard: Story = {
  * visit. Four cards in a row is the noise the mark exists to replace.
  */
 export const OnlyOneOpensItself: Story = {
-  args: { guide: GUIDE_GROUP_BOUNDARY },
+  args: { guide: GUIDE_MERGE_LINE },
   render: (args) => (
     <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", margin: 0 }}>
       <span>Two pieces, both new</span>
@@ -87,7 +87,7 @@ export const OnlyOneOpensItself: Story = {
     const body = within(document.body);
     await expect(body.getAllByRole("dialog")).toHaveLength(1);
     const first = body.getByRole("dialog", {
-      name: `Guide ${GUIDE_GROUP_BOUNDARY.number}, ${GUIDE_GROUP_BOUNDARY.title}`,
+      name: `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
     });
     await expect(first).toBeVisible();
 

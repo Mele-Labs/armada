@@ -15,7 +15,6 @@ import type {
   Followed,
   FrameRead,
   Outcome,
-  PilotOutcome,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
@@ -70,12 +69,6 @@ export type SessionsApi = {
   changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
   /** Starts a waiting Session now, whatever its condition. */
   startWaitingNow: (sessionId: string) => Promise<SessionActed>;
-  /**
-   * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
-   * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
-   * nothing changed.
-   */
-  pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
   /**
    * Starts a new Session as a copy of an ended or dead one's conversation. **Main names the repository
    * from the Session**, so the renderer sends the Session and nothing else.
@@ -242,7 +235,6 @@ export const SESSIONS_NOTHING_YET: SessionsState = {
 
 export const SESSIONS_CHANNELS = {
   startSession: "bridge:start-session",
-  pilotJob: "bridge:pilot-job",
   forkSession: "bridge:fork-session",
   forkSessionAt: "bridge:fork-session-at",
   exitPilot: "bridge:exit-pilot",

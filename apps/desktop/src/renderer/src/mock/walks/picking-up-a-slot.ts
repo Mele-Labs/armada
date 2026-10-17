@@ -1,8 +1,7 @@
-// A stranded slot's Finding gets a third act: Pick up stashes the work, frees the
-// slot and proposes a Job that continues from its branch. The proposal is a row
-// on the Board, as a dispatched request is, and waits at its gate.
+// A stranded slot's Finding gets a third act: Pick up stashes the work and frees the
+// slot. Fleet proposes a Job that continues from its branch; Bridge draws no Jobs, so none shows.
 
-import { deckRow, dialog, inside, place, role, viaPalette, walk } from "../walk";
+import { dialog, inside, role, viaPalette, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const TILE = (n: number) => inside(BAY(n), role("button", `slot-${n}`, { exact: true }));
@@ -18,6 +17,4 @@ export const pickingUpASlot = walk("cleanup/slots", [
   { press: IN_PANEL("Pick up"), say: "Picked up at once" },
   { look: inside(PANEL, role("status")), say: "The slot is free, and the commit is named in the panel" },
   { press: IN_PANEL("Close panel Esc"), say: "Close the panel" },
-  { press: place("Cockpit"), say: "Back to the Cockpit" },
-  { look: deckRow("Continue the work on branch fleet/an-old-try."), say: "The proposal is a row, titled with its request" },
 ]);

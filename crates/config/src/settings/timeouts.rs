@@ -24,7 +24,6 @@ pub const TURN_INTERVAL_MS: Integer = Integer("timeouts.turnIntervalMs");
 pub const BRIDGE_RECONNECT_MS: Integer = Integer("timeouts.bridgeReconnectMs");
 
 pub const RUN_LOG_DAYS: Integer = Integer("retention.runLogDays");
-pub const HELM_SESSION_DAYS: Integer = Integer("retention.helmSessionDays");
 
 pub(super) const TIMEOUTS: &[Entry] = &[
     // Provisional: a cold workspace build is minutes, and nothing has measured
@@ -304,21 +303,6 @@ pub(super) const RETENTION: &[Entry] = &[
         shipped: Shipped::Integer(30),
         applies: Applies::Live,
         row: Some("ad-hoc-run-log-retention"),
-        env: None,
-    },
-    Entry {
-        key: HELM_SESSION_DAYS.0,
-        section: Section::Retention,
-        title: "Closed Helm sessions",
-        description: "How long a closed Helm session is kept so it can be resumed.",
-        kind: Kind::Integer {
-            min: 1,
-            max: 365,
-            unit: "days",
-        },
-        shipped: Shipped::Integer(30),
-        applies: Applies::Live,
-        row: Some("helm-session-retention-expiry"),
         env: None,
     },
 ];

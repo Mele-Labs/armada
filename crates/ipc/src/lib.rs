@@ -381,12 +381,12 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, ReleaseSessionHolds,
     RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
     SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
+    StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -425,7 +425,7 @@ pub use manifest_proposal::{
 };
 pub use merge_hub::{
     CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
-    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub, PullRequestOwner,
 };
@@ -444,10 +444,7 @@ pub use territory::{
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
-pub use piloting::{
-    DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
-    TakeOver,
-};
+pub use piloting::{PilotNote, Piloted};
 pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
 pub use settings::{
     SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,

@@ -1,24 +1,14 @@
-//! The workflows a case is run against, and the two dials no fixture trips.
+//! The workflows a case is run against.
 //!
 //! **Through the parser, never built by hand.** Each fixture below is either a
 //! `testkit::Sketch` or the YAML a real `.armada/workflows/` file would hold,
 //! and both end at `ResolvedWorkflow::resolve` — a workflow no real file could
 //! have produced would prove nothing about the gate that reads it.
-//!
-//! **[`UNTRIPPABLE`] and [`NEVER_QUIET`] are out of reach on purpose.** A
-//! step's norms and a Drone's silence threshold are asserted by the two modules
-//! those belong to; everywhere else they must not fire, because a fixture Drone
-//! says nothing at all for the whole of a short run and a real one is allowed
-//! two minutes of it.
 
 use std::collections::BTreeMap;
-use std::time::Duration;
 
 use config::Manifest;
 use testkit::{Gate, Sketch};
-
-use crate::converging::StepNorms;
-use crate::silence::Liveness;
 
 /// Two steps: one gated on a non-empty diff, one gated on nothing.
 ///
@@ -48,169 +38,6 @@ pub(super) fn two_steps() -> config::ResolvedWorkflow {
     ])
 }
 
-/// The same two steps, with **neither of them sending the work out** — a
-/// workflow whose product is read rather than merged, which four of the eight
-/// shipped workflows are.
-///
-/// What it buys the cases that use it is a step boundary with no delivery on
-/// it. The delivering step is sent out as it is entered, and on a two-step
-/// fixture the one boundary there is *is* that entry — so a case about what a
-/// boundary does to a branch would otherwise be reading a commit, a push and a
-/// pull request out of the same delta.
-pub fn two_steps_delivering_nothing() -> config::ResolvedWorkflow {
-    testkit::delivering(
-        &[
-            Sketch {
-                id: "implement",
-                label: "Implement",
-                evidence_type: Some("diff"),
-                gates: &[Gate::DiffNonempty],
-                judged_on: &[],
-                scope: None,
-                gaming: None,
-            },
-            Sketch {
-                id: "summarise",
-                label: "Summarise",
-                evidence_type: Some("facts_note"),
-                gates: &[],
-                judged_on: &[],
-                scope: None,
-                gaming: None,
-            },
-        ],
-        None,
-    )
-}
-
-/// Two steps, each gated on a non-empty diff. What the boundary needs: a
-/// second step whose `diff_nonempty` can fail, which `two_steps` cannot express
-/// because its second step is gated on nothing.
-pub fn two_steps_both_gated_on_a_diff() -> config::ResolvedWorkflow {
-    testkit::resolved(&[
-        Sketch {
-            id: "implement",
-            label: "Implement",
-            evidence_type: Some("diff"),
-            gates: &[Gate::DiffNonempty],
-            judged_on: &[],
-            scope: None,
-            gaming: None,
-        },
-        Sketch {
-            id: "verify",
-            label: "Verify",
-            evidence_type: Some("diff"),
-            gates: &[Gate::DiffNonempty],
-            judged_on: &[],
-            scope: None,
-            gaming: None,
-        },
-    ])
-}
-
-/// The same two steps, with a person on the gate of the one named, and
-/// optionally one question to the Judge on that same step.
-///
-/// **Written as a file rather than through `testkit::Sketch`**, which fixes a
-/// step's gate from whether it declares a criterion and so cannot express a
-/// human gate at all. It goes through both parsers for the reason every other
-/// fixture does: a workflow a real `armada.yml` could not produce would prove
-/// nothing about the gate — and a human gate carrying a Judge is exactly the
-/// pairing the parser's agreement rule is asked about.
-/// `delivers` names the step that sends the work out, and `None` is a workflow
-/// that sends nothing — see [`two_steps_delivering_nothing`] for why a case
-/// about a boundary wants the second.
-pub fn two_steps_gated_on_a_person(
-    gate_on: &str,
-    question: Option<&str>,
-    delivers: Option<&str>,
-) -> config::ResolvedWorkflow {
-    two_steps_gated(gate_on, "human_always", question, delivers)
-}
-
-/// The same, with the gate word spelled by the caller.
-///
-/// **What it buys is the `manifest_rule:` pair**, which reaches the same place
-/// by resolution rather than by declaration. A case that asserted the two lead
-/// to one ruling would prove nothing if it built the workflow by hand, so the
-/// word goes through the parser exactly as `human_always` does.
-pub fn two_steps_gated_on_a_manifest_rule(
-    gate_on: &str,
-    key: &str,
-    delivers: Option<&str>,
-) -> config::ResolvedWorkflow {
-    two_steps_gated(gate_on, &format!("manifest_rule:{key}"), None, delivers)
-}
-
-/// The same, with a Judge criterion on the gated step.
-///
-/// **The pair the judgeless rule is about.** `manifest_rule:review_gate` is
-/// legal with a Judge and legal without one — `config`'s parser says so in as
-/// many words — and which of the two a step is decides what
-/// `auto_if_judge_passes` may do with it. Both shapes go through the parser so
-/// that neither is a workflow a real file could not produce.
-pub fn two_steps_gated_on_a_manifest_rule_judged(
-    gate_on: &str,
-    key: &str,
-    question: &str,
-) -> config::ResolvedWorkflow {
-    two_steps_gated(
-        gate_on,
-        &format!("manifest_rule:{key}"),
-        Some(question),
-        None,
-    )
-}
-
-fn two_steps_gated(
-    gate_on: &str,
-    gate_word: &str,
-    question: Option<&str>,
-    delivers: Option<&str>,
-) -> config::ResolvedWorkflow {
-    let gate = |step: &str| match step == gate_on {
-        true => gate_word,
-        false => "auto",
-    };
-    let judge = match question {
-        None => String::new(),
-        // **The check names no model**, and does not need to: what is under
-        // test is what a human gate does with a verdict, not which model
-        // produced it. It named one until `judge_checks[].model` came under
-        // the roster — a vendor's alias in a fixture here, where the roster
-        // offers nothing, and a spelling in `fleet` that gate rule six keeps
-        // inside `adapters`.
-        Some(question) => format!(
-            "    judge_checks:\n      - criteria:\n          - \
-             criterion_id: c1\n            question: {question}\n            \
-             on_refusal: refuse\n"
-        ),
-    };
-    let sends = |step: &str| delivers == Some(step);
-    let def = config::WorkflowDef::parse(
-        std::path::Path::new("fixture.yml"),
-        &format!(
-            "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
-             steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
-             mechanical_checks:\n      - type: diff_nonempty\n{judge}    \
-             delivers: {}\n    advance_gate: {}\n  - \
-             id: summarise\n    label: \"Summarise\"\n    evidence: {{submitted: {{type: facts_note}}}}\n    \
-             delivers: {}\n    advance_gate: {}\n",
-            sends("implement"),
-            gate("implement"),
-            sends("summarise"),
-            gate("summarise"),
-        ),
-        // The fixture names no model, so there is nothing for a roster to
-        // offer. See `config::Roster`.
-        &config::Roster::offering_nothing(),
-    )
-    .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
-    config::ResolvedWorkflow::resolve(&def, &manifest())
-        .unwrap_or_else(|refused| panic!("the fixture workflow did not resolve: {refused}"))
-}
-
 /// One workflow, keyed by its own id — what `fittings` holds when a case
 /// wants nothing more than the fixture.
 pub fn one(
@@ -221,53 +48,21 @@ pub fn one(
     held
 }
 
-/// A plan step and a step that follows it, through the parser — `#895`'s own
-/// shape, which `crate::tests::plan_tools` could not stand a Drone on before
-/// `config` could read `plan`, `plan_recorded` and `follows_plan`.
-pub fn plan_and_implement() -> config::ResolvedWorkflow {
-    let def = config::WorkflowDef::parse(
-        std::path::Path::new("fixture-plan.yml"),
-        "version: 1\nworkflow_id: fixture-plan\nname: fixture\n\
-         steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
-         evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
-         - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \
-         advance_gate: auto\n  - id: implement\n    label: \"Implement\"\n    \
-         follows_plan: true\n    evidence: {submitted: {type: diff}}\n    \
-         mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: true\n    \
-         advance_gate: auto\n",
-        &config::Roster::offering_nothing(),
-    )
-    .unwrap_or_else(|refused| panic!("the fixture plan workflow did not parse: {refused}"));
-    config::ResolvedWorkflow::resolve(&def, &manifest())
-        .unwrap_or_else(|refused| panic!("the fixture plan workflow did not resolve: {refused}"))
-}
-
 /// A one-step workflow with its own `workflow_id`, gated on nothing but the
 /// evidence arriving — for a case that needs two workflows Fleet can tell
 /// apart by id, and cannot tell apart by step id, since each step is named
 /// for the workflow that declares it.
 pub fn workflow_named(id: &str) -> config::ResolvedWorkflow {
-    workflow_named_and(id, false)
+    workflow_named_and(id)
 }
 
-/// The same, gated on a non-empty diff — for a case that needs a Check that
-/// can fail.
-pub fn workflow_named_gated_on_diff(id: &str) -> config::ResolvedWorkflow {
-    workflow_named_and(id, true)
-}
-
-fn workflow_named_and(id: &str, gated: bool) -> config::ResolvedWorkflow {
+fn workflow_named_and(id: &str) -> config::ResolvedWorkflow {
     let step_id = format!("only_in_{id}");
-    let mechanical = if gated {
-        "    mechanical_checks:\n      - type: diff_nonempty\n"
-    } else {
-        ""
-    };
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
             "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: \
-             {step_id}\n    label: \"{step_id}\"\n    evidence: {{submitted: {{type: diff}}}}\n{mechanical}    \
+             {step_id}\n    label: \"{step_id}\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
              delivers: true\n    advance_gate: auto\n"
         ),
         // The fixture names no model, so there is nothing for a roster to
@@ -292,110 +87,3 @@ pub fn manifest() -> Manifest {
     .expect("a manifest that parses")
 }
 
-/// A one-step workflow whose evidence is what it looks like, resolved
-/// against [`manifest`] — which declares no `evidence:` at all.
-///
-/// **This resolves.** `#778` is what makes it possible: a captured step no
-/// longer needs a Manifest that can capture it to be dispatched, and the
-/// gap is Fleet's to say something about when the step actually runs, not
-/// config's to refuse before it does.
-pub fn shown_step_with_no_harness() -> config::ResolvedWorkflow {
-    let def = config::WorkflowDef::parse(
-        std::path::Path::new("fixture-shown-bare.yml"),
-        r#"
-version: 1
-workflow_id: fixture-shown-bare
-name: fixture
-steps:
-  - id: show
-    label: "Show"
-    evidence:
-      submitted:
-        type: diff
-      captured: true
-    delivers: false
-    advance_gate: auto
-"#,
-        &config::Roster::offering_nothing(),
-    )
-    .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
-    config::ResolvedWorkflow::resolve(&def, &manifest()).unwrap_or_else(|refused| {
-        panic!("a captured step with no harness still resolves: {refused}")
-    })
-}
-
-/// A one-step workflow whose evidence is what it looks like, and the Manifest
-/// it resolves against — declaring `evidence:` with `run` and `frames` alone,
-/// the shape a repository with nothing to serve writes.
-///
-/// **Not built through [`Sketch`].** A harness section is not among the
-/// fields that helper writes, and this is the one fixture that needs one — so
-/// it is parsed here, through the same two real parsers, the way
-/// [`workflow_named_and`] already is for its own reason.
-///
-/// **The manifest is returned as well as the workflow**, because the two are
-/// separate parses of the same text: this one is what `ResolvedWorkflow`
-/// checks a captured step against, and the caller still has to plant a second
-/// copy on `Fittings::manifest`, which is what Fleet actually reads at
-/// runtime.
-///
-/// **`base` names a branch, or names none.** A fixture with a base declared
-/// and a matching ref on its `FakeVcs` is what makes "no base checkout was
-/// made" a claim the before-run code could have failed — `base_to_show_from`
-/// answers `NoBase::Unnamed` before ever asking `FakeVcs` for one otherwise,
-/// which would pass whether or not the caller that used to reach it still did.
-pub fn shown_step(
-    run: &str,
-    frames: &str,
-    base: Option<&str>,
-) -> (config::ResolvedWorkflow, Manifest) {
-    let def = config::WorkflowDef::parse(
-        std::path::Path::new("fixture-shown.yml"),
-        r#"
-version: 1
-workflow_id: fixture-shown
-name: fixture
-steps:
-  - id: show
-    label: "Show"
-    evidence:
-      submitted:
-        type: diff
-      captured: true
-    delivers: false
-    advance_gate: auto
-"#,
-        &config::Roster::offering_nothing(),
-    )
-    .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
-    let base_line = base
-        .map(|name| format!("base: {name}\n"))
-        .unwrap_or_default();
-    let armada_yml = Manifest::parse(
-        std::path::Path::new("fixture-shown-armada.yml"),
-        &format!(
-            "version: 1\nid: 01FIXTUREMANIFEST\n{base_line}evidence:\n  run: {run} {{}}\n  frames: {frames}\n"
-        ),
-    )
-    .unwrap_or_else(|refused| panic!("the fixture manifest did not parse: {refused}"));
-    let resolved = config::ResolvedWorkflow::resolve(&def, &armada_yml)
-        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"));
-    (resolved, armada_yml)
-}
-
-/// Norms no fixture trips. A step's turn count and its wall clock are put out
-/// of reach, so every test but `converging`'s own behaves exactly as it did
-/// before the chain existed, and the forced report the grace bounds is never
-/// asked for.
-///
-/// **The grace is nought, for the one other reader it has**: a task's Drone
-/// is let come to rest after its hand-in for that long, and a fixture Drone
-/// never comes to rest. Nought replaces it on the turn after its hand-in, as
-/// before Fleet waited; `crate::tests::coming_to_rest` plants a grace.
-pub const UNTRIPPABLE: StepNorms =
-    StepNorms::of(u32::MAX, Duration::from_secs(86_400), Duration::ZERO);
-
-/// A silence threshold no fixture reaches, for the same reason: every test but
-/// `silence`'s own has a Drone that says nothing for the whole of a short run,
-/// which is what a real one does for two minutes and no test can wait for.
-pub const NEVER_QUIET: Liveness = Liveness::of(Duration::from_secs(86_400), 2);

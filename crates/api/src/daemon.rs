@@ -27,14 +27,12 @@
 mod accounts;
 mod admitting;
 mod authoring;
-mod commander;
 mod commands;
 mod conversing;
 mod hosted_sessions;
 mod issues;
 mod mods;
 mod needs;
-mod piloting;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -43,11 +41,9 @@ mod retros;
 mod sessions;
 mod settings;
 mod studios;
-mod tools;
 
 pub use accounts::Accounts;
-pub use admitting::{offerable, offerable_to_a_commander, Admitting, HelmReach, Redirector, Steerer};
-pub use commander::{CommanderReach, ALLOWED as COMMANDER_ALLOWED};
+pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
@@ -55,16 +51,14 @@ pub use hosted_sessions::{HostedSessions, StoredFile};
 pub use issues::{Autopilots, Issues};
 pub use mods::Mods;
 pub use needs::Needs;
-pub use piloting::Piloting;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
-pub use queries::{FramePart, FrameSpan, Queries};
+pub use queries::Queries;
 pub use rehearsing::Rehearsing;
 pub use retros::Retros;
 pub use sessions::Sessions;
 pub use settings::Settings;
 pub use studios::Studios;
-pub use tools::{PermissionAnswer, Tools};
 
 use ipc::WireError;
 
@@ -106,7 +100,6 @@ use ipc::WireError;
 pub trait Daemon:
     Queries
     + Commands
-    + Tools
     + Conversations
     + Admitting
     + Studios
@@ -119,7 +112,6 @@ pub trait Daemon:
     + PullRequestPanel
     + Issues
     + Autopilots
-    + Piloting
     + Rehearsing
     + Mods
     + Settings
@@ -130,7 +122,6 @@ pub trait Daemon:
 impl<
         D: Queries
             + Commands
-            + Tools
             + Conversations
             + Admitting
             + Studios
@@ -143,7 +134,6 @@ impl<
             + PullRequestPanel
             + Issues
             + Autopilots
-            + Piloting
             + Rehearsing
             + Mods
             + Settings

@@ -4,7 +4,7 @@
 // lands, so the waiting Session starts with the handoff as its first message. The Sessions are draft data
 // (`packages/screens/src/draft/sessions.ts`), nothing here reaches Fleet. The walk `sessionAfterAnother` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { asRow, holding, servedFrom } from "../holding";
@@ -67,9 +67,9 @@ const quiet: Session = {
   attachments: [{ kind: "branch", name: "fix/migration-names", slot: 2 }],
 };
 
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [map, quiet], [], new Map([[ROOT, OWNER]]));
+  const base = sessionsStore([none, none], none, control, [], [map, quiet], [], new Map([[ROOT, OWNER]]));
   let rowId = 0;
   let moment = 0;
   const said = (text: string): SessionRow => ({ id: `after-r${(rowId += 1)}`, at: `14:${String(10 + rowId).padStart(2, "0")}:00`, kind: "message", from: { kind: "agent" }, text });

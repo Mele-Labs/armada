@@ -31,7 +31,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::{BranchGone, BranchRefused, Reclaimed, UnmergedWork};
 use api::Refusal;
-use core_model::{Component, Envelope, FieldValue, JobId, JobStatus, Level};
+use core_model::{Actor, Component, Envelope, FieldValue, Job, JobId, JobStatus, Level, Target};
 
 use crate::adrift::Adrift;
 use crate::budget::budgeted_for;
@@ -102,6 +102,73 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The branch this Job's work landed in: the one a person chose, or the Manifest's base, which
+    /// the adapter infers where it names none.
+    pub(crate) async fn target_of(
+        &self,
+        served: &crate::repositories::Served,
+        job_id: &JobId,
+    ) -> Option<String> {
+        let landing = self.store().lock().await.landing(job_id).ok().flatten();
+        match landing.and_then(|landing| landing.target) {
+            Some(target) => Some(target.as_str().to_string()),
+            None => served.manifest().base().map(str::to_string),
+        }
+    }
+
+    /// End a Job at `killed`. Terminal, and carrying no verdict.
+    ///
+    /// **Only a record to close now.** Jobs are no longer worked, so a Job still in flight is one
+    /// an earlier Fleet left behind, and there is no Drone to stand down: this moves the record
+    /// and gives back what it held.
+    pub async fn kill_job(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        let job = self.load(job_id).await?;
+        let (by, via) = crate::retro::signed(Actor::Human);
+        let moved = job
+            .transition(Target::Killed, by, self.now())
+            .map_err(Adrift::IllegalMove)?;
+        {
+            let mut store = self.store().lock().await;
+            let seq = store.record_transition(&moved).map_err(Adrift::Writing)?;
+            crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
+        }
+        self.worktrees_memory().changed();
+        self.stopped_servers_of(moved.job.id()).await;
+        self.released_ports(&moved.job).await;
+        self.slot_at_the_end(&moved.job).await;
+        self.publish(ipc::Event::JobStateChanged((&moved.event).into()));
+        Ok(moved.job)
+    }
+
+    /// Delete the Job's whole record. **Real deletion**, through `Store::forget_job`, and only
+    /// from a terminal status: a Job still in flight has no record to erase, only a status to
+    /// move, and [`kill_job`](Fleet::kill_job) is the act that ends one.
+    ///
+    /// **It does not reclaim the worktree or the branch.** `armada clean` already owns that, on
+    /// its own retention schedule; folding it in here would give one call two unrelated things
+    /// to fail at.
+    pub async fn forget_job(&self, job_id: &JobId) -> Result<(), Adrift> {
+        let job = self.load(job_id).await?;
+        if !job.status().is_terminal() {
+            return Err(Adrift::NotForgettable {
+                job: job_id.clone(),
+                status: job.status(),
+            });
+        }
+        // Before the record goes: a lease held for a Job nobody can name again would never be
+        // given back. Refused, it reads `kept` in `--status`.
+        self.released_or_saved(&job).await;
+        self.store()
+            .lock()
+            .await
+            .forget_job(job_id)
+            .map_err(Adrift::Writing)?;
+        self.publish(ipc::Event::JobForgotten(ipc::JobForgotten {
+            job_id: job_id.into(),
+        }));
+        Ok(())
+    }
+
     /// Remove this Job's checkout, then delete the branch it derived.
     ///
     /// **The record survives, marked rather than untouched.** The Job is

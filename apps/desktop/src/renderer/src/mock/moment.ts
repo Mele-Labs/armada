@@ -6,7 +6,6 @@
 
 import { connected as connectedOver, onBoard as onBoardOver, unanswered } from "@armada/bridge-api";
 import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@armada/bridge-api";
-import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -15,8 +14,6 @@ import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncIte
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
 import type { BayHistory } from "@armada/protocol";
-import type { CommanderStore } from "./commander-fleet";
-import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -25,16 +22,13 @@ import type { BridgeState } from "../../../shared/bridge";
 
 export { unanswered };
 
-/** One moment: what is published before anything is opened, and the reads behind each Job. */
 /**
- * What a moment holds that Fleet cannot serve yet: the Arc milestone's draft, and Sessions.
+ * What a moment holds that Fleet cannot serve yet: Sessions, and the mock-only reads below.
  * **Sessions are built per window** (a factory), because a Session's turns are time in this window.
+ * `more` is Sessions open beside the usual ones, for a scenario that wants others.
  */
-/** `more` is Sessions open beside the usual ones, for a scenario that wants others. */
-export type MockDraft = ArcDraft & {
+export type MockDraft = {
   sessions?: (board: BoardControl, more?: readonly Session[]) => SessionsStore;
-  /** A Job's Commander, built per window over its Fleet: its thread, and what it changes on the Job. */
-  commanding?: (fleet: Fleet) => CommanderStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */

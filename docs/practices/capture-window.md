@@ -364,8 +364,7 @@ this window, and that is another security review. `#1294`.
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
-> a Session as `window_failed`, which Fleet passes on as its own notice, and a
-> Job as `walk_failed`, which wakes its Commander. A load that failed, an HTTP
+> a Session as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
 > status of 400 or more on the page, or the page's process gone counts, and so
 > does a loaded page that shows Vite's error overlay or draws nothing two looks
 > running. Main looks every two seconds, never while the page is still
@@ -439,7 +438,7 @@ nothing draws the card without an outline.
 
 A page may be a walk in two ways: a mock that plays its own, or a page of any repository that a Session
 gave `steps`. **A mock plays its own** with `WalkPlayer`: steps, a ringed target and a card. When the
-page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/surfaces/jobs/src/fake/walk-window.tsx`),
+page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/screens/src/fixtures/walk-window.tsx`),
 the bar draws the walk's controls in a row of its own, and Back, Next, Autoplay and Replay act on the
 page from there. **A page given steps plays none of it**: Bridge does, below, and a window that carries
 steps does not look for the handle at all. The owner approved the mock, walk `walk-in-the-window`. This is what that adds to the

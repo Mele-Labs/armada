@@ -172,7 +172,7 @@ async fn fifty_live_sessions_with_long_ledgers_reach_an_agent_whole() {
     }
     assert!(!said.contains("session-50\""), "an ended Session was listed unasked");
     assert!(said.contains("\"pull_requests\":[{\"number\":2000,\"title\":\"Change number 0\""));
-    assert!(said.contains("\"jobs\":[\"01JOB0000\"]") && said.contains("\"branch\":\"work/session-0\""));
+    assert!(said.contains("\"branch\":\"work/session-0\""));
     assert!(!said.contains("What this changes"), "a pull request's body reached the agent");
     assert_eq!(*daemon.sessions_asked.lock().expect("asked"), [Some(SessionState::Live)]);
 }

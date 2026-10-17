@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
-use crate::gate::CheckBudget;
+use crate::CheckBudget;
 use crate::tests::daemon::fittings;
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;

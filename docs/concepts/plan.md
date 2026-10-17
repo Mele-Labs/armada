@@ -64,10 +64,10 @@ itself. Epic plans too and asks nothing, because its steps that follow the
 plan are handed no `reference_docs` and a task there is a dispatched Job.
 
 **Every change records who made it** — a step, a person, Helm acting for
-one, or the Job's Commander — and **every change is an appended row**. The
+one — and **every change is an appended row**. The
 current list is derived; history is never overwritten. **Who made it is the
 caller Fleet placed by its connection**, never a field in the request: Bridge is
-a person, a Helm session's door is Helm, and a Commander's is the Commander.
+a person, and a Helm session's door is Helm.
 A task wears the hand of whoever last added, edited, moved, dropped or
 reopened it, where that was not a step (`PlanTask.by`); a task only steps have
 touched wears none.
@@ -80,7 +80,7 @@ touched wears none.
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
 | A step declaring `drone_per_task: true` | Nothing, by its Drones. Fleet marks each task from its Drone, as below, and the step's Drones are given no plan tool even beside `follows_plan` |
 | A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, by the one it comes after (`move_plan`, #1685), never a task still working or handed in. Restart a failed task (`restart_task`, #1656). Edit an open or failed task's title, note, scope, expects or model (`edit_task`, #1657) |
-| Helm, or a Job's Commander | The same acts as a person, through the same route and the same refusals, **signed as their own**. A task still working is not moved, a settled one is not dropped, and a blank title is not accepted, for any of the three. The Commander has no act a person lacks |
+| Helm | The same acts as a person, through the same route and the same refusals, **signed as its own**. A task still working is not moved, a settled one is not dropped, and a blank title is not accepted, for either |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind
@@ -112,9 +112,9 @@ them is still on the branch, so the plan does not reset with the step.
 
 **`failed` is a task whose group's Checks were still red when the step's retries ran out** (answer 9). It is not `open`, not `working`, not `done` and not `dropped`. Restart this task puts a Drone on it again, and a green gate over its group is what clears it.
 
-**A re-run that passes clears it too** (4 Oct 2026, Job 3). Run Checks again (#1105) takes no group's gate through `done`, so after one the failed tasks stayed `failed` with the red run's reason, and the Judge read them beside Checks that had passed, refused `the_evidence_accounts_for_itself`, and stopped the step again. A green ruling on a re-run now marks the failed tasks of the group it ruled on `done` and drops the reason, before the step moves. A task failed in another group is left alone. **The Drone's `shown` is kept as it wrote it**; the Judge's brief carries a line after the plan naming the settled tasks and saying each `shown` was written before the re-run. `crates/fleet/src/rerun_settles.rs`. A re-run that is still red changes nothing.
+**A re-run that passes clears it too** (4 Oct 2026, Job 3). Run Checks again (#1105) takes no group's gate through `done`, so after one the failed tasks stayed `failed` with the red run's reason, and the Judge read them beside Checks that had passed, refused `the_evidence_accounts_for_itself`, and stopped the step again. A green ruling on a re-run now marks the failed tasks of the group it ruled on `done` and drops the reason, before the step moves. A task failed in another group is left alone. **The Drone's `shown` is kept as it wrote it**; the Judge's brief carries a line after the plan naming the settled tasks and saying each `shown` was written before the re-run. The `rerun_settles` module (deleted since). A re-run that is still red changes nothing.
 
-**A re-run that passes closes the group and starts the next** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792). The pass used to advance the step whatever the plan still owed, so with two groups and G1 red to the end of its retries, a press that went green moved on and G2 never ran. A green re-run now does what the group's own gate does: G1's run is closed `passed`, with its one commit where a group follows, and where a group follows the step stays `running` and the Job is queued, so admission puts a Drone on G2's first task. The step advances only when no group is left, which is the single-group case as before. The Judge has already ruled on G1 by then; it is not asked again before G2. `crates/fleet/src/rechecking.rs`, `grouping.rs` (`group_closed`).
+**A re-run that passes closes the group and starts the next** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792). The pass used to advance the step whatever the plan still owed, so with two groups and G1 red to the end of its retries, a press that went green moved on and G2 never ran. A green re-run now does what the group's own gate does: G1's run is closed `passed`, with its one commit where a group follows, and where a group follows the step stays `running` and the Job is queued, so admission puts a Drone on G2's first task. The step advances only when no group is left, which is the single-group case as before. The Judge has already ruled on G1 by then; it is not asked again before G2. The `rechecking` module (deleted since), `grouping.rs` (`group_closed`).
 
 **Neither is a Drone's or a person's to set.** `update_task` refuses both, because Fleet marks them from a hand-in and from a group's Checks.
 

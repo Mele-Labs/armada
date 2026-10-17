@@ -1,4 +1,4 @@
-// The directories a Session or a Job is changing, as the deck's battlefield places a drone over them: read from what
+// The directories a Session is changing, as the deck's battlefield places a drone over them: read from what
 // Fleet observed, never from a table. Edits come from `session.edited` bursts (their `items`, paths newest first),
 // rolled up to the two-level areas a repository is drawn in; a clash comes from the write-clash read and marks the
 // areas of the paths it names.
@@ -7,7 +7,7 @@ import type { SlotTouches, TimelineEvent, WriteClash } from "@armada/protocol";
 import { expect, test } from "vitest";
 
 import { areaOf, relativeTo } from "./areas";
-import { clashesOf, touchesFromEvents, touchesOf, touchesOfFootprint, touchesOfSlots } from "./touches";
+import { clashesOf, touchesFromEvents, touchesOf, touchesOfSlots } from "./touches";
 
 const SLOT = "/Users/user/Development/armada/.armada/slots/slot-3";
 
@@ -17,10 +17,9 @@ const burst = (kind: TimelineEvent["kind"], subject: TimelineEvent["subject"], i
   return { id: count, at: new Date(Date.parse("2026-10-14T12:00:00Z") - minutes * 60_000).toISOString(), kind, subject, tone: "run", says: `Edited ${items?.length ?? 0} files`, ...(items === undefined ? {} : { detail: items[0], items }), live: true };
 };
 const session = (id: string) => ({ kind: "session", id }) as const;
-const job = (id: string) => ({ kind: "job", id }) as const;
 
 const sources = {
-  keyOf: (event: TimelineEvent) => (event.subject.kind === "session" || event.subject.kind === "job" ? `${event.subject.kind}:${event.subject.id}` : undefined),
+  keyOf: (event: TimelineEvent) => (event.subject.kind === "session" ? `session:${event.subject.id}` : undefined),
   rootsOf: () => [SLOT],
 };
 
@@ -68,28 +67,18 @@ test("a burst that kept no items touches nothing, and only the newest 25 of one 
   expect(touched.get("session:s2")).toEqual([{ path: "crates/fleet", w: 25 }]);
 });
 
-test("a Job's edit event names one file, which is a touch; its footprint names them all", () => {
-  const files = burst("job.files", job("j1"), undefined);
-  const named = { ...files, detail: `${SLOT}/packages/protocol/src/x.ts` };
-  expect(touchesFromEvents([named], sources).get("job:j1")).toEqual([{ path: "packages/protocol", w: 1 }]);
-  expect(touchesOfFootprint([{ path: "crates/ipc/src/a.rs" }, { path: "crates/ipc/src/b.rs" }, { path: "docs/x.md" }, { path: "README.md" }])).toEqual([
-    { path: "crates/ipc", w: 2 },
-    { path: "docs", w: 1 },
-  ]);
-});
-
 const clash = (one: WriteClash["one"], other: WriteClash["other"], paths: string[]): WriteClash => ({ one, other, paths, since: "2026-10-14T11:00:00Z" });
-const holder = (kind: "job" | "session" | "main", id: string) => ({ kind, id, label: id });
+const holder = (kind: "session" | "main", id: string) => ({ kind, id, label: id });
 
 test("a write clash marks the areas of the paths it names, for both holders", () => {
-  const found = clashesOf([clash(holder("session", "s1"), holder("job", "j1"), ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md"])], {
+  const found = clashesOf([clash(holder("session", "s1"), holder("session", "s2"), ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md"])], {
     keyOf: (kind, id) => (kind === "main" ? undefined : `${kind}:${id}`),
     rootOf: () => "/Users/user/armada",
   });
 
   expect(found).toEqual([
-    { path: "crates/fleet", root: "/Users/user/armada", keys: ["session:s1", "job:j1"] },
-    { path: "docs", root: "/Users/user/armada", keys: ["session:s1", "job:j1"] },
+    { path: "crates/fleet", root: "/Users/user/armada", keys: ["session:s1", "session:s2"] },
+    { path: "docs", root: "/Users/user/armada", keys: ["session:s1", "session:s2"] },
   ]);
 });
 
@@ -98,36 +87,36 @@ test("a clash against main marks the agent's areas alone, and a holder the ship 
   const sources = { keyOf: (kind: string, id: string) => (known.has(`${kind}:${id}`) ? `${kind}:${id}` : undefined), rootOf: () => "/r" };
 
   expect(clashesOf([clash(holder("session", "s1"), holder("main", "main"), ["apps/desktop/a.ts"])], sources)).toEqual([{ path: "apps/desktop", root: "/r", keys: ["session:s1"] }]);
-  expect(clashesOf([clash(holder("job", "gone"), holder("session", "gone2"), ["apps/desktop/a.ts"])], sources)).toEqual([]);
+  expect(clashesOf([clash(holder("session", "gone"), holder("session", "gone2"), ["apps/desktop/a.ts"])], sources)).toEqual([]);
 });
 
-const held = (kind: "job" | "session", id: string, paths: string[], slot = 1) => ({ kind, id, slot, paths, omitted: 0 });
+const held = (kind: "session", id: string, paths: string[], slot = 1) => ({ kind, id, slot, paths, omitted: 0 });
 
 test("a holder's changed paths in its slot are touches by its key, rolled up to areas", () => {
   const read: SlotTouches = {
     repositories: [
-      { manifest_id: "armada", holders: [held("job", "j1", ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md", "README.md"]), held("session", "s1", ["apps/desktop/a.ts"], 2)] },
-      { manifest_id: "pocket", holders: [held("job", "j9", ["src/ui/a.ts"], 1)] },
+      { manifest_id: "armada", holders: [held("session", "s2", ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md", "README.md"]), held("session", "s1", ["apps/desktop/a.ts"], 2)] },
+      { manifest_id: "pocket", holders: [held("session", "s9", ["src/ui/a.ts"], 1)] },
     ],
   };
 
   const touched = touchesOfSlots(read);
 
-  expect(touched.get("job:j1")).toEqual([{ path: "crates/fleet", w: 2 }, { path: "docs", w: 1 }]);
+  expect(touched.get("session:s2")).toEqual([{ path: "crates/fleet", w: 2 }, { path: "docs", w: 1 }]);
   expect(touched.get("session:s1")).toEqual([{ path: "apps/desktop", w: 1 }]);
-  expect(touched.get("job:j9")).toEqual([{ path: "src/ui", w: 1 }]);
+  expect(touched.get("session:s9")).toEqual([{ path: "src/ui", w: 1 }]);
 });
 
 test("a holder whose changes are all at the top of the repository, and an empty answer, touch nothing", () => {
-  expect(touchesOfSlots({ repositories: [{ manifest_id: "armada", holders: [held("job", "j1", ["Cargo.toml"])] }] }).size).toBe(0);
+  expect(touchesOfSlots({ repositories: [{ manifest_id: "armada", holders: [held("session", "s2", ["Cargo.toml"])] }] }).size).toBe(0);
   expect(touchesOfSlots({ repositories: [] }).size).toBe(0);
 });
 
 test("what a tool burst placed wins, Fleet's read of the slot is the last resort, and a drone in neither rests", () => {
   const observed = new Map([["session:s1", [{ path: "docs", w: 1 }]]]);
-  const slotted = new Map([["session:s1", [{ path: "crates/fleet", w: 9 }]], ["job:j1", [{ path: "crates/ipc", w: 2 }]]]);
+  const slotted = new Map([["session:s1", [{ path: "crates/fleet", w: 9 }]], ["session:s2", [{ path: "crates/ipc", w: 2 }]]]);
 
   expect(touchesOf("session:s1", observed, slotted)).toEqual([{ path: "docs", w: 1 }]);
-  expect(touchesOf("job:j1", observed, slotted)).toEqual([{ path: "crates/ipc", w: 2 }]);
-  expect(touchesOf("job:j2", observed, slotted)).toEqual([]);
+  expect(touchesOf("session:s2", observed, slotted)).toEqual([{ path: "crates/ipc", w: 2 }]);
+  expect(touchesOf("session:s3", observed, slotted)).toEqual([]);
 });

@@ -67,8 +67,8 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
     }
 }
 
-/// **The line says what is held now.** A merged pull request, a slot given back and a Job
-/// that has finished are the ledger's history, which `get_session` reads.
+/// **The line says what is held now.** A merged pull request and a slot given back are the
+/// ledger's history, which `get_session` reads.
 #[test]
 fn a_summary_holds_what_is_standing_and_none_of_the_history() {
     let record = session(vec![
@@ -82,8 +82,6 @@ fn a_summary_holds_what_is_standing_and_none_of_the_history() {
             AttachmentState::Standing,
             &[("title", "Say main is red"), ("state", "open"), ("body", "x".repeat(5_000).as_str())],
         ),
-        held("job", "01JOBLIVE", AttachmentState::Standing, &[]),
-        held("job", "01JOBDONE", AttachmentState::Spent, &[]),
         held("subagent", "a1", AttachmentState::Standing, &[]),
     ]);
     let line = &SessionSummaries::of(&SessionList { sessions: vec![record] }).sessions[0];
@@ -93,7 +91,6 @@ fn a_summary_holds_what_is_standing_and_none_of_the_history() {
     assert_eq!(line.pull_requests[0].number, 2230);
     assert_eq!(line.pull_requests[0].title, "Say main is red");
     assert_eq!(line.pull_requests[0].state.as_deref(), Some("open"));
-    assert_eq!(line.jobs, ["01JOBLIVE"]);
     assert_eq!(line.turn, None, "a terminal Session reports no turn start");
     let wire = encode(line).expect("a summary encodes");
     assert!(!wire.contains("xxxx"), "a pull request's body reached the line: {wire}");
@@ -110,6 +107,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         mode: SessionMode::Auto,
         running: true,
         commands: Vec::new(),
+        paused: None,
     };
     let mut record = session(Vec::new());
     record.origin = SessionOrigin::Bridge;

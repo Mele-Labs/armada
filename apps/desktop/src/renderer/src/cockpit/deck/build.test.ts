@@ -1,10 +1,9 @@
-// What a ring is read from: a Session's `build` as Fleet carries it, a Job's plan tasks, and the quiet that dims what is unfinished.
+// What a ring is read from: a Session's `build` as Fleet carries it, and the quiet that dims what is unfinished.
 
-import type { JobDetail, SessionBuild, TimelineEvent } from "@armada/protocol";
-import { workingAPlan } from "@armada/jobs/fixtures/build/index";
+import type { SessionBuild, TimelineEvent } from "@armada/protocol";
 import { expect, test } from "vitest";
 
-import { PHASE_GLYPH, askedOf, groupedTasks, seatOf, seatedWorkers, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
+import { PHASE_GLYPH, askedOf, groupedTasks, seatOf, seatedWorkers, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
 
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -53,9 +52,8 @@ test("the road is drawn in any phase once it has a stop, lit where reached and f
   for (const phase of ["scope", "plan", "implement", "road", "landed"] as const) expect(roadOf(buildInOf("s1", { ...record, phase }, NOW))).toHaveLength(4);
 });
 
-test("a ring with no stop and no landing has no road, as a Job's has none", () => {
+test("a ring with no stop and no landing has no road", () => {
   expect(roadOf(buildInOf("s1", build({ phase: "implement" }), NOW))).toBeUndefined();
-  expect(roadOf(jobBuildOf(jobWith(["working"]), "job:j1", NOW)!)).toBeUndefined();
   expect(roadOf(buildInOf("s1", build({ phase: "landed", landed_at: ago(1) }), NOW))).toHaveLength(1);
 });
 
@@ -109,34 +107,6 @@ test("a Session dims by how long ago Fleet last saw it work, only while it is st
 test("a stall is never read as younger than the stall itself, and with no instant held it is as old as the stall", () => {
   expect(stallOf({ stalled: true, quiet_since: ago(2) }, NOW).quiet).toBe(STALL_MIN);
   expect(stallOf({ stalled: true }, NOW)).toEqual({ stalled: true, quiet: STALL_MIN, dim: dimOf(STALL_MIN) });
-});
-
-const jobWith = (states: string[]): JobDetail => {
-  const fixture = workingAPlan();
-  if (fixture.watched.state !== "read" || fixture.watched.detail.work_plan === undefined) throw new Error("the fixture holds no plan");
-  const detail = fixture.watched.detail;
-  return { ...detail, work_plan: { ...detail.work_plan, tasks: states.map((state, i) => ({ id: `T${i}`, title: `Task ${i}`, state })) } } as JobDetail;
-};
-
-test("a Job's tasks are its pieces by state: done solid, handed in hollow, working scaffold, open or failed ghost, dropped none", () => {
-  const read = jobBuildOf(jobWith(["done", "handed_in", "working", "open", "failed", "dropped"]), "job:j1", NOW);
-  expect(read?.tasks.map((one) => [one.text, one.piece, one.said])).toEqual([
-    ["Task 0", "solid", "Done"],
-    ["Task 1", "hollow", "Handed in"],
-    ["Task 2", "scaffold", "Working"],
-    ["Task 3", "ghost", "Open"],
-    ["Task 4", "ghost", "Failed"],
-  ]);
-  expect(read?.key).toBe("job:j1");
-  expect(read?.stops).toEqual([]);
-});
-
-test("a Job with no live task has no ring, and its row has no phase", () => {
-  expect(jobBuildOf(jobWith([]), "job:j1", NOW)).toBeUndefined();
-  expect(jobBuildOf(jobWith(["dropped"]), "job:j1", NOW)).toBeUndefined();
-  expect(jobPhaseOf(undefined)).toBeUndefined();
-  expect(jobPhaseOf({ done: 0, working: 0, open: 0, dropped: 2 })).toBeUndefined();
-  expect(jobPhaseOf({ done: 1, working: 0, open: 0, dropped: 0 })).toBe("implement");
 });
 
 test("a piece a subagent wrote carries its worker's label, kept when the subagent has ended, and one the Session wrote carries none", () => {

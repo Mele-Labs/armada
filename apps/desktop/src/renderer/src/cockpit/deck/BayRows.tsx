@@ -1,9 +1,9 @@
 // The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
 // holds it, and the facts behind the state, each with its tooltip, grouped under a heading for each repository. A bay and the row of
-// the Job or Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
+// the Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, Box, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button, Inspect, Tooltip } from "@armada/components";
 import type { Outcome } from "@armada/protocol";
@@ -12,9 +12,9 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
-import { clockOf, holderKeyOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
+import { clockOf, holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
 
-export const kindGlyph = (kind: Holder["kind"], size = 12) => (kind === "job" ? <Box size={size} aria-hidden /> : <SquareTerminal size={size} aria-hidden />);
+export const kindGlyph = (size = 12) => <SquareTerminal size={size} aria-hidden />;
 
 /** A glyph with its tooltip, which is also its name. */
 function Mark({ said, children }: { said: string; children: ReactNode }) {
@@ -103,7 +103,7 @@ function Marks({ view }: { view: BayView }) {
         </Mark>
       )}
       {last === undefined || last.open ? null : (
-        <Mark said={last.kind === "job" ? "Job ended" : "Session closed"}>
+        <Mark said="Session closed">
           <Unplug size={12} aria-hidden />
         </Mark>
       )}
@@ -124,7 +124,7 @@ function Warmth({ view }: { view: BayView }) {
 
 /** The kind of whoever holds a leased bay. */
 function Kind({ view }: { view: BayView }) {
-  return view.state === "leased" && view.holder !== undefined ? <Mark said={view.holder.kind === "job" ? "Job" : "Session"}>{kindGlyph(view.holder.kind)}</Mark> : null;
+  return view.state === "leased" && view.holder !== undefined ? <Mark said="Session">{kindGlyph()}</Mark> : null;
 }
 
 /** The state as a glyph, its word in the tooltip. */
@@ -245,7 +245,6 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
                         type="button"
                         className="deck-bay"
                         data-bay={view.state}
-                        data-kept={view.kept !== undefined || undefined}
                         data-live={live || undefined}
                         data-hover={(holder !== undefined && holder === hovered) || undefined}
                         data-selected={selected === view.key || undefined}

@@ -3,7 +3,7 @@
 //! Split from the transport beside it because they are two things: [`mod@super`]
 //! reads JSON-RPC and decides what is answered, and this decides what a tool
 //! takes. **A tool with nothing to share lives beside this file** —
-//! [`dispatch`](mod@super::dispatch) and [`ask`](mod@super::ask) both do — so
+//! [`ask`](mod@super::ask) does — so
 //! what stays is [`closed`], [`text`] and [`list`], and a sixth tool is a new
 //! file plus about six lines here.
 //!
@@ -41,7 +41,6 @@ use serde_json::{json, Map, Value};
 use super::ask::{
     ASK_FIELDS, ASK_TOOL, FEWEST_DECISIONS, FEWEST_OPTIONS, MOST_DECISIONS, MOST_OPTIONS,
 };
-use super::dispatch::{DISPATCH_FIELDS, DISPATCH_TOOL};
 use super::fixing::FIX_TOOL;
 use super::noting::NOTE_TOOL;
 use super::permission::{PERMISSION_FIELDS, PERMISSION_TOOL};
@@ -262,7 +261,7 @@ impl core::fmt::Display for NotAnArgument {
                 out,
                 "there is no tool called `{named}`. The tools are `{TOOL}`, \
                  `{SCOPE_TOOL}`, `{WIDEN_TOOL}`, `{CHECKS_TOOL}`, \
-                 `{SERVER_TOOL}`, `{DISPATCH_TOOL}`, `{ASK_TOOL}`, `{NOTE_TOOL}`, `{FIX_TOOL}`, \
+                 `{SERVER_TOOL}`, `{ASK_TOOL}`, `{NOTE_TOOL}`, `{FIX_TOOL}`, \
                  `{RECORD_PLAN_TOOL}`, `{ADD_TASK_TOOL}` and `{UPDATE_TASK_TOOL}`"
             ),
             NotAnArgument::NoArguments { tool, takes } => write!(
@@ -495,7 +494,7 @@ pub(crate) fn declaration(arguments: &Map<String, Value>) -> Result<DeclareScope
 /// a missing field is not, and the two are told apart here rather than by a
 /// caller reading a length.
 ///
-/// `pub(super)` for [`closed`]'s reason — the dispatch tool takes two of these.
+/// `pub(super)` for [`closed`]'s reason.
 pub(super) fn list(
     arguments: &Map<String, Value>,
     field: &'static str,
@@ -519,8 +518,7 @@ pub(super) fn list(
 
 /// Every argument is a field the tool takes.
 ///
-/// `pub(super)` because [`dispatch`](mod@super::dispatch) and
-/// [`ask`](mod@super::ask) read their own tools' arguments and must refuse an
+/// `pub(super)` because [`ask`](mod@super::ask) reads its own tool's arguments and must refuse an
 /// unknown field identically. A second copy of this loop is a second place the
 /// rule could stop being true.
 pub(super) fn closed(
@@ -548,7 +546,6 @@ pub(crate) fn named(name: &str) -> Result<&'static str, NotAnArgument> {
         WIDEN_TOOL => Ok(WIDEN_TOOL),
         CHECKS_TOOL => Ok(CHECKS_TOOL),
         SERVER_TOOL => Ok(SERVER_TOOL),
-        DISPATCH_TOOL => Ok(DISPATCH_TOOL),
         ASK_TOOL => Ok(ASK_TOOL),
         NOTE_TOOL => Ok(NOTE_TOOL),
         FIX_TOOL => Ok(FIX_TOOL),
@@ -582,10 +579,6 @@ pub(crate) fn argumentless(tool: &'static str) -> NotAnArgument {
         CHECKS_TOOL => NotAnArgument::NoArguments {
             tool: CHECKS_TOOL,
             takes: CHECKS_FIELDS,
-        },
-        DISPATCH_TOOL => NotAnArgument::NoArguments {
-            tool: DISPATCH_TOOL,
-            takes: DISPATCH_FIELDS,
         },
         SERVER_TOOL => NotAnArgument::NoArguments {
             tool: SERVER_TOOL,
@@ -677,7 +670,6 @@ pub(crate) fn listed() -> Vec<Value> {
         checks_tool(),
         super::serving::server_tool(),
         super::widening::widen_tool(),
-        super::dispatch::dispatch_tool(),
         super::ask::ask_tool(),
         super::noting::note_tool(),
         super::fixing::fix_tool(),

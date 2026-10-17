@@ -1,7 +1,7 @@
 // Pausing a Session from Flight control and from its row. Pause stops the running turn, commits the work to the branch and gives the slot
 // back; the Session stays listed, marked paused. Resume, or a message, takes a slot again. The claims are in `walks/pausing-a-session.ts`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { asRow, holding, servedFrom } from "../holding";
@@ -35,7 +35,7 @@ function build(): Scenario {
     state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [RUNNING]);
+        const store = sessionsStore([none, none], none, control, [], [RUNNING]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
         const closed = new Set<string>();

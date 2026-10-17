@@ -130,11 +130,10 @@ fn surfaces_on_disk_is_empty_without_the_directory() {
 }
 
 #[test]
-fn both_draft_directories_are_kept_out_of_the_main_process() {
+fn the_draft_directory_is_kept_out_of_the_main_process() {
     assert!(reaches_the_drafts("@armada/screens/src/draft/sketch"));
-    assert!(reaches_the_drafts("@armada/jobs/draft/landing"));
     assert!(reaches_the_drafts(
-        "../../../packages/surfaces/jobs/src/draft/wave"
+        "../../../packages/screens/src/draft/wave"
     ));
-    assert!(!reaches_the_drafts("@armada/jobs"));
+    assert!(!reaches_the_drafts("@armada/screens"));
 }

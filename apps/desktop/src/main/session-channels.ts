@@ -26,7 +26,6 @@ const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "requ
 // and the card's press came back as Fleet not connected (16 Oct 2026).
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
-const OUTCOMES = ["take_over", "restart_step"];
 const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -56,9 +55,6 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(sessionId)) return unread;
     return connection()?.sessions.startWaitingNow({ session_id: sessionId }) ?? unsent;
   });
-  ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
-    text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unread,
-  );
   ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
     text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unread.outcome,
   );
@@ -77,9 +73,8 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
     if (!Number.isInteger(claim?.number) || claim.number < 1) return unread;
-    // Exactly one claimant, as Fleet reads it.
-    const to = text(claim.session_id) && !text(claim.job_id) ? { session_id: claim.session_id } : text(claim.job_id) && !text(claim.session_id) ? { job_id: claim.job_id } : undefined;
-    return to === undefined ? unread : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
+    if (claim.session_id !== undefined && !text(claim.session_id)) return unread;
+    return connection()?.sessions.claimPullRequest({ number: claim.number, ...(claim.session_id === undefined ? {} : { session_id: claim.session_id }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;

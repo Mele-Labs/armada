@@ -102,7 +102,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 
 The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
-**A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
+**A Session no longer takes a Job's slot and branch over (17 Oct 2026).** `take_over` is removed, so no row is written with `detail.handed` reading `job <id>`, and the exits of a Job already piloted are on Job detail alone. [Pilot](pilot.md) holds the history.
 
 ### Whose slot it is
 
@@ -421,6 +421,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks every slot held for the session and ends what ran in it, ends the row and its walk. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `stop_session` | Ends the turn that is running and leaves the row live (*Stopping a turn*) |
+| `pause_session`, `resume_session` | Parks the Session's work on its branch and gives its slot back, and takes a slot again (*Pausing a Session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -799,7 +800,9 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 ## Started on a piloted Job
 
-`start_session` takes an optional `pilot` (`job_id`, `outcome`), and that one call is the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
+**Removed 17 Oct 2026.** `start_session` no longer takes `pilot`, a thread no longer opens with a `handoff` row, and Fleet no longer hands a Job's worktree to a Session. What follows describes the act as it was built.
+
+`start_session` took an optional `pilot` (`job_id`, `outcome`), and that one call was the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
 
 **Ending the pilot, or closing the Session while the Job is still piloted, hands the worktree back to the Job.** The Session's lease is cleared, so its next process starts in the repository and its next write leases a slot of its own. A close parks nothing in that case: the checkout is the Job's, not the Session's to commit.
 
@@ -856,7 +859,7 @@ The agent side is spike 30. A cut at a message the agent is part way through a t
 
 **An agent may move its own Session** (`agent_access` Yes). Its process is the one that ends, so the answer never reaches it; the new Session is listed and Bridge opens it. The call names the Session, so an agent could name another's; it is held to its own by the instruction, not by Fleet.
 
-**Bridge draws it from the ledger alone.** A Session's repository is a chip in its head, on the Sessions page and on the flight deck's stage, and where Fleet serves `move_session` it opens the other served repositories; a pick asks in the same layer, as a caution, what stays (the branch and its files) and, for a live Session, that it ends. A `forked_to` with `moved` is "Moved to" and a `forked_from` with `moved` is "Moved from", each a row that opens the other Session: the first ends the old thread and the second starts the new one, whose conversation is the old one's rows read in place and not folded as a fork's is. A Session with a `forked_to` that carries `moved` shows its repository as text, so it is moved once. A terminal still listening has every repository drawn off with the fact on its tooltip; Fleet's refusals are the composer's toast (`fleet.session_move_same`, `fleet.session_move_listening`, and the two 404s).
+**Bridge draws it from the ledger alone.** A Session's repository is a chip in its head, on the flight deck's stage, and where Fleet serves `move_session` it opens the other served repositories; a pick asks in the same layer, as a caution, what stays (the branch and its files) and, for a live Session, that it ends. A `forked_to` with `moved` is "Moved to" and a `forked_from` with `moved` is "Moved from", each a row that opens the other Session: the first ends the old thread and the second starts the new one, whose conversation is the old one's rows read in place and not folded as a fork's is. A Session with a `forked_to` that carries `moved` shows its repository as text, so it is moved once. A terminal still listening has every repository drawn off with the fact on its tooltip; Fleet's refusals are the composer's toast (`fleet.session_move_same`, `fleet.session_move_listening`, and the two 404s).
 
 ## A Session an agent started
 
@@ -1025,6 +1028,24 @@ A layer covers the thread and the composer, which stay mounted under it: Back (t
 
 **Debug Bridge starts a Session with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note and leaves the note and its picture in the message box as a draft (`annotate/debug-draft.ts`). The first turn is the person's Enter, with whatever he added. `docs/practices/running-locally.md`, *Annotating Bridge*.
 
+## Pausing a Session
+
+**A pause gives the slot back and keeps the Session.** `pause_session` (`POST /sessions/pause`, 23.92) ends the running turn as `stop_session` does, commits what is in the Session's slot to the branch the checkout is on as a `WIP:` commit (nothing is pushed; a checkout on no branch or on the base gets a `kept/` branch), and frees the slot for the pool. The row stays live in the list and carries `hosted.paused` (`at`, `resuming`). It is not a state: `state` is `live` and `hosted.turn` is `idle`. The ledger's `slot` row is given back and its `branch` row stays, since the Session still owns the branch. It is the Job pause (`job.md`, *Pausing a Job*) for a Session, and it reuses the same park.
+
+**A resume takes a slot at the branch tip.** `resume_session` (`POST /sessions/resume`) leases the branch into a free slot and clears the marker. It starts no turn. **It never forces another holder out**: where every slot is held, or Sessions already wait, the Session joins the repository's line and the row reads `hosted.paused.resuming` until the first slot to free is leased to it. A pause while it waits calls the wait off.
+
+**A message to a paused Session resumes it**, as a stopped Session's next message resumes its conversation: the lease is taken before the process starts, and a full pool leaves the Session paused and waiting.
+
+| Refused | Code |
+|---|---|
+| Ended, a Helm, or holding no slot | 409 `fleet.session_not_pausable` |
+| Paused already | 409 `fleet.session_already_paused` |
+| Not paused (resume) | 409 `fleet.session_not_paused` |
+| The pool or git will not park the work or seat the branch | 409 `fleet.session_pause_refused` |
+| A terminal Session | 422 `fleet.session_command_refused` |
+
+**What it does not do.** Only the slot the ledger records for the Session is parked; one a subagent of the Session leased stays held. The marker is kept in `hosted_sessions` (`paused_at`, `paused_resuming`), so it survives a Fleet restart; a restart forgets the line, and the Session's next message joins it again.
+
 ## What a message names
 
 A message to a hosted Session can name things with `@` and `#`, sent as `mentions` and kept on its `message` row as `tags`. **Fleet writes the line that tells the agent** (`The person named: ...`), ahead of the words, and the thread keeps the words as typed.
@@ -1037,7 +1058,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | `issue` | The number | `issue #214 "title"` and its address. A tag's title begins with `#` and the number, and the line drops that so the number is said once |
 | `branch` | The name | The branch |
 
-**`@` offers the other Sessions, then the Jobs, and once letters follow it the repository's files that match them.** A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
+**`@` offers the other Sessions, and once letters follow it the repository's files that match them.** Neither Bridge nor Fleet offers a Job to tag (17 Oct 2026): the `job` kind is removed from the wire. A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
 
 **`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, or on the key where the tracker names issues by one (`#ops` offers `OPS-7` and `OPS-12`, whatever the case), and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
 
@@ -1167,7 +1188,6 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | A Job that escalates on a stall, silence, loop, failed gate, unanswered ask, or a refused hatch, scope or evidence, with a title that is not destructive | Told to decide for itself, once, with the owner's own act: a redirect to its Drone, or a restart of the step with the same words where the Drone is gone. Recorded under decided. |
 | A Job that escalates because its Drone or run ended, was not heard, would not start, was not prepared, or its gate or proposer gave no answer, with a title that is not destructive | Its step restarted once, with no words (an undecided gate is run again instead). Recorded under decided; one with no stopped step to restart is recorded under blocked with the reason; if it escalates again the same night it stays as it is. |
 | Any other escalation, or a destructive title | Recorded under blocked. |
-| A card a Job's Commander has out to the owner (`commander.md`, *The card*), whether it went out before the night or during it | Never answered, and the Commander is not woken to answer it. Recorded under blocked, once, as *Commander asks, waiting on you*. |
 
 **The review is cards in the Cockpit's Incoming calls**, not a panel of its own: each decided row is a call, headed by who decided it. The card says what Sleep chose and keeps its acts on the rail: **Agree** keeps it (`review_sleep`), **Change** sends the owner's words to the agent (`override_sleep`) and reviews the row, **Open the Session** or **Open the Job** goes to where it was decided, **Later** puts it at the back, and **Dismiss**, under a cover, reviews it for good. A decision made in a Session ends in that Session's own box, which is how it is changed, and `session_id` on the wire row is the Session it opens. A decision made in a Job has no Session, so Change reveals a plain box. A correction Fleet refused leaves the row where it is. Either act marks the row reviewed, and `get_sleep` leaves a reviewed row out of `decided`. **The first use of Bridge after Sleep was turned on turns it off** (`set_sleep` off). Blocked and walk rows are already calls: escalated Jobs and waiting items.
 

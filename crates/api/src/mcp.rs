@@ -1,60 +1,24 @@
-//! The Drone endpoint: one path, the Drone's tools, on the listener that was
-//! already there.
+//! Who is on the other end of a connection.
 //!
-//! # Why this is not in the route table
-//!
-//! [`SERVED`](crate::SERVED) is the Fleet/Bridge inventory, checked against
-//! `crates/ipc/operations/` by the gate. **This is a different seam** — the
-//! peer is a Drone that Fleet itself spawned, the vocabulary is MCP's, and the
-//! version negotiated is the MCP revision. A row here would claim Bridge can
-//! call it, and the rule comparing the two files would need an exception.
-//!
-//! It shares the listener because a Drone reaches Fleet at the same loopback
-//! port Bridge does, and a second port is a second thing to publish and hold.
-//!
-//! # What it deliberately does not serve
-//!
-//! No server-initiated stream, no session, no batching. `GET` and `DELETE`
-//! answer 405, which is what the streamable HTTP transport says a server
-//! without either answers — and it means **this endpoint adds nothing to the
-//! unbounded-sink risk on the event socket**: every message is a reply to a
-//! request, on the Drone's own connection, with no queue behind it.
+//! The Drone endpoint that lived here is gone with the Drone. [`Caller`] stays:
+//! the door places a session by the connection its call arrived on.
+
 use std::net::SocketAddr;
 
-use axum::body::Bytes;
-use axum::extract::{ConnectInfo, State};
-use axum::http::{header, StatusCode};
-use axum::response::{IntoResponse, Response};
-use axum::routing::post;
-use axum::Router;
-use ipc::mcp::{self, Answered, Incoming};
+use axum::extract::ConnectInfo;
 
-use crate::daemon::{PermissionAnswer, Tools};
-use crate::served::Served;
-
-/// Where the Evidence tool is served.
-///
-/// **The composition root builds a Drone's MCP configuration from this
-/// constant.** The route table being hand-written is an accepted cost paid
-/// against a gate rule that reads `SERVED`; this path is in no such table, so
-/// the thing standing between a typo and a Drone that can never report is that
-/// the address written into `mcp.json` and the address routed here are one
-/// value.
-pub const MCP_PATH: &str = "/mcp";
-
-/// Where a Drone's call came from: the address the listener saw on the other
+/// Where a call came from: the address the listener saw on the other
 /// end of the connection it arrived on.
 ///
 /// **Minted by the transport and by nothing else.** There is no constructor
-/// taking a Job id and no field a caller could put one in, which is what makes
-/// "a Drone cannot choose which Job its evidence lands against" a property of
-/// the type rather than of a check somebody remembered to write. What the
-/// daemon does with it — matching the port pair against the processes it
-/// spawned — is `fleet::peer`'s, and this crate holds none of that.
+/// taking a session id and no field a caller could put one in, so which session
+/// a call comes from is a property of the type. What the daemon does with it —
+/// matching the port pair against the processes it spawned — is
+/// `fleet::peer`'s, and this crate holds none of that.
 ///
 /// `None` for the port is a request that arrived with no connection information
 /// on it, which is a test's router rather than a served one. It attributes to
-/// nothing, and a Drone tool call is refused rather than guessed at.
+/// nothing, and a call is refused rather than guessed at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Caller(Option<SocketAddr>);
 
@@ -77,10 +41,6 @@ impl Caller {
     }
 }
 
-pub fn mounted<D: Tools>() -> Router<Served<D>> {
-    Router::new().route(MCP_PATH, post(called::<D>).get(no_stream).delete(no_stream))
-}
-
 /// The peer of the connection this request arrived on.
 ///
 /// **Read out of the extensions rather than extracted**, so a router served
@@ -92,161 +52,4 @@ pub(crate) fn who_called(parts: &axum::http::request::Parts) -> Caller {
         Some(ConnectInfo(peer)) => Caller::at(*peer),
         None => Caller::unplaceable(),
     }
-}
-
-/// One JSON-RPC message in, at most one out.
-///
-/// A notification is acknowledged with 202 and no body, because JSON-RPC
-/// forbids answering one and an empty 200 would be a response with no id that
-/// a client has to guess about.
-async fn called<D: Tools>(
-    State(served): State<Served<D>>,
-    request: axum::extract::Request,
-) -> Response {
-    let (parts, body) = request.into_parts();
-    let caller = who_called(&parts);
-    let body = match axum::body::to_bytes(body, MOST_A_CALL_MAY_BE).await {
-        Ok(body) => body,
-        // A body larger than any tool call, or one that stopped arriving. The
-        // same shape every other unreadable call gets: a tool error the Drone
-        // reads, never a status code it can only retry.
-        Err(_) => Bytes::new(),
-    };
-    let answered = match mcp::read(&body) {
-        Incoming::Nothing => return StatusCode::ACCEPTED.into_response(),
-        Incoming::Handshake { id, revision } => Answered::Handshake { id, revision },
-        Incoming::Ping { id } => Answered::Ping { id },
-        Incoming::Tools { id } => Answered::Tools { id },
-        Incoming::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
-        Incoming::Unreadable { why } => Answered::Unreadable { why },
-        // Refused before the daemon is reached, and refused the same way the
-        // daemon refuses: as a tool error the Drone reads, never a 4xx it can
-        // only retry.
-        Incoming::NotASubmission { id, why } => Answered::Refused {
-            id,
-            why: ipc::mcp::NotRecorded {
-                because: why.to_string(),
-            },
-        },
-        Incoming::Submit { id, submission } => {
-            match served.daemon().submit_evidence(caller, submission).await {
-                Ok(receipt) => Answered::Recorded { id, receipt },
-                Err(why) => Answered::Refused { id, why },
-            }
-        }
-        Incoming::Declare { id, declaration } => {
-            match served.daemon().declare_scope(caller, declaration).await {
-                Ok(receipt) => Answered::Recorded { id, receipt },
-                Err(why) => Answered::Refused { id, why },
-            }
-        }
-        // **Answered once the run has started, and the report is not here.** A
-        // build is minutes and a client gives up on a call sooner, which used to
-        // take the run with it (#1020). By `Arc`, because the run outlives this.
-        Incoming::RunChecks { id, ask } => match served.shared().run_checks(caller, ask).await {
-            Ok(started) => Answered::Checking { id, started },
-            Err(why) => Answered::Refused { id, why },
-        },
-        // **Held open a bounded while**, so the answer can carry an address
-        // that answers. By `Arc`, because the server outlives this call.
-        Incoming::StartServer { id, name } => {
-            match served.shared().start_server(caller, name).await {
-                Ok(report) => Answered::Served { id, report },
-                Err(why) => Answered::Refused { id, why },
-            }
-        }
-        // **The one arm whose success is another Job.** It goes through the
-        // daemon like the rest and is refused the same way — a tool error the
-        // Drone reads — because a Drone told "no" by a status code has nothing
-        // to correct.
-        Incoming::Dispatch { id, dispatch } => {
-            match served.daemon().dispatch_job(caller, dispatch).await {
-                Ok(receipt) => Answered::Recorded { id, receipt },
-                Err(why) => Answered::Refused { id, why },
-            }
-        }
-        // **Held open, and the wait has a budget.** What answers it is one
-        // Judge call, so the shape is not `ask_question`'s: the outcome *is*
-        // the answer, and a receipt
-        // that came back before the answer would leave the Drone with nothing
-        // to act on. Nothing moves while it is out — the Job is `running` when
-        // the call is made and `running` when it returns.
-        Incoming::Widen { id, request } => {
-            match served.daemon().request_scope(caller, request).await {
-                Ok(receipt) => Answered::Recorded { id, receipt },
-                Err(why) => Answered::Refused { id, why },
-            }
-        }
-        // **Answered immediately, and the answer is not here.** The receipt
-        // says Fleet took the question; what a person chose arrives in the
-        // Drone's session as a turn, however much later. Holding this open
-        // would put a person's thinking time on an HTTP connection and would
-        // swallow every redirect sent to unstick the Drone while it waited —
-        // an injected turn is consumed when the current tool call returns.
-        //
-        // So it adds nothing to the unbounded-sink risk either: one reply on
-        // the Drone's own connection, with no queue behind it.
-        Incoming::Ask { id, asking } => match served.daemon().ask_question(caller, asking).await {
-            Ok(receipt) => Answered::Recorded { id, receipt },
-            Err(why) => Answered::Refused { id, why },
-        },
-        // **Answered immediately**, like a question: the note reaches the other
-        // Drone with its next peer turn, never on this connection. #1000.
-        Incoming::Note { id, note } => match served.daemon().leave_note(caller, note).await {
-            Ok(receipt) => Answered::Recorded { id, receipt },
-            Err(why) => Answered::Refused { id, why },
-        },
-        // **Answered once the run on main has started**, `run_checks`'s shape:
-        // what it came to is a later turn. By `Arc`, because the run outlives
-        // this call. #999.
-        Incoming::Fix { id, fix } => match served.shared().draft_fix(caller, fix).await {
-            Ok(receipt) => Answered::Recorded { id, receipt },
-            Err(why) => Answered::Refused { id, why },
-        },
-        // **Answered from the record**, like a declaration: the change is kept
-        // or refused before the reply, and a refusal is words the Drone reads.
-        Incoming::Plan { id, call } => match served.daemon().change_plan(caller, call).await {
-            Ok(receipt) => Answered::Recorded { id, receipt },
-            Err(why) => Answered::Refused { id, why },
-        },
-        // **The other call held open**, and the harness's rather than the
-        // Drone's: the call it asks about runs on an allow and not otherwise,
-        // so the answer has to be in the reply. What bounds the wait is the
-        // harness's own patience, which Fleet holds for less than.
-        Incoming::Permission { id, asked } => {
-            let input = asked.input.clone();
-            match served.daemon().permission(caller, asked).await {
-                PermissionAnswer::Allow => Answered::Permitted { id, input },
-                PermissionAnswer::Instead(command) => Answered::Permitted {
-                    id,
-                    input: mcp::running(&input, &command),
-                },
-                PermissionAnswer::Deny(message) => Answered::Withheld { id, message },
-            }
-        }
-    };
-    match mcp::answer(answered) {
-        Ok(body) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "application/json")],
-            body,
-        )
-            .into_response(),
-        // Unreachable for plain data, and answered rather than panicked: a
-        // panic here drops the connection a Job's only report travels on.
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-}
-
-/// The most a tool call may weigh.
-///
-/// Three prose fields and a path list; a megabyte is far more than any of them
-/// and far less than a stream. It exists because reading the body by hand —
-/// which is what taking the connection's peer costs — means saying what the
-/// extractor said for itself.
-const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
-
-/// There is no server-initiated stream and no session to end.
-async fn no_stream() -> Response {
-    StatusCode::METHOD_NOT_ALLOWED.into_response()
 }

@@ -1,12 +1,11 @@
 // Dispatch in one press: the Cockpit's lower deck holds a Dispatch tile between Flight control and Autopilot, and
-// it, `n` and every New job open the same centred sheet. The repositories are a row of chips with their keys, the
+// it and `n` open the same centred sheet. The repositories are a row of chips with their keys, the
 // one the words name lit as they are typed; with none chosen the act gives the row the keys. Over `quick-dispatch`.
 
-import { button, dialog, inside, place, region, role, tab, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, walk } from "../walk";
 
 const frame = role("region", "Dispatch", { exact: true });
 const request = role("textbox", "Request");
-const strip = role("group", "Last dispatch");
 const deckPanel = role("region", "Dispatch controls");
 const panel = dialog("Dispatch");
 const inPanel = (target: ReturnType<typeof role>) => inside(panel, target);
@@ -22,24 +21,21 @@ const quickDispatchDeckButton = walk("quick-dispatch", [
   { type: "Add a docs-site page for the retry settings", into: inPanel(request), say: "A request naming docs-site" },
   { look: inside(frame, role("img", "Repository docs-site")), say: "docs-site is read from the words and its chip fills" },
   { key: "Tab", on: inPanel(request), say: "Press Tab" },
-  { look: inside(frame, tab("Session")), say: "Session, Job and Autopilot sit on the band, and Tab steps through them" },
+  { look: inside(frame, tab("Session")), say: "Session and Autopilot sit on the band, and Tab steps through them" },
+  { key: "Tab", on: inPanel(request), say: "Press Tab again: it comes round to Session" },
   { key: "Alt+2", on: inPanel(request), say: "Press ⌥2" },
   { look: repository("armada"), say: "The second chip is chosen" },
   { key: "Enter", on: inPanel(request), say: "A Session starts on ↵" },
   { look: role("textbox", "Message"), say: "The Session started and opened, holding what was typed" },
 
-  // (b) The Jobs surface's New Job opens the same sheet.
-  { press: place("Jobs"), say: "To Jobs" },
-  { press: inside(region("Jobs"), button("New Job")), say: "New Job opens the same sheet, on Job" },
-  { look: row, say: "The chips, not a page with a dropdown" },
-
-  // (c) Nothing chosen: the act gives the row the keys.
+  // (b) Nothing chosen: the act gives the row the keys.
+  { key: "n", on: region("Work", { exact: true }), say: "N opens the sheet again" },
   { type: "Check the migration order", into: inPanel(request), say: "Words that name no repository" },
-  { press: inside(frame, button("Dispatch", { exact: true })), say: "Dispatch with none chosen" },
+  { press: inside(frame, button("Start", { exact: true })), say: "Start with none chosen" },
   { look: row, say: "The frame takes the call's hue and the row has the keys" },
   { key: "ArrowRight", on: repository("armada"), say: "→ moves along the row" },
   { press: repository("billing"), say: "↵ on a chip picks it and sends" },
-  { look: strip, say: "A strip holds the Job's title where the sheet was" },
+  { look: role("textbox", "Message"), say: "The Session started and opened, holding what was typed" },
 ]);
 
 export { quickDispatchDeckButton as "quick-dispatch-deck-button" };

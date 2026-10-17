@@ -50,31 +50,26 @@
 #[allow(dead_code)]
 mod bench;
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use config::{
-    CheckEdit, Edit, Fault, NotAmended, ResolveError, ResolvedCheck, ResolvedWorkflow,
+    CheckEdit, Edit, Fault, NotAmended, ResolveError, ResolvedCheck,
     WorkflowSource,
 };
-use core_model::{JobStatus, StepState, WorkflowId};
 use fleet::repositories::{folder_named_by, NotAdded};
-use fleet::{Brief, Proposal};
 use ipc::{
     EvidenceStrength, MissingName, ProposalEdit, Provenance, ToolFile, VerifyGroup, VerifyStep,
     VerifyStepState, WorkspaceGlob,
 };
-use testkit::{FakeJudge, FakeWorkProduct};
 
 use bench::reach::{
-    as_sent, carried_there, catalogued, ci_run, cited, convention, declared_ports, every_line,
+    as_sent, catalogued, ci_run, cited, convention, declared_ports, every_line,
     fault_keys, folder, held_there, held_to, loads, manifest_ids, one_step, proposal_at, proposals,
     provenance_of, read_from, received, resolved_there, runnable, started_in_the_storefront,
-    storefront, strengths, toward_the_journeys_e2e, workspace, written, A_MILESTONE, CARRYABLE,
-    CI_RUNS, EPIC, EPIC_AT, KEPT, MAILER, MAILER_AT, MANIFEST_AT, NAMING_ARMADAS_CHECKS,
+    storefront, strengths, toward_the_journeys_e2e, workspace, written, CARRYABLE,
+    CI_RUNS, KEPT, MAILER, MAILER_AT, MANIFEST_AT, NAMING_ARMADAS_CHECKS,
     OVERREACHING, WRITTEN,
 };
-use bench::{states, Bench};
 
 // ---------------------------------------------------------------------------
 // Locate, Scan and Pick
@@ -558,90 +553,7 @@ fn a_definition_naming_armadas_checks_is_refused_there() {
     assert_eq!(declared, ["e2e", "lint", "test"]);
 }
 
-/// **A Job created against that repository is held to that repository's
-/// Checks**, prerequisites and commands included.
-///
-/// Read off the Job's frozen copy, which is what a person approves and what
-/// Fleet reads at every step. Nothing is gated: a Manifest Check is a process,
-/// and the gate is `bug_job.rs`'s claim.
-#[test]
-fn a_job_against_that_repository_is_held_to_its_checks() {
-    let bench = Bench::judged_by(
-        FakeWorkProduct::untouched(),
-        resolved_there(CARRYABLE).expect("a carryable definition resolves there"),
-        FakeJudge::that_fails("a Judge that should never be asked"),
-    );
-    let mut run = bench.created("the basket forgets its last item");
-    bench.approved_and_dispatched(&mut run);
-    assert_eq!(run.job.status(), JobStatus::Running);
-    assert_eq!(
-        states(&run.job),
-        [
-            ("plan", StepState::Running),
-            ("implement", StepState::NotStarted),
-            ("handoff", StepState::NotStarted)
-        ]
-    );
 
-    let frozen = &run.job.workflow().steps()[1];
-    let e2e = frozen
-        .checks()
-        .iter()
-        .find(|check| check.name() == Some("e2e"))
-        .expect("the repository's own e2e Check is on the Job");
-    assert_eq!(e2e.run(), Some("pnpm playwright test"));
-    assert_eq!(
-        e2e.requires()
-            .iter()
-            .map(|prerequisite| (prerequisite.name(), prerequisite.run()))
-            .collect::<Vec<_>>(),
-        [
-            ("migrate", "pnpm prisma migrate deploy"),
-            ("seed", "pnpm tsx scripts/seed.ts")
-        ],
-        "and what it requires is frozen with it, commands and all"
-    );
-}
-
-/// **A repository with no workflows of its own dispatches on what Armada
-/// carries.** Dispatch.
-///
-/// All eight resolve against the storefront, and a Job on the carried `bug` is
-/// created and dispatched, gated on the storefront's own Checks. Nothing here
-/// read a directory: that the carried set is what `Setup::at` hands a Fleet is
-/// `armada`'s own test.
-#[test]
-fn a_repository_with_no_workflows_of_its_own_dispatches_on_what_armada_carries() {
-    let carried = catalogued(&[], &[]);
-    assert_eq!(carried.workflows().len(), 8, "all eight resolve there");
-    assert!(carried.left_out().is_empty(), "and none is left out");
-    let bug = held_there(&carried, "bug");
-    assert_eq!(bug.source(), WorkflowSource::Armada);
-    assert_eq!(
-        bug.steps()[1]
-            .checks()
-            .iter()
-            .map(ResolvedCheck::label)
-            .collect::<Vec<_>>(),
-        ["test", "lint", "e2e", "diff_nonempty"],
-        "the storefront's Checks, on a definition nobody there wrote"
-    );
-
-    let bench = Bench::judged_by(
-        FakeWorkProduct::untouched(),
-        bug,
-        FakeJudge::that_fails("a Judge that should never be asked"),
-    );
-    let mut run = bench.created("the basket forgets its last item");
-    bench.approved_and_dispatched(&mut run);
-    assert_eq!(run.job.status(), JobStatus::Running);
-    assert_eq!(states(&run.job)[0], ("plan", StepState::Running));
-    assert_eq!(
-        run.job.workflow().source(),
-        WorkflowSource::Armada,
-        "and the Job's own record says where its workflow came from"
-    );
-}
 
 /// **One file replaces a carried definition by id, and the repository's own
 /// wins.** Override, and Source in the words a person reads.
@@ -698,63 +610,6 @@ fn one_file_replaces_a_carried_definition_and_the_repositorys_own_wins() {
 // Proposing a Job there
 // ---------------------------------------------------------------------------
 
-/// **A request naming a milestone is offered the workflow that runs one, in
-/// words the request could match.** The Propose step, and #424.
-///
-/// What the proposer reads is asserted on the brief, without a model: `epic` as
-/// the file ships, carried to the storefront beside a `bug` that declares
-/// nothing. The line saying what `epic` is for sits under its name and names a
-/// milestone; `wave`, the steps' word, is not in it; the steps are still there;
-/// and the definition that declares nothing is offered exactly as it was
-/// before the key existed. An answer choosing `epic` then reads back as `epic`.
-///
-/// **What a model does with it is not asserted**, and the header says so.
-#[test]
-fn a_request_naming_a_milestone_is_offered_the_workflow_that_runs_one() {
-    let held: BTreeMap<WorkflowId, ResolvedWorkflow> = [
-        carried_there(EPIC_AT, EPIC),
-        resolved_there(CARRYABLE).expect("a carryable definition resolves there"),
-    ]
-    .into_iter()
-    .map(|workflow| (workflow.id().clone(), workflow))
-    .collect();
-    let brief = Brief::about(A_MILESTONE, &held, &[]);
-    let question = brief.question();
-
-    let offered = "  epic — epic\n    for: ";
-    let at = question
-        .find(offered)
-        .expect("epic is offered with what it is for, on the line under its name");
-    let what_for = question[at + offered.len()..]
-        .lines()
-        .next()
-        .expect("the line has words on it");
-    assert!(
-        what_for.contains("milestone"),
-        "in the word the request used: {what_for}"
-    );
-    assert!(
-        !what_for.to_lowercase().contains("wave"),
-        "and not in the steps' word, which is the defect restated: {what_for}"
-    );
-    assert!(
-        question[at..].contains("\n    Plan the wave -> Roll up the wave\n"),
-        "the steps stay beside it — they answer a different question"
-    );
-    assert!(
-        question.contains("  bug — bug\n    Plan the change -> Implement -> Summarise\n"),
-        "a definition that says nothing is offered exactly as before"
-    );
-
-    let Ok(Proposal::Resolved(jobs)) = brief.read(
-        "workflow: epic\ntitle: Finish the Board milestone",
-        &held,
-        &[],
-    ) else {
-        panic!("an answer choosing the offered workflow is a proposal");
-    };
-    assert_eq!(jobs[0].workflow_id.as_str(), "epic");
-}
 
 // ---------------------------------------------------------------------------
 // The pieces Verify and Fix would be built from

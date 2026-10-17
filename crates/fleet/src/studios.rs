@@ -19,8 +19,7 @@ use core_model::{
 use std::sync::Arc;
 
 use ipc::{
-    AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio,
-    DispatchStudioDraft, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
+    AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
     HelmStudioAct, ManifestId, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, StudioDeleted,
     StudioHelmActed, StudioList, StudioNodeAdded, StudioRunStarted, StudioServerStarted,
@@ -892,16 +891,6 @@ where
             .await
     }
 
-    async fn dispatch_studio_draft(
-        self: Arc<Self>,
-        studio_id: ipc::StudioId,
-        dispatching: DispatchStudioDraft,
-        by: Redirector,
-        within: Option<ManifestId>,
-    ) -> Result<ipc::Studio, Refusal> {
-        self.draft_dispatched(studio_id, dispatching, by, within)
-            .await
-    }
 }
 
 /// The file names of every frame the nodes going kept — the pictures that go

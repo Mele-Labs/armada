@@ -15,7 +15,7 @@ string and a regex — read by `checks_runner`, which already exists.
 A Drone that hits a test already failing on main names the Check and the
 test; Fleet runs just that test against a checkout of main before drafting
 anything, using the command the Check's `one_test` declares
-(`crates/fleet/src/fixing.rs`, #999). Only a Check that declares `one_test`
+(the `fixing` module (deleted since), #999). Only a Check that declares `one_test`
 can be reached this way. In this repository that is `test`, `acceptance`,
 `components_test`, `screens_test` and `desktop_test` — every other Check has
 no way to isolate one test, so a Drone hitting a pre-existing failure there
