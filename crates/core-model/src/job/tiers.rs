@@ -12,7 +12,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::job::ids::{ModelName, RepoPath};
+use crate::workflow::{ModelName, RepoPath};
 
 /// How hard the planner thought a task was. **A task with none is the
 /// planner leaving it to Armada**, which is a tier the map has no key for.

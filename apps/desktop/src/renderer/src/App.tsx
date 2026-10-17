@@ -481,7 +481,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
-  const dispatchFailure = useDispatchFailure(repositories, openSession);
+  const dispatchFailure = useDispatchFailure(repositories, openSession, state);
   useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
   // The only reading of the time App makes: how long an unreachable Fleet has been silent, in its failure.
   const silentFor = useNowWhile(state.connection.state === "unreachable");

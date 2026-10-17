@@ -37,7 +37,7 @@ use crate::job::fields::{
 use alloc::string::String;
 
 use crate::job::handle::{handle_of, JobNumber};
-use crate::job::ids::{
+use crate::workflow::{
     DroneId, JobId, ManifestId, ModelName, ProposalId, StepId, Title, WorkflowId,
 };
 use crate::job::note::{RedirectAlreadyWaiting, RedirectWaiting};
@@ -45,7 +45,7 @@ use crate::job::status::{JobStatus, StepState};
 use crate::job::step::{rows_at_creation, JobStep, StepSeed, StepVerdict};
 use crate::job::step_machine::{admits_step, IllegalStepTransition, StepTarget};
 use crate::job::transition::{admits, IllegalTransition, Target};
-use crate::job::workflow::{FrozenWorkflow, ResolvedStep};
+use crate::workflow::{FrozenWorkflow, ResolvedStep};
 
 mod approving;
 mod pausing;

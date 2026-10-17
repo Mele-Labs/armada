@@ -28,7 +28,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::job::escalation::EscalationTrigger;
-use crate::job::ids::StepId;
+use crate::workflow::StepId;
 use crate::job::record::Job;
 use crate::job::status::{JobStatus, StepState};
 use crate::job::transition::TransitionReason;

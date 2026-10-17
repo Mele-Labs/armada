@@ -13,6 +13,7 @@ import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
+import type { WorktreesHeld } from "@armada/protocol";
 import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -187,9 +188,20 @@ export type BoardControl = {
   setStatus: (jobId: string, status: string) => void;
   /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
   add: (rows: readonly unknown[]) => void;
+  /** The worktree pool, for a Session that takes a bay: read as Fleet holds it, and written back where the window is reading it. */
+  pool?: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld) => void };
 };
 
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
+
+/** The last lines of what a background command wrote, by the file it writes them to. */
+const BACKGROUND_OUTPUT: Record<string, string> = {
+  "/tmp/armada/tasks/serve-mock.output": "VITE v6.3.5  ready in 412 ms\n\n  Local:   http://127.0.0.1:5176/\n\nGET /?scenario=sessions 200 11ms\nGET /?scenario=sessions&walked 200 9ms\nGET /?scenario=sessions&walk=ledger-background 200 8ms\n",
+  "/tmp/armada/tasks/watch-tests.output": "RUN  v3.2.4 /slots/slot-6/apps/desktop\n\n Test Files  3 passed (3)\n      Tests  41 passed (41)\n   Duration  6.18s\n\nWaiting for file changes...\n",
+  "/tmp/armada/tasks/watch-ci.output": "Run ci (9321177) triggered by pull_request\n* check  passed  1m 12s\n* test   in progress\n* gate   queued\n",
+  "/tmp/armada/tasks/build-renderer.output": "vite v6.3.5 building for production...\ntransforming...\n2214 modules transformed.\nout/renderer/index.html            0.62 kB\nout/renderer/assets/index.css    148.30 kB\nout/renderer/assets/index.js   1,904.77 kB\nbuilt in 9.41s\n",
+  "/tmp/armada/tasks/tail-fleet.output": "2026-10-16T14:02:11Z INFO fleet: session aa994f6f woke\n2026-10-16T14:02:12Z INFO fleet: lease slot 6 for aa994f6f\n2026-10-16T14:02:40Z INFO fleet: check run 41 passed\n",
+};
 
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
@@ -733,7 +745,9 @@ export function sessionsStore(
     openWindow,
     // What the mock's files hold, since none is on this machine: a picture for an image, text for the rest.
     readArtifact: async (_id, path) =>
-      /\.(png|jpe?g|gif|webp)$/i.test(path)
+      path.endsWith(".output")
+        ? { ok: true, bytes: new TextEncoder().encode(BACKGROUND_OUTPUT[path] ?? ""), type: "text/plain" }
+        : /\.(png|jpe?g|gif|webp)$/i.test(path)
         ? { ok: true, bytes: new TextEncoder().encode(PICTURE), type: "image/svg+xml" }
         : { ok: true, bytes: new TextEncoder().encode(NOTE), type: path.endsWith(".md") ? "text/markdown" : "text/plain" },
     models: MODELS,

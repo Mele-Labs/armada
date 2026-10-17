@@ -66,3 +66,10 @@ test("it opens on its own when an entry arrives, and a press on the band opens a
   expect(panel(host).hasAttribute("data-collapsed")).toBe(false);
   expect(panel(host).textContent).toContain("#2430 Ledger rows");
 });
+
+test("its filter bar has no button for branches and slots, which are chips in the band", () => {
+  const { host } = mount([...HELD, entry("artifact", "w1", "Queue for later walk")]);
+  expect(host.querySelector('button[aria-label="Pull requests"]')).not.toBeNull();
+  expect(host.querySelector('button[aria-label="Artifacts"]')).not.toBeNull();
+  expect(host.querySelector('button[aria-label="Branches and slots"]')).toBeNull();
+});

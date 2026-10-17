@@ -20,7 +20,7 @@ use core::num::NonZeroU32;
 
 use crate::envelope::Timestamp;
 use crate::job::attempt::Attempt;
-use crate::job::ids::{ModelName, RepoPath, StepId};
+use crate::workflow::{ModelName, RepoPath, StepId};
 use crate::job::plan_group::GroupId;
 use crate::job::tiers::{TaskEdit, TaskTier};
 

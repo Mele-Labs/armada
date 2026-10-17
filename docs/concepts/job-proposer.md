@@ -135,7 +135,7 @@ Why: every extra token is money on a call that fires on every dispatch, and a ca
 
 ## A Session's request
 
-**A Session dispatched from the sheet is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed. Fleet makes the same call on them, against the same workflows and the models this machine runs, and the Session's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/proposing.rs`, beside `ANSWER_FORMAT`.
+**A Session dispatched from the sheet is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed. Fleet makes the same call on them, against the same workflows and the models this machine runs, and the Session's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`, which `crates/fleet/src/proposing.rs` shares its question-laying with.
 
 | Line | Fills | Where it reads as none |
 | --- | --- | --- |

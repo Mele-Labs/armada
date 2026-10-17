@@ -98,3 +98,34 @@ export function workflowing(): Scenario {
     behaves: (fleet) => ({ readManifestFile: manifesting().behaves?.(fleet).readManifestFile! }),
   };
 }
+
+/** Fleet's health read with a probe of every module and one warning and one failure, which Doctor is walked on. */
+export function doctoring(): Scenario {
+  const base = workflowing();
+  const probe = (module: string, outcome: string, detail: string) => ({ module, outcome, detail });
+  return {
+    ...base,
+    name: "doctor",
+    says: "Doctor with every module probed, one warning and one failure",
+    state: {
+      ...base.state,
+      health: {
+        state: "read",
+        health: {
+          probes: [
+            probe("Fleet", "pass", "daemon alive, pid 48213, up 3h"),
+            probe("Kit", "pass", "/Users/user/.armada/kit.yml"),
+            probe("Machine", "pass", "/Users/user/.armada/machine.yml"),
+            probe("Manifest", "warn", "/Users/user/armada/armada.yml, drifted from main"),
+            probe("Manifest", "pass", "/Users/user/ledger/armada.yml"),
+            probe("SQLite", "pass", "opens and writes"),
+            probe("System stats", "pass", "cpu 21% in use, memory 62% in use, 184320000 KiB free on the volume"),
+            probe("Slots", "fail", "slot 7 stranded, holder gone"),
+          ],
+          not_probed: [{ owner: "adapters", because: "No adapter is configured on this machine." }],
+          helm_action_authority: "acting",
+        },
+      },
+    },
+  };
+}

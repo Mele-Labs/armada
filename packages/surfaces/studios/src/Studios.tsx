@@ -300,7 +300,8 @@ function StudioList({ studios, live, onOpen, onCreate, onRename }: StudiosProps)
   }
 
   return (
-    <div className="armada-screen__pane">
+    <div className="armada-screen__pane armada-studios-page">
+      <h1 className="armada-page__title">Studios</h1>
       <Card>
         <CardHeader className="armada-studio__head">
           <CardTitle>Studios</CardTitle>

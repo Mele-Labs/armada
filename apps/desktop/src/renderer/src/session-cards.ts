@@ -7,6 +7,8 @@ import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
+import { backgroundCardOf } from "./session-background";
+
 /** What is true of a pull request beyond its Checks, as bare facts. */
 export const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
   [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
@@ -91,6 +93,8 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
         ],
       };
     }
+    case "background":
+      return backgroundCardOf(one);
     case "subagent":
       return { title: one.task, facts: [{ label: "Turn", value: one.state === "running" ? "Running" : "Done", tone: one.state }] };
     case "artifact":
