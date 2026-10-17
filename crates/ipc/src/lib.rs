@@ -135,6 +135,8 @@ mod repositories;
 mod requester;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// Natural Search, and where a change runs for the Walk tool.
+mod review_walks;
 /// A Session's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -367,6 +369,11 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
+pub use review_walks::{
+    ForgetReviewSearch, OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,
+    ReviewWalk, ReviewWalkState, SaveWalkPlace, StartReviewSearch, WalkHow, WalkPlace, WalkPlaceFound,
+    WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };
 pub use retro::{
     Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, Retro, RetroAnswered,

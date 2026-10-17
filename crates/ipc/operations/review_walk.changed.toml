@@ -1,0 +1,8 @@
+[operations."review_walk.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A held walk moved: checking out, starting, ready, failed or closed"
+notes = """
+Carries `walk`, a `ReviewWalk` whole. At most five small events a walk and nothing between; the server's output is `observe_server`'s and never travels here. Not replayed: a reconnecting Bridge that holds a walk open asks nothing, since the walk window is already on the address.
+"""

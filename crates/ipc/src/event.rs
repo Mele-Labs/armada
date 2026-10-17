@@ -159,6 +159,10 @@ pub enum Event {
     // `docs/concepts/pull-review.md`, *Agent runs*.
     #[serde(rename = "review_run.changed")]
     ReviewRunChanged { run: ReviewRun },
+    // A place held up for a walk of a pull request moved: checking out, starting, ready, failed or
+    // closed, whole. `docs/concepts/pull-review.md`, *Walk*.
+    #[serde(rename = "review_walk.changed")]
+    ReviewWalkChanged { walk: crate::review_walks::ReviewWalk },
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

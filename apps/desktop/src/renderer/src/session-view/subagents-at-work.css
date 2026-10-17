@@ -1,0 +1,6 @@
+/* Progress with no plan: one row for each subagent at work, set as a plan task is. */
+.sv-subagents { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.sv-subagents__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--space-2); font-family: var(--font-sans); }
+.sv-subagents__row > .armada-task-mark { display: inline-flex; align-items: center; height: 1lh; }
+.sv-subagents__task { min-width: 0; overflow-wrap: anywhere; }
+.sv-subagents__type { min-width: 0; max-width: calc(var(--space-12) * 3); overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }

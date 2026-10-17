@@ -28,7 +28,7 @@ import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
-import { NO_SEARCH, ReviewsFrom, createReviewStore } from "./pr-review/store";
+import { ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
@@ -73,8 +73,8 @@ const TIMELINE = createFleetTimeline(withState(window.armada));
 const CLASHES = createFleetClashes(withState(window.armada));
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
 const TERRITORY = createFleetTerritory(withState(window.armada));
-/** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search is off until it is built. */
-const REVIEWS = createReviewStore(reviewSourceOf(window.armada), NO_SEARCH);
+/** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search and the Walk are runs too. */
+const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
 const ACCOUNT = createFleetAccount(withState(window.armada));
 

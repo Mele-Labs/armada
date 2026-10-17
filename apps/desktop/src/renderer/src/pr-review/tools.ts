@@ -31,6 +31,9 @@ export const onlyTools = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.
 /** The explanations he can choose under the description. */
 export const onlyExplanations = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.filter((one) => one.kind === "explanation");
 
+/** The Walk: its press finds where the change runs before it writes, so it does not start a run on its own. */
+export const isWalk = (tool: ToolDef): boolean => tool.mark === "walk";
+
 /** How it works has been read, so a result can sit under its themes. */
 export const isExplained = (work: PrWork): boolean => work.explains["how-it-works"]?.state === "done";
 

@@ -84,6 +84,8 @@ mod merging_in;
 mod merging_the_base_in;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
+/// Which files a person's commits changed. `docs/concepts/pull-review.md`.
+mod history;
 mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;
