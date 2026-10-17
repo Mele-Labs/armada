@@ -84,9 +84,9 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
   };
 
   return (
-    <span ref={host} className="armada-session-frame__checks-host" onKeyDown={onKeyDown}>
+    <span ref={host} className="armada-running-checks" onKeyDown={onKeyDown}>
       <Tooltip asChild label={said}>
-        <button type="button" className="armada-session-frame__checks" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
+        <button type="button" className="armada-running-checks__mark" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
           <span className="armada-session-mark">
             <CircleDot size={16} strokeWidth={2} aria-hidden />
           </span>
@@ -94,13 +94,13 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
         </button>
       </Tooltip>
       {open ? (
-        <div ref={panel} className="armada-session-frame__checks-list" role="menu" aria-label={said}>
+        <div ref={panel} className="armada-running-checks__list" role="menu" aria-label={said}>
           {checks.map((one) => (
             <button
               key={one.run}
               type="button"
               role="menuitem"
-              className="armada-session-frame__checks-item"
+              className="armada-running-checks__item"
               aria-label={`Check ${one.name}${one.target === undefined ? "" : ` ${one.target}`}, running`}
               onClick={() => {
                 setOpen(false);
@@ -108,9 +108,9 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
               }}
             >
               <StepActivityMark activity="running" label="running" pulsing />
-              <span className="armada-session-frame__checks-name">{one.name}</span>
-              {one.target === undefined ? null : <span className="armada-session-frame__checks-target">{one.target}</span>}
-              <span className="armada-session-frame__checks-ran">{ranFor(one.at, now)}</span>
+              <span className="armada-running-checks__name">{one.name}</span>
+              {one.target === undefined ? null : <span className="armada-running-checks__target">{one.target}</span>}
+              <span className="armada-running-checks__ran">{ranFor(one.at, now)}</span>
             </button>
           ))}
         </div>

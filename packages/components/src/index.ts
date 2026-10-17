@@ -461,6 +461,7 @@ export * from "./compositions/OwnerChip/OwnerChip";
 // The owner a pull request was registered to, from any machine under one GitHub login.
 export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
+export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/CommanderPanel/CommanderPanel";

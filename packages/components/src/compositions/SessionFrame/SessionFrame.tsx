@@ -11,7 +11,7 @@ import { ClashNotice } from "../ClashMark/ClashMark";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
-import { RunningChecks, type RunningCheck } from "./RunningChecks";
+import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { useMarking, type Mark } from "../../marking";
 
 /**
@@ -95,7 +95,6 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 export { ContextFigure } from "./ContextFigure";
 export type { ContextFill } from "./ContextFigure";
 export type { FreshStart } from "./FreshNudge";
-export type { RunningCheck } from "./RunningChecks";
 export { modelSaid } from "./model-said";
 export type { ContextBreakdown } from "../../context-breakdown";
 
