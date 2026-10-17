@@ -79,6 +79,7 @@ import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
+import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -280,9 +281,10 @@ export function App() {
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { raised, lower, tell } = useRaised(commands.outcome);
+  const { raised, lower, tell, raiseBuildFailed } = useRaised(commands.outcome);
   const dispatchFailure = useDispatchFailure(repositories, openSession, state);
   useTellAsked(tell); // The annotation layer's send that failed.
+  useBuildFailed(state.fleetBuild, raiseBuildFailed); // A restart Fleet reports as failed.
   // The only reading of the time App makes: how long an unreachable Fleet has been silent, in its failure.
   const silentFor = useNowWhile(state.connection.state === "unreachable");
   const { statement, fleet, failing } = failingIn({
