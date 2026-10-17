@@ -9,7 +9,7 @@
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
-import { Application, Container } from "pixi.js";
+import { Application, Container, Ticker } from "pixi.js";
 
 import type { Cam } from "../camera";
 import type { Size } from "../layout";
@@ -100,6 +100,10 @@ export class Stage {
       powerPreference: "low-power",
       eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
     });
+    // Starting a renderer starts Pixi's system ticker, which then asks for an animation frame every frame for as long as one lives, and an
+    // idle map must ask for none. It only sweeps unused textures, which a handful of name labels do not need. A stage that was dropped while
+    // it started starts it too, so this runs on that path as well.
+    Ticker.system.stop();
     if (this.gone) {
       app.destroy(true, { children: true });
       return;
