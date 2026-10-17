@@ -1,4 +1,4 @@
-/* Retros, Doctor and Studios in the new look, `?look=new`. One page, one shape:
+/* Retros, Doctor and Studios in Bridge's look. One page, one shape:
 
      a title row      a page title in the title face, its page acts at the far end
      panels           the Cockpit's frame: a raised solid fill, a hairline, the rest shadow, 8px
@@ -6,8 +6,8 @@
      items            rows and cells on hairlines; the pointer is one flat step, a pick is a wash and a 2px bar
 
    The same rules as `depth.css` and nothing the theme has not already got: no colour is named here, no gradient, no
-   glow. A state is a registry glyph in the hue it already carried. Every rule starts `:root[data-look="new"]`, so a page
-   with no look draws as it did; the one element added for it, the page title, is hidden until the look is on. */
+   glow. A state is a registry glyph in the hue it already carried. Every rule starts `:root[data-look="new"]`, which
+   `look.ts` sets; the page title is hidden where the root does not carry it. */
 
 .armada-page__title { display: none; }
 

@@ -1,4 +1,4 @@
-// Retros, Studios and Doctor in the new look, `?look=new`: a page title, panels with a tracked caps head and hairlines,
+// Retros, Studios and Doctor in Bridge's look: a page title, panels with a tracked caps head and hairlines,
 // the Cockpit's frame. A design mock: nothing here asserts a colour or a size.
 
 import { button, systemPage, toSystemPage, viaPalette, walk } from "../walk";

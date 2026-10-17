@@ -1,4 +1,4 @@
-// The restyle in one pass, `?look=new` flat and `&panels=glass`: the Cockpit at rest, the repository combobox, the inspect card
+// The restyle in one pass: the Cockpit at rest, the repository combobox, the inspect card
 // on a row, a bay, a call and a drone, the Session's context tank pinned, the command palette, then Doctor, Settings, Worktrees, Retros and Studios.
 // Over `restyle-review`. A design mock: nothing here asserts a colour or a size.
 

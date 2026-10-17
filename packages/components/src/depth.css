@@ -1,10 +1,11 @@
-/* The new look for every screen, drawn in `@armada/tokens/takes.css`. Every rule starts
-   `:root[data-look="new"]`, so a page with no look draws as it did.
+/* Bridge's look for every screen, with the tokens in `@armada/tokens/takes.css`. Every rule starts
+   `:root[data-look="new"]`, which `look.ts` sets on the root of each window that loads this file.
    Colour is the theme's: nothing here names a hue.
 
    Restraint, as Linear, Vercel Geist, Raycast, the macOS HIG and Radix Themes have it:
 
    - elevation is a hairline border and a small neutral shadow, in four levels;
+   - a panel is glass, one material for every panel, pane and layer that floats over one (below);
    - a surface is a solid fill, and one step lighter means one step lighter, never a gradient;
    - hover is a flat background step; a selected row is a flat low-alpha wash and a leading bar;
    - an active segment is a solid fill over its track with a hairline, and nothing around it;
@@ -113,16 +114,10 @@
 }
 
 /* ---- Cockpit panels: one frame, one header ---------------------------------------------------------------- */
-/* Every panel and pane is the same object: main's glass, a hairline, the rest shadow, the lifted one while focus is inside. */
+/* Every panel and pane is the same object: the glass below, the rest shadow, the lifted one while focus is inside. */
 :root[data-look="new"] :is(.deck-panel, .deck-pane) {
-  border-color: var(--edge-rest);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-rest);
   transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
-}
-:root[data-look="new"] :is(.deck-panel, .deck-pane):focus-within {
-  border-color: var(--edge-lifted);
-  box-shadow: var(--shadow-lifted);
 }
 /* The header: tracked caps, a keycap, one solid hairline under it (drawn inset, so the band keeps its height). */
 :root[data-look="new"] .deck-band {
@@ -236,6 +231,7 @@
 :root[data-look="new"] .armada-dropdown-menu__separator { margin: var(--space-1) var(--space-2); }
 
 /* ---- Levels: a floating layer is the overlay level ---------------------------------------------------------- */
+/* The glass layers take their edge from the material below; a tooltip is solid and takes the overlay edge. */
 :root[data-look="new"] :is(
   .armada-dropdown-menu__panel,
   .deck-combo__list,
@@ -243,9 +239,9 @@
   .armada-tooltip__bubble,
   .armada-palette
 ) {
-  border-color: var(--edge-overlay);
   box-shadow: var(--shadow-overlay);
 }
+:root[data-look="new"] .armada-tooltip__bubble { border-color: var(--edge-overlay); }
 
 /* A card that is itself a control rises one pixel under the pointer, its shadow stepping rest to hover. Rows and list
    items never move: their hover is the background step. A press settles it back. */
@@ -289,60 +285,51 @@
   :root[data-look="new"] { --lift: 0px; --pop-rise: 0px; --pop-from: 1; }
 }
 
-/* ---- Panels as glass: `?look=new&panels=glass` ------------------------------------------------------------- */
-/* Translucent charcoal over the canvas's light pools, blurred and saturated as macOS materials and visionOS do it:
-   a dark fill at about 58%, a 1px light hairline, a 1px highlight along the top edge, and the same neutral shadows.
+/* ---- Panels as glass ----------------------------------------------------------------------------------------- */
+/* Translucent charcoal over the shell's one accent pool, blurred and saturated as macOS materials and visionOS do it:
+   a dark fill at about 56%, a 1px light hairline, a 1px highlight along the top edge, and the same neutral shadows.
    No sheen, no glow, no tint of its own. Panels, panes and the layers that float over them are glass; rows, fields and
    wells inside a panel stay flat. The blur samples what is behind the panel, which is the canvas: nothing under a panel
    animates. The map pane keeps main's fill (its drawing is opaque and it animates), so it is the frame only.
-   The fill is the sunken charcoal, not the raised one: a dark fill lets the pools show without lifting the ground
+   The fill is the sunken charcoal, not the raised one: a dark fill lets the pool show without lifting the ground
    under the text, which is what holds `--fg-subtle` at 4.5:1 where the pool is strongest. */
-:root[data-look="new"][data-panels="glass"] {
+:root[data-look="new"] {
   --glass-fill: 56%;
+  --glass-edge: rgb(255 255 255 / 0.11);
+  --glass-edge-lifted: rgb(255 255 255 / 0.18);
+  --glass-highlight: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05);
 }
-:root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"]), .armada-studios-page > .armada-card) {
+:root[data-look="new"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"]), .armada-studios-page > .armada-card) {
   background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   backdrop-filter: blur(28px) saturate(170%);
-  border-color: rgb(255 255 255 / 0.11);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-rest);
 }
-:root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"])):focus-within {
-  border-color: rgb(255 255 255 / 0.18);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-lifted);
+:root[data-look="new"] :is(.deck-panel, .deck-pane, .armada-studios-page > .armada-card) {
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-highlight), var(--shadow-rest);
 }
-:root[data-look="new"][data-panels="glass"] .deck-pane[aria-label="Flight map"] {
-  border-color: rgb(255 255 255 / 0.11);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-rest);
+:root[data-look="new"] :is(.deck-panel, .deck-pane):focus-within {
+  border-color: var(--glass-edge-lifted);
+  box-shadow: var(--glass-highlight), var(--shadow-lifted);
 }
-/* Menus, popovers and the palette float over the panels: the same material, more opaque, at the overlay level. */
-:root[data-look="new"][data-panels="glass"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
+/* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
+   overlay level. The inspect card keeps its own hairline and tone edge. */
+:root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette, .armada-inspect-card) {
   background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   backdrop-filter: blur(28px) saturate(170%);
+}
+:root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
   border-color: rgb(255 255 255 / 0.12);
 }
 
-/* The canvas behind the glass is main's: one soft accent pool at the top leading corner and no other wash. */
-
-/* The inspect card floats over the panels like a menu: under glass it takes the same material. Its own hairline and tone edge stay. */
-:root[data-look="new"][data-panels="glass"] .armada-inspect-card {
-  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  backdrop-filter: blur(28px) saturate(170%);
-}
-
 /* ---- Command palette under the look ------------------------------------------------------------------------ */
-/* The glass material, an input row set off by a hairline, small-caps sections, rows of 32px with a flat wash and a 2px bar for
+/* The glass material above, an input row set off by a hairline, small-caps sections, rows of 32px with a flat wash and a 2px bar for
    the active one. Keycaps are the Kbd the inspect card uses. The layout, keys and labels are the palette's own. */
 :root[data-look="new"] .armada-palette {
   --palette-row: 32px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  backdrop-filter: blur(28px) saturate(170%);
-  border-color: rgb(255 255 255 / 0.12);
-  box-shadow: var(--shadow-overlay), inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05);
+  box-shadow: var(--shadow-overlay), var(--glass-highlight);
   animation: armada-palette-in 120ms var(--ease);
 }
 @keyframes armada-palette-in {

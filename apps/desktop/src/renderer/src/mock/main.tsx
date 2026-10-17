@@ -16,10 +16,6 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// `?look=new` draws the new look: type roles, spacing, shadows, material and motion (`@armada/tokens/takes.css`).
-if (query.get("look") === "new") document.documentElement.dataset.look = "new";
-// `&panels=glass` draws the new look's panels as translucent glass over blurred light pools; without it they are flat.
-if (query.get("look") === "new" && query.get("panels") === "glass") document.documentElement.dataset.panels = "glass";
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 const walking = query.get("walk");
 const script = walking === null ? undefined : EVERY_WALK.get(walking);

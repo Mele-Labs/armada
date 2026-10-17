@@ -1,4 +1,4 @@
-// The Cockpit's panels and rows in the new look, `?look=new`: one frame and header, calls, rows, the repository combobox.
+// The Cockpit's panels and rows in Bridge's look: one frame and header, calls, rows, the repository combobox.
 // Over `cockpit-list-by-repository`. A design mock: nothing here asserts a colour or a size.
 
 import { inside, region, role, text, walk } from "../walk";

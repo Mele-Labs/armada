@@ -15,7 +15,7 @@
 @import "tailwindcss";
 @import "@armada/tokens/tokens.theme.css";
 @import "@armada/tokens/base.css";
-/* The new look of the foundations mock; inert until the root carries `data-look="new"`. */
+/* Bridge's look, applied under `data-look="new"`, which `@armada/components/src/look` sets. */
 @import "@armada/tokens/takes.css";
 
 /* The primitives' own stylesheets, last, because they consume the theme above.

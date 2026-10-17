@@ -1,8 +1,8 @@
-/* The new look, a design mock the owner walks with `?look=new`. Nothing here applies until the page
-   carries `data-look="new"` on its root, so the app without one draws as before and a walk can compare the two.
+/* Bridge's look: the type roles, rhythm, shadows and motion `depth.css` and `pages.css` draw with. It applies
+   under `data-look="new"` on the root, which `@armada/components/src/look` sets in each window that loads it.
 
-   Not in the cascade `styles.css` declares and not generated: when he adopts it, the roles move into
-   `src/typography.css` and the scales into `src/spacing.css`, and this file goes.
+   Not in the cascade `styles.css` declares and not generated: the roles belong in `src/typography.css` and the
+   scales in `src/spacing.css`, and this file goes when they move.
 
    Colour is the theme system's. Nothing here sets a ground, a text colour, an accent or a status hue; a token
    below that looks like one is a `color-mix` of the theme's own, so Dark, Light and a mod's theme carry through.
