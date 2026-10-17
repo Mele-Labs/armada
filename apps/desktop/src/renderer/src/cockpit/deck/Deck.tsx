@@ -16,6 +16,7 @@ import { clashingOf, useWriteClashes } from "../../clashes";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
+import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
@@ -421,8 +422,11 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   const forge = forgeOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
   const quiet = quietSaid(forge, views.length > 1);
   const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
+  // While a Session is open its pull requests are framed in the line; with none open, or a Job or a pull request, none are.
+  const viewed = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
     const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
+    const related = viewed !== undefined && pr !== undefined && sessionHolds(viewed, pr);
     const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
     const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
     const place = dot.queued ? dot.card.place : undefined;
@@ -448,7 +452,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </span>
           ) : (
-            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} data-related={related || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
               {inside}
             </button>
           )}
