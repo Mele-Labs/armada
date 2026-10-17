@@ -225,6 +225,8 @@ export type SessionThreadProps = {
   workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
+  /** Where the cards of what waits on him are drawn: pinned over the foot (the default), as the thread's last card, or not here. */
+  calls?: "pinned" | "tail" | "none";
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
   /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
@@ -1270,7 +1272,7 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, calls = "pinned", onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1284,7 +1286,7 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1]);
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, calls === "tail" ? `${asked?.command ?? ""}:${concerns?.length ?? 0}` : 0]);
   const items = itemsOf(rows);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
   const pinnedCalls: PinnedCall[] = [
@@ -1292,57 +1294,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
     ...(concerns ?? []).map((one) => ({ key: `judge-${one.id}`, name: "Judge", Glyph: Scale })),
     ...(asked !== undefined ? [{ key: "asked", name: (asked.questions?.length ?? 0) > 0 ? "Question" : "Permission", Glyph: (asked.questions?.length ?? 0) > 0 ? MessageCircleQuestion : KeyRound }] : lapsed !== undefined ? [{ key: "lapsed", name: "Unanswered", Glyph: MessageCircleQuestion }] : []),
   ];
-  return (
-    <div className="armada-session-thread" ref={whole}>
-      {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
-      <div className="armada-session-thread__stage">
-      <div
-        ref={scroller}
-        className="armada-session-thread__rows"
-        role="region"
-        aria-label="Thread"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          // The thread scrolls from the keyboard when it has the focus, smoothly unless motion is reduced, so the pinned region is seen to follow.
-          const one = event.currentTarget;
-          if (event.target !== one || event.metaKey || event.ctrlKey || event.altKey) return;
-          const by = event.key === "PageUp" ? -one.clientHeight * 0.9 : event.key === "PageDown" ? one.clientHeight * 0.9 : event.key === "Home" ? -one.scrollTop : event.key === "End" ? one.scrollHeight : 0;
-          if (by === 0) return;
-          event.preventDefault();
-          one.scrollBy({ top: by, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-        }}
-        onScroll={(event) => {
-          const one = event.currentTarget;
-          pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
-        }}
-      >
-        <ProseWalk.Provider value={onOpenWindow ?? null}>
-        <ProseRunner.Provider value={runner ?? null}>
-        <ProseCommand.Provider value={slash}>
-        <ol className="armada-helm-thread__rows">
-          {items.flatMap((item, at) => [
-            item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
-            ) : item.kind === "checks" ? (
-              <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
-            ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
-            ),
-            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
-          ])}
-          {working === true && !endsInCalls ? (
-            <li className="armada-session-thread__working">
-              <SessionMark state="working" said="Working" />
-              {onStop === undefined ? null : <SessionStop onStop={onStop} />}
-            </li>
-          ) : null}
-        </ol>
-        </ProseCommand.Provider>
-        </ProseRunner.Provider>
-        </ProseWalk.Provider>
-      </div>
-      {pinnedCalls.length === 0 ? null : (
-      <PinnedCalls key={sessionId} calls={pinnedCalls} scroller={scroller} atEnd={pinned}>
+  // What waits on him, as cards: pinned over the foot of the thread, or (a take) the thread's last card, or left to the host to draw.
+  const cards = (
+    <>
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
       {(concerns ?? []).map((one) => (
         <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
@@ -1447,6 +1401,65 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
           />
         </Card>
       )}
+    </>
+  );
+  return (
+    <div className="armada-session-thread" ref={whole}>
+      {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
+      <div className="armada-session-thread__stage">
+      <div
+        ref={scroller}
+        className="armada-session-thread__rows"
+        role="region"
+        aria-label="Thread"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          // The thread scrolls from the keyboard when it has the focus, smoothly unless motion is reduced, so the pinned region is seen to follow.
+          const one = event.currentTarget;
+          if (event.target !== one || event.metaKey || event.ctrlKey || event.altKey) return;
+          const by = event.key === "PageUp" ? -one.clientHeight * 0.9 : event.key === "PageDown" ? one.clientHeight * 0.9 : event.key === "Home" ? -one.scrollTop : event.key === "End" ? one.scrollHeight : 0;
+          if (by === 0) return;
+          event.preventDefault();
+          one.scrollBy({ top: by, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        }}
+        onScroll={(event) => {
+          const one = event.currentTarget;
+          pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
+        }}
+      >
+        <ProseWalk.Provider value={onOpenWindow ?? null}>
+        <ProseRunner.Provider value={runner ?? null}>
+        <ProseCommand.Provider value={slash}>
+        <ol className="armada-helm-thread__rows">
+          {items.flatMap((item, at) => [
+            item.kind === "calls" ? (
+              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
+            ) : item.kind === "checks" ? (
+              <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+            ) : (
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+            ),
+            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
+          ])}
+          {calls === "tail" && pinnedCalls.length > 0 ? (
+            <li className="armada-session-thread__tail" aria-label="Waiting on you">
+              {cards}
+            </li>
+          ) : null}
+          {working === true && !endsInCalls ? (
+            <li className="armada-session-thread__working">
+              <SessionMark state="working" said="Working" />
+              {onStop === undefined ? null : <SessionStop onStop={onStop} />}
+            </li>
+          ) : null}
+        </ol>
+        </ProseCommand.Provider>
+        </ProseRunner.Provider>
+        </ProseWalk.Provider>
+      </div>
+      {pinnedCalls.length === 0 || calls !== "pinned" ? null : (
+      <PinnedCalls key={sessionId} calls={pinnedCalls} scroller={scroller} atEnd={pinned}>
+      {cards}
       </PinnedCalls>
       )}
       </div>

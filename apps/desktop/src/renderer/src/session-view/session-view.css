@@ -335,3 +335,46 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-session-frame .armada-question-deck__body { padding: calc(var(--space-4) / 2); }
 :root[data-look="new"] .armada-session-frame .armada-session-composer__editor { padding: calc(var(--space-3) / 2) calc(var(--space-4) / 2); }
 :root[data-look="new"] .armada-session-frame .armada-session-composer__bar { padding: calc(var(--space-1) / 2) calc(var(--space-2) / 2) calc(var(--space-2) / 2); }
+
+/* ---- Calls, drawn by the take: the composer's line, a card, the chip, the right column's stack ---------------------- */
+
+.sv-composer-take { display: contents; }
+
+/* The composer's line: what is asked in one line, its answers as numbered keys under it. */
+.sv-callline { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-2) 0; }
+.sv-callline__head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--h-control-sm); min-width: 0; }
+.sv-callline__word { flex: none; color: var(--status-awaiting-review); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-callline__head > .armada-tooltip:has(> .sv-callline__text) { flex: 1 1 0; min-width: 0; }
+.sv-callline { min-width: 0; }
+.sv-callline__text { min-width: 0; overflow: hidden; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); text-overflow: ellipsis; white-space: nowrap; }
+.sv-callline__options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sv-callline__option { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--h-control-sm); padding: 0 var(--space-2) 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.sv-callline__option:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.sv-callline__option:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+
+/* A call as a card: 8px, a 2px bar in the call's hue, the words, then each answer on a row of its own. */
+.sv-call { display: flex; flex-direction: column; gap: var(--space-2); box-sizing: border-box; min-width: 0; padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: inset 2px 0 0 var(--status-awaiting-review); }
+.sv-call__word { color: var(--status-awaiting-review); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-call__text { margin: 0; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.sv-call__detail { margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-call__options { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-call__option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2); box-sizing: border-box; width: 100%; min-height: var(--h-control-sm); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); font: inherit; font-size: var(--text-xs); text-align: start; cursor: pointer; }
+.sv-call__option:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.sv-call__option:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.sv-call__label { min-width: 0; overflow-wrap: anywhere; }
+.sv-call__hint { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.sv-call__other { width: 100%; }
+.sv-call[data-size="full"] .sv-call__text { font-size: var(--text-base); line-height: var(--leading-base); }
+
+/* In the right column: a stack of compact cards above Progress, the Field giving up room while one is open. */
+.sv-calls { display: flex; flex: 0 1 auto; flex-direction: column; gap: var(--space-2); min-height: 0; max-height: calc(var(--space-12) * 8); overflow-y: auto; overscroll-behavior: contain; }
+.sv-calls > .sv-call { flex: none; padding: var(--space-2) var(--space-3); }
+.sv-calls ~ .sv-panel[data-area="field"] { min-height: calc(var(--space-12) * 1.5); }
+
+/* The chip over the composer that jumps back to the thread's last card: no height of its own, drawn up out of the composer's top edge. */
+.sv-callchip { position: relative; z-index: 2; flex: none; height: 0; }
+.sv-callchip__press { position: absolute; inset-block-end: calc(var(--space-8) + var(--space-2)); inset-inline-start: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: var(--space-1); height: var(--h-control-sm); padding: 0 var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--status-awaiting-review); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.sv-callchip__press:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-raised)); }
+.sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
+
+.sv-layer__spacer { flex: 1 1 0; }

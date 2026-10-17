@@ -1269,3 +1269,7 @@
   color: var(--accent);
   font-family: var(--font-mono);
 }
+
+/* A take: what waits on him as the thread's last card, whole and answered in place. */
+.armada-session-thread__tail { display: flex; flex-direction: column; gap: var(--space-3); list-style: none; }
+.armada-session-thread__tail > .armada-session-thread__ask { max-height: none; flex-shrink: 0; }
