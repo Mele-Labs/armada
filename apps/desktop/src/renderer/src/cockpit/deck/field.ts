@@ -6,7 +6,7 @@
 import type { TimelineEvent } from "@armada/protocol";
 
 import { MOST_LOOPS } from "./doing";
-import type { DroneIn } from "./layout";
+import type { DroneIn, FileAct, FileIn } from "./layout";
 import { MOST_PLAYING, type Play } from "./plays";
 
 // ---- A call marker ------------------------------------------------------------------------------------
@@ -132,4 +132,26 @@ export function throttled<T>(deliver: (value: T) => void, ms: number = TICK_MS, 
       }, Math.max(0, ms - quiet));
     },
   };
+}
+
+// ---- The files Sessions name -----------------------------------------------------------------------------
+
+/** Which act stands where two Sessions name one file. */
+const ACT_RANK: Record<FileAct | "rest", number> = { remove: 3, write: 2, edit: 1, rest: 0 };
+
+/**
+ * The files the live Sessions name, for each repository, one entry for each path. Where two name one path the stronger act stands: a file
+ * taken away over one made, one made over one changed, one changed over one at rest. `key` says what the lists hold, so a message that moves
+ * no file hands the layout the same list.
+ */
+export function filesNamed(named: Iterable<{ root: string; file: FileIn }>): { files: Map<string, FileIn[]>; key: string } {
+  const by = new Map<string, Map<string, FileAct | undefined>>();
+  for (const { root, file } of named) {
+    const into = by.get(root) ?? new Map<string, FileAct | undefined>();
+    by.set(root, into);
+    if (!into.has(file.path) || ACT_RANK[file.act ?? "rest"] > ACT_RANK[into.get(file.path) ?? "rest"]) into.set(file.path, file.act);
+  }
+  const key = [...by].map(([root, paths]) => `${root}:${[...paths].map(([path, act]) => `${path}=${act ?? ""}`).sort().join(",")}`).sort().join("|");
+  const files = new Map([...by].map(([root, paths]) => [root, [...paths].map(([path, act]) => (act === undefined ? { path } : { path, act })).sort((a, b) => a.path.localeCompare(b.path))] as [string, FileIn[]]));
+  return { files, key };
 }

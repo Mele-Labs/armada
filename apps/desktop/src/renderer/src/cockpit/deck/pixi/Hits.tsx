@@ -121,6 +121,8 @@ function Drone({ spec, facts, big, acts }: DroneProps) {
         data-selected={spec.selected || undefined}
         data-away={spec.away || undefined}
         data-hot={spec.hot || undefined}
+        data-focus={spec.focused || undefined}
+        data-dim={spec.dim || undefined}
         onClick={pick}
         onKeyDown={(event) => keyed(event, pick)}
         {...speaking(say, leave)}
@@ -177,6 +179,7 @@ function ClashMark({ spec, i, big, acts, clash }: { spec: DroneSpec; i: number; 
       tabIndex={opens ? 0 : -1}
       aria-label={clashSaid(clash)}
       data-hit="clash"
+      data-key={spec.drone.key}
       data-opens={opens || undefined}
       onClick={(event) => {
         event.stopPropagation();
