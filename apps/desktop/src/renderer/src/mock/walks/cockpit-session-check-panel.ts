@@ -3,7 +3,7 @@
 
 import { button, dialog, inside, region, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const pane = region("Session: Session check rows");
 
 const cockpitSessionCheckPanel = walk("session-checks", [

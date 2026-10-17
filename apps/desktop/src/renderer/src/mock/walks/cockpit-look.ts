@@ -3,7 +3,7 @@
 
 import { inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const calls = region("Incoming calls");
 
 const cockpitLook = walk("cockpit-list-by-repository", [

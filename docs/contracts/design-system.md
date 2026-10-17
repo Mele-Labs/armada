@@ -1472,6 +1472,7 @@ l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopil
 1–6            press a flight control   (deck only)
 v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
+/              search the list   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
 L              open the lists   (review only)
@@ -1508,7 +1509,7 @@ description. They stand down in a text field and while a dialog is up.
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
 hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
 the keymap does not count them against `t` and `c`. `l b c q f a d` go to a panel, `m` shows
-the map, `1–6` press a flight control, `t` shows the timeline, `v` swaps a Job's mission
+the map, `1–6` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
 and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
 while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,

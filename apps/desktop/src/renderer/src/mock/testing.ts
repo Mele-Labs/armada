@@ -53,7 +53,7 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
   // And the flight deck's: the switch, its view and its filters.
-  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters"]) localStorage.removeItem(`armada.bridge.${key}`);
+  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters", "deck-scope"]) localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
@@ -145,8 +145,8 @@ export async function motion(): Promise<void> {
   onTestFinished(() => commands.motion(false));
 }
 
-/** A place in the title bar: Cockpit, Jobs, Sessions, Studios, Retros or System. Pressing the one a person is in goes up to its list. */
-export async function toPlace(name: "Cockpit" | "Jobs" | "Sessions" | "Studios" | "Retros" | "System"): Promise<void> {
+/** A place in the title bar: Cockpit, Jobs, Studios, Retros or System. Pressing the one a person is in goes up to its list. A Session is no place: `toSession` reaches it. */
+export async function toPlace(name: "Cockpit" | "Jobs" | "Studios" | "Retros" | "System"): Promise<void> {
   await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name }));
 }
 
@@ -165,8 +165,30 @@ export async function toPageByName(name: string): Promise<void> {
 
 /** A Job's page, from the Cockpit: its row in the list, then the Open in its pane. */
 export async function toJobPage(title: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: title }));
+  await userEvent.click(page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: title }));
   await userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Open the Job page" }));
+}
+
+/**
+ * A Session's view, from anywhere: the Cockpit, then the Session's row in the Work list, then the stage's own
+ * `Session: <title>` region. The Sessions page is gone; this is the only way in. A title given as words is the row's whole
+ * name, one given as a pattern is matched inside it. The list shows Active Sessions until its Filter menu is turned to another
+ * scope, which a Session that ended or went quiet is found under, and which stays turned until it is chosen again.
+ */
+export async function toSession(title: RegExp | string, scope?: "Active" | "Quiet" | "Ended" | "All"): Promise<ReturnType<typeof page.getByRole>> {
+  await toPlace("Cockpit");
+  const work = page.getByRole("region", { name: "Work", exact: true });
+  await expect.element(work).toBeVisible();
+  if (scope !== undefined) {
+    await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
+    await userEvent.click(page.getByRole("menuitem", { name: scope, exact: true }));
+  }
+  // A Job of the same name has a row too; the Session's is the one with the Session mark.
+  const row = work.getByRole("button", { name: title, ...(typeof title === "string" ? { exact: true } : {}) }).filter({ has: page.getByRole("img", { name: "Session", exact: true }) });
+  await userEvent.click(row);
+  const view = page.getByRole("region", { name: /^Session: / });
+  await expect.element(view).toBeVisible();
+  return view;
 }
 
 /** Every Job row the Cockpit's list draws. */

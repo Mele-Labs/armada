@@ -10,15 +10,15 @@ unmountAfterEach();
 
 const selected = () => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent;
 
-// A scenario whose Fleet serves Sessions: the bar leaves a tab off where nothing serves it.
-test("The places bar reads Cockpit, Jobs, Sessions, Studios, Retros, System and ⌘1 to ⌘6 open them in that order", async () => {
+// The Cockpit holds Jobs and Sessions, so the bar has no tab for either; ⌘3 still arrives at the Cockpit.
+test("The places bar reads Cockpit, Studios, Retros, System, and ⌘4 to ⌘6 open the last three, ⌘3 and ⌘1 the Cockpit", async () => {
   mount("cockpit-ship-flightdeck");
   await onScreen();
 
   const names = [...document.querySelectorAll('nav[aria-label="Places"] [role="tab"]')].map((one) => one.textContent);
-  expect(names).toEqual(["Cockpit", "Jobs", "Sessions", "Studios", "Retros", "System"]);
-  const wanted = ["Jobs", "Sessions", "Studios", "Retros", "System", "Cockpit"];
-  for (const [at, name] of ["2", "3", "4", "5", "6", "1"].entries()) {
+  expect(names).toEqual(["Cockpit", "Studios", "Retros", "System"]);
+  const wanted = ["Studios", "Retros", "System", "Cockpit", "System", "Cockpit"];
+  for (const [at, name] of ["4", "5", "6", "3", "6", "1"].entries()) {
     await userEvent.keyboard(`{Meta>}${name}{/Meta}`);
     await expect.poll(selected, { message: `⌘${name}` }).toContain(wanted[at]!);
   }

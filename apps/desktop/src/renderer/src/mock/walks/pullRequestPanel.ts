@@ -10,7 +10,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { close, row, sheet } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const queued = sheet("Pull request #2209");
   const ready = sheet("Pull request #2210");
   const failed = sheet("Pull request #2213");

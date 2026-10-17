@@ -3,7 +3,7 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const queue = region("Merge queue");
 const context = button(/^Context 61%/);
 

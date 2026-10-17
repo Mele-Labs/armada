@@ -9,7 +9,7 @@ const { message } = kit(false);
 
 const composerAtGroups = walk("composer-at-groups", [
   toSessions,
-  { press: inside(region("Sessions"), button("New Session")), say: "A new Session" },
+  { press: inside(region("Work", { exact: true }), button("Store migration spike")), say: "A Session" },
   { type: "@", into: message, say: "An at sign opens what can be tagged" },
   { look: role("group", "Sessions"), say: "The other Sessions come first" },
   { look: role("group", "Jobs"), say: "Then the Jobs" },

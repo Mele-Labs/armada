@@ -857,6 +857,10 @@ where
         self.session_check_reported(call).await
     }
 
+    async fn ask_for_slot(&self, call: ipc::AskForSlot) -> Result<ipc::SlotAsked, Refusal> {
+        Ok(self.slot_asked(call).await)
+    }
+
     async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
         self.session_check_output(run).await
     }

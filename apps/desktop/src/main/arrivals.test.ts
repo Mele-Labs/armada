@@ -106,6 +106,7 @@ function fakeHost(
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
+    reviews: { changed: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
@@ -452,6 +453,17 @@ describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
       FLEET,
     );
     expect(appended).toHaveBeenCalledWith(entry);
+    expect(state().jobs).toEqual([job()]);
+  });
+});
+
+describe("a review run, off `review_run.changed`", () => {
+  it("is told to the windows whole, and moves nothing on the Board", () => {
+    const { host, state } = fakeHost([job()]);
+    const changed = vi.fn();
+    const run = { manifest_id: "armada", number: 7, kind: "tool", name: "risks", head: "abc1234", state: "running", started_at: "2026-10-16T10:00:00Z" };
+    applyArrival({ ...host, reviews: { changed } }, JSON.stringify({ message: "event", cursor: 9, event: { kind: "review_run.changed", run } }), FLEET);
+    expect(changed).toHaveBeenCalledWith(run);
     expect(state().jobs).toEqual([job()]);
   });
 });

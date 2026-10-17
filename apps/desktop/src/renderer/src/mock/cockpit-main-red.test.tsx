@@ -37,7 +37,7 @@ const hovered = () => page.getByRole("tooltip");
 async function deck(scenario: Scenario) {
   mount(scenario);
   await onScreen();
-  await expect.element(page.getByRole("region", { name: "Jobs and Sessions" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
 }
 
 test("hovering the red light opens the card with the way to hand the red to a Session", async () => {
@@ -75,7 +75,7 @@ test("a press pins the card, and Esc puts it away", async () => {
   await light().click();
   await expect.element(card()).toBeVisible();
   // Off the light, a pinned card stays.
-  await page.getByRole("region", { name: "Jobs and Sessions" }).hover();
+  await page.getByRole("region", { name: "Work", exact: true }).hover();
   await new Promise((done) => window.setTimeout(done, 400));
   await expect.element(card()).toBeVisible();
   await userEvent.keyboard("{Escape}");

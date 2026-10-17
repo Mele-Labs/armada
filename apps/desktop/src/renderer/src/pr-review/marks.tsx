@@ -3,9 +3,9 @@
 // `square-dashed` is a review nobody has given. **No state is a phrase.**
 
 import type { LucideIcon } from "lucide-react";
-import { AppWindow, Ban, Bot, Briefcase, Bug, Check, ClipboardList, FolderGit2, LoaderCircle, MessageSquare, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert, Unplug } from "lucide-react";
-import { PrMark } from "@armada/components";
-import type { PullRequestReviewState } from "@armada/protocol";
+import { AppWindow, Ban, Bot, Briefcase, Bug, Check, CircleX, ClipboardList, FolderGit2, LoaderCircle, MessageSquare, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert, Unplug } from "lucide-react";
+import { PrMark, Tooltip } from "@armada/components";
+import type { PullRequestReviewState, ReviewSeverity } from "@armada/protocol";
 
 import type { ReviewPr, ToolMark, ToolSource } from "./model";
 
@@ -55,6 +55,31 @@ export function ChecksMark({ checks }: { checks: ReviewPr["checks"] }) {
     </span>
   );
 }
+
+/** A run that failed: Fleet's reason, where the result would be. It is never a result. */
+export function RunFailed({ said }: { said: string }) {
+  return (
+    <p className="pr-run__failed" role="alert">
+      <PrMark Glyph={CircleX} said="Failed" tone="failed" />
+      {said}
+    </p>
+  );
+}
+
+/** How serious a finding is, as bars filled low to high. Drawn here and named on hover, since the registry holds no gauge. */
+export function SeverityMark({ severity }: { severity: ReviewSeverity }) {
+  return (
+    <Tooltip label={`${SEVERITY[severity]} severity`}>
+      <span className="pr-severity" data-severity={severity} role="img" aria-label={`${SEVERITY[severity]} severity`}>
+        <i />
+        <i />
+        <i />
+      </span>
+    </Tooltip>
+  );
+}
+
+const SEVERITY = { low: "Low", medium: "Medium", high: "High" } as const;
 
 /** Armada's own: a finding, which is never posted. */
 export function ArmadaMark() {

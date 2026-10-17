@@ -5,7 +5,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -16,8 +16,7 @@ const COMMAND = "cd ~/Development/armada/apps/store && pnpm exec wrangler login 
 async function open(title: string) {
   mount("needs-you-steps-run");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Central store/ }));
+  await toSession(/Central store/);
   const needs = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(needs.getByRole("button", { name: /^Needs you/ }));
   const row = needs.getByRole("button", { name: `Open ${title}` });

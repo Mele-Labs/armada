@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, toSystemPage, viaPalette, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const calls = region("Incoming calls");
 const bays = region("Bays");
 const combobox = role("combobox", "Repository");

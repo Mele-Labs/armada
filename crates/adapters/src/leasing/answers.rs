@@ -19,6 +19,22 @@ pub struct Full {
     pub slots: Vec<Slot>,
 }
 
+impl Full {
+    /// Whether the pool is full and not merely between two states. **A slot another take has the
+    /// lock of, or one that is open and not made yet, is only unavailable for a moment**: the lock
+    /// a lease dropped is held on by any process spawned in the instant before, until it execs, and
+    /// a second look under it then finds the slot locked. Nobody is to be told the pool is full,
+    /// and above all not asked what to do about it, until a look finds every slot held, stranded,
+    /// closed or not a checkout.
+    pub fn settled(&self) -> bool {
+        self.slots.iter().all(|slot| match slot.state {
+            SlotState::Busy => false,
+            SlotState::Unmade => slot.closed,
+            _ => true,
+        })
+    }
+}
+
 /// A slot that was taken.
 #[derive(Debug)]
 pub struct Lease {

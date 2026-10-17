@@ -1,5 +1,5 @@
 // The ledger's bar of icons, which narrows it to one kind of thing, and its Search. Over the
-// `ledger-filter-bar` scenario. Told twice: wide, and below the breakpoint, where the ledger folds into a sheet.
+// `ledger-filter-bar` scenario. Told twice: wide, and below the breakpoint.
 
 import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";
@@ -7,12 +7,11 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const bar = inside(ledger, role("group", "Narrow the ledger"));
   return [
     { press: inside(sessions, button("Lock the store migrations")), say: "A done Session holding a pull request, branches in slots, a bare slot and artifacts" },
     { look: region("Needs you"), say: "The item waiting on you stays in the thread, over the done callout" },
-    ...(narrow ? [{ press: button("Attachments"), say: "The ledger, opened" } as Step] : []),
     { look: bar, say: "A bar across the top of the ledger" },
     { press: inside(bar, button("Pull requests")), say: "Pull requests" },
     { look: inside(ledger, role("heading", "Pull requests")), say: "Only the pull request is left" },

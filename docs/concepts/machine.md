@@ -204,6 +204,8 @@ Drone started into a spent window is held when it is refused.
 
 **The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one. Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it. A hand edit of `models.session` away from what the phase expects settles it. `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Session model steps down*.
 
+**`models.review` is the model an agent run about a pull request runs on.** It ships as the Session model and is its own setting after that, so the step down of Sessions leaves reviews where they were. It is live: a run started after a change takes it. It has no environment variable. `docs/concepts/pull-review.md`, *Agent runs*.
+
 **What follows `models.session`.** It is live. A Session process started after the change takes it, and a process already running keeps its own until it ends and the next message starts another. A model chosen for one Session wins, and a terminal Session reports its own. `models.default` is the Drone's and a Job's and is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
 
 ## Init

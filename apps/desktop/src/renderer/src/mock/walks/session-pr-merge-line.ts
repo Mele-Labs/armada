@@ -9,9 +9,10 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { sheet, close, row } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const card = sheet("Pull request #1850");
-  const queue = role("list", "Merge queue");
+  // The Cockpit draws its own merge queue track too; the Session's is the one inside its view.
+  const queue = inside(role("region", /^Session: /), role("list", "Merge queue"));
   const ahead = inside(queue, role("listitem", /^Cap the log reader's buffer/));
   const mine = inside(queue, role("listitem", /^Record each migration once/));
   return [

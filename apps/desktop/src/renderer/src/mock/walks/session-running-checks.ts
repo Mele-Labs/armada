@@ -7,8 +7,8 @@ const MARK = button("2 checks running");
 const LIST = role("menu", "2 checks running");
 
 export const sessionRunningChecks = walk("session-running-checks", [
-  { press: place("Sessions"), say: "Sessions" },
-  { press: inside(region("Sessions"), button("Session running checks")), say: "A Session with two checks running" },
+  { press: place("Cockpit"), say: "Cockpit" },
+  { press: inside(region("Work", { exact: true }), button("Session running checks")), say: "A Session with two checks running" },
   { hover: MARK, say: "Checks running in this Session" },
   { press: MARK, say: "Press to list them" },
   { press: inside(LIST, role("menuitem", "Check test session_checking, running")), say: "Press one to open its log" },

@@ -224,6 +224,19 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/review_threads/:repository",
             post(crate::pull_request_panel::resolve_review_thread::<D>),
         )
+        .route(
+            "/review_tools/:repository",
+            get(crate::pull_request_panel::list_review_tools::<D>)
+                .post(crate::pull_request_panel::save_review_tool::<D>),
+        )
+        .route(
+            "/review_runs/:repository",
+            post(crate::pull_request_panel::start_review_run::<D>),
+        )
+        .route(
+            "/review_runs/:repository/:number",
+            get(crate::pull_request_panel::get_review_runs::<D>),
+        )
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
@@ -306,6 +319,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/checks",
             post(crate::sessions::report_session_check::<D>),
+        )
+        .route(
+            "/sessions/slot_wanted",
+            post(crate::sessions::ask_for_slot::<D>),
         )
         .route(
             "/sessions/checks/:run/output",

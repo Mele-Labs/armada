@@ -10,7 +10,7 @@ function steps(): Step[] {
   const thread = region("Thread");
   const message = role("textbox", "Message");
   return [
-    { key: "Meta+Shift+d", on: place("Sessions"), say: "⇧⌘D, from wherever focus is" },
+    { key: "Meta+Shift+d", on: place("Cockpit"), say: "⇧⌘D, from wherever focus is" },
     { look: text("Work out what is going on in Bridge"), say: "A new Session, its note waiting in the box" },
     { look: text(/annotation-.*\.png/), say: "The screenshot attached to it" },
     { look: thread, say: "No turn is running: the thread is empty" },
@@ -19,7 +19,7 @@ function steps(): Step[] {
     { press: inside(thread, button("Stop")), say: "The turn ends" },
     { look: message, say: "The Session rests, and its box is ready" },
     toSessions,
-    { press: inside(region("Sessions"), button("Backfill dry run")), say: "A Session mid-turn, in its tools" },
+    { press: inside(region("Work", { exact: true }), button("Backfill dry run")), say: "A Session mid-turn, in its tools" },
     { hover: inside(thread, button("Stop")), say: "Stop beside the working mark on the tool row" },
     { press: inside(thread, button("Stop")), say: "The same" },
   ];
