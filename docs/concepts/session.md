@@ -880,7 +880,7 @@ A Session's agent may start a Session, or fork its own conversation into one, th
 
 ## Linked Sessions
 
-A Session splits its work into **linked Sessions it follows**, one for each group of its plan. This replaces Jobs' Epics. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn.
+A Session splits its work into **linked Sessions it follows**, one for each group of its plan. This replaces Jobs' Epics. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn. The Plan is Progress now and the Ledger is gone from a Session's view; the same Sessions are a group in the Artifacts layer (*A Session open*).
 
 | | |
 |---|---|
@@ -888,7 +888,7 @@ A Session splits its work into **linked Sessions it follows**, one for each grou
 | The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
 | The link | `started_by` on the child and `started_to` on the parent, as for any started Session, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
 | The parent keeps track | When a child **needs the owner** (a waiting item other than its unsent first message, a question or permission held, or stuck), **ends**, or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `needs`, `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
-| Every Session started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. The Plan and the Linked section draw only those with a group |
+| Every Session started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. Progress and the Artifacts layer draw only those with a group |
 
 > **Rule.** A Session follows every Session its agent starts, and the owner hears of a child through the parent's thread where it happened.
 > Why: the parent is the one holding the plan, and a child that waited on him with nobody saying so was how work stalled.
@@ -897,8 +897,8 @@ Bridge draws it from the wire, with no state of its own:
 
 | Where | What |
 |---|---|
-| The Plan | Under a group handed to a Session, that Session's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Session** in its open body |
-| The Ledger | A Linked section first: the same row, with the group it came from on the second line |
+| Progress | Under a group of the plan handed to a Session, that Session's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Session** in its open body |
+| The Artifacts layer | A Sessions group: each child's title, the group it came from after it, its state mark and its pull request with the checks mark. A press opens the child, and Esc is Back to the parent |
 | The parent's thread | A `linked` row where it happened, `eye` for needs, `power` for done, `git-merge` for merged, the press that opens the child |
 | Work | `docs/concepts/cockpit.md` |
 | Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
@@ -945,7 +945,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
-| The ledger's sections | Pull requests, Branches, then the rest; only a kind that holds a row is drawn. What waits on the person is not among them: the thread's Needs you band holds it in every state. A ledger with nothing on it draws one small picture and no words |
+| The ledger's sections (a Session with no `work`, drawn as it was) | Pull requests, Branches, then the rest; only a kind that holds a row is drawn. What waits on the person is not among them: the thread's Needs you band holds it in every state. A ledger with nothing on it draws one small picture and no words |
 | The ledger's bar | Four icon buttons across its top: Search, Pull requests, Branches and slots, Artifacts. A kind narrows the ledger to its section, one at a time, and a kind with no row is disabled. Search narrows every section to the rows whose name or text holds the words, and its draft is kept per Session. An empty ledger draws no bar |
 | Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `image`, `notebook-text`) and a tooltip naming it (Published page, File written, Looked at, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote or a picture it looked at |
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
@@ -954,9 +954,29 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | A running Session's line in the list | `activity.now`, one line under the title. Nothing is drawn for a Session whose turn is not running, however old its last `now` is |
 | The thread's Working on band | `activity.todos`, over the message box, in the order doing, to do, done. Folded, a task mark a todo, each named on hover with its words (`TaskMark`'s); a press opens the rows. Left off when the Session says it is done, and when the list is empty |
 | A Cockpit tile's line | The todo being done, else `activity.now` |
-| The thread's pinned calls | What the Session waits on him for, as cards under the thread: a plan to approve, a judge's concern, a question or a permission, and the question that lapsed. **They shrink as the thread scrolls up, a pixel of height for a pixel of scroll, until one band is left**, and grow back as it scrolls to the end. The band names the first call and the others as chips. A press on the band opens the cards over the whole thread to scroll inside, and a second press or Esc puts the thread back at the offset it had. Under reduced motion the region snaps between open and band. A call that arrives while it is folded joins the band and leaves it folded, and the thread does not move. Working on, Needs you and the done callout are not in it |
+| What waits on him | **The thread's last card**, answered where it stands: a plan to approve, a judge's concern, a question or a permission, the question that lapsed, and the Needs you band with the rest. Nothing is pinned and nothing shrinks as the thread scrolls. Scrolled away from it, a chip over the composer names the call (`Question`) and a press jumps back and puts focus in the card. A call that arrives with the thread scrolled up joins the card and moves nothing. Working on and the done callout stay under the thread. The owner, 16 Oct 2026: "I am really not liking these new scrolling question panes" |
 | A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
+
+## A Session open
+
+Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, more Flight control keys, and an Artifacts view for "everything that was created or used during a session". Approved on `?walk=compactSessionView`, with the calls as the thread's last card (`?walk=compactCallsInThread`). `docs/concepts/cockpit.md` has the layout.
+
+| On screen | From |
+|---|---|
+| The thread, and its last card | `asked`, the plan awaiting approval, the judge's concerns, the lapsed question, then the Needs you band. Answered in place |
+| The Field | `work.field`, only the Session's own drone and the subagents at work: one whose `subagent` row is `spent` has left it |
+| Progress | The workflow's steps as a line of glyphs, each a hover card (`Build · current`), and the plan's groups and tasks under it. It is the old Status and Plan as one panel |
+| Flight control | The Session's own tiles; the last four open a layer over the thread |
+
+| Layer | Key | Reads |
+|---|---|---|
+| Artifacts | `8` | The Session's rows as they stand: `pr`, `artifact` (pages, files, docs, images), `sketch`, `subagent`, `background`, `job`, `studio` and `started_to` (the Sessions it handed a plan group to, each with the group and its state), the files its drones touched (`touches`), and from the thread the commands it ran and the commits it made. **The wire holds no commit record, so a commit is the thread's `git commit -m` line**, not Fleet's observation,. A field at the top narrows every group as it is typed in |
+| Subagents | `9` | Every `subagent` row, the running ones first. A press opens its own thread |
+| Checks | `0` | The `check` rows of the thread, newest first. A press opens the run on the Checks page |
+| Slot | none | The slot's lease, how far it is behind its base and the write clashes: `slot-trouble.ts`. **Lit only when the slot is stranded, 20 or more commits behind, or in a write clash**, and then also a call in the thread's last card. Off, with its reason, otherwise |
+
+A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was. The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere. Esc is the layer's while one is open, and a sheet over it keeps its own. The layer is dropped when another Session is opened.
 
 ## Which model, and a fresh start
 

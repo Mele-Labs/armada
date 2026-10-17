@@ -1,5 +1,5 @@
 // Linked Sessions on a real Fleet's path, through `App`: the plan comes off the Session's record, Hand to a Session on a group that has none
-// is `hand_to_session` to Fleet, and the Session Fleet starts stands on that group in the Plan, under Linked in the Ledger and under its
+// is `hand_to_session` to Fleet, and the Session Fleet starts stands on that group in Progress, in the Artifacts layer and under its
 // parent in Work, all read off the `detail.group` of the two link rows.
 
 import { expect, test } from "vitest";
@@ -49,16 +49,18 @@ async function open(served: FakeSessionsFleet) {
 
 test("a Session Fleet says was handed a group stands on that group, in the Ledger and under its parent in Work", async () => {
   const work = await open(fleet());
-  const plan = page.getByRole("region", { name: "Plan", exact: true });
+  const plan = page.getByRole("region", { name: "Progress", exact: true });
   await expect.element(plan.getByRole("region", { name: "Name the migrations", exact: true }).getByRole("button", { name: "Open Migrations get names" })).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Ledger", exact: true }).getByLabelText("Handed from Name the migrations")).toBeVisible();
+  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts" }).click();
+  await expect.element(page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("button", { name: "Migrations get names" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
   await expect.element(work.getByLabelText("Linked Session, handed from Name the migrations")).toBeVisible();
 });
 
 test("Hand to a Session on a group not handed is hand_to_session, and the Session it starts stands on the group", async () => {
   const served = fleet();
   await open(served);
-  const plan = page.getByRole("region", { name: "Plan", exact: true });
+  const plan = page.getByRole("region", { name: "Progress", exact: true });
   await plan.getByRole("button", { name: "Apply them in order", exact: true }).click();
   await userEvent.click(plan.getByRole("button", { name: "Hand to a Session" }));
   await expect.poll(() => served.calls.handed).toEqual([{ sessionId: PARENT, group: "g2" }]);

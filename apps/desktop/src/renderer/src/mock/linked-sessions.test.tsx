@@ -1,7 +1,7 @@
 // A Session that handed groups of its plan to Sessions it follows, through `App` on `linked-sessions`: each group handed carries its Session's
-// row on the Plan and the same Session is in the Ledger under Linked; the children stand under the parent in Work; what a child does is a row
-// in the parent's thread where it happened; and Enter opens a child while Esc returns to the parent as it was. The walk `linkedSessions`
-// plays it.
+// row in Progress and the same Session is in the Artifacts layer under Sessions; the children stand under the parent in Work; what a child does
+// is a row in the parent's thread where it happened; and Enter opens a child while Esc returns to the parent as it was. The walk
+// `linkedSessions` plays it.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -13,8 +13,9 @@ unmountAfterEach();
 
 const PARENT = "Move the store to named migrations";
 const work = () => page.getByRole("region", { name: "Work", exact: true });
-const plan = () => page.getByRole("region", { name: "Plan", exact: true });
-const ledger = () => page.getByRole("region", { name: "Ledger", exact: true });
+const progress = () => page.getByRole("region", { name: "Progress", exact: true });
+const artifacts = () => page.getByRole("region", { name: "Artifacts", exact: true });
+const openArtifacts = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts" }).click();
 
 async function parent() {
   mount("linked-sessions");
@@ -35,26 +36,27 @@ test("in Work each linked Session stands right under its parent, led by link and
   await expect.element(work().getByLabelText("Linked Session, handed from Name the migrations")).toBeVisible();
 });
 
-test("on the Plan a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
+test("in Progress a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
   await parent();
-  const group = plan().getByRole("region", { name: "Name the migrations", exact: true });
+  const group = progress().getByRole("region", { name: "Name the migrations", exact: true });
   const row = group.getByRole("button", { name: "Open Migrations get names" });
   await expect.element(row).toBeVisible();
   await expect.element(row.getByLabelText("Linked Session")).toBeVisible();
   // Its second line holds the state mark and the pull request, and the group is the row it stands under, so it is not said again.
   await expect.element(row.getByText("#2412")).toBeVisible();
   expect(row.element().querySelector(".armada-linked__group")).toBeNull();
-  const open = plan().getByRole("button", { name: "List them in System", exact: true });
+  const open = progress().getByRole("button", { name: "List them in System", exact: true });
   await open.click();
-  await expect.element(plan().getByRole("button", { name: "Hand to a Session" })).toBeVisible();
+  await expect.element(progress().getByRole("button", { name: "Hand to a Session" })).toBeVisible();
 });
 
-test("in the Ledger the same Sessions are under Linked, each with the group it came from", async () => {
+test("in the Artifacts layer the same Sessions are under Sessions, each with the group it came from", async () => {
   await parent();
-  const row = ledger().getByRole("button", { name: "Open Migrations apply in order" });
+  await openArtifacts();
+  const row = artifacts().getByRole("button", { name: "Migrations apply in order" });
   await expect.element(row).toBeVisible();
-  await expect.element(row.getByLabelText("Handed from Apply them in order")).toBeVisible();
-  expect(row.element().querySelectorAll(".armada-linked__head, .armada-linked__facts")).toHaveLength(2);
+  await expect.element(row.getByText("Apply them in order")).toBeVisible();
+  await expect.element(artifacts().getByRole("region", { name: "Sessions", exact: true })).toBeVisible();
 });
 
 test("a child that needs the owner is a row in the parent's thread where it happened, and a press opens it", async () => {
@@ -69,9 +71,10 @@ test("a child that needs the owner is a row in the parent's thread where it happ
   await expect.element(page.getByRole("region", { name: "Session: Migrations apply in order" })).toBeVisible();
 });
 
-test("Enter on a Session's row opens it and Esc is Back to the parent", async () => {
+test("Enter on a Session's row in Artifacts opens it and Esc is Back to the parent", async () => {
   await parent();
-  const row = ledger().getByRole("button", { name: "Open Migrations apply in order" });
+  await openArtifacts();
+  const row = artifacts().getByRole("button", { name: "Migrations apply in order" });
   row.element().focus();
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByRole("region", { name: "Session: Migrations apply in order" })).toBeVisible();

@@ -850,10 +850,13 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
    the block is wide and low, two rows of four where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
    its word from its own box. */
 .deck-controls__block[data-subject="session"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
-.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-@container tiles (min-aspect-ratio: 45 / 10) {
-  .deck-controls__tiles { grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+@container tiles (min-aspect-ratio: 11 / 1) {
+  .deck-controls__tiles { grid-template-columns: repeat(11, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
 }
+/* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
+.deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
+.deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
 .deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
 .deck-controls__tiles > .deck-tile svg,
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
