@@ -6,7 +6,10 @@ use crate::tests::repo::TempRepo;
 use crate::GitVcs;
 
 fn commit_as(repo: &TempRepo, author: &str, path: &str) {
-    repo.write(path, "x\n");
+    // Each commit its own contents, so a path committed twice is a change both times.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    repo.write(path, &format!("{n}\n"));
     repo.git(&["add", "--", path]);
     repo.git(&["commit", "-q", &format!("--author={author}"), "-m", path]);
 }
