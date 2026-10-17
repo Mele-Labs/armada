@@ -9,7 +9,8 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 const CENTRE_FLOOR = 480;
-const KEY = "armada.bridge.deck-columns";
+// Nothing is selected on mount, so the widths are kept under the idle layout's key.
+const KEY = "armada.bridge.deck-columns.idle";
 const left = () => page.getByRole("separator", { name: "Resize the left column" });
 const right = () => page.getByRole("separator", { name: "Resize the right column" });
 const width = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().width;
