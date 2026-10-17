@@ -191,7 +191,8 @@ const red: Session = {
   attachments: [pr(1896, "Fix the reconnect wait", "fleet/reconnect-wait", { state: "failed", failing: "desktop_test" })],
 };
 
-const SESSIONS: Session[] = [asking, WORKING_REPLY, done, working, stuck, queuedOwner, red];
+/** The ship's seven Sessions, for a scenario that adds an eighth to `sessions`. */
+export const SESSIONS: Session[] = [asking, WORKING_REPLY, done, working, stuck, queuedOwner, red];
 
 /** Fleet's reading of the Session at the first moment: its turn ended on a message and a question to him. A reply alone raises no call, so the question is what does. */
 const REPLIED: Partial<Session> = {
@@ -205,7 +206,7 @@ const REPLIED: Partial<Session> = {
 };
 
 /** The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly Session[] = SESSIONS): SessionsStore {
+export function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly Session[] = SESSIONS): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   const store = sessionsStore([none, none], none, [], control, [], list);
   let moment = 0;
