@@ -58,8 +58,13 @@ const PLAYER = `
     flag(svg, "data-playing", step !== null);
     Object.keys(nodes).forEach(function (id) {
       var el = nodes[id], lit = step !== null && step.nodes.indexOf(id) >= 0;
+      // A screen that holds the step in one of its elements shows itself as it stands at that step, and does not stand back.
+      var inner = step !== null && !lit && step.inner !== undefined && step.inner.indexOf(id) >= 0;
       flag(el, "data-current", lit);
-      flag(el, "data-dim", step !== null && !lit && !el.hasAttribute("data-ground"));
+      flag(el, "data-dim", step !== null && !lit && !inner && !el.hasAttribute("data-ground"));
+      el.querySelectorAll(".sk-screen").forEach(function (view) {
+        flag(view, "data-off", view.getAttribute("data-at") !== (inner ? String(step.at) : "rest"));
+      });
     });
     Object.keys(edges).forEach(function (id) {
       var el = edges[id], active = step !== null && step.edges.indexOf(id) >= 0;

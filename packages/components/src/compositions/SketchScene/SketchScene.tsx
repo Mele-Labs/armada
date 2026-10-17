@@ -17,6 +17,7 @@ import { Ink, type SketchPoint } from "../SketchPad/Ink";
 import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
+import { screenMarkup, screenStyles } from "./export-screen";
 import { DEFAULT_METRICS, EXPORT_TOKENS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
@@ -532,8 +533,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   };
 
 
-  /** The drawing as it stands, in the theme's colours now: what every export is made from. */
-  const exportInput = (): SketchSvgInput => {
+  /** The drawing as it stands, in the theme's colours now: what every export is made from. `steps` is for a page that plays them. */
+  const exportInput = (steps: boolean): SketchSvgInput => {
     const style = getComputedStyle(figure.current ?? document.documentElement);
     const tokens = Object.fromEntries(EXPORT_TOKENS.map((name) => [name, style.getPropertyValue(name).trim()]));
     const px = (name: string, fallback: number) => {
@@ -552,6 +553,14 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       const Glyph = ICON[one.icon];
       icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     }
+    // Where each screen's sheet starts under its title, in the node's own units and not the zoom's.
+    const sheetTop = (node: SceneNode): number => {
+      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(node.id)}"] .armada-scene-node`);
+      const sheet = drawn?.querySelector(".armada-screen");
+      if (!(drawn instanceof HTMLElement) || !(sheet instanceof HTMLElement) || drawn.offsetHeight === 0) return node.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
+      return ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) * drawn.offsetHeight) / drawn.getBoundingClientRect().height;
+    };
+    const screens = shown.nodes.some((one) => one.screen !== undefined) ? screenMarkup(shown, (id) => sheetTop(shown.nodes.find((one) => one.id === id)!), steps, screenStyles()) : undefined;
     const geometry: ExportGeometry = { rects: placed.rects, paths: placed.paths, places };
     const bodyLines: Record<string, string[]> = {};
     for (const one of shown.nodes) {
@@ -566,6 +575,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       metrics,
       tokens,
       icons,
+      ...(screens === undefined ? {} : { screens }),
       state: { change: new Map([...(diff?.nodes ?? []), ...(diff?.edges ?? [])]), mine: composed?.mine ?? new Set(), struck: composed?.struck ?? new Set() },
       title: title ?? "Sketch",
       standalone: true,
@@ -575,7 +585,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {
     const name = title ?? "Sketch";
-    const input = exportInput();
+    const input = exportInput(id === "html");
     const save = async (files: readonly SketchShareFile[]) => {
       const first = files[0]!;
       try {
