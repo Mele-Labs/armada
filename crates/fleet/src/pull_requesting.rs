@@ -298,12 +298,10 @@ where
             }
             NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
             NotMerged::NoTool { .. } => Refusal::Fault(raised(MERGE_NO_TOOL)),
-            // The four only `merge_by: push` says, and the need that holds a
-            // Job's press: none of them is a forge merge's answer.
+            // The three only `merge_by: push` says: none of them is a forge merge's answer.
             NotMerged::BaseMoved { .. }
             | NotMerged::GateFailed { .. }
             | NotMerged::Unchecked { .. }
-            | NotMerged::WaitingBehind { .. }
             | NotMerged::Refused { .. } => Refusal::Fault(raised(MERGE_REFUSED)),
         }
     }

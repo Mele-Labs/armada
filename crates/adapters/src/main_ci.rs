@@ -14,8 +14,8 @@ use std::io::Read;
 use std::process::Stdio;
 
 use adapter_traits::{
-    CiRun, CiRuns, CiState, CommitStatus, FromOutside, MergedPull, OpenPull, OpenPulls, PullFacts,
-    PullMergeable, PullReview, RecentlyMerged, RecentlyMergedPulls, StatusState,
+    CiRun, CiRuns, CiState, FromOutside, MergedPull, OpenPull, OpenPulls, PullFacts,
+    PullMergeable, PullReview, RecentlyMerged, RecentlyMergedPulls,
 };
 
 use crate::delivery::{read_in, run_in, FORGE};
@@ -269,45 +269,6 @@ pub(crate) fn open_pull(in_repo: &str, gate: &str, number: u64) -> Option<OpenPu
         ],
     )?;
     said.lines().find_map(|line| open_pull_of_line(line, gate))
-}
-
-/// Put one commit status on `commit`: `gh api` fills `{owner}/{repo}` from the
-/// repository it runs in. **Only a commit and a context that cannot be read as an
-/// option**, so a word from a branch name never becomes a flag.
-pub(crate) fn publish_status(in_repo: &str, status: &CommitStatus) -> Result<(), String> {
-    let CommitStatus {
-        commit,
-        context,
-        state,
-        description,
-    } = status;
-    if !is_a_commit(commit.as_str()) || context.is_empty() || context.starts_with('-') {
-        return Err(format!("{commit} / {context} is not a status to publish"));
-    }
-    let state = match *state {
-        StatusState::Pending => "pending",
-        StatusState::Success => "success",
-    };
-    let route = format!("repos/{{owner}}/{{repo}}/statuses/{commit}");
-    let run = run_in(
-        in_repo,
-        FORGE,
-        &[
-            "api",
-            &route,
-            "-f",
-            &format!("state={state}"),
-            "-f",
-            &format!("context={context}"),
-            "-f",
-            &format!("description={description}"),
-        ],
-    )
-    .map_err(|why| why.to_string())?;
-    match run.status.success() {
-        true => Ok(()),
-        false => Err(crate::delivery::said(&run)),
-    }
 }
 
 /// The login `gh` is signed in as: `gh api user`. `None` where it is not signed in, would not
@@ -613,23 +574,6 @@ mod tests {
             None
         );
         assert_eq!(open_pull_of_line("12\tt\tb\tu\tnick\t", "ci").unwrap().head, None);
-    }
-
-    #[test]
-    fn a_status_is_refused_for_a_commit_or_context_that_could_be_an_option() {
-        for (commit, context) in [
-            ("main", "needs"),
-            (&"a".repeat(40), "-f"),
-            (&"a".repeat(40), ""),
-        ] {
-            let status = CommitStatus {
-                commit: commit.to_string(),
-                context: context.to_string(),
-                state: StatusState::Success,
-                description: "x".to_string(),
-            };
-            assert!(publish_status(".", &status).is_err());
-        }
     }
 
     #[test]

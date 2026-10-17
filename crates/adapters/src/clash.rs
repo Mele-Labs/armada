@@ -82,6 +82,18 @@ pub fn holds(worktree: &Path, commit: &str) -> bool {
     rev_parse(worktree, &format!("{commit}^{{commit}}")).is_ok()
 }
 
+/// Whether `branch` exists in the repository at `repo`. Git that could not run
+/// says nothing about it, so that reads as yes.
+pub fn branch_exists(repo: &Path, branch: &str) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["show-ref", "--verify", "--quiet", &format!("refs/heads/{branch}")])
+        .output()
+        .map(|out| out.status.success())
+        .unwrap_or(true)
+}
+
 fn tree_of(worktree: &Path) -> Result<String, NotChecked> {
     crate::snapshot::tree_as_it_stands(worktree)
         .map_err(|why| NotChecked(format!("{} could not be read as a tree: {why:?}", worktree.display())))

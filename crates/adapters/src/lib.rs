@@ -82,8 +82,6 @@ mod mcp;
 mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
-/// What a branch needs on a path, as the files kept it before the ledger. `#1059`.
-pub mod needs;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
 mod pull_request_detail;
@@ -119,7 +117,6 @@ mod subagent_lines;
 mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
-/// A branch that changes a watched path with no need declared is refused. `#1059`.
 mod under_review;
 mod watching;
 mod work_product;

@@ -80,9 +80,8 @@ pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, CommitStatus, MergeQueue, MergedPull, OpenPull, OpenPulls, PullFacts,
+    CiRun, CiRuns, CiState, MergeQueue, MergedPull, OpenPull, OpenPulls, PullFacts,
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
-    StatusState,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
@@ -371,6 +370,16 @@ pub trait Vcs {
         &self,
         pool: &SlotPool,
         spec: &WorktreeSpec,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
+    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
+    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
+    /// **Not necessarily the slot the holder parked from.**
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 

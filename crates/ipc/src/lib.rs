@@ -110,9 +110,6 @@ mod clashes;
 /// What each served repository holds and where each agent is changing it, for the deck's map.
 /// `docs/concepts/fleet.md`, *The territory*.
 mod territory;
-/// `armada need`: a checkout says what it needs on a path, and Fleet answers from
-/// the session ledger. `docs/capabilities/needs.md`.
-mod needs;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
@@ -279,7 +276,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use ids::{
@@ -324,9 +321,6 @@ pub use clashes::{
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
     TouchesInRepository,
-};
-pub use needs::{
-    NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList,
 };
 pub use preferences::{
     Preferences, SavePreference, DEFAULT_THEME,

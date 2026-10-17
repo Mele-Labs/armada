@@ -627,18 +627,9 @@ without a peer turn, and one turn names at most `fleet::peers::AT_MOST` items. W
 Drone is live, it rides the next opening brief as a block, and the landing
 line says the rebase has already run.
 
-**A need ahead of this Job's is news too** (#1059), and the one kind that is
-not spaced: a Drone that picks its value before it hears who took the number
-renumbers after. It names the file and each need ahead of this Job's on it, as
-`branch: what, took V95`, says this Job's merge waits for them, and says how to
-answer: take the value after theirs, then call `declare_scope` again with `took`
-on the need. Where no Drone is live it rides the next opening brief.
-`docs/concepts/fleet.md`, *Declared needs*.
+**A conflict Fleet found is news too.** It is read from what was written: git says merging this Job's changes with another Job's, a Session's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*). The item names the files, the other side, and how to reach it. A Job is reached with `leave_note` on its handle and a Session with `leave_note` on its address, `s-` and the first eight characters of its id. For the base it names the commit that changed the file and says to merge it in. The sentences about shared files are left out of a turn that carries only conflicts. It is spaced like the rest, and told once per set of files.
 
-**A conflict Fleet found is news too.** It is read from what was written, not from what was declared: git says merging this Job's changes with another Job's, a Session's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*). The item names the files, the other side, and how to reach it. A Job is reached with `leave_note` on its handle and a Session with `leave_note` on its address, `s-` and the first eight characters of its id. For the base it names the commit that changed the file and says to merge it in. The sentences about shared files and shared numbering are left out of a turn that carries only conflicts. It is spaced like the rest, and told once per set of files.
-
-**Overlap informs and never holds.** A need is the part that holds, at the merge
-and nowhere earlier.
+**Overlap informs and never holds.**
 
 **Fleet's own sentence, around one kind of outside words.** Titles, handles
 and paths are Armada's record. A note is another Drone's words: every line
@@ -673,21 +664,6 @@ more". `fleet::PeersChanged` is the one constructor. Its own `Occasion`,
 │ or a version, assume theirs takes it first and
 │ take the one after. To tell one of these Jobs
 │ something, call `leave_note` with its handle.
-│ Carry on with the part you were given.
-└────────────────────────────────────────────────
-
-┌─ OTHER JOBS WRITING WHERE YOU ARE ─────────────
-│ Another Job or branch declared a need on a file
-│ before you did. Your work is held at the merge
-│ until what is ahead of you there has landed or
-│ been given back, so you land in order and
-│ nothing is renumbered. Take the value after what
-│ they took, and say which you took by calling
-│ `declare_scope` again with `took` on the need.
-│
-│ - Ahead of you on `crates/store/src/migrations.rs`:
-│   14-renumber-migrations: a new migration, took V95.
-│
 │ Carry on with the part you were given.
 └────────────────────────────────────────────────
 

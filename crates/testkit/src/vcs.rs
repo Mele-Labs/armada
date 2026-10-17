@@ -30,7 +30,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     Base, BaseCheckout, BaseFetched, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
-    Change, CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
+    Change, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
     Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase,
     Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, WorkShown,
     Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
@@ -408,10 +408,6 @@ impl Delivery for FakeVcs {
 
     fn forge_login(&self, _in_repo: &str) -> Option<String> {
         self.main_ci.login()
-    }
-
-    fn publish_status(&self, _: &str, status: &CommitStatus) -> Result<(), String> {
-        self.main_ci.publish(status)
     }
 
     fn recently_merged_pull_requests(
@@ -960,6 +956,16 @@ impl Vcs for FakeVcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
         self.noted(self.leased(pool, spec, job_id))
+    }
+
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        let leased = self.slots.lease_existing(pool, branch, job_id);
+        self.noted(Ok(leased))
     }
 
     fn park_slot(

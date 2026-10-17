@@ -25,7 +25,6 @@ import {
   customTitleIn,
   ghAct,
   mayMoveBranch,
-  needAct,
   micros,
   breakdownOf,
   commitIn,
@@ -80,7 +79,6 @@ type Known = {
   title?: string
   branch?: string
   prs: Map<string, Record<string, string>>
-  needs: Map<string, Record<string, string>>
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
   /** The tasks the agent started in the background, by task id, with the detail last told (`status` once ended). */
@@ -126,9 +124,6 @@ function everything(): Report[] {
     ...(one.branch === undefined
       ? []
       : [told(id, { kind: 'attached', attachment: { kind: 'branch', target: one.branch } })]),
-    ...[...one.needs].map(([path, detail]) =>
-      told(id, { kind: 'attached', attachment: { kind: 'need', target: path, detail } }),
-    ),
     ...[...one.prs].map(([number, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } }),
     ),
@@ -476,7 +471,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
+  known.set(id, { cwd: where, prs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -538,23 +533,6 @@ async function current($: Dollar): Promise<[string, Known]> {
 
 async function afterBash($: Dollar, command: string, text: string): Promise<void> {
   const [id, one] = await current($)
-  const need = needAct(command)
-  if (need?.act === 'declare') {
-    const detail = { what: need.what }
-    one.needs.set(need.path, detail)
-    say($, id, { kind: 'attached', attachment: { kind: 'need', target: need.path, detail } })
-  }
-  // Without the words it was declared in, a took would overwrite them with nothing.
-  const held = need?.act === 'took' ? one.needs.get(need.path) : undefined
-  if (need?.act === 'took' && held !== undefined) {
-    const detail = { what: held.what, took: need.value }
-    one.needs.set(need.path, detail)
-    say($, id, { kind: 'attached', attachment: { kind: 'need', target: need.path, detail } })
-  }
-  if (need?.act === 'release') {
-    one.needs.delete(need.path)
-    settle($, id, 'need', need.path, 'given_back')
-  }
   const act = ghAct(command)
   if (act?.act === 'create') {
     // What `gh pr create` printed is this session's own, whichever slot the command ran in.

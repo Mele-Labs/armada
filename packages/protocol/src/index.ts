@@ -47,7 +47,6 @@ export * from "./reads";
 export * from "./requester";
 export * from "./rehearsal";
 export * from "./scan";
-export * from "./needs";
 export * from "./pull-requests";
 export * from "./pull-reviews";
 export * from "./review-runs";

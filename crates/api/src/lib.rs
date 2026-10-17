@@ -64,7 +64,7 @@ mod manifest_proposals;
 mod mcp;
 /// Mods: folders on this machine that change how Bridge looks.
 mod mods;
-mod needs;
+mod clashing;
 mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
@@ -110,7 +110,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
-    Autopilots, HelmReach, HostedSessions, Issues, Mods, Needs,
+    Autopilots, HelmReach, HostedSessions, Issues, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios,
 };
