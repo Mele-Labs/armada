@@ -8,17 +8,22 @@ import { forgetAllKept } from "@armada/components";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
 import { annotatesWith } from "./annotating";
+import { inlineWalk } from "./inline-walk";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
+import { mountRunner } from "./review-walk-runner";
+import type { RunnerPage } from "./review-walk-runner";
 import { SCENARIOS, scenarioNamed } from "./scenario";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
 // A walk names its scenario, so `?walk` wins over `?scenario`.
-const walking = query.get("walk");
-const script = walking === null ? undefined : EVERY_WALK.get(walking);
+// `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
+const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");
+const walking = query.get("walk") ?? (inline === undefined ? null : "A walk of the change");
+const script = inline ?? (walking === null ? undefined : EVERY_WALK.get(walking));
 const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
@@ -43,7 +48,10 @@ const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
 if (root !== null && picker !== null) {
-  mountApp(scenario, root);
+  // `?runner=` is an API walk's page: the requests it can send, in place of the app.
+  const runner = query.get("runner");
+  if (runner === null) mountApp(scenario, root);
+  else mountRunner(root, JSON.parse(runner) as RunnerPage);
   if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker, startStep(script.steps.length));
   else if (walking !== null) mountNoWalk(walking, picker);
   else if (!framing) mountPicker(scenario.name, picker);

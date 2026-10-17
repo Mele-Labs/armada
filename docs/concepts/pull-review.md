@@ -65,6 +65,8 @@ Comments is not a run. It is the forge's conversation.
 
 ## Natural Search
 
+**Natural Search is the last entry of the list dropdown, and it opens a box in place of the list.** Sending it asks first, with the same box every act that spends asks with. Bridge reads the searches kept when the tab opens and on Refresh. A pull request a search turns up opens like any other, even where it is on none of the four lists.
+
 **A search is one run of kind `search` over every repository Fleet serves, and only a press starts one.** The words are his. Fleet lists the open pull requests (the newest forty, one forge call), reads the files each changes, and reads the paths he has touched from each repository's own history under his logins and the repository's configured identity. It makes one model call, `models.review`, **with no tools at all**: the pull requests' titles, branches and file names were written by other people, so they are handed over as data and there is nothing for their words to reach.
 
 **Every match is held to what Fleet gathered.** An answer is `{"matches": [{repository, number, reason}]}`. A match that names a pull request that was not in the open set, names one twice, has no reason, or has a reason that is not one line of at most 200 characters fails the run with that reason, and no match is shown. An empty list is an answer. Nothing open is an answer too, with no call.
@@ -73,7 +75,7 @@ Comments is not a run. It is the forge's conversation.
 
 ## Walk
 
-**The Walk tool is a run that writes a walk against a place.** The place is where the change runs: a web address, an API base, or both. It is Fleet's and never the agent's. Fleet validates it before the run starts, puts it in the brief, and writes it into the kept result itself, so a walk cannot name a place it was not asked to write against. The agent answers a web walk (steps the walk window plays, checked as `show_window` checks them) or an API walk (up to a hundred requests, each a method, a path on the base and what to look for in the response).
+**The Walk tool is a review tool in the Flight control, and it asks first like the others.** It is a run that writes a walk against a place. The place is where the change runs: a web address, an API base, or both. It is Fleet's and never the agent's. Fleet validates it before the run starts, puts it in the brief, and writes it into the kept result itself, so a walk cannot name a place it was not asked to write against. The agent answers a web walk (steps the walk window plays, checked as `show_window` checks them) or an API walk (up to a hundred requests, each a method, a path on the base and what to look for in the response).
 
 **Where the change runs is found in the person's order, and finding spends nothing.** Each source is tried only if the one before found nothing.
 
@@ -83,7 +85,7 @@ Comments is not a run. It is the forge's conversation.
 | 2 | What Fleet remembers | The place kept for this repository and the area of code the pull request changes. The area is the directory, two deep at most, with the most changed files, and a place kept for a directory above it covers it |
 | 3 | Asking him | Bridge's. Nothing found leaves `place` absent and Bridge asks, and what he answers is remembered for the area unless he unchecks it |
 
-**A place is deployed or pulled down.** A deployed one is already running and holds nothing. A pulled-down one carries the command that starts it, which is his own text, typed in the sheet or remembered from it, and an agent never writes one. Places are kept per repository and area, one each, and listed, edited and forgotten under "Where changes run".
+**A place is deployed or pulled down.** A deployed one is already running and holds nothing. A pulled-down one carries the command that starts it, which is his own text, typed in the sheet or remembered from it, and an agent never writes one. Places are kept per repository and area, one each, and listed, edited and forgotten under "Where changes run", which `⇧W` opens.
 
 **Walking a pulled-down place pulls the change into a leased bay.** Fleet leases a bay at the pull request's head, starts the command there as a server under the machinery `start_server` uses, and asks the address until it answers, for two minutes at most. Progress is `review_walk.changed`: `checking_out`, `starting`, `ready`, then `closed`, or `failed` with the reason. A walk that fails has already given its bay back when the event says so. The walk then plays in Armada's real walk window, web walks on the page and API walks as requests sent to the base.
 
@@ -109,6 +111,8 @@ Comments is not a run. It is the forge's conversation.
 
 ## Where it lives
 
+
+
 | What | Where |
 |---|---|
 | Wire types | `crates/ipc/src/pull_reviews.rs` |
@@ -118,6 +122,10 @@ Comments is not a run. It is the forge's conversation.
 | Lists in Fleet | `crates/fleet/src/pull_review_lists.rs` |
 | Store | `apps/desktop/src/renderer/src/pr-review/store.tsx` |
 | Runs in Bridge | `apps/desktop/src/renderer/src/pr-review/store-agent.ts`, `runs.ts` |
+| Natural Search in Bridge | `apps/desktop/src/renderer/src/pr-review/store-search.ts`, `crates/fleet/src/review_searches.rs` |
+| The Walk in Bridge | `apps/desktop/src/renderer/src/pr-review/store-walk.ts`, `walk.tsx`; the window is `apps/desktop/src/main/capture/` |
+| Walk wire types | `crates/ipc/src/review_walks.rs`, `packages/protocol/src/review-walks.ts` |
+| Remembered places | `crates/fleet/src/walk_places.rs`, `crates/store/src/walk_places.rs` |
 | Run and definition wire types | `crates/ipc/src/review_runs.rs`, `packages/protocol/src/review-runs.ts` |
 | Run routes | `crates/ipc/operations/start_review_run.toml`, `get_review_runs.toml`, `review_run.changed.toml` |
 | Definition routes | `crates/ipc/operations/list_review_tools.toml`, `save_review_tool.toml` |

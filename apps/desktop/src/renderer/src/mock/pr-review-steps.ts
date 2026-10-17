@@ -2,7 +2,7 @@
 // (the Cockpit's Flight control, or a tab of its own) and in what they do on leaving it. Not under `walks/`, where
 // every file is a walk.
 
-import { button, dialog, inside, region, role, tab } from "./walk";
+import { button, dialog, inside, place, region, role, tab, text } from "./walk";
 import type { Step } from "./walk";
 
 const list = region("Pull requests");
@@ -159,6 +159,8 @@ export const theSessionsOwn: Step[] = [
   { press: tool("Possible bugs"), say: "Possible bugs" },
   { look: inside(results("Possible bugs"), finding("The attempt count is never reset")), say: "A bug, on the change it is in" },
   { press: inside(finding("The attempt count is never reset"), button(/Send to Session/)), say: "Send to Session is there because a Session holds it" },
+  { look: text(/Review finding on #1896/), say: "The finding is a message to that Session, which opens on the Cockpit" },
+  { press: place("Reviews"), say: "Back to Reviews, where he left it" },
   { look: inside(finding("The attempt count is never reset"), role("img", "Sent to the Session")), say: "Sent once" },
   { press: inside(list, button("Refresh")), say: "Refresh reads the list again, and a commit has been pushed to this one" },
   { look: inside(tool("Possible bugs"), role("img", /Out of date/)), say: "The kept result is marked out of date, naming the commit it ran on" },

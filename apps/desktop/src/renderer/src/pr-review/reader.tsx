@@ -5,7 +5,7 @@
 // the body with what it found, and the way back is at its head.
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
+import { ChevronDown, ChevronRight, Compass, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
 import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
@@ -16,7 +16,8 @@ import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
 import { ToolResults } from "./results";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { toolsOf } from "./tools";
+import { isWalk, toolsOf } from "./tools";
+import { WalkView } from "./walk";
 
 const TABS = [
   { id: "explanation", label: "Overview" },
@@ -78,6 +79,11 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
           <Tooltip label="Go to the pull request" shortcut={REVIEW_KEYS.reader}>
             <Kbd>{REVIEW_KEYS.reader}</Kbd>
           </Tooltip>
+          <Tooltip label="Where changes run" shortcut={capOf(REVIEW_KEYS.where)}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Where changes run" onClick={() => store.showPlaces()}>
+              <Compass size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
           {pr.holder === undefined ? null : (
             <Tooltip label="Held by this Session">
               <Button variant="ghost" size="sm" aria-label={`Session: ${pr.holder.title}`} onClick={() => onOpenSession(pr.holder!.id)}>
@@ -120,7 +126,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
-        {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
+        {tool !== undefined && tool.agent ? isWalk(tool) ? <WalkView pr={pr} tool={tool} /> : <ToolResults pr={pr} tool={tool} send={send} /> : null}
         {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
       </div>
       <AskComposer pr={pr} />

@@ -10,6 +10,7 @@ import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequ
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 import type { Account, Change, Hunk, ReviewPr, Theme, ToolDef } from "../pr-review/model";
+import { walkSeeds, rememberedPlaces } from "./pr-review-walk-pages";
 import { ARMADA_DEFS, type FindingSeed, type MockPr, type ReviewSeed, type SeedThread } from "./review-seed";
 
 const FORGE = "https://forge.example/mele-labs";
@@ -1287,6 +1288,8 @@ export function reviewSeed(): ReviewSeed {
     pushes: {
       [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "drone" },
     },
+    walks: walkSeeds(),
+    places: rememberedPlaces(),
     finds: [
       {
         when: "touch.*files.*touched|files i.?ve (touched|changed)",
