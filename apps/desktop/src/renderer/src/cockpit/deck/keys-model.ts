@@ -84,6 +84,7 @@ export function keySheetOf(): readonly SheetGroup[] {
         { keys: [down, up, "←", "→", downArrow, upArrow].filter((one): one is string => one !== undefined), does: actionOf("move_focus").verb },
         { keys: [...caps("open_focused"), ...caps("open")], does: "Open" },
         { keys: caps("close"), does: actionOf("close").verb },
+        ...(built("deck_reorder") ? [{ keys: caps("deck_reorder"), does: actionOf("deck_reorder").verb }] : []),
       ],
     },
     ...(built("deck_tile")

@@ -109,6 +109,13 @@
 @keyframes deck-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 .deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+/* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
+.deck-list__rows[data-reordering],
+.deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
+.deck-list__item[data-lifted] > .deck-row { opacity: 0.55; }
+.deck-list__item[data-drop]::after { content: ""; position: absolute; inset-inline: 0; height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: var(--accent); pointer-events: none; }
+.deck-list__item[data-drop="before"]::after { top: calc(var(--space-1) / -2 - var(--border-width)); }
+.deck-list__item[data-drop="after"]::after { bottom: calc(var(--space-1) / -2 - var(--border-width)); }
 .deck-list__band { display: flex; flex-direction: column; gap: var(--space-1); }
 .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
 .deck-list__group { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
