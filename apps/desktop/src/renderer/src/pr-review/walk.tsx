@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, CircleHelp, Footprints, GitBranch, GitPullRequest, Globe, Hourglass, LoaderCircle, Minus, NotebookText, Pencil, RefreshCw, RotateCw, Send, SquareDashed, SquareTerminal, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, CircleHelp, Footprints, GitBranch, GitPullRequest, Globe, LoaderCircle, Minus, NotebookText, Pencil, RefreshCw, RotateCw, Send, SquareDashed, SquareTerminal, Trash2, X } from "lucide-react";
 import { Button, Checkbox, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Tooltip, useKept } from "@armada/components";
 import type { RememberedPlace, ReviewWalkState, WalkPlace, WalkSource, WalkStep, WalkTarget } from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
@@ -38,7 +38,7 @@ const PHASE: Record<Phase, Said> = {
   failed: { Glyph: X, said: "Failed", tone: "failed" },
 };
 
-const SETUP_MARK = { checkout: GitBranch, run: SquareTerminal, wait: Hourglass } as const;
+const SETUP_MARK = { checkout: GitBranch, run: SquareTerminal, wait: Globe } as const;
 
 /** A mark that turns while it runs, as the checks mark does. */
 function Turning({ running, Glyph, said, tone }: { running: boolean; Glyph: LucideIcon; said: string; tone: string | undefined }) {
