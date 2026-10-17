@@ -9,7 +9,7 @@
 //! **This file is the record and the moves it makes.** The answers are in
 //! [`shapes`](super::shapes) and the three surfaces are the three modules
 //! below, one per trait — [`Queries`](crate::Queries),
-//! [`Commands`](crate::Commands) and [`Tools`](crate::Tools). It was one impl
+//! [`Commands`](crate::Commands) beside the other surfaces. It was one impl
 //! block at 856 lines while `api::Daemon` was one trait; the split is #434's
 //! and nothing about what the fake answers moved with it.
 //!
@@ -26,28 +26,24 @@ mod issues;
 mod mods;
 mod settings;
 mod needs;
-mod piloting;
 mod pull_requests;
 mod queries;
 mod rehearsing;
 mod retros;
 mod sessions;
 mod studios;
-mod tools;
 
 pub use accounts::profile;
 pub use conversing::SERVED_MANIFEST;
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 
-use std::sync::atomic::AtomicU64;
 use std::sync::Mutex;
 
-use ipc::mcp::{DeclareScope, NotRecorded, SubmitEvidence};
 use ipc::{Actor, Event, Instant, JobId, JobStateChanged, JobSummary, UnreadableJob};
 
 use super::shapes;
 use super::shapes::{run_id, status};
-use crate::{Broadcaster, Feed, Refusal, Turns};
+use crate::{Broadcaster, Refusal};
 
 pub struct FakeDaemon {
     /// Every Job held, which the fake's own acts move.
@@ -56,27 +52,6 @@ pub struct FakeDaemon {
     pub session_row: Mutex<Option<ipc::SessionRecord>>,
     unreadable: Mutex<Vec<UnreadableJob>>,
     events: Broadcaster,
-    /// The per-Job transcript channels, so a test can watch one Job while a
-    /// Board client is on `/events` and prove neither reaches the other.
-    pub turns: Turns,
-    /// What `observe_job` answers with as the history, for whichever Job is
-    /// asked. A Job with none is the ordinary case, not an error.
-    pub history: Mutex<Vec<ipc::TranscriptRow>>,
-    /// Older rows the history left out.
-    pub skipped: Mutex<u64>,
-    minted: AtomicU64,
-    /// Every submission taken, so a test can assert that a refused call left
-    /// nothing behind.
-    pub submitted: Mutex<Vec<SubmitEvidence>>,
-    /// Every scope declaration taken, in arrival order.
-    pub declared: Mutex<Vec<DeclareScope>>,
-    pub requested: Mutex<Vec<ipc::mcp::RequestScope>>,
-    /// Every question taken, in arrival order.
-    pub asked: Mutex<Vec<ipc::mcp::AskQuestion>>,
-    /// Every Job a Drone asked to have created, in arrival order.
-    /// How many asked runs were asked for, so a test can assert that a refused
-    /// call ran nothing.
-    pub checked: AtomicU64,
     /// Every report filed, in filing order, so a test can assert that a
     /// refused filing left none behind.
     pub reports: Mutex<Vec<ipc::Report>>,
@@ -89,11 +64,8 @@ pub struct FakeDaemon {
     /// When set, every call answers with a fault. The stream closing on a
     /// daemon that cannot answer is a behaviour worth a test.
     pub mute: Mutex<bool>,
-    /// The one running Check's log `observe_check_output` resolves, by the
-    /// name it answers to. Planted by a test, whose reader it drives.
-    pub live: Mutex<Option<(String, crate::LiveOutput)>>,
     /// The one merge line Check's log `observe_land_check` resolves, by the
-    /// root, branch and Check it answers to. Planted by a test, `live`'s way.
+    /// root, branch and Check it answers to. Planted by a test.
     pub land: Mutex<Option<crate::LandOutput>>,
     /// The limits in force, which the fake's own saves change.
     limits: Mutex<ipc::FleetLimits>,
@@ -126,23 +98,6 @@ pub struct FakeDaemon {
     pub helm_on: Mutex<Option<(u16, fn(&ipc::door::Reachable) -> bool)>>,
     /// The peer port a test says a session Fleet hosts for Bridge holds.
     pub session_on: Mutex<Option<u16>>,
-    /// The connection each `start_run` reached this daemon on, as
-    /// `crate::asking` said it: the port, `None` where there was no peer.
-    pub run_asked_on: Mutex<Vec<Option<u16>>>,
-    /// Who each `restart_step` that reached this daemon was signed as.
-    pub restarted_by: Mutex<Vec<crate::Steerer>>,
-    /// Who each redirect that reached this daemon was recorded against.
-    pub redirected_by: Mutex<Vec<crate::Steerer>>,
-    /// Who each add, drop, edit, move and task restart that reached this
-    /// daemon was signed as. `#2168`.
-    pub plan_changed_by: Mutex<Vec<crate::Steerer>>,
-    /// The door each redirect arrived through, as `crate::via` said it.
-    pub redirected_via: Mutex<Vec<Option<ipc::Via>>>,
-    /// Who each proposal that reached this daemon was recorded against.
-    /// `#943`.
-    pub proposed_by: Mutex<Vec<crate::Redirector>>,
-    /// Who each cap raise that reached this daemon was placed as. `#2165`.
-    pub raised_by: Mutex<Vec<ipc::RaisedBy>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
     pub studios: Mutex<Vec<ipc::Studio>>,
     /// Who each Studio act that says who acted — add a node, propose an edge,
@@ -165,20 +120,10 @@ impl FakeDaemon {
             session_row: Mutex::new(None),
             unreadable: Mutex::new(Vec::new()),
             events,
-            turns: Turns::new(),
-            history: Mutex::new(Vec::new()),
-            skipped: Mutex::new(0),
-            minted: AtomicU64::new(0),
-            submitted: Mutex::new(Vec::new()),
-            declared: Mutex::new(Vec::new()),
-            requested: Mutex::new(Vec::new()),
-            asked: Mutex::new(Vec::new()),
-            checked: AtomicU64::new(0),
             reports: Mutex::new(Vec::new()),
             held: Mutex::new(Vec::new()),
             servers: Mutex::new(Vec::new()),
             mute: Mutex::new(false),
-            live: Mutex::new(None),
             land: Mutex::new(None),
             limits: Mutex::new(shapes::limits()),
             builds: Mutex::new(Vec::new()),
@@ -193,13 +138,6 @@ impl FakeDaemon {
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),
             session_on: Mutex::new(None),
-            run_asked_on: Mutex::new(Vec::new()),
-            restarted_by: Mutex::new(Vec::new()),
-            redirected_by: Mutex::new(Vec::new()),
-            plan_changed_by: Mutex::new(Vec::new()),
-            redirected_via: Mutex::new(Vec::new()),
-            proposed_by: Mutex::new(Vec::new()),
-            raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),
             checkout_runs_named: Mutex::new(Vec::new()),
@@ -219,18 +157,6 @@ impl FakeDaemon {
                 fault: fault.to_string(),
             });
         self
-    }
-
-    /// A Drone writing this Job's rows. Dropping what comes back ends it, the
-    /// same as a Drone exiting under Fleet.
-    pub fn dispatching(&self, job_id: &JobId) -> Feed {
-        self.turns.feeding(job_id)
-    }
-
-    /// The Job's channel, as Fleet's roster holds it from admission to the
-    /// Job's end. Dropping it, with no Drone feeding, ends the watching.
-    pub fn admitted(&self, job_id: &JobId) -> crate::Channel {
-        self.turns.opening(job_id)
     }
 
     fn fault(&self, message: &str) -> Refusal {
@@ -278,27 +204,8 @@ impl FakeDaemon {
     }
 }
 
-impl FakeDaemon {
-    /// Every Drone tool refuses on the one thing this daemon can see: nothing
-    /// is being worked. **One reading, five callers** — five copies of it drift
-    /// into five different sentences about one condition.
-    fn while_working(&self, about: &str) -> Result<(), NotRecorded> {
-        let running = self
-            .jobs
-            .lock()
-            .expect("not poisoned")
-            .iter()
-            .any(|job| job.status.as_wire() == "running");
-        match running {
-            true => Ok(()),
-            false => Err(NotRecorded {
-                because: format!("no Job is being worked, so there is no {about}"),
-            }),
-        }
-    }
-}
 
-/// A Job already running, so the Drone kill has something to kill.
+/// A Job already running.
 pub fn running(daemon: &FakeDaemon, id: &str) {
     at(daemon, id, "running");
 }

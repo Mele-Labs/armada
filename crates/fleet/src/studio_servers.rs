@@ -167,7 +167,7 @@ pub fn server_kept(state: &ServerState, printed: Option<&RunOutput>) -> StudioRu
         }
     };
     let ended = state.ended_at.clone().unwrap_or(state.started_at.clone());
-    let up = crate::converging::elapsed(&state.started_at.to_domain(), &ended.to_domain());
+    let up = crate::clock::elapsed(&state.started_at.to_domain(), &ended.to_domain());
     StudioRunKept {
         name: state.name.clone(),
         command: state.serve.clone(),

@@ -1,15 +1,10 @@
-//! Sleep mode: the owner turns it on before bed, and sessions and Jobs keep working until only he can
+//! Sleep mode: the owner turns it on before bed, and sessions keep working until only he can
 //! unblock them. `docs/concepts/session.md`.
 //!
 //! **What the night may decide.** A question a session asked that has an option labelled
 //! "(Recommended)", once it has waited out [`GRACE`] so the agent could carry on by itself first.
 //! **Never a destructive or irreversible one, and never a permission.** Those are held under blocked.
 //! Any other item, an errand or a question with no recommendation, stays in the session's list, untouched.
-//!
-//! **An escalated Job** whose trigger words can carry past ([`ANSWERABLE`]) and whose title is not
-//! destructive is told to decide for itself, by the owner's own act: a redirect to its Drone, or a
-//! restart of the step with the same words where the Drone is gone. One whose trigger a second run
-//! may well clear ([`RETRIED`]) has its step restarted, with no words. Any other escalation is held.
 //!
 //! **Each thing is left once.** A row's id is `<session>:<item>`, so a pass over an item already
 //! decided or held changes nothing.
@@ -19,17 +14,13 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
-use core_model::{Actor, EscalationTrigger, JobStatus, TransitionReason};
 use ipc::{
     AnswerWaiting, OverrideSleep, ReviewSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
     SleepWalk, WaitingItem, WaitingSource, WireError,
 };
 use store::{SessionState, SleepRow};
 
-use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::resume::{Ending, Redirection, Steer};
-use crate::answer_mode::mode_line;
 
 /// How long an item waits before the night answers it.
 pub const GRACE: Duration = Duration::from_secs(120);
@@ -52,38 +43,6 @@ const DESTRUCTIVE: &[&str] = &[
 
 /// Whole words that are too short to match inside another.
 const DESTRUCTIVE_WORDS: &[&str] = &["rm", "kill", "undo"];
-
-/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped,
-/// failed a gate, asked and went unanswered, or was refused a hatch, its scope or its evidence. The rest
-/// (a dependency that failed, no worktree, a cap, a policy) are not cured by a sentence.
-const ANSWERABLE: &[EscalationTrigger] = &[
-    EscalationTrigger::Stalled,
-    EscalationTrigger::Silent,
-    EscalationTrigger::Thrashing,
-    EscalationTrigger::NoReport,
-    EscalationTrigger::Interrupted,
-    EscalationTrigger::LoopCap,
-    EscalationTrigger::GateFailure,
-    EscalationTrigger::AskUnanswered,
-    EscalationTrigger::HatchUnbidden,
-    EscalationTrigger::ScopeRefused,
-    EscalationTrigger::EvidenceTooLarge,
-];
-
-/// The escalations a plain second run may clear, with nothing to say: the Drone or run ended, was not
-/// heard, would not start, or the gate or proposer gave no answer. The step is restarted, once a night
-/// (the Job's `job:` row stops a second restart); an undecided gate is asked again instead, the work
-/// being fine. `Unheard`, `WouldNotStart`, `NotPrepared` and `ProposerFailed` are Job-level, with no
-/// stopped step to restart, so they usually end as a blocked row carrying the refusal.
-const RETRIED: &[EscalationTrigger] = &[
-    EscalationTrigger::DroneGone,
-    EscalationTrigger::RunEnded,
-    EscalationTrigger::Unheard,
-    EscalationTrigger::WouldNotStart,
-    EscalationTrigger::NotPrepared,
-    EscalationTrigger::GateUndecided,
-    EscalationTrigger::ProposerFailed,
-];
 
 /// Whether the item, read with its options, may be destructive or irreversible.
 pub(crate) fn destructive(item: &WaitingItem) -> bool {
@@ -240,90 +199,6 @@ where
         Ok(())
     }
 
-    /// A pull request that merged: a landed row while the night is on.
-    pub(crate) async fn sleep_landed(&self, who: String, title: String, url: &str) {
-        let pr = match url.rsplit('/').next().filter(|last| last.chars().all(|c| c.is_ascii_digit())) {
-            Some(number) if !number.is_empty() => format!("#{number}"),
-            _ => url.to_string(),
-        };
-        let one = SleepRow { pr: Some(pr), ..row("landed", format!("landed:{url}"), who, title) };
-        if self.sleeping().await {
-            let _ = self.leave(one).await;
-        }
-    }
-
-    /// An escalated Job the night will not answer: blocked. One it will answer is left to the pass.
-    pub(crate) async fn sleep_escalated(&self, job: &core_model::Job) {
-        if !self.sleeping().await {
-            return;
-        }
-        let (id, title) = (job.id().as_str(), job.title().as_str());
-        let answerable = match self.last_reason(job.id()).await {
-            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger) || RETRIED.contains(&trigger),
-            _ => false,
-        };
-        if !answerable || destructive_text(title) {
-            let text = format!("Escalated, waiting on you: {title}");
-            let _ = self.leave(row("blocked", format!("job:{id}"), job.handle(), text)).await;
-        }
-    }
-
-    /// Escalated Jobs, each once: told to decide for itself, or held.
-    async fn sleep_jobs(&self) -> Result<(), Refusal> {
-        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
-        for job in loaded.jobs.iter().filter(|job| job.status() == JobStatus::Escalated) {
-            let id = format!("job:{}", job.id().as_str());
-            if self.store().lock().await.sleep_row(&id).map_err(|why| self.ledger_fault(why))?.is_some() {
-                continue;
-            }
-            let Ok(Some(TransitionReason::Escalation(trigger))) = self.last_reason(job.id()).await else {
-                continue;
-            };
-            let (who, title) = (job.handle(), job.title().as_str());
-            let asked = format!("{title} ({})", trigger.as_wire());
-            let retried = RETRIED.contains(&trigger);
-            if !(ANSWERABLE.contains(&trigger) || retried) || destructive_text(title) {
-                self.leave(row("blocked", id, who, format!("Escalated, waiting on you: {title}"))).await?;
-                continue;
-            }
-            if retried {
-                let (ran, said) = match trigger {
-                    EscalationTrigger::GateUndecided => (self.rerun_gate(job.id()).await, "Ran the gate again"),
-                    _ => (
-                        self.restart_step_by(job.id(), None, Ending::Unheard, Actor::Fleet).await,
-                        "Restarted the step",
-                    ),
-                };
-                let done = match ran {
-                    Ok(_) => row("decided", id, who, format!("{said}: {asked}")),
-                    Err(why) => {
-                        row("blocked", id, who, format!("Escalated, could not carry on ({why}): {title}"))
-                    }
-                };
-                self.leave(done).await?;
-                continue;
-            }
-            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(ipc::AnswerMode::Best))) else {
-                continue;
-            };
-            let by = Actor::Fleet;
-            let sent = match self.steer(job.id(), Steer::Words(&words, by)).await {
-                Err(Adrift::NoDroneToRedirect { .. }) => {
-                    self.restart_step_by(job.id(), Some(&words), Ending::Unheard, by).await
-                }
-                other => other,
-            };
-            match sent {
-                Ok(_) => self.leave(row("decided", id, who, asked)).await?,
-                Err(why) => {
-                    let text = format!("Escalated, could not carry on ({why}): {title}");
-                    self.leave(row("blocked", id, who, text)).await?;
-                }
-            }
-        }
-        Ok(())
-    }
-
     async fn sleeping(&self) -> bool {
         self.store().lock().await.sleep_switch().map(|one| one.on).unwrap_or(false)
     }
@@ -403,7 +278,7 @@ where
                 }
             }
         }
-        self.sleep_jobs().await
+        Ok(())
     }
 }
 

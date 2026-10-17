@@ -15,7 +15,7 @@ use ipc::{CreateStudio, StartStudioRun, Studio, StudioNodeContent, StudioPositio
 use testkit::FakeWorkProduct;
 
 use crate::daemon::Fleet;
-use crate::gate::CheckBudget;
+use crate::CheckBudget;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 

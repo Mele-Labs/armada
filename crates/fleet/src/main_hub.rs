@@ -304,7 +304,7 @@ where
                 .collect();
             let may_start = runs.is_empty()
                 && merged_at.is_some_and(|at| {
-                    crate::converging::elapsed(&Timestamp::from_rfc3339(at), &now) < RUN_MAY_START
+                    crate::clock::elapsed(&Timestamp::from_rfc3339(at), &now) < RUN_MAY_START
                 });
             let run = match (failed.is_empty(), unfinished, runs.is_empty()) {
                 (_, _, true) => None,

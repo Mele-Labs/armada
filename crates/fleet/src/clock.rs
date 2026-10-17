@@ -22,9 +22,20 @@
 //! this module growing a reader.
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use core_model::Timestamp;
+
+/// How long between two readings of the injected clock.
+///
+/// Zero where either will not read as an instant. **Never a negative duration**: a clock that
+/// went backwards is a machine that is wrong, and reading it as an expired grace would act on it.
+pub(crate) fn elapsed(from: &Timestamp, to: &Timestamp) -> Duration {
+    match (from.epoch_millis(), to.epoch_millis()) {
+        (Some(from), Some(to)) if to > from => Duration::from_millis((to - from) as u64),
+        _ => Duration::ZERO,
+    }
+}
 
 /// What time it is, asked rather than read.
 ///

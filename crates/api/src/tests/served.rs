@@ -9,15 +9,12 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{JobDetail, JobList, JobSummary, StreamMessage, WireError};
+use ipc::{JobList, JobSummary, StreamMessage, WireError};
 use tower::ServiceExt;
 
 use crate::tests::fake::{at, running, FakeDaemon, THE_STUDIO};
 use crate::tests::shapes;
-use crate::tests::shapes::{
-    run_id, A_PROPOSAL, THE_BRIEF, THE_CALL, THE_DRONE, THE_FRAME, THE_LESSON,
-    THE_MANIFEST, THE_OUTPUT, THE_RECORDING,
-};
+use crate::tests::shapes::{run_id, THE_LESSON, THE_MANIFEST};
 use crate::{router, Broadcaster, Next, Served, Subscription, SERVED};
 
 fn wired(daemon: FakeDaemon, events: Broadcaster) -> Router {
@@ -58,11 +55,16 @@ async fn call(app: &Router, method: &str, uri: &str, body: &str) -> (StatusCode,
 #[tokio::test]
 async fn every_operation_the_table_names_is_routed() {
     let events = Broadcaster::new();
-    let app = wired(FakeDaemon::new(events.clone()), events);
+    let daemon = FakeDaemon::new(events.clone());
     // The id the loop substitutes, made real first. A route that is present and
     // answers "no such Job" is a 404 too, and the assertion below cannot tell
     // that apart from a route that is not there.
-    call(&app, "POST", "/jobs", A_PROPOSAL).await;
+    running(&daemon, "01JOB0");
+    // `forget_job`'s own Job, terminal before the route is asked to delete it —
+    // sharing `01JOB0` would leave nothing for a route later in the table to
+    // answer about.
+    at(&daemon, "01FORGET", "completed_success");
+    let app = wired(daemon, events);
     for route in SERVED {
         // `delete_studio` for `forget_job`'s reason: the rows after it name the
         // Studio it would take away.
@@ -72,16 +74,11 @@ async fn every_operation_the_table_names_is_routed() {
         let uri = route
             .path
             .replace(":job_id", "01JOB0")
-            .replace(":call_id", THE_CALL)
-            .replace(":kept", THE_OUTPUT)
-            .replace(":drone_id", THE_DRONE)
             .replace(":manifest_id", THE_MANIFEST)
             .replace(":studio_id", THE_STUDIO)
-            .replace(":run/:name", THE_FRAME)
             .replace(":lesson_id", THE_LESSON)
-            .replace(":reference", "214")
-            .replace(":name", THE_BRIEF);
-        let (status, _) = call(&app, route.method, &uri, A_PROPOSAL).await;
+            .replace(":reference", "214");
+        let (status, _) = call(&app, route.method, &uri, "").await;
         assert_ne!(
             status,
             StatusCode::NOT_FOUND,
@@ -100,18 +97,9 @@ async fn every_operation_the_table_names_is_routed() {
         );
     }
 
-    // `forget_job`'s own Job, terminal before the route is asked to delete it —
-    // sharing `01JOB0` would leave nothing for a route later in the table to
-    // answer about.
-    let (_, body) = call(&app, "POST", "/jobs", A_PROPOSAL).await;
-    let proposed: JobSummary = ipc::decode("a proposed Job", &body).expect("a summary");
-    let kill_uri = format!("/jobs/{}/kill_job", proposed.id.as_str());
-    let (status, _) = call(&app, "POST", &kill_uri, "").await;
-    assert_eq!(status, StatusCode::OK, "terminal before it is forgettable");
     let (status, _) = call(&app, "POST", &format!("/studios/{THE_STUDIO}/delete"), "").await;
     assert_eq!(status, StatusCode::OK, "delete_studio is routed");
-    let forget_uri = format!("/jobs/{}/forget_job", proposed.id.as_str());
-    let (status, _) = call(&app, "POST", &forget_uri, "").await;
+    let (status, _) = call(&app, "POST", "/jobs/01FORGET/forget_job", "").await;
     assert_ne!(
         status,
         StatusCode::NOT_FOUND,
@@ -124,148 +112,38 @@ async fn every_operation_the_table_names_is_routed() {
     );
 }
 
-/// One Job, through every operation M1 serves, watched on the stream — and not
-/// a byte of it goes near a network.
+/// One Job, through the operations that remain, watched on the stream — and
+/// not a byte of it goes near a network.
 #[tokio::test]
 async fn every_operation_runs_with_no_network() {
     let events = Broadcaster::new();
     let mut watching: Subscription = events.subscribe();
     let daemon = FakeDaemon::new(events.clone());
-    // One Job already running, so the Drone kill has something to kill.
-    // Nothing in M1 starts a Drone, and this test is about the transport, not
-    // the scheduler.
     running(&daemon, "01RUNNING");
     let app = wired(daemon, events);
 
-    // list_jobs, empty. A list is a shape, not an absence.
+    // list_jobs. A list is a shape, not an absence.
     let (status, body) = call(&app, "GET", "/jobs", "").await;
     assert_eq!(status, StatusCode::OK);
     let listed: JobList = ipc::decode("job list", &body).expect("a job list");
-    assert_eq!(listed.jobs.len(), 1, "only the running Job, so far");
+    assert_eq!(listed.jobs.len(), 1, "only the running Job");
 
-    // propose_job. 201, and the Job is at the gate rather than running.
-    let (status, body) = call(&app, "POST", "/jobs", A_PROPOSAL).await;
-    assert_eq!(status, StatusCode::CREATED);
-    let proposed: JobSummary = ipc::decode("job summary", &body).expect("a summary");
-    assert_eq!(proposed.status.as_wire(), "awaiting_approval");
-    assert_eq!(
-        proposed.title, "fix the off-by-one in the log reader",
-        "the title travels the whole way: proposal, creation, answer"
-    );
-
-    // list_jobs again. The proposal is on the Board.
-    let (_, body) = call(&app, "GET", "/jobs", "").await;
-    let listed: JobList = ipc::decode("job list", &body).expect("a job list");
-    assert_eq!(listed.jobs.len(), 2);
-
-    // approve_dispatch. The primary autonomy control, and a human act.
-    let uri = format!("/jobs/{}/approve_dispatch", proposed.id.as_str());
-    let (status, body) = call(&app, "POST", &uri, "").await;
-    assert_eq!(status, StatusCode::OK);
-    let approved: JobSummary = ipc::decode("job summary", &body).expect("a summary");
-    assert_eq!(approved.status.as_wire(), "queued");
-
-    // The creation reached the stream, first and whole. **This is the bug that
-    // was here**: proposing published nothing, so a client connected at the
-    // time was never told the row existed.
-    let Some(Next::Send(delivered)) = watching.next().await else {
-        panic!("the proposal published nothing");
-    };
-    assert_eq!(delivered.cursor.position(), 0);
-    let ipc::Event::JobCreated(created) = delivered.event else {
-        panic!("a creation, not a move");
-    };
-    assert_eq!(
-        created.job.id, proposed.id,
-        "the row travels whole, so a Board inserts it rather than re-reading"
-    );
-    assert_eq!(created.job.status.as_wire(), "awaiting_approval");
-
-    // The transition reached it next, in order.
-    let Some(Next::Send(delivered)) = watching.next().await else {
-        panic!("the approval published nothing");
-    };
-    assert_eq!(delivered.cursor.position(), 1);
-    let ipc::Event::JobStateChanged(moved) = delivered.event else {
-        panic!("a move, not a creation");
-    };
-    assert_eq!(moved.from.as_wire(), "awaiting_approval");
-    assert_eq!(moved.to.as_wire(), "queued");
-    assert_eq!(moved.actor.as_wire(), "human");
-
-    // kill_drone, on a Job that is running. The process goes; the Job does not.
-    let (status, body) = call(&app, "POST", "/jobs/01RUNNING/kill_drone", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let survivor: JobSummary = ipc::decode("job summary", &body).expect("a summary");
-    assert_eq!(
-        survivor.status.as_wire(),
-        "running",
-        "killing a Drone does not end its Job"
-    );
-    assert!(survivor.assigned_drone.is_none(), "no process is on it now");
-
-    // kill_job, on the same Job. This is the one that ends it.
+    // kill_job, on the Job that is running. This is the one that ends it.
     let (status, body) = call(&app, "POST", "/jobs/01RUNNING/kill_job", "").await;
     assert_eq!(status, StatusCode::OK);
     let ended: JobSummary = ipc::decode("job summary", &body).expect("a summary");
     assert_eq!(ended.status.as_wire(), "killed");
-}
 
-/// **A call that never went through the agent door is a person's.** `#943`:
-/// `crate::tests::door`'s `a_proposal_from_helm_is_recorded_as_helm` is the
-/// only road to `propose_job` a Helm session has — this is Bridge's, the same
-/// route with no `HelmCalled` extension riding on it.
-#[tokio::test]
-async fn a_plain_call_to_propose_job_is_recorded_as_a_persons() {
-    let events = Broadcaster::new();
-    let daemon = std::sync::Arc::new(FakeDaemon::new(events.clone()));
-    let app = router(Served::sharing(
-        std::sync::Arc::clone(&daemon),
-        run_id(),
-        events,
-    ));
-
-    call(&app, "POST", "/jobs", A_PROPOSAL).await;
-
-    assert_eq!(
-        *daemon.proposed_by.lock().expect("not poisoned"),
-        vec![crate::Redirector::Person]
-    );
-}
-
-/// **A raise is a person's when Bridge made it, and the body cannot say
-/// otherwise.** `#2165`: the same route a Helm call reaches, with no door
-/// extension on it, and a body claiming to be Helm.
-#[tokio::test]
-async fn a_plain_raise_is_a_persons_whatever_its_body_claims() {
-    let events = Broadcaster::new();
-    let daemon = std::sync::Arc::new(FakeDaemon::new(events.clone()));
-    running(&daemon, "01RUNNING");
-    let app = router(Served::sharing(
-        std::sync::Arc::clone(&daemon),
-        run_id(),
-        events,
-    ));
-
-    call(
-        &app,
-        "POST",
-        "/jobs/01RUNNING/raise_cost_cap",
-        r#"{"cost_cap_micros":9000000,"raised_by":"helm"}"#,
-    )
-    .await;
-    call(
-        &app,
-        "POST",
-        "/jobs/01RUNNING/raise_turn_cap",
-        r#"{"turn_cap":500,"raised_by":"helm"}"#,
-    )
-    .await;
-
-    assert_eq!(
-        *daemon.raised_by.lock().expect("not poisoned"),
-        vec![ipc::RaisedBy::Person, ipc::RaisedBy::Person]
-    );
+    // The transition reached the stream, whole and in order.
+    let Some(Next::Send(delivered)) = watching.next().await else {
+        panic!("the kill published nothing");
+    };
+    assert_eq!(delivered.cursor.position(), 0);
+    let ipc::Event::JobStateChanged(moved) = delivered.event else {
+        panic!("a move, not a creation");
+    };
+    assert_eq!(moved.from.as_wire(), "running");
+    assert_eq!(moved.to.as_wire(), "killed");
 }
 
 /// **A step's gates cross before any of them acts, over HTTP and whole.**
@@ -350,144 +228,6 @@ async fn a_workflow_previews_the_judge_and_the_gate_it_will_stop_at() {
     );
 }
 
-/// The machine reading and the act above it, and the two things a client
-/// cannot work out for itself: an id naming nothing is a 404 rather than a
-/// panel of empty lists, and an examination that found a fault is still a 200.
-#[tokio::test]
-async fn what_a_job_holds_is_read_and_examined_under_the_job() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    at(&daemon, "01HOLDS", "running");
-    let app = wired(daemon, events);
-
-    let (status, body) = call(&app, "GET", "/jobs/01HOLDS/resources", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let held: ipc::JobResources = ipc::decode("a reading", &body).expect("a reading");
-    assert_eq!(held.held, ipc::Held::Running);
-    assert!(
-        !held.read_at.as_str().is_empty(),
-        "every figure is as of an instant"
-    );
-
-    // The examination answers 200 whatever it found. A status saying the
-    // request failed would make a finding indistinguishable from Fleet being
-    // unable to look.
-    let (status, body) = call(&app, "POST", "/jobs/01HOLDS/examine", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let examined: ipc::JobExamined = ipc::decode("an examination", &body).expect("an answer");
-    assert_eq!(
-        examined.found,
-        ipc::Finding::CannotTell,
-        "one look that could not tell keeps the whole answer off working"
-    );
-
-    for (method, uri) in [
-        ("GET", "/jobs/01NOSUCH/resources"),
-        ("POST", "/jobs/01NOSUCH/examine"),
-    ] {
-        let (status, _) = call(&app, method, uri, "").await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {uri}");
-    }
-}
-
-/// Every Drone a Job has had is read under the Job, the exited ones with
-/// them, and an id naming nothing is a 404 rather than a Job with no Drones.
-#[tokio::test]
-async fn a_jobs_drones_are_read_under_the_job_exited_ones_too() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    at(&daemon, "01HAD", "running");
-    let app = wired(daemon, events);
-
-    let (status, body) = call(&app, "GET", "/jobs/01HAD/drones", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let had: ipc::JobDrones = ipc::decode("a Job's Drones", &body).expect("a list");
-    assert_eq!(had.job_id.as_str(), "01HAD");
-    let states: Vec<ipc::DroneState> = had.drones.iter().map(|drone| drone.state).collect();
-    assert_eq!(
-        states,
-        [
-            ipc::DroneState::Killed,
-            ipc::DroneState::Done,
-            ipc::DroneState::Running
-        ]
-    );
-    let json = String::from_utf8_lossy(&body);
-    assert!(
-        json.contains(r#""state":"killed""#),
-        "the state crosses as its word: {json}"
-    );
-    assert!(
-        !json.contains("null"),
-        "a running Drone's stop is left out, not sent as null: {json}"
-    );
-
-    let (status, _) = call(&app, "GET", "/jobs/01NOSUCH/drones", "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-}
-
-/// `#1041`. The route Helm's approval-card ask answers off: the id and handle
-/// back, a 404 on a Job that names nothing, and the Job itself untouched —
-/// still `awaiting_approval`. There is no daemon method behind this route for
-/// a mutation to have gone through.
-#[tokio::test]
-async fn asking_for_approval_answers_the_job_and_moves_nothing() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    at(&daemon, "01ASKED", "awaiting_approval");
-    let app = wired(daemon, events);
-
-    let (status, body) = call(&app, "POST", "/jobs/01ASKED/ask_person_to_approve", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let asked: ipc::AskedApproval = ipc::decode("an ask", &body).expect("an answer");
-    assert_eq!(asked.job_id.as_str(), "01ASKED");
-
-    let (status, _) = call(&app, "POST", "/jobs/01NOSUCH/ask_person_to_approve", "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-
-    // Still exactly where it was.
-    let (_, body) = call(&app, "GET", "/jobs/01ASKED", "").await;
-    let job: JobDetail = ipc::decode("the Job", &body).expect("a detail");
-    assert_eq!(job.job.status.as_wire(), "awaiting_approval");
-}
-
-/// **The case that proves the two operations are not one.** A Job at the
-/// approval gate has no Drone — nothing has spawned — and the registry still
-/// carries `awaiting_approval -> killed`, an operator act carrying no verdict.
-/// `kill_drone` cannot express it, and says so.
-#[tokio::test]
-async fn a_job_with_no_drone_is_still_killable() {
-    let events = Broadcaster::new();
-    let mut watching: Subscription = events.subscribe();
-    let daemon = FakeDaemon::new(events.clone());
-    at(&daemon, "01ATGATE", "awaiting_approval");
-    let app = wired(daemon, events);
-
-    // There is no Drone here, so rung 2 has nothing to act on.
-    let (status, _) = call(&app, "POST", "/jobs/01ATGATE/kill_drone", "").await;
-    assert_eq!(
-        status,
-        StatusCode::CONFLICT,
-        "no Drone exists at the approval gate"
-    );
-
-    // The Job ends anyway, which is the whole distinction.
-    let (status, body) = call(&app, "POST", "/jobs/01ATGATE/kill_job", "").await;
-    assert_eq!(status, StatusCode::OK);
-    let killed: JobSummary = ipc::decode("job summary", &body).expect("a summary");
-    assert_eq!(killed.status.as_wire(), "killed");
-
-    let Some(Next::Send(delivered)) = watching.next().await else {
-        panic!("the kill published nothing");
-    };
-    let ipc::Event::JobStateChanged(moved) = delivered.event else {
-        panic!("a move, not a creation");
-    };
-    assert_eq!(moved.from.as_wire(), "awaiting_approval");
-    assert_eq!(moved.to.as_wire(), "killed");
-    assert_eq!(moved.actor.as_wire(), "human");
-}
-
 /// A Job already over is not killed twice. The 409 is the machine refusing the
 /// move, not the id being unknown.
 #[tokio::test]
@@ -532,313 +272,13 @@ async fn a_terminal_job_can_be_forgotten_and_then_is_really_gone() {
     assert_eq!(status, StatusCode::NOT_FOUND, "the row is really gone");
 }
 
-/// **The gesture that opens a Check gets its output.** The row carries where
-/// the file is; this is the route the lines come back on, verbatim and with the
-/// file's own numbering — a window that renumbered from one would send a reader
-/// citing line 1,939 to the wrong line.
-#[tokio::test]
-async fn a_checks_output_comes_back_as_a_window_that_says_it_is_one() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let uri = format!("/jobs/01RUNNING/checks/{THE_OUTPUT}/output");
-    let (status, body) = call(&app, "GET", &uri, "").await;
-    assert_eq!(status, StatusCode::OK);
-    let served: ipc::CheckOutput = ipc::decode("a check output", &body).expect("an output");
-    assert_eq!(served.lines, shapes::THE_OUTPUT_LINES);
-    assert!(
-        served.lines[2].starts_with("    "),
-        "verbatim, and never trimmed"
-    );
-    assert_eq!(
-        served.from_line, 1_939,
-        "the file's numbering, not the window's"
-    );
-    assert!(served.total_lines > served.lines.len() as u32);
-    assert!(!served.whole, "a truncated reading says it is truncated");
-    assert_eq!(served.attempt, 1, "joins back to the row that was pressed");
-}
-
-/// An output the record does not hold is **not** the Job being absent: a person
-/// told the Job is gone goes looking for the wrong thing. It is also what a
-/// caller naming anything but a row's own file gets, because the rows are the
-/// only thing that resolves this id to a file at all.
-#[tokio::test]
-async fn a_check_output_the_record_does_not_hold_is_not_a_missing_job() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let (status, _) = call(&app, "GET", "/jobs/01RUNNING/checks/never.0.log/output", "").await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-
-    let (status, _) = call(&app, "GET", "/jobs/01NOTHERE/checks/never.0.log/output", "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
-}
-
-/// **A brief comes back on the Job's own route**, and the two refusals are
-/// `get_check_output`'s: a name the Job did not keep — an escape spelled into
-/// the segment among them — is a 422, and a missing Job a 404.
-#[tokio::test]
-async fn a_kept_brief_comes_back_and_a_name_it_did_not_keep_is_refused() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let (status, body) = call(
-        &app,
-        "GET",
-        &format!("/jobs/01RUNNING/briefs/{THE_BRIEF}"),
-        "",
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    let served: ipc::BriefContents = ipc::decode("a brief", &body).expect("a brief");
-    assert!(served.path.ends_with(THE_BRIEF), "joins back to the row");
-    assert!(served.whole && served.total_lines == served.lines.len() as u32);
-
-    for refused in ["never.1.c.txt", "..%2F..%2Fsecret"] {
-        let uri = format!("/jobs/01RUNNING/briefs/{refused}");
-        let (status, _) = call(&app, "GET", &uri, "").await;
-        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
-    }
-    let uri = format!("/jobs/01NOTHERE/briefs/{THE_BRIEF}");
-    let (status, _) = call(&app, "GET", &uri, "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
-}
-
-/// **A frame comes back as the file**, which is the one answer on this router
-/// that is not JSON. What is asserted is the whole of what makes it usable: the
-/// bytes are the file's own and unwrapped, the media type is read off the
-/// name rather than stored beside the path, and `nosniff` rides with it so a
-/// file that is not what its name says is refused rather than guessed at.
-///
-/// It uses the router directly instead of [`call`] because the headers are the
-/// subject here and that helper keeps only the status and the body.
-#[tokio::test]
-async fn a_frame_comes_back_as_the_file_and_says_what_it_is() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let request = Request::builder()
-        .method("GET")
-        .uri(format!("/jobs/01RUNNING/frames/{THE_FRAME}"))
-        .body(Body::empty())
-        .expect("a well-formed request");
-    let response = app.oneshot(request).await.expect("the router answers");
-
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response
-            .headers()
-            .get("content-type")
-            .and_then(|said| said.to_str().ok()),
-        Some("image/png"),
-        "read off the name, and never stored beside the path"
-    );
-    assert_eq!(
-        response
-            .headers()
-            .get("x-content-type-options")
-            .and_then(|said| said.to_str().ok()),
-        Some("nosniff"),
-        "sniffing is how a file that is not an image comes to be executed"
-    );
-
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("a body that reads")
-        .to_bytes()
-        .to_vec();
-    assert_eq!(
-        body,
-        shapes::THE_FRAME_BYTES,
-        "the file itself, and not a base64 of it inside an envelope"
-    );
-}
-
-/// **A recording is answered one span at a time**, which is the whole of what
-/// makes a long one watchable: the surface refused a video over twenty
-/// mebibytes outright because nothing here could answer part of one. What is
-/// asserted is where the bytes start, what came back, and the length a player
-/// needs in order to seek by it.
-#[tokio::test]
-async fn a_video_is_answered_one_span_at_a_time() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let request = Request::builder()
-        .method("GET")
-        .uri(format!("/jobs/01RUNNING/frames/{THE_RECORDING}"))
-        .header("range", "bytes=4-8")
-        .body(Body::empty())
-        .expect("a well-formed request");
-    let response = app.oneshot(request).await.expect("the router answers");
-
-    assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
-    let said = |name: &str| {
-        response
-            .headers()
-            .get(name)
-            .and_then(|said| said.to_str().ok())
-            .map(str::to_string)
-    };
-    assert_eq!(said("content-range").as_deref(), Some("bytes 4-8/26"));
-    assert_eq!(said("accept-ranges").as_deref(), Some("bytes"));
-    assert_eq!(said("content-type").as_deref(), Some("video/webm"));
-    assert_eq!(
-        said("x-content-type-options").as_deref(),
-        Some("nosniff"),
-        "a span of a file is still a file nothing may sniff"
-    );
-
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("a body that reads")
-        .to_bytes()
-        .to_vec();
-    assert_eq!(body, b"efghi", "the span asked for, and not the file");
-}
-
-/// **A span past the end says how long the file is**, which is the one fact a
-/// player can act on — it asks again with a span that exists. A name the record
-/// does not hold is refused exactly as it is without a range: a seek is not a
-/// way around the allowlist.
-#[tokio::test]
-async fn a_span_past_the_end_names_the_length_and_never_the_file() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let ask = |uri: String, range: &'static str| {
-        let app = app.clone();
-        async move {
-            let request = Request::builder()
-                .method("GET")
-                .uri(uri)
-                .header("range", range)
-                .body(Body::empty())
-                .expect("a well-formed request");
-            app.oneshot(request).await.expect("the router answers")
-        }
-    };
-
-    let response = ask(
-        format!("/jobs/01RUNNING/frames/{THE_RECORDING}"),
-        "bytes=99-",
-    )
-    .await;
-    assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
-    assert_eq!(
-        response
-            .headers()
-            .get("content-range")
-            .and_then(|said| said.to_str().ok()),
-        Some("bytes */26"),
-        "the length, which is what a player asks again with"
-    );
-
-    let response = ask(
-        "/jobs/01RUNNING/frames/never.1/gone.webm".to_string(),
-        "bytes=0-",
-    )
-    .await;
-    assert_eq!(
-        response.status(),
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "a name no row holds reaches no file, range or no range"
-    );
-}
-
-/// **Streaming is for video, and everything else is answered whole.** An SVG
-/// and an HTML file are served as bytes because a browser executes either, and
-/// a range that carved one up would be a second path to the thing that decision
-/// closed. A `Range` on an image is ignored, which is always legal.
-#[tokio::test]
-async fn a_range_on_anything_but_a_video_is_ignored() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let request = Request::builder()
-        .method("GET")
-        .uri(format!("/jobs/01RUNNING/frames/{THE_FRAME}"))
-        .header("range", "bytes=0-1")
-        .body(Body::empty())
-        .expect("a well-formed request");
-    let response = app.oneshot(request).await.expect("the router answers");
-
-    assert_eq!(response.status(), StatusCode::OK, "not a 206");
-    assert!(
-        response.headers().get("accept-ranges").is_none(),
-        "and it does not invite one either"
-    );
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("a body that reads")
-        .to_bytes()
-        .to_vec();
-    assert_eq!(body, shapes::THE_FRAME_BYTES, "the whole file");
-}
-
-/// A frame the record does not hold is **not** the Job being absent — the same
-/// distinction a Check's output draws one record over.
-///
-/// **The record is the allowlist**, and the second half of this is what that
-/// buys: a name spelling its way upward reaches no file, because nothing but
-/// the rows decides what may be opened. It is refused for naming no row, which
-/// is the same refusal any other invented name gets.
-#[tokio::test]
-async fn a_frame_the_record_does_not_hold_is_not_a_missing_job() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let (status, _) = call(&app, "GET", "/jobs/01RUNNING/frames/never.1/gone.png", "").await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-
-    let (status, _) = call(&app, "GET", "/jobs/01NOTHERE/frames/never.1/gone.png", "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
-
-    // The rows are the only thing that resolves a name to a file, so a name
-    // built to climb out of the frames directory resolves to no row and is
-    // refused for that — never opened and then judged.
-    let (status, _) = call(
-        &app,
-        "GET",
-        "/jobs/01RUNNING/frames/..%2F..%2Fetc/passwd",
-        "",
-    )
-    .await;
-    assert_ne!(
-        status,
-        StatusCode::OK,
-        "a name no row holds reaches no file, whatever it spells"
-    );
-}
-
 #[tokio::test]
 async fn a_body_that_does_not_parse_is_the_callers_fault_and_says_so() {
     let events = Broadcaster::new();
-    let app = wired(FakeDaemon::new(events.clone()), events);
-    let (status, body) = call(&app, "POST", "/jobs", r#"{"urgency":"whenever"}"#).await;
+    let daemon = FakeDaemon::new(events.clone());
+    running(&daemon, "01RUNNING");
+    let app = wired(daemon, events);
+    let (status, body) = call(&app, "POST", "/jobs/01RUNNING/report", r#"{"urgency":"whenever"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "not a 500: nothing failed");
     let error: WireError = ipc::decode("wire error", &body).expect("an error body");
     assert_eq!(error.code, "api.undecodable_request");
@@ -854,7 +294,7 @@ async fn a_body_that_does_not_parse_is_the_callers_fault_and_says_so() {
 async fn a_command_against_a_job_that_is_not_there_is_a_404() {
     let events = Broadcaster::new();
     let app = wired(FakeDaemon::new(events.clone()), events);
-    let (status, body) = call(&app, "POST", "/jobs/01NOTHING/kill_drone", "").await;
+    let (status, body) = call(&app, "POST", "/jobs/01NOTHING/kill_job", "").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let error: WireError = ipc::decode("wire error", &body).expect("an error body");
     assert_eq!(
@@ -867,9 +307,9 @@ async fn a_command_against_a_job_that_is_not_there_is_a_404() {
 async fn a_move_the_machine_would_refuse_is_a_409_and_not_a_404() {
     let events = Broadcaster::new();
     let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
+    at(&daemon, "01DONE", "completed_success");
     let app = wired(daemon, events);
-    let uri = "/jobs/01RUNNING/approve_dispatch";
+    let uri = "/jobs/01DONE/kill_job";
     let (status, _) = call(&app, "POST", uri, "").await;
     assert_eq!(
         status,
@@ -908,118 +348,9 @@ async fn a_subscriber_that_falls_behind_is_told_how_many_it_lost() {
     assert!(matches!(watching.next().await, Some(Next::Send(_))));
 }
 
-/// **`restart_step` is the one route here whose body is optional**, and what it
-/// tells apart is "no body" from "a body with nothing in it".
-///
-/// The first is what every restart sent before this route learned to read
-/// anything, and it must still be a restart — that is the whole of *restarting
-/// without a note stays exactly as easy as it was*. The second is a person
-/// having typed nothing into a field they opened, and it is a 422 rather than a
-/// Drone opened with a heading and nothing under it.
-#[tokio::test]
-async fn a_restart_takes_no_body_a_note_or_a_refusal_and_tells_them_apart() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    at(&daemon, "01STOPPED", "escalated");
-    let app = wired(daemon, events);
-    let uri = "/jobs/01STOPPED/restart_step";
 
-    let (status, _) = call(&app, "POST", uri, "").await;
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "a restart with nothing to say stopped being a restart"
-    );
 
-    let (status, _) = call(&app, "POST", uri, A_RESTART_NOTE).await;
-    assert_eq!(status, StatusCode::OK);
 
-    let (status, body) = call(&app, "POST", uri, A_BLANK_NOTE).await;
-    assert_eq!(
-        status,
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "a note with nothing in it was written down rather than refused"
-    );
-    let error: WireError = ipc::decode("wire error", &body).expect("an error body");
-    assert_eq!(
-        error.code, "fake.blank_note",
-        "the refusal came from the transport rather than from what was asked"
-    );
-
-    let (status, _) = call(&app, "POST", uri, NOT_A_NOTE).await;
-    assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "bytes that are not a request are the transport's refusal, not the daemon's"
-    );
-}
-
-/// A restart carrying a person's words.
-const A_RESTART_NOTE: &str = r#"{"note":"delete that test, it tests the old behaviour"}"#;
-
-/// A restart carrying a field somebody opened and typed nothing into.
-const A_BLANK_NOTE: &str = r#"{"note":"   "}"#;
-
-/// Bytes that are not a request at all. **Not the same failure as either of the
-/// two above** — nothing downstream was asked, so it is the transport's 400.
-const NOT_A_NOTE: &str = "{";
-
-/// `add_task` and `drop_task`, over the router. **What the fake daemon can
-/// prove is that the route reached it and that the body arrived** — its own
-/// header's rule. The refusals a real Fleet answers by name are `fleet`'s own
-/// tests, against real plan state a fake has none of.
-#[tokio::test]
-async fn a_persons_add_and_drop_reach_the_daemon_and_answer_with_the_plan() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01JOBPLAN0");
-    let app = wired(daemon, events);
-
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/jobs/01JOBPLAN0/add_task",
-        r#"{"title":"Add a regression test","detail":"","after":""}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-    let plan: ipc::WorkPlan = ipc::decode("the plan the add leaves", &body).expect("a plan");
-    assert_eq!(plan.approach, "a fake plan");
-
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/jobs/01JOBPLAN0/drop_task",
-        r#"{"task":"T1","reason":"not needed"}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/jobs/01NOSUCHJOB/add_task",
-        r#"{"title":"x","detail":"","after":""}"#,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "no such Job");
-}
-
-/// Bytes that are not a request reach neither route as a refusal about the
-/// Job — the transport's 400, `NOT_A_NOTE`'s reason.
-#[tokio::test]
-async fn a_persons_add_or_drop_with_no_body_is_the_transports_refusal() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01JOBPLAN0");
-    let app = wired(daemon, events);
-
-    let (status, _) = call(&app, "POST", "/jobs/01JOBPLAN0/add_task", NOT_A_NOTE).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-
-    let (status, _) = call(&app, "POST", "/jobs/01JOBPLAN0/drop_task", NOT_A_NOTE).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-}
 
 /// The `@` mention popup's own route. **Narrowed by `?q=`, and absent reads
 /// as empty** — the instant somebody types a bare `@` there is no text after

@@ -414,10 +414,10 @@ fn a_prompt_that_drops_a_placeholder_or_is_blank_is_refused() {
         "every one dropped is named: {reason}"
     );
 
-    let (_, reason) = refusal(&[("prompts.droneBaseline", SettingValue::Text("  \n ".into()))]);
+    let (_, reason) = refusal(&[("prompts.retroWhereFixesLand", SettingValue::Text("  \n ".into()))]);
     assert!(reason.contains("must not be blank"), "{reason}");
 
-    let (_, reason) = refusal(&[("prompts.droneBaseline", SettingValue::Integer(1))]);
+    let (_, reason) = refusal(&[("prompts.retroWhereFixesLand", SettingValue::Integer(1))]);
     assert!(reason.contains("must be text"), "{reason}");
 }
 

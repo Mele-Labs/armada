@@ -10,7 +10,7 @@ use store::{PortClaim, PortClaimant};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
-use crate::gate::CheckBudget;
+use crate::CheckBudget;
 use crate::ports::PortRange;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;

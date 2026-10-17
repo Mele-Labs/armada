@@ -14,48 +14,14 @@
 use std::future::Future;
 
 use crate::daemon::Refusal;
-use crate::observing::Observed;
 use crate::reference::Resolved;
 use ipc::{
-    AlertList, BriefContents, CheckOutput, CheckoutRunList, CheckoutRunSheet,
-    CommandExplained, DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth,
-    FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
-    JobResources, KeptFrame, ManifestChecks, ManifestConfig, ManifestDrift, ManifestFile,
-    ManifestId, ManifestReading, ManifestSummary, ModelChoices, ReportList, RunList, RunOutput,
-    RunSheet, WorkflowSummary, WorktreesHeld,
+    AlertList, CheckoutRunList, CheckoutRunSheet, FilesFound, FleetHealth,
+    FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig, ManifestDrift, ManifestFile,
+    ManifestId, ManifestReading, ManifestSummary, ModelChoices, ReportList, RunOutput, WorkflowSummary, WorktreesHeld,
 };
 
-/// What a caller asked for of a frame's bytes.
-///
-/// **Only the two shapes a media element sends.** A player asks from a byte
-/// to the end, or for the last few so it can read a container's index. A
-/// request naming several spans at once is answered whole instead, because the
-/// multipart body that would carry them is a second encoding nothing on this
-/// seam reads.
-pub enum FrameSpan {
-    /// From this byte through that one, or to the end where there is no last.
-    From { first: u64, last: Option<u64> },
-    /// The last this many bytes.
-    Last(u64),
-}
 
-/// One span of a frame, and what the whole file weighs.
-pub enum FramePart {
-    /// The bytes, the byte they start at, and the file's own length.
-    ///
-    /// **Fewer bytes than were asked for is a legal answer**, and it is the
-    /// one a long span gets. A read that took a whole file into memory to
-    /// answer a range would be the defect this exists to fix, so the
-    /// implementation windows it and the player asks again.
-    Span {
-        first: u64,
-        bytes: Vec<u8>,
-        total: u64,
-    },
-    /// The span begins at or past the end of the file. The length is the whole
-    /// of what a caller can act on, which is what makes it the 416's body.
-    Beyond { total: u64 },
-}
 
 /// Everything a client reads.
 ///
@@ -148,15 +114,6 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<AlertList, Refusal>> + Send;
 
-    /// `list_drones` — every Drone Fleet holds a slot for.
-    ///
-    /// **The roster, not the Jobs.** An escalated Job keeps its Drone alive and
-    /// idle so a redirect costs no respawn, so a list derived from statuses
-    /// would omit exactly the Drone somebody is asking about.
-    fn list_drones(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<DroneList, Refusal>> + Send;
 
     /// Every Job `manifest_id` owns, by id. **Not an operation**, [`Queries::scope`]'s
     /// shape: what `get_events_since` counts a scoped caller against.
@@ -165,28 +122,7 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: ManifestId,
     ) -> impl Future<Output = Result<Vec<ipc::JobId>, Refusal>> + Send;
 
-    /// `get_drone` — one Drone, what it declared, and a window of its own rows.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Drone in the roster. **A
-    /// Drone that has exited is gone from it** — its transcript is the Job's,
-    /// read through `observe_job`, and answering here from a file would make a
-    /// dead process look like a slot.
-    fn get_drone(
-        &self,
-        drone_id: DroneId,
-    ) -> impl Future<Output = Result<DroneDetail, Refusal>> + Send;
 
-    /// `list_job_drones` — every Drone one Job has had, the exited ones too,
-    /// with its state, its times and what it spent.
-    ///
-    /// **Off the Job's history and its spend rows, never the roster**, which
-    /// is the difference from [`Queries::list_drones`]: that list loses a
-    /// Drone the moment it exits. [`Refusal::NoSuchJob`] where the id names no
-    /// Job; a Job that has never run answers with no Drones.
-    fn list_job_drones(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobDrones, Refusal>> + Send;
 
     /// `get_health` — the probes Fleet can run on itself.
     ///
@@ -224,19 +160,6 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: ManifestId,
     ) -> impl Future<Output = Result<ManifestConfig, Refusal>> + Send;
 
-    /// `get_capacity` — the bound, what is occupying it, and the one thing
-    /// holding the next Drone back.
-    ///
-    /// **Fleet-wide, and the answer no per-Job field could give.** A `queued`
-    /// Job's reason folds the concurrency bound and all three machine signals
-    /// into `waiting_on_resources`, because that is the only label the registry
-    /// grants it. This is where the distinction between them lives.
-    ///
-    /// It answers rather than refuses when the machine will not be read: an
-    /// unreadable machine admits, so `held_by` is absent and the two numbers
-    /// are still true. The only `Refusal` here is Fleet being unable to read
-    /// its own roster, which is not a state that has ever occurred.
-    fn get_capacity(&self) -> impl Future<Output = Result<FleetCapacity, Refusal>> + Send;
 
     /// `get_fleet_build` — which build Fleet runs on, the commit it came from,
     /// where that stands against `origin/main`, and the restart under way or
@@ -397,41 +320,7 @@ pub trait Queries: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobHistory, Refusal>> + Send;
 
-    /// `get_evidence` — every claim a Job's Drones have submitted, step by
-    /// step.
-    ///
-    /// **The material a person decides on, and the cheap half of it.** A step
-    /// that has submitted nothing is absent rather than present and blank,
-    /// which is the shape the store answers in and the only one that tells a
-    /// step claiming nothing from a step that has not claimed yet.
-    ///
-    /// Its own operation beside [`Queries::get_diff`] rather than folded into
-    /// it: this is a handful of sentences per step and that is however large
-    /// the work is.
-    fn get_evidence(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobEvidence, Refusal>> + Send;
 
-    /// `get_remarks` — everything anybody has written on one Job's open pull
-    /// request, and which of it has already reached a Drone.
-    ///
-    /// **The one read on this trait that talks to a forge.** Every other query
-    /// here reads a record, a worktree or this machine; this one costs a
-    /// process and a network, which is the whole reason it is a route somebody
-    /// asks for rather than a field on [`Queries::get_job`].
-    ///
-    /// **A forge that would not answer is a refusal and never an empty list.**
-    /// A pull request nobody has commented on is a real answer with no comments
-    /// in it, and a person shown one as the other would conclude their review
-    /// had vanished.
-    ///
-    /// Refused where the Job is not at `awaiting_review` and where its record
-    /// holds no pull request: neither has anything to choose from.
-    fn get_remarks(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobRemarks, Refusal>> + Send;
 
     /// `get_diff` — one Job's whole patch, with the file list beside it.
     ///
@@ -450,153 +339,12 @@ pub trait Queries: Send + Sync + 'static {
     /// [`Refusal::Fault`], never an empty patch.
     fn get_diff(&self, job_id: JobId) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
 
-    /// `get_repair_diff` — what a repair or side-run fix changes, against the
-    /// Job's branch, in `get_diff`'s shape. A 422 `fleet.no_repair_branch`
-    /// where the Trigger or added step has no repair branch.
-    fn get_repair_diff(
-        &self,
-        job_id: JobId,
-        of: ipc::RepairOf,
-    ) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
 
-    /// `get_job_resources` — what this Job holds on this machine: the
-    /// processes it owns, what each is burning, the disk its worktree has
-    /// taken, and when anything was last written to its own log.
-    ///
-    /// **The other axis from `spend`.** That answers what a Job cost in model
-    /// terms, and on a wedged Job every one of its four figures read zero — a
-    /// Job between phases and a Job hung are the same four zeros.
-    ///
-    /// **Its own operation and not a field on [`Queries::get_job`].** That read
-    /// is made on every open of a Job and on every event naming it; this one
-    /// walks a process table and a directory, which is a cost paid when
-    /// somebody asks rather than continuously.
-    ///
-    /// It answers rather than refuses on a reading it could not take. A `ps`
-    /// that will not run and a worktree walk that ran long are said, because a
-    /// panel that 500s is one a person stops opening.
-    fn get_job_resources(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobResources, Refusal>> + Send;
 
-    /// `explain_command` — what one command a Drone was not granted does, read
-    /// by a model for the person who has to decide about it.
-    ///
-    /// **It decides nothing.** The offers the command carries are unchanged,
-    /// the Drone stays held, and nothing is recorded — a Job whose person never
-    /// asks behaves exactly as it did, and asking twice costs two calls.
-    ///
-    /// `call_id` is [`ipc::CommandInFlight::call`] or `ipc::Refusal::call`, the
-    /// same id `answer_command` takes.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job **and where it names
-    /// nothing this Job is waiting on or refused** — a 404 here where
-    /// `answer_command` answers 409, because the id is only nameable off a
-    /// command that is still open. [`Refusal::Fault`] where the model would not
-    /// answer, which leaves the command exactly as it was.
-    fn explain_command(
-        &self,
-        job_id: JobId,
-        call_id: String,
-    ) -> impl Future<Output = Result<CommandExplained, Refusal>> + Send;
 
-    /// `get_check_output` — one Check's own output, read back into the app.
-    ///
-    /// **The other end of a path that opened nothing in Armada.**
-    /// `CheckRun::output_path` has said where a Check wrote its stdout and
-    /// stderr since the record kept them, and Bridge could only hand that path
-    /// to the operating system — so the surface built to audit a suite that
-    /// went green for the wrong reason sent a person out of the app to do it.
-    ///
-    /// The split is [`Queries::get_diff`]'s, for the same reason: output is up
-    /// to two 64 KiB streams, `get_job` is re-read on every event naming the
-    /// open Job, and `/events` is one drop-oldest channel carrying every Job.
-    /// The cheap fact rides the row and the bytes are fetched, once, by the
-    /// person who pressed.
-    ///
-    /// **`kept` names a row, not a file.** It is the last component of an
-    /// `output_path`, resolved against the rows the implementation holds for
-    /// that Job before anything is opened — which is what keeps a
-    /// caller-supplied value from reaching a file the record does not name.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job.
-    /// [`Refusal::Unacceptable`] where the Job is there and no row of it kept
-    /// an output under that name, which is the answer a reclaimed `.armada`
-    /// gives and is not the same as the Job being absent.
-    fn get_check_output(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> impl Future<Output = Result<CheckOutput, Refusal>> + Send;
 
-    /// `get_brief` — one brief a Judge or a gaming check was asked, read back
-    /// into the app. [`Queries::get_check_output`]'s split, for the file a
-    /// verdict was argued from: `Judged::brief_path` names it and this reads it.
-    ///
-    /// **`name` is the file's own name, resolved inside this Job's briefs
-    /// directory.** A name that would leave it — `..`, a separator, a link out
-    /// — reaches no file.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job.
-    /// [`Refusal::Unacceptable`] where the Job is there and kept no brief under
-    /// that name.
-    fn get_brief(
-        &self,
-        job_id: JobId,
-        name: String,
-    ) -> impl Future<Output = Result<BriefContents, Refusal>> + Send;
 
-    /// `get_frame` — one frame a step's harness produced, as the file itself.
-    ///
-    /// **The only query on this seam that answers bytes rather than JSON.** A
-    /// frame has no window: [`Queries::get_check_output`] serves a tail and
-    /// describes it, and an image cannot be described that way, because a
-    /// truncated PNG is not a shorter PNG. So there is nothing partial for an
-    /// envelope to carry, and base64 would inflate the bytes by a third.
-    ///
-    /// The split is that method's, on the same measurement — the cheap fact
-    /// rides [`KeptFrame`] on the record, re-read on every event naming the
-    /// open Job, and the image is fetched once by whoever opens one.
-    ///
-    /// **`kept` names a row, not a path.** The run directory and the file name
-    /// joined, composed by Fleet, resolved against the rows this Job holds
-    /// before anything is opened. The record is the allowlist and nothing else
-    /// decides what may be read.
-    ///
-    /// The [`KeptFrame`] comes back with the bytes, so a media type is answered
-    /// from the file's own name rather than stored beside its path.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job.
-    /// [`Refusal::Unacceptable`] where the Job is there and no row of it kept a
-    /// frame under that name — a reclaimed `.armada/frames`, or a name that was
-    /// never one.
-    fn get_frame(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> impl Future<Output = Result<(KeptFrame, Vec<u8>), Refusal>> + Send;
 
-    /// `get_frame`, a span at a time — what a recording is watched through.
-    ///
-    /// **The same row and the same allowlist, a different amount of it.** Every
-    /// rule [`Queries::get_frame`] states holds: `kept` names a row, the record
-    /// resolves it before a file is opened, and a name no row of this Job
-    /// carries reaches nothing. Its refusals are that method's exactly.
-    ///
-    /// **A long span is windowed rather than honoured.** A player opens a
-    /// recording by asking for everything from byte zero, and a read that
-    /// obeyed would load the file this exists to stop loading. Fewer bytes than
-    /// were asked for is a legal answer, and the player asks again.
-    ///
-    /// A span past the end of a file that is there is no refusal at all: it is
-    /// [`FramePart::Beyond`], which the caller answers as a 416.
-    fn get_frame_part(
-        &self,
-        job_id: JobId,
-        kept: String,
-        span: FrameSpan,
-    ) -> impl Future<Output = Result<(KeptFrame, FramePart), Refusal>> + Send;
 
     /// `list_workflows` — the workflows Fleet holds, with their steps.
     ///
@@ -684,81 +432,11 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorktreesHeld, Refusal>> + Send;
 
-    /// `observe_job` — one Job's turns, the history and then the live ones.
-    ///
-    /// # It answers before the socket opens
-    ///
-    /// A Job that does not exist is a 404 the caller reads at the moment they
-    /// asked, rather than a connection that opens and immediately says nothing.
-    /// That is why this returns a value and not a socket.
-    ///
-    /// # The order inside is the whole guarantee
-    ///
-    /// An implementation subscribes **first** and reads the history after, so
-    /// no row can fall between the two. A caller holding an [`Observed`] cannot
-    /// get that order wrong because both halves are already in it.
-    ///
-    /// A Job nothing is writing is not a refusal. [`Observed::live`] is `None`
-    /// and the history is served on its own — a Job never dispatched, one
-    /// already finished, and one whose Drone went with the Fleet that spawned
-    /// it all reach a viewer that way.
-    fn observe_job(&self, job_id: JobId) -> impl Future<Output = Result<Observed, Refusal>> + Send;
 
-    /// `observe_check_output` — one running Check's log, what it has printed
-    /// so far and then what it prints next.
-    ///
-    /// **It answers before the socket opens**, for [`Queries::observe_job`]'s
-    /// reason. `kept` is the last component of a `CheckUnderway::output_path`,
-    /// resolved against the Checks this Job's gate is running before anything
-    /// is opened — [`Queries::get_check_output`]'s rule, with the live set
-    /// standing in for the rows.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job.
-    /// [`Refusal::Unacceptable`] where no running gate of this Job is writing a
-    /// log under that name — a name that was never one, or a gate whose ruling
-    /// has been written down, which is `get_check_output`'s from then on.
-    fn observe_check_output(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> impl Future<Output = Result<crate::LiveOutput, Refusal>> + Send;
 
-    /// `get_run_sheet` — what a person can run in this Job's worktree, as the
-    /// Job froze it, and the facts the sheet's header and notices draw.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job. A worktree that is gone
-    /// is an answer, `worktree_on_disk: false`, not a refusal.
-    fn get_run_sheet(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<RunSheet, Refusal>> + Send;
 
-    /// `list_runs` — this Job's earlier runs from the sheet, newest first, with
-    /// the records that would not read answered beside them, never dropped.
-    fn list_runs(&self, job_id: JobId) -> impl Future<Output = Result<RunList, Refusal>> + Send;
 
-    /// `get_run_output` — one run's log, as a window that says it is one.
-    ///
-    /// **`run_id` names a run of this Job or reaches nothing**: it is resolved
-    /// against the Job's own runs before a file is opened.
-    /// [`Refusal::Unacceptable`] where it names none.
-    fn get_run_output(
-        &self,
-        job_id: JobId,
-        run_id: String,
-    ) -> impl Future<Output = Result<RunOutput, Refusal>> + Send;
 
-    /// `observe_run` — one run's output on a socket of its own: what its log
-    /// holds, then what it prints next.
-    ///
-    /// **It answers before the socket opens**, for [`Queries::observe_job`]'s
-    /// reason, with the subscription opened before the log is read.
-    /// [`Refusal::Unacceptable`] where `run_id` names no run of this Job.
-    fn observe_run(
-        &self,
-        job_id: JobId,
-        run_id: String,
-    ) -> impl Future<Output = Result<crate::ObservedRun, Refusal>> + Send;
 
     /// `get_checkout_run_sheet` — what a person can run in the main checkout:
     /// its Setup, its Checks and its Commands, off the Manifest Fleet holds.
@@ -773,13 +451,6 @@ pub trait Queries: Send + Sync + 'static {
         repository: Option<String>,
     ) -> impl Future<Output = Result<CheckoutRunSheet, Refusal>> + Send;
 
-    /// `list_manifest_checks` — every Check run this repository's Jobs asked for
-    /// or ran: gate rows and Drones' asked runs, newest first and cut. Absent a
-    /// name, every served repository's.
-    fn list_manifest_checks(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<ManifestChecks, Refusal>> + Send;
 
     /// `list_checkout_runs` — the main checkout's earlier runs, newest first,
     /// with the records that would not read answered beside them.

@@ -14,7 +14,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::settings::Reread;
-use crate::tests::daemon::{a_proposal, fittings};
+use crate::tests::daemon::fittings;
 use crate::tests::session_host::{eventually, rig_placing};
 use crate::tests::settings_json::settings_file_in;
 use crate::tests::tmp::TempDir;
@@ -63,15 +63,6 @@ fn changing(value: Option<&str>) -> SaveSettings {
 fn changing_default(value: Option<&str>) -> SaveSettings {
     SaveSettings {
         changes: BTreeMap::from([("models.default".to_string(), value.map(|one| SettingValue::Text(one.into())))]),
-    }
-}
-
-/// What settings.json holds for `models.default`.
-fn file_default(home: &TempDir) -> Option<String> {
-    let file = settings_file::read(&settings_file_in(home)).ok().flatten()?;
-    match file.get("models.default") {
-        Some(settings_file::SettingValue::Text(text)) => Some(text.clone()),
-        _ => None,
     }
 }
 
@@ -322,22 +313,6 @@ async fn a_hand_edit_away_from_the_lower_model_ends_a_shift() {
     std::fs::write(settings_file_in(&home), r#"{"models.session": "a-model", "limits.dronesAtOnce": 2}"#).unwrap();
     assert!(matches!(fleet.settings_reread().await, Reread::Taken));
     assert_eq!(state(&fleet).await, None);
-}
-
-#[tokio::test]
-async fn a_job_proposed_with_no_model_takes_models_default_and_the_step_down_never_moves_it() {
-    let home = TempDir::new();
-    let fleet = fleet_in(&home);
-    let mut proposal = a_proposal("the reader is off by one");
-    proposal.model = None;
-    assert_eq!(fleet.propose(proposal.clone()).await.unwrap().model().as_str(), "a-model");
-
-    feed(&fleet, 85, WEEK).await;
-    fleet.accept_downshift().await.unwrap();
-    assert_eq!(fleet.session_model(), "another-model");
-    assert_eq!(fleet.default_model(), "a-model", "the Drone's default is not the Session's");
-    assert_eq!(file_default(&home), None, "and nothing was written to it");
-    assert_eq!(fleet.propose(proposal).await.unwrap().model().as_str(), "a-model");
 }
 
 #[tokio::test]

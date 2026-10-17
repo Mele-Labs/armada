@@ -1658,7 +1658,7 @@ built before this sends neither.
 **A gate that defers had no way to say what it deferred to.** A step declaring
 `manifest_rule:review_gate` draws as *the repository decides*, and a reader could not tell whether
 a person would be asked or nobody would — the owner, 29 September 2026, reading that row. Fleet
-already resolves both policies at every gate (`crates/fleet/src/policy.rs`), so this reports a
+already resolves both policies at every gate (the `policy` module (deleted since)), so this reports a
 value it computes rather than computing a new one.
 
 **Reported, not resolved, and that is the whole of what crosses.** One Manifest's word, not the
@@ -1740,12 +1740,12 @@ machine runs, and Bridge mirrors the code the way it mirrors
 `fleet.proposer_stopped`.
 **Absent stays absent**: a call that names no model reaches `ProposeJob.model`
 null, which has always meant configuration decides. Land-as-one is deliberately
-not here — `crates/fleet/src/proposal.rs`'s header carries the 3 Sep 2026 ruling
+not here — the `proposal` module (deleted since)'s header carries the 3 Sep 2026 ruling
 that how the work lands follows from having read the code, and the owner kept it
 when it was put beside the model.
 
 **Fields that are settled, never a transcript.** Fleet reads the answer's prefix
-in one place (`crates/fleet/src/proposing.rs`, `Settled::of`), and a field
+in one place (the `proposing` module (deleted since), `Settled::of`), and a field
 crosses only once its own line has ended — so a client either has a title or has
 none, and never has `Say which of the two giv`. The raw text does not cross:
 `answered_characters` is still a count, and `crates/ipc/src/proposing.rs` carries
@@ -2944,7 +2944,7 @@ proposal can now arrive with it set, and the approval's own body still replaces 
 `continue_from` is none.
 
 **Pick up uses the proposer, not a workflow of its own.** Fleet assigns no workflow by default
-(`crates/fleet/src/proposing.rs`), so the request, the branch and the Finding's items, goes to the
+(the `proposing` module (deleted since)), so the request, the branch and the Finding's items, goes to the
 proposer as a dispatched request does, and the head of its plan is cut from the branch. A plan's
 other Jobs wait on the head and are cut from the base.
 

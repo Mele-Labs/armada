@@ -1,5 +1,0 @@
-[operations.get_drone]
-kind = "query"
-transport = "HTTP"
-agent_access = "Yes"
-description = "One Drone, turn history, declared file plan"

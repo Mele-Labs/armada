@@ -127,11 +127,4 @@ where
         }
     }
 
-    /// The same, for the repository a Job's work is in. A Job whose repository
-    /// is not served has nothing to publish.
-    pub(crate) async fn needs_status_republished_for(&self, job: &core_model::JobId) {
-        if let Ok(served) = self.served_by_id(job) {
-            self.needs_status_published(&served).await;
-        }
-    }
 }

@@ -33,7 +33,6 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Job, JobId};
-use ipc::mcp::ServerReport;
 use ipc::{
     Event, ServerEntry, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy, WireError,
 };
@@ -53,11 +52,6 @@ const NOT_A_CHECKOUT: &str = "fleet.not_a_checkout";
 /// How long a stop, or a Job's teardown, waits for a server to end. The group
 /// is ended with `SIGKILL`, so what is left is a reap and a publish.
 const STOPPING: Duration = Duration::from_secs(30);
-
-/// How long a Drone's call waits for `ready`, so its answer can carry an
-/// address that answers. Past it the Drone is told the server is starting and
-/// to ask again — it never gets a second instance for asking.
-const A_DRONE_WAITS: Duration = Duration::from_secs(120);
 
 /// Where a server is to run.
 pub(crate) enum Place {
@@ -264,40 +258,6 @@ where
         let this = Arc::clone(&self);
         tokio::spawn(async move { this.served(plan, held, stopped).await });
         Ok((state, true))
-    }
-
-    /// A Drone's `start_server`: start it or hand it the one up, and wait a
-    /// bounded while for `ready` so the answer carries an address that answers.
-    pub(crate) async fn server_for_drone(
-        self: Arc<Self>,
-        job: Job,
-        name: &str,
-    ) -> Result<ServerReport, Unservable> {
-        let holder = Holder::Job(job.id().clone());
-        let (mut state, fresh) = Arc::clone(&self)
-            .hold_server(Place::Job(job), name, StartedBy::Drone, false)
-            .await?;
-        if state.phase == ServerPhase::Starting {
-            match self.servers().running(&holder, name) {
-                Some(mut now) => {
-                    let _ = tokio::time::timeout(
-                        A_DRONE_WAITS,
-                        now.wait_for(|seen| seen.phase != ServerPhase::Starting),
-                    )
-                    .await;
-                    state = now.borrow().clone();
-                }
-                None => {
-                    if let Some(last) = self.servers().instance(&holder, name) {
-                        state = last;
-                    }
-                }
-            }
-        }
-        Ok(ServerReport {
-            state,
-            already_up: !fresh,
-        })
     }
 
     /// End an instance's group, and answer with it once it has ended.

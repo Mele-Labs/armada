@@ -90,17 +90,15 @@ pub(crate) fn owner_key_of(slug: &str, number: u64) -> Option<OwnerKey> {
     OwnerKey::from_hash(&sha256_hex(&format!("{slug}#{number}")))
 }
 
-/// Who takes a red: a Job Fleet released, or a Session that said so.
+/// Who takes a red: a Session that said so.
 #[derive(Clone, Debug)]
 pub(crate) enum Taker {
-    Job(JobId),
     Session(String),
 }
 
 impl Taker {
     pub(crate) fn parts(&self) -> (HolderKind, &str) {
         match self {
-            Taker::Job(job) => (HolderKind::Job, job.as_str()),
             Taker::Session(id) => (HolderKind::Session, id),
         }
     }

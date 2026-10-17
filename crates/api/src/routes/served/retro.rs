@@ -31,14 +31,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/lessons",
     },
-    // A person's answer to one item. Under `/lessons`, by the item's own id,
-    // because the item is what is acted on and its Job is only where it came
-    // from.
-    Route {
-        operation: "agree_lesson",
-        method: "POST",
-        path: "/lessons/:lesson_id/agree",
-    },
     Route {
         operation: "start_lesson_session",
         method: "POST",

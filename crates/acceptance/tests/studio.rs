@@ -26,7 +26,6 @@
 #[allow(dead_code)]
 mod bench;
 
-use fleet::{Brief, Proposal};
 use ipc::door::{DRAFTING, HELM_ONLY, REACHABLE};
 use ipc::{HelmStudioAct, StudioNodeContent};
 
@@ -34,8 +33,7 @@ use bench::studio::{
     a_capture_sent, a_failed_run, a_long_log, a_server_that_fell_over, a_studio_promoted_to_a_job,
     a_studio_with_a_captured_note, a_studio_with_a_node_of_each_forge_kind,
     a_studio_with_a_run_started_from_a_note, a_studio_with_a_server_started_from_a_note,
-    a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes,
-    an_issue_draft, held, helms_manifest, one_job_under, received_event, received_request,
+    a_studio_with_an_ended_finding, a_studio_with_sources_read_in, a_studio_with_two_notes, helms_manifest, received_event,
     received_studio, ASKED, A_PAGE, COMMIT, COMPONENT, COST, CUT, DRAFT_TITLE, FIRST_NOTE,
     FRAME_BYTES, FRAME_FILE, LEFT_AT, MARKUP, OWNERS, READ, READ_IN_NOTE, REPOSITORY, SCREEN,
     SECOND_NOTE, SELECTOR, SIDES, SOURCES, STYLES, THE_COMMAND, THE_FAILURE, THE_RUN, THE_SERVE,
@@ -192,58 +190,6 @@ fn two_notes_clustered_and_written_up_reach_a_job_node_that_walks_back_to_both()
     }
 }
 
-/// Step 6's far half: **an Issue draft is dispatched from its text, through the
-/// Job proposer, and the Job it becomes is told the whole of it.**
-/// `docs/concepts/studio.md`, *Promotion*: filing the issue anywhere is
-/// optional, so nothing between the draft and the proposer may need it filed.
-///
-/// **The failure this is against is a lossy hop.** A write-up is made from the
-/// Notes feeding it, and a dispatch that summarised, trimmed or re-fetched the
-/// draft on the way would hand a Drone something other than what the person
-/// saw. So the draft's text goes over the wire as a request, the proposer is
-/// asked with it, and a one-Job answer reads back with the draft as that Job's
-/// brief, both Notes' words in it.
-#[test]
-fn an_issue_drafts_text_alone_reaches_the_proposer_and_the_job_is_told_all_of_it() {
-    let draft = an_issue_draft();
-    let received = received_request(&draft);
-    assert_eq!(
-        received.request, draft,
-        "the draft crosses the wire verbatim, with no issue filed to point at"
-    );
-
-    let held = held();
-    // No model offered, so the answer names none and the Job reaches
-    // configuration's — `ProposedJob::model`.
-    let brief = Brief::about(&received.request, &held, &[]);
-    assert!(
-        brief.question().contains(&draft),
-        "the proposer is asked with the draft as the person wrote it up: {}",
-        brief.question()
-    );
-
-    let workflow = held.keys().next().expect("the bench holds a workflow");
-    let Ok(Proposal::Resolved(jobs)) = brief.read(&one_job_under(workflow), &held, &[]) else {
-        panic!("an answer naming a held workflow and a title is a proposal");
-    };
-    assert_eq!(
-        jobs.len(),
-        1,
-        "one draft, written up as one thing, is one Job"
-    );
-    let job = &jobs[0];
-    assert_eq!(job.title, DRAFT_TITLE, "the Job keeps the draft's title");
-    assert_eq!(
-        job.brief, draft,
-        "what the Job's Drone is told is the whole draft, not a part of it"
-    );
-    for note in [FIRST_NOTE, SECOND_NOTE] {
-        assert!(
-            job.brief.contains(note),
-            "both Notes the draft was written up from reach the Drone: {note}"
-        );
-    }
-}
 
 /// Steps 1 and 7: **a Studio belongs to a repository, and what a client reads
 /// back is every node, edge and position as a person left them.**
@@ -500,14 +446,12 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
         "start_scout",
         "start_studio_run",
         "write_up_studio_node",
-        "dispatch_studio_draft",
     ] {
         assert!(!studio.contains(asked), "`{asked}` is not among the unasked: {studio}");
     }
     for helms in [
         "start_studio_run",
         "write_up_studio_node",
-        "dispatch_studio_draft",
     ] {
         assert!(
             HELM_ONLY

@@ -5,8 +5,7 @@
 //! names, so there is no second implementation to drift and a route that moves
 //! moves for both callers at once.
 //!
-//! It shares the listener for [`crate::mcp`]'s reason, and answers 405 to
-//! `GET` and `DELETE` for it too: no server-initiated stream, no session to
+//! It answers 405 to `GET` and `DELETE`: no server-initiated stream, no session to
 //! end, and so nothing added to the unbounded-sink risk on the event socket.
 //!
 //! Who may open this door is `#698`. What it is scoped to is here: the
@@ -33,14 +32,11 @@ use crate::served::Served;
 
 /// Where an agent reaches Fleet.
 ///
-/// **Beside [`crate::mcp::MCP_PATH`], not instead of it.** That one is the
-/// Drone's endpoint, whose caller is a process Fleet spawned and whose eight
-/// tools are in no inventory; this one is the HTTP surface.
+/// The HTTP surface, as MCP tools: every row the inventory marks reachable.
 pub const DOOR_PATH: &str = "/agent/mcp";
 
-/// The most a tool call's own message may weigh. [`crate::mcp`]'s constant and
-/// its reason: a few fields, never a stream. Stated rather than left to the
-/// extractor's default, so the two endpoints refuse at the same size.
+/// The most a tool call's own message may weigh: a few fields, never a stream.
+/// Stated rather than left to the extractor's default.
 const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
 
 /// The query parameters a route reads, where it reads any.
@@ -233,7 +229,7 @@ pub fn mounted<D: Queries + Admitting>(served: Served<D>, surface: Router) -> Ro
 /// One JSON-RPC message in, at most one out.
 ///
 /// A notification is acknowledged with 202 and no body, for
-/// [`crate::mcp`]'s reason: JSON-RPC forbids answering one.
+/// JSON-RPC forbids answering one.
 async fn called<D: Queries + Admitting>(
     State(doorway): State<Doorway<D>>,
     request: axum::extract::Request,
@@ -246,7 +242,7 @@ async fn called<D: Queries + Admitting>(
     let placed = Placed::of(doorway.served.daemon(), caller);
     let body = match axum::body::to_bytes(body, MOST_A_CALL_MAY_BE).await {
         Ok(body) => body,
-        // Answered as unreadable bytes, `crate::mcp`'s shape for the same case.
+        // Answered as unreadable bytes.
         Err(_) => Bytes::new(),
     };
     if Query::<Relayed>::try_from_uri(&parts.uri)
@@ -471,7 +467,7 @@ impl<D: Queries> Doorway<D> {
 }
 
 /// The call as the session's scope allows it: refused where it names another
-/// Manifest, and a proposal's owner taken from the scope.
+/// Manifest.
 fn within_scope(call: &door::Call, scope: &Scope) -> Result<door::Call, String> {
     if let Some(named) = call
         .manifest_id
@@ -485,33 +481,16 @@ fn within_scope(call: &door::Call, scope: &Scope) -> Result<door::Call, String> 
             call.operation
         ));
     }
-    let mut call = call.clone();
-    if call.operation == "propose_job" {
-        call.body = Some(door::owned_by(
-            call.body.as_deref().unwrap_or("{}"),
-            scope.named(),
-        )?);
-    }
-    Ok(call)
+    Ok(call.clone())
 }
 
 impl<D: Queries> Doorway<D> {
-    /// Why a call naming a Drone or a server by id is not the session's to make:
+    /// Why a call naming a server by id is not the session's to make:
     /// another repository owns it. `None` lets the route answer, a miss included.
     async fn elsewhere(&self, call: &door::Call, scope: &Scope) -> Option<String> {
         let daemon = self.served.daemon();
         let within = ManifestId::carried(scope.named());
         let (what, id) = match call.operation {
-            "get_drone" => {
-                let id = call.drone_id.clone()?;
-                let drone = daemon
-                    .get_drone(ipc::DroneId::carried(id.clone()))
-                    .await
-                    .ok()?;
-                let job = drone.drone.job_id.as_str().to_string();
-                daemon.resolve_job(job, Some(within)).await.err()?;
-                ("Drone", id)
-            }
             "stop_server" => {
                 let id = door::named_in(call.body.as_deref()?, "id")?;
                 let every = daemon.list_servers(None).await.ok()?;

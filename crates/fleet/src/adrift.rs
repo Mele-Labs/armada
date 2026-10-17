@@ -28,17 +28,15 @@ use std::error::Error;
 use std::io;
 use std::time::Duration;
 
-use adapter_traits::{NotDelivered, NotMerged, SpawnConfigRefused, WorktreeSpecRefused};
+use adapter_traits::{NotMerged, SpawnConfigRefused, WorktreeSpecRefused};
 use adapters::RepoUnreadable;
 use core_model::{
-    EscalationTrigger, IllegalDroneMove, IllegalStepTransition, IllegalTransition, JobId,
-    JobStatus, PlanRefused, RedirectAlreadyWaiting, StepId, TaskId, TaskState,
+    IllegalStepTransition, IllegalTransition, JobId,
+    JobStatus, PlanRefused, TaskId, TaskState,
 };
 use store::{LoadAllError, LoadJobError, ResolveJobError, WriteError};
 
-use crate::judging::CallFailed;
 use crate::preparing::NotPrepared;
-use crate::proposing::{NotProposed, Unresolved};
 use crate::reporting::NotFiled;
 
 /// A Job that could not be carried forward, and what stopped it.
@@ -57,19 +55,11 @@ pub enum Adrift {
     IllegalMove(IllegalTransition),
     /// **A bug in Fleet**, for the inner machine.
     IllegalStepMove(IllegalStepTransition),
-    /// **A bug in Fleet**, for the pointer a Drone's presence writes: a spawn
-    /// onto a Job that already holds one.
-    IllegalDroneMove(IllegalDroneMove),
     /// The Job's id or the configured repository root could not name a
     /// worktree.
     Unworkable {
         job: JobId,
         cause: WorktreeSpecRefused,
-    },
-    /// Version control would not create the worktree. Nothing was spawned.
-    NoWorktree {
-        job: JobId,
-        cause: Box<dyn Error + Send + Sync>,
     },
     /// The worktree was cut and what the Manifest requires in one would not
     /// run. **Nothing was spawned, and no step was entered** — the Job is
@@ -83,53 +73,12 @@ pub enum Adrift {
     /// crate — which is to say every signature in it — to pay for the rarest
     /// variant in it.
     NotPrepared { job: JobId, cause: Box<NotPrepared> },
-    /// The Job's own values would not make a confined spawn — a blank model, an
-    /// unusable MCP config path, an environment variable that is not a name.
-    NotConfigurable {
-        job: JobId,
-        cause: SpawnConfigRefused,
-    },
     /// The worktree was cut and its Manifest's `ports:` could not be claimed —
     /// two ports collide on one `env`, or the range has no free span left.
     /// **Nothing was spawned**, the same reading [`Adrift::NotPrepared`] gives.
     PortsRefused {
         job: JobId,
         cause: crate::ports::PortsRefused,
-    },
-    /// No Drone is running. Every reason is in the chain beneath.
-    NoDrone {
-        job: JobId,
-        cause: Box<dyn Error + Send + Sync>,
-    },
-    /// The Drone's transcript, or the Job's log, could not be opened.
-    ///
-    /// **Nothing was spawned.** The record is opened before the Drone for that
-    /// reason: a Job whose work cannot be written down is one a person should
-    /// see, and a disk that refuses a file will refuse the worktree next.
-    NoTranscript { job: JobId, cause: io::Error },
-    /// The gate ruled and the Drone could not be told. **The step still
-    /// advanced** — the ruling is Fleet's and does not depend on the Drone
-    /// hearing it — so this says a session went deaf, not that a verdict was
-    /// lost.
-    NotTold { job: JobId, cause: io::Error },
-    /// The delivering step was entered and the work would not commit.
-    ///
-    /// **The step runs anyway**, and the Job still reaches whatever its Checks
-    /// say — a repository that would not take a commit is not a verdict on the
-    /// work. **Nothing is lost**: the worktree holds the change exactly as the
-    /// Drone left it, the Job's own log says the branch did not go, and the
-    /// cause below says how to take it by hand.
-    ///
-    /// No trigger names an infrastructure failure at the gate, so this
-    /// escalates nothing rather than borrowing a trigger that means something
-    /// else. `dispatch` used to name the same gap about its own failures and no
-    /// longer does — `no_worktree`, `not_configurable` and `would_not_start`
-    /// closed it upstream of a spawn. This one is still open because the
-    /// failure is downstream of every verdict: the work passed, and a commit
-    /// that would not run is not a Job that did not do it.
-    NotCommitted {
-        job: JobId,
-        cause: Box<dyn Error + Send + Sync>,
     },
     /// The work is committed and getting it to the branch it merges into did
     /// not finish — the base would not read, the rebase would not run, the push
@@ -201,46 +150,17 @@ pub enum Adrift {
     /// workflow that declares no delivering step is the ordinary way to get
     /// here, and the act a person wants on one of those is an approval.
     NothingToMerge { job: JobId },
-    /// A conflict resolution was asked for on a Job with no open pull request
-    /// to resolve one against. `#663`.
-    NothingToResolve { job: JobId },
     /// Re-run was pressed on a Job with no open pull request. #905.
     NothingToRerun { job: JobId },
     /// The forge would not start the failed runs again, in its own words. #905.
     RerunRefused { job: JobId, said: String },
     /// Investigate was pressed on a Job whose pull request has no failed check. #905.
     NothingToInvestigate { job: JobId },
-    /// Queue after this lands or File an issue was pressed on a finding the Job's latest
-    /// review did not raise for context. #906.
-    FindingNotForContext { job: JobId, finding: String },
-    /// File an issue was confirmed with a blank title. A 422. #906.
-    NoIssueTitle { job: JobId },
-    /// The forge would not file the issue, in its own words. #906.
-    IssueNotFiled { job: JobId, said: String },
-    /// Queue after this lands was pressed on a finding that already has a queued Job. #906.
-    FindingAlreadyQueued { job: JobId, finding: String },
     /// A conflict resolution was asked for on a workflow whose delivering step
     /// has nothing before it — a single step that both writes the work and
     /// sends it out, which this cannot redo without redelivering onto its own
     /// conflict. `#663`.
     NoStepToRedo { job: JobId },
-    /// An approval was asked for at a gate whose delivering step made a
-    /// commit that never reached its branch's remote. `#691`.
-    ///
-    /// **The Job stays exactly at its gate.** Nothing moves, and nothing is
-    /// pressed — `crate::currency`'s sweep is what finds the same conflict
-    /// and sends the Drone back on its own, `#1131`. Approving anyway is not
-    /// a road this leaves open: the pull request does not carry what a
-    /// person would be approving, and there is no call that takes it there
-    /// regardless.
-    UnpushedDelivery { job: JobId, why: String },
-    /// A Trigger or an added step that blocks failed, and the Job waits on it.
-    /// **Raised for an approval or a merge at the gate it holds**, and by
-    /// [`put_a_drone_on`](crate::daemon::Fleet::put_a_drone_on) once it has
-    /// stopped the Job before a Drone, as `NoWorktree` is. Nothing moves for the
-    /// first; the Job is `escalated` on `trigger_held` for the second. The
-    /// owner's Rerun or Skip lets it go.
-    TriggerHolds { job: JobId, trigger: String },
     /// The forge would not merge the pull request, and which kind of would-not
     /// it was.
     ///
@@ -256,13 +176,6 @@ pub enum Adrift {
     /// deciding the thing `auto_merge: never` reserves for a person, and the
     /// Job is left exactly where the press found it.
     NotMerged { job: JobId, why: NotMerged },
-    /// The frozen workflow has no step by this name. A Job dispatched against a
-    /// workflow that has since been edited, or a workflow with no steps at all.
-    NoSuchStep { job: JobId, step: Option<StepId> },
-    /// Whether a Drone's process had exited could not be established.
-    /// **Not the same as "it is gone"** — folding a failed reading into absence
-    /// is how a live Drone gets declared interrupted.
-    NotReaped { job: JobId, cause: io::Error },
     /// A forget was asked for on a Job that has not reached a terminal
     /// status.
     ///
@@ -284,59 +197,6 @@ pub enum Adrift {
     /// A reclaim on a Job's own worktree whose uncommitted files could not be
     /// committed to its branch. **Nothing was removed.**
     WorktreeNotSaved { job: JobId, why: String },
-    /// A raise was asked for on a Job that has reached a terminal status.
-    ///
-    /// **Its own variant beside the two above, for the reason the second is
-    /// beside the first**: all three refuse on a status and each names a
-    /// different act, and this one refuses on the opposite half of the same
-    /// predicate — a forget and a reclaim need a Job that is over, and money
-    /// only means something on one that is not.
-    NotCappable { job: JobId, status: JobStatus },
-    /// A raise carried a figure at or under the ceiling already in force.
-    ///
-    /// **The act is a raise, and this is not pedantry about the word.** It
-    /// exists because work is stopped for money, so a call that answers 200 and
-    /// leaves the Job exactly as stopped is the failure the route was built
-    /// against. Both figures are carried because the answer is the pair: a
-    /// caller that typed the cap back is told what it already was.
-    CapNotRaised {
-        job: JobId,
-        asked: u64,
-        in_force: u64,
-    },
-    /// Helm asked for more than Helm may ask for.
-    ///
-    /// **Unreachable by a person**, whose raise is unbounded — the budget is
-    /// theirs. `crate::raising` carries the ceiling's shape and why it is
-    /// computed from the tier this Job would inherit rather than from the cap
-    /// in force.
-    CapAboveCeiling {
-        job: JobId,
-        asked: u64,
-        ceiling: u64,
-    },
-    /// A turn raise was asked for on a Job that is over.
-    ///
-    /// **[`NotCappable`](Adrift::NotCappable)'s twin and a variant of its
-    /// own**, so the sentence a caller reads names the ceiling it tried to
-    /// move. A route that answered the cost cap's refusal would send somebody
-    /// to look at money over a Job held for turns.
-    NotTurnCappable { job: JobId, status: JobStatus },
-    /// A turn raise carried a figure at or under the ceiling already in force.
-    /// [`CapNotRaised`](Adrift::CapNotRaised)'s twin, for its reasons.
-    TurnCapNotRaised {
-        job: JobId,
-        asked: u64,
-        in_force: u64,
-    },
-    /// Helm asked for more turns than Helm may ask for.
-    /// [`CapAboveCeiling`](Adrift::CapAboveCeiling)'s twin, for its reasons,
-    /// and unreachable by a person for the same one.
-    TurnCapAboveCeiling {
-        job: JobId,
-        asked: u64,
-        ceiling: u64,
-    },
     /// The repository a Job's worktree is in would not open, so neither half
     /// of the reclaim was attempted.
     ///
@@ -376,23 +236,6 @@ pub enum Adrift {
     /// Job was created — not the case `NoSuchWorkflow` names, which is a
     /// proposal, at creation, naming an id that never existed.
     WorkflowWithdrawn { job: JobId, workflow_id: String },
-    /// A resume was asked for on a Job that is not waiting for a person.
-    ///
-    /// **Not an illegal transition.** The machine has `escalated -> running`
-    /// and would have taken the move; what is missing is the escalation, so
-    /// there is nothing for either act to hand back.
-    NotResumable { job: JobId, status: JobStatus },
-    /// A **restart** was asked for on a Job no step of which stopped.
-    ///
-    /// A Job-level escalation — `interrupted`, `resource_exhausted`,
-    /// `dependency_failed`, `stalled` — names no step, so a restart has nowhere
-    /// to land. For the first three the Drone is gone too, which leaves
-    /// redispatch and Pilot; `stalled` holds a live session, and a redirect is
-    /// what answers that one.
-    ///
-    /// **A redirect never reaches this.** It needs a session, not a step —
-    /// which is why the two acts stopped sharing one predicate.
-    NoStepStopped { job: JobId },
     /// A redirect was asked for on a Job whose Drone is gone.
     ///
     /// **The other act applies**, and this says so rather than respawning: a
@@ -400,220 +243,35 @@ pub enum Adrift {
     /// have kept, and the record would say a person injected context into a
     /// session that did not exist.
     NoDroneToRedirect { job: JobId },
-    /// A message or a stop named a Drone that is not one of the Job's live
-    /// Drones: it has gone, or it was never this Job's. Refused rather than
-    /// sent to another (#1666).
-    DroneNotLive {
-        job: JobId,
-        drone: core_model::DroneId,
-    },
     /// A kill named a pid that is not in the Job's process tree as Fleet read
     /// it at the act: it exited since the screen was drawn, its number went to
     /// something else, or it was never the Job's. `#1647`.
     NotTheJobsProcess { job: JobId, pid: u32 },
-    /// An answer that does not apply: nothing outstanding, the wrong question,
-    /// or a label never offered. **One variant carrying a sentence rather than
-    /// three** — the recourse is identical in all three, and
-    /// `crate::questioning::NotAnswered` says which this is.
-    NotAnswerable { job: JobId, because: String },
-    /// A skip or a retry on a Check the gate is not running: no gate, no Check of
-    /// that name, one already finished, or the ruling already being written.
-    /// **One sentence rather than five**, for `NotAnswerable`'s reason.
-    NoCheckToAct { job: JobId, because: String },
-    /// A review act was asked for on a Job that is not at a human gate.
-    ///
-    /// **Not an illegal transition.** Two of the three moves a review makes are
-    /// edges the machine has from elsewhere — `awaiting_approval -> rejected`
-    /// is the dispatch gate's denial, and plenty of statuses reach `running` —
-    /// so the machine would take them and the record would say a person
-    /// reviewed work nobody was ever shown.
-    NotUnderReview { job: JobId, status: JobStatus },
-    /// Changes were asked for on a Job with no Drone and nowhere to put one.
-    ///
-    /// **Narrowed by `#207`, not deleted.** It used to mean "no process right
-    /// now", which after `#140` was every gate: a Drone ends when its step
-    /// passes the machine gates, so `awaiting_review` holds none and every
-    /// request refused. A note has somewhere to wait now — the Job's own record
-    /// — so the absence of a process is no longer a refusal.
-    ///
-    /// **What is left is the absence of a Job to put one on.** A worktree that
-    /// has been reclaimed is a Job no Drone can be started against, so a note
-    /// written for the next one would wait for a Drone that is never coming.
-    /// That is the case where there is genuinely nowhere for the words to go,
-    /// and it is refused while the Job is still at the gate rather than
-    /// discovered a move later.
-    NoDroneToTell { job: JobId },
-    /// A second note arrived for a Job already holding an undelivered one.
-    ///
-    /// **The record refuses it and this carries the refusal out.** Overwriting
-    /// drops the first note silently and queueing brings back the expiry the
-    /// waiting rule was chosen to avoid — `core_model::RedirectAlreadyWaiting`
-    /// has the reasoning. What the person gets back is their own words and the
-    /// words already waiting, which is the one answer that loses neither.
-    NoteAlreadyWaiting {
-        job: JobId,
-        held: RedirectAlreadyWaiting,
-    },
-    /// A Job's work product could not be read out of its worktree.
-    ///
-    /// **Never an empty diff.** A repository that will not open and a Drone
-    /// that changed nothing are opposite answers, and a reviewer handed the
-    /// second when the first happened would take work that was never read.
-    WorkUnreadable {
-        job: JobId,
-        cause: Box<dyn Error + Send + Sync>,
-    },
-    /// An override was asked for on a step stopped by something no machine
-    /// ruled on.
-    ///
-    /// **A person may overrule what a machine decided or could not decide.**
-    /// A step stopped on `gate_failure`, `evidence_suspect` or `gate_undecided`
-    /// can be advanced by a person. The rest — a Check that hit its bound,
-    /// evidence too large to read, a loop that did not converge — were never
-    /// weighed and say so in their own way. `overrulable` in
-    /// `crate::overruling` is the list, arm by arm.
-    NotTheJudges {
-        job: JobId,
-        step: StepId,
-        trigger: EscalationTrigger,
-    },
-    /// An override was asked for on a step one of whose mechanical Checks did
-    /// not pass.
-    ///
-    /// The gate was asked again on a step it had already ruled on.
-    ///
-    /// **[`NotTheJudges`](Adrift::NotTheJudges) from the other side**, though
-    /// the two no longer partition the triggers: `gate_undecided` admits both
-    /// an override and a re-run. Asking a gate that ruled the same question
-    /// draws the same answer.
-    NotUndecided {
-        job: JobId,
-        step: StepId,
-        trigger: EscalationTrigger,
-    },
-    /// The gate was asked again on a Job Fleet is no longer standing at.
-    ///
-    /// **The baseline lives in the working slot and nowhere else.** A re-run
-    /// derives the same artifacts against the same reading of what the worktree
-    /// held when the step began; a Fleet restarted since the escalation has
-    /// none, so `diff_nonempty` would decide on nothing known to have moved and
-    /// the second reading would answer a different question from the first.
-    /// `restart_step` puts a fresh Drone on the worktree the last one left.
-    NotStandingThere { job: JobId },
-    /// A person asked for a stopped step's Checks to run again and they
-    /// cannot. **Refused before anything runs**, naming the act that applies —
-    /// `crate::rechecking`.
-    CannotRerunChecks {
-        job: JobId,
-        why: crate::rechecking::Unrecheckable,
-    },
-    /// A Job could not be taken over, or a pilot ended — `crate::piloting`.
-    CannotPilot {
-        job: JobId,
-        why: crate::piloting::Unpilotable,
-    },
     /// An act was asked of a Job whose Checks are running again — a person's
     /// re-run, or a `merge_by: push` merge gating a moved base. Each would
     /// change the worktree the Checks are reading.
     ChecksRunningAgain { job: JobId },
-    /// The task a re-run of the Checks ran on ended without answering, which
-    /// only a panic in it does. The Job is pressable again, as a press is.
-    RecheckAbandoned { job: JobId },
     /// The task a dispatched request's proposal ran on ended without
     /// answering, which only a panic in it does. The Job it created, if it got
     /// that far, is moved at the next boot.
     ProposalAbandoned,
-    /// A person asked a Job to show its work and it cannot run. **Refused
-    /// before anything runs**, and the reason names what is missing rather
-    /// than the press failing on it — `crate::showing_again`.
-    CannotShowAgain {
-        job: JobId,
-        why: crate::showing_again::Unshowable,
-    },
     /// The task a press ran on ended without answering, which only a panic in
     /// it does. **A fault and not a refusal**: nothing about the Job refused,
     /// and the Job is pressable again because the hold went with the task.
     PressAbandoned { job: JobId },
-    /// The gate was asked again on a step with no evidence to be asked about.
-    ///
-    /// **Both halves of it**: nothing was recorded, or what was recorded will
-    /// not read back as a submission — a row written by something that did not
-    /// share `verification`'s constructor. Ordinarily unreachable, because the
-    /// gate records the evidence it ruled on whatever it ruled.
-    NothingToRuleOn { job: JobId, step: StepId },
-    /// A restart was asked for on a Job whose Drone is alive.
-    ///
-    /// The inverse refusal. Ending a live session to spawn a replacement onto
-    /// the same worktree throws away the context that makes a redirect cost
-    /// nothing.
-    DroneStillThere { job: JobId },
-    /// A restart was asked for on a Job whose worktree is no longer on disk.
-    ///
-    /// **Nothing is spawned.** The earlier steps' work lived in that directory,
-    /// so what is being asked for is a Job that starts again from the approval
-    /// gate — which is a redispatch, and is named as one rather than silently
-    /// performed.
-    WorktreeGone { job: JobId, path: String },
-    /// The Job's record names a pool slot it no longer holds: somebody else
-    /// took it, it was given back, or it is gone from disk.
-    ///
-    /// **Never answered by leasing another.** The earlier steps' work was in
-    /// that slot, and a fresh one would start the Job over without saying so.
-    SlotLost { job: JobId, slot: u32, why: String },
-    /// A person's act on a Job that is paused, which has no worktree to act
-    /// on. **Resume it first.** Bridge turns this into an offer to do so.
-    Paused { job: JobId },
-    /// A pause on a status that cannot hold one: only a Job with a worktree to
-    /// give back and a place to come back to can pause.
-    NotPausable { job: JobId, status: JobStatus },
     /// Main's red could not be handed to a Job. `crate::main_fix`.
     MainNotFixable {
         root: String,
         why: crate::main_fix::MainNotFixable,
     },
-    /// A pause on a Job that already is.
-    AlreadyPaused { job: JobId },
-    /// A resume on a Job that is not paused.
-    NotPaused { job: JobId },
-    /// A pause on a Job that holds no pool slot: never dispatched, or cut
-    /// before the pool. There is nothing to park.
-    NothingToPark { job: JobId },
-    /// The pool or git refused to park the Job's work. **Nothing changed**:
-    /// the Job holds its slot and its Drone is where it was.
-    CannotPark {
-        job: JobId,
-        refused: adapter_traits::SlotParkRefused,
-    },
-    /// A resume that could not put the Job's branch in a slot, and why. The
-    /// Job is still paused.
-    NotReseated { job: JobId, why: String },
     /// A proposal carried a title nothing could be picked out of a list by.
     Unnameable,
-    /// An override carried no reason.
-    ///
-    /// **Nothing else on this route would hold it.** A redirect with a blank
-    /// note is refused because a Drone told nothing resumes with exactly the
-    /// information that failed; here nothing is told anything, so what an empty
-    /// string loses is the only account there will ever be of why a verdict was
-    /// overruled — which is the half a rate cannot supply.
-    Unreasoned { job: JobId },
     /// A report could not be made from what was sent, in [`NotFiled`]'s words.
     ///
     /// **Not [`Adrift::Unreasoned`]**, which it shared until a filing with a
     /// long reason and an orphan `step_id` was told its reason was missing: one
     /// refusal for two acts could describe only one of them.
     NotFileable { job: JobId, cause: NotFiled },
-    /// A proposal named a workflow this Fleet does not hold.
-    ///
-    /// **Nothing checked this until now.** `ResolvedWorkflow` carried no id, so
-    /// the proposal's was written onto the record unverified and the Job sat on
-    /// the board claiming a workflow Fleet had never heard of — the same class
-    /// as the blank model, a value that cannot work accepted where it enters.
-    ///
-    /// **`held` names every id this Fleet holds**, not one — `.armada/workflows/`
-    /// may declare more than one definition, and a caller needs the whole list
-    /// to pick a name that will not be refused a second time.
-    NoSuchWorkflow { named: String, held: Vec<String> },
     /// A proposal named a Manifest this Fleet does not hold. The same fault as
     /// [`Adrift::NoSuchWorkflow`], for the other id a proposal carries.
     NoSuchManifest { named: String, held: String },
@@ -639,21 +297,6 @@ pub enum Adrift {
         path: String,
         on_disk: Option<String>,
     },
-    /// A proposal named a peer Job this Fleet does not hold.
-    ///
-    /// The third of the same fault, for the ids on `dependencies` — and the one
-    /// that buys more than a good message. An edge may only point at a Job that
-    /// already exists, so every edge points backwards in time and a cycle is
-    /// unrepresentable rather than merely undetected. Unenforced, two Jobs each
-    /// naming the other were both permanently unadmittable behind a Board label
-    /// that reads as ordinary waiting.
-    NoSuchPeer { named: String },
-    /// A request named a Drone no slot of this Fleet is holding.
-    ///
-    /// **The process register is the roster**, so a Drone that has exited is
-    /// not in it — and an empty detail would draw a dead process as a live one
-    /// with nothing to say. What it did is the Job's, through `observe_job`.
-    NoSuchDrone { named: String },
     /// A request named a kept Check output no row of this Job carries.
     ///
     /// **The Job is there and the file is not**, which is why it is this rather
@@ -695,106 +338,9 @@ pub enum Adrift {
         branch: String,
         check: String,
     },
-    /// A reading was asked for on a call this Job is neither waiting on nor
-    /// refused.
-    ///
-    /// **Not a question about the transcripts.** This is about the two live
-    /// places a still-answerable
-    /// command lives — a question held open, and a refused row on the step the
-    /// Job stopped on — which are the two `answer_command` looks in, so the
-    /// same id is a 409 there and this here.
-    NothingToExplain { job: JobId, call: String },
-    /// The model would not read a command a person is deciding about.
-    ///
-    /// **Nothing about the command changed.** The Drone is still held, the
-    /// offers are still the whole set, and the person decides on what they
-    /// already had — which is where they stood a moment before they asked.
-    NotExplained {
-        job: JobId,
-        call: String,
-        cause: CallFailed,
-    },
-    /// A proposal named no model and nothing configured supplies one.
-    ///
-    /// Refused **at creation**, which is the whole point: the same value used
-    /// to be accepted, stored, shown on the board looking approvable, and
-    /// refused at spawn as "no model was named". The message names the settings
-    /// row to set rather than the layer that failed.
-    Modelless,
-    /// An attachment's bytes could not be gotten where they needed to be —
-    /// at creation, a staged path that does not exist or cannot be read; at
-    /// dispatch, Fleet's own stored copy that would not copy into the fresh
-    /// worktree.
-    ///
-    /// **Refused, not dropped, either time.** A person who believed they
-    /// attached a screenshot to the brief and got a Job that silently carries
-    /// none — or a Drone briefed about a file that is not where the brief
-    /// says — is worse off than being told outright. The same argument
-    /// [`Adrift::NoSuchWorkflow`] and [`Adrift::NoSuchManifest`] make about a
-    /// value that cannot work being accepted where it enters.
-    AttachmentUnreadable {
-        job: JobId,
-        filename: String,
-        cause: io::Error,
-    },
-    /// A request arrived with nothing in it to read.
-    NothingToPropose,
-    /// The repository root or the minted id could not name a checkout for the
-    /// reading. **Unreachable in practice** — both are Fleet's own values —
-    /// and carried rather than unwrapped for the reason every other
-    /// `WorktreeSpecRefused` is.
-    NoReadingWorktree(WorktreeSpecRefused),
-    /// The reading's checkout would not be made, so the proposer had nowhere
-    /// to look. **Nothing was asked and nothing was created.**
-    NoReading {
-        request: String,
-        cause: Box<dyn Error + Send + Sync>,
-    },
-    /// The proposal was made and the reading's checkout would not go back.
-    ///
-    /// **The Jobs are not created and the person is told.** A reading nothing
-    /// removes is a directory nothing owns — `armada clean` deletes what a
-    /// record derives and a reading has no record — so it would be reported as
-    /// unclaimed for ever, and silence here is how a repository fills up with
-    /// them.
-    ReadingNotDiscarded {
-        path: String,
-        cause: Box<dyn Error + Send + Sync>,
-    },
     /// The proposer call could not be configured — the same environment a Drone
     /// and a Judge are built from would not build.
     NotProposable(SpawnConfigRefused),
-    /// **The request was read and no workflow resolved.** It is refused at
-    /// dispatch and comes back unchanged, and the Job it was dispatched as is
-    /// escalated with `no_workflow_fits` — `crate::dispatched`.
-    ///
-    /// Not a fault and never a default: the resolved definition is frozen into
-    /// the Job and becomes the yardstick the work is judged against, so a
-    /// nearest fit would be the standard rather than a guess a person could
-    /// correct.
-    NoWorkflowFits { request: String, why: Unresolved },
-    /// **The request was read and it asked for a model this machine does not
-    /// run.** Refused at dispatch, the request comes back unchanged, and the
-    /// Job it was dispatched as is escalated with `proposer_failed`.
-    ///
-    /// Deliberately not [`Adrift::NoWorkflowFits`], and that division is the
-    /// whole reason this exists: that refusal's advice is to say the request
-    /// again differently, which cannot fix a model name and is about something
-    /// that was not wrong. What fixes this is naming a model the machine runs,
-    /// or installing the one asked for — a different act, so a different code.
-    /// `#334` and `#410`'s rule.
-    ModelNotHeld {
-        request: String,
-        named: String,
-        held: Vec<String>,
-    },
-    /// **The call could not be made, which is a different thing.** The network,
-    /// the quota, the budget, or an answer nothing could be read out of.
-    ///
-    /// Deliberately not [`Adrift::NoWorkflowFits`]. A proposal that could not
-    /// be made says nothing about the request, and turning an outage into "no
-    /// workflow fits" refuses a dispatch on the strength of one.
-    NotProposed { request: String, cause: NotProposed },
     /// What a request named is no Job of this Fleet's.
     ///
     /// **Not [`Adrift::Reading`]'s missing Job**, which is a ULID the store
@@ -819,41 +365,8 @@ pub enum Adrift {
     /// refused by, in `fleet::work_plan::NotPlanned` — this is the same set,
     /// read from a person's act instead. `#897`.
     PlanRefused { job: JobId, why: PlanRefused },
-    /// A person's approval or edit at a Job's gate, refused whole: nothing of
-    /// it was kept. Spike 022, slice 4. `crate::approving::Refused` says why.
-    ProposalRefused {
-        job: JobId,
-        why: crate::approving::Refused,
-    },
-    /// A landing named a branch the repository does not hold. Spike 022,
-    /// slice 4: a worktree cannot be cut from it, nor a pull request opened
-    /// against it.
-    NoSuchBranch { job: JobId, named: String },
     /// git would not list the repository's branches. Carries its words.
     BranchesUnread { job: Option<JobId>, why: String },
-    /// Where an approved Job lands could not be set. 23.22.
-    TargetNotSet {
-        job: JobId,
-        why: crate::aiming::Unaimed,
-    },
-    /// git would not make the branch an approval named to start from. 23.21.
-    BranchNotCut {
-        job: JobId,
-        named: String,
-        from: String,
-        why: String,
-    },
-    /// A person's drop named a task already `done` or already `dropped`.
-    ///
-    /// **Not the plan's own refusal** — `core_model::WorkPlan::after` would
-    /// take the change, since a Drone's own `update_task` may repeat one. A
-    /// person's drop is answering a question already answered, and saying so
-    /// by name is worth more than a silent no-op. `#897`.
-    TaskAlreadySettled {
-        job: JobId,
-        named: TaskId,
-        state: TaskState,
-    },
     /// Restart this task named a task that has not failed: one still working
     /// or handed in is its group's own round to finish (answer 9), and one
     /// open, dropped, or done outside a group the Judge refused has nothing
@@ -870,23 +383,15 @@ pub enum Adrift {
         named: TaskId,
         state: TaskState,
     },
-    /// The store would not keep a person's plan change that the plan itself
-    /// would have taken. Not the person's to fix —
-    /// `fleet::work_plan::NotPlanned::NotKept` is the Drone path's version of
-    /// the same failure. `#897`.
-    PlanNotKept { job: JobId, because: String },
+    /// A Job's work product could not be read out of its worktree.
+    ///
+    /// **Never an empty diff.** A repository that will not open and an agent
+    /// that changed nothing are opposite answers, and a reviewer handed the
+    /// second when the first happened would take work that was never read.
+    WorkUnreadable {
+        job: JobId,
+        cause: Box<dyn Error + Send + Sync>,
+    },
 }
 impl Adrift {
-    /// A refusal from the delivery seam, named against the Job it was for.
-    ///
-    /// One constructor rather than the same three-field literal at six call
-    /// sites, which is where the two halves would come to disagree about which
-    /// is `doing` and which is `said`.
-    pub(crate) fn from_delivery(job: &JobId, why: NotDelivered) -> Adrift {
-        Adrift::NotDelivered {
-            job: job.clone(),
-            doing: why.doing,
-            said: why.said,
-        }
-    }
 }

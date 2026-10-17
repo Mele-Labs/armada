@@ -14,13 +14,11 @@
 //! side of the seam — which is what keeps these readable as the answer alone.
 
 use ipc::{
-    Actor, Alert, AlertList, Asked, CheckOutput, CommandExplained, DroneDetail,
-    DroneId, DroneState, DroneSummary, EvidenceType, Finding, FleetCapacity, FleetHealth,
-    FleetUsage, Held, HelmActionAuthority, Instant, JobDetail, JobDiff, JobDrone, JobDrones,
-    JobEvidence, JobExamined, JobHistory, JobId, JobProcess, JobRemarks, JobResources, JobStatus,
-    JobSummary, KeptFrame, Look, ManifestConfig, ManifestId, ManifestSummary, ModelChoices,
-    Movement, NotedField, Origin, Overspending, Probe, ReclaimedBranch, ReclaimedWorktree,
-    Recorded, RunId, StatusMoved, StepId, Submitted, Unprobed, Urgency, Work, WorkflowId,
+    Actor, Alert, AlertList, FleetHealth,
+    FleetUsage, HelmActionAuthority, Instant, JobDetail, JobDiff, JobHistory, JobId, JobStatus,
+    JobSummary, ManifestConfig, ManifestId, ManifestSummary, ModelChoices,
+    Movement, Origin, Overspending, Probe, ReclaimedBranch, ReclaimedWorktree,
+    Recorded, RunId, StatusMoved, StepId, Unprobed, Urgency, Work, WorkflowId,
     WorkflowSummary, WorktreeReclaimed,
 };
 
@@ -54,9 +52,6 @@ pub const THE_MANIFEST: &str = "01MF";
 /// missing Job.
 pub const THE_OUTPUT: &str = "implement.1.0.log";
 
-/// The one kept brief this fake's Job holds, spelled as `fleet::asked` names
-/// a Judge's: step, attempt, criterion.
-pub const THE_BRIEF: &str = "implement.1.tests_pass.txt";
 
 /// The one retro item this fake knows, which it answers with a refusal that is
 /// not a 404, so the routed-operations walk can tell the route is there.
@@ -71,43 +66,10 @@ pub const THE_LESSON: &str = "01JOB0-0";
 /// directory in front of it is what identifies a row.
 pub const THE_FRAME: &str = "implement.1/job-detail-refused.png";
 
-/// The bytes the fake answers with — an eight-byte PNG signature and nothing
-/// else.
-///
-/// **Not a real image, and it does not need to be.** What the route has to
-/// prove is that the file comes back as itself under a media type read from its
-/// name, which is a property of the response and not of the pixels.
-pub const THE_FRAME_BYTES: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 
-/// The second frame the fake holds, and the only one answered a span at a
-/// time. **A recording, because the span is the subject** — every other kind
-/// is answered whole however it is asked for.
-pub const THE_RECORDING: &str = "implement.1/walkthrough.webm";
 
-/// Twenty-six bytes, so a span of them is arithmetic a reader can check
-/// against the assertion without running anything.
-pub const THE_RECORDING_BYTES: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 
-/// What the fake answers for one of the two frames its record holds.
-pub fn bytes_of(kept: &str) -> &'static [u8] {
-    if kept == THE_RECORDING {
-        THE_RECORDING_BYTES
-    } else {
-        THE_FRAME_BYTES
-    }
-}
 
-/// A proposal body, as Bridge would send it.
-pub const A_PROPOSAL: &str = r#"{
-    "title": "fix the off-by-one in the log reader",
-    "workflow_id": "01WF",
-    "owner_manifest_id": "01MF",
-    "origin": "manual",
-    "urgency": "normal",
-    "atomic": false,
-    "model": "a-model",
-    "acceptance_criteria": [{"text": "the symptom is gone", "source": "check"}]
-}"#;
 
 /// One step of the rail, declared and not yet run.
 ///
@@ -197,19 +159,6 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
     }
 }
 
-/// A fleet of two, one place taken, and the disk short.
-///
-/// **Fixed, and built through `ipc::AdmissionHold::from_wire`** — which is this
-/// module's claim one type further on: a spelling a client can check against
-/// the registry is a spelling a Bridge can check. The value exercises the shape
-/// a caller has to handle, which is all three fields present at once.
-pub fn capacity() -> FleetCapacity {
-    FleetCapacity {
-        bound: 2,
-        occupied: 1,
-        held_by: ipc::AdmissionHold::from_wire("disk"),
-    }
-}
 
 /// Fleet on `main`, three commits behind `origin/main`, nothing restarting.
 pub fn fleet_build() -> ipc::FleetBuildReport {
@@ -440,67 +389,7 @@ pub fn history(job_id: JobId, at: JobStatus) -> JobHistory {
     }
 }
 
-/// One step's evidence. **A step that submitted nothing is absent** rather than
-/// blank, which is the shape the store answers in and the one the fake is here
-/// to prove crosses.
-pub fn evidence(job_id: JobId) -> JobEvidence {
-    JobEvidence {
-        job_id,
-        steps: vec![Submitted {
-            step_id: StepId::carried("implement"),
-            evidence_type: EvidenceType::from_wire("diff").expect("a type the registry has"),
-            claimed: "the log reader stops one line early".to_string(),
-            shown_by: "a failing test that now passes".to_string(),
-            // Absent, not blank. The rule the whole DTO turns on.
-            not_claimed: None,
-        }],
-    }
-}
 
-/// What people wrote on a pull request, one comment already spent and one not.
-///
-/// **Both values of `taken_up`**, because that field is the whole of what stops
-/// a comment being handed to a Drone twice, and a fixture with one value proves
-/// only that it serialises.
-pub fn remarks(job_id: JobId) -> JobRemarks {
-    JobRemarks {
-        job_id,
-        pull_request: "https://forge.invalid/armada/pull/1".to_string(),
-        remarks: vec![
-            ipc::Remark {
-                id: "IC_kwDOfirst".to_string(),
-                by: "a-reviewer".to_string(),
-                at: "2026-09-08T10:00:00Z".to_string(),
-                said: "the log reader still stops one line early".to_string(),
-                taken_up: false,
-                url: Some("https://forge.invalid/armada/pull/1#issuecomment-1".to_string()),
-                inline: None,
-            },
-            ipc::Remark {
-                id: "IC_kwDOsecond".to_string(),
-                by: "a-reviewer".to_string(),
-                at: "2026-09-08T10:05:00Z".to_string(),
-                said: "and this one has already been sent".to_string(),
-                taken_up: true,
-                url: None,
-                inline: None,
-            },
-            ipc::Remark {
-                id: "PRRC_kwDOthird".to_string(),
-                by: "a-reviewer".to_string(),
-                at: "2026-09-08T10:10:00Z".to_string(),
-                said: "this leaks a file handle on the error path".to_string(),
-                taken_up: false,
-                url: Some("https://forge.invalid/armada/pull/1#discussion_r1".to_string()),
-                inline: Some(ipc::InlineContext {
-                    path: "src/log.rs".to_string(),
-                    line: 42,
-                    hunk: "@@ -40,3 +40,3 @@ fn read() {\n     let file = File::open(path)?;\n-    Ok(file)\n+    Ok(file) // leaked on early return above\n".to_string(),
-                }),
-            },
-        ],
-    }
-}
 
 /// A reading with a patch in it. **Present because there is something in it** —
 /// the absent case is a Job with no worktree, and the fake has no worktrees to
@@ -525,76 +414,7 @@ pub fn diff(job_id: JobId) -> JobDiff {
     }
 }
 
-/// What one Job holds on the machine. **A reading with something in it** —
-/// the fake spawns nothing, so what it proves is the shape a panel draws from
-/// and not any figure.
-pub fn resources(job_id: JobId) -> JobResources {
-    JobResources {
-        job_id,
-        read_at: Instant::carried("2026-09-04T04:07:00.366Z"),
-        held: Held::Running,
-        processes: vec![JobProcess {
-            pid: 41233,
-            command: "node".to_string(),
-            cpu_percent: 12.4,
-            memory_bytes: 402_653_184,
-            running_for: "06:12".to_string(),
-            recorded: true,
-            drone_id: None,
-        }],
-        worktree: Some(ipc::WorktreeOnDisk {
-            path: "/repo/.armada/worktrees/01JOB".to_string(),
-            branch: "armada/01JOB".to_string(),
-            bytes: Some(1_073_741_824),
-            measured_at: Some(Instant::carried("2026-09-04T04:06:41.120Z")),
-        }),
-        wrote_last_at: Some(Instant::carried("2026-09-04T04:06:12.001Z")),
-        logs: vec![
-            ipc::LogFile {
-                kind: ipc::LogKind::Job,
-                path: ".armada/logs/01JOB.jsonl".to_string(),
-                bytes: Some(18_204),
-                being_written: Some(true),
-            },
-            ipc::LogFile {
-                kind: ipc::LogKind::Transcript,
-                path: ".armada/transcripts/01JOB/01DRONE.jsonl".to_string(),
-                bytes: Some(912_377),
-                being_written: Some(true),
-            },
-        ],
-    }
-}
 
-/// What Fleet found when somebody asked it to look. **One look that could not
-/// tell**, so the whole answer is `cannot_tell` — which is the rule the DTO
-/// exists to make visible.
-pub fn examined(job_id: JobId) -> JobExamined {
-    JobExamined {
-        job_id: job_id.clone(),
-        looked_at: Instant::carried("2026-09-04T04:07:00.366Z"),
-        found: Finding::CannotTell,
-        looks: vec![
-            Look {
-                asked: Asked::Process,
-                found: Finding::Working,
-                said: "the process Fleet recorded is running".to_string(),
-                fields: vec![NotedField {
-                    name: "pid".to_string(),
-                    value: "41233".to_string(),
-                }],
-            },
-            Look {
-                asked: Asked::Writing,
-                found: Finding::CannotTell,
-                said: "nothing has been written to this Job's log lately, which settles nothing on its own"
-                    .to_string(),
-                fields: vec![],
-            },
-        ],
-        resources: resources(job_id),
-    }
-}
 
 /// One Job's disk, given back. **The checkout goes and the branch is kept**,
 /// which is the shape a caller most needs to be able to read: `UnmergedWork`
@@ -625,95 +445,10 @@ pub fn reclaimed(job_id: JobId) -> WorktreeReclaimed {
     }
 }
 
-/// One command, as a model read it. **The fake holds exactly one**, keyed by
-/// [`THE_CALL`]: what the route has to prove is that the reading comes back
-/// with the model that gave it beside it, because a reading is a claim.
-pub fn explained() -> CommandExplained {
-    CommandExplained {
-        explanation: "It publishes this package to the public registry under the `next` tag. \
-                      Nothing about it can be undone: a published version cannot be replaced."
-            .to_string(),
-        model: "the-cheap-model".to_string(),
-    }
-}
 
-/// One Check's output, as a window onto a file longer than the window.
-///
-/// **The fake holds exactly one**, keyed by [`THE_OUTPUT`]. What the route has
-/// to prove is that the lines come back verbatim and that the numbers describe
-/// the file rather than the window — `from_line` past one and `whole` false on
-/// a reading that starts partway in.
-pub fn check_output(kept: String) -> CheckOutput {
-    CheckOutput {
-        attempt: 1,
-        name: "test_suite".to_string(),
-        path: format!(".armada/checks/01RUNNING/{kept}"),
-        lines: THE_OUTPUT_LINES
-            .iter()
-            .map(|line| line.to_string())
-            .collect(),
-        from_line: 1_939,
-        total_lines: 2_180,
-        bytes: 61_204,
-        whole: false,
-    }
-}
 
-/// One kept brief, short enough to come back whole: `from_line` one, `whole`
-/// true and every line counted.
-pub fn brief(name: &str) -> ipc::BriefContents {
-    let lines: Vec<String> = [
-        "You are judging one criterion of one step.",
-        "",
-        "Criterion `tests_pass`: the suite passes and no test was skipped.",
-    ]
-    .iter()
-    .map(|line| line.to_string())
-    .collect();
-    ipc::BriefContents {
-        path: format!(".armada/briefs/fix-the-parser/{name}"),
-        from_line: 1,
-        total_lines: lines.len() as u32,
-        bytes: lines.iter().map(|line| line.len() as u64 + 1).sum(),
-        lines,
-        whole: true,
-    }
-}
 
-/// One kept frame, as the row that comes back beside the bytes.
-///
-/// **The fake holds exactly one**, keyed by [`THE_FRAME`]. `kept` is the run
-/// directory and the name joined — the same value the caller sent — because
-/// that identity has one spelling and the record composes it.
-pub fn frame(kept: String) -> KeptFrame {
-    // The harness's own file name, which is the last component of the id — so
-    // the two frames the fake holds do not need two builders to differ by it.
-    let name = kept.rsplit('/').next().unwrap_or(&kept).to_string();
-    KeptFrame {
-        attempt: 1,
-        bytes: bytes_of(&kept).len() as u64,
-        name,
-        path: format!(".armada/frames/01RUNNING/{kept}"),
-        kept,
-        side: ipc::Side::from_wire("branch").expect("a side"),
-        // **A literal, and deliberately not computed from `THE_FRAME_BYTES`.**
-        // What a route test can prove is that the field crosses; whether the
-        // hash of some bytes is this string is `verification`'s own question,
-        // and `api` does not depend on that crate. Re-implementing eight lines
-        // here to make the two agree would be the second `digest` in one
-        // workspace that `verification::digest_of` exists to prevent — and it
-        // would agree forever without either side being checked.
-        digest: String::from("9a1e5c73b0d4f28e"),
-    }
-}
 
-/// The lines the fake's window holds. Leading whitespace on purpose: a reader
-/// that trimmed would make an indented failure unreadable.
-pub const THE_OUTPUT_LINES: &[&str] = &[
-    "--- stdout ---",
-    "test parses_rfc3339_offset ... ok",
-    "    left:  1970-01-01T00:00:00Z",
-];
 
 /// The one workflow the fake holds. A list, because the operation is one.
 pub fn workflows() -> Vec<WorkflowSummary> {
@@ -932,81 +667,8 @@ pub fn alerts() -> AlertList {
     }
 }
 
-/// The one Drone the fake is holding.
-pub fn drone() -> DroneSummary {
-    DroneSummary {
-        drone_id: DroneId::carried(THE_DRONE),
-        job_id: JobId::carried("01JOB1"),
-        handle: "1-a-job".to_string(),
-        step_id: StepId::carried("implement"),
-        worktree: Some("/worktrees/1-a-job".to_string()),
-        pid: 4242,
-        since: Some(Instant::carried("2026-09-11T09:00:00Z")),
-    }
-}
 
-/// Every Drone one Job has had, **in the three shapes Fleet sends**: one a
-/// person killed, carrying its row; one that finished, carrying its row; and
-/// one running, carrying what its transcript's terminating lines add up to.
-/// The running one is [`THE_DRONE`], so this and [`drone`] agree.
-pub fn job_drones(job_id: JobId) -> JobDrones {
-    JobDrones {
-        job_id,
-        drones: vec![
-            JobDrone {
-                drone_id: DroneId::carried("01DRONEKILLED"),
-                step_id: StepId::carried("implement"),
-                task: None,
-                model: Some("a-strong-model".to_string()),
-                state: DroneState::Killed,
-                since: Instant::carried("2026-09-11T08:00:00Z"),
-                ended_at: Some(Instant::carried("2026-09-11T08:20:00Z")),
-                at_rest_since: None,
-                turns: Some(7),
-                cost_micros: Some(146_473),
-                activity: None,
-            },
-            JobDrone {
-                drone_id: DroneId::carried("01DRONEDONE"),
-                step_id: StepId::carried("implement"),
-                task: None,
-                model: Some("a-strong-model".to_string()),
-                state: DroneState::Done,
-                since: Instant::carried("2026-09-11T08:21:00Z"),
-                ended_at: Some(Instant::carried("2026-09-11T08:55:00Z")),
-                at_rest_since: None,
-                turns: Some(12),
-                cost_micros: Some(388_120),
-                activity: None,
-            },
-            JobDrone {
-                drone_id: DroneId::carried(THE_DRONE),
-                step_id: StepId::carried("review"),
-                task: None,
-                model: None,
-                state: DroneState::Running,
-                since: Instant::carried("2026-09-11T09:00:00Z"),
-                ended_at: None,
-                at_rest_since: None,
-                turns: Some(3),
-                cost_micros: Some(41_002),
-                activity: None,
-            },
-        ],
-    }
-}
 
-/// A declaration and no rows. **`older` is nought and `turns` empty**, which
-/// is a Drone that has said nothing yet rather than a window that lost it.
-pub fn drone_detail() -> DroneDetail {
-    DroneDetail {
-        drone: drone(),
-        declared: Some(vec!["src/".to_string()]),
-        declared_at: Some(Instant::carried("2026-09-11T09:01:00Z")),
-        turns: Vec::new(),
-        older: 0,
-    }
-}
 
 /// One probe and the half of the answer a surface must not drop: what nobody
 /// asked.

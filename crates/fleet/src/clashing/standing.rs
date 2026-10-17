@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use store::{AttachmentState, Holder};
 
 use super::Who;
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 use crate::daemon::Fleet;
 
 /// How long a terminal Session may go unheard, and not be listening, before it counts as gone: a
@@ -26,11 +26,6 @@ pub(crate) struct Standing {
 /// How the other side is named to an agent.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Peer {
-    Job {
-        id: String,
-        handle: String,
-        title: String,
-    },
     Session {
         id: String,
         /// `s-` and the first eight characters of the id: what `SendMessage` takes.
@@ -44,7 +39,6 @@ impl Peer {
     /// What a person would call it.
     pub(crate) fn label(&self) -> String {
         match self {
-            Peer::Job { handle, .. } => handle.clone(),
             Peer::Session { address, title, .. } => title.clone().unwrap_or_else(|| address.clone()),
         }
     }
@@ -63,19 +57,6 @@ where
     /// Where `who` writes, or `None` once it is over, however that came about.
     pub(crate) async fn writing_in(&self, who: &Who) -> Option<Standing> {
         match who {
-            Who::Job(id) => {
-                let job = self.load(id).await.ok()?;
-                if job.status().is_terminal() {
-                    return None;
-                }
-                let served = self.served_by(&job).ok()?;
-                let spec = self.tree_spec(&served, &job)?;
-                let worktree = PathBuf::from(spec.worktree_path());
-                worktree.is_dir().then(|| Standing {
-                    manifest: served.manifest().id().as_str().to_string(),
-                    worktrees: vec![worktree],
-                })
-            }
             Who::Session(id) => self.session_standing(id).await,
         }
     }
@@ -135,14 +116,6 @@ where
     /// How an agent is to reach `who`, and what to call it.
     pub(crate) async fn peer_of(&self, who: &Who) -> Option<Peer> {
         match who {
-            Who::Job(id) => {
-                let job = self.load(id).await.ok()?;
-                Some(Peer::Job {
-                    id: id.as_str().to_string(),
-                    handle: job.handle(),
-                    title: job.title().as_str().to_string(),
-                })
-            }
             Who::Session(id) => {
                 let store = self.store().lock().await;
                 let session = store.session(id).ok()??;

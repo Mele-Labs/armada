@@ -14,7 +14,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Job, JobId};
 use ipc::WireError;
 
@@ -64,7 +64,6 @@ pub(crate) const CHECKOUT_HANDLE: &str = "main";
 /// The key one run at a time is held per.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Owner {
-    Job(JobId),
     /// The main checkout of the repository at this root.
     Checkout(String),
 }
@@ -73,12 +72,6 @@ pub(crate) enum Owner {
 /// `WorkProduct` reads a diff from.
 pub(crate) struct Tree {
     pub(crate) path: PathBuf,
-    /// **Absent in the main checkout.** A diff there is against nothing in
-    /// particular: there is no branch a Job is working on and no base to
-    /// measure from, so nothing narrows and nothing lists what changed
-    /// *before* the run. What the run itself changed is the snapshot's answer,
-    /// and that is taken the same way in both trees.
-    pub(crate) worktree: Option<Worktree>,
     /// Where commands run, relative to `path`, and the ports they draw: a
     /// workspace's own in a Verify of its file. The snapshot and Undo stay on
     /// `path`.
@@ -108,14 +101,6 @@ pub(crate) struct Place {
 }
 
 impl Place {
-    pub(crate) fn of_job(job: Job, served: Served) -> Place {
-        Place {
-            owner: Owner::Job(job.id().clone()),
-            handle: job.handle(),
-            job: Some(job),
-            checkout: served.into(),
-        }
-    }
 
     pub(crate) fn of_checkout(checkout: impl Into<Checkout>) -> Place {
         let checkout = checkout.into();
@@ -159,7 +144,6 @@ where
         let Some(job) = place.job.as_ref() else {
             return Some(Tree {
                 path: PathBuf::from(place.checkout.root()),
-                worktree: None,
                 within: None,
             });
         };
@@ -167,10 +151,6 @@ where
         let spec = self.tree_spec(served, job)?;
         let path = PathBuf::from(spec.worktree_path());
         path.is_dir().then(|| Tree {
-            // Measured from the Manifest's base like every other reading of a
-            // Job's work, so the narrowing the sheet offers names the files
-            // the diff beside it draws.
-            worktree: Some(self.based(served, Worktree::at(spec.worktree_path(), spec.branch()))),
             path,
             within: None,
         })
@@ -215,9 +195,4 @@ where
         Ok(Checkout { repository, served })
     }
 
-    /// A Job's place, in the repository it was created in.
-    pub(crate) fn job_place(&self, job: Job) -> Result<Place, api::Refusal> {
-        let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
-        Ok(Place::of_job(job, served))
-    }
 }

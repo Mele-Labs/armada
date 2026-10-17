@@ -26,7 +26,6 @@ use tokio::sync::{mpsc, Notify};
 use crate::daemon::Host;
 use crate::detach::Detached;
 use crate::drone::{environment, HostPaths};
-use crate::session::Turn;
 
 /// How long a stopped scout has to end its turn before its group is ended.
 const GRACE: Duration = Duration::from_secs(10);
@@ -36,6 +35,32 @@ const SERVERS_FILE: &str = "scout-mcp.json";
 
 /// How much of the agent's own complaint a failure carries.
 const COMPLAINT: u64 = 2048;
+
+/// One turn, as the harness reads it: a JSON object on a line of its own.
+#[derive(serde::Serialize)]
+struct Turn {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    message: Message,
+}
+
+#[derive(serde::Serialize)]
+struct Message {
+    role: &'static str,
+    content: String,
+}
+
+impl Turn {
+    fn of(prompt: &str) -> Turn {
+        Turn {
+            kind: "user",
+            message: Message {
+                role: "user",
+                content: prompt.to_string(),
+            },
+        }
+    }
+}
 
 /// The agent CLI, one process per ask.
 pub struct ScoutHost {
@@ -110,7 +135,7 @@ impl ScoutHost {
             .spawn()
             .map_err(|why| format!("{} would not start: {why}", launch.program()))?;
         let pid = child.id().and_then(NonZeroU32::new);
-        let turn = ipc::encode(&Turn::first(told)).map_err(|why| why.to_string())? + "\n";
+        let turn = ipc::encode(&Turn::of(told)).map_err(|why| why.to_string())? + "\n";
         if let Some(mut input) = child.stdin.take() {
             // Closed behind the ask: one turn, and the process exits after it.
             let _ = input.write_all(turn.as_bytes()).await;

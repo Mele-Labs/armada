@@ -5,9 +5,8 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{FleetUsage, Overspending};
+use ipc::FleetUsage;
 
-use crate::allowance::Overspent;
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -22,10 +21,7 @@ where
 {
     /// `get_usage` — the fleet's spend, and what the ceilings are holding.
     ///
-    /// **`Fleet::overspent` is asked, never re-derived.** It is admission's own
-    /// predicate and the Board's `over_budget` label comes from it; a second
-    /// comparison here is how a page comes to say a Job is held while Fleet is
-    /// starting it.
+    /// **No Job is held by a ceiling any more**, so `over_budget` is always empty.
     pub(crate) async fn usage(&self) -> Result<FleetUsage, Refusal> {
         let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
         let mut usage = FleetUsage {
@@ -45,22 +41,6 @@ where
             usage.turns = usage.turns.saturating_add(spent.turns);
             usage.drones = usage.drones.saturating_add(spent.drones);
             usage.unpriced = usage.unpriced.saturating_add(spent.unpriced);
-            let Some(over) = self.overspent(job).await.map_err(|why| self.refusal(why))? else {
-                continue;
-            };
-            let allowed = self.allowance_for(job);
-            usage.over_budget.push(Overspending {
-                handle: job.handle(),
-                ceiling: over.to_string(),
-                spent: match over {
-                    Overspent::Cost => spent.cost_micros,
-                    Overspent::Turns => spent.turns,
-                },
-                allowed: match over {
-                    Overspent::Cost => allowed.cost().count(),
-                    Overspent::Turns => allowed.turns(),
-                },
-            });
         }
         Ok(usage)
     }

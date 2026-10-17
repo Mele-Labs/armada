@@ -70,6 +70,15 @@ pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
     .collect()
 }
 
+/// The Job a repair's slot holder names, where it is one. A repair's holder is written
+/// `<job id>-repair-<firing or added step>`.
+pub(crate) fn job_of_repair_holder(holder: &str) -> Option<&str> {
+    let holder = holder.strip_suffix("-onto").unwrap_or(holder);
+    let (job, subject) = holder.rsplit_once("-repair-")?;
+    // A firing's number, or an added step's `a1`.
+    (!subject.is_empty() && subject.chars().all(|c| c.is_ascii_alphanumeric())).then_some(job)
+}
+
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
     let manifest = served.manifest();
@@ -81,27 +90,6 @@ pub(crate) fn pool_of(served: &Served) -> SlotPool {
         served.root(),
         manifest.worktrees().get(),
         manifest.base().unwrap_or(BASE_UNSTATED),
-        keep,
-    )
-}
-
-/// The pool, cutting a new lease's branch from `from` where a person chose a
-/// branch at approval — spike 022, slice 4 — and from the base where nobody
-/// did. Only the lease asks this; every other question of the pool is the
-/// pool's own, measured from the base.
-pub(crate) fn pool_cut_from(served: &Served, from: Option<&core_model::Branch>) -> SlotPool {
-    let Some(from) = from else {
-        return pool_of(served);
-    };
-    let manifest = served.manifest();
-    let keep = manifest
-        .seed()
-        .map(|seed| seed.paths().to_vec())
-        .unwrap_or_default();
-    SlotPool::of(
-        served.root(),
-        manifest.worktrees().get(),
-        from.as_str(),
         keep,
     )
 }
@@ -153,8 +141,8 @@ pub(crate) enum Reading {
 pub(crate) enum JobTree {
     /// The Job's own: its derived path, or a slot it still holds.
     Here(WorktreeSpec),
-    /// The record names a slot the Job no longer holds, and why.
-    Lost { slot: u32, why: String },
+    /// The record names a slot the Job no longer holds.
+    Lost,
     /// The Job is paused: its work is on its branch and no checkout holds it.
     /// `crate::pausing`.
     Parked,
@@ -164,7 +152,7 @@ impl JobTree {
     pub(crate) fn here(self) -> Option<WorktreeSpec> {
         match self {
             JobTree::Here(spec) => Some(spec),
-            JobTree::Lost { .. } | JobTree::Parked => None,
+            JobTree::Lost | JobTree::Parked => None,
         }
     }
 }
@@ -185,13 +173,10 @@ pub(crate) fn job_tree_in<V: Vcs>(
     let Some(slot) = spec.slot() else {
         return Ok(JobTree::Here(spec));
     };
-    let why = match vcs.slot_standing(&pool_of(served), slot, job.id().as_str()) {
-        SlotStanding::Held => return Ok(JobTree::Here(spec)),
-        SlotStanding::HeldBy(who) => format!("{who} holds it now"),
-        SlotStanding::Free => String::from("it was given back to the pool"),
-        SlotStanding::Gone => String::from("it is not on disk"),
-    };
-    Ok(JobTree::Lost { slot, why })
+    match vcs.slot_standing(&pool_of(served), slot, job.id().as_str()) {
+        SlotStanding::Held => Ok(JobTree::Here(spec)),
+        SlotStanding::HeldBy(_) | SlotStanding::Free | SlotStanding::Gone => Ok(JobTree::Lost),
+    }
 }
 
 /// [`Fleet::reclaimed_spec`] with the Vcs passed in.
@@ -206,7 +191,7 @@ pub(crate) fn reclaimed_spec_in<V: Vcs>(
     };
     match job_tree_in(vcs, served, job).map_err(unworkable)? {
         JobTree::Here(spec) => Ok(spec),
-        JobTree::Lost { .. } | JobTree::Parked => {
+        JobTree::Lost | JobTree::Parked => {
             WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
         }
     }
@@ -282,7 +267,7 @@ where
                 let job = match &reading.held {
                     // A repair's slot is held under its own id and shown under its Job.
                     SlotHeld::Job(id) => job_of(id)
-                        .or_else(|| crate::repair_recovery::job_of_holder(id).and_then(job_of)),
+                        .or_else(|| job_of_repair_holder(id).and_then(job_of)),
                     _ => None,
                 };
                 let session = match &reading.held {
@@ -453,33 +438,6 @@ where
         })
     }
 
-    /// Whether a Job that has never had a worktree would find no slot free in
-    /// its repository's pool. **One answer for admission and the Board**, as
-    /// `volume_is_short` is. A Job already holding one is never short, and a parked one holds none.
-    pub(crate) fn slot_is_short(&self, job: &Job) -> bool {
-        // A parked Job is waiting for a slot like a new one, though it has a
-        // branch: `reseat` is what leases it.
-        if !job.is_parked() && (job.branch().is_some() || job.worktree_slot().is_some()) {
-            return false;
-        }
-        let Ok(served) = self.served_by(job) else {
-            return false;
-        };
-        !self.vcs().slot_open(&pool_of(&served), job.id().as_str())
-    }
-
-    /// Write the slot the worktree is. No event, for `branded`'s reason.
-    pub(crate) async fn slotted(&self, job: &Job, slot: u32) -> Result<Job, Adrift> {
-        let job = job.in_slot(slot);
-        self.store()
-            .lock()
-            .await
-            .record_slot(&job)
-            .map_err(Adrift::Writing)?;
-        self.job_holds_slot(&job, slot).await;
-        Ok(job)
-    }
-
     /// At a terminal status. **A completed Job holds its slot until a person
     /// clears it**, the owner's decision, so Show again and anything else
     /// reading its tree still finds it; the slot is marked so `--status` says
@@ -495,17 +453,6 @@ where
         };
         self.vcs()
             .mark_slot_completed(&pool_of(&served), slot, job.id().as_str());
-    }
-
-    /// Whether this is a completed Job still holding its slot, which only a
-    /// person clearing it gives back — never the sweep.
-    pub(crate) fn held_until_cleared(&self, job: &Job) -> bool {
-        job.status() == JobStatus::CompletedSuccess
-            && self
-                .served_by(job)
-                .ok()
-                .and_then(|served| self.tree_spec(&served, job))
-                .is_some_and(|spec| spec.slot().is_some())
     }
 
     /// Give a Job's slot back now it has ended, by the pool's rules. Refused,

@@ -6,12 +6,25 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{Job, JobId, JobStatus};
+use core_model::{Job, JobStatus};
 use ipc::{Alert, AlertList, JobList, JobSummary, ManifestId};
 use store::Moved;
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+
+/// What the forge said became of a Job's pull request, as the wire words it.
+///
+/// **The one mapping**, read by the Job detail and by the Board row. `None` is
+/// a state the wire has no word for: `Open` and `Unknown` are the absence of
+/// news, and are never stored.
+pub(crate) fn settled(landed: &adapter_traits::Landing) -> Option<ipc::Settled> {
+    match landed {
+        adapter_traits::Landing::Merged { .. } => Some(ipc::Settled::Merged),
+        adapter_traits::Landing::ClosedUnmerged { .. } => Some(ipc::Settled::ClosedUnmerged),
+        adapter_traits::Landing::Open { .. } | adapter_traits::Landing::Unknown => None,
+    }
+}
 
 /// Jobs no Drone has been started on: approved and waiting for a slot, or
 /// waiting to be approved at all.
@@ -101,64 +114,6 @@ where
                 false => waiting.push(self.alerted(job, &summary).await?),
             }
         }
-        // **A Trigger's repair that waits on a person is an alert and not a
-        // status**: the Job's status and step are where the Trigger found
-        // them. A fix with no choice, and a Trigger that failed after a repair
-        // was tried, join `waiting` and leave it when the firing does.
-        let repairs: Vec<(JobId, crate::trigger_hold::Hold)> = {
-            let store = self.store().lock().await;
-            let firings = store
-                .repairs_waiting_on_a_person()
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            let additions = store
-                .additions_waiting_on_a_person()
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-            firings
-                .into_iter()
-                .map(|(job, id, firing)| (job, crate::trigger_hold::Hold::Firing { id, firing }))
-                .chain(
-                    additions
-                        .into_iter()
-                        .map(|(job, added)| (job, crate::trigger_hold::Hold::Addition(added))),
-                )
-                .collect()
-        };
-        for (job_id, hold) in repairs {
-            let Some(job) = loaded.jobs.iter().find(|job| job.id() == &job_id) else {
-                continue;
-            };
-            // A hold on a Job that is over holds nothing.
-            let over = matches!(
-                hold.state(),
-                core_model::TriggerState::Held | core_model::TriggerState::AwaitingOwner
-            ) && job.status().is_terminal();
-            if !owned(job) || over {
-                continue;
-            }
-            let why = match hold.state() {
-                core_model::TriggerState::Held => crate::trigger_hold::held_said(&hold.name()),
-                core_model::TriggerState::AwaitingOwner => {
-                    crate::trigger_hold::asks_said(&hold.name())
-                }
-                core_model::TriggerState::FixReady => {
-                    crate::trigger_repair::fix_waiting(&hold.name())
-                }
-                _ => crate::trigger_repair::alert(&hold.name()),
-            };
-            // A Job a hold stopped is already blocked: it says which Trigger.
-            if let Some(stopped) = blocked
-                .iter_mut()
-                .find(|one| one.job_id == ipc::JobId::from(&job_id))
-            {
-                stopped.why = Some(why);
-                continue;
-            }
-            let summary = self.summarised(job).await?;
-            let mut alert = self.alerted(job, &summary).await?;
-            alert.why = Some(why);
-            alert.since = hold.since().map(Into::into);
-            waiting.push(alert);
-        }
         Ok(AlertList { blocked, waiting })
     }
 
@@ -234,7 +189,7 @@ where
         let mut jobs = Vec::new();
         for job in loaded.jobs.iter().filter(|job| owned(job) && keep(job)) {
             let mut summary = self.summarised(job).await?;
-            summary.landed = landed.get(job.id()).and_then(crate::noticing::settled);
+            summary.landed = landed.get(job.id()).and_then(settled);
             summary.merged_at = merged_at.get(job.id()).map(ipc::Instant::from);
             jobs.push(summary);
         }

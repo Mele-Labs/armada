@@ -706,7 +706,7 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   purpose — `armada.yml` says so where it declares it. So a Job's gate never
   reads it, and on 8 Sept 2026 Job `01M21BKVPW002DC0ATD1X9T0VF` merged three
   over-long comment blocks past a fully green gate: `crates/armada/src/clean.rs`
-  at 27 lines, `crates/fleet/src/ending.rs` at 32, `crates/store/src/forget.rs`
+  at 27 lines, the `ending` module (deleted since) at 32, `crates/store/src/forget.rs`
   at 28, all over the cap the hook refuses at, all in files the Job had touched.
   Every declared Check passed. A person running the gate afterwards is what
   caught it.

@@ -17,11 +17,11 @@ Bridge talks to Fleet and nothing else, and a person choosing what to dispatch h
 | Act | When | Where |
 |---|---|---|
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
-| Comment that a Job started | The first pass after the Job leaves the queue | `crates/fleet/src/writing_back.rs` |
+| Comment that a Job started | The first pass after the Job leaves the queue | the `writing_back` module (deleted since) |
 | Comment the pull request's address | The first pass after the Job opens one, and again if it opens another | the same |
 | Put a label on | `armada: in progress` while it works; `armada: set aside` while it is escalated or its retries are spent | the same |
 | Take Armada's label off | When the Job ends, landed or not | the same |
-| Close the issue | Never directly. The pull request carries the tracker's closing, so merging it closes the issue: a closing line in the body, or a mark in the title where the tracker links by title | `closing_its_issue`, read by `crates/fleet/src/delivery.rs` |
+| Close the issue | Never directly. The pull request carries the tracker's closing, so merging it closes the issue: a closing line in the body, or a mark in the title where the tracker links by title | `closing_its_issue`, read by the `delivery` module (deleted since) |
 
 ## Rules
 
