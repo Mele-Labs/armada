@@ -225,7 +225,6 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
-    const Kind = one.kind === "job" ? Box : SquareTerminal;
     const quiet = one.since ?? one.step?.label ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
@@ -234,12 +233,13 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
       <li key={one.key} className="deck-list__item">
         <Inspect card={<SubjectCard one={one} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
-          <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
-            <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
-              <Kind size={14} aria-hidden="true" />
-            </span>
-          </Tooltip>
           <span className="deck-row__title">{one.title}</span>
+          <span className="deck-row__marks">
+            <span className="deck-row__clash-slot" aria-hidden="true" />
+            <Phase subject={one} builds={builds} jobs={jobs} />
+            <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
+          </span>
+          <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
           {hit === undefined || hit.short === "" ? (
             <span className="deck-row__said">{said}</span>
           ) : (
@@ -249,11 +249,13 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
               </span>
             </Tooltip>
           )}
-          <Phase subject={one} builds={builds} jobs={jobs} />
-          <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
         </Inspect>
-        {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+        {one.kind === "pr" ? null : (
+          <span className="deck-row__clash">
+            <ClashMark kind={one.kind} id={one.id} />
+          </span>
+        )}
       </li>
     );
   };

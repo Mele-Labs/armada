@@ -1,5 +1,5 @@
 // The restyle in one pass, `?look=new` flat and `&panels=glass`: the Cockpit at rest, the repository combobox, the inspect card
-// on a row, a bay, a call and a drone, the Session's context tank pinned, then Doctor, Settings, Worktrees, Retros and Studios.
+// on a row, a bay, a call and a drone, the Session's context tank pinned, the command palette, then Doctor, Settings, Worktrees, Retros and Studios.
 // Over `restyle-review`. A design mock: nothing here asserts a colour or a size.
 
 import { button, inside, region, role, toSystemPage, viaPalette, walk } from "../walk";
@@ -24,6 +24,9 @@ const restyleReview = walk("restyle-review", [
   { press: inside(list, button("Migration notes")), say: "A Session opens in the area" },
   { press: context, say: "The context tank pins its card" },
   { key: "Escape", on: role("dialog", "Context"), say: "Esc closes it" },
+  { key: "Meta+k", on: role("navigation", "Places"), say: "⌘K opens the palette" },
+  { look: role("dialog", "Command palette"), say: "Input row over a hairline, small-cap sections, 32px rows, keycaps at the right" },
+  { key: "Escape", on: inside(role("dialog", "Command palette"), role("combobox")), say: "Esc closes it" },
   ...viaPalette("Doctor", "Doctor"),
   ...toSystemPage("Settings", "Settings"),
   ...viaPalette("Worktrees", "Worktree slots"),

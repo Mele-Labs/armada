@@ -157,6 +157,39 @@
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 .deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
+/* A Work row is two lines on one left edge. Line 1: the title, and the marks in a fixed column (the clash, the phase glyph, the state), which line up
+   from row to row. Line 2: what it last said, quiet and cut, and its age in a column of its own under the marks. The row's own left edge and
+   its `::before` are left free for the linked rows' indent and the calling bar. */
+.deck-list__item { --deck-slot: var(--space-4); position: relative; }
+.deck-row:not([data-queued]) {
+  --deck-slot: var(--space-4);
+  --deck-marks: calc(var(--deck-slot) * 3 + var(--space-1) * 2);
+  grid-template-columns: minmax(0, 1fr) var(--deck-marks);
+  grid-template-rows: auto auto;
+  row-gap: 2px;
+  align-items: center;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3);
+}
+.deck-row:not([data-queued]) .deck-row__title { grid-column: 1; grid-row: 1; line-height: var(--leading-xs); }
+.deck-row__marks { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: repeat(3, var(--deck-slot)); column-gap: var(--space-1); align-items: center; justify-items: center; }
+.deck-row__says { grid-column: 1; grid-row: 2; min-height: var(--leading-xs); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.deck-row:not([data-queued]) .deck-row__said { grid-column: 2; grid-row: 2; justify-self: end; font-family: var(--font-mono); line-height: var(--leading-xs); white-space: nowrap; }
+/* The clash mark is a button, so it sits beside the row and over the first slot of its marks. */
+.deck-row__clash {
+  position: absolute;
+  top: var(--space-2);
+  right: calc(var(--space-3) + (var(--deck-slot) + var(--space-1)) * 2);
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--leading-xs);
+  pointer-events: none;
+}
+.deck-row__clash > * { pointer-events: auto; }
+
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
 /* Activity and Incoming calls rest at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so their edges
