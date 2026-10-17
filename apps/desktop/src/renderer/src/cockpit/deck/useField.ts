@@ -21,7 +21,7 @@ import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
 import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf } from "./field";
 import { useClock } from "./clock";
-import { droneOf, type PrIn, type RepoIn } from "./layout";
+import { droneOf, type FileAct, type FileIn, type PrIn, type RepoIn } from "./layout";
 import { fieldAt, windowOf } from "./replay";
 import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./plays";
 import { toneOf } from "./order";
@@ -54,6 +54,9 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
   }, [candidates, drones, landed]);
   return plays;
 }
+
+/** Which act stands where two Sessions name one file. */
+const ACT_RANK: Record<FileAct | "rest", number> = { remove: 3, write: 2, edit: 1, rest: 0 };
 
 /** `only` is the root of the one repository the map draws; none draws every one. */
 export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[], only?: string) {
@@ -113,6 +116,23 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     });
   }, [all, sessions, holder, props.state.jobs, answered, shown, touched, slotTouched]);
 
+  // The files each live Session names, drawn as pills on their plots as the Session's own Field draws them. Where two name one path the stronger act
+  // stands: a file taken away over one made, one made over one changed, one changed over one at rest. Read each render, kept by what it says, so a
+  // Session's message that moves no file hands the layout the same list.
+  const named = new Map<string, Map<string, FileAct | undefined>>();
+  for (const one of all) {
+    if (one.kind !== "session") continue;
+    const row = sessions.find((session) => session.id === one.id);
+    if (row === undefined || row.dead !== undefined) continue;
+    for (const file of row.work?.files ?? []) {
+      const into = named.get(one.root) ?? new Map<string, FileAct | undefined>();
+      named.set(one.root, into);
+      if (!into.has(file.path) || (ACT_RANK[file.act ?? "rest"] > ACT_RANK[into.get(file.path) ?? "rest"])) into.set(file.path, file.act);
+    }
+  }
+  const filesKey = [...named].map(([root, paths]) => `${root}:${[...paths].map(([path, act]) => `${path}=${act ?? ""}`).sort().join(",")}`).sort().join("|");
+  const files = useMemo(() => new Map([...named].map(([root, paths]) => [root, [...paths].map(([path, act]) => (act === undefined ? { path } : { path, act })).sort((a, b) => a.path.localeCompare(b.path))] as [string, FileIn[]])), [filesKey]);
+
   const repos = useMemo<RepoIn[]>(() => {
     const roots = [...new Set([...all.map((one) => one.root), ...mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
     return roots.map((root) => ({
@@ -124,8 +144,9 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         .map(slotKey),
       goal: mains.some((one) => one.root === root),
       areas: areasOf(root),
+      ...(files.get(root) === undefined ? {} : { files: files.get(root)! }),
     }));
-  }, [all, mains, ship.repos, slots, repositories, areasOf]);
+  }, [all, mains, ship.repos, slots, repositories, areasOf, files]);
 
   const bays = useBays(slots, events, replay?.at, clock);
   const pads = useMemo(() => {
