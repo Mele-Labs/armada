@@ -6,8 +6,8 @@ import { expect, test } from "vitest";
 import type { TimelineEvent } from "@armada/protocol";
 
 import { MOST_LOOPS } from "./doing";
-import { arrivalsOf, callMarkersOf, eventFactsOf, loopsOf, pillsOf, quantized, throttled, TICK_MS } from "./field";
-import type { DroneIn } from "./layout";
+import { arrivalsOf, callMarkersOf, eventFactsOf, filesNamed, loopsOf, pillsOf, quantized, throttled, TICK_MS } from "./field";
+import type { DroneIn, FileAct } from "./layout";
 import { MOST_PLAYING } from "./plays";
 
 const drone = (key: string, extra: Partial<DroneIn> = {}): DroneIn => ({
@@ -153,4 +153,26 @@ test("timeline appends reach the field at no more than four a second: a burst is
   now += 10 * TICK_MS;
   hold.push(5);
   expect(got).toEqual([1, 3, 4, 5]);
+});
+
+// ---- The files Sessions name -------------------------------------------------------------------------
+
+test("where two Sessions name one file the stronger act stands: removed over written, written over edited, edited over at rest", () => {
+  const act = (...acts: (FileAct | undefined)[]) => filesNamed(acts.map((one) => ({ root: "/r", file: one === undefined ? { path: "a.rs" } : { path: "a.rs", act: one } }))).files.get("/r");
+  expect(act("edit", "write")).toEqual([{ path: "a.rs", act: "write" }]);
+  expect(act("write", "edit")).toEqual([{ path: "a.rs", act: "write" }]);
+  expect(act("write", "remove", "edit")).toEqual([{ path: "a.rs", act: "remove" }]);
+  expect(act(undefined, "edit")).toEqual([{ path: "a.rs", act: "edit" }]);
+  expect(act("edit", undefined)).toEqual([{ path: "a.rs", act: "edit" }]);
+  expect(act(undefined, undefined)).toEqual([{ path: "a.rs" }]);
+});
+
+test("the files are kept by repository and sorted by path, and the key says what they hold", () => {
+  const one = filesNamed([{ root: "/b", file: { path: "z.rs" } }, { root: "/a", file: { path: "y.rs", act: "edit" } }, { root: "/a", file: { path: "b.rs" } }]);
+  expect([...one.files.keys()]).toEqual(["/b", "/a"]);
+  expect(one.files.get("/a")).toEqual([{ path: "b.rs" }, { path: "y.rs", act: "edit" }]);
+  // The same files in another order are the same key; another act is not.
+  const again = filesNamed([{ root: "/a", file: { path: "b.rs" } }, { root: "/a", file: { path: "y.rs", act: "edit" } }, { root: "/b", file: { path: "z.rs" } }]);
+  expect(again.key).toBe(one.key);
+  expect(filesNamed([{ root: "/a", file: { path: "b.rs" } }, { root: "/a", file: { path: "y.rs", act: "write" } }, { root: "/b", file: { path: "z.rs" } }]).key).not.toBe(one.key);
 });
