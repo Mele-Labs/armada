@@ -193,7 +193,8 @@ armada_bin="$cargo_home/bin/armada"
 # either miss it or, read the other way, refuse a restart nothing is using.
 # What refuses is a Drone whose Job is `running` — `docs/concepts/fleet.md`'s
 # own reading of `job-statuses.toml`, where `running` is the one status a live
-# Drone process stands for.
+# Drone process stands for. A Fleet that answers 404 for the roster runs no
+# Drones (#28 deleted them), so nothing is working and the restart goes ahead.
 #
 # **Called twice, deliberately.** Once here, before paying for a rebuild that
 # can run minutes, so an obvious refusal is fast. Again immediately before
@@ -249,13 +250,22 @@ def get(path):
 adopt = sys.argv[2] == "adopt"
 try:
     working = []
-    for d in get("/drones")["drones"]:
+    try:
+        roster = get("/drones")["drones"]
+    except urllib.error.HTTPError as e:
+        # A Fleet built after the Drones were deleted has no such route; any other error is still an error.
+        if e.code != 404:
+            raise
+        roster = None
+    for d in roster or []:
         job = get(f"/jobs/{d['job_id']}")["job"]
         if job["status"] == "running":
             working.append(f"{d['handle']} ({d['job_id']})")
             if not adopt:
                 break
-    if not working:
+    if roster is None:
+        print("NODRONES")
+    elif not working:
         print("OK")
     elif adopt:
         print("ADOPT:" + "\t".join(working))
@@ -268,6 +278,9 @@ PY
     case "$result" in
       OK)
         say "No Drone is working"
+        ;;
+      NODRONES)
+        say "This Fleet runs no Drones, so none is working"
         ;;
       ADOPT:*)
         say "Adopting every working Drone — --adopt skips the refusal"

@@ -12,7 +12,9 @@
 # `running` and, on its third line, the stage it has reached, or `failed` with
 # one line of why, and no file means it took. A stage is read off the bold
 # headings the scripts print, as they print them. Output goes to
-# `~/Library/Logs/Armada/restart-build.log`.
+# `~/Library/Logs/Armada/restart-build.log`. The line of why is the compiler's
+# first error of the last run with its file, else the last thing a script said
+# other than preview's `restart exited N`, which names no cause.
 #
 # **A `libsqlite3-sys` build failure is run once more after
 # `cargo clean -p libsqlite3-sys` in the tree that was built.** It is a stale
@@ -31,6 +33,11 @@ import sys
 STALE = "libsqlite3-sys"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 SAID = re.compile(r"^(?:restart|preview): (?:!!! )?(.*)$")
+# What `scripts/preview` says last when `scripts/restart` failed: no cause in it.
+WRAPPER = re.compile(r"^restart exited \d+$")
+# A compiler's own complaint (rustc, tsc), and the `-->` line that places a rustc one.
+COMPILER = re.compile(r"^(?:error(?:\[\w+\])?:|.*\berror TS\d+:)")
+PLACE = re.compile(r"^--> (\S+)")
 LIMIT = 200
 
 # The stage each bold heading puts the restart in. Matched against the raw line,
@@ -56,14 +63,26 @@ def write_atomically(path, text):
 
 
 def one_line(log):
-    """Why it stopped, from the end of the log: the last line a script said
-    for itself, else the last line at all."""
+    """Why it stopped, from the end of the log: the compiler's first error of
+    the last run with the file it names, else the last line a script said for
+    itself (not preview's `restart exited N` when an earlier one says more),
+    else the last line at all."""
     lines = [ANSI.sub("", line).strip() for line in log.splitlines()]
     lines = [line for line in lines if line]
-    for line in reversed(lines):
-        said = SAID.match(line)
-        if said and said.group(1):
-            return said.group(1)[:LIMIT]
+    # An earlier run's errors were retried; only the last run's can be why it stopped.
+    last_run = max((i for i, line in enumerate(lines) if line.startswith("$ ") and "cargo clean" not in line), default=-1)
+    lines = lines[last_run + 1:]
+    for i, line in enumerate(lines):
+        if COMPILER.match(line):
+            place = next((m.group(1) for m in map(PLACE.match, lines[i + 1:i + 4]) if m), "")
+            suffix = f" ({place})" if place else ""
+            return line[:LIMIT - len(suffix)] + suffix
+    said = [m.group(1) for m in map(SAID.match, lines) if m and m.group(1)]
+    for text in reversed(said):
+        if not WRAPPER.match(text):
+            return text[:LIMIT]
+    if said:
+        return said[-1][:LIMIT]
     return lines[-1][:LIMIT] if lines else "exited without output"
 
 
