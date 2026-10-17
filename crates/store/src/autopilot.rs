@@ -202,6 +202,21 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// Every pick, of any run, that started a Session, oldest first. A run ends at Stop and a
+    /// later Start opens another, while the Session the first started may still be live.
+    pub fn autopilot_picks_that_started_a_session(&self) -> Result<Vec<KeptPick>, WriteError> {
+        let doing = "reading the picks that started a Session";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {PICK} FROM autopilot_picks WHERE started_session IS NOT NULL
+                 ORDER BY pick_id"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([], pick_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
     pub fn add_autopilot_pick(&mut self, pick: &KeptPick) -> Result<(), WriteError> {
         self.conn
             .execute(

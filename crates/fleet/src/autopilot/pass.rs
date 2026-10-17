@@ -121,15 +121,30 @@ where
             .open_issues(&manifest_id)
             .await
             .map_err(|why| format!("{why:?}"))?;
-        let mut taken: BTreeSet<String> = self
-            .store()
-            .lock()
-            .await
-            .issue_sources_in_flight()
-            .map_err(|why| format!("{why:?}"))?
-            .into_iter()
-            .map(|(_, source)| source.url)
-            .collect();
+        let mut taken: BTreeSet<String> = {
+            let store = self.store().lock().await;
+            let mut taken: BTreeSet<String> = store
+                .issue_sources_in_flight()
+                .map_err(|why| format!("{why:?}"))?
+                .into_iter()
+                .map(|(_, source)| source.url)
+                .collect();
+            // **Every run's** live Sessions: a Stop and a Start must not pick an issue twice.
+            for one in store
+                .autopilot_picks_that_started_a_session()
+                .map_err(|why| format!("{why:?}"))?
+            {
+                let live = one
+                    .started_session
+                    .as_deref()
+                    .and_then(|id| store.session(id).ok().flatten())
+                    .is_some_and(|session| session.state == store::SessionState::Live);
+                if live {
+                    taken.insert(one.issue_url);
+                }
+            }
+            taken
+        };
         taken.extend(gathered.picks.iter().map(|one| one.issue_url.clone()));
         let mut offered = candidates(&open, &taken);
         let urls: Vec<String> = offered.iter().map(|one| one.url.clone()).collect();
