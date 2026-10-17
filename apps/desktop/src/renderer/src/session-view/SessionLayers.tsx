@@ -4,13 +4,14 @@
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
+import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
 import { Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openFrom, setHover } from "../cockpit/deck/store";
-import { slotKey } from "../cockpit/deck/bays";
+import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
+import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { closeLayer, type LayerId } from "./layers";
 import { openClashFile } from "./ClashFileSheet";
@@ -201,42 +202,27 @@ export function ChecksLayer({ session, onOpenCheck }: { session: Session; onOpen
   );
 }
 
-const STATE = { stranded: "Stranded", behind: "Behind" } as const;
-
-function Facts({ facts }: { facts: readonly [string, ReactNode][] }) {
-  return (
-    <dl className="sv-layer__facts">
-      {facts.map(([term, value]) => (
-        <div key={term} className="sv-layer__fact">
-          <dt>{term}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** One bay the Session holds, and what is wrong with it. */
-function BayFacts({ bay }: { bay: HeldBay }) {
+/** One bay the Session holds, drawn as the cockpit's Bays panel draws it, with how far it is behind its base. A press shows it there. */
+function HeldBayRow({ bay }: { bay: HeldBay }) {
   const { slot } = bay;
-  const stranded = slot.stranded;
   const name = `slot-${slot.slot}`;
-  const facts: [string, ReactNode][] = [];
-  if (bay.branch !== undefined) facts.push(["Branch", <code key="branch">{bay.branch}</code>]);
-  facts.push(["State", bay.wrong === undefined ? "Held" : STATE[bay.wrong]]);
-  if (slot.behind !== undefined) facts.push([`Behind ${slot.base}`, `${slot.behind} ${slot.behind === 1 ? "commit" : "commits"}`]);
-  if (stranded?.last_holder !== undefined) facts.push(["Held last by", stranded.last_holder.title ?? stranded.last_holder.id]);
-  if (stranded !== undefined) {
-    if (stranded.uncommitted.length > 0) facts.push(["Uncommitted", stranded.uncommitted.map((one) => <code key={one}>{one}</code>)]);
-    facts.push(["Unpushed", `${stranded.unpushed} ${stranded.unpushed === 1 ? "commit" : "commits"}`]);
-  }
+  const view = bayViewOf(slot, slotKey(slot), ledgerOf(slot, []), undefined, Date.now());
+  const behind =
+    slot.behind === undefined || slot.behind === 0 ? null : (
+      <Tooltip label={`${slot.behind} ${slot.behind === 1 ? "commit" : "commits"} behind ${slot.base}`}>
+        <span className="deck-bay__mark sv-layer__behind" role="img" aria-label={`${slot.behind} behind ${slot.base}`} data-wrong={bay.wrong === "behind" || undefined}>
+          <ArrowDown size={12} aria-hidden="true" />
+          {slot.behind}
+        </span>
+      </Tooltip>
+    );
   return (
     <section className="sv-layer__group sv-layer__slot" aria-label={name}>
-      <h4 className="sv-layer__group-label">{name}</h4>
-      <Facts facts={facts} />
-      <Button variant="secondary" size="sm" data-layer-row="" onClick={() => openFrom({ kind: "slot", key: slotKey(slot) })}>
-        Show in Bays
-      </Button>
+      <Tooltip label="Show in Bays">
+        <button type="button" className="deck-bay" data-bay={view.state} data-layer-row="" aria-label={`Show ${name} in Bays`} onClick={() => openFrom({ kind: "slot", key: slotKey(slot) })}>
+          <Berth view={view} foot={behind} />
+        </button>
+      </Tooltip>
     </section>
   );
 }
@@ -271,7 +257,6 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
   const clashes: ClashView[] = (bays?.clashes ?? []).map((clash) => ({ with: clash.one.kind === "session" && clash.one.id === session.id ? clash.other : clash.one, paths: clash.paths }));
   return (
     <Shell label="Bays">
-      {bays?.bays.map((bay) => <BayFacts key={bay.slot.slot} bay={bay} />)}
       {clashes.length === 0 ? null : (
         <section className="sv-layer__group" aria-label="Write clashes">
           <h4 className="sv-layer__group-label">Write clashes</h4>
@@ -297,6 +282,7 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
           </Table>
         </section>
       )}
+      {bays?.bays.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)}
     </Shell>
   );
 }

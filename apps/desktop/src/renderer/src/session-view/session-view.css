@@ -269,12 +269,11 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-layer__mark[data-tone="escalated"], .sv-layer__mark[data-tone="pending"] { color: var(--status-awaiting-review); }
 
 /* Slot: the facts of what is wrong, and the way to the bay. */
-.sv-layer__slot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
-.sv-layer__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-6); margin: 0; font-size: var(--text-sm); }
-.sv-layer__fact { display: contents; }
-.sv-layer__fact dt { color: var(--fg-muted); }
-.sv-layer__fact dd { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.sv-layer__fact code { font-size: var(--text-xs); }
+.sv-layer__slot { display: flex; flex-direction: column; }
+.sv-layer__slot > .armada-tooltip { display: flex; }
+/* How far a bay is behind its base, the figure beside its glyph: amber once it is far enough to light the Bays key. */
+.sv-layer__behind { gap: var(--space-1); font-variant-numeric: tabular-nums; }
+.sv-layer__behind[data-wrong] { color: var(--status-awaiting-review); }
 .sv-layer__clash-with { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-align: start; cursor: pointer; }
 .sv-layer__clash-with:hover { text-decoration: underline; }
 .sv-clash-file { display: flex; flex-direction: column; gap: var(--space-4); }

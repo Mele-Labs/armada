@@ -146,16 +146,18 @@ test("Checks lists the runs newest first and a press opens the run", () => {
   expect(opened).toEqual([12]);
 });
 
-test("Bays lists every bay the Session holds, says what is wrong with each, and offers each one", () => {
+test("Bays lists the write clashes first, then every bay the Session holds drawn as the cockpit draws it, and offers each one", () => {
   const host = mount("slot");
   act(() => showLayer(ID, "slot"));
   const groups = [...host.querySelectorAll(".sv-layer__group")].map((one) => one.getAttribute("aria-label"));
-  expect(groups).toEqual(["slot-3", "slot-5", "Write clashes"]);
-  const facts = (name: string) => [...host.querySelectorAll(`[aria-label="${name}"] .sv-layer__fact`)].map((one) => one.textContent);
-  expect(facts("slot-3")).toEqual(expect.arrayContaining(["Brancharmada/retry", "StateStranded", "Behind main31 commits", "Unpushed1 commit"]));
-  expect(facts("slot-5")).toEqual(expect.arrayContaining(["Brancharmada/retry-wire", "StateHeld", "Behind main2 commits"]));
+  expect(groups).toEqual(["Write clashes", "slot-3", "slot-5"]);
+  const marks = (name: string) => [...host.querySelectorAll(`section[aria-label="${name}"] [role="img"]`)].map((one) => one.getAttribute("aria-label"));
+  const text = (name: string) => host.querySelector(`section[aria-label="${name}"]`)?.textContent ?? "";
+  expect(marks("slot-3")).toEqual(expect.arrayContaining(["Stranded", "1 commit not pushed", "31 behind main"]));
+  expect(marks("slot-5")).toEqual(expect.arrayContaining(["2 behind main"]));
+  expect(text("slot-5")).toContain("armada/retry-wire");
   const clashRows = [...host.querySelectorAll('table[aria-label="Write clashes"] tbody tr')].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent));
   expect(clashRows).toEqual([[expect.stringContaining("Name the migrations"), "crates/ipc/src/lib.rs"]]);
   expect(host.querySelector('button[aria-label="Open Name the migrations"]')).not.toBeNull();
-  expect([...host.querySelectorAll("[data-layer-row]")].map((one) => one.textContent)).toEqual(["Show in Bays", "Show in Bays"]);
+  expect([...host.querySelectorAll("[data-layer-row]")].map((one) => one.getAttribute("aria-label"))).toEqual(["Show slot-3 in Bays", "Show slot-5 in Bays"]);
 });

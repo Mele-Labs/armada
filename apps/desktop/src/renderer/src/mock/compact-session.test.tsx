@@ -119,9 +119,9 @@ test("the Bays key is lit only when a bay is wrong, and then the thread has the 
   await expect.poll(() => tail()?.textContent ?? "").toContain("Slot 3 is stranded");
   await tile("Bays").click();
   const layer = page.getByRole("region", { name: "Bays", exact: true });
-  await expect.element(layer.getByRole("region", { name: "slot-3" }).getByRole("button", { name: "Show in Bays" })).toBeVisible();
-  expect(layer.element().textContent).toContain("Stranded");
-  expect(layer.element().textContent).toContain("31 commits");
+  await expect.element(layer.getByRole("button", { name: "Show slot-3 in Bays" })).toBeVisible();
+  await expect.element(layer.getByRole("img", { name: "Stranded" })).toBeInTheDocument();
+  await expect.element(layer.getByRole("img", { name: "31 behind main" })).toBeInTheDocument();
 });
 
 test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the thread", async () => {
