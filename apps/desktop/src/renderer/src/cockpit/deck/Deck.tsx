@@ -9,7 +9,7 @@ import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type Re
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -32,6 +32,7 @@ import { Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
+import { RepositoryCombobox } from "./RepositoryCombobox";
 import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
@@ -71,7 +72,6 @@ const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => pro
 
 /** The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue, as the title row's picker does. */
 function RepositoryScope({ props }: { props: CockpitProps }) {
-  const [recent] = useRecentRepositories();
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
   const add = props.onAddRepository;
@@ -79,18 +79,11 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   return (
     <div className="deck-scope">
       {repositories.length === 0 || pick === undefined ? null : (
-        <DropdownMenu
-          align="start"
-          portal
-          triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
-          triggerAriaLabel="Repository"
-          searchLabel={FIND_A_REPOSITORY}
-          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", add: add !== undefined, recent })}
-          onSelect={(chosen) => {
-            if (chosen === ADD) return add?.();
-            const root = rootOf(chosen);
-            pick(root === ALL ? null : root);
-          }}
+        <RepositoryCombobox
+          repositories={repositories}
+          picked={props.picked}
+          onPick={(root) => pick(root)}
+          onAdd={add}
         />
       )}
       {props.onGoTo === undefined ? null : (
@@ -802,6 +795,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
                     <Icon size={16} aria-hidden="true" />
                   </span>
                 </Tooltip>
+                <span className="deck-hail__word">{item.kind}</span>
                 <span className="deck-hail__title">{item.title}</span>
                 <span className="deck-hail__age">{age(item.at, now)}</span>
               </button>
