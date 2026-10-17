@@ -17,7 +17,7 @@ import type {
   StepTuning,
   ToProposer,
 } from "@armada/protocol";
-import type { WaveJobView } from "../draft/wave";
+import type { WaveJobView } from "@armada/screens/src/draft/wave";
 import { HARNESS } from "@armada/screens/src/fixtures/harness";
 import { placedBy } from "./added-fleet";
 

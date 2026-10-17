@@ -6,7 +6,7 @@
 
 import { connected as connectedOver, onBoard as onBoardOver, unanswered } from "@armada/bridge-api";
 import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@armada/bridge-api";
-import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";

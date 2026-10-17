@@ -13,7 +13,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { refactorAtItsPlan } from "./fake";
+import { refactorAtItsPlan } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

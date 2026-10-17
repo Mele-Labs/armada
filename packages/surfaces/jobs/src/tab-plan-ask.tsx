@@ -12,7 +12,7 @@
 // own**, made directly through Fleet —
 // the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
 
-import type { GroupView } from "./draft/group";
+import type { GroupView } from "@armada/screens/src/draft/group";
 
 /** Which group the ask is on, or `undefined` where the plan has no such group. */
 function groupOf(groups: readonly GroupView[], id: string): GroupView | undefined {

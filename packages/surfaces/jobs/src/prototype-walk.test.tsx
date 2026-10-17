@@ -6,7 +6,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { ServerEntry, ServerState } from "@armada/protocol";
-import { prototypeKind } from "./fixtures/build/kinds";
+import { prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
 
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 import type { FleetHandle } from "@armada/desktop/mock";

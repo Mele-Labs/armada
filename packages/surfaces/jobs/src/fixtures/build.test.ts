@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { JobDetail } from "../JobDetail";
 import { renderFor, type Render } from "../render";
-import { FIXTURES } from "./build/index";
+import { FIXTURES } from "@armada/screens/src/fixtures/build/index";
 import { propsFor } from "./props";
 
 

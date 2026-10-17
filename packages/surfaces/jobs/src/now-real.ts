@@ -13,9 +13,9 @@ import { BUDGET_HOLD, CHECK_ADVANCES, JOB_LIFECYCLE, QUEUED_REASON } from "@arma
 import type { CheckUnderway, CommanderCard, JobDetail, JobIssue, JobSummary, JobWaiting, StepDetail } from "@armada/protocol";
 import { span } from "@armada/screens/src/duration";
 
-import type { DroneView } from "./draft/drone";
-import { isWorking } from "./draft/drone";
-import type { NowAskView, NowCommanderAskView, NowIssueView, NowRunningView, NowView, NowWaitingView } from "./draft/now";
+import type { DroneView } from "@armada/screens/src/draft/drone";
+import { isWorking } from "@armada/screens/src/draft/drone";
+import type { NowAskView, NowCommanderAskView, NowIssueView, NowRunningView, NowView, NowWaitingView } from "@armada/screens/src/draft/now";
 import { basename } from "./phases";
 import { entriesOf } from "./story";
 

@@ -4,9 +4,9 @@
 
 import { describe, expect, test } from "vitest";
 
-import { arcGroups, arcCases } from "./fixtures/build/arc-plan";
-import { doneTouched, groupFailed, plannedMoment, planRevisionRefused } from "./fixtures/build/arc";
-import type { CaseView } from "./draft/cases";
+import { arcGroups, arcCases } from "@armada/screens/src/fixtures/build/arc-plan";
+import { doneTouched, groupFailed, plannedMoment, planRevisionRefused } from "@armada/screens/src/fixtures/build/arc";
+import type { CaseView } from "@armada/screens/src/draft/cases";
 import {
   besideSaid,
   caseReads,

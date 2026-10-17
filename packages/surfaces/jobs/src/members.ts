@@ -22,8 +22,8 @@ import type {
 
 import { taskBarSegmentsOf } from "@armada/screens/src/board";
 import type { JobLeadProps } from "./JobLead";
-import type { JobMembersView, MemberView } from "./draft/members";
-import type { LandingRule } from "./draft/landing";
+import type { JobMembersView, MemberView } from "@armada/screens/src/draft/members";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
 
 /** What the Overview region needs from the screen to draw an act. */
 export type MemberActs = {

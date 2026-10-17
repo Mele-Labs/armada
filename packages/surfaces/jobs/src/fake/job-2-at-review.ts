@@ -18,7 +18,7 @@ import type { ChangedFile, JobDetail, JobSummary, JobTrigger, StepDetail, Submit
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 
-import served from "./job-2-landed.json";
+import served from "@armada/screens/src/fixtures/jobs/job-2-landed.json";
 import evidence from "./job-2-evidence.json";
 import { JOB_2_TRIGGERS, triggerNotes } from "./job-2-triggers";
 

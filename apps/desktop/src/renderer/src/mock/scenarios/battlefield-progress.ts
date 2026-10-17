@@ -6,7 +6,7 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { HubMerged, HubPullRequest, MainStanding, MergeLines, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { workingAPlan } from "@armada/jobs/fixtures/build/index";
+import { workingAPlan } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";

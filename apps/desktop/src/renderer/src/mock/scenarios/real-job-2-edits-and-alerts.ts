@@ -2,7 +2,8 @@
 // lists that alert and opens Job 2 at the Trigger; the open Job takes added steps whose switches
 // change until they fire, and a Drone step kept for every Job takes the next free name.
 
-import { featureRunning, job2FixAlert } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
+import { job2FixAlert } from "@armada/jobs/fake";
 
 import { holding } from "../holding";
 import { manifesting } from "../manifest-fake";

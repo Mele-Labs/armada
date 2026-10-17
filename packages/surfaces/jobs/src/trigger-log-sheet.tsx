@@ -7,7 +7,7 @@
 import type { JobTrigger, Journalled, Noted } from "@armada/protocol";
 
 import { Log } from "./Log";
-import { LogSheet } from "./log-sheet";
+import { LogSheet } from "@armada/screens/src/log-sheet";
 import { logOf } from "./mine";
 import { notesOf } from "./notes";
 

@@ -5,7 +5,8 @@
 // one holds at each stop of the writing until the walk `session-retro` says time passes.
 
 import type { Lesson, RepositorySummary } from "@armada/protocol";
-import { retroFixtures, sessionRetro } from "@armada/jobs/fake";
+import { retroFixtures } from "@armada/screens/src/fixtures/jobs/job-3-retro";
+import { sessionRetro } from "@armada/screens/src/lessons/session-retro";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "../moment";

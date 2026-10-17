@@ -6,7 +6,7 @@
 import type { CheckRun, JobDetail, PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { featureRunning } from "./feature-running";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 export type CommanderStage = "working" | "stuck" | "red";
 

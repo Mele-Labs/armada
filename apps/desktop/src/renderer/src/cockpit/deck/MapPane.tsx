@@ -4,8 +4,8 @@
 
 import { useMemo } from "react";
 import { Orbit } from "lucide-react";
-import { stepThatWorksTheGroups } from "@armada/jobs";
-import { taskGroupsOf } from "@armada/jobs/draft/group";
+import { stepThatWorksTheGroups } from "@armada/screens/src/draft/group";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 
 import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";

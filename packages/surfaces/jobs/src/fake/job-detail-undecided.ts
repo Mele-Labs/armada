@@ -6,7 +6,7 @@
 import type { StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { featureOnItsPlan } from "./job-detail-fixtures";
+import { featureOnItsPlan } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 
 /** Fleet's own sentence for why the Judge gave no verdict, as it crosses the wire. */
 const UNDECIDED = "Reached max turns (8)";

@@ -3,8 +3,8 @@
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 import type { Active } from "@armada/protocol";
 import { sampleDetail, sampleJob, sampleStep } from "@armada/screens/src/draft/sample";
 

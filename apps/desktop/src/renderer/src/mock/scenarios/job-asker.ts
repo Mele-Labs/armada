@@ -3,8 +3,8 @@
 // beside the checks it reads. One Job per asker (a Drone, a Judge, a Plan Drone). Mock data only:
 // Fleet serves none of it, so it rides on the draft by Job id. The walks `job-asker-*` play them.
 
-import type { NowAskerDraft, NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
+import type { NowAskerDraft, NowView } from "@armada/screens/src/draft/now";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

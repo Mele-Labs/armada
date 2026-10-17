@@ -12,7 +12,7 @@ import { Ellipsis, LoaderCircle } from "lucide-react";
 import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, useNow, usePilot, useOpenInSession } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { JobSummary, MergeLines, RepositorySummary } from "@armada/protocol";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { NowView } from "@armada/screens/src/draft/now";
 import { JobMarks, hasMarks, isTerminal, titleOf as plainTitle, repositoryOf, sectionOf, readingOf, canPause, canResume, elapsedOf, absoluteOf, taskBarSegmentsOf, taskFigureOf, tasksOwed, ACT_LABEL } from "@armada/screens";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { BoardEmpty, OverviewEmpty } from "@armada/screens/src/BoardEmpty";

@@ -11,7 +11,7 @@
 
 import { DroneQuestion, Prose } from "@armada/components";
 import type { Explaining, JobDetailField } from "@armada/components";
-import type { GroupView } from "./draft/group";
+import type { GroupView } from "@armada/screens/src/draft/group";
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 

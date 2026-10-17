@@ -54,7 +54,7 @@ import type {
   StepsPanelProps,
   RetroRowItem,
 } from "@armada/components";
-import { sessionOf } from "@armada/jobs";
+import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { handoffOf } from "./session-handoff";
 import { readRetro, searchFiles } from "./commands";

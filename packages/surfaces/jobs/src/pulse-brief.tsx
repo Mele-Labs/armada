@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { ConsoleOutput, type ConsoleRegion, type ConsoleRow } from "@armada/components";
 import type { BriefContents, BriefRead } from "@armada/protocol";
 
-import { weighs } from "./outputs";
+import { weighs } from "@armada/screens/src/outputs";
 
 /** Reading one kept brief, as the screen's caller hands it in. `ReadCheckOutput`'s shape. */
 export type ReadBrief = (jobId: string, name: string) => Promise<BriefRead>;

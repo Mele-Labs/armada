@@ -2,7 +2,7 @@
 // `scenarios/`, where every export is read as a scenario row.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import { asRow } from "./holding";
 

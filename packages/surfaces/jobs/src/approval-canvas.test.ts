@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { approvalNodesOf, flowingOf, stepsReadOf } from "./approval-canvas";
 import type { StepRead } from "./approval-canvas";
-import { tuningOf } from "./draft/tuning";
+import { tuningOf } from "@armada/screens/src/draft/tuning";
 
 const STEPS: StepRead[] = [
   { id: "plan", label: "Plan the change", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false, phase: "work" as const, perTask: false, dispatches: false },

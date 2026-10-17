@@ -3,9 +3,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { CriterionView } from "./draft/criterion";
-import type { LandingRule } from "./draft/landing";
-import type { GateView, ProposalView } from "./draft/proposal";
+import type { CriterionView } from "@armada/screens/src/draft/criterion";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
+import type { GateView, ProposalView } from "@armada/screens/src/draft/proposal";
 import { sampleDetail, sampleStep } from "@armada/screens/src/draft/sample";
 import type { ManifestSummary, WorkflowSummary } from "@armada/protocol";
 import {

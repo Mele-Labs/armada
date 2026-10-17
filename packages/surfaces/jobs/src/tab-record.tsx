@@ -23,13 +23,13 @@ import {
   unfiledSays,
   type RecordFilter,
 } from "./record";
-import { useCheckOutputs, type ReadCheckOutput } from "./outputs";
+import { useCheckOutputs, type ReadCheckOutput } from "@armada/screens/src/outputs";
 import { titleOf } from "./record-cells";
-import { caseViewsOf, type CaseView } from "./draft/cases";
-import { taskGroupsOf, type GroupView } from "./draft/group";
-import { familyOf, type LedgerRow } from "./draft/ledger";
+import { caseViewsOf, type CaseView } from "@armada/screens/src/draft/cases";
+import { taskGroupsOf, type GroupView } from "@armada/screens/src/draft/group";
+import { familyOf, type LedgerRow } from "@armada/screens/src/draft/ledger";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
-import type { JobCheckLog } from "./check-log-sheet";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { RowRead } from "./record-read";
 import type { TrailProps } from "./trail";
 

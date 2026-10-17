@@ -3,8 +3,8 @@
 // question with none. Mock data only: the sketches are mermaid source, and ride on the draft by Job id.
 // A Plan decision carries the current state, and each of its options how the result looks if taken. The walks `job-sketch-*` play them, one per scenario.
 
-import type { NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
+import type { NowView } from "@armada/screens/src/draft/now";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

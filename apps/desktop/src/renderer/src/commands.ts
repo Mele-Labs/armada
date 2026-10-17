@@ -60,7 +60,7 @@ import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
-import type { AskTurn } from "@armada/jobs/review-wire";
+import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 import type { PauseAct, Taken, TakenAct } from "@armada/screens";
 import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, TaskAct } from "@armada/jobs";
 import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";

@@ -10,7 +10,7 @@ import { ProposerWait } from "@armada/components";
 import type { JobSummary, ProposalInFlight } from "@armada/protocol";
 import type { ReactNode } from "react";
 
-import { PROPOSAL_IS_SLOW, watchOf } from "./proposal";
+import { PROPOSAL_IS_SLOW, watchOf } from "@armada/screens/src/proposal";
 
 /**
  * The status a dispatched request stands at until the proposer answers. A wire

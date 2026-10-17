@@ -7,10 +7,10 @@
 
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import { awaitingApproval } from "./fixtures/build/index";
+import { awaitingApproval } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 
-import { withRow } from "./fake";
+import { withRow } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

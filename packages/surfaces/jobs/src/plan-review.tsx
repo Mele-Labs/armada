@@ -38,7 +38,7 @@ import type {
 import { PlanGate } from "./plan-lead";
 import type { ActingAct } from "./pending";
 import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
-import type { JobCheckLog } from "./check-log-sheet";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { movedGroups, moveSent, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { useSentRedirect } from "./sent-redirect";
@@ -50,9 +50,9 @@ import { CHANGED_NOTHING, drawn } from "./review";
 import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import { TASK_STOP } from "@armada/screens/src/copy";
 import { doingOfTask, hasOwnDrone, lastEditOf } from "./task-live";
-import type { JobDraft } from "./draft/held";
-import type { GroupView } from "./draft/group";
-import { taskDronesOf, type DroneView } from "./draft/drone";
+import type { JobDraft } from "@armada/screens/src/draft/held";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import { taskDronesOf, type DroneView } from "@armada/screens/src/draft/drone";
 import { spentOf } from "./workflow-inspector";
 import {
   droneSays,

@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { afterEach, expect, it } from "vitest";
-import type { AskTurn } from "@armada/jobs/review-wire";
+import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 
 import { Picked } from "./picked";
 import { askOf, reviewOf } from "./request";

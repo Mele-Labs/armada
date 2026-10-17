@@ -3,7 +3,7 @@
 // Needs you with its call; and one has two items its agent stated, each of which he can remove with a
 // reason, the agent then told in its thread. The walk `needs-me-replied-and-delete` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";

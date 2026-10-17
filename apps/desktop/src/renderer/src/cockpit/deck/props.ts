@@ -2,8 +2,8 @@
 // deck can press. One type, read by every pane, so a pane asks for the props and not for the component. #2301.
 
 import type { RepositorySummary } from "@armada/protocol";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 
 import type { BridgeState } from "../../../../shared/bridge";
 import type { Hosts } from "../../Dashboard";

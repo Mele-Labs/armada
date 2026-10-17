@@ -5,7 +5,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Clock, X } from "lucide-react";
 import { Tooltip } from "@armada/components";
-import type { CallIssueView } from "@armada/jobs/draft/calls";
+import type { CallIssueView } from "@armada/screens/src/draft/calls";
 
 /** The output a card draws is its last lines, which scroll. */
 const OUTPUT_LINES = 12;

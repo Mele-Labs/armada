@@ -2,7 +2,7 @@
 // down after, and reach a surface the way a person does — by the title bar's tabs, the System strip or ⌘K.
 
 import { forgetAllKept } from "@armada/components";
-import { closeWalkWindow } from "@armada/jobs/fake";
+import { closeWalkWindow } from "@armada/screens/src/fixtures/walk-window";
 import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";

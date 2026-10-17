@@ -272,6 +272,14 @@ What it settled for the next surface:
   and `mock/moment.ts` is the one place that fixes `D`. **A rule that guards a directory the
   move emptied must name where it went**: the main-process draft rule watches
   `packages/surfaces/jobs/src/draft` beside the screens'.
+- **Sessions then took what the Cockpit reads out of Jobs, ahead of Jobs going.** The drafts
+  (`draft/`), the fixture builders (`fixtures/build`, and the Job fixtures in `fixtures/jobs`), the
+  check-log sheet, `manifest-checks.ts`, `proposal.ts`, Lessons with the review and session wires
+  (`lessons/`) and the walk-window fake are in `packages/screens/src/`, and a surface reaches them
+  by `@armada/screens/src/...`. `@armada/jobs` has no `./draft/*`, `./fixtures/*`, `./review-wire` or
+  `./session-wire` subpath any more. What the Cockpit and the app still import from `@armada/jobs`
+  is the Job surface itself (`JobDetail`, `JobRun`, `DispatchJob`, the Checks page, the Job acts),
+  which goes with Jobs.
 - **Jobs then took its slice, its fake and 51 whole-app tests, in three commits.** `JobsApi` (82
   members, 19 state fields) is `@armada/jobs/api`, and `jobsApi(scenario, fleet)` answers its 91
   members over a `JobsFleet` handle, as `cleanupApi` does. **A moment that writes state is generic

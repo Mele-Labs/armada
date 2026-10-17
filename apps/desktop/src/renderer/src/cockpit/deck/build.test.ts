@@ -1,7 +1,7 @@
 // What a ring is read from: a Session's `build` as Fleet carries it, a Job's plan tasks, and the quiet that dims what is unfinished.
 
 import type { JobDetail, SessionBuild, TimelineEvent } from "@armada/protocol";
-import { workingAPlan } from "@armada/jobs/fixtures/build/index";
+import { workingAPlan } from "@armada/screens/src/fixtures/build/index";
 import { expect, test } from "vitest";
 
 import { PHASE_GLYPH, askedOf, groupedTasks, seatOf, seatedWorkers, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";

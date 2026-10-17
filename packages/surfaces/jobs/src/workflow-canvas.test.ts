@@ -8,9 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ARC_MOMENTS } from "./fixtures/build/arc";
-import { KIND_FIXTURES, KIND_NAMES } from "./fixtures/build/kinds";
-import { taskGroupsOf } from "./draft/group";
+import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
+import { KIND_FIXTURES, KIND_NAMES } from "@armada/screens/src/fixtures/build/kinds";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 import { stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./workflow-canvas";
 
 /** The Job whole, from a fixture's own `GET /jobs/:job_id` answer. */

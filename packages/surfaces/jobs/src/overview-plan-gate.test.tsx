@@ -9,7 +9,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { ARC_JOB_ID } from "./fixtures/build/arc";
+import { ARC_JOB_ID } from "@armada/screens/src/fixtures/build/arc";
 import type { Evidence } from "@armada/protocol";
 
 import { entered, mount, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";

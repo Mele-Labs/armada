@@ -7,9 +7,9 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/jobs/draft/now";
-import { completedFailed, completedSuccess, queued } from "@armada/jobs/fixtures/build/index";
-import { featureRunning } from "@armada/jobs/fake";
+import type { NowView } from "@armada/screens/src/draft/now";
+import { completedFailed, completedSuccess, queued } from "@armada/screens/src/fixtures/build/index";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";

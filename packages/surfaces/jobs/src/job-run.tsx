@@ -6,12 +6,12 @@ import type { JobDetail as JobWhole, JobSummary, ManifestSummary, WorkflowSummar
 
 import { ApprovalCanvas } from "./ApprovalCanvas";
 import { lifeOf } from "./approval-life";
-import { litSteps } from "./draft/now";
-import type { NowView } from "./draft/now";
+import { litSteps } from "@armada/screens/src/draft/now";
+import type { NowView } from "@armada/screens/src/draft/now";
 import { stepLinesOf } from "./workflow-canvas";
 import { waveReadingOf } from "./tab-wave";
 import { proposalEditsOfWhole } from "./tab-proposal-read";
-import type { DroneView } from "./draft/drone";
+import type { DroneView } from "@armada/screens/src/draft/drone";
 
 export type JobRunProps = {
   whole: JobWhole;

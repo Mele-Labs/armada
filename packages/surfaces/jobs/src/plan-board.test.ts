@@ -13,9 +13,9 @@ import {
   executingConcurrent,
   executingSequential,
   groupFailed,
-} from "./fixtures/build/arc";
-import type { ArcMoment } from "./fixtures/build/arc-base";
-import type { JobCheckLog } from "./check-log-sheet";
+} from "@armada/screens/src/fixtures/build/arc";
+import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc-base";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { boundaryOf, moveSent, planBoardOf, shapeSaid, verdictSaid } from "./plan-board";
 import { runBySaid } from "./tab-plan-read";
 import { tasksField } from "./step";

@@ -4,7 +4,7 @@
 // lands, so the waiting Session starts with the handoff as its first message. The Sessions are draft data
 // (`packages/screens/src/draft/sessions.ts`), nothing here reaches Fleet. The walk `sessionAfterAnother` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { asRow, holding, servedFrom } from "../holding";

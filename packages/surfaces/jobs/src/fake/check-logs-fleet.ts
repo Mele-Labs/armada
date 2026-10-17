@@ -5,7 +5,7 @@
 
 import type { FleetHandle } from "@armada/bridge-api";
 import type { FollowedLandLog, FollowedLog, LandCheckAt } from "@armada/protocol";
-import { LIVE_LOGS } from "../fixtures/build/arc-checking";
+import { LIVE_LOGS } from "@armada/screens/src/fixtures/build/arc-checking";
 
 import type { JobsApi, JobsState } from "../api";
 

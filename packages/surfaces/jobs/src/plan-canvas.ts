@@ -21,10 +21,10 @@ import {
   type StepActivity,
 } from "@armada/components";
 
-import type { GroupState, GroupView } from "./draft/group";
+import type { GroupState, GroupView } from "@armada/screens/src/draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
 import { awaitingSaid } from "./tab-plan-read";
-import type { TaskState, TaskView } from "./draft/task";
+import type { TaskState, TaskView } from "@armada/screens/src/draft/task";
 import type { HeldCommand } from "./drone-held";
 import { heightBeyond } from "./card-height";
 import { askNodeId, withAsk } from "./held-card";

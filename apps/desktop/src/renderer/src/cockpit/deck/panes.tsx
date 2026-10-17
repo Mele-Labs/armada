@@ -9,7 +9,7 @@ import { Button, ClashMark, NowPanel, Select, Tabs, Tooltip, isPressed, pressedD
 import { BayManage } from "@armada/cleanup";
 import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
-import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
+import { droneViewsOf, type DroneView } from "@armada/screens/src/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
 import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";

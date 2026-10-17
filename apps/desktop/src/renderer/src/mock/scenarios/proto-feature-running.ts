@@ -3,7 +3,7 @@
 import { holding } from "../holding";
 import { manifesting } from "../manifest-fake";
 import type { Scenario } from "../moment";
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 export const s110FeatureRunning: Scenario = {
   ...holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),

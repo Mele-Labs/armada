@@ -21,8 +21,8 @@ import type {
 } from "@armada/components";
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
-import { droneViewsOf, type DroneView } from "./draft/drone";
-import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
+import { droneViewsOf, type DroneView } from "@armada/screens/src/draft/drone";
+import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, taskGroupsOf, type GroupState, type GroupView } from "@armada/screens/src/draft/group";
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "@armada/screens/src/facts";
 import type { HeldCommand } from "./drone-held";

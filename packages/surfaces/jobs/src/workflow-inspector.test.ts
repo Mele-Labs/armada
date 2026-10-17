@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ARC_MOMENTS } from "./fixtures/build/arc";
-import { KIND_FIXTURES } from "./fixtures/build/kinds";
-import { taskGroupsOf } from "./draft/group";
+import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
+import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 import { groupNodeId } from "./plan-canvas";
 import { stepNodeId, stepThatWorksTheGroups } from "./workflow-canvas";
 import { workflowReadingOf } from "./workflow-inspector";

@@ -8,7 +8,7 @@
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { WorktreeSlot, WorktreesHeld } from "@armada/protocol";
-import { escalatedGateFailure, review, running } from "@armada/jobs/fixtures/build/index";
+import { escalatedGateFailure, review, running } from "@armada/screens/src/fixtures/build/index";
 
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";

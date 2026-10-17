@@ -5,7 +5,7 @@ import type { DroneTurn, JobDroneState, JobDronesFilter, Thought, TurnStep } fro
 import type { ReactNode } from "react";
 import type { JobDetail, Turn } from "@armada/protocol";
 
-import { isWorking, type DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "@armada/screens/src/draft/drone";
 import { clock, elapsedSince } from "@armada/screens/src/duration";
 import { entriesOf, THINKING_TOKENS, type LogRow } from "./story";
 

@@ -1,7 +1,7 @@
 // Retros, Doctor and one Studio on one Fleet, so the walk `pages-look` can visit the three in the new look.
 
 import { slotsHeld } from "@armada/cleanup/fake";
-import { retroFixtures } from "@armada/jobs/fake";
+import { retroFixtures } from "@armada/screens/src/fixtures/jobs/job-3-retro";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { holding } from "../holding";

@@ -7,7 +7,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { escalatedEvidenceSuspect } from "./fixtures/build/index";
+import { escalatedEvidenceSuspect } from "@armada/screens/src/fixtures/build/index";
 
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 

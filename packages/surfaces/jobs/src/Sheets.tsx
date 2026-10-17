@@ -45,7 +45,7 @@ import {
   rowsOf,
   type Following,
   type Outputs,
-} from "./outputs";
+} from "@armada/screens/src/outputs";
 import { drawn, WORKTREE_GIVEN_BACK } from "./review";
 
 /**

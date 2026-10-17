@@ -6,7 +6,7 @@
 import { describe, expect, test } from "vitest";
 import type { CheckRun, CheckUnderway, DeclaredCheck } from "@armada/protocol";
 
-import { taskGroupsOf } from "./draft/group";
+import { taskGroupsOf } from "@armada/screens/src/draft/group";
 import { sampleDetail, samplePlan, sampleStep, sampleTask } from "@armada/screens/src/draft/sample";
 import { boundaryOf } from "./plan-board";
 

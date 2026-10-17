@@ -6,7 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { completedSuccess } from "@armada/jobs/fixtures/build/index";
+import { completedSuccess } from "@armada/screens/src/fixtures/build/index";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard, onJob } from "./scenario";

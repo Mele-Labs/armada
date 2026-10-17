@@ -4,10 +4,10 @@ import { GroupBoundary, PathChip } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { FieldLabel, Eyebrow } from "./regions";
-import type { CaseView } from "./draft/cases";
-import type { GroupView } from "./draft/group";
-import type { LedgerRow } from "./draft/ledger";
-import type { JobCheckLog } from "./check-log-sheet";
+import type { CaseView } from "@armada/screens/src/draft/cases";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import type { LedgerRow } from "@armada/screens/src/draft/ledger";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 import { boundaryOf } from "./plan-board";
 import { touchedByOf } from "./tab-plan-read";
 import { stepThatWorksTheGroups } from "./workflow-canvas";

@@ -5,7 +5,7 @@
 // Over the Cockpit; the Session's `work` is draft data. Outside `scenarios/`, where every export is read as a row: the rows there are this, once for the
 // walk `compactSessionView` and once for `compactCallsInThread`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 

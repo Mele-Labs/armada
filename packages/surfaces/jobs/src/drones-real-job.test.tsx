@@ -9,7 +9,7 @@
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { featureOnItsPlan } from "./fake";
+import { featureOnItsPlan } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

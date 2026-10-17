@@ -38,8 +38,8 @@ import {
 import { Button, Radio, RadioGroup, limitHeldSaid, type FixRefusal } from "@armada/components";
 import type { BayActs } from "@armada/cleanup";
 import type { FixMain, JobSummary, Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
-import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
-import type { AskedOf, NowView } from "@armada/jobs/draft/now";
+import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/screens/src/draft/calls";
+import type { AskedOf, NowView } from "@armada/screens/src/draft/now";
 import type { NowActed } from "@armada/jobs";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";

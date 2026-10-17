@@ -98,7 +98,7 @@ Fleet then adds what it knows and the Drone does not: sibling workspaces, and th
 - **Fleet stops scheduling against the Job** for as long as it is piloted. The Job stays on the Board and leaves the scheduler.
 - **Worktree ownership transfers.** Fleet must not reclaim, clean or garbage-collect a piloted worktree.
 
-**The three exits live in two places**: on the piloting Session's ledger row for the Job, and on Job detail. Armada says nothing inside a terminal, so a way back cannot live there, and a person is as likely to be looking at the Session as at the Job. Submit for verification, Attest complete and Close as superseded render in both, and either one ends the pilot. Submitting returns the Job to `running` with no Drone assigned.
+**The three exits live on Job detail.** Armada says nothing inside a terminal, so a way back cannot live there. The piloting Session's ledger no longer draws the Job (17 Oct 2026: a Session's view shows nothing about Jobs), so the exits are not offered there. Submit for verification, Attest complete and Close as superseded end the pilot. Submitting returns the Job to `running` with no Drone assigned.
 
 ## Job state
 

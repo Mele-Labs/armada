@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 
 import { completeWhenSaid, membersOf, movesSaid } from "./members";
-import type { LandingRule } from "./draft/landing";
-import type { JobMembersView, MemberView } from "./draft/members";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
+import type { JobMembersView, MemberView } from "@armada/screens/src/draft/members";
 
 function member(over: Partial<MemberView> & Pick<MemberView, "job">): MemberView {
   return { title: "A member", status: "running", landed: false, ...over };
