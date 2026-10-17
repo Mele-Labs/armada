@@ -15,6 +15,7 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
+  NeedsYouEyebrow,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -928,7 +929,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
-            waiting={needs}
             {...(todos.length === 0 ? {} : { workingOn: { todos } })}
             {...(!doneShown
               ? {}
@@ -976,6 +976,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session, needs.length) ?? (session.lapsed === undefined || session.lapsed.id === answeredLapse ? undefined : "Unanswered")} scope={centre} />
+          <div className="sv-dock" data-needs={needs.length > 0 ? "" : undefined}>
+          <NeedsYouEyebrow rows={needs} />
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1027,6 +1029,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
               }}
             />
           )}
+          </div>
         </div>
       </SessionFrame>
       </SessionWorkspace>

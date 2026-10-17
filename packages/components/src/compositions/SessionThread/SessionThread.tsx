@@ -16,7 +16,7 @@ import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
-import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { ARTIFACT, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
@@ -207,11 +207,6 @@ export type SessionThreadProps = {
    * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
    */
   done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
-  /**
-   * What the Session waits on the person for, at the foot of the thread in every state, above the done callout once
-   * it has one: a band of one glyph per item, which a press opens to the rows. Empty or absent draws none.
-   */
-  waiting?: readonly LedgerEntry[];
   /**
    * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
    * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
@@ -1027,7 +1022,7 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1192,10 +1187,9 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}
-          {asking || (waiting !== undefined && waiting.length > 0) ? (
+          {asking ? (
             <li className="armada-session-thread__tail" aria-label="Waiting on you">
               {cards}
-              {waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
             </li>
           ) : null}
           {working === true && !endsInCalls ? (
@@ -1260,40 +1254,6 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
       )}
       </div>
     </div>
-  );
-}
-
-/** Folded, the band shows a glyph per item, named on hover; a press on the band opens the rows. */
-function NeedsYou({ rows }: { rows: readonly LedgerEntry[] }) {
-  const [open, setOpen] = useState(false);
-  const Fold = open ? ChevronDown : ChevronUp;
-  return (
-    <section className="armada-session-needs" aria-label="Needs you">
-      <button type="button" className="armada-session-needs__band" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <BellRing size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-session-needs__label">Needs you</span>
-        {open ? null : (
-          <span className="armada-session-needs__glyphs">
-            {rows.map((row) => {
-              const { Glyph } = waitingMark(row);
-              return (
-                <Tooltip key={row.key} label={row.name}>
-                  <span className="armada-session-mark" role="img" aria-label={row.name}>
-                    <Glyph size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              );
-            })}
-          </span>
-        )}
-        <Fold className="armada-session-needs__fold" size={12} strokeWidth={2} aria-hidden />
-      </button>
-      {open ? (
-        <div className="armada-session-needs__rows">
-          <LedgerRows kind="waiting" Glyph={BellRing} rows={rows} />
-        </div>
-      ) : null}
-    </section>
   );
 }
 

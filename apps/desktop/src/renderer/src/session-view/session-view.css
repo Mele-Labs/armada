@@ -294,8 +294,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
-.armada-session-frame .armada-session-needs__band,
-.armada-session-frame .armada-session-needs__rows,
+.armada-session-frame .armada-needs-eyebrow__sheet,
 .armada-session-frame .armada-session-working__band,
 .armada-session-frame .armada-session-working__rows,
 .armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
@@ -309,4 +308,8 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-callchip__press { position: absolute; inset-block-end: calc(var(--space-8) + var(--space-2)); inset-inline-start: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: var(--space-1); height: var(--h-control-sm); padding: 0 var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--status-awaiting-review); font: inherit; font-size: var(--text-xs); cursor: pointer; }
 .sv-callchip__press:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-raised)); }
 .sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
+
+/* The box the composer sits in. The Needs you tab draws up out of its top edge, so with something waiting it keeps the tab's height clear of the thread's foot. */
+.sv-dock { position: relative; flex: none; }
+.sv-dock[data-needs] { margin-block-start: var(--h-badge); }
 
