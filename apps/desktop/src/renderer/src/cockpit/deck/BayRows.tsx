@@ -5,7 +5,9 @@
 
 import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button, Tooltip } from "@armada/components";
+import { Button, Inspect, Tooltip } from "@armada/components";
+
+import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
 import { clockOf, holderKeyOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
@@ -202,6 +204,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
                   const holder = holderKeyOf(view);
                   return (
                     <li key={view.key}>
+                      <Inspect card={<BayCard view={view} repo={repo} />} name={`slot-${view.slot.slot}`} side="beside" pin={false}>
                       <button
                         type="button"
                         className="deck-bay"
@@ -219,6 +222,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
                       >
                         <Berth view={view} />
                       </button>
+                      </Inspect>
                     </li>
                   );
                 })}
