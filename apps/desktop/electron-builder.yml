@@ -5,7 +5,9 @@
 # `electron-vite preview` launches Electron's own bundle — so the switcher said
 # `Electron` no matter what `app.setName` was given. Measured: `setName` moves
 # `app.getName()` and nothing a person can see. Only a bundle of our own fixes
-# it, which is what this file makes.
+# it, which is what this file makes. `scripts/restart` makes the same fix for
+# the unpackaged Bridge the owner runs: a renamed, ad hoc signed copy of
+# Electron's bundle, handed over as `ELECTRON_EXEC_PATH`.
 appId: dev.armada.bridge
 productName: Armada
 
