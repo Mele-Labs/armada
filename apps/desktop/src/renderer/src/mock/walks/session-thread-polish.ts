@@ -9,7 +9,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { thread } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   return [
     { press: inside(sessions, button("CI timeout hunt")), say: "A terminal Session" },
     { look: inside(thread, text("Conversation compacted")), say: "The compaction summary is a quiet row, and not from the person" },

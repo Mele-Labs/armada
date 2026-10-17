@@ -1,5 +1,5 @@
 // A Session id in a thread links to that Session, written in backticks or plain, and an ended Session's
-// too. Code that is more than the id stays code. Through `App`; the walk `session-id-links` draws it.
+// too. Code that is more than the id stays code. Through `App`.
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";

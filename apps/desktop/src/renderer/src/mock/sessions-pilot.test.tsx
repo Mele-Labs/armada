@@ -1,8 +1,7 @@
 // Pilot from a Session on a real Fleet's path, through `App`: a person takes a stopped Job over from
 // its row, the Session starts on its worktree, and one of three exits ends the pilot. What stands where
 // main stands is `sessions-fleet.ts`, which answers the take over and the exits as Fleet does and
-// publishes the Job and the Session changing. The walk (`walks/piloting.ts`) proves what the screens
-// draw from fixtures; this proves they draw it from, and act on, what Fleet serves.
+// publishes the Job and the Session changing. This proves the screens draw it from, and act on, what Fleet serves.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";

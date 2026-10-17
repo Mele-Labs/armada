@@ -10,7 +10,7 @@ import { toSessions } from "../sessions/walk-kit";
 const TITLE = "Register the OAuth app";
 
 function steps(): Step[] {
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const needs = region("Needs you");
   const panel = dialog(TITLE);
   return [

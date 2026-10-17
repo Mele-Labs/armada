@@ -10,7 +10,7 @@ function steps(narrow: boolean): Step[] {
   const { ledger, message, opened, row, thread } = kit(narrow);
   const window = dialog("Bridge's window on Store clock findings");
   return [
-    { press: inside(region("Sessions"), button("Store clock findings")), say: "A Session with nothing shown yet" },
+    { press: inside(region("Work", { exact: true }), button("Store clock findings")), say: "A Session with nothing shown yet" },
     { type: "Show me what you found\n", into: message, say: "Asked to show it" },
     { look: window, say: "The window opened by itself, over the page" },
     { look: inside(thread, button("Open window Clock read report")), say: "A quiet row in the thread marks it" },

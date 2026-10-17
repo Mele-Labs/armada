@@ -6,7 +6,7 @@
 import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const ask = dialog("Move to another repository");
 
 const sessionMoveRepository = walk("session-move-repository", [

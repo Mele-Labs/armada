@@ -7,8 +7,8 @@ const THREAD = region("Thread");
 const LOG = dialog("Check log");
 
 export const sessionCheckLiveLog = walk("session-check-live-log", [
-  { press: place("Sessions"), say: "Sessions" },
-  { press: inside(region("Sessions"), button("Session check rows")), say: "A Session whose agent has a Check out" },
+  { press: place("Cockpit"), say: "Cockpit" },
+  { press: inside(region("Work", { exact: true }), button("Session check rows")), say: "A Session whose agent has a Check out" },
   { press: inside(THREAD, button("Check app_smoke, running")), say: "Pressing the one still out opens its log" },
   { look: inside(LOG, button("Stop")), say: "Stop asks it to wind down" },
   { look: inside(LOG, button("Force stop")), say: "Force stop ends it at once" },
