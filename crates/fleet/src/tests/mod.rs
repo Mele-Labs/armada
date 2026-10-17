@@ -266,6 +266,7 @@ mod session_piloting;
 mod session_proposal;
 mod session_rail;
 mod session_setup;
+mod session_pause;
 mod session_queue;
 mod session_slot_asking;
 mod session_slot_choice;
