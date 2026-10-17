@@ -100,6 +100,20 @@ async fn a_served_repositorys_areas_are_its_directories_to_depth_two_with_the_fi
         "the largest first, a file at the top in none"
     );
     assert_eq!(served.omitted, 0);
+    let named: Vec<(&str, Vec<&str>)> = served
+        .areas
+        .iter()
+        .flat_map(|area| {
+            let own = (area.dir.as_str(), area.names.iter().map(String::as_str).collect());
+            let kids = area.kids.iter().map(|kid| (kid.name.as_str(), kid.names.iter().map(String::as_str).collect()));
+            std::iter::once(own).chain(kids)
+        })
+        .collect();
+    assert_eq!(
+        named,
+        vec![("crates", vec![]), ("fleet", vec!["a.rs", "b.rs"]), ("ipc", vec!["c.rs"]), ("docs", vec!["d.md"])],
+        "a kid names its files, a top with kids none, a top without kids its own"
+    );
     assert_eq!(again, first);
     assert_eq!(rig.fleet.territory().tree_reads(), 1, "the second read asked git for the head only");
 
@@ -118,8 +132,8 @@ fn only_the_forty_largest_directories_are_listed_and_a_top_directory_is_never_cu
     for top in 0..30 {
         // Every directory inside a top one holds as many files as the top one, the tie that
         // would cut a parent first if parents were not listed first.
-        dirs.push(adapters::territory::Directory { path: format!("t{top:02}"), files: 5 });
-        dirs.push(adapters::territory::Directory { path: format!("t{top:02}/k"), files: 5 });
+        dirs.push(adapters::territory::Directory { path: format!("t{top:02}"), files: 5, names: Vec::new() });
+        dirs.push(adapters::territory::Directory { path: format!("t{top:02}/k"), files: 5, names: Vec::new() });
     }
 
     let (areas, omitted) = capped(dirs);
@@ -129,6 +143,21 @@ fn only_the_forty_largest_directories_are_listed_and_a_top_directory_is_never_cu
     assert_eq!(omitted, 20);
     assert_eq!(areas.len(), 20);
     assert!(areas.iter().all(|area| area.kids.len() == 1), "each top came with the directory inside it");
+}
+
+#[test]
+fn a_top_directory_with_kids_names_no_file_the_kid_already_names() {
+    let named = |path: &str, files: u32| adapters::territory::Directory {
+        path: path.into(),
+        files,
+        names: vec!["x.rs".into()],
+    };
+
+    let (areas, _) = capped(vec![named("a", 2), named("a/k", 1), named("b", 1)]);
+
+    assert!(areas[0].names.is_empty(), "a has a kid, which names x.rs");
+    assert_eq!(areas[0].kids[0].names, vec!["x.rs".to_string()]);
+    assert_eq!(areas[1].names, vec!["x.rs".to_string()], "b has none, so it names its own");
 }
 
 #[tokio::test]
