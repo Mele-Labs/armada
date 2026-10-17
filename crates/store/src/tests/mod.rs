@@ -22,6 +22,7 @@ mod rebuilding;
 mod session_build;
 mod repositories;
 mod review_runs;
+mod walk_places;
 mod session_checks;
 mod session_ledger;
 mod session_plan;

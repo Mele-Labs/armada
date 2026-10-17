@@ -2,7 +2,7 @@
 // shapes** (`review-runs.ts`); this is the one place they meet the explanation's themes, the other explanations' accounts,
 // an answer's text and a tool's findings.
 
-import type { ReviewFinding, ReviewResult, ReviewRun } from "@armada/protocol";
+import type { ReviewFinding, ReviewMatch, ReviewResult, ReviewRun, WalkPlace } from "@armada/protocol";
 
 import type { Account, AgentRun, Explanation, Finding, PatchRead, ToolDef, ToolMark } from "./model";
 import { sliceAround } from "./patch";
@@ -10,9 +10,9 @@ import { sliceAround } from "./patch";
 /** A run is one per kind and name. The head it ran on does not name it: a newer run replaces the older. */
 export const runKey = (kind: ReviewRun["kind"], name: string): string => `${kind}:${name}`;
 
-const MARKS: Readonly<Record<string, ToolMark>> = { risks: "risks", "possible-bugs": "bugs", "api-breaking-changes": "breaks" };
+const MARKS: Readonly<Record<string, ToolMark>> = { risks: "risks", "possible-bugs": "bugs", "api-breaking-changes": "breaks", walk: "walk" };
 
-/** A definition Fleet resolved, as the surface holds it. Armada's three tools have a mark each; any other takes the clipboard. */
+/** A definition Fleet resolved, as the surface holds it. Armada's four tools have a mark each; any other takes the clipboard. */
 export const toolDefOf = (tool: { id: string; kind: ToolDef["kind"]; name: string; prompt: string; source: ToolDef["source"]; replaces?: ToolDef["source"] }): ToolDef => ({
   id: tool.id,
   kind: tool.kind,
@@ -87,3 +87,32 @@ export const answerOf = (result: ReviewResult | undefined): string | undefined =
 
 /** A place as `path:12` or `path:12-14`, for a line of words that names where a finding is. */
 export const placeSaid = (at: { path: string; start: number; end: number }): string => `${at.path}:${at.end > at.start ? `${at.start}-${at.end}` : at.start}`;
+
+/** What he typed, trimmed and single spaced. */
+export const wordsOf = (words: string): string => words.trim().replace(/\s+/g, " ");
+
+/** A search's name at Fleet: his words lower cased and single spaced, which is also the run's name. */
+export const searchName = (words: string): string => wordsOf(words).toLowerCase();
+
+/** The list a search is drawn as in the dropdown. The prefix keeps it from sharing an id with one of the four. */
+export const SEARCH_PREFIX = "search:";
+export const searchId = (name: string): string => `${SEARCH_PREFIX}${name}`;
+
+/** The pull requests a search turned up, each with why. A run that is not a finished search has none. */
+export const matchesOf = (run: ReviewRun): readonly ReviewMatch[] => (run.state === "done" && run.result?.shape === "matches" ? run.result.matches : []);
+
+/** The walk a run wrote, in whichever shape: the place it was written against and its steps or requests. */
+export type WalkWritten = Extract<ReviewResult, { shape: "web_walk" | "api_walk" }>;
+
+export const walkOf = (run: ReviewRun | undefined): WalkWritten | undefined =>
+  run?.state === "done" && (run.result?.shape === "web_walk" || run.result?.shape === "api_walk") ? run.result : undefined;
+
+/** A place in words, for a line and a row: where it is, and what starts it where it is pulled down. */
+export function placeWords(place: WalkPlace): string {
+  const api = place.api === undefined ? "" : `API at ${place.api}`;
+  if (place.how === "deployed") return [place.address === undefined ? "" : `Deployed at ${place.address}`, api].filter((one) => one !== "").join(", ");
+  return [`Pull it down, run ${place.command ?? ""}`.trim(), place.address === undefined ? "" : `at ${place.address}`, api].filter((one) => one !== "").join(", ");
+}
+
+/** An area as it is shown: a directory, with its slash. */
+export const areaShown = (area: string): string => (area === "" || area.endsWith("/") ? area : `${area}/`);

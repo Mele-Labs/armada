@@ -1,0 +1,8 @@
+[operations.forget_review_search]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Drop a kept Natural Search from the list"
+notes = """
+`POST /review_searches/forget`, body `ForgetReviewSearch`: the `words`, read as `start_review_search` keys them (lower cased, single spaced). Deletes the kept row, so the search is gone after a restart too, and answers `ReviewRuns`, the searches kept now. A search that is not kept is not an error. A search still going is not stopped: it finishes and is kept again, so Remove waits for a running one.
+"""

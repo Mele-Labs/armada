@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 
 import type { PatchRead } from "./model";
 import { counted, linesOfPatch, placeOfLine } from "./patch";
-import { accountOf, agentRunOf, answerOf, explanationOf, findingsOf, placeSaid, runKey, toolDefOf } from "./runs";
+import { accountOf, agentRunOf, answerOf, areaShown, explanationOf, findingsOf, matchesOf, placeSaid, placeWords, runKey, searchId, searchName, toolDefOf, walkOf, wordsOf } from "./runs";
 
 const PATCH = ["@@ -10,6 +10,7 @@", " a", " b", " c", "-d", "+D", "+E", " f", " g", "@@ -40,3 +41,3 @@", " x", "-y", "+Y", " z"].join("\n");
 const patches = (): Record<string, PatchRead> => ({ "a.rs": { state: "read", lines: linesOfPatch("a.rs", PATCH) } });
@@ -108,4 +108,37 @@ test("Armada's three tools have a mark each and any other definition takes the c
   const def = (id: string) => toolDefOf({ id, kind: "tool", name: id, prompt: "p", source: "armada" });
   expect([def("risks").mark, def("possible-bugs").mark, def("api-breaking-changes").mark, def("test-gaps").mark]).toEqual(["risks", "bugs", "breaks", "custom"]);
   expect(toolDefOf({ id: "x", kind: "explanation", name: "X", prompt: "p", source: "kit", replaces: "armada" })).toMatchObject({ agent: true, checks: "p", replaces: "armada" });
+});
+
+test("a search is named by his words, lower cased and single spaced, behind a prefix no list shares", () => {
+  expect(wordsOf("  PRs that   touch Fleet ")).toBe("PRs that touch Fleet");
+  expect(searchName("  PRs that   touch Fleet ")).toBe("prs that touch fleet");
+  expect(searchId(searchName("Billing PRs"))).toBe("search:billing prs");
+});
+
+test("only a finished search has matches", () => {
+  const pull = { manifest_id: "m1", repository: "o/r", number: 7, title: "T", branch: "b", address: "a", draft: false, checks: "passed", review: "none", head: "h", author: "x", updated_at: "2026-10-16T10:00:00Z" } as const;
+  const base: ReviewRun = { manifest_id: "*", number: 0, kind: "search", name: "billing", head: "", state: "done", started_at: "2026-10-16T10:00:00Z", result: { shape: "matches", matches: [{ pull, reason: "touches billing" }] } };
+  expect(matchesOf(base)).toHaveLength(1);
+  expect(matchesOf({ ...base, state: "running" })).toEqual([]);
+  expect(matchesOf({ ...base, result: { shape: "text", body: "" } })).toEqual([]);
+});
+
+test("a walk is the finished run's web or API walk, with the place it was written against", () => {
+  const place = { how: "deployed", address: "https://x.test" } as const;
+  const web: ReviewRun = { manifest_id: "m1", number: 1, kind: "tool", name: "walk", head: "h", state: "done", started_at: "2026-10-16T10:00:00Z", result: { shape: "web_walk", place, steps: [] } };
+  expect(walkOf(web)?.place).toEqual(place);
+  expect(walkOf({ ...web, result: { shape: "api_walk", place, requests: [] } })?.shape).toBe("api_walk");
+  expect(walkOf({ ...web, state: "running" })).toBeUndefined();
+  expect(walkOf({ ...web, result: { shape: "findings", findings: [] } })).toBeUndefined();
+  expect(walkOf(undefined)).toBeUndefined();
+});
+
+test("a place is said as where it is and what starts it", () => {
+  expect(placeWords({ how: "deployed", address: "https://x.test" })).toBe("Deployed at https://x.test");
+  expect(placeWords({ how: "deployed", address: "https://x.test", api: "https://api.test" })).toBe("Deployed at https://x.test, API at https://api.test");
+  expect(placeWords({ how: "pull", command: "pnpm dev", address: "http://localhost:5173" })).toBe("Pull it down, run pnpm dev, at http://localhost:5173");
+  expect(placeWords({ how: "pull", command: "armada fleet --dev", api: "http://localhost:7420" })).toBe("Pull it down, run armada fleet --dev, API at http://localhost:7420");
+  expect(areaShown("crates/fleet")).toBe("crates/fleet/");
+  expect(areaShown("crates/fleet/")).toBe("crates/fleet/");
 });

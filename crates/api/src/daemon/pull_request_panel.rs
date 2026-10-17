@@ -8,9 +8,9 @@
 use std::future::Future;
 
 use ipc::{
-    ManifestId, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved,
-    ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun,
-    WritePullRequest,
+    ForgetReviewSearch, ManifestId, OpenReviewWalk, PullRequestFilePatch, PullRequestPage, PullReviewLists,
+    PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools,
+    ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest,
 };
 
 use crate::daemon::Refusal;
@@ -90,4 +90,63 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         number: u64,
     ) -> impl Future<Output = Result<ReviewRuns, Refusal>> + Send;
+
+    /// `start_review_search` — Natural Search: the person's words put to every open pull request
+    /// of the served repositories. **Answers at once**, as `start_review_run` does.
+    /// [`Refusal::Unacceptable`] for blank or over-long words; [`Refusal::Fault`] where the forge
+    /// would not list the open pull requests.
+    fn start_review_search(
+        self: std::sync::Arc<Self>,
+        start: StartReviewSearch,
+    ) -> impl Future<Output = Result<ReviewRun, Refusal>> + Send;
+
+    /// `get_review_searches` — every search kept or going, newest first.
+    fn get_review_searches(&self) -> impl Future<Output = Result<ReviewRuns, Refusal>> + Send;
+
+    /// `forget_review_search` — drop a kept search. Answers the searches kept now.
+    fn forget_review_search(
+        &self,
+        forget: ForgetReviewSearch,
+    ) -> impl Future<Output = Result<ReviewRuns, Refusal>> + Send;
+
+    /// `find_walk_place` — where a pull request's change runs, from the pull request and then from
+    /// what Fleet remembers. **Reads and spends nothing.**
+    fn find_walk_place(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> impl Future<Output = Result<WalkPlaceFound, Refusal>> + Send;
+
+    /// `list_walk_places` — every place Fleet remembers a change runs.
+    fn list_walk_places(&self) -> impl Future<Output = Result<RememberedPlaces, Refusal>> + Send;
+
+    /// `save_walk_place` — remember where changes to an area run. [`Refusal::Unacceptable`] for a
+    /// place that cannot be walked or an area that is not a directory of the repository.
+    fn save_walk_place(
+        &self,
+        manifest_id: ManifestId,
+        save: SaveWalkPlace,
+    ) -> impl Future<Output = Result<RememberedPlace, Refusal>> + Send;
+
+    /// `forget_walk_place` — stop remembering a place. Answers what is kept now.
+    fn forget_walk_place(
+        &self,
+        manifest_id: ManifestId,
+        id: String,
+    ) -> impl Future<Output = Result<RememberedPlaces, Refusal>> + Send;
+
+    /// `open_review_walk` — hold up the place a pull request's change runs. **Answers at once**;
+    /// a pulled-down place's progress arrives as `review_walk.changed`.
+    fn open_review_walk(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        open: OpenReviewWalk,
+    ) -> impl Future<Output = Result<ReviewWalk, Refusal>> + Send;
+
+    /// `close_review_walk` — stop a held walk's server and give its bay back. Idempotent.
+    fn close_review_walk(
+        &self,
+        manifest_id: ManifestId,
+        id: String,
+    ) -> impl Future<Output = Result<ReviewWalk, Refusal>> + Send;
 }

@@ -245,6 +245,10 @@ impl Vcs for GitVcs {
         noted(crate::leasing::hosted::release_review(pool, slot, holder))
     }
 
+    fn paths_touched_by(&self, pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
+        crate::history::paths_touched_by(pool.repo_root(), authors, commits)
+    }
+
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
         crate::leasing::hosted::standing(pool, slot, job_id)
     }

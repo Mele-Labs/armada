@@ -21,6 +21,9 @@ pub enum ReviewList {
     Assigned,
     /// Opened by the person.
     Mine,
+    /// Every open pull request of the repositories, whoever it names. Natural Search's read:
+    /// `ReviewListAsk::login` is not used.
+    Open,
 }
 
 /// One list read: whose, and across which repositories. **One forge call for all of them**, so the

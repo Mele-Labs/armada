@@ -1,0 +1,8 @@
+[operations.get_review_searches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every Natural Search kept or going, with its matches and when it ran"
+notes = """
+`GET /review_searches`. `ReviewRuns`, newest first, every run of kind `search`. Read when the Reviews tab opens and after a reconnect, since `review_run.changed` is not replayed. Searches are kept until the person removes them from Bridge's list; Bridge forgets one on its own side and Fleet keeps the row.
+"""

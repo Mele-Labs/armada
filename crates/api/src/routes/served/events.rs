@@ -58,6 +58,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A pulled-down walk's place moved: checking out, starting, ready, failed or closed, whole.
+    Route {
+        operation: "review_walk.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The default model's step down after any change to it, whole.
     Route {
         operation: "model_downshift.changed",

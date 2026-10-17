@@ -1,0 +1,14 @@
+[operations.start_review_search]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Natural Search: ask an agent, read-only, which open pull requests of the served repositories match the person's words, each with one line saying why"
+notes = """
+`POST /review_searches`, body `StartReviewSearch`: `words` and `again`. **Answers at once** with a `ReviewRun` of kind `search`, kept under the `manifest_id` and `number` `*` and `0` (`SEARCH_RUN_SCOPE`), with an empty `head` and the words, lower cased and single spaced, as its `name`. Its progress and result arrive as `review_run.changed`, and `get_review_searches` reads them again.
+
+**Only a press starts one.** Without `again`, a search kept under the same words is answered as it stands, with no run and no spend. With `again` it runs and replaces the kept one. **A kept search has no out-of-date mark**: it is kept with when it ran, and the person runs it again if they want newer.
+
+**What the run is given, and what it can do.** Fleet reads the open pull requests of every served repository through the forge adapter (the newest few dozen, with their titles, authors, branches and changed files), and, for the paths the person has touched, the local git history of each repository under the logins `my_pulls` already knows. It makes one model call, `models.review`, **with no tools at all**: nothing to read, no shell, no network. The answer is JSON, `{"matches": [{"repository": "owner/name", "number": 12, "reason": "..."}]}`, and **a match that names a pull request that was not in what Fleet gathered is refused**: the run fails with its reason and no match is ever shown. An empty list is an answer.
+
+A 422 `fleet.review_blank` for words with nothing in them or too long to be a question, and a 500 `fleet.review_lists_unreadable` where the forge would not list any repository's open pull requests.
+"""

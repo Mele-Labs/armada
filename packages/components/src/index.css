@@ -329,6 +329,7 @@
 @import "./compositions/SessionThread/MovedRow.css";
 @import "./compositions/SessionThread/WaiterRow.css";
 @import "./compositions/SessionThread/LinkedRow.css";
+@import "./compositions/SessionThread/PlanRevision.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/AskCard/AskCard.css";
