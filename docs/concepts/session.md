@@ -60,7 +60,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
-The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title, the first line of what a turn ended on, as the reply (*What a Session is doing*), and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. **The mod also sends the text of each item on the task list the agent wrote**, read from the task tools it already calls (*The build record*). A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
+The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title, the first line of what a turn ended on, as the reply (*What a Session is doing*), and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. **The mod also sends the text of each item on the task list the agent wrote**, read from the task tools it already calls (*The build record*).
 
 ## What is kept
 
@@ -71,14 +71,13 @@ Two tables, in `crates/store`. The second is not the first's child.
 | `sessions` | A session: harness, origin, repository, directory, title, `live` or `ended`, when it started, was last seen and last finished a turn, the figures it last reported | `id`, the harness's own |
 | `ledger_attachments` | One thing a holder took or did | `holder_kind`, `holder_id`, `kind`, `manifest_id`, `target` |
 
-A holder is `{ kind: session, id }` and points at neither table, so a need can hold rows without a table of its own. A `kind` is open text:
+A holder is `{ kind: session, id }` and points at neither table, so another kind of holder can hold rows without a table of its own. A `kind` is open text:
 
 | `kind` | `target` | Held until |
 |---|---|---|
 | `slot` | the slot's number | the session leaves it, the pool shows it held by another or free, or the session ends |
 | `branch` | the branch's name | the session checks out another, its slot is given back, or it ends |
 | `pr` | the pull request's number | it merges (`spent`) or closes (`given_back`) |
-| `need` | the path, repository-relative | its holder's work merges (`spent`), or the holder is gone or releases it (`given_back`). Not exclusive: `docs/capabilities/needs.md` |
 | `subagent` | the agent's id | it stops (`spent`) or its process is cut off (`given_back`); more work after either holds it again, *A terminal session's thread* |
 | `background` | the task id the harness gave a shell command the agent ran beside its turn (`run_in_background`) or a `Monitor` watch; `detail.form` is `command` or `monitor`, `task` its description, `command` the command, and once it ends `status` (`completed`, `failed` or `killed`), `output` (the file its output went to) and `exit` (the code, for a command that exited on its own) | the task ends (`spent`, with `status`), or the process that ran it is replaced (`given_back`). Several stand at once, and a hosted Session's only; *Background tasks* |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
@@ -118,13 +117,13 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **The ledger draws every slot the Session holds.** It keeps one `slot` row, the slot the Session works in, so a slot its subagent leased has no row of its own. Its record is drawn with a `slot` for each other slot whose lease is the Session's, by Fleet's lease or a subagent's `armada worktree lease` naming it (`crate::slot_holders::slots_of`). A terminal Session that moved out of a slot gave it up though its shell still holds the lease, so a slot the ledger gave back for one is not drawn again. The owner, 15 Oct 2026.
 
-**One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the holder of a need, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`); the write-clash table adds every other slot the Session holds. Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
+**One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`); the write-clash table adds every other slot the Session holds. Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
 ### Releasing what a Session holds
 
-**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch`, `pr` and `need` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>`, and each slot's lease moves to it as it stands, held by its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act. **Each held row of the Session's ledger also carries its own Release**, shown on hover or focus, which confirms the one row and sends it alone with no target; the row then reads given back, or says why Fleet kept it. The owner, 16 Oct 2026: "I should also be able to release items from the ledger panel one by one."
+**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch` and `pr` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>`, and each slot's lease moves to it as it stands, held by its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act. **Each held row of the Session's ledger also carries its own Release**, shown on hover or focus, which confirms the one row and sends it alone with no target; the row then reads given back, or says why Fleet kept it. The owner, 16 Oct 2026: "I should also be able to release items from the ledger panel one by one."
 
 ### Which machine owned a pull request
 
@@ -417,6 +416,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks every slot held for the session and ends what ran in it, ends the row and its walk. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `stop_session` | Ends the turn that is running and leaves the row live (*Stopping a turn*) |
+| `pause_session`, `resume_session` | Parks the Session's work on its branch and gives its slot back, and takes a slot again (*Pausing a Session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -751,6 +751,8 @@ A terminal Session reports the files it wrote through the mod's `touched` fact, 
 
 **A Session that held a slot is told when the slot is stranded.** When a slot a Session held last has work in it and nothing holds it now, Fleet sends that Session one message, once. It names the slot and its branch, what the slot holds, and asks the Session to commit, push and release it. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
+**A Session whose slot is far behind its base is told to merge it.** When the checkout a Session holds is 20 or more commits behind the base, Fleet sends that Session one message: `slot-4 (branch armada/x) is 684 commits behind main. Merge main into your branch before your next push.` The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from. It is sent once. The Session is told again only after the slot has fallen below 20 and then behind again, and a Fleet that restarts may say it once more. A Job's slot, a free slot, a stranded slot and a subagent's bay are not told, and the owner is not called: merging the base in is the agent's work.
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number.
@@ -1009,6 +1011,24 @@ A layer covers the thread and the composer, which stay mounted under it: Back (t
 **A terminal Session has no Stop.** Fleet does not host its process and refuses the act.
 
 **Debug Bridge starts a Session with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note and leaves the note and its picture in the message box as a draft (`annotate/debug-draft.ts`). The first turn is the person's Enter, with whatever he added. `docs/practices/running-locally.md`, *Annotating Bridge*.
+
+## Pausing a Session
+
+**A pause gives the slot back and keeps the Session.** `pause_session` (`POST /sessions/pause`, 23.92) ends the running turn as `stop_session` does, commits what is in the Session's slot to the branch the checkout is on as a `WIP:` commit (nothing is pushed; a checkout on no branch or on the base gets a `kept/` branch), and frees the slot for the pool. The row stays live in the list and carries `hosted.paused` (`at`, `resuming`). It is not a state: `state` is `live` and `hosted.turn` is `idle`. The ledger's `slot` row is given back and its `branch` row stays, since the Session still owns the branch. It is the Job pause (`job.md`, *Pausing a Job*) for a Session, and it reuses the same park.
+
+**A resume takes a slot at the branch tip.** `resume_session` (`POST /sessions/resume`) leases the branch into a free slot and clears the marker. It starts no turn. **It never forces another holder out**: where every slot is held, or Sessions already wait, the Session joins the repository's line and the row reads `hosted.paused.resuming` until the first slot to free is leased to it. A pause while it waits calls the wait off.
+
+**A message to a paused Session resumes it**, as a stopped Session's next message resumes its conversation: the lease is taken before the process starts, and a full pool leaves the Session paused and waiting.
+
+| Refused | Code |
+|---|---|
+| Ended, a Helm, or holding no slot | 409 `fleet.session_not_pausable` |
+| Paused already | 409 `fleet.session_already_paused` |
+| Not paused (resume) | 409 `fleet.session_not_paused` |
+| The pool or git will not park the work or seat the branch | 409 `fleet.session_pause_refused` |
+| A terminal Session | 422 `fleet.session_command_refused` |
+
+**What it does not do.** Only the slot the ledger records for the Session is parked; one a subagent of the Session leased stays held. The marker is kept in `hosted_sessions` (`paused_at`, `paused_resuming`), so it survives a Fleet restart; a restart forgets the line, and the Session's next message joins it again.
 
 ## What a message names
 

@@ -363,6 +363,7 @@ where
             writes: Arc::default(),
             territory: Arc::default(),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
+            behind_told: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
             peers: fittings.peers,

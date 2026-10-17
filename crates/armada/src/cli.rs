@@ -13,13 +13,11 @@
 //! command line is read the same way: an unknown flag beside a missing name is
 //! two lines, so one correction fixes both.
 
-mod need;
 mod worktree;
 
 use std::fmt;
 use std::path::PathBuf;
 
-pub use need::NeedAct;
 pub use worktree::WorktreeAct;
 
 /// What the caller asked for.
@@ -50,8 +48,6 @@ pub enum Verb {
     SessionKeep { args: Vec<String> },
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
-    /// What a branch needs on a path — `docs/capabilities/merge-line.md`.
-    Need(NeedAct),
     /// The Phone Gateway, until it is signalled.
     Pocket {
         port: u16,
@@ -100,10 +96,6 @@ const VERBS: &[(&str, &str)] = &[
         POCKET,
         "run the Phone Gateway on 127.0.0.1, for `tailscale serve` to put in front of the phone",
     ),
-    (
-        NEED,
-        "declare what this branch needs on a path, and hear who is ahead of it",
-    ),
 ];
 
 /// The verb an agent's MCP configuration names.
@@ -123,8 +115,6 @@ pub const CHANGED: &str = "--changed";
 pub const SESSION_KEEP: &str = "session-keep";
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
-/// What a branch needs on a path.
-pub const NEED: &str = "need";
 /// The Phone Gateway.
 pub const POCKET: &str = "pocket";
 /// The port the Gateway listens on when `--port` is not given.
@@ -215,7 +205,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             })
         }
         WORKTREE => worktree::read(rest, &mut faults),
-        NEED => need::read(rest, &mut faults),
         POCKET => pocket(rest, &mut faults),
         _ => {
             faults.push(Fault::NoSuchVerb {
@@ -334,10 +323,6 @@ pub enum Fault {
     },
     /// `worktree lease` with no branch after it.
     NoBranch,
-    /// `need` with something other than its four forms.
-    NeedForm {
-        shapes: String,
-    },
     /// `worktree remove`, `close` or `open` without a slot's number.
     NoSlot {
         form: String,
@@ -418,9 +403,6 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
             ),
-            Fault::NeedForm { shapes } => {
-                write!(out, "`armada {NEED}` takes one of {shapes}")
-            }
             Fault::NoSlot { form } => write!(
                 out,
                 "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
@@ -439,10 +421,6 @@ impl fmt::Display for Usage {
         for (verb, what) in VERBS {
             if *verb == WORKTREE {
                 worktree::usage(out)?;
-                continue;
-            }
-            if *verb == NEED {
-                need::usage(out)?;
                 continue;
             }
             let shape = match *verb {

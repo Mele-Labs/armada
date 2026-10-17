@@ -54,7 +54,6 @@ const held = (over: Partial<Session> = {}): Session =>
       { kind: "pull_request", number: 2430, title: "Ledger rows", branch: "fix/ledger", address: "", checks: { state: "none" }, state: "open", auto: false },
       { kind: "pull_request", number: 2401, title: "Old one", branch: "x", address: "", checks: { state: "none" }, state: "merged", auto: false },
     ],
-    needs: [{ path: "crates/ipc", what: "a new operation" }],
     rows: [],
     turn: { state: "idle" },
     ...over,
@@ -65,7 +64,6 @@ test("Release names each thing the Session holds, and leaves a merged pull reque
     ["slot", "slot-3"],
     ["branch", "fix/ledger"],
     ["pr", "#2430 Ledger rows"],
-    ["need", "crates/ipc"],
   ]);
 });
 
@@ -86,7 +84,7 @@ test("Fleet's rows are named as the confirmation named them", () => {
 test("Release is off where the Session holds nothing or nothing serves it", () => {
   const draft = { releaseHolds: async () => undefined, commands: [] } as unknown as SessionsDraft;
   expect(offeredOf(held(), draft, "/code").off.release).toBeUndefined();
-  expect(offeredOf(held({ attachments: [], needs: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
+  expect(offeredOf(held({ attachments: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
   expect(offeredOf(held(), { commands: [] } as unknown as SessionsDraft, "/code").off.release).toBe("Fleet does not offer this");
 });
 
@@ -98,8 +96,8 @@ test("a ledger row's Release names the row as the tile's confirmation does, and 
 });
 
 test("the tiles take the digits 1 to 9 and then 0, and the last has none", () => {
-  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined]);
-  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot"]);
+  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined, undefined]);
+  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot", "pause"]);
 });
 
 test("Subagents and Checks are off with nothing to list, and Bays is off where the Session holds no bay", () => {

@@ -51,8 +51,7 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 - **At most two children at once.** Each pushes its branch and stops; the parent
   lands it (2 Oct).
-- **Lease a slot** for a child, and name `armada need` in a brief for a wire
-  change (7 Oct).
+- **Lease a slot** for a child (7 Oct).
 - **Never run or brief `rustfmt` or `cargo fmt`** (8 Oct).
 - **A brief that adds user-facing strings** carries the voice check: facts only,
   no narration, no dashes, read against `armada-voice` and the `humanizer` rules

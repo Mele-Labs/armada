@@ -380,6 +380,16 @@ it("sends each act to its own route with the session named, and folds what Fleet
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Fleet's answer" }] });
 });
 
+it("pauses and resumes a session on their own routes with the session named", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  await sessions.pause("a");
+  await sessions.resume("a");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/pause", "POST /sessions/resume"]);
+  expect(sent.map((one) => one.body)).toEqual([{ session_id: "a" }, { session_id: "a" }]);
+});
+
 it("claims a pull request on its own route with the session named, and holds nothing of the answer", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);

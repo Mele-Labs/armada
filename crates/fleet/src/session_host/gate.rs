@@ -331,7 +331,7 @@ where
 
     /// The session is in the repository's line for a slot, and the person has been asked what to
     /// do about it if this is its first time there. How many are ahead of it.
-    async fn line_joined(&self, manifest: &str, id: &str) -> usize {
+    pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
         let (ahead, fresh) = queue.join(manifest, id, &self.instant());
         if fresh {
@@ -361,25 +361,30 @@ where
                 directory: Self::directory_of(served, &hosting),
             };
         }
-        let spec = match WorktreeSpec::for_job(served.root(), &format!("session-{}", &id[..8])) {
-            Ok(spec) => spec,
-            Err(why) => return Taken::Refused(format!("no slot could be named: {why:?}")),
-        };
         let pool = crate::leasing::pool_of(served);
-        let (slot, directory, branch) =
-            match self.vcs().lease_slot(&pool, &spec, id) {
-                Ok(SlotLeased::Took { slot, worktree, .. }) => (
-                    slot,
-                    worktree.path().to_string(),
-                    worktree.branch().to_string(),
-                ),
-                Ok(SlotLeased::Full) => return Taken::Full,
-                Err(why) => {
-                    return Taken::Refused(format!(
-                        "A slot could not be leased for this write: {why}"
-                    ))
-                }
-            };
+        // **A paused session is seated on its own branch at the tip**, not on a fresh one.
+        let parked_on = hosting.paused_at.is_some().then(|| hosting.lease_branch.clone()).flatten();
+        let leased = match &parked_on {
+            Some(branch) => self.vcs().lease_existing_slot(&pool, branch, id),
+            None => match WorktreeSpec::for_job(served.root(), &format!("session-{}", &id[..8])) {
+                Ok(spec) => self.vcs().lease_slot(&pool, &spec, id),
+                Err(why) => return Taken::Refused(format!("no slot could be named: {why:?}")),
+            },
+        };
+        let (slot, directory, branch) = match leased {
+            Ok(SlotLeased::Took { slot, worktree, .. }) => (
+                slot,
+                worktree.path().to_string(),
+                worktree.branch().to_string(),
+            ),
+            Ok(SlotLeased::Full) => return Taken::Full,
+            Err(why) => {
+                return Taken::Refused(format!("A slot could not be leased for this write: {why}"))
+            }
+        };
+        let was_paused = parked_on.is_some();
+        hosting.paused_at = None;
+        hosting.paused_resuming = false;
         hosting.lease_slot = Some(slot);
         hosting.lease_branch = Some(branch.clone());
         let now = self.now().as_str().to_string();
@@ -409,6 +414,12 @@ where
             let _ = store.keep_session(&row);
         }
         self.session_slot(id, titled, Some(hosting.manifest_id.clone()), slot, true);
+        // No process runs and none is moved: a resume starts nothing, and a message that
+        // resumes it starts its process in this directory.
+        if was_paused {
+            let _ = self.published_hosted(id).await;
+            return Taken::Held { slot, directory };
+        }
         let moving = Move {
             slot,
             branch: branch.clone(),

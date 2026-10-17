@@ -172,6 +172,20 @@ impl Vcs for GitVcs {
         })
     }
 
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        noted(crate::leasing::hosted::lease_existing(pool, branch, job_id)).map_err(|refused| {
+            CreateWorktreeError::SlotNotLeased {
+                repo: pool.repo_root().to_string(),
+                why: refused.said(),
+            }
+        })
+    }
+
     fn park_slot(
         &self,
         pool: &SlotPool,
