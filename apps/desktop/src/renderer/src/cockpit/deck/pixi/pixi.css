@@ -1,0 +1,4 @@
+/* The canvas map: one layer over the pane, the canvas under whatever is placed over it. The pane, not the canvas, takes the pointer, so the
+   camera's hand, wheel and keys work as they do on the CSS plane. */
+.bf-pixi { position: absolute; inset: 0; overflow: hidden; }
+.bf-pixi > canvas { display: block; position: absolute; inset: 0; pointer-events: none; }

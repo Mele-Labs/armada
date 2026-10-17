@@ -19,6 +19,9 @@ import { Doings } from "./Doings";
 import { Drone } from "./Drone";
 import { Lifted } from "./Lifted";
 import { Pins, RouteLegs, tipOf } from "./Route";
+import { PixiMap } from "./pixi/PixiMap";
+import { sceneOf as pixiSceneOf } from "./pixi/scene";
+import { mapRenderer } from "./pixi/switch";
 import { Base, FileBar, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
 import { onPlane, px, vars } from "./bf-parts";
 import { LOCK_EYE, MISSION_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
@@ -314,6 +317,12 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     }
   }
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
+  // The canvas map is handed what the CSS one draws from, read once: its scene changes only when one of these does.
+  const canvas = mapRenderer() === "pixi";
+  const pixiScene = useMemo(
+    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed }) : undefined),
+    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed],
+  );
   const transform = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, ${px(0)})`;
   const locateWord = scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection";
 
@@ -335,7 +344,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         </filter>
         <rect width="100%" height="100%" filter="url(#bf-noise)" />
       </svg>
-      <div className="bf-origin">
+      {canvas ? <PixiMap size={size} cam={eff} live={view.live} scene={pixiScene!} onGround={() => { setPinned(undefined); onClear?.(); }} /> : null}
+      {canvas ? null : <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
           <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => {
             if ((event.target as Element).closest("[role=option]") !== null) return;
@@ -510,7 +520,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
             })}
           </div>
         </div>
-      </div>
+      </div>}
       <div className="bf-haze" aria-hidden="true" />
       {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
       {[...new Map([...gone, ...calls])].map(([key, tone]) => {
