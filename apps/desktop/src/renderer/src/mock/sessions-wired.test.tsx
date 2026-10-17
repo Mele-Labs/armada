@@ -11,10 +11,9 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, toPageByName, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
-// The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -26,18 +25,7 @@ function served(fleet: FakeSessionsFleet): Scenario {
   return fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root }));
 }
 
-async function onSessions(): Promise<void> {
-  await onScreen();
-  await toPlace("Sessions");
-}
-
-const sessions = () => page.getByRole("region", { name: "Sessions" });
-
-test("Sessions wired: a Fleet that serves no Sessions leaves the Sessions tab off", async () => {
-  mount(onBoard([], { repositories: [ARMADA], picked: ARMADA.root }));
-  await onScreen();
-  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Sessions" })).not.toBeInTheDocument();
-});
+const work = () => page.getByRole("region", { name: "Work", exact: true });
 
 test("Sessions wired: a session Fleet holds is listed by its title, and a terminal session beside it", async () => {
   const fleet = new FakeSessionsFleet([
@@ -45,26 +33,9 @@ test("Sessions wired: a session Fleet holds is listed by its title, and a termin
     terminal("01TERMINALBBBBBBBBBBBBBBBB", { title: "Release notes script" }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
-  await expect.element(sessions().getByRole("button", { name: "Release notes script" })).toBeVisible();
-});
-
-test("Sessions wired: a new Session starts on the picked repository, opens blank, and its message goes to Fleet with what was tagged", async () => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "New Session" }));
-  await expect.element(page.getByRole("region", { name: /^Session s-01SESSIO/ })).toBeVisible();
-  expect(fleet.calls.started).toBe(1);
-  await expect.poll(() => new Set(fleet.calls.watched).size).toBe(1);
-
-  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Fix the flaky store test");
-  await userEvent.click(page.getByRole("button", { name: "Send" }));
-  await expect.poll(() => fleet.calls.sent.length).toBe(1);
-  expect(fleet.calls.sent[0]).toMatchObject({ text: "Fix the flaky store test" });
-  // The person's own row comes back on the stream, and is drawn.
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText("Fix the flaky store test")).toBeVisible();
+  await onScreen();
+  await expect.element(work().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(work().getByRole("button", { name: "Release notes script" })).toBeVisible();
 });
 
 const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
@@ -72,8 +43,8 @@ const toast = (headline: string) => page.getByText(headline, { exact: true }).fi
 test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is said in the thread", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
+  await onScreen();
+  await toSession("Release notes script");
   fleet.refusesSend = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Ship it");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
@@ -82,7 +53,8 @@ test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is
 
   fleet.refusesSend = { code: "fleet.session_closed", message: "That Session is closed." };
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Ship it again");
-  await userEvent.click(page.getByRole("button", { name: "Send" }));
+  // The first toast stands over Send, so the second send is Enter in the box.
+  await userEvent.keyboard("{Enter}");
   await expect.element(toast("That Session is closed.")).toBeVisible();
   await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
 });
@@ -90,8 +62,8 @@ test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is
 test("Sessions wired: a terminal Session offers End session, and it ends once its terminal does", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(sessions().getByRole("button", { name: "Release notes script" }));
+  await onScreen();
+  await toSession("Release notes script");
   const panel = page.getByRole("region", { name: /^Session / });
   // The acts are the header's menu, opened by its More button.
   await userEvent.click(panel.getByRole("button", { name: "More" }));
@@ -110,8 +82,8 @@ test("Sessions wired: a terminal Session offers End session, and it ends once it
 test("Sessions wired: End session on a terminal Fleet cannot reach is said, and nothing ends", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Docs pass" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(sessions().getByRole("button", { name: "Docs pass" }));
+  await onScreen();
+  await toSession("Docs pass");
   fleet.refusesClose = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
   const panel = page.getByRole("region", { name: /^Session / });
   await userEvent.click(panel.getByRole("button", { name: "More" }));
@@ -125,8 +97,8 @@ test("Sessions wired: End session on a terminal Fleet cannot reach is said, and 
 test("Sessions wired: rows stream into an open thread, and the first write is the ledger's slot beside its branch", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   await expect.poll(() => [...new Set(fleet.calls.watched)]).toEqual([ID]);
 
   fleet.says(ID, "The test reads the wall clock.");
@@ -135,10 +107,11 @@ test("Sessions wired: rows stream into an open thread, and the first write is th
   fleet.row(ID, { kind: "lease", id: "lease1", at: "2026-10-07T13:48:05.000Z", slot: 3, branch: "fix/flaky-store" });
   fleet.changed(hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }));
   await expect.element(page.getByRole("region", { name: "Leased on first write" })).toBeVisible();
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByRole("button", { name: "Branch fix/flaky-store" })).toBeVisible();
-  await expect.element(ledger.getByRole("listitem", { name: "Branch fix/flaky-store" }).getByRole("img", { name: "Worktree slot 3" })).toBeVisible();
-  await expect.element(ledger.getByRole("button", { name: "Worktree slot 3" })).not.toBeInTheDocument();
+  // The branch and the bay are two chips in the Ledger's band, not entries of their own.
+  const ledger = page.getByRole("region", { name: "Ledger" });
+  await expect.element(ledger.getByRole("img", { name: "Branch fix/flaky-store" })).toBeVisible();
+  await expect.element(ledger.getByRole("img", { name: "Bay 3" })).toBeVisible();
+  await expect.element(ledger.getByRole("listitem", { name: "Bay 3" })).not.toBeInTheDocument();
 });
 
 test("Sessions wired: the ask offers what Fleet will take, and the press names the offer", async () => {
@@ -146,8 +119,8 @@ test("Sessions wired: the ask offers what Fleet will take, and the press names t
     hosted(ID, { title: "Fix the flaky store test", hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: asking("git push origin fix/flaky-store") } }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   const card = page.getByRole("article", { name: "Waiting on you" });
   await expect.element(card.getByText("git push origin fix/flaky-store")).toBeVisible();
   await expect.element(card.getByRole("button", { name: "Allow once" })).toBeVisible();
@@ -160,8 +133,8 @@ test("Sessions wired: the ask offers what Fleet will take, and the press names t
 test("Sessions wired: mode, model and effort go to Fleet as the person set them", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   await userEvent.selectOptions(page.getByRole("combobox", { name: "Permission mode" }), "plan");
   await expect.poll(() => fleet.calls.tuned.at(-1)).toEqual({ session_id: ID, mode: "plan" });
   await userEvent.selectOptions(page.getByRole("combobox", { name: "Effort" }), "high");
@@ -171,9 +144,9 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
 test("Sessions wired: a terminal session opens to its ledger and takes a message, with its mode shown and not set", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
-  await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Branch release/notes" })).toBeVisible();
+  await onScreen();
+  await toSession("Release notes script");
+  await expect.element(page.getByRole("region", { name: "Ledger" }).getByRole("img", { name: "Branch release/notes" })).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await expect.element(page.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
 });
@@ -181,8 +154,8 @@ test("Sessions wired: a terminal session opens to its ledger and takes a message
 test("Sessions wired: a terminal session draws no mode until its mod has reported one", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
+  await onScreen();
+  await toSession("Release notes script");
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await expect.element(page.getByRole("combobox", { name: "Permission mode" })).not.toBeInTheDocument();
 });
@@ -193,10 +166,11 @@ test("Sessions wired: search finds a session by the pull request it holds, acros
     hosted("01SESSIONCCCCCCCCCCCCCCCCCC", { title: "Store migration spike", attachments: [pullRequest(1849, { state: "draft" })] }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.fill(page.getByRole("searchbox"), "#1849");
-  await expect.element(sessions().getByRole("button", { name: "Store migration spike" })).toBeVisible();
-  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).not.toBeInTheDocument();
+  await onScreen();
+  await userEvent.click(work().getByRole("button", { name: /^Filter/ }));
+  await userEvent.fill(page.getByRole("searchbox", { name: "Search Work" }), "#1849");
+  await expect.element(work().getByRole("button", { name: "Store migration spike" })).toBeVisible();
+  await expect.element(work().getByRole("button", { name: "Fix the flaky store test" })).not.toBeInTheDocument();
 });
 
 test("Sessions wired: a pull request the Session holds is merged from its sheet, and Fleet's refusal is said when it will not", async () => {
@@ -204,8 +178,8 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
     hosted(ID, { title: "Fix the flaky store test", attachments: [pullRequest(1847), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   const ledger = page.getByRole("region", { name: "Attachments" });
   await userEvent.click(ledger.getByRole("button", { name: "Open Pull request #1847" }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
@@ -217,8 +191,8 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
 test("Sessions wired: a refused press on a pull request says Fleet's words in its sheet and reads the pull request again", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test", attachments: [pullRequest(1847, { checks: "pending" })] })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Open Pull request #1847" }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
@@ -227,50 +201,24 @@ test("Sessions wired: a refused press on a pull request says Fleet's words in it
   await expect.poll(() => fleet.calls.pressed.filter((one) => one.press === "read").length).toBeGreaterThan(1);
 });
 
-test("Sessions wired: red checks on a merged pull request do not put a Session under Needs you", async () => {
+test("Sessions wired: red checks on a merged pull request do not call the Session waiting on you", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { state: "merged", checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
-  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
+  await onScreen();
+  await expect.element(work().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(work().getByRole("img", { name: /^Waiting on you/ })).not.toBeInTheDocument();
 });
 
-test("Sessions wired: red checks on an open pull request leave a Session under Idle, not Needs you", async () => {
+test("Sessions wired: red checks on an open pull request leave the Session idle, not waiting on you", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
-  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
-});
-
-test("Sessions wired: Open in a Session on a stopped Job starts one with the Job in its first message's mentions", async () => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
   await onScreen();
-  await toPlace("Jobs");
-  await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
-  await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();
-  await userEvent.type(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
-  await userEvent.click(page.getByRole("button", { name: "Send" }));
-  await expect.poll(() => fleet.calls.sent.length).toBe(1);
-  expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
-});
-
-test("Sessions wired: Open in a Session on All starts in the Job's own repository, so nothing asks", async () => {
-  const fleet = new FakeSessionsFleet();
-  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
-  mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA] })));
-  await onScreen();
-  await toPlace("Jobs");
-  await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
-  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
-  expect(fleet.calls.startedIn).toEqual([ARMADA.root]);
+  await expect.element(work().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(work().getByRole("img", { name: /^Waiting on you/ })).not.toBeInTheDocument();
 });
 
 test("Sessions wired: a chip on Cleanup's tile names the session that holds its branch, across repositories, and the card opens it", async () => {
@@ -308,8 +256,8 @@ test("Sessions wired: a chip on Cleanup's tile names the session that holds its 
 test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as the picture it renders to", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await onScreen();
+  await toSession("Fix the flaky store test");
   await userEvent.upload(page.getByLabelText("Files to attach"), new File(["hello"], "notes.txt", { type: "text/plain" }));
   await userEvent.click(page.getByRole("button", { name: "Draw sketch" }));
   const pad = page.getByRole("dialog", { name: "Draw a sketch" });
@@ -343,8 +291,8 @@ test("Sessions wired: a running subagent opens as its own thread, gains rows as 
   fleet.subagents["live1"] = { rows: [agent("a1", "Reading the runs."), call("a2", "gh run list --limit 30")], finished: false };
   fleet.subagents["done1"] = { rows: [call("b1", "Grep Instant::now"), agent("b2", "None reads the clock.")], finished: true, report: "None reads the clock." };
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Read the CI history" }));
+  await onScreen();
+  await toSession("Read the CI history");
   await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
   const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
   await expect.element(panel.getByText("Reading the runs.")).toBeVisible();
@@ -384,8 +332,8 @@ test("Sessions wired: a subagent's sheet is wide and states its type, its model 
     context_window: 200_000,
   };
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(page.getByRole("button", { name: "Read the CI history" }));
+  await onScreen();
+  await toSession("Read the CI history");
   await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
   const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
   await expect.element(panel.getByText("rust-engineer")).toBeVisible();
@@ -399,8 +347,8 @@ test("Sessions wired: a page on the ledger is shown in main's view over the pane
     hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),
   ]);
   mount(served(fleet));
-  await onSessions();
-  await userEvent.click(sessions().getByRole("button", { name: "Write up the clock" }));
+  await onScreen();
+  await toSession("Write up the clock");
   await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Published page Clock findings" }));
   await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
   // Main's view lies over the body, so nothing is framed here.

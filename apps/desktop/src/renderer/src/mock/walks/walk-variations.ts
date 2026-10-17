@@ -9,7 +9,7 @@ const takes = inside(window, role("radiogroup", "Variations"));
 
 const variations = walk("walk-variations", [
   toSessions,
-  { press: inside(region("Sessions"), button("Board layout takes")), say: "A Session with three layouts built" },
+  { press: inside(region("Work", { exact: true }), button("Board layout takes")), say: "A Session with three layouts built" },
   { type: "Show me the layouts\n", into: role("textbox", "Message"), say: "Asked to show them" },
   { look: takes, say: "One window, three takes on its bar; A is on screen" },
   { press: inside(takes, role("radio", "Needs you first")), say: "B swaps in, in the same window" },

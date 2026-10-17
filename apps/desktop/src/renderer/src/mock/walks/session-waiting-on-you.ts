@@ -1,19 +1,18 @@
-// A Session that waits on the person: it sits under Needs you with a hand, the band at the foot of its
+// A Session that waits on the person: its row has a hand, the band at the foot of its
 // thread opens to the items, a press on the page item opens the window, and the question is on its own
 // card in the thread. Over the `session-waiting-on-you` scenario. Told twice: wide, and
 // below the breakpoint.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const needs = region("Needs you");
   const mine = inside(sessions, button(/Pin the store clock/));
   return [
-    { look: inside(sessions, text("Needs you")), say: "The Session sits under Needs you" },
-    { hover: inside(sessions, role("img", /^Waiting on you:/)), say: "A hand, and on hover what it waits on" },
+    { hover: inside(sessions, role("img", /^Waiting on you/)), say: "A hand on its row, and on hover what it waits on" },
     { press: mine, say: "Opened" },
     { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
     { press: inside(needs, button("Open Look at the findings page")), say: "The page item opens the window" },

@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -13,8 +13,7 @@ const FORGE = "apps/desktop/src/main/forge.ts";
 async function filesTab() {
   mount("session-pr-panel");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Store migration spike/ }));
+  await toSession(/Store migration spike/);
   await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: /^Open Pull request #2209/ }));
   const pull = page.getByRole("dialog", { name: "Pull request #2209" });
   await userEvent.click(pull.getByRole("tab", { name: "Files" }));

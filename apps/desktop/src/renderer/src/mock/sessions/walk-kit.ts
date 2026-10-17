@@ -1,38 +1,31 @@
 // What the Sessions walks share. Each walk is told twice, in the window the
-// tests start from and in a narrow one: below the layout breakpoint the ledger
-// is a sheet behind a button, so a step that looks at it is bracketed by
-// opening it, and a step that presses a row of it opens it first (the row's
-// press closes it again). Not under `walks/`, where every file is a walk.
+// tests start from and in a narrow one. The Cockpit draws a Session's ledger in its
+// right column at either width, so `kit` takes `narrow` for the walks that still
+// pass it and acts on it in neither. Not under `walks/`, where every file is a walk.
 
 import { button, inside, place, region, role } from "../walk";
 import type { Step } from "../walk";
 
 export const NARROW = { width: 900, height: 900 } as const;
 
-/** Sessions' own page, from the title bar's tabs. */
-export const toSessions: Step = { press: place("Sessions"), say: "Sessions" };
+/** The Cockpit, whose Work list holds a Session's row: pressed, it opens the Session on the stage. */
+export const toSessions: Step = { press: place("Cockpit"), say: "Cockpit" };
 
-export function kit(narrow: boolean) {
-  const ledger = narrow ? role("dialog", "Attachments") : region("Attachments");
+export function kit(_narrow: boolean) {
+  const ledger = region("Attachments");
   /** The Close of a sheet, and not "Close as superseded" or the like. */
   const close = (within: ReturnType<typeof role>) => inside(within, role("button", /^Close( panel)?( Esc)?$/));
   return {
     ledger,
     message: role("textbox", "Message"),
     thread: region("Thread"),
-    /** A named button; the title bar's three places are its tabs. */
-    rail: (name: string) => (["Cockpit", "Jobs", "Sessions"].includes(name) ? place(name) : role("button", name, { exact: true })),
+    /** A named button; the title bar's places are its tabs, and the Sessions the Cockpit's list. */
+    rail: (name: string) => (name === "Sessions" ? place("Cockpit") : ["Cockpit", "Jobs"].includes(name) ? place(name) : role("button", name, { exact: true })),
     sheet: (name: string) => role("dialog", name),
     close,
-    /** Looks at the ledger: at its side where it stands there, in its sheet where it has folded. */
-    opened: (steps: Step[]): Step[] =>
-      narrow
-        ? [{ press: button("Attachments"), say: "The ledger, opened" }, ...steps, { press: close(ledger), say: "Back to the conversation" }]
-        : steps,
+    /** Looks at the ledger, which stands at the Session's side. */
+    opened: (steps: Step[]): Step[] => steps,
     /** Presses a row of the ledger, which opens what it names. */
-    row: (name: string, say: string): Step[] => [
-      ...(narrow ? [{ press: button("Attachments"), say: "The ledger, opened" } as Step] : []),
-      { press: inside(ledger, button(name)), say },
-    ],
+    row: (name: string, say: string): Step[] => [{ press: inside(ledger, button(name)), say }],
   };
 }
