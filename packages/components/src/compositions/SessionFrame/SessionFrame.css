@@ -205,6 +205,7 @@ button.armada-session-frame__fresh[data-busy] svg {
 }
 
 /* One term column for the categories and both lists, so the figures stand in a line. */
+
 .armada-session-frame__context-card .armada-stop-card__facts {
   grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr);
 }

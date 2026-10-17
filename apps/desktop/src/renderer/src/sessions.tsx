@@ -1063,6 +1063,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        checks={session.rows.flatMap((one) => (one.kind === "check" && one.state === "running" ? [{ run: one.run, name: one.name, at: one.at, ...(one.target === undefined ? {} : { target: one.target }) }] : []))}
+        onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
