@@ -4,7 +4,7 @@
 
 import { turnSaid } from "@armada/components";
 
-import { button, dialog, inside, place, region, role, walk } from "../walk";
+import { button, dialog, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const head = region("Session s-a3f7c2d9");
