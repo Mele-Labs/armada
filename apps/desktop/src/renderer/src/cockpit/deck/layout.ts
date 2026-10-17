@@ -10,6 +10,7 @@
 import type { Check, Doing } from "./doing";
 import type { Areas } from "./areas";
 import type { Play } from "./plays";
+import { gridOf, pillRect, type PillGrid } from "./pills";
 import type { Pr, Subject } from "./ship";
 import type { Clash, Touch } from "./touches";
 
@@ -58,7 +59,7 @@ export type DroneIn = {
   shown: boolean;
 };
 
-export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
+export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
   const failing = !stuck && (subject.alarm || subject.mark.tone === "bad");
   const ask = owed || subject.needs;
@@ -77,6 +78,7 @@ export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string 
     flare: failing,
     working,
     ...(extra.slot === undefined ? {} : { slot: extra.slot }),
+    ...(extra.file === undefined ? {} : { file: extra.file }),
     shown: extra.shown,
     touches: extra.touches ?? [],
   };
@@ -134,7 +136,8 @@ function slice(parts: readonly { id: string; weight: number }[], rect: Rect, int
 export type Pad = { key: string; x: number; y: number };
 
 /** A plot of the battlefield: one directory, drawn to the area its files take. */
-export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number };
+/** A plot, and the pills that fill it: one for each file its directory holds, where Fleet counted them. */
+export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number; pills?: PillGrid };
 
 export type Territory = {
   root: string;
@@ -161,13 +164,16 @@ export type FileAct = "write" | "edit" | "remove";
 /** A file of a repository, drawn as a small bar on the plot of its directory. */
 export type FileIn = { path: string; act?: FileAct };
 
-/** A file's bar as laid out: where it lies on its plot, in the layout's own units. */
-export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile };
+/** A file's bar as laid out: where it lies on its plot, in the layout's own units. A file with a pill is lit on it, and `pill` is which. */
+export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile; pill?: number };
 
 export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[] };
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
 const BARE_FILES = 8;
+
+/** The least a lit pill is drawn, so a file in a crowded plot can still be seen. */
+const LIT = { w: 7, h: 2.6 };
 
 export type Layout = {
   territories: Territory[];
@@ -197,7 +203,7 @@ export function layoutOf(
   clashed: readonly Clash[] = [],
 ): Layout {
   const rects = new Map<string, Rect>();
-  const filesOf = (repo: RepoIn) => repo.areas.reduce((sum, area) => sum + (area.kids.length === 0 ? BARE_FILES : area.kids.reduce((s, k) => s + k[1], 0)), 0);
+  const filesOf = (repo: RepoIn) => repo.areas.reduce((sum, area) => sum + (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((s, k) => s + k[1], 0)), 0);
   const weights = repos.map((repo) => ({ id: repo.root, weight: 3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)) }));
   slice(weights, { x: MARGIN, y: MARGIN, w: Math.max(120, size.width - MARGIN * 2), h: Math.max(120, size.height - MARGIN * 2) }, rects, 14);
 
@@ -226,32 +232,53 @@ export function layoutOf(
     const goal = repo.goal ? { x: rect.x + rect.w / 2, y: rect.y + 84 } : undefined;
 
     // Top directories by their files, then the directories inside each.
-    const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? BARE_FILES : area.kids.reduce((sum, k) => sum + k[1], 0));
+    const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((sum, k) => sum + k[1], 0));
     const tops = new Map<string, Rect>();
     slice(repo.areas.map((area) => ({ id: area.dir, weight: sizeOf(area) })), plots, tops, 6);
     const tiles: Tile[] = [];
     const groups: Territory["groups"] = [];
+    // A plot, with a pill for each file it holds: the named ones first, then those past the names Fleet gave.
+    const plot = (path: string, top: string, rect: Rect, files: number, names: readonly string[]): Tile => {
+      const grid = gridOf(rect, Math.max(files, names.length), names, FLAT);
+      return { path, top, rect, cx: rect.x + rect.w / 2, cy: rect.y + rect.h / 2, ...(grid === undefined ? {} : { pills: grid }) };
+    };
     for (const area of repo.areas) {
       const box = tops.get(area.dir);
       if (box === undefined) continue;
       groups.push({ dir: area.dir, rect: box });
       if (area.kids.length === 0) {
-        tiles.push({ path: area.dir, top: area.dir, rect: box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 });
+        tiles.push(plot(area.dir, area.dir, box, area.names === undefined ? 0 : (area.files ?? area.names.length), area.names ?? []));
         continue;
       }
       const inner = new Map<string, Rect>();
       slice(area.kids.map(([name, files]) => ({ id: name, weight: files })), { x: box.x + 3, y: box.y + 3, w: box.w - 6, h: box.h - 6 }, inner, 3);
-      for (const [name] of area.kids) {
+      for (const [name, files, names] of area.kids) {
         const r = inner.get(name);
-        if (r !== undefined) tiles.push({ path: `${area.dir}/${name}`, top: area.dir, rect: r, cx: r.x + r.w / 2, cy: r.y + r.h / 2 });
+        if (r !== undefined) tiles.push(plot(`${area.dir}/${name}`, area.dir, r, files, names ?? []));
       }
     }
     // A touched path belongs to the plot with the longest path that begins it.
     const tileOf = (path: string) => tiles.filter((t) => path === t.path || path.startsWith(`${t.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
 
-    // The files of a plot are bars in rows across it, in the order the repository lists them, each as wide as the plot allows.
+    // A file a plot has a pill for is lit on it. Any other is a bar in rows across the plot, in the order the repository lists them, each as wide as the plot allows.
     for (const tile of tiles) {
-      const mine = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
+      const touched = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
+      if (touched.length === 0) continue;
+      const grid = tile.pills;
+      const place = new Map<string, number>(grid === undefined ? [] : grid.names.map((name, i): [string, number] => [`${tile.path}/${name}`, i]));
+      const mine: FileIn[] = [];
+      for (const one of touched) {
+        const i = place.get(one.path);
+        if (grid === undefined || i === undefined) {
+          mine.push(one);
+          continue;
+        }
+        // Lit larger than a fine pill so it can be seen, about the pill's middle.
+        const r = pillRect(grid, i);
+        const [w, h] = [Math.max(r.w, LIT.w), Math.max(r.h, LIT.h)];
+        const [cx, cy] = [r.x + r.w / 2, r.y + r.h / 2];
+        bars.set(one.path, { path: one.path, act: one.act, rect: { x: cx - w / 2, y: cy - h / 2, w, h }, cx, cy, tile, pill: i });
+      }
       if (mine.length === 0) continue;
       const bw = Math.max(8, Math.min(22, (tile.rect.w - 10) / 3.2));
       const bh = Math.max(3, bw * 0.34);

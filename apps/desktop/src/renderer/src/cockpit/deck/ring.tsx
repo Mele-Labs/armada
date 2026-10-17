@@ -101,13 +101,3 @@ export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = p
     </g>
   );
 }
-
-/** A ring lying on the ground round the drone's shadow. It is on the plane, so the tilt makes it an ellipse. */
-export function Ring(props: RingProps) {
-  const edge = 34 * props.big + 12;
-  return (
-    <svg className="bf-ring" style={{ left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`}>
-      <RingArt {...props} />
-    </svg>
-  );
-}

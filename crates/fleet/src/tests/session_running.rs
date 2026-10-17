@@ -336,7 +336,7 @@ async fn the_session_is_told_how_a_run_ended_and_a_clean_exit_takes_its_item_off
     let said = &said[0];
     assert!(said.contains("Exit 0."), "{said}");
     assert!(said.contains("Last lines:\n```\nbuilt\nit`s fine\n```"), "{said}");
-    assert!(said.ends_with("Fleet took this off your waiting list."), "{said}");
+    assert!(said.ends_with("This settles the item, so Fleet took it off your waiting list. Do not add it back."), "{said}");
     assert!(waiting_now(&rig).await.is_empty(), "the item is gone");
 }
 

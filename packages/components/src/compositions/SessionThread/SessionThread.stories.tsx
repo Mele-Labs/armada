@@ -122,7 +122,7 @@ const YOURS: SessionThreadRow[] = [
   { id: "y1", at: "09:55:40", kind: "message", from: "agent", text: "The clock is pinned in the store tests." },
   { id: "y2", at: "09:56:12", kind: "message", from: "you", text: "Keep the pin in the test module." },
   { id: "y3", at: "09:57:23", kind: "message", from: "you", text: "Approved: http://localhost:5188/?walk=session-reply" },
-  { id: "y4", at: "09:57:51", kind: "message", from: "you", text: "Re: Which date should the clock pin to?\nPin it to the first of March" },
+  { id: "y4", at: "09:57:51", kind: "message", from: "you", text: "Re: Which date should the clock pin to?\nPin it to the first of March\nThis settles the item, so Fleet took it off your waiting list. Do not add it back." },
 ];
 
 /**
@@ -146,6 +146,8 @@ export const YourWordsAndActs: Story = {
     await expect(within(answered).getByText("Answered")).toBeVisible();
     await expect(within(answered).getByText("Which date should the clock pin to?")).toBeVisible();
     await expect(within(answered).getByText("Pin it to the first of March")).toBeVisible();
+    // Fleet's line to the agent is not the person's words.
+    await expect(within(answered).queryByText(/waiting list/)).toBeNull();
 
     await expect(canvas.queryByText(/^Approved: /)).toBeNull();
     await expect(canvas.queryByText(/^Re: /)).toBeNull();

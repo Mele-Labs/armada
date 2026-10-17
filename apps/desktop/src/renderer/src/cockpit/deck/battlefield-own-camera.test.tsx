@@ -1,6 +1,6 @@
 // A Session's Field has a camera of its own. The window's kept camera is the Cockpit map's, laid on a plane of another size, and
 // held to this one it lands at the lower right corner; the Field opens on the whole floor, and keeps a zoom he makes until it is
-// given another `own`. Browser: the camera is read off the drawn transform.
+// given another `own`. Browser: the camera is read off where the drone's hit box stands over the canvas, which the stage puts by the view it draws.
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -46,8 +46,12 @@ function draw(own: string | undefined) {
   return { host, render };
 }
 
-const seen = (host: HTMLElement) => host.querySelector<HTMLElement>(".bf-cam")!.style.transform;
-const settle = () => act(() => new Promise<void>((done) => window.setTimeout(done, 150)));
+const seen = (host: HTMLElement) => {
+  const one = host.querySelector<HTMLElement>("[data-hit=drone]")!;
+  return `${one.style.transform} ${one.style.width}`;
+};
+// The canvas starts a moment after it is mounted and then eases to the camera it is handed.
+const settle = () => act(() => new Promise<void>((done) => window.setTimeout(done, 1200)));
 
 test("a Field opens on the whole floor, whatever camera the window kept", async () => {
   const fresh = draw("a");

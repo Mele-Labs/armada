@@ -1,6 +1,6 @@
-// What a Session's card says of its construction: the phase, one row for each task as its piece stands on the field, and the road's
-// stops. A task is a swatch drawn as its piece is (solid, outlined, open) with the fact behind it as its tooltip. No count is drawn
-// beside the items it counts. #2301.
+// What a Session's card says of its construction: the phase, its plan as one bar of a segment per task as its piece stands on the
+// field, and the road's stops. A segment is drawn as its piece is (solid, outlined, open) with the task and its state as its tooltip.
+// No count is drawn beside the items it counts. #2301.
 
 import { Tooltip } from "@armada/components";
 
@@ -22,14 +22,12 @@ export function BuildCard({ build }: { build: BuildTip }) {
         {build.quiet === undefined ? null : <span className="bf-build__quiet">{build.quiet}</span>}
       </div>
       {build.tasks.length === 0 ? null : (
-        <ul className="bf-build__tasks">
+        // The plan as one bar, a segment per task in order; the task and its state are the segment's tooltip (the owner, 17 Oct 2026).
+        <ul className="bf-build__plan" aria-label="Plan">
           {build.tasks.map((task, i) => (
-            <li key={i} className="bf-build__task" data-piece={task.piece}>
-              <Tooltip label={SAID[task.piece]} asChild>
-                <i className="bf-build__swatch" role="img" aria-label={SAID[task.piece]} />
-              </Tooltip>
-              <span>{task.text}</span>
-            </li>
+            <Tooltip key={i} label={`${task.text} · ${SAID[task.piece]}`} asChild>
+              <li className="bf-build__seg" data-piece={task.piece} aria-label={`${task.text}, ${SAID[task.piece]}`} />
+            </Tooltip>
           ))}
         </ul>
       )}

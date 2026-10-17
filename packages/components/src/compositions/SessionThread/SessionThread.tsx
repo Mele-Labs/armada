@@ -443,6 +443,9 @@ function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenChe
  */
 type Act = { kind: "approved"; target: string; shown: string } | { kind: "answered"; target: string; said: string };
 
+/** Fleet's last line to the agent on an answer (`TAKEN_OFF` in waiting.rs), then and now: not the person's words. */
+const TAKEN_OFF = /\n?(?:Fleet took this off your waiting list\.|This settles the item, so Fleet took it off your waiting list\. Do not add it back\.)$/;
+
 function actOf(text: string): Act | null {
   const approved = /^Approved: (\S+)$/.exec(text);
   if (approved?.[1] !== undefined) {
@@ -450,7 +453,7 @@ function actOf(text: string): Act | null {
     return { kind: "approved", target: approved[1], shown: walk === null ? approved[1] : `?${walk[0].slice(1)}` };
   }
   const answered = /^Re: ([^\n]+)\n?([\s\S]*)$/.exec(text);
-  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").trim() };
+  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").replace(TAKEN_OFF, "").trim() };
   return null;
 }
 

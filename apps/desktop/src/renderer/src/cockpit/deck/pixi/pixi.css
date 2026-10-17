@@ -1,0 +1,13 @@
+/* The canvas map: one layer over the pane, the canvas under whatever is placed over it. The pane, not the canvas, takes the pointer, so the
+   camera's hand, wheel and keys work on the ground between the pictures. */
+.bf-pixi { position: absolute; inset: 0; overflow: hidden; }
+.bf-pixi > canvas { display: block; position: absolute; inset: 0; pointer-events: none; }
+
+/* What stands over the canvas to be pressed, hovered and tabbed to (`Hits.tsx`). The layer takes no pointer itself, so the camera's hand
+   works on the ground between; each item is put where its picture is by script, and is invisible until it has the focus. */
+.bf-hits { position: absolute; inset: 0; pointer-events: none; }
+.bf-hits__item { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; outline: none; }
+.bf-hits__item[data-hit="clash-line"],
+.bf-hits__item[role="img"] { cursor: default; }
+.bf-hits__item[data-away] { pointer-events: none; }
+.bf-hits__item:focus-visible { outline: calc(2 * var(--border-width)) dashed var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
