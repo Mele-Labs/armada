@@ -13,6 +13,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { AutopilotActed } from "../../../shared/api/autopilot";
 import type { BridgeState } from "../../../shared/bridge";
 import type { Item } from "../Dashboard";
+import { useSessions } from "../sessions-draft";
 import { cappedOf, capsOf, fieldsOf, isOn, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
 import { AsideActs, AutopilotSidings, type SidingPress } from "./AutopilotSidings";
 import "./autopilot.css";
@@ -89,6 +90,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   const nameOf = useCallback((manifest: string) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest, [state.holds.repositories]);
   const on = useMemo(() => [...held.values()].filter((one) => isOn(one) && (manifestId === null || one.manifest_id === manifestId)), [held, manifestId]);
   const issues = useIssues(on);
+  const sessions = useSessions();
 
   const [pressing, setPressing] = useState<Pressing>();
   const [refused, setRefused] = useState<{ manifest: string; why: string }>();
@@ -177,7 +179,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         capped={autopilot === undefined ? undefined : cappedOf(autopilot)}
         fault={autopilot?.fault}
         caps={autopilot === undefined ? [] : capsOf(autopilot, now)}
-        stopping={autopilot === undefined ? "" : stoppingOf(autopilot, state.jobs)}
+        stopping={autopilot === undefined ? "" : stoppingOf(autopilot, sessions)}
         pending={aside === undefined ? mine : undefined}
         refused={refused?.manifest === manifest ? refused.why : undefined}
         onPause={() => acted(manifest, "pause", () => window.armada.pauseAutopilot(manifest))}
