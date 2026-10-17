@@ -236,7 +236,7 @@ function checksReaching(step: StepDetail | undefined, scope: readonly string[]):
  * Whether one `when` pattern covers one path, in Armada's dialect and no other:
  * literal text, `*` inside one segment, `**` for zero or more whole segments
  * (`docs/contracts/configuration.md`). Fleet's matcher is `walk` in
- * `crates/core-model/src/job/covers.rs`; this is it line for line, because the
+ * `crates/core-model/src/workflow/covers.rs`; this is it line for line, because the
  * dialect is that small and a glob library reads a wider one.
  */
 function covers(pattern: string, path: string): boolean {

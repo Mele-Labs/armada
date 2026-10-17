@@ -8,7 +8,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::job::ids::{JobId, ManifestId, RepoPath};
+use crate::workflow::{JobId, ManifestId, RepoPath};
 
 /// What broke: the Check a failing test ran under, the test's name as the
 /// Drone copied it from the output, and what running it on main came to.

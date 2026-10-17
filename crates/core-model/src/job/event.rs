@@ -26,7 +26,7 @@ use alloc::vec::Vec;
 
 use crate::envelope::{Actor, FieldValue, Timestamp};
 use crate::job::escalation::StepLevelTrigger;
-use crate::job::ids::{JobId, StepId};
+use crate::workflow::{JobId, StepId};
 use crate::job::status::{JobStatus, StepState};
 use crate::job::step_machine::StepTarget;
 use crate::job::transition::TransitionReason;

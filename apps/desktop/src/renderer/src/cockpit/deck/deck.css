@@ -243,6 +243,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 /* Selected is lit with the accent's ground. */
 .deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+/* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
+.deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }
@@ -428,6 +430,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-bays__rows .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
 .deck-bays__rows .deck-list__group { gap: var(--space-2); }
 .deck-bays__rows .deck-list__group > li { display: flex; min-width: 0; }
+/* A repository's heading with the act that adds a slot to its pool at the far end; a refusal wraps under both. */
+.deck-bays__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); }
+.deck-bays__add[aria-disabled] { cursor: progress; }
+.deck-bays__refused { flex: 1 1 100%; margin: 0; padding: 0 var(--space-2); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
 
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 

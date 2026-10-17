@@ -6,6 +6,7 @@
 // *Bridge on a mock Fleet*.
 
 import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
+import type { WorktreesHeld } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -66,6 +67,13 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   let passed = 0;
   // What a Session may do to the Board: a Job's status moves on its row, on its detail and on the read a later open gets.
   const board = {
+    pool: {
+      get: fleet.held.get,
+      set: (held: WorktreesHeld) => {
+        fleet.held.set(held);
+        if (fleet.state().held.state === "read") fleet.publish({ held: { state: "read", held } });
+      },
+    },
     add: (rows: readonly unknown[]) => {
       const held = fleet.state().jobs;
       fleet.publish({ jobs: [...held, ...(rows as typeof held).filter((row) => !held.some((one) => one.id === row.id))] } as Partial<BridgeState>);

@@ -256,6 +256,8 @@ pub mod overruling;
 mod pausing;
 mod limit_hold;
 mod session_limit;
+/// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
+mod session_proposer;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
