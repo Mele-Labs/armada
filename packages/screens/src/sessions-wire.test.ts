@@ -177,6 +177,31 @@ describe("the ledger", () => {
     ]);
   });
 
+  it("reads a background task as running, done, failed or stopped, and keeps one given back", () => {
+    const detail = { form: "command", task: "Build it", command: "pnpm build", output: "/tmp/t/b.output" };
+    const attachments = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("background", "b1", detail),
+          held("background", "b2", { ...detail, status: "completed", exit: "0" }, "spent"),
+          held("background", "b3", { ...detail, status: "failed", exit: "2" }, "spent"),
+          held("background", "b4", { ...detail, status: "killed" }, "spent"),
+          held("background", "b5", { form: "monitor", task: "Watch CI", command: "gh run watch 9" }, "given_back"),
+          held("background", "b6", { form: "other" }),
+        ],
+      }),
+      beside(),
+    );
+    const base = { kind: "background", form: "command", task: "Build it", command: "pnpm build", started: AT, output: "/tmp/t/b.output" };
+    expect(attachments).toEqual([
+      { ...base, id: "b1", state: "running" },
+      { ...base, id: "b2", state: "done", ended: AT, exit: 0 },
+      { ...base, id: "b3", state: "failed", ended: AT, exit: 2 },
+      { ...base, id: "b4", state: "stopped", ended: AT },
+      { kind: "background", id: "b5", form: "monitor", task: "Watch CI", command: "gh run watch 9", started: AT, state: "stopped", ended: AT },
+    ]);
+  });
+
   it("draws no row for a kind it has no screen for", () => {
     expect(attachmentsOfRecord(record("a", { attachments: [held("need", "docs/x.md"), held("message", "to:s-1234")] }), beside())).toEqual([]);
   });

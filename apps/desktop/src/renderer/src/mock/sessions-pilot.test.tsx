@@ -57,7 +57,8 @@ test("Pilot wired: a stopped Job is taken over from its pane, and the Session op
   await expect.element(handoff().getByText("written, not declared")).toBeVisible();
   // This Job's Drone said nothing before it stopped, so there is no account to draw, and no blank group for it.
   await expect.element(handoff().getByText("Trying to")).not.toBeInTheDocument();
-  await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not leased" })).toBeVisible();
+  // The handed slot is the chip of the handed branch's row, so it has no row of its own to say so.
+  await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not leased" })).not.toBeInTheDocument();
   await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not created here" })).toBeVisible();
   await expect.element(exits()).toBeVisible();
 });
