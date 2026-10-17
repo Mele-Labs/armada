@@ -23,7 +23,7 @@ export function NeedsYouEyebrow({ rows }: { rows: readonly LedgerEntry[] }) {
     press.current?.focus();
   };
   return (
-    <section className="armada-needs-eyebrow" aria-label="Needs you" onKeyDown={close}>
+    <section className="armada-needs-eyebrow" aria-label="Needs you" onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
       <button ref={press} type="button" className="armada-needs-eyebrow__tab" aria-expanded={open} onClick={() => setOpen(!open)}>
         <BellRing size={12} strokeWidth={2} aria-hidden />
         <span className="armada-needs-eyebrow__label">Needs you</span>

@@ -20,10 +20,12 @@
   min-height: 0;
 }
 
+/* Isolated, so a card's own stacking stays inside the thread and the Needs you sheet rises over it. */
 .armada-session-thread__rows {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  isolation: isolate;
 }
 
 /* Under the stage: what the agent is working on and the Session being done. It never takes more than two fifths of the thread
