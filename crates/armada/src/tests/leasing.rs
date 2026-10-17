@@ -168,7 +168,7 @@ fn a_pool_with_its_one_slot_held() -> (crate::tests::TempDir, std::path::PathBuf
     let none = |_: &std::path::Path, _: &std::path::Path| Err(String::from("no seed"));
     let pool = crate::leasing::pool_of(repo.path()).expect("a pool");
     let held = pool.try_lease("theirs", &Holder::job("someone-else"), 0, &none);
-    assert!(matches!(held, Ok(adapters::leasing::Leased::Took(_))), "the slot is taken");
+    assert!(matches!(held, Ok(adapters::leasing::Leased::Took(_))), "the slot is taken: {held:?}");
     let slot = pool.path_of(1);
     (repo, slot)
 }
