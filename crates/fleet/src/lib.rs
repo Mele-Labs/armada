@@ -485,8 +485,6 @@ pub mod underway;
 mod walk_notes;
 mod walking;
 pub mod watch;
-/// An Epic's wave: proposed, released by one press, and the members a parent
-/// that finishes on their merges waits for. Spike 022, slice 6.
 mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to

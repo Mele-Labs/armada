@@ -1,0 +1,8 @@
+[operations."commander.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Retired: a Job's Commander started or finished a turn. Fleet no longer publishes it"
+notes = """
+Carries `CommanderChanged`, `{job_id, state}`. #2166. The Commander is deleted and nothing publishes this. It stays declared only because `Event::CommanderChanged` stays on the wire until the Job types are deleted (task #30), and `every route served is an operation the inventory names` reads the enum; delete this row with the variant.
+"""

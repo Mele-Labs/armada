@@ -556,8 +556,10 @@ are torn down before its span is released.
 The Commander's socket (`observe_commander`), its words (`ask_commander`), its card
 and the owner's pick (`ask_the_owner`, `answer_commander_card`), its repair Drone
 (`send_repair_drone`), its model choice (`set_commander_model`), the `walk_failed`
-that woke it and the `commander.changed` and `commander.card` events are gone from
-Fleet: no route serves them and none is in `crates/ipc/operations/`. The Commander
+that woke it are gone from Fleet: no route serves them and none is in
+`crates/ipc/operations/`. Fleet no longer publishes the `commander.changed` and
+`commander.card` events; their rows stay declared there only while the event
+variants stay on the wire. The Commander
 was deleted with the Jobs it steered (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
 Their types stay in `crates/ipc` and `packages/protocol/src` until the Job types
 are deleted, and `JobDetail.commander_model_override`, `commander_effort_override`
