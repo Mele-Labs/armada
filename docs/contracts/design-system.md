@@ -229,6 +229,10 @@ the light the glass blurs, and they carry no information.
 tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in
 `tokens/colors.css`, until it takes the panel material above.
 
+**Two look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, and `--blur-glass`
+(28px), the backdrop blur under glass. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
+colour token it is.
+
 **Radius is two values.** `--radius-lg` 8px for panels, cards, menus and the palette; `--radius-md` 6px for
 controls, rows and tiles; `--radius-sm` 3px for badges. No pill except an avatar.
 
@@ -1502,7 +1506,7 @@ m              show the map   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopilot, Dispatch   (deck only)
-1–6            press a flight control   (deck only)
+0–9            press a flight control   (deck only)
 v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
 /              search the list   (deck only)
@@ -1542,7 +1546,7 @@ description. They stand down in a text field and while a dialog is up.
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
 hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
 the keymap does not count them against `t` and `c`. `l b c q f a d` go to a panel, `m` shows
-the map, `1–6` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
+the map, `0–9` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
 and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
 while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,

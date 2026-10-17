@@ -80,18 +80,18 @@
 /* The lesson: a firm headline, then what happened in a measure a person reads at, then what would change. */
 :root[data-look="new"] .armada-lesson__headline {
   max-width: 68ch;
-  font-size: 16px;
-  line-height: 24px;
+  font-size: var(--space-4);
+  line-height: var(--space-6);
   font-weight: var(--weight-head);
   letter-spacing: -0.005em;
 }
 :root[data-look="new"] .armada-lesson__what {
   max-width: 68ch;
   font-size: var(--text-row);
-  line-height: 22px;
+  line-height: calc(var(--space-6) - var(--border-width) * 2);
 }
 :root[data-look="new"] .armada-lesson__from,
-:root[data-look="new"] .armada-lesson__job { font-size: var(--text-meta); line-height: var(--leading-sm); font-variant-numeric: tabular-nums; }
+:root[data-look="new"] .armada-lesson__job { font-size: var(--size-meta); line-height: var(--leading-sm); font-variant-numeric: tabular-nums; }
 :root[data-look="new"] .armada-lesson__label { border-radius: var(--radius-sm); font-weight: var(--weight-head); }
 
 /* The change is the lesson's one conclusion: a flat step, a 2px bar, the same measure. */
@@ -102,7 +102,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-step);
 }
-:root[data-look="new"] .armada-lesson__fix-said { font-size: var(--text-row); line-height: 22px; max-width: 68ch; }
+:root[data-look="new"] .armada-lesson__fix-said { font-size: var(--text-row); line-height: calc(var(--space-6) - var(--border-width) * 2); max-width: 68ch; }
 
 /* Its evidence is a different kind of thing, so it is drawn as one: a sunken well, the mono face, a caps label. */
 :root[data-look="new"] .armada-lesson > .armada-retro__cites {
@@ -128,7 +128,7 @@
 }
 :root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__cite {
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   line-height: var(--leading-sm);
   font-variant-numeric: tabular-nums;
 }
@@ -154,7 +154,7 @@
   box-shadow: var(--shadow-rest);
 }
 :root[data-look="new"] .armada-studios-page .armada-studio__head {
-  min-height: 40px;
+  min-height: calc(var(--space-12) - var(--space-2));
   padding: 0 var(--space-3);
   border: 0;
   background: none;
@@ -187,7 +187,7 @@
 :root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(2) {
   color: var(--fg-muted);
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
 :root[data-look="new"] .armada-studio-list .armada-table-body .armada-table-row { transition: background-color var(--duration-fast) var(--ease); }
@@ -206,7 +206,7 @@
 }
 :root[data-look="new"] .armada-studio__standing {
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   letter-spacing: 0;
 }
 :root[data-look="new"] .armada-studio__board { overflow: hidden; background: var(--bg-sunken); }
@@ -230,7 +230,7 @@
   border: 0;
   background: none;
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
 }
 :root[data-look="new"] .armada-doctor .armada-view__band > svg { display: none; }
 :root[data-look="new"] .armada-doctor__title {
@@ -243,8 +243,8 @@
 /* The glyphs on the tiles say it; the line of words is not drawn. */
 :root[data-look="new"] .armada-doctor__summary {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--border-width);
+  height: var(--border-width);
   overflow: hidden;
   clip-path: inset(50%);
 }
@@ -279,20 +279,20 @@
 :root[data-look="new"] .armada-doctor-tile[aria-selected="true"] {
   border-color: var(--edge-lifted);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset var(--bar) 0 0 var(--accent);
 }
 :root[data-look="new"] .armada-doctor-tile[data-lit] { box-shadow: none; }
-:root[data-look="new"] .armada-tiles:focus-visible .armada-doctor-tile[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--accent), 0 0 0 var(--border-width) var(--accent); }
+:root[data-look="new"] .armada-tiles:focus-visible .armada-doctor-tile[aria-selected="true"] { box-shadow: inset var(--bar) 0 0 var(--accent), 0 0 0 var(--border-width) var(--accent); }
 
 :root[data-look="new"] .armada-doctor-tile .armada-tile__head { justify-content: flex-start; gap: var(--space-2); }
 :root[data-look="new"] .armada-doctor-tile__module { font-size: var(--text-row); font-weight: var(--weight-row); }
 :root[data-look="new"] .armada-doctor-tile__checks { display: none; }
 :root[data-look="new"] .armada-doctor-tile .armada-doctor-reading { gap: var(--space-1); padding-top: 0; border-top: 0; }
-:root[data-look="new"] .armada-doctor-reading__line { font-size: var(--text-meta); line-height: var(--leading-sm); color: var(--fg-muted); }
+:root[data-look="new"] .armada-doctor-reading__line { font-size: var(--size-meta); line-height: var(--leading-sm); color: var(--fg-muted); }
 :root[data-look="new"] .armada-doctor-reading__facts dt,
 :root[data-look="new"] .armada-doctor-reading__facts dd {
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
 :root[data-look="new"] .armada-doctor-tile .armada-tile__foot { margin-top: auto; }
@@ -317,8 +317,8 @@
 :root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
 :root[data-look="new"] :is(.armada-doctor-tile .armada-tile__head, .armada-doctor-pane__head) > .armada-doctor__result {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--border-width);
+  height: var(--border-width);
   overflow: hidden;
   clip-path: inset(50%);
 }
@@ -336,10 +336,10 @@
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
 }
-:root[data-look="new"] .armada-doctor-pane__facts dt { color: var(--fg-muted); font-size: var(--text-meta); }
-:root[data-look="new"] .armada-doctor-pane__facts dd { font-size: var(--text-meta); }
+:root[data-look="new"] .armada-doctor-pane__facts dt { color: var(--fg-muted); font-size: var(--size-meta); }
+:root[data-look="new"] .armada-doctor-pane__facts dd { font-size: var(--size-meta); }
 :root[data-look="new"] .armada-doctor-pane__words { border-top-color: var(--head-rule); }
-:root[data-look="new"] .armada-doctor-pane__words > li[data-current] { background: var(--bg-step); box-shadow: inset 2px 0 0 var(--hue); }
+:root[data-look="new"] .armada-doctor-pane__words > li[data-current] { background: var(--bg-step); box-shadow: inset var(--bar) 0 0 var(--hue); }
 
 /* What nothing probes yet: a panel of its own with a caps head. */
 :root[data-look="new"] .armada-doctor__gaps {
@@ -352,8 +352,8 @@
   padding-bottom: var(--space-2);
   border-bottom: var(--border-width) solid var(--head-rule);
 }
-:root[data-look="new"] .armada-doctor__gap-owner { font-family: var(--font-mono); font-size: var(--text-meta); }
-:root[data-look="new"] .armada-doctor__gap-because { font-size: var(--text-meta); }
+:root[data-look="new"] .armada-doctor__gap-owner { font-family: var(--font-mono); font-size: var(--size-meta); }
+:root[data-look="new"] .armada-doctor__gap-because { font-size: var(--size-meta); }
 
 /* ================================================================ System ===================================== */
 /* Kit, Mods, Settings, Guides, Workflows and the Worktrees slots: the same panels, heads and rows. The strip of pages
@@ -399,7 +399,7 @@
 }
 :root[data-look="new"] .armada-kit__where {
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   font-weight: var(--weight-body);
   text-transform: none;
   letter-spacing: 0;
@@ -416,7 +416,7 @@
 :root[data-look="new"] :is(.armada-settings-index__tab, .armada-guides__row, .armada-wf-row > button):hover { background: var(--bg-step); }
 :root[data-look="new"] :is(.armada-settings-index__tab[aria-selected="true"], .armada-guides__row[aria-current], .armada-wf-row > button[aria-current]) {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset var(--bar) 0 0 var(--accent);
   color: var(--fg-default);
 }
 :root[data-look="new"] :is(.armada-settings-index__tab[aria-selected="true"], .armada-guides__row[aria-current]) { font-weight: var(--weight-heading); }
@@ -432,11 +432,11 @@
 /* Settings: a field is a row on a hairline, its key in the mono, its meaning quiet. */
 :root[data-look="new"] .armada-setting-field { border-top-color: var(--head-rule); }
 :root[data-look="new"] .armada-setting-field__title { font-size: var(--text-row); font-weight: var(--weight-row); }
-:root[data-look="new"] .armada-setting-field__key { font-size: var(--text-meta); }
+:root[data-look="new"] .armada-setting-field__key { font-size: var(--size-meta); }
 :root[data-look="new"] .armada-setting-field__means,
 :root[data-look="new"] .armada-setting-field__ships,
-:root[data-look="new"] .armada-setting-field__note { font-size: var(--text-meta); line-height: var(--leading-sm); }
-:root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key { font-size: var(--text-meta); color: var(--fg-muted); }
+:root[data-look="new"] .armada-setting-field__note { font-size: var(--size-meta); line-height: var(--leading-sm); }
+:root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key { font-size: var(--size-meta); color: var(--fg-muted); }
 :root[data-look="new"] .armada-settings-index__body { gap: var(--space-4); }
 :root[data-look="new"] .armada-settings-index__body .armada-card-header { padding-inline: 0; }
 
@@ -474,9 +474,9 @@
 :root[data-look="new"] .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"]):hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
 :root[data-look="new"] .armada-bay__name,
 :root[data-look="new"] .armada-bay__branch,
-:root[data-look="new"] .armada-bay__foot { font-family: var(--font-mono); font-size: var(--text-meta); font-variant-numeric: tabular-nums; }
+:root[data-look="new"] .armada-bay__foot { font-family: var(--font-mono); font-size: var(--size-meta); font-variant-numeric: tabular-nums; }
 
 /* Each repository's table has the same columns, so Last touched lines up from one panel to the next. */
 :root[data-look="new"] .armada-studio-list { table-layout: fixed; }
-:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(2) { width: 260px; }
-:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(3) { width: 140px; }
+:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(2) { width: calc(var(--space-12) * 5 + var(--space-6) - var(--space-1)); }
+:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(3) { width: calc(var(--space-12) * 3 - var(--space-1)); }

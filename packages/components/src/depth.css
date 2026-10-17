@@ -34,7 +34,7 @@
   text-transform: uppercase;
 }
 :root[data-look="new"] .armada-card-title { color: var(--fg-muted); }
-:root[data-look="new"] .deck-list__repository { font-size: calc(var(--text-head) - 1.5px); line-height: var(--leading-sm); }
+:root[data-look="new"] .deck-list__repository { font-size: calc(var(--text-head) - var(--border-width) * 1.5); line-height: var(--leading-sm); }
 
 /* A title is stronger than a header and reads as a sentence. */
 :root[data-look="new"] :is(.armada-dialog__title, .armada-sheet__title:not([data-titled]), .armada-account-screen__title, .armada-call__title) {
@@ -57,7 +57,7 @@
 :root[data-look="new"] .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 :root[data-look="new"] :is(.deck-row__said, .deck-bay__time) {
   font-family: var(--font-mono);
-  font-size: var(--text-meta);
+  font-size: var(--size-meta);
   font-weight: var(--weight-body);
   font-variant-numeric: tabular-nums;
 }
@@ -81,11 +81,11 @@
 }
 :root[data-look="new"] .armada-tabs__fill,
 :root[data-look="new"] .deck-places .armada-tabs__fill {
-  border-radius: calc(var(--radius-md) - 2px);
+  border-radius: calc(var(--radius-md) - var(--bar));
   background: var(--bg-step-strong);
   box-shadow: inset 0 0 0 var(--border-width) var(--border-default);
 }
-:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--radius-md) - 2px); }
+:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--radius-md) - var(--bar)); }
 :root[data-look="new"] .armada-tabs__tab { color: var(--fg-muted); transition: color var(--duration-fast) var(--ease); }
 :root[data-look="new"] .armada-tabs__tab:hover { color: var(--fg-default); }
 :root[data-look="new"] .armada-tabs__tab--active { color: var(--fg-default); }
@@ -157,7 +157,7 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 :root[data-look="new"] .deck-row:not([data-queued]) { min-height: 0; padding: var(--space-2) var(--space-3); }
-:root[data-look="new"] .deck-row__says { font-size: var(--text-meta); }
+:root[data-look="new"] .deck-row__says { font-size: var(--size-meta); }
 :root[data-look="new"] .deck-row__title { color: var(--fg-default); }
 :root[data-look="new"] .deck-row__said { color: var(--fg-muted); }
 /* Hover is one flat background step. The keyboard cursor is the same step and a hairline. */
@@ -166,7 +166,7 @@
 /* What is open: a flat low-alpha accent wash, a 2px solid bar on the leading edge, and a firm title. */
 :root[data-look="new"] .deck-row[data-selected] {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset var(--bar) 0 0 var(--accent);
 }
 :root[data-look="new"] .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 
@@ -274,7 +274,7 @@
 
 /* The focus ring eases in: it starts a little out from the control and clear, and settles on its own offset. */
 @keyframes armada-type-focus {
-  from { outline-color: transparent; outline-offset: calc(var(--focus-ring-offset) + 3px); }
+  from { outline-color: transparent; outline-offset: calc(var(--focus-ring-offset) + var(--space-1) - var(--border-width)); }
 }
 :root[data-look="new"] :focus-visible:not([data-pending]) {
   animation: armada-type-focus var(--duration-base) var(--ease);
@@ -282,7 +282,7 @@
 
 /* Reduced motion: the durations are already zero; the lift and the rise go to nothing too, so no state is a movement. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-look="new"] { --lift: 0px; --pop-rise: 0px; --pop-from: 1; }
+  :root[data-look="new"] { --lift: 0; --pop-rise: 0; --pop-from: 1; }
 }
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
@@ -301,8 +301,8 @@
 }
 :root[data-look="new"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"]), .armada-studios-page > .armada-card) {
   background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(170%);
+  backdrop-filter: blur(var(--blur-glass)) saturate(170%);
 }
 :root[data-look="new"] :is(.deck-panel, .deck-pane, .armada-studios-page > .armada-card) {
   border-color: var(--glass-edge);
@@ -316,8 +316,8 @@
    overlay level. The inspect card keeps its own hairline and tone edge. */
 :root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette, .armada-inspect-card) {
   background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(170%);
+  backdrop-filter: blur(var(--blur-glass)) saturate(170%);
 }
 :root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
   border-color: rgb(255 255 255 / 0.12);
@@ -327,23 +327,23 @@
 /* The glass material above, an input row set off by a hairline, small-caps sections, rows of 32px with a flat wash and a 2px bar for
    the active one. Keycaps are the Kbd the inspect card uses. The layout, keys and labels are the palette's own. */
 :root[data-look="new"] .armada-palette {
-  --palette-row: 32px;
+  --palette-row: var(--h-control-sm);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-overlay), var(--glass-highlight);
   animation: armada-palette-in 120ms var(--ease);
 }
 @keyframes armada-palette-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); }
 }
 :root[data-look="new"] .armada-palette-layer:not([data-anchored]) .armada-palette__input {
-  height: 48px;
+  height: var(--space-12);
   padding: 0 var(--space-4);
   border-bottom-color: var(--head-rule);
   font-size: var(--text-row);
 }
 :root[data-look="new"] .armada-palette__list { padding: var(--space-1) var(--space-2) var(--space-2); }
 :root[data-look="new"] .armada-palette__section {
-  height: 28px;
+  height: calc(var(--space-8) - var(--space-1));
   padding: 0 var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -362,7 +362,7 @@
 :root[data-look="new"] .armada-palette__row--active,
 :root[data-look="new"] .armada-palette__row--active:hover {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset var(--bar) 0 0 var(--accent);
 }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
 :root[data-look="new"] .armada-palette__keys { margin-left: auto; font-family: var(--font-mono); }
