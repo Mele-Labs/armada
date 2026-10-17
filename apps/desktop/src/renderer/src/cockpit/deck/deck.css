@@ -89,8 +89,8 @@
   text-transform: uppercase;
 }
 .deck-band .armada-kbd { margin-left: auto; }
-/* The header's icon and the call's kind word are the new look's: `depth.css` draws them under `data-look="new"`. */
-.deck-band__icon, .deck-hail__word { display: none; }
+/* The call's kind word is the new look's: `depth.css` draws it under `data-look="new"`. */
+.deck-hail__word { display: none; }
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
