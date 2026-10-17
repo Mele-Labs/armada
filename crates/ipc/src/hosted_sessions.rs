@@ -363,6 +363,8 @@ pub enum SessionAskState {
     AlwaysAllowed,
     /// Refused, and the folder put on the list as blocked.
     AlwaysBlocked,
+    /// Allowed, and the folder allowed for this session until it ends.
+    AllowedForSession,
     Refused,
     /// Nobody answered inside the hold, so it was refused.
     Unanswered,

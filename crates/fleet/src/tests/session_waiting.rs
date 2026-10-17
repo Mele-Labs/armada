@@ -51,6 +51,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         holding_for_seconds: 600,
         questions,
         reaches: None,
+        reaches_to: None,
     }
 }
 

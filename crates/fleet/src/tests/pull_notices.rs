@@ -52,7 +52,7 @@ fn pull(number: u64, checks: Vec<WatchedCheck>) -> WatchedPull {
     }
 }
 
-fn failing(number: u64) -> WatchedPull {
+pub(super) fn failing(number: u64) -> WatchedPull {
     pull(
         number,
         vec![
@@ -62,10 +62,10 @@ fn failing(number: u64) -> WatchedPull {
     )
 }
 
-struct Rig {
-    fleet: Arc<Hosted>,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Hosted>,
     stand_in: Arc<StandIn>,
-    _home: TempDir,
+    pub(super) _home: TempDir,
 }
 
 impl Rig {
@@ -88,7 +88,7 @@ impl Rig {
             .to_string()
     }
 
-    async fn reads(&self) {
+    pub(super) async fn reads(&self) {
         let served = self.fleet.repositories().served().remove(0);
         self.fleet.pulls_told(&served).await;
     }
@@ -98,7 +98,7 @@ impl Rig {
         *self.fleet.sweeping().lock().await = Default::default();
     }
 
-    async fn holds(&self, holder: Holder, kind: &str, target: &str, state: AttachmentState) {
+    pub(super) async fn holds(&self, holder: Holder, kind: &str, target: &str, state: AttachmentState) {
         let at = self.fleet.now().as_str().to_string();
         self.fleet
             .store()
@@ -120,7 +120,7 @@ impl Rig {
             .unwrap();
     }
 
-    async fn a_hosted_session_on(&self, number: u64) -> String {
+    pub(super) async fn a_hosted_session_on(&self, number: u64) -> String {
         let id = self
             .fleet
             .start_session(StartSession {
@@ -195,7 +195,7 @@ impl Rig {
             .rows
     }
 
-    async fn told(&self, recipient: &str, number: u64, cause: &str) -> bool {
+    pub(super) async fn told(&self, recipient: &str, number: u64, cause: &str) -> bool {
         let root = self
             .fleet
             .repositories()
@@ -217,7 +217,7 @@ impl Rig {
             .unwrap()
     }
 
-    fn runs_sent_to_the_session(&self) -> Vec<String> {
+    pub(super) fn runs_sent_to_the_session(&self) -> Vec<String> {
         let started = self.stand_in.starts().len();
         (0..started)
             .flat_map(|at| self.stand_in.process(at).sent.lock().unwrap().clone())
@@ -225,7 +225,7 @@ impl Rig {
     }
 }
 
-fn a_rig() -> Rig {
+pub(super) fn a_rig() -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let fleet = a_fleet_holding_bug(&home, false).hosting_sessions_on(
@@ -251,7 +251,7 @@ fn a_rig_at_a_gate() -> (Rig, TempDir) {
     (Rig::around(fleet, stand_in, TempDir::new()), home)
 }
 
-async fn owns_pull(rig: &Rig, job: &JobId, number: u64) {
+pub(super) async fn owns_pull(rig: &Rig, job: &JobId, number: u64) {
     rig.fleet
         .store()
         .lock()

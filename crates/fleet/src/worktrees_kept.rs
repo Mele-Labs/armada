@@ -14,6 +14,13 @@
 //! slot and `git status` only of a free slot whose watch cannot vouch for the
 //! last answer: `adapters::leasing::watching` says when.
 //!
+//! **A slot lease or release is announced, and the answer to the read it calls
+//! for is not from before it.** Bridge reads the list again on that fact and
+//! nowhere else, so a snapshot served then and read in the middle of the lease
+//! (a made slot with no record yet reads as stranded, its holder gone) stays on
+//! the screen until the next fact. A request that finds an announcement the
+//! snapshot has not seen waits for a read begun after it.
+//!
 //! **Only the list served to Bridge is kept.** The sweep, `armada clean`, a
 //! release and a rescue decide from a slot, and read git themselves.
 //! **Without a keeper every request is live**, which is what a test gets that
@@ -76,8 +83,19 @@ struct Inner {
     /// Counted by [`Kept::changed`], and what it stood at when `held` began.
     changed: u64,
     changed_at_begin: u64,
+    /// Slot leases and releases entered on the timeline, and what that stood at
+    /// when `held` began.
+    announced: u64,
+    announced_at_begin: u64,
     /// `Vcs::changes` when `held` began.
     adapter_at_begin: u64,
+}
+
+/// What the counters stood at when a read began.
+struct Marks {
+    changed: u64,
+    announced: u64,
+    adapter: u64,
 }
 
 /// What a request is given.
@@ -86,6 +104,8 @@ pub(crate) enum Answer {
     Kept(Arc<WorktreesHeld>),
     /// Nothing true is kept.
     Read,
+    /// The snapshot is from before a slot fact was entered: a read begun now.
+    Announced,
 }
 
 impl Kept {
@@ -97,6 +117,14 @@ impl Kept {
     /// slot or a Job may call it.
     pub(crate) fn changed(&self) {
         self.inner.lock().expect("not poisoned").changed += 1;
+    }
+
+    /// A slot was leased or given back and the timeline says so. Counted before
+    /// the fact is entered, so nobody who hears it is answered from before.
+    pub(crate) fn announced(&self) {
+        let mut inner = self.inner.lock().expect("not poisoned");
+        inner.announced += 1;
+        inner.changed += 1;
     }
 
     /// What a request is answered with, noting that someone asked.
@@ -114,6 +142,9 @@ impl Kept {
         };
         if inner.begun.is_none_or(|begun| now.saturating_duration_since(begun) > WATCHED_FOR) {
             return Answer::Read;
+        }
+        if inner.announced != inner.announced_at_begin {
+            return Answer::Announced;
         }
         Answer::Kept(held)
     }
@@ -165,8 +196,13 @@ impl Kept {
 
     /// Taken before a read, so a change during it leaves the snapshot behind
     /// rather than ahead.
-    fn marks(&self, adapter: u64) -> (u64, u64) {
-        (self.inner.lock().expect("not poisoned").changed, adapter)
+    fn marks(&self, adapter: u64) -> Marks {
+        let inner = self.inner.lock().expect("not poisoned");
+        Marks {
+            changed: inner.changed,
+            announced: inner.announced,
+            adapter,
+        }
     }
 
     /// Whether a read beginning at `now` must ask about every slot.
@@ -174,7 +210,7 @@ impl Kept {
         self.inner.lock().expect("not poisoned").whole_is_old(now)
     }
 
-    fn kept(&self, held: Arc<WorktreesHeld>, begun: Instant, whole: bool, marks: (u64, u64)) {
+    fn kept(&self, held: Arc<WorktreesHeld>, begun: Instant, whole: bool, marks: Marks) {
         let mut inner = self.inner.lock().expect("not poisoned");
         inner.held = Some(held);
         inner.begun = Some(begun);
@@ -182,7 +218,9 @@ impl Kept {
             inner.whole = Some(begun);
         }
         inner.ended = Some(Instant::now());
-        (inner.changed_at_begin, inner.adapter_at_begin) = marks;
+        inner.changed_at_begin = marks.changed;
+        inner.announced_at_begin = marks.announced;
+        inner.adapter_at_begin = marks.adapter;
     }
 
     fn failed(&self) {
@@ -247,6 +285,7 @@ where
                 let from = asked.checked_sub(STALE_AFTER).unwrap_or(asked);
                 Ok((*self.read_worktrees(from).await?).clone())
             }
+            Answer::Announced => Ok((*self.read_worktrees(asked).await?).clone()),
         }
     }
 

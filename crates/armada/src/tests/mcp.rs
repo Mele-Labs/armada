@@ -105,6 +105,26 @@ fn a_repository_with_no_manifest_ends_the_walk_rather_than_escaping_it() {
     assert!(!said.contains("01OUTERMANIFEST"), "{said}");
 }
 
+/// **A slot stands in its repository's Manifest** where the root keeps `armada.yml` out of git,
+/// so a slot's checkout has none of its own. Anything else with a `.git` still ends the walk.
+#[test]
+fn a_slot_or_job_worktree_with_no_manifest_stands_in_its_repositorys() {
+    let root = TempDir::new();
+    root.write("armada.yml", "version: 1\nid: 01ROOTMANIFEST\n");
+    for kept in [".armada/slots/slot-4", ".armada/worktrees/01JOB"] {
+        let checkout = root.path().join(kept);
+        std::fs::create_dir_all(&checkout).expect("a checkout");
+        std::fs::write(checkout.join(".git"), "gitdir: elsewhere\n").expect("a worktree's .git");
+        let below = checkout.join("crates/x");
+        std::fs::create_dir_all(&below).expect("a folder in it");
+        assert_eq!(standing_in(&checkout).expect(kept).id(), "01ROOTMANIFEST");
+        assert_eq!(standing_in(&below).expect(kept).id(), "01ROOTMANIFEST");
+    }
+    let other = root.path().join("vendor/.armada/elsewhere/x");
+    std::fs::create_dir_all(other.join(".git")).expect("another repository");
+    assert!(standing_in(&other).is_err(), "only a slot or a Job's worktree is its root's");
+}
+
 /// **A session Fleet hosts is relayed in a root with no Manifest**: Setup's
 /// session runs where `armada.yml` is not written yet, and its permission tool
 /// is on this door, so a door with no tools ended it at its first call.

@@ -595,7 +595,7 @@ export class FakeSessionsFleet {
 
   /**
    * An answer settles the ask's row, and an "always" answer puts its folder on the list in settings.json
-   * and off the other, as Fleet does.
+   * and off the other, as Fleet does. A session answer writes nothing.
    */
   private settled(answer: AnswerSessionAsk): void {
     const STATE: Record<AnswerSessionAsk["answer"], SessionAskState> = {
@@ -604,6 +604,7 @@ export class FakeSessionsFleet {
       refuse: "refused",
       always_allow: "always_allowed",
       always_block: "always_blocked",
+      allow_for_session: "allowed_for_session",
     };
     const waiting = this.threads[answer.session_id]?.find((row) => row.kind === "ask" && row.ask.call === answer.call && row.state === "waiting");
     if (waiting?.kind === "ask") this.row(answer.session_id, { ...waiting, state: STATE[answer.answer] });

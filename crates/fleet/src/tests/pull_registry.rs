@@ -255,3 +255,29 @@ async fn a_jobs_pull_request_is_registered_as_it_opens() {
     let held = row_of(&shared, 1).expect("the fake forge opens #1");
     assert_eq!((held.kind, held.id.as_str(), held.machine.as_str()), (HolderKind::Job, job.id().as_str(), "mac-a"));
 }
+
+/// **A draft past the watch's hundred is claimed by its number**: the owner's four older drafts in
+/// a busy repository were refused as not open (16 Oct 2026). One the forge says is closed is not.
+#[tokio::test]
+async fn an_open_pull_request_the_watch_did_not_list_is_claimed_by_its_number() {
+    let shared = FakeStore::new();
+    let a = machine("mac-a", &shared, true).await;
+    open(&a, &[30]);
+    a_session(&a, "s-a").await;
+    let facts = |standing| adapter_traits::PullRequestFacts {
+        standing,
+        branch: "nm/older-draft".into(),
+        auto_merge: false,
+        title: "An older draft".into(),
+        url: "https://forge.invalid/armada/pull/77".into(),
+        body: None,
+    };
+
+    a.fleet.vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Draft)));
+    claims(&a, "s-a", 77).await.expect("an open draft is claimed by its number");
+    assert_eq!(row_of(&shared, 77).map(|held| held.id), Some("s-a".to_string()));
+
+    a.fleet.vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Closed)));
+    let refused = claims(&a, "s-a", 78).await.expect_err("a closed one is not");
+    assert!(format!("{refused:?}").contains("not an open pull request"), "{refused:?}");
+}
