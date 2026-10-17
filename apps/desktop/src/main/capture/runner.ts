@@ -13,6 +13,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 
 import type { ReviewRequest } from "@armada/protocol";
+import tokens from "@armada/tokens/tokens.json";
 
 import { sendName } from "../../shared/review-walk";
 
@@ -70,22 +71,29 @@ export async function send(base: string, request: ReviewRequest, through: typeof
   }
 }
 
+/** The tokens the page spells its lengths with: it is served on its own, so `tokens.css` is not there to read. */
+const USED = ["--text-xs", "--leading-xs", "--space-1", "--space-2", "--space-3", "--space-4", "--space-8", "--border-width", "--radius-md", "--radius-lg", "--layout-breakpoint-narrow"];
+const VARS = tokens.tokens
+  .filter((one) => USED.includes(one.name))
+  .map((one) => `${one.name}: ${one.value};`)
+  .join(" ");
+
 const STYLE = `
-:root { color-scheme: light dark; font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; }
-body { margin: 0; padding: 16px; background: Canvas; color: CanvasText; }
-main { max-width: 860px; margin: 0 auto; }
+:root { ${VARS} color-scheme: light dark; font: var(--text-xs)/var(--leading-xs) ui-sans-serif, system-ui, sans-serif; }
+body { margin: 0; padding: var(--space-4); background: Canvas; color: CanvasText; }
+main { max-width: var(--layout-breakpoint-narrow); margin: 0 auto; }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.against { display: flex; gap: 8px; align-items: baseline; margin: 0 0 16px; }
-ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-section { border: 1px solid GrayText; border-radius: 6px; }
-header { display: flex; gap: 8px; align-items: center; padding: 8px 12px; }
+.against { display: flex; gap: var(--space-2); align-items: baseline; margin: 0 0 var(--space-4); }
+ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+section { border: var(--border-width) solid GrayText; border-radius: var(--radius-lg); }
+header { display: flex; gap: var(--space-2); align-items: center; padding: var(--space-2) var(--space-3); }
 header .n { color: GrayText; min-width: 1.5em; }
 header .path { flex: 1; overflow-wrap: anywhere; }
-button { font: inherit; padding: 4px 12px; border: 1px solid GrayText; border-radius: 4px; background: ButtonFace; color: ButtonText; cursor: pointer; }
-button:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+button { font: inherit; padding: var(--space-1) var(--space-3); border: var(--border-width) solid GrayText; border-radius: var(--radius-md); background: ButtonFace; color: ButtonText; cursor: pointer; }
+button:focus-visible { outline: calc(var(--border-width) * 2) solid Highlight; outline-offset: calc(var(--border-width) * 2); }
 button[aria-busy="true"] { opacity: 0.6; cursor: progress; }
-pre { margin: 0; padding: 8px 12px; border-top: 1px solid GrayText; overflow: auto; max-height: 320px; white-space: pre-wrap; }
-.response p { margin: 0; padding: 8px 12px 0; display: flex; gap: 12px; }
+pre { margin: 0; padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid GrayText; overflow: auto; max-height: calc(var(--space-8) * 10); white-space: pre-wrap; }
+.response p { margin: 0; padding: var(--space-2) var(--space-3) 0; display: flex; gap: var(--space-3); }
 .response .status { font-weight: 600; }
 .response[data-ok="false"] .status { text-decoration: underline; }
 `;
