@@ -31,7 +31,7 @@ fn the_four_verbs_parse() {
         asked("check build"),
         Ok(Verb::Check {
             name: "build".to_string(),
-            test: None,
+            tests: Vec::new(),
             changed: false
         })
     );
@@ -39,10 +39,19 @@ fn the_four_verbs_parse() {
         asked("check test a_test"),
         Ok(Verb::Check {
             name: "test".to_string(),
-            test: Some("a_test".to_string()),
+            tests: vec!["a_test".to_string()],
             changed: false
         }),
         "a second name is one test, through the Check's `one_test`"
+    );
+    assert_eq!(
+        asked("check test a_test tests::b"),
+        Ok(Verb::Check {
+            name: "test".to_string(),
+            tests: vec!["a_test".to_string(), "tests::b".to_string()],
+            changed: false
+        }),
+        "every name after the Check is a test, all run at once"
     );
     assert_eq!(
         asked("run fmt"),
@@ -174,7 +183,7 @@ fn check_takes_the_changed_paths_on_stdin_and_never_beside_one_test() {
         asked("check test --changed"),
         Ok(Verb::Check {
             name: "test".to_string(),
-            test: None,
+            tests: Vec::new(),
             changed: true
         })
     );

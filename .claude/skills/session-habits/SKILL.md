@@ -72,8 +72,9 @@ frozen).
 - Never create load to reproduce a flaky test: no burners, no `dd` loops. One
   `--stress-count` run of that one test at `taskpolicy -c utility`.
 - A brief names the tests the change adds or touches. Whole suites are CI's.
-- Rust: `armada check test <name>`, or `--changed` with the paths on stdin. Both
-  are light only with an `armada` built after #2200. TypeScript: `pnpm exec
+- Rust: `armada check test a b c` with every name in one call, or `--changed`
+  with the paths on stdin. One call per name is a build and a slot wait each
+  (17 Oct, load 20). Both are light only with an `armada` built after #2200. TypeScript: `pnpm exec
   vitest run <touched files>`; `--changed` is for Rust and hangs without stdin.
 
 ## Scope

@@ -139,7 +139,7 @@ async fn a_workspace_checks_prerequisites_and_one_test_run_in_its_directory() {
          checks:\n  test:\n    run: /usr/bin/false\n    requires: [gen]\n    \
            one_test:\n      run: /usr/bin/touch only-{}\n",
     );
-    let ran = check(&dir, "w:test", Asked::OneTest("alpha")).await;
+    let ran = check(&dir, "w:test", Asked::Tests(&["alpha"])).await;
     assert_eq!(ran.status(), 0, "{:?}", ran.attempt);
     assert!(dir.path().join("w/generated").exists());
     assert!(dir.path().join("w/only-alpha").exists());

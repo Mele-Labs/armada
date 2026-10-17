@@ -91,7 +91,7 @@ class Refuses(unittest.TestCase):
     def test_the_message_names_the_command_to_use(self) -> None:
         reason = json.loads(run("cargo test").stdout)["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn("armada check test --changed", reason)
-        self.assertIn("armada check test <name>", reason)
+        self.assertIn("armada check test a b c", reason)
 
 
 class Allows(unittest.TestCase):
