@@ -2,7 +2,7 @@
 // steps show where the Session is and block nothing.
 
 import { CircleCheck, CircleDashed, CircleDot, Lightbulb } from "lucide-react";
-import { Select, Tooltip } from "@armada/components";
+import { Inspect, InspectCard, Select, Tooltip } from "@armada/components";
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 export const MARK = {
@@ -27,11 +27,11 @@ export function StepRail({ steps, at }: { steps: readonly string[]; at: number |
         const said = `${step} · ${WORD[state]}`;
         return (
           <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <Tooltip label={said}>
+            <Inspect card={<InspectCard kind={{ Glyph, label: "Step" }} title={step} state={{ said: WORD[state].charAt(0).toUpperCase() + WORD[state].slice(1) }} />} name={said} side="below" pin={false}>
               <span className="sv-rail__mark" role="img" aria-label={said}>
                 <Glyph size={12} strokeWidth={2} aria-hidden />
               </span>
-            </Tooltip>
+            </Inspect>
           </li>
         );
       })}

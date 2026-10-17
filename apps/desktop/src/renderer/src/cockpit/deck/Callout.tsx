@@ -5,10 +5,22 @@
 
 import { useLayoutEffect, useRef } from "react";
 
+import { Box, CircleDot, FolderGit2, Flag, GitMerge, KeyRound, Layers, ListChecks, Split, SquareTerminal, TriangleAlert, type LucideIcon } from "lucide-react";
+import { InspectCard } from "@armada/components";
+
 import { AskUpdate } from "./AskUpdate";
 import { BuildCard } from "./BuildCard";
 import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
+
+/** The glyph of each kind of thing the map says something about. */
+const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Job: Box, Session: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
+
+/** The kinds a press on the focused thing opens. */
+const OPENS: ReadonlySet<string> = new Set(["Job", "Session", "Bay", "Main"]);
+
+/** The status token a state's tone is drawn in. */
+const STATE_TONE = { calm: "var(--fg-muted)", ask: "var(--status-awaiting-review)", bad: "var(--status-completed-failed)", good: "var(--status-completed-success)" } as const;
 
 /** What the callout hangs from: the element hovered or focused, or a point where the pointer was for a thing too large to have a middle. */
 export type Anchor = { target: Element; at?: { x: number; y: number } };
@@ -110,17 +122,17 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
         </g>
       </svg>
       <div ref={slot} className="bf-callout__place">
-      <div ref={card} className="bf-callout__card">
-        <i className="bf-callout__glow" aria-hidden="true" />
-        <div className="bf-callout__kind">{tip.label}</div>
+      <InspectCard
+        ref={card}
+        className="bf-callout__card"
+        kind={{ Glyph: KIND_GLYPH[tip.label] ?? CircleDot, label: tip.label }}
+        {...(tip.node !== undefined ? {} : { title: tip.title })}
+        {...(tip.node !== undefined || tip.state === undefined ? {} : { state: { Glyph: tip.state.Glyph, said: tip.state.said, tone: STATE_TONE[tip.state.tone] } })}
+        tone="var(--tip)"
+        keys={OPENS.has(tip.label) ? [{ key: "Enter", verb: "Open" }] : []}
+      >
         {pinned && tip.ask !== undefined && tip.build !== undefined ? <AskUpdate subject={tip.ask} /> : null}
-        {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : <div className="bf-callout__title">{tip.title}</div>}
-        {tip.node !== undefined || tip.state === undefined ? null : (
-          <div className="bf-callout__state" data-tone={tip.state.tone}>
-            <tip.state.Glyph size={16} strokeWidth={2} aria-hidden="true" />
-            {tip.state.said}
-          </div>
-        )}
+        {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : null}
         {tip.doing === undefined ? null : (
           <div className="bf-callout__doing">
             <tip.doing.Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -164,7 +176,7 @@ export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor:
             ))}
           </svg>
         )}
-      </div>
+      </InspectCard>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-// How old the merge queue's reading is, and the forge going quiet, on main's light: the tooltip of the plain chip and the card of a
+// How old the merge queue's reading is, and the forge going quiet, on main's light: the tooltip of the plain chip and the inspect card of a
 // red main's light say the same two things, and the dot is dimmed while the forge is quiet. The moments are `merge-line-freshness`'s.
 
 import { expect, test } from "vitest";
@@ -50,13 +50,14 @@ test("a quiet forge marks the chip with a glyph naming the time and dims the dot
   expect(bubble()).toMatch(/^Main is green\. Read 6m ago/);
 });
 
-test("a red main's card says the same, since the light's own tooltip stands down while it is open", async () => {
+test("a red main's inspect card says the same, with the age and the quiet forge among its facts", async () => {
   await deck(standing(true, true));
   const light = page.getByRole("button", { name: /^Main is red in/ });
   await expect.element(light).toBeVisible();
   expect(document.querySelector(".deck-queue [data-main] .deck-chip__dot")!.hasAttribute("data-stale")).toBe(true);
   await light.hover();
-  const card = page.getByRole("dialog", { name: /^Main is red in/ });
+  // Hovered, not pressed, so the one inspect card is a tooltip, not yet a pinned dialog.
+  const card = page.getByRole("tooltip");
   await expect.element(card.getByText(/^Read 6m ago$/)).toBeVisible();
   await expect.element(card.getByText(/^.+ not answering since \d\d:\d\d$/)).toBeVisible();
 });

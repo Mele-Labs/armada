@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -35,6 +35,7 @@ import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
+import { CallCard, SubjectCard } from "./inspect-cards";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
@@ -233,11 +234,6 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-/** A row's item: its own tooltip names the call where the row's Session is calling him. */
-function RowItem({ call, children }: { call: Item | undefined; children: ReactNode }) {
-  return call === undefined ? <li className="deck-list__item">{children}</li> : <Tooltip label={callLabel(call)} beside asChild><li className="deck-list__item">{children}</li></Tooltip>;
-}
-
 function List({ subjects, calling, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
@@ -256,7 +252,8 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
     return (
-      <RowItem key={one.key} call={call}>
+      <li key={one.key} className="deck-list__item">
+        <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
           <Tooltip label={kindSaid}>
             <span className="deck-row__kind" role="img" aria-label={kindSaid}>
@@ -276,8 +273,9 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
           <Phase subject={one} builds={builds} jobs={jobs} />
           <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
+        </Inspect>
         {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
-      </RowItem>
+      </li>
     );
   };
   return (
@@ -539,7 +537,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
     return (
       <li key={`${view.root}:${dot.key}`}>
-        <Tooltip label={chipPreview(dot)} card asChild>
+        <Inspect card={chipPreview(dot, pr !== undefined)} name={dot.tip} pin={false}>
           {pr === undefined ? (
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}
@@ -549,7 +547,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </button>
           )}
-        </Tooltip>
+        </Inspect>
       </li>
     );
   };
@@ -817,6 +815,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
           const Icon = item.icon;
           return (
             <li key={item.key}>
+              <Inspect card={<CallCard item={item} now={now} />} name={item.title} side="beside" pin={false}>
               <button type="button" className="deck-hail" data-hue={item.hue} data-first={at === 0 || undefined} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
                 <Tooltip label={item.kind}>
                   <span className="deck-hail__kind" role="img" aria-label={item.kind}>
@@ -826,6 +825,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
                 <span className="deck-hail__title">{item.title}</span>
                 <span className="deck-hail__age">{age(item.at, now)}</span>
               </button>
+              </Inspect>
             </li>
           );
         })}

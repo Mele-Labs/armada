@@ -3,7 +3,8 @@ import type { CSSProperties } from "react";
 import type { ContextBreakdown } from "../../context-breakdown";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { usageLevel } from "../../usage";
-import { StopCard, StopCardList, useCardOpen } from "../StopCard/StopCard";
+import { Layers } from "lucide-react";
+import { Inspect, InspectCard, InspectFacts, InspectSection, type InspectFact } from "../../primitives/Inspect/Inspect";
 
 /** How full the Session's context window is, as it last reported, and what it is made of where that is known. */
 export type ContextFill = { tokens: number; window: number; breakdown?: ContextBreakdown };
@@ -36,10 +37,10 @@ function heaviestServers(tools: ContextBreakdown["mcpTools"]): { name: string; t
 }
 
 /** The window as one slim row: a segment for each category in it, the room left, and the autocompact buffer. */
-function WindowBar({ breakdown }: { breakdown: ContextBreakdown }) {
+function WindowBar({ breakdown, tone }: { breakdown: ContextBreakdown; tone: string }) {
   const shown = breakdown.categories.filter((one) => one.kind !== "deferred" && one.tokens > 0);
   return (
-    <span className="armada-context-bar" aria-hidden>
+    <span className="armada-context-bar" aria-hidden style={{ "--tone": tone } as CSSProperties}>
       {shown.map((one) => (
         <i key={one.name} data-kind={one.kind} style={{ flexGrow: one.tokens } as CSSProperties} />
       ))}
@@ -47,22 +48,25 @@ function WindowBar({ breakdown }: { breakdown: ContextBreakdown }) {
   );
 }
 
-function BreakdownCard({ fill, percent, breakdown, pinned }: { fill: ContextFill; percent: number; breakdown: ContextBreakdown; pinned: boolean }) {
+const LEVEL_TONE: Record<string, string> = { warning: "var(--status-awaiting-review)", danger: "var(--status-completed-failed)" };
+
+function BreakdownCard({ fill, percent, breakdown }: { fill: ContextFill; percent: number; breakdown: ContextBreakdown }) {
+  const tone = LEVEL_TONE[usageLevel(percent)];
+  const rows = (list: readonly (readonly [string, number])[]): InspectFact[] => list.map(([label, tokens]) => ({ label, value: tokensSaid(tokens), mono: true }));
   return (
-    <StopCard
-      className="armada-session-frame__context-card"
-      role="dialog"
-      aria-label="Context"
-      data-pinned={pinned || undefined}
-      pill={`${percent}% used`}
+    <InspectCard
+      kind={{ Glyph: Layers, label: "Context" }}
       where={`${tokensSaid(fill.tokens)} / ${tokensSaid(fill.window)}`}
-      title="Context"
-      lead={<WindowBar breakdown={breakdown} />}
-      rows={breakdown.categories.filter((one) => one.kind !== "deferred").map((one) => [one.name, tokensSaid(one.tokens), true] as const)}
+      title="Context window"
+      state={{ said: `${percent}% used`, ...(tone === undefined ? {} : { tone }) }}
+      keys={[{ key: "Enter", verb: "Keep open" }]}
+      width="wide"
     >
-      <StopCardList heading="Memory files" rows={heaviest(breakdown.memoryFiles.map((one) => ({ name: nameOf(one.path, breakdown.memoryFiles), tokens: one.tokens }))).map((one) => [one.name, tokensSaid(one.tokens), true] as const)} />
-      <StopCardList heading="MCP tools" rows={heaviestServers(breakdown.mcpTools).map((one) => [one.name, tokensSaid(one.tokens), true] as const)} />
-    </StopCard>
+      <WindowBar breakdown={breakdown} tone={tone ?? "var(--fg-muted)"} />
+      <InspectFacts facts={rows(breakdown.categories.filter((one) => one.kind !== "deferred").map((one) => [one.name, one.tokens] as const))} />
+      <InspectSection heading="Memory files" facts={rows(heaviest(breakdown.memoryFiles.map((one) => ({ name: nameOf(one.path, breakdown.memoryFiles), tokens: one.tokens }))).map((one) => [one.name, one.tokens] as const))} />
+      <InspectSection heading="MCP tools" facts={rows(heaviestServers(breakdown.mcpTools).map((one) => [one.name, one.tokens] as const))} />
+    </InspectCard>
   );
 }
 
@@ -88,7 +92,6 @@ function tankStyle(fill: ContextFill): CSSProperties {
  * card, a press keeps it open**, and Esc or a press outside closes it. Nothing is drawn without a window to fill.
  */
 export function ContextFigure({ fill }: { fill: ContextFill }) {
-  const card = useCardOpen();
   if (fill.window <= 0) return null;
   const percent = Math.round((fill.tokens / fill.window) * 100);
   const figure = `${tokensSaid(fill.tokens)} · ${percent}%`;
@@ -103,11 +106,12 @@ export function ContextFigure({ fill }: { fill: ContextFill }) {
     );
   }
   return (
-    <span className="armada-session-frame__context-host" data-level={usageLevel(percent)} {...card.bind}>
-      <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} aria-expanded={card.open} data-threshold={threshold} style={tankStyle(fill)} onClick={card.toggle}>
-        {figure}
-      </button>
-      {card.open ? <BreakdownCard fill={fill} percent={percent} breakdown={fill.breakdown} pinned={card.pinned} /> : null}
+    <span className="armada-session-frame__context-host" data-level={usageLevel(percent)}>
+      <Inspect card={<BreakdownCard fill={fill} percent={percent} breakdown={fill.breakdown} />} name="Context">
+        <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} data-threshold={threshold} style={tankStyle(fill)}>
+          {figure}
+        </button>
+      </Inspect>
     </span>
   );
 }

@@ -10,7 +10,7 @@ import type { Step } from "../walk";
 function steps(): Step[] {
   const line = region("Merge line");
   const row = (branch: string) => inside(line, role("listitem", new RegExp(`^${branch}`)));
-  const session = role("group", "Owned by Pin the store clock");
+  const session = role("dialog", "Owned by Pin the store clock");
   return [
     ...viaPalette("Merge line", "The merge line, three branches waiting"),
     { look: inside(row("fix/pin-store-clock"), button("Pull request #1861")), say: "A Session holds this one: its title is on the row" },
