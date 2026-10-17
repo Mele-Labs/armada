@@ -9,6 +9,8 @@ import type { ClashFileRead, Session, SessionsDraft } from "@armada/screens/src/
 
 import { useAtFloor } from "@armada/shell";
 
+import { OverTheApp } from "./OverTheApp";
+
 type Open = { session: string; with: ClashHolderRef; path: string };
 
 let open: Open | undefined;
@@ -66,6 +68,7 @@ export function ClashFileSheet({ session, draft }: { session: Session; draft: Se
   const mine = answer?.ok === true ? fileOf(answer.ours) : undefined;
   const other = answer?.ok === true ? fileOf(answer.theirs) : undefined;
   return (
+    <OverTheApp open>
     <Sheet open floating kind="session-clash-file" floor={floor} title={shown.path} closeLabel="Close" closeBinding="Esc" onClose={closeClashFile}>
       <div className="armada-pr-file-diff sv-clash-file" aria-busy={answer === undefined || undefined}>
         {answer?.ok === false ? (
@@ -78,5 +81,6 @@ export function ClashFileSheet({ session, draft }: { session: Session; draft: Se
         )}
       </div>
     </Sheet>
+    </OverTheApp>
   );
 }

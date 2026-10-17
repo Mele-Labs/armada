@@ -3,7 +3,7 @@
 // `square-dashed` is a review nobody has given. **No state is a phrase.**
 
 import type { LucideIcon } from "lucide-react";
-import { AppWindow, Ban, Bot, Briefcase, Bug, Check, CircleX, ClipboardList, FolderGit2, LoaderCircle, MessageSquare, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert, Unplug } from "lucide-react";
+import { AppWindow, Ban, Bot, Briefcase, Bug, Check, CircleX, ClipboardList, Footprints, FolderGit2, LoaderCircle, MessageSquare, Minus, ShieldCheck, ShieldX, SquareDashed, TriangleAlert, Unplug } from "lucide-react";
 import { PrMark, Tooltip } from "@armada/components";
 import type { PullRequestReviewState, ReviewSeverity } from "@armada/protocol";
 
@@ -30,6 +30,7 @@ export const TOOL_MARK: Record<ToolMark, Said> = {
   bugs: { Glyph: Bug, said: "Possible bugs" },
   breaks: { Glyph: Unplug, said: "API breaking changes" },
   comments: { Glyph: MessageSquare, said: "Comments" },
+  walk: { Glyph: Footprints, said: "Walk" },
   custom: { Glyph: ClipboardList, said: "Tool" },
 };
 

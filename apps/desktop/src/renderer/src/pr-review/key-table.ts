@@ -34,6 +34,9 @@ export const REVIEW_KEYS = {
   get description() {
     return capOfSlot("review_description", 0);
   },
+  get where() {
+    return capOfSlot("review_where", 0);
+  },
 };
 
 /** A key as it is drawn on a cap: a capital is Shift and the letter. */
