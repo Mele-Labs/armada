@@ -1,0 +1,53 @@
+// A Session's Loadout with a realistic mix, for the stories of its mark and its sheet.
+
+import type { LoadoutItem, LoadoutTurn, SessionLoadout } from "@armada/protocol";
+
+const skill = (name: string, source: LoadoutItem["source"], from?: string): LoadoutItem => ({ kind: "skill", name, source, ...(from === undefined ? {} : { from }) });
+const tool = (name: string, source: LoadoutItem["source"], state: LoadoutItem["state"], from?: string): LoadoutItem => ({ kind: "tool", name, source, ...(state === undefined ? {} : { state }), ...(from === undefined ? {} : { from }) });
+
+export const ITEMS: LoadoutItem[] = [
+  skill("work-issue", "repository"),
+  skill("armada-components", "repository"),
+  skill("armada-voice", "repository"),
+  skill("armada:mechanic", "armada"),
+  skill("productivity:memory-management", "plugin", "productivity"),
+  skill("commit-message", "kit"),
+  skill("code-review", "built_in"),
+  { kind: "subagent", name: "armada:mechanic", source: "armada" },
+  { kind: "subagent", name: "general-purpose", source: "built_in" },
+  { kind: "mcp_server", name: "github", source: "mcp", from: "github", state: "connected" },
+  { kind: "mcp_server", name: "gitnexus", source: "mcp", from: "gitnexus", state: "failed" },
+  { kind: "mcp_server", name: "armada-fleet", source: "armada", state: "pending" },
+  tool("Read", "built_in", "loaded"),
+  tool("Edit", "built_in", "loaded"),
+  tool("Bash", "built_in", "loaded"),
+  tool("mcp__github__pull_request_read", "mcp", "deferred", "github"),
+  tool("mcp__github__search_code", "mcp", "deferred", "github"),
+  { kind: "memory_file", name: "CLAUDE.md", source: "repository", tokens: 2_100 },
+  { kind: "memory_file", name: "~/.claude/CLAUDE.md", source: "kit", tokens: 600 },
+  { kind: "output_style", name: "Explanatory", source: "kit" },
+  { kind: "rules", name: "Armada session rules", source: "armada" },
+  { kind: "injection", name: "Owner's corrections", source: "managed" },
+];
+
+export const TURNS: LoadoutTurn[] = [
+  {
+    started_at: "2026-10-17T14:02:00.000Z",
+    used: [
+      { turn_started_at: "2026-10-17T14:02:00.000Z", kind: "skill", name: "work-issue", source: "repository" },
+      { turn_started_at: "2026-10-17T14:02:00.000Z", kind: "tool", name: "Read", source: "built_in" },
+    ],
+  },
+  {
+    started_at: "2026-10-17T14:09:00.000Z",
+    used: [
+      { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "subagent", name: "armada:mechanic", source: "armada", model: "sonnet" },
+      { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "tool", name: "mcp__github__pull_request_read", source: "mcp", from: "github", by: "armada:mechanic" },
+      { turn_started_at: "2026-10-17T14:09:00.000Z", kind: "skill", name: "armada-components", source: "repository" },
+    ],
+  },
+];
+
+export const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };
+
+export const SUMMARY = { knows: 19, told: 3, latest_turn: TURNS[TURNS.length - 1]! };

@@ -11,3 +11,10 @@
     size = "16px"
     status = "Specified"
     notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Implement`. A Job shows it while its plan has tasks in it. This is the Cockpit's list row, not the Job Board's."
+
+  [[icons.layers.usage]]
+    means = "A Session's Loadout, the mark in its head: what its agent knows, was told and used"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 17 Oct 2026 for the walk `session-loadout`. What an agent carries is stacked on it in layers, from Kit, Armada, the repository and its plugins. Hover opens its inspect card, a press opens the Loadout sheet; the card's kind glyph is the same. The registry has no backpack, and `briefcase`, the case of tools you bring, is reserved to the Kit surface. Refused: `package`, Armada's own workflows; `puzzle`, Mods."
