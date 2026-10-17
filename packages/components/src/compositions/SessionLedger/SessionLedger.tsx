@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2, Unplug } from "lucide-react";
+import { Children, isValidElement, useState, type ReactNode } from "react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { forgetKept } from "../../keep";
+import { forgetKept, readKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -21,18 +21,25 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * a slot no branch is on keeps a row of its own, drawn last under Branches with the key glyph (the
  * owner's choice of 16 Oct 2026, "slot chip on branch").
  *
+ * **What waits on the person is not here.** The thread's Needs you band holds it, in every state of the
+ * Session, done included (the owner's choice of 16 Oct 2026: "its already in the thread"); `LedgerRows`
+ * and `waitingMark` are what that band draws it with.
+ *
  * **A section is drawn only when it holds a row.** A ledger with nothing in it
  * draws one small picture and no words (the owner's choice of 7 Oct 2026, who
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork" | "start";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
+/** What a background row is: a shell command the agent ran in the background, or a monitor it set to watch. */
+export type BackgroundForm = "command" | "monitor";
+
 /** A hue a ledger row or a card's fact carries: the Checks or the turn it stands for, never a chosen colour. */
-export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted";
+export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted" | "stopped";
 
 /**
  * What hovering or focusing a row shows beside it: what the row is, one fact a line. **Built by the host
@@ -86,6 +93,8 @@ export type LedgerEntry = {
   card?: SessionLedgerCard;
   /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
+  /** Which of the two a `background` row is, and so its glyph and what its tooltip names. */
+  background?: BackgroundForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
   /** Came with a Job a person piloted: handed over, not leased. */
@@ -95,7 +104,7 @@ export type LedgerEntry = {
   /** The slot a Job or a branch stands in, as a chip at the row's end. */
   slot?: number;
   /**
-   * Done with: a merged pull request, an ended Job, a finished subagent. Such a row is drawn only
+   * Done with: a merged pull request, an ended Job, a finished subagent, an ended background command. Such a row is drawn only
    * under **All**, and a section that holds one gets the `Open | All` toggle.
    */
   finished?: boolean;
@@ -149,13 +158,13 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
-  { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
-  { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
+  { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "job", label: "Jobs", Glyph: Box },
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
+  { kind: "background", label: "Background", Glyph: SquareTerminal },
   { kind: "artifact", label: "Artifacts", Glyph: Files },
   { kind: "fork", label: "Forks", Glyph: MoveRight },
   { kind: "start", label: "Started", Glyph: CornerUpRight },
@@ -170,6 +179,12 @@ export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }>
   window: { Glyph: AppWindow, said: "Shown in a window" },
 };
 
+/** The glyphs of a background row, and what each one's tooltip names. */
+export const BACKGROUND: Record<BackgroundForm, { Glyph: LucideIcon; said: string }> = {
+  command: { Glyph: SquareTerminal, said: "Background command" },
+  monitor: { Glyph: Radar, said: "Monitor" },
+};
+
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   pending: ShieldEllipsis,
   passed: ShieldCheck,
@@ -178,6 +193,7 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   done: Check,
   escalated: Megaphone,
   piloted: Terminal,
+  stopped: Power,
 };
 
 type Show = "open" | "all";
@@ -260,12 +276,112 @@ function rowsOf(entries: readonly LedgerEntry[], kind: LedgerKind): LedgerEntry[
   return kind === "branch" ? [...own, ...entries.filter((one) => one.kind === "slot")] : own;
 }
 
-export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
+/** The kinds the bar narrows the ledger to, in the bar's order; each stands for one section. */
+const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
+  { kind: "pull_request", said: "Pull requests", Glyph: GitPullRequest },
+  { kind: "branch", said: "Branches and slots", Glyph: GitBranch },
+  { kind: "artifact", said: "Artifacts", Glyph: Files },
+];
+
+/** What a Session's Search draft is kept under, so it survives leaving the panel. */
+const searchKeep = (keepKey: string | undefined) => (keepKey === undefined ? false : `session-ledger-search:${keepKey}`);
+
+/** The words a node draws, for matching a search against a row's text. */
+function plain(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plain).join("");
+  return isValidElement<{ children?: ReactNode }>(node) ? Children.toArray(node.props.children).map(plain).join("") : "";
+}
+
+/**
+ * `offers` is the kinds the bar has a button for, all of them by default. **A host that shows a kind elsewhere
+ * leaves it out**, so the bar has no button that can never have a row behind it (the Cockpit's Ledger panel
+ * keeps the branch and the bay in its band).
+ */
+export function SessionLedger({ entries, folded = false, keepKey, offers }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string; offers?: readonly LedgerKind[] }) {
+  const [only, setOnly] = useState<LedgerKind>();
+  const keep = searchKeep(keepKey);
+  const [query, setQuery] = useState(() => (keep === false ? "" : (readKept<string>(keep) ?? "")));
+  const [finding, setFinding] = useState(query !== "");
+  // The choice lasts as long as this ledger does. A kind that has lost its last row cannot narrow anything, so it is not applied.
+  const chosen = only !== undefined && rowsOf(entries, only).length > 0 ? only : undefined;
+  const asked = query.trim().toLowerCase();
+  const sections = SECTIONS.filter(({ kind }) => chosen === undefined || kind === chosen).map((section) => ({
+    ...section,
+    all: rowsOf(entries, section.kind).filter((row) => asked === "" || `${row.name} ${plain(row.text)}`.toLowerCase().includes(asked)),
+  }));
+  const stopFinding = () => {
+    if (keep !== false) forgetKept(keep);
+    setQuery("");
+    setFinding(false);
+  };
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
-      {entries.length === 0 ? <EmptyLedger /> : null}
-      {SECTIONS.map(({ kind, label, Glyph }) => (
-        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={rowsOf(entries, kind)} />
+      {SECTIONS.every(({ kind }) => rowsOf(entries, kind).length === 0) ? null : (
+      <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
+        <div className="armada-session-ledger__search" data-open={finding || undefined}>
+          <Tooltip label="Search">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Search"
+              aria-pressed={finding}
+              // Pressed again while open, it must not take the focus from the field first, or the blur would close it and this press open it again.
+              onMouseDown={finding ? (event) => event.preventDefault() : undefined}
+              onClick={() => (finding ? stopFinding() : setFinding(true))}
+            >
+              <Search size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          {finding ? (
+            <div className="armada-session-ledger__find">
+              <Textarea
+                autoFocus
+                rows={1}
+                keep={keep}
+                aria-label="Search the ledger"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onBlur={() => {
+                  if (query.trim() === "") stopFinding();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    stopFinding();
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+        {BAR.filter(({ kind }) => offers === undefined || offers.includes(kind)).map(({ kind, said, Glyph }) => {
+          const pressed = chosen === kind;
+          return (
+            <Tooltip key={kind} label={said}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={said}
+                aria-pressed={pressed}
+                disabled={rowsOf(entries, kind).length === 0}
+                onClick={() => setOnly(pressed ? undefined : kind)}
+              >
+                <Glyph size={12} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          );
+        })}
+      </div>
+      )}
+      {sections.every((one) => one.all.length === 0) ? <EmptyLedger /> : null}
+      {sections.map(({ kind, label, Glyph, all }) => (
+        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={all} />
       ))}
     </aside>
   );
@@ -379,10 +495,11 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             </li>
           );
         }
-        const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
+        // A command that exited badly is no gate failing, so it takes the cross and not the shield.
+        const Mark = row.mark === undefined ? undefined : row.kind === "background" && row.mark.glyph === "failed" ? X : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;
-        const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+        const form = row.artifact !== undefined ? ARTIFACT[row.artifact] : row.background !== undefined ? BACKGROUND[row.background] : undefined;
         const opener = (
           <button
             type="button"

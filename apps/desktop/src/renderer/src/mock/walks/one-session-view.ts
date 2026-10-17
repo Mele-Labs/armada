@@ -1,6 +1,6 @@
 // One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. Incoming calls stands on
 // the left under the list and, with nothing selected, Activity on the right beside Bays. With a Session selected the right column holds
-// Status, the Ledger and the Plan, the foot holds the Field and the Dispatch controls give way. The proposer's values stand where they
+// the Ledger, Status and the Plan, the foot holds the Field and the Dispatch controls give way. The proposer's values stand where they
 // already live: the name in the header, the model and effort in the composer, the workflow over the steps in Status. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
@@ -106,8 +106,8 @@ export const oneSessionView = walk("one-session-view", [
   { look: plan, say: "Every task is done and the Plan is framed in green" },
   { look: status, say: "The steps are at Pull request" },
   { look: region("Ledger"), say: "The Ledger keeps its place and its size. The branch and the bay are two chips in its band, and the draft pull request is its row" },
-  { drag: role("separator", "Resize Ledger and Plan"), by: { x: 0, y: -80 }, say: "With a Session selected the gaps in the right column and under the thread are handles too. The Ledger gives height to the Plan" },
-  { key: "Home", on: role("separator", "Resize Ledger and Plan"), say: "Home puts them back" },
+  { drag: role("separator", "Resize Status and Plan"), by: { x: 0, y: -80 }, say: "With a Session selected the gaps in the right column and under the thread are handles too. Status gives height to the Plan" },
+  { key: "Home", on: role("separator", "Resize Status and Plan"), say: "Home puts them back" },
   { drag: role("separator", "Resize Thread and Foot"), by: { x: 0, y: -100 }, say: "The thread and the foot trade height, and the Field fills the foot" },
   { key: "Home", on: role("separator", "Resize Thread and Foot"), say: "Back to default. A folded panel has no handle beside it, and its header still opens it" },
   { press: inside(status, role("button", /Status/)), say: "A press on a header folds the panel to it. Every panel in the view does this, the Plan, Field, Ledger, Incoming calls, Jobs and Sessions and Flight control too" },

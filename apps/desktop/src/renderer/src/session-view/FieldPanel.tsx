@@ -79,6 +79,7 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
             calls={NONE}
             clashes={NO_LIST}
             selected={undefined}
+            own={session.id}
             onSelect={nothing}
             onPad={nothing}
             onGoal={nothing}
