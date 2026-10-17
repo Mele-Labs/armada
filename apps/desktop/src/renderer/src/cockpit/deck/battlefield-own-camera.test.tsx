@@ -16,6 +16,9 @@ const NONE = new Map();
 const repos: RepoIn[] = [{ root: "/r", name: "r", pads: [], goal: false, areas: [{ dir: "crates", kids: [["fleet", 40], ["store", 20]] }, { dir: "apps", kids: [["desktop", 60]] }] }];
 const drones: DroneIn[] = [{ key: "session:a", kind: "session", title: "a", root: "/r", said: "Working", hue: "calm", spin: false, hover: true, ping: false, stuck: false, flare: false, working: false, touches: [], shown: true }];
 
+/** The pane the Field is drawn in, in pixels. */
+const PANE = { width: 640, height: 360 };
+
 const mounted: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
   for (const { root, host } of mounted.splice(0)) {
@@ -27,7 +30,9 @@ afterEach(() => {
 
 function draw(own: string | undefined) {
   const host = document.createElement("div");
-  host.style.cssText = "width: 640px; height: 360px; position: relative";
+  host.style.position = "relative";
+  host.style.width = `${PANE.width}px`;
+  host.style.height = `${PANE.height}px`;
   document.body.append(host);
   const root = createRoot(host);
   const render = (key: string | undefined) =>
@@ -66,7 +71,7 @@ test("a zoom stays until the Field is given another Session, and then it is the 
   const whole = seen(field.host);
 
   act(() => {
-    field.host.querySelector(".bf")!.dispatchEvent(new WheelEvent("wheel", { deltaY: -240, ctrlKey: true, clientX: 320, clientY: 180, bubbles: true, cancelable: true }));
+    field.host.querySelector(".bf")!.dispatchEvent(new WheelEvent("wheel", { deltaY: -240, ctrlKey: true, clientX: PANE.width / 2, clientY: PANE.height / 2, bubbles: true, cancelable: true }));
   });
   await settle();
   const zoomed = seen(field.host);
