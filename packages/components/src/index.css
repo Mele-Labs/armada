@@ -466,3 +466,4 @@
 
 /* The new look, `?look=new` in the mock. Last, so it reads over every component above. */
 @import "./depth.css";
+@import "./thread-look.css";
