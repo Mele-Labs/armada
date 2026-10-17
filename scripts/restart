@@ -505,7 +505,7 @@ plistlib.dump(
         "RunAtLoad": True,
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
         "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "EnvironmentVariables": env,
+        "EnvironmentVariables": {"HOME": home, "PATH": path_env},
     },
     open(path, "wb"),
 )
@@ -963,7 +963,7 @@ plistlib.dump(
         "ProcessType": "Interactive",
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
         "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "EnvironmentVariables": {"HOME": home, "PATH": path_env},
+        "EnvironmentVariables": env,
     },
     open(path, "wb"),
 )
