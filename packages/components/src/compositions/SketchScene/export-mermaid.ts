@@ -3,6 +3,7 @@
 // words, each arrow and its words, and every group or lane that holds a box, as a `subgraph`.
 
 import type { Scene, SceneNode } from "./scene";
+import { screenGuess } from "./screen";
 
 const GROUND = new Set(["group", "lane"]);
 const DEFAULT_W = 240;
@@ -38,12 +39,15 @@ function words(node: SceneNode): string {
 const frame = (node: SceneNode, text: string): string => {
   const label = quoted(text);
   if (node.kind === "code") return `[[${label}]]`;
-  if (node.kind === "wire") return `([${label}])`;
+  if (node.kind === "wire" || node.kind === "screen") return `([${label}])`;
   return `[${label}]`;
 };
 
 type Box = { x: number; y: number; r: number; b: number };
-const boxOf = (node: SceneNode): Box => ({ x: node.x, y: node.y, r: node.x + (node.w ?? DEFAULT_W), b: node.y + (node.h ?? DEFAULT_H) });
+const boxOf = (node: SceneNode): Box => {
+  const guess = node.screen === undefined ? { w: DEFAULT_W, h: DEFAULT_H } : screenGuess(node.screen, node.w);
+  return { x: node.x, y: node.y, r: node.x + (node.w ?? guess.w), b: node.y + (node.h ?? guess.h) };
+};
 const area = (box: Box) => (box.r - box.x) * (box.b - box.y);
 const holdsPoint = (box: Box, x: number, y: number) => x >= box.x && x <= box.r && y >= box.y && y <= box.b;
 const holdsBox = (outer: Box, inner: Box) => inner.x >= outer.x && inner.y >= outer.y && inner.r <= outer.r && inner.b <= outer.b;

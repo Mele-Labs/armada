@@ -18,6 +18,7 @@
 
 mod admitted;
 mod adopting;
+mod agent_starts;
 mod agreeing;
 mod aiming;
 mod allowance;
@@ -272,6 +273,7 @@ mod session_question;
 mod session_retro;
 mod session_standing;
 pub(crate) mod slot_leases;
+mod slot_reclaim;
 mod session_retro_live;
 mod lesson_session;
 mod retro_review;

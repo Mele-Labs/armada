@@ -531,7 +531,10 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                         Worded::Said(text) => text,
                     }
                 } else {
-                    text
+                    match agent_said(&text) {
+                        said if said.trim().is_empty() => continue,
+                        said => said,
+                    }
                 };
                 let from = match (person, by) {
                     (true, Speaker::Armada) => SessionVoice::You,
@@ -625,12 +628,24 @@ fn inside<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
 
 /// The text with every `<system-reminder>` block taken out.
 fn without_reminders(text: &str) -> String {
+    without(text, "system-reminder")
+}
+
+/// What the agent said, less any `<task-notification>` block it wrote itself:
+/// an agent sometimes ends a reply with a copy of the CLI's notice, which is not its prose.
+pub fn agent_said(text: &str) -> String {
+    without(text, "task-notification").trim_end().to_string()
+}
+
+/// The text with every `<tag>` block taken out.
+fn without(text: &str, tag: &str) -> String {
+    let (open_tag, close_tag) = (format!("<{tag}>"), format!("</{tag}>"));
     let mut out = String::new();
     let mut rest = text;
-    while let Some(open) = rest.find("<system-reminder>") {
+    while let Some(open) = rest.find(&open_tag) {
         out.push_str(&rest[..open]);
-        match rest[open..].find("</system-reminder>") {
-            Some(close) => rest = &rest[open + close + "</system-reminder>".len()..],
+        match rest[open..].find(&close_tag) {
+            Some(close) => rest = &rest[open + close + close_tag.len()..],
             None => return out,
         }
     }

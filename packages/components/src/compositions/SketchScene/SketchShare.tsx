@@ -27,26 +27,26 @@ export async function saveWith(host: SketchShareHost, files: readonly SketchShar
 /** The host's clipboard, or the browser's. */
 export const copyWith = (host: SketchShareHost, text: string): Promise<void> => (host.copy === undefined ? navigator.clipboard.writeText(text) : host.copy(text));
 
-/** An SVG drawn onto a canvas at `scale` times its own size, as PNG bytes. The size is the SVG's own width and height. */
+/**
+ * An SVG drawn onto a canvas at `scale` times its own size, as PNG bytes. The size is the SVG's own width and height.
+ * **A data address and not an object one**: Chromium taints the canvas for a picture with a `foreignObject` in it
+ * (a screen) when it was loaded from an object address, and a tainted canvas cannot be read back.
+ */
 export async function svgToPng(svg: string, width: number, height: number, scale = 2): Promise<Uint8Array> {
-  const url = URL.createObjectURL(new Blob([svg], { type: MIME.svg }));
-  try {
-    const image = new Image();
-    await new Promise<void>((done, fail) => {
-      image.onload = () => done();
-      image.onerror = () => fail(new Error("The sketch did not draw as an image."));
-      image.src = url;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    const context = canvas.getContext("2d");
-    if (context === null) throw new Error("No canvas to draw on.");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, MIME.png));
-    if (blob === null) throw new Error("The canvas gave no image.");
-    return new Uint8Array(await blob.arrayBuffer());
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  const url = `data:${MIME.svg};charset=utf-8,${encodeURIComponent(svg)}`;
+  const image = new Image();
+  await new Promise<void>((done, fail) => {
+    image.onload = () => done();
+    image.onerror = () => fail(new Error("The sketch did not draw as an image."));
+    image.src = url;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const context = canvas.getContext("2d");
+  if (context === null) throw new Error("No canvas to draw on.");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, MIME.png));
+  if (blob === null) throw new Error("The canvas gave no image.");
+  return new Uint8Array(await blob.arrayBuffer());
 }

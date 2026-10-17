@@ -9,6 +9,7 @@ import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/revi
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
   ChosenHold,
+  SessionHeld,
   SessionHoldsReleased,
   AddTask,
   FixMain,
@@ -542,6 +543,7 @@ type OldBridgeApi = {
     stopSession: (sessionId: string) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
+    handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
     moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -895,6 +897,7 @@ const OLD_CHANNELS = {
     stopSession: "bridge:stop-session",
     setSessionWorkflow: "bridge:set-session-workflow",
     releaseSessionHolds: "bridge:release-session-holds",
+    handToSession: "bridge:hand-to-session",
     moveSession: "bridge:move-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

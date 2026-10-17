@@ -270,7 +270,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "started_to":
       case "started_by":
-        out.push({ kind: one.kind, id: one.target });
+        out.push({ kind: one.kind, id: one.target, ...(detail["group"] === undefined || detail["group"] === "" ? {} : { group: detail["group"] }) });
         break;
       case "subagent":
         out.push({
@@ -451,6 +451,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "started":
         out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
+        break;
+      case "linked":
+        out.push({ id: row.id, at, kind: "linked", session: row.session, event: row.event });
         break;
       case "retro":
         out.push(retroRowOf(row, at));

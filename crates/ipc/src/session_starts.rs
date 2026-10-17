@@ -19,6 +19,26 @@ pub struct StartAnotherSession {
     pub title: String,
     /// The first message. **Held unsent**: nothing runs until the person sends it.
     pub message: String,
+    /// The group of the caller's plan this Session is handed. Since the linked Sessions.
+    ///
+    /// **Present, the new Session is a linked Session the caller follows**: it is titled with the
+    /// group's title, its first message is the group's tasks word for word and the caller's handoff
+    /// with `message` after them, and both ledgers keep the group id (`detail.group` on the
+    /// `started_by` and `started_to` rows). Refused where the caller's plan holds no such group, or
+    /// has handed it already.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+}
+
+/// `hand_to_session`: the person hands one group of a Session's plan to a Session of its own, from
+/// Bridge. Answered with [`SessionHeld`]. **Unlike `start_another_session` the first message is
+/// sent**, since the press is the person's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandToSession {
+    /// The Session whose plan holds the group. It follows the new one.
+    pub session_id: SessionId,
+    /// The group's id in that plan.
+    pub group: String,
 }
 
 /// `fork_this_session`: a new Session that starts as a copy of the caller's own conversation, with the

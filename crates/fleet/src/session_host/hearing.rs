@@ -257,6 +257,7 @@ where
             } => {
                 // What is said between the lease and the move is the agent
                 // standing down, and the person is not shown it.
+                let text = adapters::terminal_thread::agent_said(&text);
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
@@ -374,6 +375,9 @@ where
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {
             self.next_turn_awaited(id, runtime);
+        } else {
+            let (fleet, id) = (Arc::clone(self), id.to_string());
+            tokio::spawn(async move { fleet.slots_reclaimed(&id).await });
         }
     }
 

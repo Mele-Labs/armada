@@ -11,8 +11,10 @@ use serde_json::Value;
 
 use crate::SessionId;
 
+pub(crate) mod screen;
+
 /// What a node may be.
-pub const SCENE_KINDS: [&str; 6] = ["box", "group", "lane", "label", "code", "wire"];
+pub const SCENE_KINDS: [&str; 7] = ["box", "group", "lane", "label", "code", "wire", "screen"];
 
 /// What a `wire` node stands for.
 pub const WIRE_PARTS: [&str; 6] = ["button", "input", "list", "card", "nav", "text"];
@@ -35,8 +37,8 @@ pub const MOST_SCENE_BYTES: usize = 32 * 1024;
 pub const MOST_TITLE_CHARS: usize = 120;
 
 const TOP_FIELDS: [&str; 3] = ["nodes", "edges", "strokes"];
-pub(crate) const NODE_FIELDS: [&str; 12] =
-    ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "step"];
+pub(crate) const NODE_FIELDS: [&str; 13] =
+    ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "step"];
 pub(crate) const EDGE_FIELDS: [&str; 6] = ["id", "from", "to", "label", "flow", "step"];
 const STROKE_FIELDS: [&str; 2] = ["id", "points"];
 const POINT_FIELDS: [&str; 2] = ["x", "y"];
@@ -249,6 +251,14 @@ fn node_problems(nodes: &[Value], problems: &mut Vec<String>) -> Vec<String> {
         }
         one_of(fields.get("icon"), "icon", &SCENE_ICONS, &here, problems);
         one_of(fields.get("wire"), "wire", &WIRE_PARTS, &here, problems);
+        match (kind, fields.get("screen")) {
+            (Some("screen"), Some(tree)) => screen::problems(tree, &format!("{here} screen"), problems),
+            (Some("screen"), None) => problems.push(format!("{here}: a `screen` needs `screen`, its layout tree")),
+            (Some(other), Some(_)) if other != "screen" => {
+                problems.push(format!("{here}: `screen` is for a `screen` node, and this is a `{other}`"));
+            }
+            _ => {}
+        }
     }
     ids
 }

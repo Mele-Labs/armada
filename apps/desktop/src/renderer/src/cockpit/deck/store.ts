@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from "react";
 import type { Hosts, Item } from "../../Dashboard";
 import { DECK_FILTERS_KEY, DECK_JOB_VIEW_KEY, DECK_ONLY_KEY, DECK_SCOPE_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import { forgetPlace, leaving } from "../../session-view/place";
 import { sessionIdOf } from "../waiting";
 import { bandsOf, type Banding } from "./bands";
 import { orderOf } from "./order";
@@ -167,11 +168,31 @@ export const deckNow = () => state;
 /** Lights a Job or Session, by its list key, in the list and in the bays. */
 export const setHover = (hover: string | undefined) => state.hover !== hover && set({ hover });
 
-export const select = (sel: Sel | undefined) => set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
+export const select = (sel: Sel | undefined) => {
+  forgetPlace();
+  set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
+};
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
 export const openFrom = (sel: Sel) => set({ from: state.sel, sel, cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor });
+/**
+ * Opens a Session linked to the one open, from it or to it, which back returns to **as he left it**: the thread where it was scrolled
+ * and the Plan groups that were open.
+ */
+export const openLinked = (sel: Sel) => {
+  const was = state.sel;
+  if (was?.kind === "session") leaving(was.key.slice("session:".length));
+  openFrom(sel);
+};
+/** Whether one subject is a Session a plan group of the other was handed to, either way round. */
+const linkedPair = (a: Subject | undefined, b: Subject): boolean => a !== undefined && (a.linked?.parent === b.key || b.linked?.parent === a.key);
+/** Opens a row of the list as a press on it does: a Session linked to the one open is opened from it, so back returns there. */
+export const openSubject = (ship: Pick<Ship, "subjects">, subject: Subject): void => {
+  const open = state.sel === undefined ? undefined : ship.subjects.find((one) => one.key === state.sel?.key && one.kind !== "pr");
+  if (linkedPair(open, subject)) openLinked(selOfSubject(subject));
+  else select(selOfSubject(subject));
+};
 /** Back from what is open: to what it was opened from, else to the map or timeline. */
-export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined }));
+export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined, ...(state.from.kind === "job" || state.from.kind === "session" ? { cursor: state.from.key } : {}) }));
 export const moveCursor = (key: string | undefined) => {
   if (state.cursor !== key) set({ cursor: key });
 };
@@ -352,9 +373,16 @@ export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "che
   const base = scope === "quiet" || scope === "ended" ? held : scope === "all" ? [...orderOf(ship), ...held] : orderOf(ship);
   const kept = base.filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
   const open = past.find((one) => one.key === deck.open && !kept.includes(one));
-  const rows = open === undefined ? kept : [...kept, open];
+  const rows = linkedUnder(open === undefined ? kept : [...kept, open]);
   // The one order the list draws and the cursor walks: grouped by repository where the list is.
   return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
+}
+
+/** Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too. */
+function linkedUnder(rows: readonly Subject[]): Subject[] {
+  const listed = new Set(rows.map((one) => one.key));
+  const under = (parent: Subject) => rows.filter((one) => one.linked?.parent === parent.key);
+  return rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => [one, ...under(one)]);
 }
 
 /**

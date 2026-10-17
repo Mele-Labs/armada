@@ -117,6 +117,8 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **A release is settled by the pull sweep, for hosted and terminal Sessions alike.** Each interval Fleet gives back the `slot` and `branch` rows of a live Session whose lease is no longer its own, by whatever road the slot went: its own `armada worktree release`, Bridge's release, a lease taken back from a gone holder. A hosted Session is also followed at its next tool call. **A `pr` row stays**: the Session that opened a pull request is still the one to tell after it leaves the slot, and the row settles when the pull request merges or closes.
 
+**A slot whose branch merged is offered to its holder before Fleet takes it back (the owner, 16 Oct 2026).** Sessions kept slots long after their work landed, and a full pool left others with none. When the pull request from the branch a slot is leased on merges, Fleet tells the Session the lease names, whatever the pull request's owner was told: `slot-3's branch X merged`, to lease it for new work or give it back. The Session may want the slot for follow-up work in its plan, so the notice comes first. A hosted Session's next turn that ends with nothing queued is then the moment Fleet gives the slot back, if HEAD is still that branch or a commit the base has, nothing is uncommitted and every commit is on a remote or the base. A new branch cut there is new work and the slot stays. Uncommitted files or commits on no remote keep it, and the Session is told once for each what keeps it. The branch is kept. `docs/concepts/fleet.md`, *Worktree slots*.
+
 **The ledger draws every slot the Session holds.** It keeps one `slot` row, the slot the Session works in, so a slot its subagent leased has no row of its own. Its record is drawn with a `slot` for each other slot whose lease is the Session's, by Fleet's lease or a subagent's `armada worktree lease` naming it (`crate::slot_holders::slots_of`). A terminal Session that moved out of a slot gave it up though its shell still holds the lease, so a slot the ledger gave back for one is not drawn again. The owner, 15 Oct 2026.
 
 **One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the holder of a need, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`); the write-clash table adds every other slot the Session holds. Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
@@ -528,6 +530,8 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 
 **A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
 
+**A `screen` node is a wireframe of an app's screen, for any product.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where. `crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed. A tree nests at most 12 levels. The test reads the element types, their fields, the enums and the glyph list out of `screen.ts`. The tool's description teaches the types, and a refused glyph is answered with the whole list.
+
 | Cap | Holds |
 |---|---|
 | Nodes, edges, strokes | 80, 120, 20 |
@@ -873,6 +877,33 @@ A Session's agent may start a Session, or fork its own conversation into one, th
 **Both ledgers record it.** A start writes `started_by` on the new Session and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked session*, with `at` and `cut`. The caller's thread gets a `started` row naming the Session and whether it is a fork, which Bridge draws as the press that opens it. The new Session's thread opens under a line naming the Session whose agent started it.
 
 **Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
+
+## Linked Sessions
+
+A Session splits its work into **linked Sessions it follows**, one for each group of its plan. This replaces Jobs' Epics. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn.
+
+| | |
+|---|---|
+| Handing a group | `start_another_session` with `group` (the agent's, held for the owner like any start) or `hand_to_session` (the owner's press on **Hand to a Session**, which sends the brief). The new Session is in the same repository, titled with the group's title |
+| The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
+| The link | `started_by` on the child and `started_to` on the parent, as for any started Session, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
+| The parent keeps track | When a child **needs the owner** (a waiting item other than its unsent first message, a question or permission held, or stuck), **ends**, or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `needs`, `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
+| Every Session started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. The Plan and the Linked section draw only those with a group |
+
+> **Rule.** A Session follows every Session its agent starts, and the owner hears of a child through the parent's thread where it happened.
+> Why: the parent is the one holding the plan, and a child that waited on him with nobody saying so was how work stalled.
+
+Bridge draws it from the wire, with no state of its own:
+
+| Where | What |
+|---|---|
+| The Plan | Under a group handed to a Session, that Session's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Session** in its open body |
+| The Ledger | A Linked section first: the same row, with the group it came from on the second line |
+| The parent's thread | A `linked` row where it happened, `eye` for needs, `power` for done, `git-merge` for merged, the press that opens the child |
+| Work | `docs/concepts/cockpit.md` |
+| Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
+
+A Session that is idle when Fleet starts and already needs the owner is not told: `needs` is read as a move. A notice for a parent that ended is dropped.
 
 ## In Bridge
 

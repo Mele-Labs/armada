@@ -11,6 +11,7 @@ import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
+import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
 import type { WorktreesHeld } from "@armada/protocol";
@@ -45,6 +46,9 @@ export const SKETCHER = "s14";
 
 /** The Session that draws how data moves through Fleet: a hub of boxes, converging labelled arrows, a long body. */
 export const HUBBER = "s15";
+
+/** The Session that draws screens: a desktop window, a web app in a browser frame, and two phone screens joined by an arrow. */
+export const WIRER = "s16";
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -686,6 +690,14 @@ export function sessionsStore(
         after(900, () => {
           showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
           addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
+          finishOf(id, "14:52");
+        });
+      } else if (id === WIRER) {
+        after(900, () => {
+          showSketch(id, OPEN_TITLE, OPEN_SCENE);
+          showSketch(id, MEMBERS_TITLE, MEMBERS_SCENE);
+          showSketch(id, FLOW_TITLE, FLOW_SCENE);
+          addTo(id, [said("Session screen, team settings and sign in flow.")]);
           finishOf(id, "14:52");
         });
       } else if (id === MINE && !started) {

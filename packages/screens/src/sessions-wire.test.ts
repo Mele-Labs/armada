@@ -721,6 +721,18 @@ describe("a session its agent was started by another to hold", () => {
     expect(sessionOfRecord({ ...maker, state: "ended" }, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
   });
 
+  it("reads the plan group a started Session was handed off both link rows", () => {
+    const made = record("n", { attachments: [held("started_by", "old", { group: "g2" }, "spent")] });
+    expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old", group: "g2" }]);
+    const maker = record("old", { attachments: [held("started_to", "n", { group: "g2" }, "spent"), held("started_to", "m", {}, "spent")] });
+    expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n", group: "g2" }, { kind: "started_to", id: "m" }]);
+  });
+
+  it("keeps what a Session it follows did as a row in its thread", () => {
+    const row: SessionRow = { kind: "linked", id: "l1", at: AT, session: { id: "n", title: "Port the clock" }, event: "needs" };
+    expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "l1", kind: "linked", session: { id: "n", title: "Port the clock" }, event: "needs" }]);
+  });
+
   it("keeps the Session the agent started as a row in its thread", () => {
     const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
     expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);

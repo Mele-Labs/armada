@@ -147,9 +147,23 @@
 .deck-row[data-hover],
 .deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* A Session handed a plan group stands under its parent, one step in, with the line it hangs from. */
+.deck-list__item:has(> .deck-row[data-linked]) { position: relative; margin-inline-start: var(--space-4); }
+.deck-list__item:has(> .deck-row[data-linked])::before {
+  content: "";
+  position: absolute;
+  inset-block: calc(var(--space-1) * -1) 50%;
+  inset-inline-start: calc(var(--space-3) * -1);
+  width: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--border-strong);
+  border-block-end: var(--border-width) solid var(--border-strong);
+  border-end-start-radius: var(--radius-sm);
+  pointer-events: none;
+}
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
+.deck-row__link { display: inline-flex; vertical-align: -1px; margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
 .deck-row__said { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 /* What is open is lit: the accent's ground and a hairline of the accent round the whole row, never a stripe. */

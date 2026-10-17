@@ -25,7 +25,7 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, toggleJobView, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
@@ -313,7 +313,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       const row = listed.find((one) => one.key === state.cursor);
       if (row === undefined) return;
       event.preventDefault();
-      return select(selOfSubject(row));
+      return openSubject(ship, row);
     }
     if (isPressed("close", event)) {
       if (state.sel?.kind === "autopilot") {

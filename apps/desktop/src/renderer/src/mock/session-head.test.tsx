@@ -92,7 +92,7 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
 });
 
 /** Both cards are inspect cards: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
-test("The context card and the fresh card open whole, with the ledger open", async () => {
+test("The context card and the fresh card open whole", async () => {
   await page.viewport(1512, 949);
   onTestFinished(() => page.viewport(1440, 900));
   mount("session-head");
@@ -100,7 +100,6 @@ test("The context card and the fresh card open whole, with the ledger open", asy
   await open(/Cart totals rounding/);
 
   const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
-  await expect.element(page.getByRole("region", { name: "Attachments" })).toBeVisible();
   const whole = (card: Element) => {
     const box = card.getBoundingClientRect();
     expect(box.width).toBeGreaterThan(0);
