@@ -54,10 +54,11 @@ export function ComposerPills({
     const sheet = questionSheet.current;
     window.requestAnimationFrame(() => (sheet?.querySelector<HTMLElement>('[role="radio"], [role="checkbox"]') ?? sheet?.querySelector<HTMLElement>("button, textarea, input"))?.focus());
   }, [id]);
-  // A sheet whose content has gone is put away, so it does not come back open when something arrives.
+  // An answered question's sheet is put away, so the next question opens by itself and not because this one was up.
+  // Needs you stays as it was left: its rows empty for a moment while an item runs, and the sheet must still be up when it settles.
   useEffect(() => {
-    if (open !== undefined && shown === undefined) host.current(undefined);
-  }, [open, shown]);
+    if (open === "question" && !has.question) host.current(undefined);
+  }, [open, has.question]);
   if (!has.needs && !has.question) return null;
   const close = (event: KeyboardEvent) => {
     if (shown === undefined || event.key !== "Escape" || event.defaultPrevented) return;
@@ -86,7 +87,7 @@ export function ComposerPills({
       </div>
       <div className="armada-composer-pills__row">
         {!has.needs ? null : (
-          <button ref={needsPill} type="button" className="armada-composer-pills__pill" data-kind="needs" aria-expanded={shown === "needs"} onClick={() => toggle("needs")}>
+          <button ref={needsPill} type="button" className="armada-composer-pills__pill" data-kind="needs" aria-label="Needs you" aria-expanded={shown === "needs"} onClick={() => toggle("needs")}>
             <BellRing size={12} strokeWidth={2} aria-hidden />
             <span className="armada-composer-pills__label">Needs you</span>
             <span className="armada-composer-pills__glyphs">
