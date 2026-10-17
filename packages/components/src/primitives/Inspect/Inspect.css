@@ -135,7 +135,7 @@
 
 .armada-inspect-card__facts > div { display: contents; }
 .armada-inspect-card__facts dt { color: var(--fg-muted); }
-.armada-inspect-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.armada-inspect-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
 .armada-inspect-card__facts dd[data-mono] { font-family: var(--font-mono); }
 
 .armada-inspect-card__heading { margin-top: var(--space-1); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }

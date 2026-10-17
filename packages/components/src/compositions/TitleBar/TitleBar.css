@@ -316,6 +316,8 @@
 
 .armada-title-bar__usage-facts dd {
   margin: 0;
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
   color: var(--fg-default);
   overflow-wrap: anywhere;
 }
