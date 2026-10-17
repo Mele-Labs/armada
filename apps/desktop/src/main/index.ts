@@ -26,7 +26,7 @@ import type {
 } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
-import { approvedText, sessionNoteText } from "./capture/session-note";
+import { approvedText, reviewNoteOf, sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
@@ -166,6 +166,9 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
  */
 /** The walk windows with focus right now: Bridge's own windows dim while any does. */
 const walkFocused = new Set<string>();
+const tellWindows = (channel: string, ...values: unknown[]): void => {
+  for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
+};
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
@@ -175,6 +178,20 @@ const captureWindows = new CaptureWindows({
   sessionNote: async (sessionId, said, capture, address, take) => {
     const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
+  // A pull request's walk: the Session that holds the pull request hears a note, or it stays in Armada. No Approve.
+  reviewNote: async (review, said, capture) => {
+    const note = reviewNoteOf(review, said, capture, new Date().toISOString());
+    if ("kept" in note) {
+      tellWindows(CHANNELS.reviewWalkNote, note.kept);
+      return { ok: true };
+    }
+    const sent = await connection?.sessions.send({ session_id: note.toSession.id, text: note.toSession.text });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
+  reviewClosed: (review) => {
+    void connection?.reviews.closeWalk(review.manifestId, review.walkId);
+    tellWindows(CHANNELS.reviewWalkClosed, review.walkId);
   },
   walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
   sessionApproved: async (sessionId, address, take) => {
@@ -572,6 +589,7 @@ void app.whenReady().then(() => {
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
   connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
+  connection.reviews.onWalk((walk) => everyWindow(CHANNELS.reviewWalkChanged, walk));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
@@ -1077,7 +1095,7 @@ void app.whenReady().then(() => {
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
-  handleReviews({ ipc: ipcMain, connection: () => connection });
+  handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
@@ -1169,6 +1187,17 @@ void app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// A pulled-down walk holds a slot and a server in Fleet, so a Bridge that quits closes them first, for as long as Fleet takes to answer.
+let walksClosed = false;
+app.on("before-quit", (event) => {
+  const held = walksClosed ? [] : captureWindows.heldWalks();
+  if (held.length === 0 || connection === null) return;
+  walksClosed = true;
+  event.preventDefault();
+  const closing = Promise.all(held.map((walk) => connection?.reviews.closeWalk(walk.manifestId, walk.walkId)));
+  void Promise.race([closing, new Promise((resolve) => setTimeout(resolve, 4000))]).finally(() => app.quit());
 });
 
 app.on("window-all-closed", () => {

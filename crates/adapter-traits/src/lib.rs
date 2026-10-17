@@ -515,6 +515,18 @@ pub trait Vcs {
         Ok(())
     }
 
+    /// The paths the person's commits changed on the repository's default branch, newest first and
+    /// each once: the last `commits` commits `authors` wrote, by name or by email. **The
+    /// repository's own configured identity is added to `authors` here**, so a person whose commits
+    /// carry a name the forge does not know is still found. History is read and nothing is
+    /// written; a repository that will not answer has none.
+    fn paths_touched_by(
+        &self,
+        pool: &SlotPool,
+        authors: &[alloc::string::String],
+        commits: usize,
+    ) -> alloc::vec::Vec<alloc::string::String>;
+
     /// Delete the local branch a repair Drone wrote on, once its fix is merged
     /// onto the Job's branch or the repair ended failed. **Handed the spec the
     /// branch was cut from and never a name**, so it can delete one repair's

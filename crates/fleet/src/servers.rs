@@ -4,6 +4,7 @@
 //! | Module | Holds |
 //! |---|---|
 //! | [`held`] | Which servers are up, by holder and name, and the last that ended |
+//! | [`launched`] | Starting one: its row, its log directory and its task |
 //! | [`left`] | The record on disk that finds a server a crashed Fleet left running |
 //! | [`moved`] | What a held server serves, once the checkout moved past it |
 //! | [`running`] | One server: `run`, `serve`, `ready`, the end |
@@ -20,6 +21,7 @@
 //! left to hand it on or stop it.
 
 mod held;
+mod launched;
 pub(crate) mod left;
 mod moved;
 mod running;
@@ -44,7 +46,7 @@ use crate::daemon::Fleet;
 use crate::rehearsing::records;
 use held::Live;
 pub(crate) use held::{Holder, Servers};
-use running::Plan;
+pub(crate) use launched::Launch;
 pub use unservable::Unservable;
 
 /// A path that is not a checkout of the repository a server was asked for.
@@ -173,34 +175,14 @@ where
                 },
             ),
         };
-        if let Some(up) = self.servers().running(&holder, name) {
-            return Ok((up.borrow().clone(), false));
-        }
-        let id = self.mint().ulid().as_str().to_string();
-        let servers_dir = Path::new(served.records_root())
-            .join(".armada")
-            .join("servers")
-            .join(&under);
-        swept(
-            &servers_dir,
-            &self.servers().live_ids(),
-            self.run_log_retention(),
-        );
-        let dir = servers_dir.join(&id);
-        std::fs::create_dir_all(&dir)
-            .and_then(|()| std::fs::File::create(dir.join(records::LOG)).map(|_| ()))
-            .map_err(|why| Unservable::NotKept {
-                why: why.to_string(),
-            })?;
         let resolved = |text: &str| crate::ports::resolve_ports(text, &ports);
-        let state = ServerState {
-            id: id.clone(),
+        let launch = Launch {
+            holder,
             name: name.to_string(),
             job_id,
-            manifest_id: Some(ipc::ManifestId::from(served.manifest().id())),
+            manifest_id: ipc::ManifestId::from(served.manifest().id()),
             checkout,
-            phase: ServerPhase::Starting,
-            serve: resolved(server.serve()),
+            under,
             ports: named_ports(&server, &ports),
             links: server
                 .links()
@@ -210,60 +192,19 @@ where
                     name: link.name().map(str::to_string),
                 })
                 .collect(),
-            started_by: by,
+            by,
             for_review,
-            started_at: ipc::Instant::from(&self.now()),
-            serving_since: None,
-            ended_at: None,
-            exit_code: None,
-            ended: None,
-            stopped: false,
-            log: format!(".armada/servers/{under}/{id}/{}", records::LOG),
-        };
-        let (stop, stopped) = watch::channel(false);
-        // The sender is shared rather than owned by the task: where a server
-        // stands is written by the task on each phase, and by
-        // `crate::noticing` when a merge moves the checkout it serves out from
-        // under it.
-        let now = Arc::new(watch::channel(state.clone()).0);
-        let feed = api::RunFeed::new();
-        let live = Live {
-            now: Arc::clone(&now),
-            stop: Arc::new(stop),
-            feed: feed.clone(),
-            dir: dir.clone(),
-        };
-        let held = match self.servers().take(&holder, name, &id, live) {
-            Ok(held) => held,
-            // Another request took the name between the look and the take.
-            Err(up) => {
-                let _ = std::fs::remove_dir_all(&dir);
-                return Ok((up.borrow().clone(), false));
-            }
-        };
-        // The row as it stands, under its write lock and changing nothing: a
-        // merge may already have moved it, and published under the same lock.
-        now.send_if_modified(|now| {
-            self.publish(Event::ServerStarting(now.clone()));
-            false
-        });
-        let plan = Plan {
             whose: match &place {
                 Place::Job(job) => format!("job {}", job.id().as_str()),
                 Place::Checkout(checkout) => checkout.whose(),
             },
             run: server.run().map(resolved),
-            serve: state.serve.clone(),
+            serve: resolved(server.serve()),
             ready: server.ready().map(resolved),
             worktree,
             env,
-            dir,
-            feed,
-            now,
         };
-        let this = Arc::clone(&self);
-        tokio::spawn(async move { this.served(plan, held, stopped).await });
-        Ok((state, true))
+        self.launched(served.records_root(), launch).await
     }
 
     /// A Drone's `start_server`: start it or hand it the one up, and wait a

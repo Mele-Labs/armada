@@ -8,9 +8,13 @@ import tokens from "@armada/tokens/tokens.json";
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord, WalkStep, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
+import { readSteps } from "../session-file";
+import type { ShownReviewWalk, ShownReviewWalkOutcome } from "../../shared/review-walk";
+import { stepsOfRequests } from "../../shared/review-walk";
 import { isPinned, passThrough, pinned, webOrigin } from "./address";
 import { jobReadiness, sessionReadiness } from "./readiness";
 import type { PanelSubject } from "./layout";
+import { startRunner } from "./runner";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
 
 /** One spacing token, in CSS pixels. */
@@ -34,6 +38,8 @@ function sizes(): WalkSizes {
 
 /** What a Session's window is keyed by, so it cannot be mistaken for a server Run's id. */
 const SESSION_KEY = "session:";
+/** What a pull request's walk is keyed by, so it is neither a server Run's nor a Session's. */
+const REVIEW_KEY = "review:";
 
 export class CaptureWindows {
   private readonly board: CaptureBoard;
@@ -131,6 +137,64 @@ export class CaptureWindows {
   }
 
   /**
+   * Open a pull request's walk, or raise the one already open for it. **One a pull request**: a walk held again replaces the earlier
+   * (closing it closes its held place). A web walk loads the place it was written against; **an API walk loads a runner of Armada's
+   * own on loopback** (`runner.ts`) whose buttons its steps press, so both play in the one window. The page is pinned to its own
+   * origin and no other, and a note goes where `reviewNoteOf` says.
+   */
+  async openForReview(shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> {
+    const key = `${REVIEW_KEY}${shown.manifestId}#${shown.number}`;
+    const standing = this.open.get(key);
+    if (standing !== undefined && standing.open) {
+      if (standing.walkId === shown.walkId) {
+        standing.raise();
+        return { ok: true };
+      }
+      standing.close();
+    }
+    const requests = shown.requests;
+    const steps = requests !== undefined ? stepsOfRequests(requests) : readSteps(shown.steps);
+    if (steps.length === 0) return { ok: false, why: "no_steps" };
+    if (webOrigin(shown.address) === null) return { ok: false, why: "no_address" };
+    let runner: Awaited<ReturnType<typeof startRunner>> | null = null;
+    if (requests !== undefined) {
+      try {
+        runner = await startRunner(shown.address, requests);
+      } catch {
+        return { ok: false, why: "runner_failed" };
+      }
+    }
+    const url = runner === null ? shown.address : runner.url;
+    const origin = webOrigin(url);
+    if (origin === null) {
+      await runner?.stop();
+      return { ok: false, why: "no_address" };
+    }
+    // One cookie jar per repository, as a Session's: a sign-in on a preview holds for the next walk of that repository.
+    const pin = { run: key, name: shown.title, origin, url, manifestId: shown.manifestId, through: [] };
+    const review = {
+      walkId: shown.walkId,
+      manifestId: shown.manifestId,
+      number: shown.number,
+      title: shown.title,
+      address: shown.address,
+      ...(shown.holder === undefined ? {} : { holder: shown.holder }),
+    };
+    const stopping = runner;
+    const board: CaptureBoard =
+      stopping === null
+        ? this.board
+        : { ...this.board, reviewClosed: (closed) => { void stopping.stop(); this.board.reviewClosed(closed); } };
+    this.open.set(key, new CaptureWindow(pin, { review }, board, sizes(), null, [], [], steps));
+    return { ok: true };
+  }
+
+  /** The walks held open by windows now, so Bridge can close them at Fleet as it quits. */
+  heldWalks(): { manifestId: string; walkId: string }[] {
+    return [...this.open.values()].flatMap((window) => (window.open && window.walkId !== null && window.walkManifestId !== null ? [{ manifestId: window.walkManifestId, walkId: window.walkId }] : []));
+  }
+
+  /**
    * A Session asked about a place on its walk: **its window comes forward, and opens where it is
    * closed** or is on another origin. `window` is the address the Session showed, which the window
    * opens on; the question itself, and the page it moves to, are read off what Fleet published.
@@ -169,6 +233,8 @@ export class CaptureWindows {
         this.open.delete(serverId);
         continue;
       }
+      // A pull request's walk is no Run either, and nothing Fleet publishes about servers ends it.
+      if (serverId.startsWith(REVIEW_KEY)) continue;
       // A Session's page is no Run, so nothing Fleet publishes about servers ends it.
       if (serverId.startsWith(SESSION_KEY)) {
         window.setReadiness(sessionReadiness(this.sessions?.find((one) => one.id === serverId.slice(SESSION_KEY.length)), window.address));

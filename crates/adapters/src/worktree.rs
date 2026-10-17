@@ -245,6 +245,10 @@ impl Vcs for GitVcs {
         noted(crate::leasing::jobs::release_review(pool, slot, holder))
     }
 
+    fn paths_touched_by(&self, pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
+        crate::history::paths_touched_by(pool.repo_root(), authors, commits)
+    }
+
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
         crate::leasing::jobs::open(pool, job_id)
     }

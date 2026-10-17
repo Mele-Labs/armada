@@ -32,6 +32,7 @@ mod forge_address;
 mod git_guard_gaps;
 mod harness;
 mod held_off;
+mod history;
 mod hosted_session;
 mod issue_lookup;
 mod jira;

@@ -74,6 +74,7 @@ mod review;
 mod review_model;
 mod review_record;
 mod review_runs;
+mod walk_places;
 mod revision;
 mod roundtrip;
 mod session_checks;

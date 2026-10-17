@@ -27,7 +27,7 @@ import type {
 import { CHANNELS } from "../../shared/bridge";
 import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
-import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
+import { panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
 import { followedBy } from "./follow";
 import type { Take } from "./session-note";
@@ -50,6 +50,10 @@ export type CaptureBoard = {
   sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take?: Take) => Promise<Outcome>;
   /** Approve on the bar, for a Job: the act JobDetail's own Approve sends. */
   walkApproved: (jobId: string) => Promise<Outcome>;
+  /** A note taken in a review's walk: to the Session holding the pull request, or kept in Armada where none does. */
+  reviewNote: (review: ReviewWalkOwner, said: string, capture: StudioCapture) => Promise<Outcome>;
+  /** A review's walk window closed, whoever closed it: its held walk is over. */
+  reviewClosed: (review: ReviewWalkOwner) => void;
   /** Approve on the bar, for a Session: a message from the person naming the address, and the take on screen, which wakes it. */
   sessionApproved: (sessionId: string, address: string, take?: Take) => Promise<Outcome>;
   /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
@@ -231,6 +235,7 @@ export class CaptureWindow {
         this.board.sessionClosed(landsOn.session.id, this.opened);
         this.board.windowsChanged?.();
       }
+      if ("review" in landsOn) this.board.reviewClosed(landsOn.review);
       this.stopWatchingWalk();
       this.popup?.close();
       this.stepwalk?.stop();
@@ -282,6 +287,15 @@ export class CaptureWindow {
   /** Whether this window is still on screen. */
   get open(): boolean {
     return !this.window.isDestroyed();
+  }
+
+  /** The held walk this window plays, where it is a pull request's. */
+  get walkId(): string | null {
+    return "review" in this.landsOn ? this.landsOn.review.walkId : null;
+  }
+
+  get walkManifestId(): string | null {
+    return "review" in this.landsOn ? this.landsOn.review.manifestId : null;
   }
 
   /** The address the window was opened on, whichever take is on screen. */
@@ -410,6 +424,7 @@ export class CaptureWindow {
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
+      ...("review" in this.landsOn ? { review: { title: this.landsOn.review.title, ...(this.landsOn.review.holder === undefined ? {} : { holder: this.landsOn.review.holder.title }) } } : {}),
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
       ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
       ...(this.readiness === undefined ? {} : { readiness: this.readiness }),
@@ -535,7 +550,9 @@ export class CaptureWindow {
         ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
         : "session" in this.landsOn
           ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken())
-          : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
+          : "review" in this.landsOn
+            ? await this.board.reviewNote(this.landsOn.review, said, capture)
+            : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
@@ -714,7 +731,7 @@ export class CaptureWindow {
     // one or one it named. Any other address, a second popup, and every popup of a Run's page or a Job's
     // are refused, as every popup was.
     contents.setWindowOpenHandler(({ url }) => {
-      if (!mayOpenPopup({ session: "session" in this.landsOn, standing: this.popup !== null, allowed: allowed(url) })) {
+      if (!mayOpenPopup({ session: "session" in this.landsOn || "review" in this.landsOn, standing: this.popup !== null, allowed: allowed(url) })) {
         this.refuse(url, "window");
         return { action: "deny" };
       }

@@ -19,6 +19,11 @@ pub(super) struct PullRequests {
     pub(super) ready: Result<(), String>,
     /// What the forge answers for a pull request's page. `None` is silence.
     pub(super) page: Option<PullRequestPageFacts>,
+    /// A page for one pull request, by number, ahead of `page`. `None` is silence for that one.
+    pub(super) pages: Vec<(String, Option<PullRequestPageFacts>)>,
+    /// The paths the person's commits changed, and every history read asked: authors and count.
+    pub(super) touched: Vec<String>,
+    pub(super) touched_asked: Vec<(Vec<String>, usize)>,
     /// What the forge answers for one file's patch. `None` is silence.
     pub(super) file_patch: Option<FilePatch>,
     /// The forge's reply to a write on a pull request.
@@ -39,6 +44,9 @@ impl Default for PullRequests {
             facts: None,
             ready: Ok(()),
             page: None,
+            pages: Vec::new(),
+            touched: Vec::new(),
+            touched_asked: Vec::new(),
             file_patch: None,
             written: Ok(()),
             review_lists: Vec::new(),
@@ -123,7 +131,18 @@ impl FakeVcs {
             .push(Delivered::ReadPullRequestPage {
                 pull_request: pull_request.to_string(),
             });
-        self.pull_requests.lock().expect("not poisoned").page.clone()
+        let forge = self.pull_requests.lock().expect("not poisoned");
+        match forge.pages.iter().find(|(number, _)| number == pull_request) {
+            Some((_, page)) => page.clone(),
+            None => forge.page.clone(),
+        }
+    }
+
+    /// `Vcs::paths_touched_by`: recorded, then answered as scripted.
+    pub(super) fn history_read(&self, authors: &[String], commits: usize) -> Vec<String> {
+        let mut forge = self.pull_requests.lock().expect("not poisoned");
+        forge.touched_asked.push((authors.to_vec(), commits));
+        forge.touched.clone()
     }
 
     /// `Delivery::pull_request_file_patch`: recorded, then answered as scripted.
@@ -232,6 +251,23 @@ impl FakeVcs {
     /// Say what the forge shows on a pull request's page, or that it is silent.
     pub fn now_pull_request_page(&self, page: Option<PullRequestPageFacts>) {
         self.pull_requests.lock().expect("not poisoned").page = page;
+    }
+
+    /// Say what the forge shows on one pull request's page, ahead of the page said for the rest.
+    pub fn now_page_of_pull_request(&self, number: u64, page: Option<PullRequestPageFacts>) {
+        let mut forge = self.pull_requests.lock().expect("not poisoned");
+        forge.pages.retain(|(held, _)| *held != number.to_string());
+        forge.pages.push((number.to_string(), page));
+    }
+
+    /// Say which paths the person's commits changed.
+    pub fn now_paths_touched(&self, paths: &[&str]) {
+        self.pull_requests.lock().expect("not poisoned").touched = paths.iter().map(|path| path.to_string()).collect();
+    }
+
+    /// Every history read asked, in order, as the authors named and the commits counted.
+    pub fn paths_touched_asked(&self) -> Vec<(Vec<String>, usize)> {
+        self.pull_requests.lock().expect("not poisoned").touched_asked.clone()
     }
 
     /// Say what the forge holds for a file's patch, or that it is silent.

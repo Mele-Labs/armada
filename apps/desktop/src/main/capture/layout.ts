@@ -1,11 +1,24 @@
 // Where the walk window's three views sit, and which panel it has. Pure, so it is read without a window.
 // `docs/practices/capture-window.md`, *The panel beside the page*.
 
-/** Where a note made in the window lands: the Run's Studio, the Job whose server it walks, or the Session that showed the page. */
+/** A pull request's walk, opened from the Reviews tab: **no Session shows it**, so a note goes to the Session that holds the pull request, or stays in Armada. */
+export type ReviewWalkOwner = {
+  walkId: string;
+  manifestId: string;
+  number: number;
+  title: string;
+  /** The Session of his that holds the pull request, where one does. */
+  holder?: { id: string; title: string };
+  /** Where the change runs, for the note's words: the page the walk is on may be Bridge's own runner. */
+  address: string;
+};
+
+/** Where a note made in the window lands: the Run's Studio, the Job whose server it walks, the Session that showed the page, or a pull request's holder. */
 export type LandsOn =
   | { studio: { id: string; name: string | null } }
   | { job: { id: string; handle: string } }
-  | { session: { id: string; title: string } };
+  | { session: { id: string; title: string } }
+  | { review: ReviewWalkOwner };
 
 /** What the panel beside the page holds: the Session or the Job that opened the window. */
 export type PanelSubject = { kind: "session" | "job"; id: string };
