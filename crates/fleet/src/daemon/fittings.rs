@@ -456,6 +456,7 @@ where
             territory: Arc::default(),
             proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
+            review_going: Mutex::new(std::collections::BTreeSet::new()),
             heals: std::sync::Mutex::default(),
             repairing: crate::repair_hold::Underway::default(),
             stirred: std::sync::Mutex::default(),

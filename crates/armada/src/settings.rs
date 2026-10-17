@@ -39,6 +39,7 @@ pub fn supplied() -> Supplied {
         .list(keys::MODELS_ROSTER, HeadlessAgent::models())
         .words(keys::MODELS_DEFAULT, HeadlessAgent::default_model())
         .words(keys::MODELS_SESSION, HeadlessAgent::session_model())
+        .words(keys::MODELS_REVIEW, HeadlessAgent::review_model())
         .words(keys::MODELS_JUDGE, HeadlessAgent::judge_model())
         .words(keys::MODELS_PROPOSER, HeadlessAgent::proposer_model())
         .words(keys::MODELS_RETRO, HeadlessAgent::retro_model())

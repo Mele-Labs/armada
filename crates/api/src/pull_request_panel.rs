@@ -88,3 +88,68 @@ pub(crate) async fn resolve_review_thread<D: PullRequestPanel>(
         Err(refusal) => refused(refusal),
     }
 }
+
+pub(crate) async fn list_review_tools<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+) -> Response {
+    match served.daemon().list_review_tools(ManifestId::carried(repository)).await {
+        Ok(tools) => answer(StatusCode::OK, &tools, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 422 for a blank or wordless name, a blank prompt, and an id the scope already defines.
+pub(crate) async fn save_review_tool<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let save: ipc::SaveReviewTool = match ipc::decode("a review tool to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .save_review_tool(ManifestId::carried(repository), save)
+        .await
+    {
+        Ok(tools) => answer(StatusCode::OK, &tools, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 422 for a name no definition has or a blank question; 500 where the forge would not give the
+/// pull request.
+pub(crate) async fn start_review_run<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartReviewRun = match ipc::decode("a review run to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .shared()
+        .start_review_run(ManifestId::carried(repository), start)
+        .await
+    {
+        Ok(run) => answer(StatusCode::OK, &run, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_review_runs<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path((repository, number)): Path<(String, u64)>,
+) -> Response {
+    match served
+        .daemon()
+        .get_review_runs(ManifestId::carried(repository), number)
+        .await
+    {
+        Ok(runs) => answer(StatusCode::OK, &runs, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
