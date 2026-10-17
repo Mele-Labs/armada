@@ -2,7 +2,7 @@
 // by repository and number, whoever opened it and whether or not a Session holds it. Nothing is kept here and
 // nothing polls: the renderer asks when the tab opens, on Refresh, and when a pull request is opened.
 
-import type { Outcome, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest } from "@armada/protocol";
+import type { Outcome, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 
 import type { ReviewActed } from "../shared/api/reviews";
 import { ask, type Answer } from "./request";
@@ -14,8 +14,20 @@ const acted = <T>(answer: Answer): ReviewActed<T> => (answer.ok === true ? { ok:
 export class ReviewsHost {
   private readonly port: () => number | null;
 
+  private told: (run: ReviewRun) => void = () => {};
+
   constructor(port: () => number | null) {
     this.port = port;
+  }
+
+  /** Say where a moved run goes: main's, which owns the windows. */
+  onRun(told: (run: ReviewRun) => void): void {
+    this.told = told;
+  }
+
+  /** `review_run.changed`. Nothing is kept: each window holds the runs it drew. */
+  changed(run: ReviewRun): void {
+    this.told(run);
   }
 
   async lists(): Promise<ReviewActed<PullReviewLists>> {
@@ -44,5 +56,26 @@ export class ReviewsHost {
   async resolve(manifestId: string, resolve: ResolvePullThread): Promise<ReviewActed<PullThreadResolved>> {
     const port = this.port();
     return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/review_threads/${encodeURIComponent(manifestId)}`, resolve));
+  }
+
+  async tools(manifestId: string): Promise<ReviewActed<ReviewTools>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", `/review_tools/${encodeURIComponent(manifestId)}`));
+  }
+
+  async saveTool(manifestId: string, save: SaveReviewTool): Promise<ReviewActed<ReviewTools>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/review_tools/${encodeURIComponent(manifestId)}`, save));
+  }
+
+  /** Answers at once; the run's progress and result arrive as `review_run.changed`. */
+  async startRun(manifestId: string, start: StartReviewRun): Promise<ReviewActed<ReviewRun>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "POST", `/review_runs/${encodeURIComponent(manifestId)}`, start));
+  }
+
+  async runs(manifestId: string, number: number): Promise<ReviewActed<ReviewRuns>> {
+    const port = this.port();
+    return port === null ? { ok: false, outcome: NOT_CONNECTED } : acted(await ask(port, "GET", `/review_runs/${encodeURIComponent(manifestId)}/${number}`));
   }
 }

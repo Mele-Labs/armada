@@ -50,6 +50,9 @@ pub struct FakeJudge {
     /// keeps drawing the last entry, which is what lets a test script two
     /// calls without caring how many more a retry bound might add.
     sequence: Option<Mutex<(usize, Vec<String>)>>,
+    /// What a watched call's closing line says the vendor billed, in dollars. Absent on every
+    /// judge but one a test asked to be [`FakeJudge::costing`].
+    cost: Option<f64>,
 }
 
 impl FakeJudge {
@@ -66,6 +69,7 @@ impl FakeJudge {
             taking: Duration::ZERO,
             streaming: 0,
             sequence: None,
+            cost: None,
         }
     }
 
@@ -100,6 +104,7 @@ impl FakeJudge {
             taking: Duration::ZERO,
             streaming: 0,
             sequence: None,
+            cost: None,
         }
     }
 
@@ -117,6 +122,7 @@ impl FakeJudge {
             taking: Duration::ZERO,
             streaming: 0,
             sequence: None,
+            cost: None,
         }
     }
 
@@ -135,6 +141,7 @@ impl FakeJudge {
             taking: Duration::ZERO,
             streaming: 0,
             sequence: None,
+            cost: None,
         }
     }
 
@@ -159,6 +166,7 @@ impl FakeJudge {
                 0,
                 replies.iter().map(|reply| reply.to_string()).collect(),
             ))),
+            cost: None,
         }
     }
 
@@ -175,6 +183,13 @@ impl FakeJudge {
     /// watching sees as the answer is written.** The unwatched call is unchanged.
     pub fn streamed_in(mut self, characters: usize) -> FakeJudge {
         self.streaming = characters;
+        self
+    }
+
+    /// The same judge, whose watched call ends with a readout saying it cost `dollars`.
+    /// **For a test of what a caller records as spend.**
+    pub fn costing(mut self, dollars: f64) -> FakeJudge {
+        self.cost = Some(dollars);
         self
     }
 
@@ -322,6 +337,11 @@ impl ModelClient for FakeJudge {
                 }
                 lines.push(assistant(&answer));
             }
+        }
+        if let (None, Some(dollars)) = (self.failing, self.cost) {
+            lines.push(format!(
+                r#"{{"type":"result","total_cost_usd":{dollars},"duration_api_ms":10}}"#
+            ));
         }
         // One `printf` per line with a beat between, then the exit the fake is
         // scripted for. `$0`-style splicing is deliberately not used: every

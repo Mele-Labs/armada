@@ -9,7 +9,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::job::ids::ModelName;
+use crate::workflow::ids::ModelName;
 
 /// How hard a step's Drone thinks. **A step with none is Armada picking**,
 /// which is the harness's own default and has no spelling here.

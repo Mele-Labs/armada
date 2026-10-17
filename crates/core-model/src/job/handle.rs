@@ -28,7 +28,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 
 use crate::envelope::Ulid;
-use crate::job::ids::{JobId, Title};
+use crate::workflow::{JobId, Title};
 use crate::job::record::Job;
 
 /// A Job's number within its Manifest. **Allocated by the store at insert**,

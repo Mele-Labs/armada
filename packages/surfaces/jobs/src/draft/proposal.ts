@@ -223,7 +223,7 @@ export function gateViewOf(step: GateDeclared): GateView {
  * **The boxes are not the wire and the wire is not the boxes.** `advance_gate`
  * is one value per step and says what it takes to *advance*; the Checks a step
  * runs and the criteria a Judge reads are declared on the step itself and are
- * frozen at creation (`crates/core-model/src/job/declared.rs`). So a tick
+ * frozen at creation (`crates/core-model/src/workflow/declared.rs`). So a tick
  * moves the gate and never the declarations — which is the whole of why
  * `unmeantOf` exists.
  */

@@ -32,7 +32,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest } from "@armada/protocol";
+import type { PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
@@ -716,6 +716,17 @@ const api: BridgeApi = {
   readReviewFile: (manifestId: string, number: number, path: string): Promise<ReviewActed<PullRequestFilePatch>> => ipcRenderer.invoke(CHANNELS.readReviewFile, manifestId, number, path),
   writeReview: (manifestId: string, write: WritePullRequest): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.writeReview, manifestId, write),
   resolveReviewThread: (manifestId: string, resolve: ResolvePullThread): Promise<ReviewActed<PullThreadResolved>> => ipcRenderer.invoke(CHANNELS.resolveReviewThread, manifestId, resolve),
+  listReviewTools: (manifestId: string): Promise<ReviewActed<ReviewTools>> => ipcRenderer.invoke(CHANNELS.listReviewTools, manifestId),
+  saveReviewTool: (manifestId: string, save: SaveReviewTool): Promise<ReviewActed<ReviewTools>> => ipcRenderer.invoke(CHANNELS.saveReviewTool, manifestId, save),
+  startReviewRun: (manifestId: string, start: StartReviewRun): Promise<ReviewActed<ReviewRun>> => ipcRenderer.invoke(CHANNELS.startReviewRun, manifestId, start),
+  getReviewRuns: (manifestId: string, number: number): Promise<ReviewActed<ReviewRuns>> => ipcRenderer.invoke(CHANNELS.getReviewRuns, manifestId, number),
+  onReviewRun: (onRun: (run: ReviewRun) => void): (() => void) => {
+    const handler = (_event: unknown, run: ReviewRun): void => onRun(run);
+    ipcRenderer.on(CHANNELS.reviewRunChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.reviewRunChanged, handler);
+    };
+  },
   getRepositoryAreas: (): Promise<RepositoryAreasRead> => ipcRenderer.invoke(CHANNELS.getRepositoryAreas),
   getSlotTouches: (): Promise<SlotTouchesRead> => ipcRenderer.invoke(CHANNELS.getSlotTouches),
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),

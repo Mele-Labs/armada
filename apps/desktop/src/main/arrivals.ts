@@ -35,6 +35,7 @@ import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
+import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
 import type { StudioReads } from "./studios";
 
@@ -70,6 +71,8 @@ export interface ArrivalHost {
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
   readonly timeline: Pick<TimelineHost, "appended">;
+  /** A review run that moved, told to the windows whole — `reviews.ts`. */
+  readonly reviews: Pick<ReviewsHost, "changed">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -585,6 +588,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // re-reads it, so a Session taking a slot on its first write left the bays as drawn. Fleet
     // enters the event after the pool changes, so the read finds the new holder. Nothing open is no read.
     if (event.event.kind === "slot.leased" || event.event.kind === "slot.released") void host.held.again(fleet.port);
+    return;
+  }
+  if (event.kind === "review_run.changed") {
+    // Above the tail for `sleep.changed`'s reason: no Job to find, and the run travels whole in `run`, since a run has a `kind` of its own. Main keeps none of it.
+    host.publish({ connection });
+    host.reviews.changed(event.run);
     return;
   }
   if (event.kind === "autopilot.changed") {

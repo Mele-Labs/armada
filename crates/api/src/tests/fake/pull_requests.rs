@@ -146,6 +146,48 @@ impl PullRequestPanel for FakeDaemon {
         })
     }
 
+    async fn list_review_tools(&self, _manifest_id: ManifestId) -> Result<ipc::ReviewTools, Refusal> {
+        Ok(ipc::ReviewTools {
+            tools: Vec::new(),
+            left_out: Vec::new(),
+        })
+    }
+
+    async fn save_review_tool(
+        &self,
+        _manifest_id: ManifestId,
+        _save: ipc::SaveReviewTool,
+    ) -> Result<ipc::ReviewTools, Refusal> {
+        Ok(ipc::ReviewTools {
+            tools: Vec::new(),
+            left_out: Vec::new(),
+        })
+    }
+
+    async fn start_review_run(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        start: ipc::StartReviewRun,
+    ) -> Result<ipc::ReviewRun, Refusal> {
+        Ok(ipc::ReviewRun {
+            manifest_id,
+            number: start.number,
+            kind: start.kind,
+            name: start.name,
+            head: "0".repeat(40),
+            state: ipc::ReviewRunState::Queued,
+            started_at: "2026-10-16T09:00:00Z".into(),
+            finished_at: None,
+            failed: None,
+            result: None,
+            cost_micros: None,
+        })
+    }
+
+    async fn get_review_runs(&self, _manifest_id: ManifestId, _number: u64) -> Result<ipc::ReviewRuns, Refusal> {
+        Ok(ipc::ReviewRuns { runs: Vec::new() })
+    }
+
     async fn resolve_review_thread(
         &self,
         _manifest_id: ManifestId,

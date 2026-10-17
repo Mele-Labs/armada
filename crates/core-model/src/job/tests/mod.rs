@@ -21,6 +21,7 @@
 
 use crate::envelope::{Actor, FieldValue, Timestamp, Ulid};
 use crate::job::*;
+use crate::workflow::*;
 
 fn at(instant: &str) -> Timestamp {
     Timestamp::from_rfc3339(instant)
@@ -312,7 +313,6 @@ fn reach(status: JobStatus) -> Job {
 }
 
 mod allowed;
-mod covers;
 mod loop_return;
 mod machine;
 mod models;

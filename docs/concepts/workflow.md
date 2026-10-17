@@ -26,7 +26,7 @@ Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else dec
 
 ### A step's gate is three settings, not one
 
-**Not yet built.** `advance_gate` is one value per step — `auto`, `auto_if_judge_passes`, `human_always`, or a rule the repository decides (`crates/core-model/src/job/declared.rs`). It cannot say "let a [Judge](judge.md) read this and run no Checks", or "stop here and ask me", without an edit to the definition.
+**Not yet built.** `advance_gate` is one value per step — `auto`, `auto_if_judge_passes`, `human_always`, or a rule the repository decides (`crates/core-model/src/workflow/declared.rs`). It cannot say "let a [Judge](judge.md) read this and run no Checks", or "stop here and ask me", without an edit to the definition.
 
 **Checks, Judge and you become three independent settings on a step.** Any combination is expressible, including none of them. A fourth state, **the repository decides**, is what `manifest_rule:auto_merge` and `manifest_rule:review_gate` are today, and it is overridable for one Job.
 

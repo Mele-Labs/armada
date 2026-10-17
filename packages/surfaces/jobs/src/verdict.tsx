@@ -90,7 +90,7 @@ export function neverAsksAPerson(steps: readonly StepDetail[]): boolean | undefi
 }
 
 /**
- * `crates/core-model/src/job/workflow.rs::ARTIFACT_EXISTS` — the one
+ * `crates/core-model/src/workflow/frozen.rs::ARTIFACT_EXISTS` — the one
  * mechanical check that is not really a gate: it confirms the deliverable
  * exists and looks at nothing about what it says.
  */

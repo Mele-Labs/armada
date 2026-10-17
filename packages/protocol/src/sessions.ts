@@ -167,10 +167,13 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
  * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
- * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card. `replied` is no longer served: a reply is the
+ * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
+ * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
+ * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` is no longer served: a reply is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
