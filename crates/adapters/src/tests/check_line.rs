@@ -30,7 +30,7 @@ fn a_check_beside_a_write_is_chained() {
 #[test]
 fn a_line_with_no_check_or_one_it_cannot_read_is_left_alone() {
     for none in [
-        "armada need --status",
+        "armada worktree --status",
         "cargo test",
         "echo armada check",
         "armada check test x > out.txt",

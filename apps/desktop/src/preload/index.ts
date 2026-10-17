@@ -25,7 +25,8 @@ import type {
   Outcome,
 } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
+import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
+import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
@@ -365,6 +366,37 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.reviewRunChanged, handler);
     };
   },
+  startReviewSearch: (start: StartReviewSearch): Promise<ReviewActed<ReviewRun>> => ipcRenderer.invoke(CHANNELS.startReviewSearch, start),
+  getReviewSearches: (): Promise<ReviewActed<ReviewRuns>> => ipcRenderer.invoke(CHANNELS.getReviewSearches),
+  findWalkPlace: (manifestId: string, number: number): Promise<ReviewActed<WalkPlaceFound>> => ipcRenderer.invoke(CHANNELS.findWalkPlace, manifestId, number),
+  forgetReviewSearch: (forget: ForgetReviewSearch): Promise<ReviewActed<ReviewRuns>> => ipcRenderer.invoke(CHANNELS.forgetReviewSearch, forget),
+  listWalkPlaces: (): Promise<ReviewActed<RememberedPlaces>> => ipcRenderer.invoke(CHANNELS.listWalkPlaces),
+  saveWalkPlace: (manifestId: string, save: SaveWalkPlace): Promise<ReviewActed<RememberedPlace>> => ipcRenderer.invoke(CHANNELS.saveWalkPlace, manifestId, save),
+  forgetWalkPlace: (manifestId: string, id: string): Promise<ReviewActed<RememberedPlaces>> => ipcRenderer.invoke(CHANNELS.forgetWalkPlace, manifestId, id),
+  openReviewWalk: (manifestId: string, open: OpenReviewWalk): Promise<ReviewActed<ReviewWalk>> => ipcRenderer.invoke(CHANNELS.openReviewWalk, manifestId, open),
+  closeReviewWalk: (manifestId: string, id: string): Promise<ReviewActed<ReviewWalk>> => ipcRenderer.invoke(CHANNELS.closeReviewWalk, manifestId, id),
+  showReviewWalk: (shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> => ipcRenderer.invoke(CHANNELS.showReviewWalk, shown),
+  onReviewWalk: (onWalk: (walk: ReviewWalk) => void): (() => void) => {
+    const handler = (_event: unknown, walk: ReviewWalk): void => onWalk(walk);
+    ipcRenderer.on(CHANNELS.reviewWalkChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.reviewWalkChanged, handler);
+    };
+  },
+  onReviewWalkNote: (onNote: (note: ReviewWalkNote) => void): (() => void) => {
+    const handler = (_event: unknown, note: ReviewWalkNote): void => onNote(note);
+    ipcRenderer.on(CHANNELS.reviewWalkNote, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.reviewWalkNote, handler);
+    };
+  },
+  onReviewWalkClosed: (onClosed: (walkId: string) => void): (() => void) => {
+    const handler = (_event: unknown, walkId: string): void => onClosed(walkId);
+    ipcRenderer.on(CHANNELS.reviewWalkClosed, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.reviewWalkClosed, handler);
+    };
+  },
   getRepositoryAreas: (): Promise<RepositoryAreasRead> => ipcRenderer.invoke(CHANNELS.getRepositoryAreas),
   getSlotTouches: (): Promise<SlotTouchesRead> => ipcRenderer.invoke(CHANNELS.getSlotTouches),
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),
@@ -406,6 +438,8 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  pauseSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
+  resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
     ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),

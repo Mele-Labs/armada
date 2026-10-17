@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, PausedMark, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -48,6 +48,7 @@ import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { CallPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
+import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -229,12 +230,14 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-function List({ subjects, calling, banding, selected, builds, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
+function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onAutopilot }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onAutopilot: (root: string) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
+  const pausedIds = new Set(useSessions().filter((one) => one.paused === true).map((one) => one.id));
+  const [menu, setMenu] = useState<RowMenuAt>();
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
@@ -245,9 +248,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     // A Session calling him: its row pulses a bar, and its tooltip names the call.
     const call = calling?.get(one.key);
     return (
-      <li key={one.key} className="deck-list__item">
+      <li key={one.key} className="deck-list__item" onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
+          if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+          event.preventDefault();
+          const box = event.currentTarget.getBoundingClientRect();
+          setMenu({ id: one.id, root: one.root, x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget });
+        } : undefined}>
           <span className="deck-row__title">
             {one.linked === undefined ? null : (
               <Tooltip label={linkedSaid(one.linked)}>
@@ -260,7 +268,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           </span>
           <span className="deck-row__marks">
             <span className="deck-row__clash-slot" aria-hidden="true" />
-            <Phase subject={one} builds={builds} />
+            {pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
             <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
           </span>
           <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
@@ -302,6 +310,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             ))}
         {drawn.length < subjects.length ? <MoreRows key={limit} /> : null}
       </ul>
+      <RowMenu at={menu} onClose={() => setMenu(undefined)} onAutopilot={onAutopilot} />
     </section>
   );
 }
@@ -936,7 +945,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
+          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
           {unified ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>

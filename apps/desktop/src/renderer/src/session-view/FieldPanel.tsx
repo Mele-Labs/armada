@@ -17,7 +17,7 @@ import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
 import type { Areas } from "../cockpit/deck/areas";
 import type { DroneIn, RepoIn } from "../cockpit/deck/layout";
-import { workingDrones } from "./field";
+import { isWorking, workingDrones } from "./field";
 import { PlanBar } from "./FieldPlan";
 import { fieldTake, groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
@@ -61,12 +61,12 @@ function useField(session: Session, repositories: readonly RepositorySummary[]) 
         root,
         said: one.task ?? "Working",
         hue: "calm",
-        spin: one.path !== "",
+        spin: isWorking(one),
         hover: true,
         ping: false,
         stuck: false,
         flare: false,
-        working: one.path !== "",
+        working: isWorking(one),
         ...(one.path === "" ? {} : { doing: one.doing, via: one.path }),
         ...(one.agent === undefined ? {} : { parent: own }),
         ...(one.file === undefined ? {} : { file: one.file }),

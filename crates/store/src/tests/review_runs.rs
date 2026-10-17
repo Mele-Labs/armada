@@ -71,3 +71,16 @@ fn a_cost_that_was_never_said_is_not_a_cost_of_zero() {
     store.keep_review_run(&unsaid).unwrap();
     assert_eq!(store.review_run("storefront", 7, "aaa", "tool", "risks").unwrap().unwrap().cost_micros, None);
 }
+
+#[test]
+fn forgetting_a_run_drops_it_at_every_head_and_is_not_an_error_when_it_is_gone() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_review_run(&run("aaa", "tool", "risks", "2026-10-16T10:00:00Z")).unwrap();
+    store.keep_review_run(&run("bbb", "tool", "risks", "2026-10-16T11:00:00Z")).unwrap();
+    store.keep_review_run(&run("aaa", "tool", "bugs", "2026-10-16T09:00:00Z")).unwrap();
+    store.forget_review_run("storefront", 7, "tool", "risks").unwrap();
+    store.forget_review_run("storefront", 7, "tool", "risks").unwrap();
+    let left: Vec<String> = store.review_runs("storefront", 7).unwrap().into_iter().map(|one| one.name).collect();
+    assert_eq!(left, ["bugs"]);
+}

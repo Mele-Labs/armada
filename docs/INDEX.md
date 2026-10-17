@@ -142,12 +142,7 @@ approximations.
     works its own backlog from one plain-language instruction, within caps a
     person sets, until they pause or stop it.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, 
-    `armada need` (numbers land in the order they were declared), and where each
-    part goes in Fleet.
-  - [`capabilities/needs.md`](capabilities/needs.md) — a Job or a Session says what
-    it needs, and Armada keeps one ledger row per need, so the one behind hears who
-    is ahead and a pull request waits its turn.
+    turns onto `main`, and where each part goes in Fleet.
 
 ## Journeys
 

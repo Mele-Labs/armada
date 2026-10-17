@@ -28,6 +28,7 @@ pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
+mod pausing;
 mod reach_folders;
 pub(crate) mod planning;
 mod places;

@@ -96,7 +96,7 @@ where
         };
         let on_its_branch = |stand: &crate::slot_holders::Stand| match standing("branch") {
             Some(branch) => {
-                adapters::needs::branch_exists(Path::new(served.root()), &branch.target)
+                adapters::clash::branch_exists(Path::new(served.root()), &branch.target)
                     && stand.on(&branch.target)
             }
             None => true,

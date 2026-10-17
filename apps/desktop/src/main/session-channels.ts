@@ -119,6 +119,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.pauseSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.pause(sessionId) ?? unsent) : unread,
+  );
+  ipc.handle(CHANNELS.resumeSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.resume(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
     text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unread,
   );

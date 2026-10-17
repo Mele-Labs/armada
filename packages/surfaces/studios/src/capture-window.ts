@@ -44,6 +44,12 @@ export type CaptureWindowState = {
   studio: { id: string; name: string | null } | null;
   /** The Session a note goes to, where it showed this page. */
   session?: { id: string; title: string };
+  /**
+   * A pull request's walk, opened from the Reviews tab. **No Session showed this page**, so a note goes to `holder`, the title of the
+   * Session of his that holds the pull request, or stays in Armada where none does. There is no Approve: it is not a page anyone asked
+   * to have approved.
+   */
+  review?: { title: string; holder?: string };
   /** The panel beside the page: which kind it holds, and whether it is drawn. Absent: a Studio's window, which has none. */
   panel?: CapturePanel;
   /**

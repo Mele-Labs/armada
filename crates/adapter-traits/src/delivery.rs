@@ -422,11 +422,6 @@ pub enum NotMerged {
     /// The branch's head carries a tree its Checks never passed on, so nothing
     /// was pushed. Only `merge_by: push` says this; the answer is to run them.
     Unchecked { said: String },
-    /// A need stands in this Job's way, so Fleet did not ask for the merge:
-    /// one ahead of it on the same file has not landed. The sentence says
-    /// which. Under `merge_by: forge` as under `push`: it is
-    /// Fleet that presses, and the forge's own button is not held. #1059.
-    WaitingBehind { said: String },
     /// The forge refused and said something this vocabulary has no name for.
     ///
     /// **Never folded into the eight above.** A guess about which kind a
@@ -455,7 +450,6 @@ impl NotMerged {
             NotMerged::Unchecked { said } => {
                 ("the branch's head is not what its Checks passed on", said)
             }
-            NotMerged::WaitingBehind { said } => ("a need stands in this Job's way", said),
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");
@@ -477,7 +471,6 @@ impl NotMerged {
             | NotMerged::BaseMoved { said }
             | NotMerged::GateFailed { said }
             | NotMerged::Unchecked { said }
-            | NotMerged::WaitingBehind { said }
             | NotMerged::Refused { said } => said,
         }
     }
@@ -495,7 +488,6 @@ impl NotMerged {
             "base_moved" => NotMerged::BaseMoved { said },
             "gate_failed" => NotMerged::GateFailed { said },
             "unchecked" => NotMerged::Unchecked { said },
-            "waiting_behind" => NotMerged::WaitingBehind { said },
             _ => NotMerged::Refused { said },
         }
     }
@@ -514,7 +506,6 @@ impl NotMerged {
             NotMerged::BaseMoved { .. } => "base_moved",
             NotMerged::GateFailed { .. } => "gate_failed",
             NotMerged::Unchecked { .. } => "unchecked",
-            NotMerged::WaitingBehind { .. } => "waiting_behind",
             NotMerged::Refused { .. } => "refused",
         }
     }
@@ -885,12 +876,6 @@ pub trait Delivery {
     /// pull requests are "mine" beside the account Armada is signed in as. `None` is a forge
     /// that would not say, or no login. It does not change under a run, so a caller keeps it.
     fn forge_login(&self, in_repo: &str) -> Option<String>;
-
-    /// Put a commit status under `context` on `commit`, replacing the one
-    /// there. **A write to the forge, and the one Fleet makes unprompted**: it
-    /// says whether a pull request's turn has come, `needs`. `Err` is the
-    /// forge's or the token's sentence; a caller logs it and carries on.
-    fn publish_status(&self, in_repo: &str, status: &crate::CommitStatus) -> Result<(), String>;
 
     /// The newest `limit` pull requests merged into `base`, newest first, in
     /// one forge call. `None` is the forge's silence.

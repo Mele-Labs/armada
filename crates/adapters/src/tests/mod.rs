@@ -28,6 +28,7 @@ mod existing_setup;
 mod filing;
 mod forge_address;
 mod harness;
+mod history;
 mod hosted_session;
 mod issue_lookup;
 mod jira;

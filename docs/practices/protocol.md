@@ -3039,7 +3039,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 ## Protocol 23.46: needs on the session ledger
 
-`docs/capabilities/needs.md`. **Additive only**: two operations and the DTOs of `ipc::needs`. A need is a row in `ledger_attachments`, which 23.43 made, so there is no migration, and nothing an older Bridge reads changes.
+*Removed 17 Oct 2026, see "Needs are deleted".* **Additive only**: two operations and the DTOs of `ipc::needs`. A need is a row in `ledger_attachments`, which 23.43 made, so there is no migration, and nothing an older Bridge reads changes.
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
@@ -3048,7 +3048,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **Fleet finds the holder.** `armada need` names a branch and Fleet resolves it to the Job whose branch it is, else the session standing on it, else the branch alone (a `session` holder with id `branch:<name>`). A `took` for a need nobody declared is `fleet.need_not_declared`, and a call that names nothing is `fleet.need_unnamed`, both 422.
 
-**The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them. `kind=need` is not exclusive. Bridge's half is `packages/protocol/src/needs.ts`, written by hand like the rest.
+**The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them. `kind=need` is not exclusive. Bridge's half was a file of `packages/protocol`, written by hand like the rest, and is deleted.
 
 ## Protocol 23.48: acts on a pull request
 
@@ -3469,6 +3469,19 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 | `stop_session` (`POST /sessions/stop`) | `StopSession`: `session_id` | Answers the `SessionRecord` with `hosted.turn` `idle`. The process is ended as after a quiet spell and the next message resumes it; a question it was held on is withdrawn; the slot is kept as it stands, nothing parked or committed. An ended session answers its row. 422 `fleet.session_command_refused` for a terminal session, whose process Fleet does not host |
 
 **Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal. A Bridge before it never calls it. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
+
+## Protocol 23.92: a Session paused and resumed
+
+`docs/concepts/session.md`, *Pausing a Session*. **Additive only**: two operations, three types and one optional field. There is no number to bump: the protocol ID moves with the files below.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `pause_session` (`POST /sessions/pause`) | `PauseSession`: `session_id` | Answers the `SessionRecord` with `hosted.paused` set. Ends the turn, commits the slot's work to the branch (WIP, no push), frees the slot. `Helm only` |
+| `resume_session` (`POST /sessions/resume`) | `ResumeSession`: `session_id` | Answers the record; `hosted.paused` is absent once a slot is held, and `resuming` while it waits for one. Starts no turn. `Helm only` |
+| `HostedFacts.paused` | `SessionPaused`: `at`, `resuming` | Absent unless paused. Carried on `session.changed`, which is published on every change; no new event kind |
+| 409 `fleet.session_not_pausable`, `fleet.session_already_paused`, `fleet.session_not_paused`, `fleet.session_pause_refused` | | A terminal Session is 422 `fleet.session_command_refused`, as for a stop |
+
+**Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`. A Bridge before it ignores the field and never calls the routes. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
 ## Protocol 23.79: a Session forked at a message
 
@@ -4289,6 +4302,37 @@ Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`. **One
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. No reader needs to tolerate the old shape. The lifeboat's `GET /v0/jobs` and `POST /v0/jobs/:id/kill` rows name Jobs and the lifeboat is not built; this change does not touch them.
 
 **The event stream.** This change makes the open risk below **better in kind**: it removes the producers of `job.*`, `drone.*`, `commander.*`, `evidence.submitted`, `proposal.moved` and `run.finished`, the busiest kinds Fleet published, so the stream carries far fewer events and a minimised Bridge has less to fall behind on. It adds no bounded broadcast and no "you missed N events" message; `Missed` and the drop-oldest channel are as they were, and the number is still unmeasured.
+
+## Needs are deleted
+
+Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, *Needs are deleted, 17 Oct 2026*. **Removal only**: no operation, event kind, route or field is added. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. There is no number to take.
+
+**Operations removed (2).** Each has no route, no MCP tool and no Bridge caller; `armada need` was the only caller of the first and an agent's `list_needs` the only reader of the second.
+
+| Operation | Route |
+| --- | --- |
+| `act_on_need` | `POST /needs` |
+| `list_needs` | `GET /needs?manifest_id=` |
+
+`GET /clashes`, `GET /repository_areas` and `GET /slot_touches` stay and are served as before. Their handlers moved from the api's `needs` module to `clashing.rs`, and the trait Fleet implements for them is `Clashing` where it was `Needs`. Neither is wire.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `NeedAct`, `NeedCall`, `NeedAnswer`, `NeedLine`, `NeedList` | Fleet removes, Bridge stops reading | `ipc::needs` and its mirror in `packages/protocol` are gone. Bridge never read them |
+| `fleet.need_unnamed`, `fleet.need_not_declared` | Fleet stops raising | Both were 422s of `act_on_need` |
+| `ChosenHold.kind` and `HoldMoved.kind` `need` | Fleet stops reading and writing, Bridge stops sending | `release_session_holds` acts on `slot`, `branch` and `pr`. A standing `need` row in a store is no longer acted on, so naming one is `fleet.hold_not_standing` |
+| `SessionAttachment` kind `need` | Fleet stops writing, Bridge stops reading | A row an earlier build wrote still reads and is passed over. The mod no longer reports one |
+| `NotMerged` kind `waiting_behind` | Fleet stops producing | No build since the Job code went produced it. `from_kind` reads a stored one as `refused` |
+
+**Left, because a surface other than a need reads it.** The `ledger_attachments` rows of kind `need` an earlier build wrote stay in the store, unread; no migration drops them, which the Job tables' one later migration will. `Store::standing_in_order` stays: pull request owners read it.
+
+**Left, and not this:** Fleet's single re-run of a hung CI job (`rerun_failed` in `pull_notices.rs`), the Helm `rerun_failed_checks` act, and write-clash detection (`list_write_clashes`), which is what tells two agents they are changing the same file.
+
+**The `needs` commit status** Fleet put on each open pull request, and the forge write behind it (`Delivery::publish_status`, `CommitStatus`, `StatusState`), are gone. It was never required in the ruleset, and `checks.yml` never reported a context of that name.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. No reader needs to tolerate the old shape. The lifeboat is not touched.
+
+**The event stream.** Neither better nor worse in kind: no event is added or removed. A need's declaration used to move a Session's row, so Fleet publishes fewer `session.changed` events by those, a handful an agent. The bounded broadcast and the "you missed N events" message are still not built and the number is still unmeasured.
 
 ## Open questions
 
