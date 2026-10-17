@@ -569,11 +569,9 @@ export type SessionsDraft = {
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
   /**
    * Hands a plan group to a new Session this one follows, and returns its id. Absent where nothing serves it, and a group carries no act
-   * to hand it off. **Mock only**: the owner is choosing where the linked Sessions are drawn, `linkedIn`.
+   * to hand it off.
    */
   handOff?: (id: string, group: string) => string | undefined;
-  /** Where a parent draws the Sessions it follows: on the Plan's groups, or in a Linked section of its Ledger. Mock only, until he picks one. */
-  linkedIn?: "plan" | "ledger";
   /**
    * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.

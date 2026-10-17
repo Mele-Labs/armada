@@ -1,5 +1,5 @@
-// A Session that split its work into linked Sessions it follows, in two takes of where the parent draws them: on the Plan's groups, or in a
-// Ledger section called Linked. Both put the children under the parent in Work. Three of the plan's four groups were handed to Sessions of
+// A Session that split its work into linked Sessions it follows. The parent draws them on the Plan's groups and in a Ledger section called
+// Linked, and the children stand under it in Work. Three of the plan's four groups were handed to Sessions of
 // their own; each time a walk lets time pass one of them says something the parent is told. Mock only: Fleet carries no group on
 // `start_another_session` yet, and every field here is one it would owe (`packages/screens/src/draft/sessions.ts`).
 
@@ -139,7 +139,7 @@ const QUESTION = {
 /** What the parent is told, as the row its thread keeps. */
 const told = (id: string, at: string, session: string, title: string, event: "needs" | "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
 
-function sessions(take: "plan" | "ledger", control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   const base = sessionsStore([none, none], none, [], control, [], [parent(), names(), order(), record(), other()]);
   let moment = 0;
@@ -148,7 +148,6 @@ function sessions(take: "plan" | "ledger", control: Parameters<typeof sessionsSt
   const parentRows = (rows: SessionRow[]) => base.edit(PARENT, (one) => ({ ...one, rows: [...one.rows, ...rows] }));
   return {
     ...base,
-    linkedIn: take,
     // Sessions handed a group after the window opened stand beside the ones it was built with.
     get: () => {
       const now = base.get();
@@ -191,7 +190,7 @@ function sessions(take: "plan" | "ledger", control: Parameters<typeof sessionsSt
   };
 }
 
-export function linkedSessions(name: string, take: "plan" | "ledger", says: string): Scenario {
+export function linkedSessions(name: string, says: string): Scenario {
   const board = onBoard([], { repositories: [ARMADA], picked: ARMADA.root });
-  return { ...board, name, says, draft: { sessions: (control) => sessions(take, control), areas: mockAreas } };
+  return { ...board, name, says, draft: { sessions: (control) => sessions(control), areas: mockAreas } };
 }

@@ -1,6 +1,6 @@
 // The Sessions a parent follows, read off its ledger and the window's Sessions. A plan group handed to a new Session is a `started_to` row
 // with the group's id; the child's state, its pull request and its title are its own. **Drawn the same wherever the parent keeps them**:
-// under a Plan group, or in the Ledger's Linked section (`SessionsDraft.linkedIn`).
+// under a Plan group and in the Ledger's Linked section.
 
 import type { LinkedSessionProps } from "@armada/components";
 import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft/sessions";

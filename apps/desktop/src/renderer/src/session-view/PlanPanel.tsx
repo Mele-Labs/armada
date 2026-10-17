@@ -19,7 +19,7 @@ const NOWHERE = () => undefined;
 
 /**
  * A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full.
- * **A group handed to a Session carries that Session's row** under its own, in the take that keeps the children on the Plan (`linkedIn`); one not handed
+ * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
 function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; ed: PlanEditing; parent: Session | undefined; onOpenSession: (id: string) => void }) {
@@ -59,7 +59,7 @@ function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; ed: Pla
           </span>
         )}
       </button>
-      {child === undefined || draft?.linkedIn !== "plan" ? null : (
+      {child === undefined ? null : (
         <div className="sv-group__linked">
           <LinkedSession {...linkedPropsOf(child, onOpenSession)} />
         </div>

@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -52,33 +52,9 @@ export type SessionLedgerCard = {
   facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
 };
 
-export type LedgerPullRequest = { merged: boolean; checks: "passed" | "running" | "failed"; checksSaid: string };
+import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
 
-const PR_CHECKS = { passed: CircleCheck, running: LoaderCircle, failed: CircleX } as const;
-
-/** A pull request's state as one bare mark: merged or open, in its hue, its tooltip naming it. */
-export function PullRequestStateMark({ merged }: { merged: boolean }) {
-  const said = merged ? "Merged" : "Open";
-  return (
-    <Tooltip label={said}>
-      <span className="armada-pr-state" data-state={merged ? "merged" : "open"} role="img" aria-label={said}>
-        {merged ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
-      </span>
-    </Tooltip>
-  );
-}
-
-/** A pull request's Checks as one bare mark, the PR card's: spinning while they run. */
-export function PullRequestChecksMark({ checks, said }: { checks: LedgerPullRequest["checks"]; said: string }) {
-  const Glyph = PR_CHECKS[checks];
-  return (
-    <Tooltip label={said}>
-      <span className="armada-pr-card__check" data-checks={checks} role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
+export { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest };
 
 export type LedgerEntry = {
   key: string;

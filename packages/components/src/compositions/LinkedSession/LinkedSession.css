@@ -1,8 +1,8 @@
-/* A Session a parent follows: one pressable line in the Ledger's mono body, the state in its mark and its hue. */
+/* A Session a parent follows: one press of two lines in the Ledger's mono body, the title over a muted line of the group, the state mark and the pull request. */
 .armada-linked {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
   width: 100%;
   min-width: 0;
   padding: var(--space-2) var(--space-3);
@@ -26,6 +26,23 @@
   outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
+.armada-linked__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-linked__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-inline-start: calc(12px + var(--space-2));
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+
 .armada-linked__link {
   display: inline-flex;
   flex: none;
@@ -44,7 +61,6 @@
 .armada-linked__group {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 40%;
   overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-2xs);
