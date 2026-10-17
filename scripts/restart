@@ -565,6 +565,37 @@ bridge_protocol_stale() {
   [[ -f "$main" ]] && ! grep -qF "\"$(tree_protocol)\"" "$main"
 }
 
+# **Bridge runs from a copy of Electron.app that is named Armada.** macOS draws
+# the app menu, Dock and app switcher from `CFBundleName` in the bundle it
+# launched, and an unpackaged `electron-vite preview` launches Electron's own,
+# so they said "Electron" (`apps/desktop/electron-builder.yml` has the
+# measurement). The copy is a clone on APFS, so it costs no disk and well under
+# a second; its plist names Armada; and it is signed ad hoc, which needs no
+# Apple certificate. It sits under `$src/node_modules/`, so `bridge_pattern`
+# below still proves it is this repository's Bridge. Redone only when Electron's
+# version changes. Prints the binary `electron-vite` is told to run.
+armada_electron() {
+  local real version dir stamp
+  real=$(cd "$src/apps/desktop/node_modules/electron/dist" 2>/dev/null && pwd -P)/Electron.app
+  [[ -d "$real" ]] || return 1
+  version=$(cat "$real/../version" 2>/dev/null || echo unknown)
+  dir="$src/node_modules/.cache/armada-bridge"
+  stamp="$dir/.stamp"
+  if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$version" ]]; then
+    $dry_run && { echo "$dir/Electron.app/Contents/MacOS/Electron"; return 0; }
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    cp -cR "$real" "$dir/Electron.app" 2>/dev/null || cp -R "$real" "$dir/Electron.app" || return 1
+    local plist="$dir/Electron.app/Contents/Info.plist" pb=/usr/libexec/PlistBuddy key
+    for key in CFBundleName CFBundleDisplayName; do
+      "$pb" -c "Set :$key Armada" "$plist" 2>/dev/null || "$pb" -c "Add :$key string Armada" "$plist" || return 1
+    done
+    codesign --force -s - "$dir/Electron.app" >/dev/null 2>&1 || return 1
+    echo "$version" >"$stamp"
+  fi
+  echo "$dir/Electron.app/Contents/MacOS/Electron"
+}
+
 if $dry_run; then
   say "Dry run — nothing below happens"
   echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
@@ -589,6 +620,11 @@ if $dry_run; then
   echo "would write $plist: [$armada_bin, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would write $bridge_plist: [$src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop"
+  if bridge_electron=$(armada_electron); then
+    echo "would run Bridge from $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing"
+  else
+    echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
+  fi
   echo "Bridge would run $src/apps/desktop/out — the tree it builds, $src"
   [[ -x "$src/apps/desktop/node_modules/.bin/electron-vite" ]] \
     || echo "WARNING: $src/apps/desktop/node_modules/.bin/electron-vite is missing, so the restart would refuse"
@@ -909,10 +945,15 @@ if $bridge_rebuilt; then
     bridge_dir="$src/apps/desktop"
     bridge_bin="$bridge_dir/node_modules/.bin/electron-vite"
     [[ -x "$bridge_bin" ]] || fail "$bridge_bin is missing — run pnpm install in $src"
-    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" <<'PY'
+    # Falls back to Electron's own bundle, which says "Electron" in the menu bar but runs.
+    bridge_electron=$(armada_electron) || { bridge_electron=""; echo "restart: could not make the Armada-named Electron copy — Bridge will say Electron" >&2; }
+    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" "$bridge_electron" <<'PY'
 import plistlib, sys
 
-path, label, bridge_bin, root, home, path_env = sys.argv[1:7]
+path, label, bridge_bin, root, home, path_env, electron = sys.argv[1:8]
+env = {"HOME": home, "PATH": path_env}
+if electron:
+    env["ELECTRON_EXEC_PATH"] = electron
 plistlib.dump(
     {
         "Label": label,
@@ -922,7 +963,7 @@ plistlib.dump(
         "ProcessType": "Interactive",
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
         "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "EnvironmentVariables": {"HOME": home, "PATH": path_env},
+        "EnvironmentVariables": env,
     },
     open(path, "wb"),
 )
