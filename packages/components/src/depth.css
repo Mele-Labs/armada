@@ -289,37 +289,36 @@
 
 /* ---- Panels as glass: `?look=new&panels=glass` ------------------------------------------------------------- */
 /* Translucent charcoal over the canvas's light pools, blurred and saturated as macOS materials and visionOS do it:
-   a fill at 70% of the panel ground, a 1px light hairline, at most a 4% highlight along the top edge, and the same neutral
-   shadows. No sheen, no glow, no tint. Panels, panes and the layers that float over them are glass; rows, fields and
+   a dark fill at about 58%, a 1px light hairline, a 1px highlight along the top edge, and the same neutral shadows.
+   No sheen, no glow, no tint of its own. Panels, panes and the layers that float over them are glass; rows, fields and
    wells inside a panel stay flat. The blur samples what is behind the panel, which is the canvas: nothing under a panel
-   animates. The map pane keeps main's fill (its drawing is opaque and it animates), so it is the frame only. */
+   animates. The map pane keeps main's fill (its drawing is opaque and it animates), so it is the frame only.
+   The fill is the sunken charcoal, not the raised one: a dark fill lets the pools show without lifting the ground
+   under the text, which is what holds `--fg-subtle` at 4.5:1 where the pool is strongest. */
+:root[data-look="new"][data-panels="glass"] {
+  --glass-fill: 56%;
+}
 :root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"])) {
-  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border-color: rgb(255 255 255 / 0.08);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.04), var(--shadow-rest);
+  background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border-color: rgb(255 255 255 / 0.11);
+  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-rest);
 }
 :root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"])):focus-within {
-  border-color: rgb(255 255 255 / 0.14);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.04), var(--shadow-lifted);
+  border-color: rgb(255 255 255 / 0.18);
+  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-lifted);
 }
 :root[data-look="new"][data-panels="glass"] .deck-pane[aria-label="Flight map"] {
-  border-color: rgb(255 255 255 / 0.08);
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.04), var(--shadow-rest);
+  border-color: rgb(255 255 255 / 0.11);
+  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.05), var(--shadow-rest);
 }
-/* Menus, popovers and the palette float over the panels: the same material, a little more opaque, at the overlay level. */
+/* Menus, popovers and the palette float over the panels: the same material, more opaque, at the overlay level. */
 :root[data-look="new"][data-panels="glass"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
-  background: color-mix(in srgb, var(--bg-overlay) 80%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border-color: rgb(255 255 255 / 0.1);
+  background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border-color: rgb(255 255 255 / 0.12);
 }
-/* The pools the blur works on: main's two, broader and stronger, so there is colour behind a panel. Helm's is drawn
-   without its dock too, in the same place the dock's is. */
-:root[data-look="new"][data-panels="glass"] :is(body, .armada-shell, .armada-shell[data-dock]) {
-  background:
-    radial-gradient(calc(var(--space-12) * 19.5) calc(var(--space-12) * 16.5) at 100% 100%, color-mix(in srgb, var(--helm) 11%, transparent), transparent),
-    radial-gradient(calc(var(--space-12) * 24) calc(var(--space-12) * 15) at 0 0, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
-    var(--bg-base);
-}
+
+/* The canvas behind the glass is main's: one soft accent pool at the top leading corner and no other wash. */
