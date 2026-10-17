@@ -1,5 +1,5 @@
 //! The agent door scoped to the Manifest its session stands in: every list,
-//! every Job, and every argument naming a Manifest. `#987`.
+//! every Studio, and every argument naming a Manifest. `#987`.
 
 
 use axum::body::Body;
@@ -8,7 +8,7 @@ use axum::Router;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
-use crate::tests::fake::{owned_by, running, FakeDaemon};
+use crate::tests::fake::{the_studio, FakeDaemon};
 use crate::tests::shapes::{run_id, THE_MANIFEST};
 use crate::{door_within, router, Broadcaster, Served};
 
@@ -16,11 +16,13 @@ fn wired(daemon: FakeDaemon) -> Router {
     router(Served::by(daemon, run_id(), Broadcaster::new()))
 }
 
-/// A Job the session's Manifest owns, and one another Manifest owns.
+/// A Studio the session's Manifest owns, and one another Manifest owns.
 fn holding_two_owners() -> FakeDaemon {
     let daemon = FakeDaemon::new(Broadcaster::new());
-    running(&daemon, "01JOB");
-    owned_by(&daemon, "01OTHERJOB", "2-another-repository", "01OTHER");
+    let mut other = the_studio();
+    other.id = ipc::StudioId::carried("01OTHERSTUDIO");
+    other.manifest_id = ipc::ManifestId::carried("01OTHER");
+    daemon.studios.lock().expect("not poisoned").push(other);
     daemon
 }
 
@@ -62,39 +64,23 @@ fn calling(tool: &str, arguments: &str) -> String {
     )
 }
 
-/// **The door names its scope on every Job list**, so a session is listed only
-/// the Jobs the Manifest it stands in owns, and Bridge's unnamed read is all.
+/// **The door names its scope on every Studio read**, so a session is shown
+/// only the Studios the Manifest it stands in owns, and Bridge's unnamed read
+/// is every one.
 #[tokio::test]
-async fn every_job_list_through_the_door_is_the_sessions_manifests_alone() {
+async fn a_studio_another_manifest_owns_is_refused_through_the_door_only() {
     let app = wired(holding_two_owners());
-    for tool in [
-        "list_jobs",
-        "get_activity_feed",
-        "list_job_board",
-        "list_reviews",
-    ] {
-        let body = standing_in(&app, THE_MANIFEST, &calling(tool, "{}")).await;
-        assert!(!body.contains("2-another-repository"), "{tool}: {body}");
-    }
-    let listed = standing_in(&app, THE_MANIFEST, &calling("list_jobs", "{}")).await;
-    assert!(listed.contains("1-a-job"), "{listed}");
-    let (_, every) = bridge_get(&app, "/jobs").await;
-    assert!(every.contains("2-another-repository"), "{every}");
-}
-
-/// A Job another Manifest owns is refused through the door, and still answers
-/// on the route Bridge reads.
-#[tokio::test]
-async fn a_job_another_manifest_owns_is_refused_through_the_door_only() {
-    let app = wired(holding_two_owners());
+    let listed = standing_in(&app, THE_MANIFEST, &calling("list_studios", "{}")).await;
+    assert!(listed.contains("01STUDIO"), "{listed}");
+    assert!(!listed.contains("01OTHERSTUDIO"), "{listed}");
     let body = standing_in(
         &app,
         THE_MANIFEST,
-        &calling("get_job", r#"{"job_id":"01OTHERJOB"}"#),
+        &calling("get_studio", r#"{"studio_id":"01OTHERSTUDIO"}"#),
     )
     .await;
     assert!(body.contains("\"isError\":true"), "{body}");
-    let (status, _) = bridge_get(&app, "/jobs/01OTHERJOB").await;
+    let (status, _) = bridge_get(&app, "/studios/01OTHERSTUDIO").await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -111,9 +97,9 @@ async fn a_session_naming_a_manifest_this_fleet_does_not_serve_is_refused_plainl
         handshake.contains("serves no Manifest `01NOTSERVED`"),
         "{handshake}"
     );
-    let called = standing_in(&app, "01NOTSERVED", &calling("list_jobs", "{}")).await;
+    let called = standing_in(&app, "01NOTSERVED", &calling("list_studios", "{}")).await;
     assert!(called.contains("\"isError\":true"), "{called}");
-    assert!(!called.contains("1-a-job"), "{called}");
+    assert!(!called.contains("01STUDIO"), "{called}");
 }
 
 /// **Refused, never a second `manifest_id=` beside the scope's.**
@@ -152,7 +138,6 @@ fn server(id: &str, manifest_id: &str) -> ipc::ServerState {
     ipc::ServerState {
         id: id.to_string(),
         name: "web".to_string(),
-        job_id: None,
         manifest_id: Some(ipc::ManifestId::carried(manifest_id)),
         checkout: ipc::ServerCheckout {
             path: "/repo".to_string(),
@@ -165,7 +150,6 @@ fn server(id: &str, manifest_id: &str) -> ipc::ServerState {
         ports: Vec::new(),
         links: Vec::new(),
         started_by: ipc::StartedBy::Person,
-        for_review: false,
         started_at: ipc::Instant::carried("2026-08-26T09:00:00.000Z"),
         serving_since: None,
         ended_at: None,

@@ -9,7 +9,7 @@
 //! `ipc` alone.
 
 use ipc::{
-    AlertList, FilesFound, FleetHealth, FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig,
+    FilesFound, FleetHealth, ManifestConfig,
     ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices,
     WorkflowSummary, WorktreesHeld,
 };
@@ -17,7 +17,7 @@ use ipc::{
 use super::FakeDaemon;
 use crate::tests::shapes;
 use crate::tests::shapes::run_id;
-use crate::{Queries, Refusal, Resolved};
+use crate::{Queries, Refusal};
 
 impl FakeDaemon {
 
@@ -33,87 +33,12 @@ impl FakeDaemon {
 }
 
 impl FakeDaemon {
-    /// The fake's own rows, kept where their status is one of `wanted`.
-    fn narrowed(&self, wanted: &[&str], within: Option<&ManifestId>) -> Result<JobList, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        let jobs = self.jobs.lock().expect("not poisoned");
-        Ok(JobList {
-            jobs: jobs
-                .iter()
-                .filter(|job| wanted.contains(&job.status.as_wire()))
-                .filter(|job| within.is_none_or(|id| &job.owner_manifest_id == id))
-                .cloned()
-                .collect(),
-            unreadable: self.unreadable.lock().expect("not poisoned").clone(),
-        })
-    }
 }
 
 impl FakeDaemon {
-    /// Whether a Job the fake holds belongs to `within`; everything does where
-    /// none is named.
-    fn owns(&self, within: Option<&ManifestId>, job_id: &JobId) -> bool {
-        within.is_none_or(|named| {
-            self.jobs
-                .lock()
-                .expect("not poisoned")
-                .iter()
-                .any(|job| &job.id == job_id && &job.owner_manifest_id == named)
-        })
-    }
 }
 
 impl Queries for FakeDaemon {
-    /// **The three forms, against the summaries the fake is holding.** A real
-    /// daemon asks the store; this asks the list, which is the same three
-    /// answers and lets a route test drive a handle through the extractor
-    /// without a store behind it.
-    async fn resolve_job(
-        &self,
-        named: String,
-        within: Option<ManifestId>,
-    ) -> Result<Resolved, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        let found = jobs
-            .iter()
-            .filter(|job| {
-                within
-                    .as_ref()
-                    .is_none_or(|id| &job.owner_manifest_id == id)
-            })
-            .find(|job| {
-                job.id.as_str() == named
-                    || job.handle == named
-                    || job.handle.split('-').next() == Some(named.as_str())
-            });
-        match found {
-            Some(job) => Ok(Resolved::of(job.id.clone(), job.handle.clone())),
-            None => Err(self.no_such_job(&JobId::carried(named))),
-        }
-    }
-
-    async fn list_jobs(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        Ok(JobList {
-            jobs: self
-                .jobs
-                .lock()
-                .expect("not poisoned")
-                .iter()
-                .filter(|job| {
-                    manifest_id
-                        .as_ref()
-                        .is_none_or(|id| &job.owner_manifest_id == id)
-                })
-                .cloned()
-                .collect(),
-            unreadable: self.unreadable.lock().expect("not poisoned").clone(),
-        })
-    }
 
     /// The Manifest named, where the fake holds it; the first where none was.
     async fn scope(&self, named: Option<ManifestId>) -> Result<ManifestId, Refusal> {
@@ -129,72 +54,8 @@ impl Queries for FakeDaemon {
         }
     }
 
-    /// **The narrowings are the real rule applied to the fake's own rows.** A
-    /// fixed list here would let a route pass while the predicate behind it
-    /// said something else.
-    async fn list_job_board(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.narrowed(&["awaiting_approval", "queued"], manifest_id.as_ref())
-    }
-
-    async fn list_reviews(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.narrowed(
-            &["awaiting_review", "awaiting_attestation"],
-            manifest_id.as_ref(),
-        )
-    }
-
-    async fn get_activity_feed(&self, manifest_id: Option<ManifestId>) -> Result<JobList, Refusal> {
-        self.narrowed(
-            &[
-                "completed_success",
-                "completed_failed",
-                "killed",
-                "rejected",
-                "superseded",
-            ],
-            manifest_id.as_ref(),
-        )
-    }
-
-    async fn list_alerts(&self, _manifest_id: Option<ManifestId>) -> Result<AlertList, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        Ok(shapes::alerts())
-    }
-
-
-    async fn owned_jobs(&self, manifest_id: ManifestId) -> Result<Vec<JobId>, Refusal> {
-        let manifest_id = self.scope(Some(manifest_id)).await?;
-        let jobs = self.jobs.lock().expect("not poisoned");
-        Ok(jobs
-            .iter()
-            .filter(|job| job.owner_manifest_id == manifest_id)
-            .map(|job| job.id.clone())
-            .collect())
-    }
-
-
     async fn get_health(&self) -> Result<FleetHealth, Refusal> {
         Ok(shapes::health())
-    }
-
-    async fn get_usage(&self) -> Result<FleetUsage, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        Ok(shapes::usage())
-    }
-
-    async fn get_manifest_spend(
-        &self,
-        _manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::ManifestSpend, Refusal> {
-        Ok(ipc::ManifestSpend {
-            jobs: 2,
-            most_cost_micros: 7_120_000,
-            most_turns: 212,
-        })
     }
 
     /// A Manifest this fake does not hold is a 422 and never a 404: the request
@@ -320,64 +181,8 @@ impl Queries for FakeDaemon {
         Ok(ipc::ManifestProposals {
             checkout: "/repo".to_string(),
             proposals: Vec::new(),
-            caps: ipc::StatedCaps {
-                cost_micros: 5_000_000,
-                turns: 200,
-            },
         })
     }
-
-    /// **`replaced_by` is read the way Fleet reads it** — every Job's own
-    /// `redispatched_from`, as a predicate — so the fake cannot hold a forward
-    /// link the record does not support.
-    async fn get_job(&self, job_id: JobId) -> Result<JobDetail, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        let Some(job) = jobs.iter().find(|job| job.id == job_id) else {
-            return Err(self.no_such_job(&job_id));
-        };
-        let mut detail = shapes::detail(job.clone());
-        detail.replaced_by = jobs
-            .iter()
-            .rev()
-            .find(|other| other.redispatched_from.as_ref() == Some(&job_id))
-            .map(|found| ipc::ReplacedBy {
-                job_id: found.id.clone(),
-                handle: found.handle.clone(),
-            });
-        Ok(detail)
-    }
-
-    /// **The refusal is what matters here**: an id that names nothing is a 404,
-    /// never an empty list. What the history says is [`shapes::history`].
-    async fn get_job_events(&self, job_id: JobId) -> Result<JobHistory, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        let Some(job) = jobs.iter().find(|job| job.id == job_id) else {
-            return Err(self.no_such_job(&job_id));
-        };
-        let at = job.status;
-        Ok(shapes::history(job_id, at))
-    }
-
-
-
-
-
-    async fn get_diff(&self, job_id: JobId) -> Result<JobDiff, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(shapes::diff(job_id))
-    }
-
-
-
-
-
-
-
-
-
 
     /// **The fake declares nothing**, so the sheet is empty rather than
     /// refused: `get_checkout_run_sheet` answers on a repository that has
@@ -525,40 +330,10 @@ impl Queries for FakeDaemon {
 
     async fn list_worktrees(
         &self,
-        manifest_id: Option<ManifestId>,
+        _manifest_id: Option<ManifestId>,
     ) -> Result<WorktreesHeld, Refusal> {
-        let held = self.held.lock().expect("not poisoned").clone();
-        Ok(WorktreesHeld {
-            worktrees: held
-                .into_iter()
-                .filter(|one| self.owns(manifest_id.as_ref(), &one.job_id))
-                .collect(),
-            slots: Vec::new(),
-        })
+        Ok(WorktreesHeld { slots: Vec::new() })
     }
-
-    /// Newest first, and the two counts a fake can honestly answer. It knows
-    /// nothing about recorded refusals, which are rows in a store this has
-    /// none of, so that count is zero rather than invented.
-    async fn list_reports(&self) -> Result<ipc::ReportList, Refusal> {
-        let reports = self.reports.lock().expect("not poisoned");
-        let disputed = |claim: ipc::Claim| {
-            reports
-                .iter()
-                .filter(|report| report.claim == claim)
-                .count() as u32
-        };
-        Ok(ipc::ReportList {
-            calibration: ipc::Calibration {
-                refusals_recorded: 0,
-                refusals_disputed: disputed(ipc::Claim::WronglyRefused),
-                passes_disputed: disputed(ipc::Claim::WronglyPassed),
-                reports_filed: reports.len() as u32,
-            },
-            reports: reports.iter().rev().cloned().collect(),
-        })
-    }
-
 
     async fn list_repositories(&self) -> Result<ipc::RepositoryList, Refusal> {
         Ok(ipc::RepositoryList {
@@ -625,21 +400,4 @@ impl Queries for FakeDaemon {
         })
     }
 
-    async fn list_branches(
-        &self,
-        _manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::Branches, Refusal> {
-        Ok(ipc::Branches {
-            branches: vec![
-                ipc::BranchRow {
-                    name: "main".to_string(),
-                    base: true,
-                },
-                ipc::BranchRow {
-                    name: "release/2.0".to_string(),
-                    base: false,
-                },
-            ],
-        })
-    }
 }

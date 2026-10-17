@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, terminal } from "./sessions-fleet";
@@ -22,8 +22,7 @@ test("Sessions keys: a field keeps j and k", async () => {
     terminal("S2", { title: "Second one" }),
     terminal("S3", { title: "Third one" }),
   ]);
-  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
-  mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root })));
+  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
   await toSession("First one");
   await expect.element(opened("First one")).toBeVisible();

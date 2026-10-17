@@ -6,21 +6,9 @@
 //! names them, on one screen — and three files sized by subject rather than one
 //! file sized by the trait.
 //!
-//! It asserts nothing about the status machine. That machine is `core-model`'s
-//! and is tested there against the edge table. What is asserted here is that the
-//! route reached the daemon, that the body arrived, and that a refusal comes
-//! back as the refusal the transport is supposed to map.
-//!
-//! [`FakeDaemon::move_to`](super::FakeDaemon) is the one move, and most commands
-//! below are a pair of statuses handed to it.
-
-mod gating;
-mod recovering;
-
-use ipc::{
-    JobForgotten, JobId, JobSummary,
-    WorktreeReclaimed,
-};
+//! What is asserted through it is that the route reached the daemon, that the
+//! body arrived, and that a refusal comes back as the refusal the transport is
+//! supposed to map.
 
 use super::FakeDaemon;
 use crate::{Commands, Refusal};
@@ -254,16 +242,6 @@ impl Commands for FakeDaemon {
             crate::tests::shapes::run_id(),
         )))
     }
-    async fn file_report(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        filing: ipc::FileReport,
-    ) -> Result<ipc::Report, Refusal> {
-        self.fake_file_report(job_id, filing).await
-    }
-    async fn kill_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.fake_kill_job(job_id).await
-    }
     async fn catch_up_checkout(
         &self,
         asked: ipc::CatchUpCheckout,
@@ -283,18 +261,6 @@ impl Commands for FakeDaemon {
             format!("the fake holds no checkout for {}", asked.manifest_id.as_str()),
             crate::tests::shapes::run_id(),
         )))
-    }
-    async fn forget_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobForgotten, Refusal> {
-        self.fake_forget_job(job_id).await
-    }
-    async fn reclaim_worktree(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<WorktreeReclaimed, Refusal> {
-        self.fake_reclaim_worktree(job_id).await
     }
     async fn change_slot_pool(
         &self,
@@ -317,13 +283,6 @@ impl Commands for FakeDaemon {
             String::from("the fake daemon serves no pool"),
             crate::tests::shapes::run_id(),
         )))
-    }
-    async fn delete_branch(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        asked: ipc::DeleteBranch,
-    ) -> Result<ipc::BranchDeleted, Refusal> {
-        self.fake_delete_branch(job_id, asked).await
     }
 }
 

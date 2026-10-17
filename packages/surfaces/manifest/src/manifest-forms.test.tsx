@@ -72,16 +72,6 @@ test("a refused save names the key, writes nothing, and leaves the removal to un
   await expect.element(page.getByRole("button", { name: "Discard changes" })).toBeEnabled();
 });
 
-test("a cost cap below the costliest past Job here warns, and never refuses", async () => {
-  await forms({ spend: { jobs: 41, most_cost_micros: 7_120_000, most_turns: 212 } });
-  const budget = page.getByRole("region", { name: "Budget" });
-  await expect.element(budget).toBeVisible();
-  expect(budget.getByText(/~\$7\.12/).query()).toBeNull();
-  await userEvent.type(budget.getByLabelText("Cost cap per Job, in dollars"), "5");
-  await expect.element(budget.getByText(/~\$7\.12/)).toBeVisible();
-  await expect.element(save()).toBeEnabled();
-});
-
 test("an exit code must be a whole number, and one that is saves", async () => {
   await forms();
   const build = page.getByRole("region", { name: "Checks" }).getByRole("group", { name: "build" });

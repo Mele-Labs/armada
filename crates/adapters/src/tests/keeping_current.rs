@@ -18,7 +18,6 @@ use adapter_traits::{
 
 use crate::tests::repo::TempRepo;
 use crate::worktree::GitVcs;
-use crate::UnmergedWork;
 
 const JOB: &str = "01K9CURRENCY0000000000001";
 
@@ -146,7 +145,7 @@ fn a_behind_branch_is_rebased_through_a_scratch_worktree_where_its_own_is_gone()
     let worktree = a_delivered_worktree(&repo);
     let spec = spec_for(&repo);
 
-    crate::reclaim(&spec, None, UnmergedWork::Keep).expect("the disk is given back");
+    repo.git(&["worktree", "remove", "--force", &spec.worktree_path()]);
     assert!(
         !Path::new(worktree.path()).exists(),
         "the ordinary worktree is gone, the way #663 found it"
@@ -286,7 +285,7 @@ fn a_conflicting_rebase_through_a_scratch_worktree_leaves_the_branch_untouched()
     let tip_before = repo.git(&["rev-parse", &format!("armada/{JOB}")]);
     let remote_before = remote_tip(&bare, &format!("armada/{JOB}"));
 
-    crate::reclaim(&spec, None, UnmergedWork::Keep).expect("the disk is given back");
+    repo.git(&["worktree", "remove", "--force", &spec.worktree_path()]);
     repo.commit_one(
         "shared.txt",
         "what somebody else merged\n",

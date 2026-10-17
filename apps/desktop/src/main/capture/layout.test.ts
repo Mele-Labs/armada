@@ -1,5 +1,5 @@
 // The claim, written before the panel: a walk window a Session opened shows that Session beside the
-// page, one a Job opened shows that Job, and a Studio's shows nothing beside it. The owner, 11 Oct
+// page, and a Studio's shows nothing beside it. The owner, 11 Oct
 // 2026 — `docs/practices/capture-window.md`, *The panel beside the page*.
 
 import { describe, expect, it } from "vitest";
@@ -11,17 +11,12 @@ describe("which panel a walk window opens", () => {
     expect(panelFor({ session: { id: "s1", title: "Checkout copy" } })).toEqual({ kind: "session", id: "s1" });
   });
 
-  it("a Job's window holds that Job, never the Session kind", () => {
-    expect(panelFor({ job: { id: "01JOB", handle: "44-stacked-run" } })).toEqual({ kind: "job", id: "01JOB" });
-  });
-
   it("a Studio's window has no panel", () => {
     expect(panelFor({ studio: { id: "st", name: null } })).toBeNull();
   });
 
   it("the panel's document is told its subject by a query, and nothing else", () => {
     expect(panelQuery({ kind: "session", id: "s1" })).toEqual({ session: "s1" });
-    expect(panelQuery({ kind: "job", id: "01JOB" })).toEqual({ job: "01JOB" });
   });
 });
 

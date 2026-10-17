@@ -61,7 +61,6 @@ fn fitted(home: &TempDir) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
         gates: &[],
         judged_on: &[],
         scope: None,
-        gaming: None,
     }]));
     fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about this"));
     fittings.concurrency = Concurrency::of(2);

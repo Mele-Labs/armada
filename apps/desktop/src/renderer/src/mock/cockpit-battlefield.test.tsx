@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { scenarioNamed } from "./scenario";
 import { motion, mount, onScreen, unmountAfterEach } from "./testing";

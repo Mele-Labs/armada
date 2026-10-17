@@ -38,7 +38,7 @@ fn a_fleet(home: &TempDir) -> Fixture {
 
 fn code(refusal: &Refusal) -> &str {
     match refusal {
-        Refusal::NoSuchJob(e)
+        Refusal::NotFound(e)
         | Refusal::IllegalMove(e)
         | Refusal::Unacceptable(e)
         | Refusal::Fault(e) => &e.code,

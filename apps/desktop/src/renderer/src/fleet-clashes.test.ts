@@ -9,7 +9,7 @@ import { createFleetClashes, SETTLE_MS } from "./fleet-clashes";
 import { clashingOf } from "./clashes";
 
 const CLASH: WriteClash = {
-  one: { kind: "job", id: "j1", label: "Cap the retry backoff" },
+  one: { kind: "session", id: "s2", label: "Cap the retry backoff" },
   other: { kind: "session", id: "s1", label: "Retry tuning" },
   paths: ["crates/fleet/src/retry.rs"],
   since: "2026-10-13T09:00:00Z",
@@ -69,15 +69,14 @@ describe("the clashes Fleet reports", () => {
     expect(fleet.source.get()).toEqual([CLASH]);
   });
 
-  it("mark the Job and the Session of a pair and nothing else", async () => {
+  it("mark both Sessions of a pair and nothing else", async () => {
     const fleet = harness([[CLASH]]);
     await fleet.listen();
     await fleet.tell(up);
     const of = clashingOf(fleet.source.get());
-    expect(of("job", "j1")).toEqual([{ with: CLASH.other, paths: CLASH.paths }]);
+    expect(of("session", "s2")).toEqual([{ with: CLASH.other, paths: CLASH.paths }]);
     expect(of("session", "s1")).toEqual([{ with: CLASH.one, paths: CLASH.paths }]);
-    expect(of("session", "j1")).toEqual([]);
-    expect(of("job", "j2")).toEqual([]);
+    expect(of("session", "s3")).toEqual([]);
   });
 
   it("are read again once the board has changed, one pending read however busy it is", async () => {

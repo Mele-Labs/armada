@@ -24,7 +24,6 @@ pub(super) fn two_steps() -> config::ResolvedWorkflow {
             gates: &[Gate::DiffNonempty],
             judged_on: &[],
             scope: None,
-            gaming: None,
         },
         Sketch {
             id: "summarise",
@@ -33,7 +32,6 @@ pub(super) fn two_steps() -> config::ResolvedWorkflow {
             gates: &[],
             judged_on: &[],
             scope: None,
-            gaming: None,
         },
     ])
 }

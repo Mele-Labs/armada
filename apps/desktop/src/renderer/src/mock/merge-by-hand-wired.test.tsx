@@ -32,14 +32,6 @@ test("the call is drawn from the hub row and its pane's Merge asks Fleet by the 
   expect([number, act]).toEqual([2405, "merge"]);
 });
 
-test("the pane's Review is pressed on the repository with no Session", async () => {
-  const { press } = await started();
-  await call().click();
-  await page.getByRole("region", { name: "Pull request #2405" }).getByRole("button", { name: "Review" }).click();
-  await expect.poll(() => press.mock.calls.length).toBe(1);
-  expect(press.mock.calls[0]!.slice(1)).toEqual([2405, "review"]);
-});
-
 test("the form's line under Save has Merge, and it is the same press", async () => {
   const { press } = await started();
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();

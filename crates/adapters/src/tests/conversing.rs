@@ -111,27 +111,12 @@ fn a_conversation_does_not_ask_for_a_mode_a_spawned_session_cannot_have() {
     }
 }
 
-/// `#1373`: **widening Helm must not widen a Drone.** Rendered side by side,
-/// because the two are the same file's argument and the danger is that a flag
-/// taken off one comes off both.
+/// Helm is the operator at work, and holds what the operator holds: it is not
+/// run strict about its servers and does not narrow where settings come from.
 #[test]
-fn a_drones_launch_is_untouched_by_what_a_conversation_resolves() {
-    let drone = super::harness::rendered(adapter_traits::Toolbelt::evidence_only());
-    assert!(drone.iter().any(|arg| arg == "--strict-mcp-config"));
-    assert_eq!(
-        value_after(&drone, "--permission-mode").as_deref(),
-        Some("default")
-    );
-    assert_eq!(
-        value_after(&drone, "--permission-prompt-tool"),
-        Some(crate::harness::permission_tool().to_string())
-    );
-    assert!(drone.iter().any(|arg| arg == "--allowedTools"));
-    assert!(drone.iter().any(|arg| arg == "--disallowedTools"));
-
+fn helm_is_neither_strict_about_servers_nor_narrowed_in_settings() {
     let helm = rendered(&fresh()).args().to_vec();
     assert!(!helm.iter().any(|arg| arg == "--strict-mcp-config"));
-    // Helm is the operator at work, and holds what the operator holds.
     assert!(!helm.iter().any(|arg| arg == "--setting-sources"));
 }
 

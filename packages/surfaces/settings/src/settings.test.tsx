@@ -15,7 +15,7 @@ unmountAfterEach();
 const openSettings = () => toSystemPage("Settings");
 
 test("the index lists groups in order, and a group draws each of its sections under its own heading", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   await openSettings();
   const tabs = page.getByRole("tablist", { name: "Settings" }).getByRole("tab");
   await expect.poll(() => tabs.elements().map((one) => one.textContent)).toEqual([
@@ -36,7 +36,7 @@ test("the index lists groups in order, and a group draws each of its sections un
 });
 
 test("a saved value is marked Modified, and Reset removes the key so the shipped value is back", async () => {
-  const app = mount(onBoard([]), { slices: ["core", "settings"] });
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
   const save = vi.spyOn(app.api, "saveSettings");
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
@@ -48,7 +48,7 @@ test("a saved value is marked Modified, and Reset removes the key so the shipped
 });
 
 test("a figure is typed, saved by key, and a switch saves as it is pressed", async () => {
-  const app = mount(onBoard([]), { slices: ["core", "settings"] });
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
   const save = vi.spyOn(app.api, "saveSettings");
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
@@ -66,7 +66,7 @@ test("a figure is typed, saved by key, and a switch saves as it is pressed", asy
 });
 
 test("a setting waiting on a restart says so, and one an environment variable wins over says which", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
   await expect.element(page.getByText("Restart Fleet to apply.")).toBeVisible();
@@ -75,7 +75,7 @@ test("a setting waiting on a restart says so, and one an environment variable wi
 });
 
 test("a prompt is edited in several lines, and Reset to shipped takes the edit back", async () => {
-  const app = mount(onBoard([]), { slices: ["core", "settings"] });
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
   const save = vi.spyOn(app.api, "saveSettings");
   await openSettings();
   await page.getByRole("tab", { name: "Prompts" }).click();
@@ -89,7 +89,7 @@ test("a prompt is edited in several lines, and Reset to shipped takes the edit b
 });
 
 test("Settings finds a setting by search, across every category, by its key as well as its title", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   await openSettings();
   await page.getByRole("searchbox", { name: "Search settings" }).fill("proposer");
   await expect.element(page.getByRole("textbox", { name: "Job proposer model", exact: true })).toBeVisible();
@@ -104,7 +104,7 @@ test("Settings finds a setting by search, across every category, by its key as w
 });
 
 test("a refused settings.json says which key and why, and that the last good settings stay in force", async () => {
-  const scenario = onBoard([]);
+  const scenario = onBoard();
   const refused = { ...MOCK_SETTINGS, refused: { key: "limits.dronesAtOnce", reason: "12 is above the most this takes, 8." } };
   mount({ ...scenario, state: { ...scenario.state, settings: refused } }, { slices: ["core", "settings"] });
   await openSettings();
@@ -120,7 +120,7 @@ const unacceptable = (key: string, message: string): Outcome => ({
 });
 
 test("a save Fleet refuses is drawn against the setting its key field names, in Fleet's words", async () => {
-  const app = mount(onBoard([]), { slices: ["core", "settings"] });
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
   vi.spyOn(app.api, "saveSettings").mockResolvedValueOnce(unacceptable("limits.diskFloorGib", "Disk to keep free is below the 20 GiB the slot builds need."));
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
@@ -134,7 +134,7 @@ test("a save Fleet refuses is drawn against the setting its key field names, in 
 });
 
 test("Open settings.json asks main to open the file, and names no path", async () => {
-  const app = mount(onBoard([]), { slices: ["core", "settings"] });
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
   const open = vi.spyOn(app.api, "openSettingsFile");
   await openSettings();
   await expect.element(page.getByText(MOCK_SETTINGS.path)).toBeVisible();
@@ -143,7 +143,7 @@ test("Open settings.json asks main to open the file, and names no path", async (
 });
 
 test("before Fleet has answered, each section of a group says its settings are not here", async () => {
-  const scenario = onBoard([]);
+  const scenario = onBoard();
   mount({ ...scenario, state: { ...scenario.state, connection: { state: "not_running", absence: { why: "no_runtime_file", path: "/tmp/armada/fleet.json" } } } }, { slices: ["core", "settings"] });
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
@@ -151,7 +151,7 @@ test("before Fleet has answered, each section of a group says its settings are n
 });
 
 test("a palette row opens its section's group", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   openSettingsAt("settings:terminal", () => {});
   await openSettings();
   await expect.element(page.getByRole("tab", { name: "Tools" })).toHaveAttribute("aria-selected", "true");
@@ -162,7 +162,7 @@ test("a palette row opens its section's group", async () => {
 });
 
 test("the Choose act of the plan's offer lands on the Session model row, beside the Plan section it is set by", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   openSettingsAt("settings:model", () => {});
   await openSettings();
   await expect.element(page.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
@@ -172,7 +172,7 @@ test("the Choose act of the plan's offer lands on the Session model row, beside 
 });
 
 test("Settings → Keyboard rebinds a key, and the new key is the one that acts", async () => {
-  mount(onBoard([]), { slices: ["core", "settings"] });
+  mount(onBoard(), { slices: ["core", "settings"] });
   await openSettings();
   await page.getByRole("tab", { name: "Appearance" }).click();
   const helm = page.getByRole("group", { name: "Helm", exact: true });

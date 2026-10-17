@@ -20,7 +20,6 @@ const hands = (debugBridge: () => void, copyDebugInfo: () => void = () => {}): P
   openSetting: () => {},
   debugBridge,
   refresh: () => {},
-  board: () => {},
   pickRepository: () => {},
   studioRun: () => {},
   studioAdd: () => {},

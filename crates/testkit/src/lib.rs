@@ -12,20 +12,18 @@
 //! `docs/contracts/testkit-fixtures.md` is the roster.
 //!
 //! **A fake stands in for a seam, never for the thing being asserted.**
-//! [`FakeHarness`] renders a Drone that is a harmless program and records what
-//! it was asked to render; whether a line of a vendor's stream becomes the
-//! right event is `adapters`', against the real decoder. [`FakeJudge`] renders
+//! [`FakeHarness`] reads scripted lines; whether a line of a vendor's stream
+//! becomes the right event is `adapters`', against the real decoder. [`FakeJudge`] renders
 //! a shell printing a scripted verdict, so a Judge call exercises Fleet's
 //! runner and `verification`'s parser with no model, network or credential.
 //! [`FakeVcs`] and [`FakeWorkProduct`] stand in for a repository, because a
 //! suite needing a real checkout per case is one people stop running.
 //!
-//! [`resolved`], [`asking`] and [`asked_for`] fake nothing: the parsing is
-//! real, and they are here because a workflow and a `Job` are what every gate
-//! test needs and neither is a thing a test can write out in a line.
+//! [`resolved`] fakes nothing: the parsing is real, and it is here because a
+//! workflow is what every gate test needs and not a thing a test can write out
+//! in a line.
 
 mod harness;
-mod job;
 mod judge;
 mod link_lookup;
 mod sign_in;
@@ -36,18 +34,17 @@ mod vcs;
 mod work_product;
 mod workflow;
 
-pub use harness::{FakeHarness, FakeHarnessRefused, EDITS, READS, REPLAYED, RUNS};
-pub use job::{asked_for, asking};
+pub use harness::{FakeHarness, EDITS, READS, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
-pub use tracker::{FakeTracker, TrackerWrite};
+pub use tracker::FakeTracker;
 pub use trackers::FakeTrackers;
 pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};
 pub use workflow::{
     delivering, frozen, handing_off, modelled, narrowing, narrowing_and_testing_one, panelled,
-    patient, requiring, resolved, retried, retried_and_testing_one, testing_one, Gaming, Gate,
+    patient, requiring, resolved, retried, retried_and_testing_one, testing_one, Gate,
     Narrows, OneTest, Patience, Scoped, Sketch,
 };

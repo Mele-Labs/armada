@@ -30,7 +30,7 @@ impl Autopilots for FakeDaemon {
                 at_once: 1,
                 until: None,
                 spend_cap_micros: None,
-                job_cap: None,
+                session_cap: None,
             },
             quoted: Default::default(),
         })

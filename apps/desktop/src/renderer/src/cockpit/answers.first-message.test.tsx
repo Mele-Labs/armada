@@ -32,7 +32,7 @@ const cardOf = (one: WaitingItem): Item =>
 function answering(item: Item, hosts: Hosts): { current: Answering | undefined } {
   const seen: { current: Answering | undefined } = { current: undefined };
   function Probe() {
-    seen.current = useAnswering(item, hosts, connected([], [], []), () => {});
+    seen.current = useAnswering(item, hosts, connected([], []), () => {});
     return null;
   }
   const host = document.body.appendChild(document.createElement("div"));

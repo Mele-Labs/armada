@@ -1,12 +1,12 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
 // repository picked and the mock's Autopilot mid-run: the switch in the deck's foot that opens its lane on the
 // stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's second kind. #2092.
-// Then #2105's: the second repository's paused by its Job cap and raised, All with none picked asking for
-// one, and a step the Judges sent back. The Cockpit is the flight deck (#2301).
+// Then #2105's: the second repository's paused by its Session cap and raised, All with none picked asking for
+// one. The Cockpit is the flight deck (#2301).
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { forgetDismissals } from "../cockpit/dismissed";
@@ -89,7 +89,7 @@ test("the bar shows its caps used of their limit, and pauses and resumes", async
   await expect.element(bar().getByText("2 started · no cap")).toBeVisible();
   await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
   await bar().getByRole("button", { name: "Pause" }).click();
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Sessions finish");
   await bar().getByRole("button", { name: "Resume" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
@@ -111,7 +111,7 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await expect.element(bar().getByRole("textbox", { name: "At once" })).toHaveValue("2");
   await expect.element(bar().getByRole("textbox", { name: "Spend, in dollars" })).toHaveValue("30");
   await expect.element(bar().getByText("not said")).toBeVisible();
-  await bar().getByRole("textbox", { name: "Jobs" }).fill("4");
+  await bar().getByRole("textbox", { name: "Sessions" }).fill("4");
   await bar().getByRole("button", { name: "Start Autopilot" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("0 of 4 started")).toBeVisible();
@@ -183,7 +183,7 @@ test("in a short window the Dispatch sheet stays inside it and its Autopilot for
   await expect.element(panel).not.toBeInTheDocument();
 });
 
-/** The Cockpit on the second repository, whose Autopilot its Job cap paused. */
+/** The Cockpit on the second repository, whose Autopilot its Session cap paused. */
 function onPocket(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
   return { ...base, name: "dashboard-cockpit-pocket", state: { ...base.state, repository: "/Users/user/pocket" } };
@@ -191,15 +191,15 @@ function onPocket(): Scenario {
 
 test("a cap paused it: the bar names the cap, Resume is refused while it holds, and raising it lets Resume through", async () => {
   await cockpit(onPocket());
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Session cap reached");
   await expect.element(bar().getByText("3 of 3 started")).toHaveTextContent("3 of 3 started · reached");
 
   await bar().getByRole("button", { name: "Resume" }).click();
-  await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot stays paused: the Job cap is reached. Raise it, then resume");
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+  await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot stays paused: the Session cap is reached. Raise it, then resume");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Session cap reached");
 
   await bar().getByRole("button", { name: "Edit caps" }).click();
-  await bar().getByRole("textbox", { name: "Jobs" }).fill("5");
+  await bar().getByRole("textbox", { name: "Sessions" }).fill("5");
   await bar().getByRole("button", { name: "Save caps" }).click();
   await expect.element(bar().getByText("3 of 5 started")).toBeVisible();
   expect(bar().getByRole("form", { name: "Edit caps" }).query()).toBeNull();

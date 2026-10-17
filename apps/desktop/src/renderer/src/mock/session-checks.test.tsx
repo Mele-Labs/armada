@@ -1,6 +1,5 @@
-// A Session's Checks, through `App`: the thread draws a row per `armada check` the agent ran, one
-// out ends, and pressing it opens that run on the Checks page with the Session's owner chip beside it.
-// The walk `session-checks` draws it; this holds that the presses reach the same code.
+// A Session's Checks, through `App`: the thread draws a row per `armada check` the agent ran, and
+// the one that was out ends. The walk `session-checks` draws it.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -10,7 +9,7 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-test("Session checks: a running row ends, and pressing it opens the run with the Session's owner chip", async () => {
+test("Session checks: a running row ends", async () => {
   mount("session-checks");
   await onScreen();
   await toSession("Session check rows");
@@ -24,14 +23,5 @@ test("Session checks: a running row ends, and pressing it opens the run with the
   // The pointer is still over the Session's row in the list, whose hover card lies across the thread.
   await userEvent.unhover(page.getByRole("region", { name: "Work", exact: true }));
   await expect.poll(() => document.querySelector(".armada-inspect")).toBeNull();
-  await userEvent.click(thread.getByRole("button", { name: "Check app_smoke, failed" }));
-
-  await expect.element(page.getByRole("dialog", { name: "Check log" })).toBeVisible();
-  // Its log is read by the run id, and the run had ended by the time it was pressed.
-  await expect.element(page.getByRole("dialog", { name: "Check log" }).getByText(/expected the sheet to be visible/)).toBeVisible();
-  // It opens over the Session: the thread is still there, and closing the panel leaves it there.
-  await expect.element(page.getByRole("region", { name: "Thread" })).toBeVisible();
-  await userEvent.click(page.getByRole("dialog", { name: "Check log" }).getByRole("button", { name: /^Close/ }));
-  await expect.element(page.getByRole("dialog", { name: "Check log" })).not.toBeInTheDocument();
-  await expect.element(page.getByRole("region", { name: "Thread" })).toBeVisible();
+  await expect.element(thread.getByRole("button", { name: "Check app_smoke, failed" })).toBeVisible();
 });

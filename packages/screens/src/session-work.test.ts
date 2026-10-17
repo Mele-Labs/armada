@@ -56,9 +56,9 @@ describe("the proposer's picks", () => {
   });
 
   it("reach the Session the view draws", () => {
-    const session = sessionOfRecord(record({ workflow: "feature", proposal: { picked: ["effort"] } }), undefined, { jobs: [], picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
+    const session = sessionOfRecord(record({ workflow: "feature", proposal: { picked: ["effort"] } }), undefined, { picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
     expect(session.work?.proposal?.picked).toEqual(["effort"]);
-    const changed = sessionOfRecord(record({ proposal: { picked: ["effort"] } }), undefined, { jobs: [], picture: () => undefined, sketches: [], pending: [], unpicked: new Set(["effort"]) } as Beside);
+    const changed = sessionOfRecord(record({ proposal: { picked: ["effort"] } }), undefined, { picture: () => undefined, sketches: [], pending: [], unpicked: new Set(["effort"]) } as Beside);
     expect(changed.work?.proposal?.picked).toBeUndefined();
   });
 });
@@ -200,7 +200,7 @@ describe("the concerns he settled", () => {
     { kind: "message", id: "m1", at: "2026-10-16T09:00:00Z", from: { kind: "you" }, text: "go" },
     { kind: "message", id: "m2", at: "2026-10-16T09:04:00Z", from: { kind: "agent" }, text: "ok" },
   ] as WireRow[];
-  const around = { jobs: [], picture: () => undefined, sketches: [], pending: [] } as Beside;
+  const around = { picture: () => undefined, sketches: [], pending: [] } as Beside;
 
   it("draw a dismissed one as the folded line, at the step it came from", () => {
     const session = sessionOfRecord(record({ settled: [settledItem("j1", "dismissed", { kind: "step", index: 1, label: "Build" })] }), rows, around);
@@ -273,7 +273,7 @@ describe("the thread's rows", () => {
       { id: 7, at: "2026-10-16T09:01:00Z", kind: "session.workflow", subject: { kind: "session", id: "s1" }, tone: "idle", says: "workflow: Feature → custom" },
       { id: 8, at: "2026-10-16T09:01:30Z", kind: "session.model", subject: { kind: "session", id: "other" }, tone: "idle", says: "model: a → b" },
     ] as TimelineEvent[];
-    const session = sessionOfRecord(record(), rows, { jobs: [], picture: () => undefined, sketches: [], pending: [], events });
+    const session = sessionOfRecord(record(), rows, { picture: () => undefined, sketches: [], pending: [], events });
     expect(session.rows.map((one) => one.kind)).toEqual(["message", "change", "suggest", "message"]);
     expect(session.rows[1]).toMatchObject({ id: "event:7", what: "Workflow", from: "Feature", to: "custom" });
     expect(session.rows[2]).toMatchObject({ lines: [{ verb: "Removed", where: "Retry" }] });

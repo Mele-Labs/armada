@@ -10,7 +10,7 @@ import { page } from "vitest/browser";
 
 import { connected, entered, mount, openHelm, unmountAfterEach } from "@armada/desktop/mock";
 import type { Scenario } from "@armada/desktop/mock";
-import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/repository";
 
 unmountAfterEach();
 
@@ -42,10 +42,9 @@ function talking(): Scenario {
     name: "helm-record",
     says: "Helm pointed at a repository, with a session to report",
     state: {
-      ...connected([], [workflow()], [repository()]),
+      ...connected([workflow()], [repository()]),
       helm: { state: "pointed", manifestId: MANIFEST_ID },
     },
-    reads: {},
     behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }),
   };
 }
