@@ -183,9 +183,14 @@ export async function toSession(title: RegExp | string, scope?: "Active" | "Quie
     await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
     await userEvent.click(page.getByRole("menuitem", { name: scope, exact: true }));
   }
-  // A Job of the same name has a row too; the Session's is the one keyed `session:<id>`, whose title is the row's own text.
-  const row = work.locator('[data-row^="session:"]').filter({ has: page.getByText(title, typeof title === "string" ? { exact: true } : {}) });
-  await userEvent.click(row);
+  // A Job of the same name has a row too; the Session's is the one keyed `session:<id>`, named by its title.
+  const row = () =>
+    [...document.querySelectorAll<HTMLElement>('section[aria-label="Work"] [data-row^="session:"]')].find((one) => {
+      const name = one.getAttribute("aria-label") ?? "";
+      return typeof title === "string" ? name === title : title.test(name);
+    });
+  await expect.poll(() => row() !== undefined).toBe(true);
+  await userEvent.click(row()!);
   const view = page.getByRole("region", { name: /^Session: / });
   await expect.element(view).toBeVisible();
   return view;
