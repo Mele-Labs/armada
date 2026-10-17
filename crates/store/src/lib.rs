@@ -146,6 +146,8 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// What Fleet told a Session about one it follows, so it is told once.
+mod linked_told;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.

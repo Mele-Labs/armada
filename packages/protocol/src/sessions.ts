@@ -241,7 +241,24 @@ export type AnswerWaiting = {
  * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
  * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
  */
-export type StartAnotherSession = { manifest_id: string; title: string; message: string };
+export type StartAnotherSession = {
+  manifest_id: string;
+  title: string;
+  message: string;
+  /**
+   * The id of a group of the caller's recorded plan, which makes the new Session a linked Session the caller follows.
+   * It is titled with the group's title, its held message is the group's tasks word for word and the caller's handoff
+   * with `message` after them, and both ledgers keep the group as `detail.group` on the `started_by` and `started_to` rows.
+   * Refused 422 `fleet.group_unknown` for a group the plan lacks, and 409 `fleet.group_handed` for one handed already.
+   */
+  group?: string;
+};
+
+/**
+ * `POST /sessions/hand_to_session`, the person's: hand one group of a Session's plan to a linked Session. The same start as
+ * `StartAnotherSession` with a `group`, except the first message is sent, since the press is his. Answers `SessionHeld`.
+ */
+export type HandToSession = { session_id: string; group: string };
 
 /**
  * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own

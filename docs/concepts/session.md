@@ -849,6 +849,33 @@ A Session's agent may start a Session, or fork its own conversation into one, th
 
 **Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
 
+## Linked Sessions
+
+A Session splits its work into **linked Sessions it follows**, one for each group of its plan. This replaces Jobs' Epics. The owner approved the design on 16 Oct 2026 (walk `linkedSessions`), with the groups on the Plan and a Linked section in the Ledger both drawn.
+
+| | |
+|---|---|
+| Handing a group | `start_another_session` with `group` (the agent's, held for the owner like any start) or `hand_to_session` (the owner's press on **Hand to a Session**, which sends the brief). The new Session is in the same repository, titled with the group's title |
+| The brief | The group's tasks word for word, its paths, then the parent's handoff: its title and id, slot, branches, open pull requests and the last six messages of its thread. The agent's own `message` follows when it gave one |
+| The link | `started_by` on the child and `started_to` on the parent, as for any started Session, with `detail.group` on both. A group is handed once (409 `fleet.group_handed`), and a group the plan lacks is refused (422 `fleet.group_unknown`) |
+| The parent keeps track | When a child **needs the owner** (a waiting item other than its unsent first message, a question or permission held, or stuck), **ends**, or has a **pull request merged**, Fleet sends the parent's agent a message, which wakes it when idle, and writes a `linked` row (`event` `needs`, `done` or `merged`) in the parent's thread. The message is news, so it leaves the agent's `all_done` standing. Each is told once |
+| Every Session started from another | Is followed in that way and stands under its parent in Work, whether or not it was handed a group. The Plan and the Linked section draw only those with a group |
+
+> **Rule.** A Session follows every Session its agent starts, and the owner hears of a child through the parent's thread where it happened.
+> Why: the parent is the one holding the plan, and a child that waited on him with nobody saying so was how work stalled.
+
+Bridge draws it from the wire, with no state of its own:
+
+| Where | What |
+|---|---|
+| The Plan | Under a group handed to a Session, that Session's row of two lines: the `link` glyph and its title, then in the mono muted line its state mark and its pull request chip with the checks mark. A group not handed has **Hand to a Session** in its open body |
+| The Ledger | A Linked section first: the same row, with the group it came from on the second line |
+| The parent's thread | A `linked` row where it happened, `eye` for needs, `power` for done, `git-merge` for merged, the press that opens the child |
+| Work | `docs/concepts/cockpit.md` |
+| Keys | Enter on a row opens the child; Esc is Back, to the parent's thread and open groups as they were |
+
+A Session that is idle when Fleet starts and already needs the owner is not told: `needs` is read as a move. A notice for a parent that ended is dropped.
+
 ## In Bridge
 
 Bridge reads every live session from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot, pull request or Job, across every repository. A thread is read with `get_session` when a window first opens it, then followed by `session.row`. The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.

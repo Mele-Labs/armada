@@ -41,6 +41,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         async move { self.start_session(start).await }
     }
 
+    /// `hand_to_session`: the person hands one group of a Session's plan to a linked Session, whose
+    /// first message is sent. [`Refusal::Unacceptable`] where the plan holds no such group,
+    /// [`Refusal::IllegalMove`] where the group has a Session already.
+    fn hand_to_session(
+        self: Arc<Self>,
+        hand: ipc::HandToSession,
+    ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
+
     /// `send_session_message`. **Answers at once**, with the turn taken: the
     /// reply is the thread's, as Helm's is.
     fn send_session_message(

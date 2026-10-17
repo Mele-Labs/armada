@@ -3611,7 +3611,7 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `start_another_session` (`POST /sessions/start_another`) | `StartAnotherSession`: `manifest_id`, `title`, `message`. Answers `SessionHeld`: `session_id`, `title`, `fork` | `agent_access` Yes. The Session is created and listed at once with **no process and no turn**. 422 `fleet.agent_start_unplaced` where the connection places no hosted Session, 422 `fleet.agent_start_empty` for a blank `title` or `message` |
+| `start_another_session` (`POST /sessions/start_another`) | `StartAnotherSession`: `manifest_id`, `title`, `message`, `group?` (a plan group; see *A Session follows the Sessions its plan was handed to*). Answers `SessionHeld`: `session_id`, `title`, `fork` | `agent_access` Yes. The Session is created and listed at once with **no process and no turn**. 422 `fleet.agent_start_unplaced` where the connection places no hosted Session, 422 `fleet.agent_start_empty` for a blank `title` or `message` |
 | `fork_this_session` (`POST /sessions/fork_this`) | `ForkThisSession`: `title`, `message`, `at?`. Answers `SessionHeld` with `fork` true | `agent_access` Yes. **Of the caller's own conversation only**: the caller is placed by its connection and no id is read. `at` is a thread row id as `fork.at` is; left out, Fleet takes the caller's latest message of its own that the transcript holds. 422 `fleet.fork_point_unwritten` as for `fork.at`; nothing is written |
 | `SessionRow.started` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`: `id`, `title`), `fork` | Written in the **caller's** thread. Bridge draws it as the press that opens `session` |
 | `Attachment.kind` `unsent` | `target` is the first message's words, `standing` until the person's ordinary send, then `spent` | On the new Session. Bridge reads it as the text to put in the box once. Ending the Session gives it back. Kinds are open text, so no type changes |
@@ -4273,6 +4273,21 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a g
 | `ReachFolders`, `reachFoldersOf`, `REACH_FOLDERS_KEY`, the fields above | Bridge reads | `packages/protocol/src/reach-folders.ts`, `helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
 **Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for. A Bridge before `reaches_to` draws the card with no read or write word. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
+
+## A Session follows the Sessions its plan was handed to
+
+`docs/concepts/session.md`, *Linked Sessions*. **Additive throughout**; the protocol ID moves with the wire files, and nothing is bumped.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `StartAnotherSession.group` | The id of a group of the caller's recorded plan. Absent is the start of 23.80 | Fleet titles the Session with the group's title, in the caller's repository whatever `manifest_id` says, and holds the group's tasks word for word, the caller's handoff and `message` as its first message. 422 `fleet.group_unknown`, 409 `fleet.group_handed` |
+| `hand_to_session` (`POST /sessions/hand_to_session`) | `HandToSession`: `session_id`, `group`. Answers `SessionHeld` | `agent_access` No: Bridge's. The same start with the first message **sent**, since the press is the person's |
+| `Attachment.detail.group` on `started_by` and `started_to` | The group's id | No field is added: the existing `detail` map carries it on both ledgers, so Bridge reads a Session's group off its own record |
+| `SessionRow.linked` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`), `event` (`needs`, `done` or `merged`) | Written in the **parent's** thread where it happened, and the parent's agent is sent a message in the same moment. Bridge draws it as the press that opens `session` |
+
+**Every Session with a `started_by` row is followed, grouped or not**, which is also the rule for nesting it under its parent in Work. **Each notice is told once**: `done` and `merged` are kept in the store (`session_linked_told`, an additive migration), so a restart tells nothing again. `needs` is a move from not needing to needing as the loop saw it, so a Session already needing when Fleet starts is not told.
+
+**The event stream is neither better nor worse.** One `session.row` and one message to a Session's process for each notice, and a notice is rare beside a turn's rows. The unbounded sink and the missing resync message are untouched.
 
 ## Open questions
 
