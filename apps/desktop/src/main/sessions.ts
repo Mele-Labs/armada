@@ -52,6 +52,7 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   SessionSubagent,
+  SessionLoadout,
   SessionThread,
   SessionWait,
   StartSession,
@@ -580,6 +581,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/subagent?session_id=${encodeURIComponent(sessionId)}&subagent_id=${encodeURIComponent(subagentId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionSubagent } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What a session's agent knows, was told and used each turn, read whole each time the window asks. */
+  async loadout(sessionId: string): Promise<SessionActed<SessionLoadout>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/loadout?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionLoadout } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

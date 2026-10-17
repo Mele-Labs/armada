@@ -35,6 +35,7 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   SessionSubagent,
+  SessionLoadout,
   TuneSession,
   WritePullRequest,
 } from "@armada/protocol";
@@ -141,6 +142,8 @@ export type SessionsApi = {
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** A subagent's own thread as its transcript stands. Read again while it runs. */
   readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
+  /** What a Session's agent knows, was told and used each turn: `get_session_loadout`. Read again on a `session.changed`. */
+  readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
@@ -257,6 +260,7 @@ export const SESSIONS_CHANNELS = {
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",
+  readSessionLoadout: "bridge:read-session-loadout",
   openSessionFile: "bridge:open-session-file",
   openSessionWindow: "bridge:open-session-window",
   getSessionWindows: "bridge:get-session-windows",

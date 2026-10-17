@@ -23,6 +23,7 @@ import type {
   PartialRetroItem,
   RenameSession,
   SessionSubagent,
+  SessionLoadout,
   StartAfter,
   TuneSession,
   WaitReading,
@@ -181,6 +182,8 @@ export class FakeSessionsFleet {
   refusesPress: { code: string; message: string } | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
+  /** Each Session's whole Loadout, by Session id, as `get_session_loadout` answers it. */
+  loadouts: Record<string, SessionLoadout> = {};
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
@@ -393,6 +396,10 @@ export class FakeSessionsFleet {
           readSessionSubagent: async (_sessionId, subagentId) => {
             const thread = this.subagents[subagentId];
             return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
+          },
+          readSessionLoadout: async (sessionId) => {
+            const loadout = this.loadouts[sessionId];
+            return loadout === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: loadout };
           },
           readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
