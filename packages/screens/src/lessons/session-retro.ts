@@ -85,7 +85,7 @@ export function sessionRetro(session: RetroSession, at: string, n = 1): { retro:
         { cite: "tool:1", at: t(46), tool: "Bash", tried: "find / -name pnpm", because: "Operation not permitted, 3 directories" },
         { cite: "tool:2", at: t(30), tool: "Bash", tried: "open http://localhost:5173/?walk=session-retro", because: "Opened in the default browser" },
       ],
-      corrections: [{ cite: "correction:1", at: t(21), said: "Co-Authored-By: Claude <noreply@anthropic.com>" }],
+      corrections: [{ cite: "correction:1", at: t(21), said: "Co-Authored-By: the agent <agent@example.com>" }],
       restarts: [{ cite: "restart:1", at: t(9), actor: "fleet", moved: "restarted", said: "Session resumed after Fleet came back" }],
       subagents: [{ cite: "subagent:1", at: t(9), step: "code-review", said: "Stopped at 3m10s when Fleet restarted, no report" }],
       notes: [

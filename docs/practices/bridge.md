@@ -271,7 +271,7 @@ What it settled for the next surface:
   parameter**: bridge-api's `Scenario` carried `ArcDraft`, so it is `Scenario<S, A, D = never>`
   and `mock/moment.ts` is the one place that fixes `D`. **A rule that guards a directory the
   move emptied must name where it went**: the main-process draft rule watches
-  `packages/surfaces/jobs/src/draft` beside the screens'.
+  `packages/screens/src/draft` beside the screens'.
 - **Sessions then took what the Cockpit reads out of Jobs, ahead of Jobs going.** The drafts
   (`draft/`), the fixture builders (`fixtures/build`, and the Job fixtures in `fixtures/jobs`), the
   check-log sheet, `manifest-checks.ts`, `proposal.ts`, Lessons with the review and session wires
