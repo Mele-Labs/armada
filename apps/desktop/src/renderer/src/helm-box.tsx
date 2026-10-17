@@ -97,10 +97,7 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
       efforts: draft.efforts,
       onTune: tune,
       commands: draft.commands,
-      taggable: [
-        ...sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
-        ...draft.taggable(),
-      ],
+      taggable: sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
       searchFiles: (query: string) => searchFiles(query, manifestId),
       ...(numbered === undefined ? {} : { numbered }),
       drawn: drawn.map(({ id, title }) => ({ id, title })),

@@ -1,7 +1,7 @@
 //! Helm reading a thought for where it belongs, and keeping where it went.
 //! `docs/concepts/helm.md`, *Routing a thought*.
 //!
-//! **One model call, nothing kept by the read.** The words and every live Session and running Job
+//! **One model call, nothing kept by the read.** The words and every live Session
 //! in every repository Fleet serves go to the proposer's model, which answers one line of JSON.
 //! What comes back is held to the candidates: an id that names none of them is no match, and an
 //! answer that is not the JSON asked for is a question. **Whatever goes wrong the words go to
@@ -34,19 +34,16 @@ use crate::prompts::Prompts;
 /// to Helm. Bridge shows the turning mark for as long as the read takes.
 pub(crate) const READ_BUDGET: Duration = Duration::from_secs(20);
 
-/// The most Sessions, and the most Jobs, the model is shown. The Sessions come most recently seen
-/// first, so what is cut is the quietest.
+/// The most Sessions the model is shown. They come most recently seen first, so what is cut is
+/// the quietest.
 const MOST_OF_A_KIND: usize = 20;
 /// The longest words that are read; a longer message is cut.
 const MOST_WORDS: usize = 2_000;
-/// The longest title, ledger line, criterion and plan approach the model is shown, in characters.
+/// The longest title and ledger line the model is shown, in characters.
 const MOST_TITLE: usize = 160;
 const MOST_LINE: usize = 120;
-const MOST_CRITERION: usize = 200;
-const MOST_APPROACH: usize = 400;
-/// The most ledger lines and the most criteria one candidate shows.
+/// The most ledger lines one candidate shows.
 const MOST_LEDGER: usize = 6;
-const MOST_CRITERIA: usize = 6;
 
 /// The question as it ships: `prompts.helmRoute`'s default. `{candidates}` is a JSON list and
 /// `{message}` the person's words.
@@ -56,12 +53,12 @@ repository. Decide what the message is.
 
 A question is a message for Helm itself: it asks Helm to look something up, explain, check or \
 do something. A thought is a message meant for work that is already running: it tells a running \
-Session or Job something to take into account, such as a wish, a correction, a limit or a new \
+Session something to take into account, such as a wish, a correction, a limit or a new \
 detail about what it is building.
 
-Below are the Sessions and Jobs running now, in every repository. If the message is a thought, \
-name the one candidate it is plainly about, judged from its title, its repository, the \
-branches and pull requests it holds and, for a Job, what it must meet and its plan. If no \
+Below are the Sessions running now, in every repository. If the message is a thought, \
+name the one candidate it is plainly about, judged from its title, its repository and the \
+branches and pull requests it holds. If no \
 candidate is plainly the one, name none. If you cannot tell a question from a thought, it is a \
 question.
 
@@ -81,7 +78,7 @@ Answer with one line of JSON and nothing else, in one of these three shapes:
 {\"kind\":\"thought\"}
 {\"kind\":\"thought\",\"id\":\"<the id of the one candidate>\"}";
 
-/// One live Session or running Job a thought may go to, as the model reads it.
+/// One live Session a thought may go to, as the model reads it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(crate) struct Candidate {
     id: String,
@@ -91,12 +88,6 @@ pub(crate) struct Candidate {
     /// The branches and pull request titles it holds.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     ledger: Vec<String>,
-    /// A Job's acceptance criteria.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    must_meet: Vec<String>,
-    /// The approach of a Job's plan.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    plan: Option<String>,
     /// What an answer naming this candidate comes to. Never shown to the model.
     #[serde(skip)]
     target: ThoughtTarget,
@@ -168,41 +159,8 @@ impl Candidate {
                 .as_ref()
                 .map_or_else(String::new, |id| id.as_str().to_string()),
             ledger,
-            must_meet: Vec::new(),
-            plan: None,
             target: session_target(record),
         })
-    }
-
-    /// A running Job, with what it must meet and how it plans to do it.
-    pub(crate) fn job(
-        id: &str,
-        title: &str,
-        manifest: &str,
-        branch: Option<&str>,
-        criteria: &[&str],
-        approach: Option<&str>,
-    ) -> Candidate {
-        Candidate {
-            id: id.to_string(),
-            kind: "job",
-            title: cut(title, MOST_TITLE),
-            repository: manifest.to_string(),
-            ledger: branch.map(|branch| cut(branch, MOST_LINE)).into_iter().collect(),
-            must_meet: criteria
-                .iter()
-                .take(MOST_CRITERIA)
-                .map(|criterion| cut(criterion, MOST_CRITERION))
-                .collect(),
-            plan: approach.map(|approach| cut(approach, MOST_APPROACH)),
-            target: ThoughtTarget {
-                kind: ThoughtKind::Job,
-                id: id.to_string(),
-                title: title.to_string(),
-                manifest_id: Some(ManifestId::carried(manifest)),
-                slot: None,
-            },
-        }
     }
 }
 
@@ -299,9 +257,8 @@ where
         read(words, &self.thought_candidates().await, &asking).await
     }
 
-    /// Every live Session and every running Job, across every repository served. **Not scoped to
-    /// the repository Helm points at**, by the owner's decision of 12 Oct 2026. A Job that is
-    /// paused is not running, and one that escalated is waiting on a person.
+    /// Every live Session, across every repository served. **Not scoped to the repository Helm
+    /// points at**, by the owner's decision of 12 Oct 2026.
     async fn thought_candidates(&self) -> Vec<Candidate> {
         let mut found: Vec<Candidate> = Vec::new();
         if let Ok(live) = Sessions::list_sessions(self, None, None, Some(SessionState::Live)).await
@@ -312,30 +269,6 @@ where
                     .filter_map(Candidate::session)
                     .take(MOST_OF_A_KIND),
             );
-        }
-        let Ok((loaded, _)) = self.every_job().await else {
-            return found;
-        };
-        let running = loaded
-            .jobs
-            .iter()
-            .filter(|job| job.status() == core_model::JobStatus::Running && job.pause().is_none())
-            .take(MOST_OF_A_KIND);
-        for job in running {
-            let plan = self.plan_of(job.id()).await.ok().flatten();
-            let criteria: Vec<&str> = job
-                .acceptance_criteria()
-                .iter()
-                .map(|criterion| criterion.text.as_str())
-                .collect();
-            found.push(Candidate::job(
-                job.id().as_str(),
-                job.title().as_str(),
-                job.owner_manifest_id().as_str(),
-                job.branch().map(|branch| branch.as_str()),
-                &criteria,
-                plan.as_ref().map(|plan| plan.approach()),
-            ));
         }
         found
     }

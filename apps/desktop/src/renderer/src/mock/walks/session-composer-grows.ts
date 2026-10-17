@@ -9,7 +9,7 @@ const lines = (count: number) => Array.from({ length: count }, (_, index) => `Li
 
 function steps(): Step[] {
   const { message } = kit(false);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   return [
     { press: inside(sessions, button("CI timeout hunt")), say: "A Session, with its message box at rest" },
     { type: lines(5), into: message, say: "Five lines, and the box has grown with them" },
@@ -25,11 +25,11 @@ const helm: Step[] = [
 ];
 
 const keeping: Step[] = [
-  { press: inside(region("Sessions"), button("CI timeout hunt")), say: "A Session" },
+  { press: inside(region("Work", { exact: true }), button("CI timeout hunt")), say: "A Session" },
   { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
   { press: place("Cockpit"), say: "Off to the Cockpit" },
-  { press: place("Sessions"), say: "And back to the Sessions" },
-  { press: inside(region("Sessions"), button("CI timeout hunt")), say: "The same Session" },
+  { press: place("Cockpit"), say: "And back to the Sessions" },
+  { press: inside(region("Work", { exact: true }), button("CI timeout hunt")), say: "The same Session" },
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
 ];
 

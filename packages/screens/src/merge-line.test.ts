@@ -4,7 +4,7 @@
 // real `armada-land/` directory and holds equal to this file, so this is the other half of one
 // reading of the wire.
 
-import type { JobSummary, MergeLineHub, MergeLines } from "@armada/protocol";
+import type { MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
@@ -135,27 +135,6 @@ describe("the merge line Fleet serves", () => {
     ]);
   });
 
-  test("an entry names the Job whose branch it is, and the forge's own Job where it says one", () => {
-    const jobs = [
-      { id: "J1", title: "Order the migrations", branch: "fleet/push-the-base" },
-      { id: "J2", title: "Newer", branch: "fleet/helm-kills-processes", ended_at: "2026-10-07T10:00:00Z" },
-      { id: "J3", title: "Older", branch: "fleet/helm-kills-processes", ended_at: "2026-10-06T10:00:00Z" },
-    ] as JobSummary[];
-    const [one] = mergeLineViews(SERVED, "/repo", REPOSITORIES, jobs);
-    expect(one?.line.map((row) => [row.branch, row.job])).toEqual([
-      ["docs/wire-lock-signed", undefined],
-      ["worktree-agent-a", undefined],
-      ["fleet/gate-policy-every-run", undefined],
-      ["fleet/push-the-base", { id: "J1", title: "Order the migrations" }],
-      ["fleet/helm-kills-processes", { id: "J2", title: "Newer" }],
-      ["fleet/read-in-cluster-membership", undefined],
-    ]);
-    const forged: MergeLines = {
-      lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [], hub: { merged: [{ number: 5, title: "t", branch: "b", url: "u", merged_at: "x", job: { id: "J9", title: "Forged" } }] } }],
-    };
-    expect(mergeLineViews(forged, null, REPOSITORIES)[0]?.landed[0]?.job).toEqual({ id: "J9", title: "Forged" });
-  });
-
   test("a landed pull request wears the Job's own badge for how it ended, and one in line its number alone", () => {
     const [one] = views(SERVED, "/repo");
     expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({ number: 1770, url: `${PULL}1770` });
@@ -204,14 +183,14 @@ describe("the merge line Fleet serves", () => {
 });
 
 describe("the hub Fleet serves beside the line", () => {
-  const JOB = { id: "job-1", title: "Cache the manifest read" };
+  const SESSION = { id: "session-1", title: "Cache the manifest read" };
   const COMMIT = "a".repeat(40);
   const hubbed = (hub: MergeLineHub): MergeLines => ({
     lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [], hub }],
   });
   const hubOf = (hub: MergeLineHub) => views(hubbed(hub), null)[0]?.hub;
 
-  test("an open pull request keeps its queue state and place, and a Job on the Board owns its branch", () => {
+  test("an open pull request keeps its queue state and place", () => {
     const hub = mergeLineViews(
       {
         lines: [
@@ -232,10 +211,9 @@ describe("the hub Fleet serves beside the line", () => {
       },
       null,
       REPOSITORIES,
-      [{ id: "job-1", title: "Cache the manifest read", branch: "armada/cache" } as JobSummary],
     )[0]?.hub;
     expect(hub?.pulls).toEqual([
-      { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", job: { id: "job-1", title: "Cache the manifest read" }, queue: { state: "queued", position: 2 } },
+      { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", queue: { state: "queued", position: 2 } },
       { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "running", queue: { state: "waiting_for_ci" } },
     ]);
   });
@@ -286,11 +264,11 @@ describe("the hub Fleet serves beside the line", () => {
     ]);
   });
 
-  test("a green main is a mark, and each open pull request keeps its ci, its Job and nothing it was not told", () => {
+  test("a green main is a mark, and each open pull request keeps its ci and nothing it was not told", () => {
     const hub = hubOf({
       main: { state: "green", commit: COMMIT, read_at: "2026-10-06T10:00:00Z" },
       pull_requests: [
-        { number: 7, title: "t", branch: "armada/cache", url: `${PULL}7`, ci: "passed", job: JOB },
+        { number: 7, title: "t", branch: "armada/cache", url: `${PULL}7`, ci: "passed" },
         { number: 8, title: "t", branch: "nick/docs", url: `${PULL}8`, ci: "waiting_on_main" },
         { number: 9, title: "t", branch: "nick/new", url: `${PULL}9` },
       ],
@@ -298,11 +276,10 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hub).toEqual({
       main: { state: "green" },
       pulls: [
-        { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", job: JOB },
+        { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed" },
         { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "waiting_on_main" },
         { number: 9, url: `${PULL}9`, branch: "nick/new" },
       ],
-      recent: [],
     });
   });
 
@@ -317,9 +294,9 @@ describe("the hub Fleet serves beside the line", () => {
           { name: "test-all", tests: [] },
           { name: "lint-all", tests: ["tests::one"] },
         ],
-        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", job: JOB },
+        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", session: SESSION },
       },
-      fixing: JOB,
+      fixing_session: SESSION,
     });
     expect(hub?.main).toEqual({
       state: "red",
@@ -327,15 +304,15 @@ describe("the hub Fleet serves beside the line", () => {
         check: "screens_test",
         test: "merge-line.test.ts > folds",
         also: [{ check: "test-all", unmapped: true }, { check: "lint-all", unmapped: true, test: "tests::one" }],
-        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", job: JOB },
+        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", session: SESSION },
       },
-      taken: JOB,
+      takenBySession: SESSION,
     });
   });
 
   test("another machine's claim on a red rides on the red, and a green or an unclaimed red carries none", () => {
     const failed = { state: "red" as const, commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] };
-    const claim = { machine: "work-mac-mini", holder: { kind: "job" as const, id: "7be40d15" }, since: "2026-10-14T21:00:00Z" };
+    const claim = { machine: "work-mac-mini", holder: { kind: "session" as const, id: "7be40d15" }, since: "2026-10-14T21:00:00Z" };
     expect(hubOf({ main: failed, fixing_elsewhere: claim })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true }, elsewhere: claim });
     expect(hubOf({ main: failed })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
     expect(hubOf({ main: { state: "green", commit: COMMIT, read_at: "x" }, fixing_elsewhere: claim })?.main).toEqual({ state: "green" });
@@ -374,9 +351,9 @@ describe("the hub Fleet serves beside the line", () => {
 
   test("a main still running, one nothing ran on, and one not read draw no mark", () => {
     for (const state of ["running", "nothing_ran"]) {
-      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [], recent: [] });
+      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [] });
     }
-    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [], recent: [] });
+    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [] });
   });
 
   test("a line from a Fleet before the hub draws none and keeps its own landed rows", () => {
@@ -446,21 +423,6 @@ describe("the hub Fleet serves beside the line", () => {
     expect(green?.main).toEqual({ state: "green", checking: [{ commit, number: 1852 }] });
     const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
     expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
-  });
-
-  test("the Jobs main's red can go back to are the Board's rows at their review or over, newest first", () => {
-    const row = (id: string, status: string, branch?: string, ended_at?: string) =>
-      ({ id, title: id, status, ...(branch === undefined ? {} : { branch }), ...(ended_at === undefined ? {} : { ended_at }) }) as JobSummary;
-    const jobs = [
-      row("01A", "running", "armada/a"),
-      row("01B", "completed_success", "armada/b", "2026-10-06T10:00:00Z"),
-      row("01C", "awaiting_review", "armada/c"),
-      row("01D", "killed", "armada/d", "2026-10-06T12:00:00Z"),
-      row("01E", "completed_success"),
-    ];
-    const lines = hubbed({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "ci", check: "test" }] } });
-    const [view] = mergeLineViews(lines, null, REPOSITORIES, jobs);
-    expect(view?.hub?.recent.map((one) => one.id)).toEqual(["01D", "01B", "01C"]);
   });
 });
 

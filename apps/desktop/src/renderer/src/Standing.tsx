@@ -22,10 +22,9 @@
 
 import type { ReactNode } from "react";
 import { Alert, Button, ManifestNotice } from "@armada/components";
-import type { BridgeIdentity, Connection, FleetRestart, ManifestReading, WorktreeReclaimed } from "@armada/protocol";
+import type { BridgeIdentity, Connection, FleetRestart, ManifestReading } from "@armada/protocol";
 import type { Failure } from "@armada/shell";
 import { FleetNotice } from "@armada/shell";
-import { reclaimed, TakenNotice } from "@armada/screens";
 
 export type StandingProps = {
   /** Fleet, where the one connection is not one. */
@@ -46,15 +45,6 @@ export type StandingProps = {
   missed: number;
   acknowledged: number;
   onAcknowledged: (missed: number) => void;
-  /**
-   * What a reclaim gave back. **An array**: the per-Job act always sets one
-   * entry, and a bulk clear sets one per branch a base cannot reach — so a
-   * sweep that kept three says so three times rather than once.
-   */
-  givenBack: WorktreeReclaimed[];
-  onGivenBack: (given: WorktreeReclaimed[]) => void;
-  /** A press a freeze took and holds, while it holds. */
-  taken: { title: string; body: string; onDismiss: () => void } | null;
   /** A clone that finished after its dialog closed — `LocatedNotice`, held by Locate. */
   located?: ReactNode;
 };
@@ -72,9 +62,6 @@ export function Standing({
   missed,
   acknowledged,
   onAcknowledged,
-  givenBack,
-  onGivenBack,
-  taken,
   located,
 }: StandingProps) {
   return (
@@ -113,34 +100,6 @@ export function Standing({
       )}
 
       {located}
-
-      {/* What a reclaim gave back. **Neutral, because nothing is wrong** — a
-          branch kept for holding work nothing has taken is the safe setting
-          working, and drawing it in the escalation hue would tell somebody the
-          act failed when it did exactly what it promised. Dismissed by hand: a
-          directory and a branch are what a person goes and looks at, and a
-          notice that vanished while they did is one they cannot get back.
-
-          One line per entry rather than one Alert per entry: a bulk clear
-          that kept several branches is one thing that happened, read at
-          once, not a stack a person dismisses one at a time. */}
-      {givenBack.length === 0 ? null : (
-        <Alert
-          tone="neutral"
-          title={givenBack.length === 1 ? "Worktree reclaimed" : `${givenBack.length} worktrees reclaimed`}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => onGivenBack([])}>
-              Dismiss
-            </Button>
-          }
-        >
-          {givenBack.map((given) => (
-            <p key={given.job_id}>{reclaimed(given)}</p>
-          ))}
-        </Alert>
-      )}
-
-      {taken === null ? null : <TakenNotice {...taken} />}
     </>
   );
 }

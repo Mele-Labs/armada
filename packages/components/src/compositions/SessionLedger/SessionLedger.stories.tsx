@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
-import { SessionLedger, type LedgerEntry } from "./SessionLedger";
+import { BellRing } from "lucide-react";
+
+import { LedgerRows, SessionLedger, type LedgerEntry } from "./SessionLedger";
 
 /** What a Session has accumulated, a group per kind and only the groups that hold a row. Each row opens its own surface. */
 const meta: Meta<typeof SessionLedger> = {
@@ -29,12 +31,17 @@ const ENTRIES: LedgerEntry[] = [
   { key: "st", kind: "studio", name: "Studio Flaky store shapes", text: "Flaky store shapes", onOpen: open },
   { key: "k", kind: "sketch", name: "Sketch Store clock", text: "Store clock", onOpen: open },
   { key: "a", kind: "subagent", name: "Subagent Read the CI history, running", text: "Read the CI history", mark: { glyph: "running", said: "Running" }, onOpen: open },
+  { key: "bg1", kind: "background", background: "command", name: "Background command Serve the Bridge mock from slot 6, running", text: "Serve the Bridge mock from slot 6", mark: { glyph: "running", said: "Running" }, onOpen: open },
+  { key: "bg2", kind: "background", background: "monitor", name: "Monitor Watch the CI run, running", text: "Watch the CI run", mark: { glyph: "running", said: "Running" }, onOpen: open },
   { key: "ar1", kind: "artifact", artifact: "page", name: "Published page Store clock findings", text: "Store clock findings", onOpen: open },
   { key: "ar2", kind: "artifact", artifact: "file", name: "File written clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar4", kind: "artifact", artifact: "image", name: "Looked at clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar3", kind: "artifact", artifact: "doc", name: "Doc Flaky store write-up", text: "Flaky store write-up", onOpen: open },
   { key: "ar4", kind: "artifact", artifact: "window", name: "Shown in a window Store clock findings", text: "Store clock findings", onOpen: shown },
 ];
+
+/** The ledger draws no waiting rows: the thread's Needs you band does, with these. */
+const inTheBand: Story["render"] = (args) => <LedgerRows kind="waiting" Glyph={BellRing} rows={args.entries} />;
 
 const picked = fn();
 const WAITING: LedgerEntry[] = [
@@ -55,12 +62,11 @@ const WAITING: LedgerEntry[] = [
   },
 ];
 
-/** Waiting on you leads the ledger, each item names its act by glyph, and a question's choices are a deck. */
+/** What waits on the person, as the Needs you band draws it: each item names its act by glyph, and a question's choices are a deck. The ledger itself draws none. */
 export const WaitingOnYou: Story = {
-  args: { entries: [...ENTRIES.slice(0, 2), ...WAITING] },
+  args: { entries: WAITING },
+  render: inTheBand,
   play: async ({ canvas }) => {
-    const headings = canvas.getAllByRole("heading").map((one) => one.textContent);
-    await expect(headings[0]).toBe("Waiting on you");
     await expect(canvas.getByRole("img", { name: "Opens the walk" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Opens the pull request" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Copies the command" })).toBeInTheDocument();
@@ -72,10 +78,22 @@ export const WaitingOnYou: Story = {
   },
 };
 
+/** A waiting item handed to the ledger is not drawn: the thread's Needs you band holds it, and a ledger of nothing else is the empty picture. */
+export const NoWaitingSection: Story = {
+  args: { entries: [WAITING[1]!] },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("heading", { name: "Waiting on you" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Open Approve #1843" })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("group", { name: "Narrow the ledger" })).toBeNull();
+  },
+};
+
 let delivered: () => void = () => undefined;
 const sent = fn(() => new Promise<void>((done) => (delivered = done)));
 /** While Fleet delivers an answer, Answer is disabled, so a second press cannot send it again. */
 export const AnswerSentOnce: Story = {
+  render: inTheBand,
   args: { entries: [{ ...WAITING[3]!, key: "w6", options: [{ label: "Fake", onPick: sent }, { label: "Frozen", onPick: sent }] }] },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("radio", { name: "Frozen" }));
@@ -91,6 +109,7 @@ export const AnswerSentOnce: Story = {
 const replied = fn();
 /** An item with no act and a reply: its glyph is Reply, a press opens a box under the row, and a send hands over the line. */
 export const WaitingReply: Story = {
+  render: inTheBand,
   args: {
     entries: [
       { key: "w5", kind: "waiting", name: "Keep the old fixture or drop it?", text: "Keep the old fixture or drop it?", onReply: replied, onOpen: open },
@@ -109,6 +128,7 @@ export const WaitingReply: Story = {
 const removed = fn();
 /** An item the agent stated has Remove: a press opens a one-line reason box, Enter removes with the words or without, and Esc removes nothing. */
 export const WaitingRemove: Story = {
+  render: inTheBand,
   args: {
     entries: [{ key: "w6", kind: "waiting", name: "Pick a name for the cache table", text: "Pick a name for the cache table", onRemove: removed, onOpen: open }],
   },
@@ -161,6 +181,68 @@ export const Blank: Story = {
     await expect(canvas.queryByRole("heading")).toBeNull();
     await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Attachments" }).textContent).toBe("");
+    // An empty ledger draws its picture alone, with no bar of five disabled icons.
+    await expect(canvas.queryByRole("group", { name: "Narrow the ledger" })).toBeNull();
+    await expect(canvas.queryByRole("button")).toBeNull();
+  },
+};
+
+const BAR_ENTRIES: LedgerEntry[] = [
+  { key: "pr", kind: "pull_request", name: "Pull request #1843, checks passed", text: "#1843 Pin the store clock", mark: { glyph: "passed", said: "Checks passed" }, onOpen: open },
+  { key: "b3", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
+  { key: "b5", kind: "branch", name: "Branch store/migration-lock", text: <code>store/migration-lock</code>, slot: 5, onOpen: open },
+  { key: "s9", kind: "slot", name: "Worktree slot 9", text: "9", onOpen: open },
+];
+const headingsOf = (canvas: { queryAllByRole: (role: string) => HTMLElement[] }) => canvas.queryAllByRole("heading").map((one) => one.textContent);
+
+/**
+ * The bar across the top narrows the ledger to one kind, and Search narrows every section by the words of
+ * its rows. Sections run Pull requests, Branches; what waits on the person is in the thread, not here. A kind with no rows is disabled, not gone.
+ */
+export const FilterBar: Story = {
+  args: { entries: BAR_ENTRIES },
+  play: async ({ canvas }) => {
+    const bar = within(canvas.getByRole("group", { name: "Narrow the ledger" }));
+    await expect(headingsOf(canvas)).toEqual(["Pull requests", "Branches"]);
+    // A kind narrows to its own section, and pressing it again brings every section back.
+    const pulls = bar.getByRole("button", { name: "Pull requests" });
+    await userEvent.click(pulls);
+    await expect(pulls).toHaveAttribute("aria-pressed", "true");
+    await expect(headingsOf(canvas)).toEqual(["Pull requests"]);
+    await userEvent.click(pulls);
+    await expect(pulls).toHaveAttribute("aria-pressed", "false");
+    await expect(headingsOf(canvas)).toEqual(["Pull requests", "Branches"]);
+    // One kind at a time; Branches holds the bare slot row too.
+    await userEvent.click(pulls);
+    await userEvent.click(bar.getByRole("button", { name: "Branches and slots" }));
+    await expect(pulls).toHaveAttribute("aria-pressed", "false");
+    await expect(bar.queryByRole("button", { name: "Calls" })).toBeNull();
+    await expect(headingsOf(canvas)).toEqual(["Branches"]);
+    await expect(canvas.getByRole("button", { name: "Open Worktree slot 9" })).toBeInTheDocument();
+    // A kind the ledger holds no row of is disabled and stays in the bar.
+    await expect(bar.getByRole("button", { name: "Artifacts" })).toBeDisabled();
+    // Search and the kind combine; Escape clears the words and closes the field.
+    await userEvent.click(bar.getByRole("button", { name: "Search" }));
+    await userEvent.keyboard("FLAKY");
+    await expect(canvas.getAllByRole("listitem").map((one) => one.getAttribute("aria-label"))).toEqual(["Branch fix/flaky-store"]);
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("textbox")).toBeNull();
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(3);
+    await userEvent.click(bar.getByRole("button", { name: "Branches and slots" }));
+    // Search alone reaches every section, by the words a row's text draws too.
+    await userEvent.click(bar.getByRole("button", { name: "Search" }));
+    await userEvent.keyboard("migration-lock");
+    await expect(canvas.getAllByRole("listitem").map((one) => one.getAttribute("aria-label"))).toEqual(["Branch store/migration-lock"]);
+    await userEvent.clear(canvas.getByRole("textbox", { name: "Search the ledger" }));
+    await userEvent.keyboard("pin the store");
+    await expect(headingsOf(canvas)).toEqual(["Pull requests"]);
+    // Nothing matching draws the ledger's picture, and the bar stays.
+    await userEvent.clear(canvas.getByRole("textbox", { name: "Search the ledger" }));
+    await userEvent.keyboard("zzz");
+    await expect(canvas.getByRole("img", { name: "Nothing attached" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("heading")).toBeNull();
+    await expect(bar.getByRole("button", { name: "Search" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.keyboard("{Escape}");
   },
 };
 
@@ -335,7 +417,6 @@ const CARDS: LedgerEntry[] = [
     },
     onOpen: pressed,
   },
-  { key: "wc", kind: "waiting", act: "answer", name: "Which clock?", text: "Which clock should the store pin, the fake or the frozen one?", card: { title: "Which clock should the store pin, the fake or the frozen one?", facts: [] }, onOpen: open },
 ];
 
 /**
@@ -347,21 +428,21 @@ export const PreviewCards: Story = {
   args: { entries: CARDS },
   play: async ({ canvas, userEvent }) => {
     const pr = canvas.getByRole("button", { name: "Open Pull request #2113, checks failed" });
-    await expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible();
+    await expect(screen.queryByText("Failed: store: 2 failed")).not.toBeInTheDocument();
     await userEvent.hover(pr);
-    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("Failed: store: 2 failed")).toBeVisible());
     await expect(pr).toHaveAccessibleDescription(/Checks Failed: store: 2 failed/);
     await userEvent.unhover(pr);
-    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible());
-    // By keyboard: one stop a row, Waiting on you first, so nothing inside the pull request's row took one.
-    await userEvent.tab();
-    await expect(canvas.getByRole("button", { name: "Open Which clock?" })).toHaveFocus();
+    await waitFor(() => expect(screen.queryByText("Failed: store: 2 failed")).not.toBeInTheDocument());
+    // By keyboard: one stop a row, so nothing inside the pull request's row took one.
+    // The bar's buttons are stops before the rows; start from the last of them.
+    canvas.getByRole("button", { name: "Pull requests" }).focus();
     await userEvent.tab();
     await expect(pr).toHaveFocus();
     await userEvent.tab();
     const job = canvas.getByRole("button", { name: "Open Job 52" });
     await expect(job).toHaveFocus();
-    await waitFor(() => expect(canvas.getByText("implement")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("implement")).toBeVisible());
     // The card does not take the press.
     await userEvent.keyboard("{Enter}");
     await expect(pressed).toHaveBeenCalledTimes(1);

@@ -4,9 +4,9 @@
 // follow. Two things are not the registry's: the panels' names, and the second letter of the page chord, which the
 // `deck_page` row names in its notes. #2301.
 
-import { actionOf, formatSlot, slotsOf } from "@armada/components";
+import { actionOf, digitKeyFor, formatSlot, slotsOf } from "@armada/components";
 
-import { SESSION_TILES } from "./session-tiles";
+import { SESSION_TILES, tileKey } from "./session-tiles";
 
 export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "dispatch" | "autopilot";
 
@@ -25,7 +25,7 @@ export type Panel = {
 
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
-  { id: "list", name: "Jobs and Sessions", root: ".deck-list", items: ".deck-row" },
+  { id: "list", name: "Work", root: ".deck-list", items: ".deck-row" },
   { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
@@ -53,7 +53,7 @@ export function panelKey(id: PanelId): string {
 }
 
 /** The second key of `g`: where it goes, by surface id the window resolves. */
-export const PAGE_LETTERS = { c: "cockpit", j: "jobs", s: "sessions", y: "system" } as const;
+export const PAGE_LETTERS = { c: "cockpit", s: "sessions", y: "system" } as const;
 export type PageLetter = keyof typeof PAGE_LETTERS;
 
 export type SheetRow = { keys: readonly string[]; does: string };
@@ -75,6 +75,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         ...PANEL_SLOTS.map((id) => ({ keys: [panelKey(id)], does: PANELS.find((one) => one.id === id)!.name })),
         { keys: ["Tab", "⇧Tab"], does: "Next, previous panel" },
+        ...(built("deck_search") ? [{ keys: caps("deck_search"), does: actionOf("deck_search").verb }] : []),
       ],
     },
     {
@@ -91,8 +92,11 @@ export function keySheetOf(): readonly SheetGroup[] {
             head: "Controls",
             rows: [
               { keys: caps("deck_tile"), does: actionOf("deck_tile").verb },
-              // With a Session open the same digits press its tiles instead: the first five.
-              ...SESSION_TILES.map((tile, at) => ({ keys: caps("deck_tile").slice(at, at + 1), does: `Session open: ${tile.label}` })),
+              // With a Session open the same digits press its tiles instead, `1` to `9` and `0`; the last tile has no digit.
+              ...SESSION_TILES.flatMap((tile, at) => {
+                const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
+                return key === undefined ? [] : [{ keys: [key], does: `Session open: ${tile.label}` }];
+              }),
             ],
           },
         ]
@@ -134,7 +138,7 @@ export function keySheetOf(): readonly SheetGroup[] {
     {
       head: "Pages",
       rows: [
-        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "jobs" ? "Jobs" : place === "sessions" ? "Sessions" : "System" })) : []),
+        ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "sessions" ? "Sessions" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
         ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },

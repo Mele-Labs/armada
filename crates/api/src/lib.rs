@@ -38,7 +38,7 @@ mod attention;
 /// handler runs. **The seam's one rule about callers**, and `#1460`.
 mod callers;
 mod commands;
-/// One repository's Helm conversation, on a socket of its own — never `/events`.
+/// One repository's Helm: its Session found, spoken into and started over.
 mod conversing;
 mod daemon;
 /// The agent's door: the HTTP surface, spoken as MCP. **Who may open it is
@@ -126,15 +126,11 @@ mod watching_session_run;
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
-pub use conversing::{
-    CommanderFeed, CommanderWatch, ConversationFeed, ConversationSeen, ConversationWatch,
-    ObservedCommander, Spoken, HELM_BACKLOG,
-};
 pub use daemon::{
-    offerable, offerable_to_a_commander, Accounts, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
+    offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
+    Autopilots, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
-    StoredFile, Studios, Tools, COMMANDER_ALLOWED,
+    StoredFile, Studios, Tools,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput, SessionCheckLive};

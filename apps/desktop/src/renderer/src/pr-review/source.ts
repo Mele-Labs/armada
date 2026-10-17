@@ -1,8 +1,8 @@
-// What the review store reads and writes: the five calls Fleet answers (`shared/api/reviews.ts`), each as the thing
+// What the review store reads and writes: the calls Fleet answers (`shared/api/reviews.ts`), each as the thing
 // answered or the words of its refusal. **The store holds no `window.armada`**, so a test hands it a fake one and the
 // mock Fleet answers the same calls the real one does.
 
-import type { PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest } from "@armada/protocol";
+import type { PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { ReviewActed, ReviewsApi } from "../../../shared/api/reviews";
@@ -16,6 +16,12 @@ export type ReviewSource = {
   file: (manifestId: string, number: number, path: string) => Promise<Read<PullRequestFilePatch>>;
   write: (manifestId: string, write: WritePullRequest) => Promise<Read<PullRequestPage>>;
   resolve: (manifestId: string, resolve: ResolvePullThread) => Promise<Read<PullThreadResolved>>;
+  tools: (manifestId: string) => Promise<Read<ReviewTools>>;
+  saveTool: (manifestId: string, save: SaveReviewTool) => Promise<Read<ReviewTools>>;
+  startRun: (manifestId: string, start: StartReviewRun) => Promise<Read<ReviewRun>>;
+  runs: (manifestId: string, number: number) => Promise<Read<ReviewRuns>>;
+  /** A run moved, whole. Not replayed: a reconnect reads `runs` again. */
+  onRun: (onRun: (run: ReviewRun) => void) => () => void;
 };
 
 const worded = <T>(answer: ReviewActed<T>): Read<T> => (answer.ok ? { ok: true, value: answer.value } : { ok: false, said: refusalWords(answer.outcome) });
@@ -27,4 +33,9 @@ export const reviewSourceOf = (api: ReviewsApi): ReviewSource => ({
   file: async (manifestId, number, path) => worded(await api.readReviewFile(manifestId, number, path)),
   write: async (manifestId, write) => worded(await api.writeReview(manifestId, write)),
   resolve: async (manifestId, resolve) => worded(await api.resolveReviewThread(manifestId, resolve)),
+  tools: async (manifestId) => worded(await api.listReviewTools(manifestId)),
+  saveTool: async (manifestId, save) => worded(await api.saveReviewTool(manifestId, save)),
+  startRun: async (manifestId, start) => worded(await api.startReviewRun(manifestId, start)),
+  runs: async (manifestId, number) => worded(await api.getReviewRuns(manifestId, number)),
+  onRun: (onRun) => api.onReviewRun(onRun),
 });

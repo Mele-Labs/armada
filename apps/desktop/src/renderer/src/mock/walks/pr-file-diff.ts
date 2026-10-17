@@ -6,7 +6,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const { close, row, sheet } = kit(false);
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const pull = sheet("Pull request #2209");
 const files = role("list", "Files");
 const forge = sheet("apps/desktop/src/main/forge.ts");

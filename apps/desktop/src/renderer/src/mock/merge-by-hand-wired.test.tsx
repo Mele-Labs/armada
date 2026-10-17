@@ -25,7 +25,7 @@ const call = () => page.getByRole("region", { name: "Incoming calls" }).getByRol
 test("the call is drawn from the hub row and its pane's Merge asks Fleet by the repository's Manifest and the number", async () => {
   const { press } = await started();
   await call().click();
-  await page.getByRole("region", { name: "Pull request #2405" }).getByRole("button", { name: "Merge" }).click();
+  await page.getByRole("region", { name: "Pull request #2405" }).getByRole("button", { name: "Merge", exact: true }).click();
   await expect.poll(() => press.mock.calls.length).toBe(1);
   const [manifest, number, act] = press.mock.calls[0]!;
   expect(typeof manifest).toBe("string");

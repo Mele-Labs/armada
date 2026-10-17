@@ -1,6 +1,6 @@
 // Everything the battlefield draws, read once off the ship, the events and the replay: the drones with what each has touched and is
 // doing, the territories, the bays as pads, the pull requests as crates, what plays and what each drone's callout says. The map
-// shows all of it and a Job's mission the part that is its own. **Nothing here is held locally and nothing is invented**: a drone no
+// shows all of it. **Nothing here is held locally and nothing is invented**: a drone no
 // edit places rests at its pad or base, a territory with no areas draws no plots, and a replay stands drones as the events left them.
 // The timeline's appends arrive no faster than four a second (`fleet-timeline.ts`) and the clock moves in five-second steps, so a busy
 // window draws the field a few times a second at most. #2301.
@@ -78,7 +78,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
-  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && (only === undefined || one.root === only)), [ship.subjects, only]);
+  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && (only === undefined || one.root === only)), [ship.subjects, only]);
   const mains = useMemo(() => ship.mains.filter((one) => only === undefined || one.root === only), [ship.mains, only]);
   const shipPrs = useMemo(() => ship.prs.filter((one) => only === undefined || one.root === only), [ship.prs, only]);
   const ownerOf = (number: number) => {
@@ -90,7 +90,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const touched = useMemo(
     () =>
       touchesFromEvents(events, {
-        keyOf: (event) => (event.subject.kind === "job" || event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
+        keyOf: (event) => (event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
         rootsOf: (key) => {
           const slot = holder.get(key);
           return slot === undefined ? [] : [slot.path];
@@ -100,14 +100,9 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   );
 
   const drones = useMemo(() => {
-    const has = new Set(all.map((one) => one.key));
     return all.map((one) => {
-      const attached = one.kind === "session" ? sessions.find((row) => row.id === one.id)?.attachments.find((a) => a.kind === "job" && a.looking !== true) : undefined;
-      const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
-      const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
       const slot = holder.get(one.key);
       return droneOf(one, callOfSubject(one, answered) !== undefined, {
-        parent: parent !== undefined && has.has(parent) ? parent : undefined,
         slot: slot === undefined ? undefined : slotKey(slot),
         // The file a Session is on, as its own Field has it: its drone hovers at that pill.
         file: one.kind === "session" ? sessions.find((row) => row.id === one.id)?.work?.field?.find((at) => at.agent === undefined)?.file : undefined,
@@ -116,7 +111,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         touches: touchesOf(one.key, touched, slotTouched),
       });
     });
-  }, [all, sessions, holder, props.state.jobs, answered, shown, touched, slotTouched]);
+  }, [all, sessions, holder, answered, shown, touched, slotTouched]);
 
   // The files each live Session names, drawn as pills on their plots as the Session's own Field draws them. Where two name one path the stronger act
   // stands: a file taken away over one made, one made over one changed, one changed over one at rest. Read each render, kept by what it says, so a
@@ -159,12 +154,11 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       out.set(view.key, {
         key: view.key,
         slot: view.slot.slot,
-        bay: view.state === "leased" ? (view.kept === undefined ? "held" : "kept") : view.state,
+        bay: view.state === "leased" ? "held" : view.state,
         word: view.word,
         repo: repoNameOf(view.slot.manifest_id),
         Glyph: view.Glyph,
         ...(name === undefined ? {} : { holder: name }),
-        ...(who === undefined ? {} : { holderKind: who.kind }),
         ...(view.holder === undefined && who !== undefined ? { holderWas: true } : {}),
         ...(view.branch === undefined ? {} : { branch: view.branch }),
       });
@@ -261,7 +255,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const clashes = useMemo(
     () =>
       clashesOf(written, {
-        keyOf: (kind, id) => (kind === "job" || kind === "session" ? `${kind}:${id}` : undefined),
+        keyOf: (kind, id) => (kind === "session" ? `session:${id}` : undefined),
         rootOf: (key) => all.find((one) => one.key === key)?.root,
       }),
     [written, all],

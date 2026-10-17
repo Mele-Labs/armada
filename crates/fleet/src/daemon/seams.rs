@@ -38,6 +38,7 @@ use crate::noticing::{Noticing, Sweep};
 use crate::policy::Policies;
 use crate::proposal::Proposing;
 use crate::proposals::Watching;
+use crate::review_runs::Reviewing;
 use crate::silence::Liveness;
 use crate::slots::{Slot, Slots};
 use crate::underway::{Announcing, Underway};
@@ -107,11 +108,6 @@ where
 
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
         self.tuned(|dials| dials.helm_authority)
-    }
-    /// How long a closed Helm session's stored session id is kept. See
-    /// `crate::helm::serving`, which sweeps by it on every reply. `#943`.
-    pub(crate) fn helm_session_retention(&self) -> std::time::Duration {
-        self.tuned(|dials| dials.helm_session_retention)
     }
     /// What this repository has said about `auto_merge` and `review_gate`,
     /// folded across the Manifests gating one Job.
@@ -231,14 +227,11 @@ where
     pub(crate) fn fixing_on_main(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.fixing_on_main
     }
+    pub(crate) fn review_going(&self) -> &Mutex<std::collections::BTreeSet<String>> {
+        &self.review_going
+    }
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
-    }
-    pub(crate) fn repairing(&self) -> &crate::repair_hold::Underway {
-        &self.repairing
-    }
-    pub(crate) fn stirrings(&self) -> &std::sync::Mutex<crate::commanding_wakes::Stirred> {
-        &self.stirred
     }
     pub(crate) fn owner_runs(
         &self,
@@ -405,6 +398,27 @@ where
         })
     }
 
+    /// What an agent run about a pull request needs in order to ask: the Judge's client, the
+    /// proposer's budget (a run reads a repository and writes a long answer, which the Judge's
+    /// two minutes would cut), and `models.review`. **No directory**: the run's own bay is the
+    /// one thing it may read, and it is leased per run.
+    pub(crate) fn reviewing(&self) -> Result<Reviewing, SpawnConfigRefused> {
+        Ok(Reviewing {
+            client: Arc::clone(&self.judge),
+            budget: self.tuned(|dials| dials.proposer_budget),
+            model: adapter_traits::Model::named(&self.review_model())?,
+            environment: environment(
+                HostPaths {
+                    path: &self.host.path,
+                    user: &self.host.user,
+                    home: &self.host.home,
+                    width: self.places_width(),
+                },
+                &[],
+            )?,
+        })
+    }
+
     /// What writing a Job's retro needs: [`Fleet::explaining`]'s client,
     /// budget and environment, on the retro's own dial.
     ///
@@ -467,6 +481,10 @@ where
     /// `default_model`'s reason. A Job's Drone never reads it.
     pub(crate) fn session_model(&self) -> String {
         self.machine_settings().now().get(config::settings::MODELS_SESSION)
+    }
+    /// The model an agent run about a pull request runs on, read when the run starts.
+    pub(crate) fn review_model(&self) -> String {
+        self.machine_settings().now().get(config::settings::MODELS_REVIEW)
     }
     /// Which tracker and link reader a repository's choice names. Asked
     /// through `crate::tracking`, per repository.

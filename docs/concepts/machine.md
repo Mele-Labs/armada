@@ -121,15 +121,9 @@ reach every Job except the one that needs it.
 
 **Who raised it is Fleet's reading of the connection, and it sets how far.** A
 person may raise a Job's cap to any figure. Helm may raise it to twice what the
-workflow's caps allow and a Job's Commander to three times, for turns and for
-cost alike. The multiple is of the cap the Job would inherit and not of the one
+workflow's caps allow, for turns and for cost alike. The multiple is of the cap the Job would inherit and not of the one
 in force, so repeated raises land on the same figure. The request body names
 no raiser, and one that tried to would be ignored.
-
-**A Commander's spend is the Job's cost and never its cap's.** What a Commander
-turn costs is recorded against the Job and shown beside the Drones' figure; the
-cap is compared with the Drones' alone, so the agent that raises a cap cannot
-spend it. [Commander](commander.md).
 
 **It is per Job, and two numbers rather than one.** A Drone belongs to a
 workflow step, so a four-step Job is four Drones; a per-Drone ceiling on that
@@ -203,6 +197,8 @@ Drone started into a spent window is held when it is refused.
 | `reset` | A reading carries a different `resets_at` while shifted | Restore, or keep the lower model |
 
 **The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one. Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it. A hand edit of `models.session` away from what the phase expects settles it. `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Session model steps down*.
+
+**`models.review` is the model an agent run about a pull request runs on.** It ships as the Session model and is its own setting after that, so the step down of Sessions leaves reviews where they were. It is live: a run started after a change takes it. It has no environment variable. `docs/concepts/pull-review.md`, *Agent runs*.
 
 **What follows `models.session`.** It is live. A Session process started after the change takes it, and a process already running keeps its own until it ends and the next message starts another. A model chosen for one Session wins, and a terminal Session reports its own. `models.default` is the Drone's and a Job's and is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
 

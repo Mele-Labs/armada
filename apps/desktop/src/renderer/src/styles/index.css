@@ -15,6 +15,8 @@
 @import "tailwindcss";
 @import "@armada/tokens/tokens.theme.css";
 @import "@armada/tokens/base.css";
+/* Bridge's look, applied under `data-look="new"`, which `@armada/components/src/look` sets. */
+@import "@armada/tokens/takes.css";
 
 /* The primitives' own stylesheets, last, because they consume the theme above.
    Each component owns its file and index.css is the append-only list of them —

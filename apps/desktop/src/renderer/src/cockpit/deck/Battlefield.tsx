@@ -1,24 +1,20 @@
 // The flight deck's map, a battlefield on a tilted plane in perspective. Each repository is a territory with a base at its near edge, its
-// landing pads the bays, and its main the objective on the far edge, a flag. Each Job and Session is a drone on a beam over the plots it
-// changes (or at its pad where nothing observed puts it elsewhere), a Job a large X quad and a Session a small plus quad. State is the
+// landing pads the bays, and its main the objective on the far edge, a flag. Each Session is a drone on a beam over the plots it
+// changes (or at its pad where nothing observed puts it elsewhere), a small plus quad. State is the
 // drone and its frame, never words. Pull requests are crates on a lifted route to the flag. The activity log drives the scene
 // (`plays.ts`). **Every fact on it is read off what Fleet recorded**; the field is handed already read (`useField.ts`).
 //
 // The 3D is CSS alone: a plane in `perspective`, tilted with rotateX and a little rotateZ, its parts placed with translate3d. Drones,
-// labels and flags are billboards, counter-rotated so they stand upright. No loop runs in script. A Job's mission is the same plane cut
-// down to its route (`scene`). Ported from proto/cockpit-flight-deck. #2301.
+// labels and flags are billboards, counter-rotated so they stand upright. No loop runs in script. Ported from proto/cockpit-flight-deck. #2301.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck } from "lucide-react";
-import { Button, Tooltip, WorkflowStepCard, useClashesOf } from "@armada/components";
+import { Crosshair, Megaphone, Minus, Plus, ShieldCheck } from "lucide-react";
+import { Button, Tooltip, useClashesOf } from "@armada/components";
 
 import { Builds, aimedAt, placeBuilds } from "./Builds";
-import { AskUpdate } from "./AskUpdate";
-import { Callout } from "./Callout";
 import { Doings } from "./Doings";
 import { Drone } from "./Drone";
 import { Lifted } from "./Lifted";
-import { Pins, RouteLegs, tipOf } from "./Route";
 import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
 import { sceneOf as pixiSceneOf } from "./pixi/scene";
@@ -26,22 +22,28 @@ import type { Stage } from "./pixi/stage";
 import { mapRenderer } from "./pixi/switch";
 import { Base, FileBar, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
 import { onPlane, px, vars } from "./bf-parts";
-import { LOCK_EYE, MISSION_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
+import { LOCK_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
 import { loopsOf, type CallTone } from "./field";
 import { frameOf } from "./frame";
 import { COS, FOOT, MARGIN, ROUTE, SIN, liftOf, short } from "./geometry";
 import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import { ALONG, type Play } from "./plays";
 import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
-import { sceneOf, type SceneIn } from "./mission";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
 import { TipLayer } from "./TipLayer";
-import { steadyTips } from "./tip-hover";
+import { steadyTips, type Waits } from "./tip-hover";
+
 import { clashLines, droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
+
+const cssMs = (name: string, fallback: number): number => {
+  const parsed = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue(name), 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+const SHARED_WAITS: Waits = { delay: () => cssMs("--tooltip-delay", 400), grace: () => cssMs("--tooltip-grace", 300) };
 
 export type BattlefieldProps = {
   repos: readonly RepoIn[];
@@ -61,12 +63,10 @@ export type BattlefieldProps = {
   selected: string | undefined;
   /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
   scope?: string | undefined;
+  /** This map's camera is its own, not the window's: it opens on the whole field and goes back to it when this changes, and when the pane is resized or unfolded. A Session's Field. */
+  own?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
-  /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
-  standAt?: string | undefined;
-  /** A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. */
-  scene?: Omit<SceneIn, "big" | "wide" | "clashes"> | undefined;
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -77,17 +77,26 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
-  const [measured, setMeasured] = useState(false);
+  // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
+  const [fresh, setFresh] = useState(0);
   useEffect(() => {
     const one = host.current;
     if (one === null) return;
+    let shown: string | undefined;
     const read = () => {
       const box = one.getBoundingClientRect();
-      if (box.width <= 0 || box.height <= 0) return;
-      setMeasured(true);
+      if (box.width <= 0 || box.height <= 0) {
+        shown = undefined;
+        return;
+      }
+      const now = `${Math.round(box.width)}x${Math.round(box.height)}`;
+      if (now !== shown) {
+        shown = now;
+        setFresh((was) => was + 1);
+      }
       setSize((was) => (Math.round(box.width) === was.width && Math.round(box.height) === was.height ? was : { width: Math.round(box.width), height: Math.round(box.height) }));
     };
     read();
@@ -99,11 +108,9 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const big = bigOf(size);
   // The world is larger than the pane: drones and plots are laid out at their own size and he pans and zooms for the rest.
   const sized = useMemo<Size>(() => ({ width: Math.round(size.width * WORLD), height: Math.round(size.height * WORLD) }), [size]);
-  // A Job's mission lays its own world round its route; the whole field lays out every repository to fit the pane.
-  const wide = size.width >= size.height * 1.4;
-  const built = useMemo(() => (scene === undefined ? undefined : sceneOf({ ...scene, big, wide, clashes })), [scene, big, wide, clashes]);
-  const world = built?.world ?? sized;
-  const layout = useMemo(() => built?.layout ?? layoutOf(repos, drones, world, big, prs, clashes), [built, repos, drones, world, big, prs, clashes]);
+  // The whole field lays out every repository to fit the pane.
+  const world = sized;
+  const layout = useMemo(() => layoutOf(repos, drones, world, big, prs, clashes), [repos, drones, world, big, prs, clashes]);
   const plane = { width: world.width, height: world.height * FLAT };
   const territory = new Map(layout.territories.map((one) => [one.root, one] as const));
   const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, onPlane(pad)] as const)));
@@ -112,11 +119,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     const at = onPlane(t === undefined ? { x: world.width / 2, y: world.height } : { x: t.base.x - t.base.w / 2 + 36, y: t.base.y + 8 });
     return { ...at, z: 20 };
   };
-  const stand = standAt === undefined ? undefined : built?.route.pins.find((one) => one.id === standAt)?.at;
-  const placed = useMemo(() => placeBuilds(builds, layout, stand), [builds, layout, stand?.x, stand?.y]);
-  // A Job's ring in its mission is asked for an update from the stack beside the zoom, since the ring itself takes no press.
-  const mine = scene === undefined ? undefined : placed.find((one) => one.build.key.startsWith("job:"))?.build.key;
-  const base = useMemo(() => frameOf({ layout, drones, plays, big, missionJob: scene?.job }), [layout, drones, plays, big, scene?.job]);
+  const placed = useMemo(() => placeBuilds(builds, layout), [builds, layout]);
+  const base = useMemo(() => frameOf({ layout, drones, plays, big }), [layout, drones, plays, big]);
   const frame = useMemo(() => aimedAt(base, placed), [base, placed]);
   const { heights, floorAt, altOf, flying, aimOf, doers } = frame;
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
@@ -158,7 +162,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const [hotPart, setHotPart] = useState<string>();
   // What the pointer is on is held here, apart from this component's state: a card that comes and goes redraws the card and nothing else, and
   // the drone or tile it lights moves only once the card has settled (`tip-hover.ts`).
-  const [tips] = useState(steadyTips);
+  const [tips] = useState(() => steadyTips(undefined, SHARED_WAITS));
   tips.onSettle((shown) => {
     setHot(shown?.hot);
     setHotTile(shown?.tile);
@@ -174,24 +178,18 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     home,
     pull,
     arriving: arrival.length > 0,
-    keep: scene === undefined,
+    keep: own === undefined,
     locate: () => locateRef.current(),
     onHand: () => tips.clear(),
   });
   const { eff, latest, go, zoomMid, homeAgain } = view;
   const pitch = eff.tilt ? CAM.near : CAM.wide;
 
-  // The mission opens on the step at work, close enough to read it, and returns there when asked.
-  const liveAt = built?.route.live;
-  const toLive = () => (liveAt === undefined ? homeAgain() : go(lookingAt(liveAt, Math.max(MISSION_EYE, home.eye * 1.3), false), "ease"));
-  useEffect(() => {
-    if (measured && liveAt !== undefined) toLive();
-  }, [measured, liveAt?.x, liveAt?.y]);
   const lock = selected === undefined ? undefined : layout.at.get(selected);
-  const toSelection = () => (scene !== undefined ? toLive() : lock === undefined ? homeAgain() : go(lookingAt(lock, Math.max(latest.current.eye, LOCK_EYE)), "ease"));
+  const toSelection = () => (lock === undefined ? homeAgain() : go(lookingAt(lock, Math.max(latest.current.eye, LOCK_EYE)), "ease"));
   locateRef.current = toSelection;
   // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
-  const first = useRef(scene === undefined && kept.current !== undefined);
+  const first = useRef(own === undefined && kept.current !== undefined);
   useEffect(() => {
     if (lock === undefined) return;
     if (first.current) {
@@ -202,7 +200,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   }, [selected, lock?.x, lock?.y]);
   // `w` named a drone to go to: the camera eases to it once the map is drawn.
   useEffect(() => {
-    const key = scene === undefined ? aimAt.key : undefined;
+    const key = own === undefined ? aimAt.key : undefined;
     const at = key === undefined ? undefined : layout.at.get(key);
     if (at === undefined) return;
     aimAt.key = undefined;
@@ -215,8 +213,13 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   useEffect(() => {
     if (was.current === scope) return;
     was.current = scope;
-    if (scene === undefined) homeAgain();
+    homeAgain();
   }, [scope]);
+
+  // An own camera is at the whole field for each `own` and each new size of the pane, and stays where he leaves it between those.
+  useEffect(() => {
+    if (own !== undefined) homeAgain();
+  }, [own, fresh]);
 
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
@@ -256,12 +259,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     if (next === undefined || target === undefined) return tips.leave();
     tips.show({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) }, ...lit });
   };
-  // A pin pressed: its step's card stays open beside it until Esc, a press on the ground, or another pin.
-  const [pinned, setPinned] = useState<{ id: string; target: Element }>();
-  const open = useRef(pinned);
-  open.current = pinned;
-  const pin = pinned === undefined ? undefined : built?.route.pins.find((one) => one.id === pinned.id);
-  const card = useMemo<Tip | undefined>(() => (pin === undefined ? undefined : { ...tipOf(pin), node: <WorkflowStepCard {...pin.card} /> }), [pin]);
   const [stage, setStage] = useState<Stage>();
   // What the canvas map's pictures do when they are pressed or hovered: this page's, read when wanted so the layer is not drawn again for a new one.
   const hitActs = useRef<HitActs>(null as never);
@@ -270,23 +267,12 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     pad: onPad,
     goal: onGoal,
     pr: onPr,
-    pin: (one, target) => {
-      tips.clear();
-      setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
-    },
     tip: showTip,
-    pinTip: (next, target, _at, lit) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target, undefined, lit)),
   };
-  // Esc puts the callout away; it comes back when the pointer or focus comes to something again. A card pressed open goes first, and is the whole of that Esc.
+  // Esc puts the callout away; it comes back when the pointer or focus comes to something again.
   useEffect(() => {
     const away = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (open.current !== undefined) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setPinned(undefined);
-        return;
-      }
       tips.clear();
     };
     window.addEventListener("keydown", away, true);
@@ -366,11 +352,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
-    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
+    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
+    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
   );
   const transform = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, ${px(0)})`;
-  const locateWord = scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection";
+  const locateWord = lock === undefined ? "Back to the whole field" : "Locate the selection";
 
   return (
     <div
@@ -399,19 +385,17 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           scene={pixiScene!}
           onGround={(event) => {
             if ((event.target as Element).closest("[data-hit]") !== null) return;
-            setPinned(undefined);
             onClear?.();
           }}
           onStage={setStage}
         >
-          {stage === undefined ? null : <Hits stage={stage} scene={pixiScene!} label={scene === undefined ? "Map" : "Route"} facts={facts} acts={hitActs} />}
+          {stage === undefined ? null : <Hits stage={stage} scene={pixiScene!} facts={facts} acts={hitActs} />}
         </PixiMap>
       ) : null}
       {canvas ? null : <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
-          <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => {
+          <div className="bf-plane" role="listbox" aria-label="Map" onClick={(event) => {
             if ((event.target as Element).closest("[role=option]") !== null) return;
-            setPinned(undefined);
             onClear?.();
           }} style={{ width: plane.width, height: plane.height }}>
             <div className="bf-floor" style={{ left: -plane.width * 0.6, top: -plane.height * 0.9, width: plane.width * 2.2, height: plane.height * 2.1 }} />
@@ -426,7 +410,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                   ))}
                 </g>
               ))}
-              {built === undefined ? null : <RouteLegs route={built.route} />}
               {layout.territories.map((one) => (
                 <Base key={one.root} territory={one} onTip={showTip} />
               ))}
@@ -486,7 +469,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
               prs={prs}
               selected={selected}
               loops={loops}
-              crate={built?.route.crate}
               plane={plane}
               pitch={pitch}
               easing={easing}
@@ -507,7 +489,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
               const at = territory.get(pr.root);
               if (at?.goal === undefined) return null;
               const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-              const start = built !== undefined ? { ...onPlane(built.route.crate), z: ROUTE } : ((owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE });
+              const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
               const end: P3 = { ...onPlane(at.goal), z: ROUTE };
               const landed = pr.stage === "landed";
               if (landed && !landing.has(pr.number)) return null;
@@ -520,19 +502,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                 </div>
               );
             })}
-
-            {built === undefined ? null : (
-              <Pins
-                route={built.route}
-                pinned={pinned?.id}
-                readable={readable}
-                onPress={(one, target) => {
-                  tips.clear();
-                  setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
-                }}
-                onTip={(next, target) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target))}
-              />
-            )}
 
             {sorted.map((drone, index) => {
               const at = layout.at.get(drone.key);
@@ -589,7 +558,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         const edge = edgeOf(size, eff, { x: at.x, y: at.y * FLAT, z: altOf(drone) + 40 * big });
         if (edge === undefined) return null;
         const leaving = !calls.has(key);
-        const tipped: Tip = { label: drone.kind === "job" ? "Job" : "Session", title: drone.title, hue: tone, lines: ["Needs you"] };
+        const tipped: Tip = { label: "Session", title: drone.title, hue: tone, lines: ["Needs you"] };
         return (
           <button
             key={key}
@@ -611,10 +580,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           </button>
         );
       })}
-      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} held={pinned !== undefined} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
-      {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} view={eff} pinned />}
+      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
       <div className="bf-zoom">
-        {mine === undefined ? null : <AskUpdate subject={mine} />}
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= limits.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>
             <Plus size={16} aria-hidden="true" />
@@ -630,13 +597,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
             <Crosshair size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
-        {scene === undefined ? null : (
-          <Tooltip label="Whole route" shortcut="0" asChild>
-            <Button variant="ghost" iconOnly aria-label="Whole route" onClick={homeAgain}>
-              <Scan size={16} aria-hidden="true" />
-            </Button>
-          </Tooltip>
-        )}
       </div>
     </div>
   );

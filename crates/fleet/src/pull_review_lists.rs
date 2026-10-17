@@ -13,11 +13,12 @@ use adapter_traits::{
 };
 use api::Refusal;
 use ipc::{
-    ManifestId, PullReviewChecks, PullReviewList, PullReviewLists, PullReviewRow, PullThreadResolved,
+    ManifestId, PullReviewChecks, PullReviewHolder, PullReviewList, PullReviewLists, PullReviewRow, PullThreadResolved,
     ResolvePullThread, MOST_PER_LIST,
 };
 
 use crate::daemon::Fleet;
+use crate::pull_owners::Owner;
 use crate::pull_request_panel::review_state;
 
 /// No list could be read, or nobody is known to ask as. A 500.
@@ -63,6 +64,7 @@ fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow> {
         author: pull.author,
         updated_at: pull.updated_at,
         team: pull.team,
+        holder: None,
     })
 }
 
@@ -96,6 +98,22 @@ where
         })
         .await
         .unwrap_or_default()
+    }
+
+    /// The Session that holds a pull request, as the pull request owners say. **A Job holding it
+    /// is not a Session to write to**, so it is not named here.
+    async fn holder_of(&self, row: &PullReviewRow) -> Option<PullReviewHolder> {
+        let served = self.served_named(Some(&row.manifest_id)).ok()?;
+        let owners = self.owners_of(&served, row.number, &row.branch, false).await;
+        let id = owners.into_iter().find_map(|owner| match owner {
+            Owner::Session(id) => Some(id),
+            Owner::Job(_) => None,
+        })?;
+        let title = match self.store().lock().await.session(&id) {
+            Ok(Some(record)) => record.title.unwrap_or_default(),
+            _ => String::new(),
+        };
+        Some(PullReviewHolder { id, title })
     }
 
     /// The four lists, read in turn: the forge answers each in a call, and a person waits on
@@ -141,6 +159,10 @@ where
         }
         if silent.len() == LISTS.len() {
             return Err(unreadable("the forge would not answer any of the four lists"));
+        }
+        // Which Session of the owner's works each pull request, for a note that goes to it.
+        for row in lists.iter_mut().flatten() {
+            row.holder = self.holder_of(row).await;
         }
         let [requested, team, assigned, mine] = lists;
         Ok(PullReviewLists {

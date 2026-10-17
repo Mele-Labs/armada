@@ -3,7 +3,7 @@
 // a hand moves each to the Session picked, and a release gives each back, committing a slot's files first, except the slot whose checkout is on no
 // branch, which stays and says why. The claims are in `walks/cockpit-release-holds.ts`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { HeldRow, HoldsReleased, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { asRow, holding, servedFrom } from "../holding";
@@ -72,7 +72,7 @@ function build(): Scenario {
     state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [HOLDER, TAKER]);
+        const store = sessionsStore([none, none], none, control, [], [HOLDER, TAKER]);
         const own = new Set([HOLDER.id, TAKER.id]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];

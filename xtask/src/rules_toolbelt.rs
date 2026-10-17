@@ -12,7 +12,7 @@
 //! because `--permission-mode dontAsk` refuses without prompting. A name in the
 //! allowlist and not the roster is argv granting a tool that does not exist.
 //!
-//! **`dispatch_job` is granted, not given, and that is not a mismatch.** The
+//! **`record_plan` is granted, not given, and that is not a mismatch.** The
 //! question here is whether a name can *ever* be rendered, so [`rendered_from`]
 //! reads the whole of `allowlist`'s body and not which branch a name is in.
 //! **`permission` is the reverse**: [`OFF_THE_ALLOWLIST`] refuses its entry.
@@ -32,7 +32,7 @@ use crate::Report;
 
 /// Every file a tool's name may be declared in. A tool is a name, a field
 /// list, an argument type, a parser and a schema, and `ask.rs` and
-/// `dispatch.rs` each hold all five of one tool — so the constants are spread
+/// `planning.rs` each hold all five of one tool — so the constants are spread
 /// across the directory rather than gathered in `tools.rs`.
 const ROSTER_DIR: &str = "crates/ipc/src/mcp";
 

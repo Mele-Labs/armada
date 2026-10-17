@@ -11,12 +11,12 @@
 //
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
-import type { HubJob, HubPull, HubSession, MainRed, MainState } from "@armada/components";
+import type { HubPull, HubSession, MainRed, MainState } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { FixingElsewhere, FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { completedSuccess, queued, review, running } from "@armada/jobs/fixtures/build/index";
+import { completedSuccess, queued, review, running } from "@armada/screens/src/fixtures/build/index";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -38,7 +38,6 @@ export const FIX = asRow(running(), 65, "fix-main", "Fix components_test on main
 export const FIXTURES: JobFixture[] = [CACHE, DEBOUNCE, NOTIFY, ZONE, PAUSE, FIX];
 
 const branchOf = (one: JobFixture) => `armada/${one.job.handle}`;
-const hubJob = (one: JobFixture): HubJob => ({ id: one.job.id, title: one.job.title });
 
 /** A Job's row at a moment: its status, and its part in main's red where it has one. */
 function rowOf(one: JobFixture, status: string, fixes?: FixesMain): JobSummary {
@@ -50,12 +49,12 @@ function rowOf(one: JobFixture, status: string, fixes?: FixesMain): JobSummary {
 const FIRST: MainRed = {
   check: "screens_test",
   test: "manifest-read.test.ts > reads the file again once it changes",
-  merge: { number: 1812, url: `${PULL}1812`, branch: branchOf(CACHE), job: hubJob(CACHE) },
+  merge: { number: 1812, url: `${PULL}1812`, branch: branchOf(CACHE) },
 };
 const SECOND: MainRed = {
   check: "desktop_test",
   test: "resources-poll.test.ts > a reading that stops polls nothing",
-  merge: { number: 1816, url: `${PULL}1816`, branch: branchOf(DEBOUNCE), job: hubJob(DEBOUNCE) },
+  merge: { number: 1816, url: `${PULL}1816`, branch: branchOf(DEBOUNCE) },
 };
 const THIRD: MainRed = {
   check: "components_test",
@@ -67,7 +66,7 @@ const THIRD: MainRed = {
 const FOURTH: MainRed = {
   check: "test-all",
   unmapped: true,
-  merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", job: hubJob(ZONE) },
+  merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal" },
 };
 
 const fixing = (red: MainRed): FixesMain => ({
@@ -78,12 +77,11 @@ const fixing = (red: MainRed): FixesMain => ({
 });
 const fixed = (red: MainRed, in_: number): FixesMain => ({ ...fixing(red), state: "fixed", fixed_in: in_ });
 
-const pull = (number: number, branch: string, ci: HubPull["ci"], job?: JobFixture): HubPull => ({
+const pull = (number: number, branch: string, ci: HubPull["ci"]): HubPull => ({
   number,
   url: `${PULL}${number}`,
   branch,
   ci,
-  ...(job === undefined ? {} : { job: hubJob(job) }),
 });
 
 type Moment = {
@@ -95,7 +93,7 @@ type Moment = {
 
 /** The Jobs that are not part of the story, and the pull request of each. */
 const BYSTANDING = (zone: HubPull["ci"], pause: HubPull["ci"]): { pulls: HubPull[]; jobs: JobSummary[] } => ({
-  pulls: [pull(1814, "studio/zone-proposal", zone, ZONE), pull(1819, "fleet/pause-markers", pause, PAUSE)],
+  pulls: [pull(1814, "studio/zone-proposal", zone), pull(1819, "fleet/pause-markers", pause)],
   jobs: [rowOf(NOTIFY, "completed_success"), rowOf(ZONE, "awaiting_review"), rowOf(PAUSE, "queued")],
 });
 
@@ -107,8 +105,8 @@ const MOMENTS: Moment[] = [
   {
     main: { state: "green" },
     pulls: [
-      pull(1812, branchOf(CACHE), "passed", CACHE),
-      pull(1816, branchOf(DEBOUNCE), "passed", DEBOUNCE),
+      pull(1812, branchOf(CACHE), "passed"),
+      pull(1816, branchOf(DEBOUNCE), "passed"),
       PERSON,
       ...BYSTANDING("passed", "running").pulls,
     ],
@@ -116,9 +114,9 @@ const MOMENTS: Moment[] = [
   },
   // 1  #1812 merged and main is red. The Job that merged it was watching, so it has the red already.
   {
-    main: { state: "red", red: FIRST, taken: hubJob(CACHE) },
+    main: { state: "red", red: FIRST },
     pulls: [
-      pull(1816, branchOf(DEBOUNCE), "waiting_on_main", DEBOUNCE),
+      pull(1816, branchOf(DEBOUNCE), "waiting_on_main"),
       { ...PERSON, ci: "waiting_on_main" },
       ...BYSTANDING("waiting_on_main", "failed").pulls,
     ],
@@ -127,7 +125,7 @@ const MOMENTS: Moment[] = [
   // 2  Its fix landed in #1821: green, and the Job says it fixed it.
   {
     main: { state: "green" },
-    pulls: [pull(1816, branchOf(DEBOUNCE), "passed", DEBOUNCE), PERSON, ...BYSTANDING("passed", "failed").pulls],
+    pulls: [pull(1816, branchOf(DEBOUNCE), "passed"), PERSON, ...BYSTANDING("passed", "failed").pulls],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
   },
   // 3  A person merged the Job's pull request on the forge, so nothing was watching it.
@@ -138,7 +136,7 @@ const MOMENTS: Moment[] = [
   },
   // 4  The owner sent the work back to it, and it is running.
   {
-    main: { state: "red", red: SECOND, taken: hubJob(DEBOUNCE) },
+    main: { state: "red", red: SECOND },
     pulls: [{ ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "running", fixing(SECOND)), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
@@ -156,7 +154,7 @@ const MOMENTS: Moment[] = [
   },
   // 7  The owner dispatched a new Job, and it is running.
   {
-    main: { state: "red", red: THIRD, taken: hubJob(FIX) },
+    main: { state: "red", red: THIRD },
     pulls: BYSTANDING("waiting_on_main", "failed").pulls,
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
@@ -178,8 +176,8 @@ const MOMENTS: Moment[] = [
   },
   // 9  The Job behind #1814 merged it and was watching. Its CI job maps to no Check, and no test could be read.
   {
-    main: { state: "red", red: FOURTH, taken: hubJob(ZONE) },
-    pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
+    main: { state: "red", red: FOURTH },
+    pulls: [pull(1819, "fleet/pause-markers", "failed")],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -192,7 +190,7 @@ const MOMENTS: Moment[] = [
   // 10  #1824 landed.
   {
     main: { state: "green" },
-    pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
+    pulls: [pull(1819, "fleet/pause-markers", "failed")],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -231,7 +229,6 @@ function standing(main: MainState): MainStanding {
             number: merge.number,
             url: merge.url,
             branch: merge.branch,
-            ...(merge.job === undefined ? {} : { job: merge.job }),
             ...(merge.session === undefined ? {} : { session: merge.session }),
           },
         }),
@@ -244,14 +241,13 @@ const requestOf = (one: HubPull): HubPullRequest => ({
   branch: one.branch,
   url: one.url,
   ci: one.ci,
-  ...(one.job === undefined ? {} : { job: one.job }),
 });
 
 /**
  * A pull request that merged, as the forge lists it, with the CI run on its merge commit. `at` is the
  * moment it lands; a list is every one that has, newest first, up to what the panel keeps.
  */
-type Landing = { at: number; number: number; branch: string; owner?: { job: HubJob }; run: "passed" | "failed"; failed?: string };
+type Landing = { at: number; number: number; branch: string; run: "passed" | "failed"; failed?: string };
 
 const KEPT = 5;
 const hex = (n: number) => n.toString(16).padStart(40, "0");
@@ -268,7 +264,6 @@ function mergedAt(landings: readonly Landing[], n: number): HubMerged[] {
       url: `${PULL}${one.number}`,
       merged_at: READ_AT,
       commit: hex(one.number),
-      ...(one.owner === undefined ? {} : one.owner),
       main_run: { state: one.run, ...(one.failed === undefined ? {} : { failed: [one.failed] }) },
     }));
 }
@@ -279,7 +274,6 @@ function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, 
   const hub: MergeLineHub = {
     main: standing(main),
     pull_requests: pulls.map(requestOf),
-    ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
     ...(main.state === "red" && main.takenBySession !== undefined ? { fixing_session: main.takenBySession } : {}),
     ...(main.state === "red" && main.elsewhere !== undefined ? { fixing_elsewhere: main.elsewhere } : {}),
     merged: mergedAt(landings, at),
@@ -290,16 +284,16 @@ function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, 
 /** What merged before the story and during it, in the order the moments land it. */
 const LANDINGS: Landing[] = [
   { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
-  { at: 0, number: 1803, branch: branchOf(NOTIFY), owner: { job: hubJob(NOTIFY) }, run: "passed" },
+  { at: 0, number: 1803, branch: branchOf(NOTIFY), run: "passed" },
   { at: 0, number: 1808, branch: "fleet/pause-markers-read", run: "passed" },
-  { at: 1, number: 1812, branch: branchOf(CACHE), owner: { job: hubJob(CACHE) }, run: "failed", failed: "screens_test" },
-  { at: 2, number: 1821, branch: `${branchOf(CACHE)}-fix`, owner: { job: hubJob(CACHE) }, run: "passed" },
-  { at: 3, number: 1816, branch: branchOf(DEBOUNCE), owner: { job: hubJob(DEBOUNCE) }, run: "failed", failed: "desktop_test" },
-  { at: 5, number: 1822, branch: `${branchOf(DEBOUNCE)}-fix`, owner: { job: hubJob(DEBOUNCE) }, run: "passed" },
+  { at: 1, number: 1812, branch: branchOf(CACHE), run: "failed", failed: "screens_test" },
+  { at: 2, number: 1821, branch: `${branchOf(CACHE)}-fix`, run: "passed" },
+  { at: 3, number: 1816, branch: branchOf(DEBOUNCE), run: "failed", failed: "desktop_test" },
+  { at: 5, number: 1822, branch: `${branchOf(DEBOUNCE)}-fix`, run: "passed" },
   { at: 6, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
-  { at: 8, number: 1823, branch: branchOf(FIX), owner: { job: hubJob(FIX) }, run: "passed" },
-  { at: 9, number: 1814, branch: "studio/zone-proposal", owner: { job: hubJob(ZONE) }, run: "failed", failed: "test-all" },
-  { at: 10, number: 1824, branch: `${branchOf(ZONE)}-fix`, owner: { job: hubJob(ZONE) }, run: "passed" },
+  { at: 8, number: 1823, branch: branchOf(FIX), run: "passed" },
+  { at: 9, number: 1814, branch: "studio/zone-proposal", run: "failed", failed: "test-all" },
+  { at: 10, number: 1824, branch: `${branchOf(ZONE)}-fix`, run: "passed" },
 ];
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */
@@ -324,14 +318,12 @@ const SESSION_RED: MainRed = {
   merge: { number: 1830, url: `${PULL}1830`, branch: SESSION_BRANCH, session: SESSION },
 };
 
-/** A pull request whose branch and owner's title are both longer than its row: both are cut short. */
-const LONG_JOB: HubJob = { id: "job-wire-the-cockpit", title: "Wire the Cockpit's Job detail panel and Job Board" };
+/** A pull request whose branch is longer than its row: it is cut short. */
 const longPull = (ci: HubPull["ci"]): HubPull => ({
   number: 2158,
   url: `${PULL}2158`,
   branch: "armada/14-wire-the-cockpit-s-job-detail-panel-and-job-board",
   ci,
-  job: LONG_JOB,
 });
 
 const SESSION_MOMENTS: Moment[] = [
@@ -395,10 +387,10 @@ export const SESSION_REGISTRY: Session[] = [
 
 /** Five landed before and during: the culprit Session's among them, then its fix at the top. */
 const SESSION_LANDINGS: Landing[] = [
-  { at: 0, number: 1820, branch: branchOf(NOTIFY), owner: { job: hubJob(NOTIFY) }, run: "passed" },
+  { at: 0, number: 1820, branch: branchOf(NOTIFY), run: "passed" },
   { at: 0, number: 1824, branch: "nick/ports-cleanup", run: "passed" },
   { at: 0, number: 1826, branch: "armada/session-3d90b1a2", run: "passed" },
-  { at: 0, number: 1828, branch: branchOf(CACHE), owner: { job: hubJob(CACHE) }, run: "passed" },
+  { at: 0, number: 1828, branch: branchOf(CACHE), run: "passed" },
   { at: 1, number: 1830, branch: SESSION_BRANCH, run: "failed", failed: "screens_test" },
   { at: 2, number: 1831, branch: `${SESSION_BRANCH}-fix`, run: "passed" },
 ];
@@ -437,30 +429,30 @@ function elsewhereMoments(): Moment[] {
   const working = [rowOf(FIX, "running", fixing(THIRD)), ...stranded.jobs];
   const held = (elsewhere: FixingElsewhere): Moment => ({ main: { state: "red", red: THIRD, elsewhere }, pulls: stranded.pulls, jobs: stranded.jobs });
   return [
-    held({ machine: "work-mac-mini", holder: { kind: "job", id: "7be40d15" }, since: claimed(12) }),
+    held({ machine: "work-mac-mini", holder: { kind: "session", id: "7be40d15" }, since: claimed(12) }),
     held({ machine: "nick-mbp", holder: { kind: "session", id: "9c74d82e" }, since: claimed(3 * 60) }),
-    { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
+    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: working },
     {
       main: { state: "green" },
       pulls: BYSTANDING("passed", "failed").pulls,
       jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
     },
     { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
-    { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
+    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: working },
     {
       main: { state: "green" },
       pulls: BYSTANDING("passed", "failed").pulls,
       jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
     },
     { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
-    held({ machine: "work-mac-mini", holder: { kind: "job", id: "c41e90a7" }, since: claimed(2) }),
+    held({ machine: "work-mac-mini", holder: { kind: "session", id: "c41e90a7" }, since: claimed(2) }),
   ];
 }
 
 const ELSEWHERE_LANDINGS: Landing[] = [
   { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
   { at: 0, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
-  { at: 3, number: 1823, branch: branchOf(FIX), owner: { job: hubJob(FIX) }, run: "passed" },
+  { at: 3, number: 1823, branch: branchOf(FIX), run: "passed" },
 ];
 
 /** The same red, claimed on another machine and then taken over. */

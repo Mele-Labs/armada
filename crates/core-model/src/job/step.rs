@@ -24,9 +24,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::envelope::Timestamp;
-use crate::job::declared::EvidenceType;
+use crate::workflow::EvidenceType;
 use crate::job::escalation::StepLevelTrigger;
-use crate::job::ids::{DroneId, JobId, StepId};
+use crate::workflow::{DroneId, JobId, StepId};
 use crate::job::status::StepState;
 use crate::job::step_machine::StepTarget;
 

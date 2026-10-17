@@ -268,29 +268,6 @@ where
         }
     }
 
-    /// A card a Commander put out to the owner: blocked, as an escalated Job
-    /// the night will not answer is. **The night never answers it**: the pick is
-    /// his, and the card stays out until he makes it.
-    pub(crate) async fn sleep_carded(&self, job: &core_model::Job, card: &store::StoredCard) {
-        if !self.sleeping().await {
-            return;
-        }
-        let text = format!("Commander asks, waiting on you: {}", card.question);
-        let _ = self.leave(row("blocked", format!("card:{}", card.card_id), job.handle(), text)).await;
-    }
-
-    /// Cards that went out before the night began, each once.
-    async fn sleep_cards(&self) -> Result<(), Refusal> {
-        let cards = self.store().lock().await.open_commander_cards().map_err(|why| self.ledger_fault(why))?;
-        for card in cards {
-            let Ok(job) = self.load(&card.job_id).await else { continue };
-            if !job.status().is_terminal() {
-                self.sleep_carded(&job, &card).await;
-            }
-        }
-        Ok(())
-    }
-
     /// Escalated Jobs, each once: told to decide for itself, or held.
     async fn sleep_jobs(&self) -> Result<(), Refusal> {
         let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
@@ -387,7 +364,7 @@ where
                     }
                     // Nothing to decide: sending it is his, and it stays on the list for the morning.
                     // A plan is his to approve, and a concern his to send or dismiss, so they wait the same way.
-                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Judge => {
+                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Judge | WaitingSource::SlotChoice => {
                         continue
                     }
                     WaitingSource::Permission => {
@@ -426,8 +403,7 @@ where
                 }
             }
         }
-        self.sleep_jobs().await?;
-        self.sleep_cards().await
+        self.sleep_jobs().await
     }
 }
 

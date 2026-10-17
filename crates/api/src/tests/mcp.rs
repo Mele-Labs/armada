@@ -134,7 +134,6 @@ async fn the_tool_list_carries_every_tool_and_only_one_that_reports() {
         "request_scope",
         "run_checks",
         "start_server",
-        "dispatch_job",
         "ask_question",
         "leave_note",
         "draft_fix",
@@ -150,16 +149,15 @@ async fn the_tool_list_carries_every_tool_and_only_one_that_reports() {
     }
     // **Only one of them reports**, which is what the count is about — a Drone
     // choosing between reporting-shaped tools is spike 6's one miss, and none
-    // of a declaration, a scope request, a asked run, a server, a dispatch, a
+    // of a declaration, a scope request, a asked run, a server, a
     // question, a note and a drafted fix is a report. `permission` is not even
     // the Drone's: the harness calls it, and the model is never shown it —
     // spike 15.
     //
     // The count is of the top-level key, one per tool. `ask_question`'s schema
-    // nests an object for its options and `dispatch_job`'s nests one for its
-    // edges; neither adds an `inputSchema`, because the nested shapes are
-    // `items` and `properties`.
-    assert_eq!(answered.body.matches("\"inputSchema\"").count(), 13);
+    // nests an object for its options and does not add an `inputSchema`,
+    // because the nested shapes are `items` and `properties`.
+    assert_eq!(answered.body.matches("\"inputSchema\"").count(), 12);
     assert_eq!(
         answered
             .body
@@ -207,63 +205,14 @@ async fn a_scope_request_with_nothing_working_is_a_tool_error() {
     assert!(answered.is_error(), "{}", answered.body);
 }
 
-/// The list is the same for every Drone, and the grant is what differs.
-///
-/// **`tools/list` has no caller on it**, so a Drone on a step that may not
-/// dispatch is still shown the tool — what stops it is the allowlist rendered
-/// at its spawn and, if it calls anyway, `fleet::sub_dispatch` refusing in
-/// words. This asserts the first half of that arrangement so a change to it
-/// breaks here rather than in a Job that goes quiet.
+/// A Drone is not shown a tool that creates Jobs, and calling one by its old
+/// name is a tool error it can read.
 #[tokio::test]
-async fn the_dispatch_tool_is_listed_to_every_drone() {
+async fn no_tool_creates_jobs() {
     let app = wired(FakeDaemon::new(Broadcaster::new()));
     let answered = call(&app, r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).await;
-    assert!(answered.body.contains("\"name\":\"dispatch_job\""));
+    assert!(!answered.body.contains("dispatch_job"));
 }
-
-/// A dispatch arrives with its five fields and answers with the minted id.
-#[tokio::test]
-async fn a_dispatch_is_taken_and_answers_with_the_minted_id() {
-    let daemon = FakeDaemon::new(Broadcaster::new());
-    running(&daemon, "01JOB0");
-    let app = wired(daemon);
-
-    let answered = call(&app, DISPATCH).await;
-    assert_eq!(answered.status, StatusCode::OK);
-    assert!(!answered.is_error());
-    assert_eq!(answered.text(), "01M0DISPATCHEDCHILD0000000");
-}
-
-/// A parent id is refused **by name**, which is the rule the other tools hold
-/// to and the one it costs most to break here.
-#[tokio::test]
-async fn a_dispatch_naming_a_parent_is_refused_by_name() {
-    let daemon = FakeDaemon::new(Broadcaster::new());
-    running(&daemon, "01JOB0");
-    let app = wired(daemon);
-
-    let answered = call(
-        &app,
-        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"dispatch_job",
-           "arguments":{"parent_id":"01JOB9","title":"t","workflow":"bug","brief":"b",
-           "acceptance_criteria":[],"after":[]}}}"#,
-    )
-    .await;
-    assert!(answered.is_error());
-    assert!(answered.text().contains("parent_id"));
-    assert!(answered.text().contains("Fleet knows which Job"));
-}
-
-/// One call of the dispatch tool, well formed.
-const DISPATCH: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
-    "name":"dispatch_job",
-    "arguments":{
-        "title":"Port the parser",
-        "workflow":"bug",
-        "brief":"The parser in crates/config refuses a key it should read.",
-        "acceptance_criteria":["the key is read","a malformed value is refused"],
-        "after":[]
-    }}}"#;
 
 /// A question is taken and answered with a receipt that is **not** the answer.
 ///

@@ -6,7 +6,7 @@
 import type { SlotFinding, WorktreeSlot } from "@armada/protocol";
 import { asRow, holding } from "../holding";
 import { slotsHeld } from "@armada/screens/src/fixtures/slots";
-import { running } from "@armada/jobs/fixtures/build/index";
+import { running } from "@armada/screens/src/fixtures/build/index";
 
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, hosted } from "../sessions-fleet";

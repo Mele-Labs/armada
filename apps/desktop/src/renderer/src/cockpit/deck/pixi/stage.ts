@@ -244,7 +244,7 @@ export class Stage {
     if (app === undefined || palette === undefined || scene === undefined) return;
     const was = this.drawn;
     this.drawn = scene;
-    const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.route !== scene.route || was.pinned !== scene.pinned || was.hotPart !== scene.hotPart || was.world !== scene.world;
+    const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.hotPart !== scene.hotPart || was.world !== scene.world;
     if (ground) this.build(this.terrain!, (b) => drawTerrain(b, scene, palette));
     this.restand(scene, palette);
     this.noticePlays(scene);

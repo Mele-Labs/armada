@@ -2,19 +2,18 @@
 //! `get_fleet_timeline` and `timeline.appended` in `crates/ipc/operations/`.
 //!
 //! **The Cockpit's timeline reads this, and nothing else draws from it.** The
-//! facts existed already, as a Job's own moves, a Session row replaced whole,
-//! a merge line list replaced whole, and a command whose answer left no trace.
-//! None had an instant a window could be cut by, and a pull request or a slot
-//! lease had no event at all. Fleet writes an entry as each happens and serves
-//! the kept ones.
+//! facts existed already, as a Session row replaced whole, a merge line list
+//! replaced whole, and a command whose answer left no trace. None had an
+//! instant a window could be cut by, and a pull request or a slot lease had no
+//! event at all. Fleet writes an entry as each happens and serves the kept ones.
 //!
 //! **An entry is the fact as it read then.** The title is the one the subject
-//! had when it happened, so a Job forgotten since still has a history a window
-//! can draw.
+//! had when it happened, so a Session forgotten since still has a history a
+//! window can draw.
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
 
 /// What happened. **Strict**: Bridge picks a mark and a row from it.
@@ -23,45 +22,6 @@ use crate::sessions::SessionId;
 /// records from one it only could.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimelineKind {
-    /// `job.created`.
-    #[serde(rename = "job.created")]
-    JobCreated,
-    /// `job.state_changed` to `queued`.
-    #[serde(rename = "job.queued")]
-    JobQueued,
-    /// `job.state_changed` to `running`.
-    #[serde(rename = "job.started")]
-    JobStarted,
-    /// `job.step_advanced`.
-    #[serde(rename = "job.step")]
-    JobStep,
-    /// `job.checking`, when a gate's Checks begin.
-    #[serde(rename = "job.check")]
-    JobCheck,
-    /// `job.judging`, when a Judge begins to read.
-    #[serde(rename = "job.judged")]
-    JobJudged,
-    /// `job.files_changed`.
-    #[serde(rename = "job.files")]
-    JobFiles,
-    /// A Job's Drone read files. **One entry for a burst**, `says` the count: `Read 14 files`.
-    #[serde(rename = "job.read")]
-    JobRead,
-    /// A Job's Drone ran shell commands. One entry for a burst, as `job.read` is.
-    #[serde(rename = "job.ran")]
-    JobRan,
-    /// `job.asking`, when a Drone asks.
-    #[serde(rename = "job.asked")]
-    JobAsked,
-    /// A person's answer to a Drone's question, a command or a Judge.
-    #[serde(rename = "job.answered")]
-    JobAnswered,
-    /// `job.landed`.
-    #[serde(rename = "job.landed")]
-    JobLanded,
-    /// `job.state_changed` to a failed or stopped end.
-    #[serde(rename = "job.failed")]
-    JobFailed,
     /// A Session row seen for the first time.
     #[serde(rename = "session.started")]
     SessionStarted,
@@ -125,10 +85,10 @@ pub enum TimelineKind {
     /// A Session went from live to ended.
     #[serde(rename = "session.ended")]
     SessionEnded,
-    /// A Job or a Session was given a pool slot.
+    /// A Session was given a pool slot.
     #[serde(rename = "slot.leased")]
     SlotLeased,
-    /// A Job or a Session gave its slot back.
+    /// A Session gave its slot back.
     #[serde(rename = "slot.released")]
     SlotReleased,
     /// A pull request appeared in a merge line's hub.
@@ -209,7 +169,6 @@ fn unspelt<T: serde::de::DeserializeOwned>(spelling: &str) -> Option<T> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TimelineSubject {
-    Job { id: JobId },
     Session { id: SessionId },
     PullRequest {
         number: u64,
@@ -235,7 +194,7 @@ pub struct TimelineEvent {
     pub kind: TimelineKind,
     pub subject: TimelineSubject,
     /// What the subject was called when this happened. Absent where nothing
-    /// named it: main, or a Job Fleet had no handle for.
+    /// named it: main.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub tone: TimelineTone,

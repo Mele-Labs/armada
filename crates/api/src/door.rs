@@ -25,7 +25,7 @@ use ipc::door::{self, Answer, Answered, Asked, Reachable, Shape};
 use ipc::ManifestId;
 use tower::ServiceExt;
 
-use crate::daemon::{offerable_to_a_commander, Admitting, Queries};
+use crate::daemon::{offerable, Admitting, Queries};
 use crate::placed::Placed;
 use crate::routes::SERVED;
 use crate::scoped::InManifest;
@@ -257,12 +257,12 @@ async fn called<D: Queries + Admitting>(
             None => StatusCode::ACCEPTED.into_response(),
         };
     }
-    // **A Helm session or a Commander reads against everything it could be
+    // **A Helm session reads against everything it could be
     // offered**, so a call outside its reach is refused by name below rather
     // than answered as a tool that does not exist.
     let shapes = match placed.is_narrowed() {
         false => offered(),
-        true => shaped(offerable_to_a_commander()),
+        true => shaped(offerable()),
     };
     let answered = match door::read(&body, &shapes) {
         Asked::Nothing => return StatusCode::ACCEPTED.into_response(),
@@ -379,7 +379,7 @@ fn answering(answered: Answered) -> Response {
 }
 
 /// The tools a caller is listed: every shape for any agent, and only what the
-/// reach decided for a Helm session or a Commander.
+/// reach decided for a Helm session.
 fn within(shapes: Vec<Shape>, placed: &Placed) -> Vec<Shape> {
     shapes
         .into_iter()

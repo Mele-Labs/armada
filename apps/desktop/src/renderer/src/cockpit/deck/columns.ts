@@ -13,9 +13,11 @@ const KEY = "armada.bridge.deck-columns";
 
 /** Resting widths, as `deck.css` draws the grid before anything is dragged, in `--space-12`. */
 const REST: Record<Side, number> = { left: 6, right: 5.75 };
+/** A Session open gives its right column to the Field and Progress, so it rests wider. */
+const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = { session: { right: 8.5 } };
 /** The narrowest each column goes before its rows clip: the left's row is a kind, a title, a few words and a mark. */
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
-/** The least the stage keeps: a Job's canvas beside its mission, a Session's thread. */
+/** The least the stage keeps: a Session's thread. */
 const CENTRE_FLOOR = 10;
 
 export type Columns = {
@@ -26,10 +28,10 @@ export type Columns = {
 };
 
 /** What each column is drawn at, given the room the three share (the grid less its two gaps) and the unit in px. */
-export function settle(kept: Kept, room: number, unit: number): Columns {
+export function settle(kept: Kept, room: number, unit: number, layout = ""): Columns {
   const floor = { left: FLOOR.left * unit, right: FLOOR.right * unit };
   const centre = CENTRE_FLOOR * unit;
-  const wanted = (side: Side) => kept[side] ?? REST[side] * unit;
+  const wanted = (side: Side) => kept[side] ?? (REST_BY_LAYOUT[layout]?.[side] ?? REST[side]) * unit;
   const rightMax = Math.max(floor.right, room - floor.left - centre);
   const right = clampToRange(wanted("right"), { min: floor.right, max: rightMax });
   const leftMax = Math.max(floor.left, room - right - centre);
@@ -79,8 +81,8 @@ export function useColumns(grid: RefObject<HTMLElement | null>, layout = "") {
   }, [grid]);
   const columns = useMemo(() => {
     const unit = tokenPx("--space-12");
-    return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit);
-  }, [kept, room]);
+    return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit, layout);
+  }, [kept, room, layout]);
   const resize = useCallback((side: Side, width: number) => {
     setAll((was) => {
       const next = { ...(was[layout] ?? read(layout)), [side]: Math.round(width) };

@@ -115,40 +115,27 @@ describe("the ledger", () => {
     expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });
   });
 
-  it("reads a Job off the Board, and marks one the session was handed to look at", () => {
+  it("reads a Job off the Board, and leaves one the Board forgot off", () => {
     const board = [job("escalated", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
     const attachments = attachmentsOfRecord(
-      record("a", { attachments: [held("job", "J1", { looking: "true" }), held("job", "J-forgotten")] }),
+      record("a", { attachments: [held("job", "J1"), held("job", "J-forgotten")] }),
       beside(board),
     );
-    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55", looking: true }]);
+    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55" }]);
   });
 
-  it("says which Job a slot and a branch came with, where a take over handed them to the session", () => {
-    const board = [job("piloted", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
-    const attachments = attachmentsOfRecord(
-      record("a", { attachments: [held("slot", "3", { handed: "job J1" }), held("branch", "fix/55", { handed: "job J1" }), held("slot", "4", { handed: "job GONE" })] }),
-      beside(board),
-    );
-    expect(attachments).toContainEqual({ kind: "slot", slot: 3, handed: { job: 55 } });
-    expect(attachments).toContainEqual({ kind: "branch", name: "fix/55", slot: 3, handed: { job: 55 } });
-    expect(attachments).toContainEqual({ kind: "slot", slot: 4 });
-  });
-
-  it("marks a Job a person attested, and a Job piloted from another session", () => {
+  it("marks a Job a person attested", () => {
     const piloted = { reason: "take_over", since: AT };
     const board = [
-      job("completed_success", { id: "J1", handle: "55-a", piloted: { ...piloted, session_id: "a", exit: "attested", ended_at: AT } }),
-      job("completed_success", { id: "J2", handle: "56-b", piloted: { ...piloted, session_id: "a", exit: "submitted", ended_at: AT } }),
-      job("piloted", { id: "J3", handle: "57-c", piloted: { ...piloted, session_id: "a" } }),
-      job("piloted", { id: "J4", handle: "58-d", piloted: { ...piloted, session_id: "other" } }),
+      job("completed_success", { id: "J1", handle: "55-a", piloted: { ...piloted, exit: "attested", ended_at: AT } }),
+      job("completed_success", { id: "J2", handle: "56-b", piloted: { ...piloted, exit: "submitted", ended_at: AT } }),
+      job("piloted", { id: "J3", handle: "57-c", piloted }),
     ];
-    const attachments = attachmentsOfRecord(record("a", { attachments: ["J1", "J2", "J3", "J4"].map((id) => held("job", id)) }), beside(board));
-    expect(attachments.map((one) => (one.kind === "job" ? [one.number, one.attested === true, one.pilotedElsewhere === true] : []))).toEqual([
-      [55, true, false],
-      [56, false, false],
-      [57, false, false],
-      [58, false, true],
+    const attachments = attachmentsOfRecord(record("a", { attachments: ["J1", "J2", "J3"].map((id) => held("job", id)) }), beside(board));
+    expect(attachments.map((one) => (one.kind === "job" ? [one.number, one.attested === true] : []))).toEqual([
+      [55, true],
+      [56, false],
+      [57, false],
     ]);
   });
 
@@ -174,6 +161,31 @@ describe("the ledger", () => {
     expect(attachments).toEqual([
       { kind: "subagent", id: "x1", task: "Read the CI history", state: "running" },
       { kind: "subagent", id: "x2", task: "Find clocks", state: "done", report: "None." },
+    ]);
+  });
+
+  it("reads a background task as running, done, failed or stopped, and keeps one given back", () => {
+    const detail = { form: "command", task: "Build it", command: "pnpm build", output: "/tmp/t/b.output" };
+    const attachments = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("background", "b1", detail),
+          held("background", "b2", { ...detail, status: "completed", exit: "0" }, "spent"),
+          held("background", "b3", { ...detail, status: "failed", exit: "2" }, "spent"),
+          held("background", "b4", { ...detail, status: "killed" }, "spent"),
+          held("background", "b5", { form: "monitor", task: "Watch CI", command: "gh run watch 9" }, "given_back"),
+          held("background", "b6", { form: "other" }),
+        ],
+      }),
+      beside(),
+    );
+    const base = { kind: "background", form: "command", task: "Build it", command: "pnpm build", started: AT, output: "/tmp/t/b.output" };
+    expect(attachments).toEqual([
+      { ...base, id: "b1", state: "running" },
+      { ...base, id: "b2", state: "done", ended: AT, exit: 0 },
+      { ...base, id: "b3", state: "failed", ended: AT, exit: 2 },
+      { ...base, id: "b4", state: "stopped", ended: AT },
+      { kind: "background", id: "b5", form: "monitor", task: "Watch CI", command: "gh run watch 9", started: AT, state: "stopped", ended: AT },
     ]);
   });
 
@@ -302,46 +314,6 @@ describe("the thread", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });
     expect(drawn[3]).toMatchObject({ from: { kind: "session", id: "s-1", title: "Other" } });
-  });
-
-  it("draws the handoff first in a piloted thread, with what Fleet compared and the Drone's list taken apart", () => {
-    const handoff: SessionRow = {
-      kind: "handoff",
-      id: "h",
-      at: AT,
-      job_id: "J1",
-      number: 55,
-      title: "Cap the backoff",
-      reason: "take_over",
-      slot: 3,
-      branch: "fix/55",
-      step: { id: "verify", label: "Verify the fix" },
-      attempts: 3,
-      refusals: ["No test covers the cap"],
-      plan: { declared: true, outside: ["a/loop.rs"], unwritten: ["a/tests.rs"] },
-      narrative: { trying_to: "Cap it", blocked_by: "The lint", tried: "- added a loop\n2. added a sleep\n\n  ran the Check" },
-    };
-    const [drawn] = rowsOfThread("a", [handoff], () => undefined);
-    expect(drawn).toEqual({
-      id: "h",
-      at: expect.any(String),
-      kind: "handoff",
-      job: { number: 55, title: "Cap the backoff" },
-      slot: 3,
-      branch: "fix/55",
-      step: { id: "verify", label: "Verify the fix" },
-      attempts: 3,
-      refusals: ["No test covers the cap"],
-      plan: { outside: ["a/loop.rs"], unwritten: ["a/tests.rs"] },
-      narrative: { trying_to: "Cap it", blocked_by: "The lint", tried: ["added a loop", "added a sleep", "ran the Check"] },
-    });
-  });
-
-  it("leaves out of a handoff what Fleet had none of: no step, no refusals, no plan, no narrative", () => {
-    const [drawn] = rowsOfThread("a", [{ kind: "handoff", id: "h", at: AT, job_id: "J1", number: 55, title: "T", reason: "take_over", slot: 3, branch: "b", attempts: 0, plan: { declared: false } }], () => undefined);
-    expect(drawn).toMatchObject({ kind: "handoff", refusals: [], plan: { outside: [], unwritten: [] } });
-    expect(drawn).not.toHaveProperty("step");
-    expect(drawn).not.toHaveProperty("narrative");
   });
 
   it("says what an answered ask was decided and leaves a waiting one to the card under the thread", () => {
@@ -696,6 +668,18 @@ describe("a session its agent was started by another to hold", () => {
     expect(sessionOfRecord({ ...maker, state: "ended" }, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
   });
 
+  it("reads the plan group a started Session was handed off both link rows", () => {
+    const made = record("n", { attachments: [held("started_by", "old", { group: "g2" }, "spent")] });
+    expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old", group: "g2" }]);
+    const maker = record("old", { attachments: [held("started_to", "n", { group: "g2" }, "spent"), held("started_to", "m", {}, "spent")] });
+    expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n", group: "g2" }, { kind: "started_to", id: "m" }]);
+  });
+
+  it("keeps what a Session it follows did as a row in its thread", () => {
+    const row: SessionRow = { kind: "linked", id: "l1", at: AT, session: { id: "n", title: "Port the clock" }, event: "needs" };
+    expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "l1", kind: "linked", session: { id: "n", title: "Port the clock" }, event: "needs" }]);
+  });
+
   it("keeps the Session the agent started as a row in its thread", () => {
     const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
     expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);
@@ -859,7 +843,7 @@ describe("a message about one session", () => {
     const memo = new SessionMemo();
     const records = [record("a")];
     const first = sessionsOfRecords(records, {}, () => stable, undefined, memo);
-    const tag = { kind: "job", id: "j1", title: "A job" } as const;
+    const tag = { kind: "session", id: "s1", title: "A session" } as const;
     const again = sessionsOfRecords(records, {}, () => ({ ...stable, pending: [tag] }), undefined, memo);
     expect(first[0]!.pendingTags).toEqual([]);
     expect(again[0]!.pendingTags).toEqual([tag]);

@@ -57,8 +57,6 @@ pub const PROMPT_DRONE_DECLARE_COMPARED: Words = Words("prompts.droneDeclareComp
 pub const PROMPT_DRONE_DECLARE_EXCLUDED: Words = Words("prompts.droneDeclareExcluded");
 pub const PROMPT_DRONE_REDECLARE: Words = Words("prompts.droneRedeclare");
 pub const PROMPT_DRONE_REDECLARE_WHAT: Words = Words("prompts.droneRedeclareWhat");
-pub const PROMPT_DRONE_SPLIT_DECIDES: Words = Words("prompts.droneSplitDecides");
-pub const PROMPT_DRONE_SPLIT_PROPOSES: Words = Words("prompts.droneSplitProposes");
 pub const PROMPT_DRONE_REVIEW: Words = Words("prompts.droneReview");
 pub const PROMPT_CROSSING_PRODUCED: Words = Words("prompts.crossingProduced");
 pub const PROMPT_CROSSING_PRODUCED_UNRECORDED: Words = Words("prompts.crossingProducedUnrecorded");
@@ -76,7 +74,6 @@ pub const PROMPT_CROSSING_PLAN: Words = Words("prompts.crossingPlan");
 pub const PROMPT_CROSSING_PLAN_FOLLOW: Words = Words("prompts.crossingPlanFollow");
 pub const PROMPT_CROSSING_PLAN_READ: Words = Words("prompts.crossingPlanRead");
 pub const PROMPT_CROSSING_PLAN_TASK: Words = Words("prompts.crossingPlanTask");
-pub const PROMPT_CROSSING_DISPATCHED: Words = Words("prompts.crossingDispatched");
 pub const PROMPT_CROSSING_SENT_BACK: Words = Words("prompts.crossingSentBack");
 pub const PROMPT_CROSSING_SENT_BACK_UNRECORDED: Words = Words("prompts.crossingSentBackUnrecorded");
 pub const PROMPT_CROSSING_SENT_BACK_FILE: Words = Words("prompts.crossingSentBackFile");
@@ -130,17 +127,6 @@ pub const PROMPT_PERMIT_REPOSITORY: Words = Words("prompts.permitRepository");
 pub const PROMPT_PERMIT_MACHINE: Words = Words("prompts.permitMachine");
 pub const PROMPT_PERMIT_REJECTED: Words = Words("prompts.permitRejected");
 pub const PROMPT_PERMIT_REJECTED_NOTE: Words = Words("prompts.permitRejectedNote");
-pub const PROMPT_PILOT_OPENING: Words = Words("prompts.pilotOpening");
-pub const PROMPT_PILOT_WORKTREE: Words = Words("prompts.pilotWorktree");
-pub const PROMPT_PILOT_RESTART: Words = Words("prompts.pilotRestart");
-pub const PROMPT_PILOT_FOR_GOOD: Words = Words("prompts.pilotForGood");
-pub const PROMPT_PILOT_STOPPED: Words = Words("prompts.pilotStopped");
-pub const PROMPT_PILOT_JUDGE_REFUSED: Words = Words("prompts.pilotJudgeRefused");
-pub const PROMPT_PILOT_CHECKS_FAILED: Words = Words("prompts.pilotChecksFailed");
-pub const PROMPT_PILOT_OUTSIDE_PLAN: Words = Words("prompts.pilotOutsidePlan");
-pub const PROMPT_PILOT_CHANGED: Words = Words("prompts.pilotChanged");
-pub const PROMPT_PILOT_NARRATIVE: Words = Words("prompts.pilotNarrative");
-pub const PROMPT_PILOT_RECORD: Words = Words("prompts.pilotRecord");
 
 pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::DroneBrief, PROMPT_DRONE_NOTEKEEPING, "Notes it keeps", "Where a Drone keeps files it writes for itself. {job} is the Job's id.", &["job"]),
@@ -197,8 +183,6 @@ pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::StepTerms, PROMPT_DRONE_DECLARE_EXCLUDED, "Paths to stay out of", "The line the paths a part stays out of follow.", &[]),
     prompt(PromptSection::StepTerms, PROMPT_DRONE_REDECLARE, "Outside what it declared", "The line the files changed outside a declared scope follow.", &[]),
     prompt(PromptSection::StepTerms, PROMPT_DRONE_REDECLARE_WHAT, "What to do about it", "What a Drone is told to do about files outside its scope.", &[]),
-    prompt(PromptSection::StepTerms, PROMPT_DRONE_SPLIT_DECIDES, "Deciding a split", "The block for a part whose plan the next part makes Jobs of.", &[]),
-    prompt(PromptSection::StepTerms, PROMPT_DRONE_SPLIT_PROPOSES, "Proposing a split", "The block for a part that dispatches Jobs itself.", &[]),
     prompt(PromptSection::Review, PROMPT_DRONE_REVIEW, "Writing a review", "The block for a part whose product is Armada's review of a change.", &[]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_PRODUCED, "What the part before produced", "What a Drone is told the part before claimed. {part} is its number and {claimed} its words.", &["part", "claimed"]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_PRODUCED_UNRECORDED, "Nothing recorded before", "The same, where the part before left no claim. {part} is its number.", &["part"]),
@@ -216,7 +200,6 @@ pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::Crossing, PROMPT_CROSSING_PLAN_FOLLOW, "Keeping the plan current", "What a Drone that follows the plan is told under it.", &[]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_PLAN_READ, "Reading the plan", "What a Drone that only reads the plan is told under it.", &[]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_PLAN_TASK, "Its task", "The block naming a task's Drone's one task. {task} is its id and {title} its title.", &["task", "title"]),
-    prompt(PromptSection::Crossing, PROMPT_CROSSING_DISPATCHED, "The Jobs it dispatched", "The block the Jobs a part dispatched follow.", &[]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_SENT_BACK, "Sent back", "What a Drone is told a later part found. {part} is its number and {found} its words.", &["part", "found"]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_SENT_BACK_UNRECORDED, "Sent back, nothing recorded", "The same, where the later part left no record. {part} is its number.", &["part"]),
     prompt(PromptSection::Crossing, PROMPT_CROSSING_SENT_BACK_FILE, "What sent it back, in a file", "Where the whole finding is. {file} is the path.", &["file"]),
@@ -270,15 +253,4 @@ pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_MACHINE, "Permission: allowed on this machine", "A person allowed a command on this machine. {rule} is what was kept and {command} what the Drone ran.", &["rule", "command"]),
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_REJECTED, "Permission: refused", "A person said no to a command. {command} is the command.", &["command"]),
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_REJECTED_NOTE, "Permission: the person's words", "The line a person's own words follow when they said no with a note.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_OPENING, "Pilot handoff: opening", "What a piloted session reads first. {title} and {id} name the Job.", &["title", "id"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_WORKTREE, "Pilot handoff: the worktree", "{path} and {branch} say where the work is.", &["path", "branch"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_RESTART, "Pilot handoff: to restart the step", "Where the Job was taken over to restart its step.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_FOR_GOOD, "Pilot handoff: for good", "Where the Job was taken over for good.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_STOPPED, "Pilot handoff: where it stopped", "{step} is the step, {label} its name in quotes or nothing, {trigger} why in brackets or nothing, and {runs} how many runs.", &["step", "label", "trigger", "runs"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_JUDGE_REFUSED, "Pilot handoff: what the Judge refused", "The line the refused criteria follow.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_CHECKS_FAILED, "Pilot handoff: checks that failed", "The line the failed checks follow.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_OUTSIDE_PLAN, "Pilot handoff: outside the plan", "{files} are the files changed outside the declared plan.", &["files"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_CHANGED, "Pilot handoff: what changed", "{files} are the files the worktree changes.", &["files"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_NARRATIVE, "Pilot handoff: the Drone's account", "What the Drone said it was stuck on. {trying_to}, {blocked_by} and {tried} are its words.", &["trying_to", "blocked_by", "tried"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_RECORD, "Pilot handoff: the full record", "The closing line, pointing at get_handoff.", &[]),
 ];

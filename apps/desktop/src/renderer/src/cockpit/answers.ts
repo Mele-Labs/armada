@@ -1,8 +1,8 @@
 // What a call can be answered with, from the keyboard: its answers as a numbered list, one picked,
-// and Send. A Plan question is its decisions' options; a Session's call is the options of the item it
+// and Send. A Session's call is the options of the item it
 // waits on, else what its act says (run a command, open a pull request or a page), and a reply in
 // words beside either; a pull request or main's red is Open and Poke where somebody owns it,
-// and Send a Drone and Attach where nobody does. A call with no answer of its own opens what it is
+// and Start a Session and Attach where nobody does. A call with no answer of its own opens what it is
 // about. A Session's call is answered through Fleet (`answerWaiting`) and clears when Fleet takes it
 // or says nothing holds it; a refusal stays on the card and goes to a toast. The rest do what their
 // button did on the Dashboard, and clear the call, except where one opens something and leaves it
@@ -10,22 +10,19 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
+import { actionOf, briefOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
-import { isTerminal, titleOf } from "@armada/screens";
-import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { restartOf } from "../build-change";
+import { useDispatching } from "../dispatch-panel/dispatching";
 import { viewsOf } from "../merge-line";
 import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
-import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem, dismissWaiting } from "./dismissed";
-import { fixJob, type JobFix } from "./fix-job";
 import { ownerOfCall, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -47,7 +44,7 @@ const LEAVES = 300;
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
 
 export type Answering = {
-  /** The question asked now: a Plan decision's, or the call's own fact. */
+  /** The question asked now: the call's own fact. */
   ask: string;
   /** What an errand's act names, a command or a page: drawn whole on the card, not on the key. */
   target?: string;
@@ -64,8 +61,6 @@ export type Answering = {
   /** Whether Enter sends: an answer is picked, or the call has none and Enter opens it. */
   canSend: boolean;
   send: () => void;
-  /** Which decision of a Plan question this is, and how many there are. */
-  decision?: { at: number; of: number };
   /** Opens what the call is about, where it has somewhere to open. */
   open: (() => void) | undefined;
   /** Opens the walk a Session waits on approval of, where the call is one. Opening it answers nothing. */
@@ -105,6 +100,26 @@ function pullOf(item: Item, state: BridgeState): { number: number; branch: strin
   return undefined;
 }
 
+/** The repository and the brief a new Session starts from for a failing pull request or red main: where the Dispatch sheet opens. */
+function startOf(item: Item, views: ReturnType<typeof viewsOf>): { root: string; brief: string } | undefined {
+  if (item.key.startsWith("main:")) {
+    const root = item.key.slice("main:".length);
+    const main = views.find((view) => view.root === root)?.hub?.main;
+    return main?.state === "red" ? { root, brief: briefOf(main.red) } : undefined;
+  }
+  if (!item.key.startsWith("pull:")) return undefined;
+  const number = Number(item.key.slice("pull:".length));
+  for (const view of views) {
+    const pull = view.hub?.pulls.find((one) => one.number === number);
+    if (pull !== undefined)
+      return {
+        root: view.root,
+        brief: `The checks on pull request #${number} (${pull.url}, branch ${pull.branch}) failed. Read the failure, say what you would change, and push to the pull request only once I agree.`,
+      };
+  }
+  return undefined;
+}
+
 /**
  * What a poke about main's red says: main is red, after which merge, and what failed. The merge has landed, so its owner is asked for a fix against main, not a push to it.
  */
@@ -119,13 +134,10 @@ function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
   return [`main is red${merged}. Find why and open a pull request that fixes main.`, ...failed].join("\n");
 }
 
-/** Where `o` goes: the Job, the Session, or the pull request the call is about. */
+/** Where `o` goes: the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
-  if (item.job !== undefined) return () => hosts.onOpen(item.job!.id);
   const slept = item.sleep?.sessionId;
   if (slept !== undefined) return () => hosts.onOpenSession(slept);
-  const sleptJob = item.sleep?.jobId;
-  if (sleptJob !== undefined) return () => hosts.onOpen(sleptJob);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -166,14 +178,13 @@ export const plainLabel = (label: string): string => label.replace(RECOMMENDED, 
 
 /** `finish` clears the call once Fleet has answered; `dismissed` does the same for a dismissal. */
 export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finish: () => void, dismissed: () => void = finish): Answering {
-  const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<number>();
   const [attaching, setAttaching] = useState(false);
   const [pending, setPending] = useState<string>();
   // One act is out at a time, so a repeated key or a second press is not a second send.
   const out = useRef(false);
-  // A new call starts from its first question with nothing picked.
-  useEffect(() => (setAt(0), setPicked(undefined), setAttaching(false), setPending(undefined), void (out.current = false)), [item.key]);
+  // A new call starts with nothing picked.
+  useEffect(() => (setPicked(undefined), setAttaching(false), setPending(undefined), void (out.current = false)), [item.key]);
 
   /**
    * Sends one act to Fleet, `id` the control pressed. The loop runs until Fleet answers: an acceptance
@@ -199,11 +210,10 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     );
   };
 
-  const decisions = item.decisions;
-  const decision = decisions?.[at];
   const open = opener(item, hosts, state);
   const sessions = useSessions();
   const draft = useSessionsDraft();
+  const dispatching = useDispatching();
   const views = viewsOf(state);
 
   // A command a Session waits on is run here, where the Session works, by the path its ledger runs it by.
@@ -234,25 +244,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
   };
 
-  /** Best or quick on a Job's ask. An ask Fleet holds no question for, such as the mock's, only clears. */
-  const sendToJob = (mode: "best" | "quick") => {
-    const call = item.job === undefined ? undefined : answerJobAsk(item.job.id, item.asked, mode);
-    if (call === undefined) return finish();
-    wait(mode, call);
-  };
-
   /** A short nudge to whoever owns the pull request or main's red, saying which, through the path that reaches them. */
   const poke = (who: Owner) => {
     const said = item.key.startsWith("main:") ? mainRedSaid(views, item.key.slice("main:".length)) : `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
-    if (who.kind === "session") {
-      draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
-      finish();
-    } else {
-      wait("Poke", async (): Promise<Told> => {
-        const done = await window.armada.redirectDrone(who.id, said);
-        return done.ok ? { kind: "answered" } : { kind: "refused", said: refusalWords(done) };
-      });
-    }
+    draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
+    finish();
   };
 
   const attach = (to: Owner) => {
@@ -271,10 +267,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       },
     );
   };
-  const candidates: Owner[] = [
-    ...state.jobs.filter((job) => !isTerminal(job)).map((job): Owner => ({ kind: "job", id: job.id, title: titleOf(job) })),
-    ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
-  ];
+  const candidates: Owner[] = sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id }));
 
   // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
   const slept = useSleepSource();
@@ -296,40 +289,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
-  // What went wrong on a Job is fixed from its card: each fix is one press, out to Fleet until it answers.
-  const issue = item.issue;
-  const jobId = item.job?.id;
-  const fix = (request: JobFix): Promise<Told> =>
-    fixJob(request).then((done): Told => (done.ok ? { kind: "answered" } : { kind: "refused", said: done.said }));
-  /** The words go to the Drone that is live, or start the step again with them where none is. */
-  const redirect = (words: string): JobFix | undefined =>
-    jobId === undefined
-      ? undefined
-      : issue?.of === "drone"
-        ? { kind: "redirect_one_drone", jobId, words, ...(issue.target === undefined ? {} : { droneId: issue.target }) }
-        : { kind: "restart_step", jobId, words };
-
   const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
-  const fixesOf = (one: NonNullable<typeof issue>, id: string): Answer[] => {
-    const tap = (label: string, request: JobFix, says?: string): Answer =>
-      answer(label, () => wait(label, () => fix(request), finish), { once: true, ...(says === undefined ? {} : { says }) });
-    // A call Fleet serves draws only the acts its issue names. Retry step is one; the other is the box.
-    if (item.served === true) return (one.acts ?? []).filter((act) => act.glyph === "retry_step").map(() => tap("Retry step", { kind: "restart_step", jobId: id }));
-    if (one.of === "check") {
-      const check = one.target ?? one.name;
-      return [
-        tap("Retry", { kind: "retry_check", jobId: id, check }),
-        tap("Skip", { kind: "skip_check", jobId: id, check }, "Ends it as skipped, not passed"),
-        ...((one.unfinished ?? 0) > 1 ? [tap("Skip all", { kind: "skip_checks", jobId: id }, "Ends every unfinished Check as skipped, not passed")] : []),
-      ];
-    }
-    if (one.of === "clash") {
-      const other = one.clash?.other;
-      return other === undefined ? [] : [oneTap("Open the other Job", () => hosts.onOpen(other.jobId))];
-    }
-    return [tap("Retry step", { kind: "restart_step", jobId: id })];
-  };
   const actsOf = (): Answer[] => {
     // Agreeing is the whole answer; where it was decided opens from the card's own Open.
     if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
@@ -388,37 +349,20 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
     if ((item.key.startsWith("main:") || item.key.startsWith("pull:")) && pull !== undefined) {
-      if (owner !== undefined) {
-        const noun = owner.kind === "session" ? "Session" : "Job";
-        return [
-          oneTap(`Open the ${noun}`, () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id))),
-          oneTap("Poke", () => poke(owner)),
-        ];
-      }
-      const drone = item.key.startsWith("main:")
-        ? oneTap("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))
-        : oneTap("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
-      return [drone, oneTap("Attach", () => setAttaching(true))];
+      if (owner !== undefined) return [oneTap("Open the Session", () => hosts.onOpenSession(owner.id)), oneTap("Poke", () => poke(owner))];
+      const start = startOf(item, views);
+      const started =
+        start === undefined || dispatching === undefined
+          ? []
+          : [oneTap("Start a Session", () => (dispatching.choose("session"), dispatching.openSheet(start.brief, start.root), finish()))];
+      return [...started, oneTap("Attach", () => setAttaching(true))];
     }
-    if (issue !== undefined && jobId !== undefined) return fixesOf(issue, jobId);
     return [];
   };
 
-  const numbered: Answer[] =
-    decision !== undefined
-      ? decision.options.map((option) => ({
-          id: option.id,
-          label: option.label,
-          run: () =>
-            at + 1 < decisions!.length
-              ? (setAt(at + 1), setPicked(undefined))
-              : item.answerCard === undefined
-                ? finish()
-                : wait(option.id, () => item.answerCard!(option.id)),
-        }))
-      : actsOf();
+  const numbered = actsOf();
   const permission = waiting?.item.source === "permission";
-  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? sendToJob : (mode) => sendWaiting(mode, { mode }), permission) : [];
+  const standing = asksAnAgent(item) ? standingOf((mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
   // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
@@ -451,7 +395,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
 
   return {
-    ask: decision?.question ?? item.fact,
+    ask: item.fact,
     ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : {}),
     answers,
     picked: chosen,
@@ -461,20 +405,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     step,
     canSend: !held && (answers.length === 0 ? open !== undefined : chosen !== undefined),
     send,
-    ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
     ...(waiting?.item.act?.kind === "walk" ? { openWalk: () => draft?.openWindow?.(waiting.sessionId, waiting.item.act!.target) } : {}),
     ...(owner === undefined ? {} : { owner }),
     ...(sleep !== undefined
       ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
-      : {}),
-    ...(issue !== undefined && jobId !== undefined && (item.served !== true || (issue.acts?.length ?? 0) > 0)
-      ? {
-          reply: (text: string, accepted?: () => void) => {
-            const request = redirect(text);
-            if (request !== undefined) wait("reply", () => fix(request), () => (accepted?.(), finish()));
-          },
-        }
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),

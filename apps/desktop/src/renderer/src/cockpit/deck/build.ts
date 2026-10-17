@@ -1,13 +1,12 @@
-// What a Session or a Job has built, read for the field: the phase it is in, one piece for each task, the stops of the road, the
+// What a Session has built, read for the field: the phase it is in, one piece for each task, the stops of the road, the
 // subagents at work and how long it has sat quiet. Pure; nothing here draws.
 //
 // **Every figure is Fleet's.** A Session's `build` is derived by Fleet from what it observed and carried on its record
-// (`SessionRecord.build`); this file only reads it, and adds nothing the record does not say. A Job's pieces are the states of the
-// tasks of its plan. A Session with no `build` has no ring.
+// (`SessionRecord.build`); this file only reads it, and adds nothing the record does not say.
+// A Session with no `build` has no ring.
 
 import { BadgeCheck, Footprints, GitCommitHorizontal, GitMerge, GitPullRequest, Layers, ListTodo, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
-import type { BuildPhase, BuildPieceKind, BuildStopId, JobDetail, SessionBuild, TaskCounts, TimelineEvent } from "@armada/protocol";
-import { taskViewsOf, type TaskState } from "@armada/jobs/draft/task";
+import type { BuildPhase, BuildPieceKind, BuildStopId, SessionBuild, TimelineEvent } from "@armada/protocol";
 
 import { FRESH_MS, doingOfEvent } from "./doing";
 import type { DroneIn } from "./layout";
@@ -18,12 +17,12 @@ export type StopId = BuildStopId;
 /** A stop of the road. `at` is absent for one not reached: a forecast, drawn faint. */
 export type Stop = { id: StopId; at: number | undefined };
 
-/** One task of the ring. `said` is what a hover says of it where the piece's own word is not the fact: a Job's task is done or handed in. */
-export type Task = { text: string; piece: Piece; said?: string; /** The subagent that wrote it, as its worker label (`Type: what it was asked`). */ by?: string };
+/** One task of the ring. */
+export type Task = { text: string; piece: Piece; /** The subagent that wrote it, as its worker label (`Type: what it was asked`). */ by?: string };
 
 /** Everything the field needs of one construction, at the clock `now`. */
 export type BuildIn = {
-  /** The drone it is the work of: `session:<id>` or `job:<id>`. */
+  /** The drone it is the work of: `session:<id>`. */
   key: string;
   phase: Phase;
   /** The stop most recently reached, once the road is laid. */
@@ -161,36 +160,10 @@ export function buildInOf(id: string, build: SessionBuild, now: number, events: 
   };
 }
 
-const PLAN_PIECE: Record<TaskState, { piece: Piece; said: string } | undefined> = {
-  done: { piece: "solid", said: "Done" },
-  handed_in: { piece: "hollow", said: "Handed in" },
-  working: { piece: "scaffold", said: "Working" },
-  open: { piece: "ghost", said: "Open" },
-  failed: { piece: "ghost", said: "Failed" },
-  dropped: undefined,
-};
-
-/**
- * A Job's ring: one piece for each task of the plan Fleet holds, as the plan says it stands. A dropped task is no part of it. It has no
- * road of its own, since its route is the road. None where the Job has no plan.
- */
-export function jobBuildOf(whole: JobDetail, key: string, now: number): BuildIn | undefined {
-  const tasks = taskViewsOf(whole).flatMap((task): Task[] => {
-    const read = PLAN_PIECE[task.state];
-    return read === undefined ? [] : [{ text: task.title, ...read }];
-  });
-  if (tasks.length === 0) return undefined;
-  return { key, phase: "implement", reached: undefined, tasks, markers: [], workers: [], stalled: false, quiet: 0, dim: 0, writing: false, stops: [], landedAt: undefined, now };
-}
-
-/** The phase a Job's row shows: Implement while it has a plan with tasks in it, else none. */
-export const jobPhaseOf = (tasks: TaskCounts | undefined): Phase | undefined =>
-  tasks !== undefined && tasks.done + tasks.working + tasks.open + (tasks.handed_in ?? 0) + (tasks.failed ?? 0) > 0 ? "implement" : undefined;
-
 /** One arc of the ring's road: a stop, or the landing that closes the circle. */
 export type Arc = { id: StopId | "landed"; at: number | undefined };
 export const arcsOf = (build: BuildIn): readonly Arc[] => [...build.stops.map((stop) => ({ id: stop.id, at: stop.at })), { id: "landed", at: build.landedAt }];
-/** The road is drawn in any phase once it has a stop, or the landing; a ring with neither has none, as a Job's has none. */
+/** The road is drawn in any phase once it has a stop, or the landing. */
 export const roadOf = (build: BuildIn): readonly Arc[] | undefined => (build.stops.length === 0 && build.landedAt === undefined ? undefined : arcsOf(build));
 export const arcWord = (id: Arc["id"]): string => (id === "landed" ? PHASE_WORD.landed : STOP_WORD[id]);
 export const arcSaid = (arc: Arc, now: number): string => (arc.at === undefined ? "Usually next on this repo" : agoOf(now - arc.at));
@@ -223,7 +196,7 @@ export const glyphOf = (build: Pick<BuildIn, "phase" | "reached">): LucideIcon =
 export type BuildTip = {
   phase: { Glyph: LucideIcon; word: string };
   quiet?: string;
-  tasks: readonly { text: string; piece: Piece; said?: string }[];
+  tasks: readonly { text: string; piece: Piece }[];
   stops: readonly { Glyph: LucideIcon; word: string; ago?: string }[];
 };
 

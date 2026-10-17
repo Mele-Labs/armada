@@ -107,13 +107,6 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
-    async fn approve_wave(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _wave: ipc::ApproveWave,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
     async fn approve_review(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -208,14 +201,6 @@ impl Commands for FakeDaemon {
     ) -> Result<ipc::WalkNotes, Refusal> {
         self.unmoved(&job_id)?;
         Ok(ipc::WalkNotes { notes: Vec::new() })
-    }
-    async fn walk_failed(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _failed: ipc::WalkFailed,
-    ) -> Result<ipc::WalkTold, Refusal> {
-        self.unmoved(&job_id)?;
-        Ok(ipc::WalkTold { told: true })
     }
     async fn reject_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_reject_job(job_id).await
@@ -712,13 +697,6 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _choice: ipc::SetModel,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_commander_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _choice: ipc::SetCommanderModel,
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }

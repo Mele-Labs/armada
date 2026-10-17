@@ -79,6 +79,8 @@ mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
+pub mod linked_watching;
+pub mod after_watching;
 pub mod rail_watching;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
@@ -106,8 +108,6 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
-/// When a Job's Commander is woken: six troubles, each once, and the loop bound.
-mod commanding_wakes;
 mod configured;
 /// Whether a gate's red is the work's or the machine's, before it is ruled on.
 mod confirming;
@@ -177,9 +177,6 @@ pub mod holding;
 /// answer 5.
 mod issue_noticing;
 mod job_issues;
-/// A Commander's repair Drone on a Job's own branch. `#2170`.
-pub mod job_repair;
-mod repair_hold;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
@@ -256,6 +253,8 @@ pub mod overruling;
 mod pausing;
 mod limit_hold;
 mod session_limit;
+/// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
+mod session_proposer;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
@@ -307,6 +306,10 @@ mod pull_registry;
 /// Since 23.83.
 mod pull_request_panel;
 mod pull_review_lists;
+/// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
+mod review_runs;
+/// The review tools and explanations a repository has, and writing one.
+mod review_tools;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
@@ -398,6 +401,7 @@ mod session_running;
 mod sessioning;
 mod window_sign_in;
 mod slot_holders;
+mod slot_reclaiming;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
 pub mod showing;
@@ -432,7 +436,6 @@ pub mod studio_servers;
 mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
-pub mod sub_dispatch;
 mod subagents_resumed;
 mod summarising;
 mod superseding;
@@ -482,9 +485,6 @@ pub mod underway;
 mod walk_notes;
 mod walking;
 pub mod watch;
-/// An Epic's wave: proposed, released by one press, and the members a parent
-/// that finishes on their merges waits for. Spike 022, slice 6.
-pub mod waving;
 mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
@@ -509,7 +509,7 @@ pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
 pub use confirming::{Confirmed, ONE_BY_ONE};
 pub use converging::{NoReport, ReportNow, Stage, StepNorms, Tripwire, Wandering, FORCED_REPORT};
-pub use crossing::{Cleared, Crossed, Dispatched, Produced, Reconciling, Redirected, ThePlan};
+pub use crossing::{Cleared, Crossed, Produced, Reconciling, Redirected, ThePlan};
 pub use daemon::{Fittings, Fleet, Host, StartingIn};
 pub use delivery::Delivered;
 pub use detach::Detached;
@@ -529,7 +529,7 @@ pub use mint::{Mint, UlidMint};
 pub use noticing::{Noticed, Noticing};
 pub use overruling::Overruling;
 pub use peer::{NotACaller, PeerOf};
-pub use piloting::{Hatch, Unpilotable};
+pub use piloting::Unpilotable;
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use policy::{HeldBecause, Policies};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
@@ -559,7 +559,6 @@ pub use showing::{frames_dir, show, ComingUp, NotShown, Shown};
 pub use showing_again::Unshowable;
 pub use silence::{Liveness, Poke, Quiet, Vigil};
 pub use slots::Concurrency;
-pub use sub_dispatch::NotDispatched;
 pub use transcript::{history, log_of, transcript_of, Live, Recording, Spine, Tap, Taps};
 pub use trigger_wire::{job_triggers, trigger_definition, trigger_list};
 pub use turning::{keep_turning, Turned, Turning, Worked};

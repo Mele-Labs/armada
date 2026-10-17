@@ -44,8 +44,8 @@ async fn the_record_holds_the_note_the_roster_and_the_thread() {
             ThoughtSent {
                 text: "back off longer".to_string(),
                 target: ThoughtTarget {
-                    kind: ThoughtKind::Job,
-                    id: "01JOB".to_string(),
+                    kind: ThoughtKind::Session,
+                    id: "01SESSION".to_string(),
                     title: "Retry failed charges".to_string(),
                     manifest_id: None,
                     slot: None,

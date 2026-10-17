@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.27'
+export const MOD_VERSION = '0.3.29'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -229,17 +229,6 @@ export function needAct(command: string): NeedAct | undefined {
   return undefined
 }
 
-const DISPATCH = /^mcp__armada-fleet__(propose_job|propose_from_request|approve_dispatch|redispatch_job)$/
-
-export function isDispatch(tool: string): boolean {
-  return DISPATCH.test(tool)
-}
-
-/** Job ids in a dispatch's answer, which are ULIDs. */
-export function jobIdsIn(text: string): string[] {
-  return [...new Set(text.match(/\b[0-9A-HJKMNP-TV-Z]{26}\b/g) ?? [])].slice(0, 10)
-}
-
 /** Whom a delivery came from, as far as the delivery says: never a session id. */
 export function senderOf(origin: { kind: string; teammate?: string }): string {
   return origin.teammate ?? origin.kind
@@ -314,6 +303,54 @@ export function artifactOf(
     return { form: 'doc', target, title: typeof name === 'string' ? name : undefined }
   }
   return undefined
+}
+
+/** A task the agent started in the background: a shell command run with `run_in_background`, or a Monitor watch. */
+export type Background = { target: string; detail: Record<string, string> }
+
+const SHELL_TASK = /running in background with ID:\s*([\w-]+)/
+// **No Monitor result has been recorded.** This pattern is tolerant on purpose ("ID: x" or "task x", an id of five or
+// more characters) and wants a real sample to tighten it. The shell's is verbatim (`background.fixture.ts`).
+const MONITOR_TASK = /(?:\bID:?|\btask)\s+([A-Za-z0-9][\w-]{4,})/
+// The sentence ends the path with a full stop, which is not part of it.
+const OUTPUT_FILE = /Output is being written to:\s*(\S+?)\.?(?:\s|$)/
+
+/**
+ * A background task, from the call that started it and the id its result gave back. **No id in the result, no
+ * task**: a call that was refused or answered in some other words is not reported. `task` is the call's own
+ * description; `output` is the file the engine writes the task's output to, when the result names it.
+ */
+export function backgroundOf(tool: string, input: Record<string, unknown>, text: string): Background | undefined {
+  const said = (value: unknown) => (typeof value === 'string' ? (value.trim().split('\n')[0] ?? '').slice(0, COMMAND_MOST) : '')
+  const output = OUTPUT_FILE.exec(text)?.[1]
+  const where = output === undefined ? {} : { output }
+  if (tool === 'Bash') {
+    const target = SHELL_TASK.exec(text)?.[1]
+    if (input.run_in_background !== true || target === undefined) return undefined
+    const command = said(input.command)
+    return { target, detail: { form: 'command', task: said(input.description) || command, command, ...where } }
+  }
+  if (tool === 'Monitor') {
+    const target = MONITOR_TASK.exec(text)?.[1]
+    if (target === undefined) return undefined
+    const watched = said(input.command) || said((input.ws as { url?: unknown } | undefined)?.url)
+    return { target, detail: { form: 'monitor', task: said(input.description) || watched, command: watched, ...where } }
+  }
+  return undefined
+}
+
+/** How a background task ended, off the notification the engine queues for the session: the task's id, its word, and the exit code when the summary gives one. */
+export type BackgroundEnd = { target: string; status: string; exit?: string; output?: string }
+
+export function backgroundEndOf(text: string): BackgroundEnd | undefined {
+  const field = (name: string) => new RegExp(`<${name}>\\s*([\\s\\S]*?)\\s*</${name}>`).exec(text)?.[1]
+  const target = field('task-id')
+  const status = field('status')
+  if (target === undefined || status === undefined) return undefined
+  const exit = /exit code\s+(-?\d+)/i.exec(field('summary') ?? '')?.[1]
+  // The notice names the file the engine wrote the output to, which is better than any parsing of the launch.
+  const output = field('output-file')
+  return { target, status, ...(exit === undefined ? {} : { exit }), ...(output === undefined ? {} : { output }) }
 }
 
 /**

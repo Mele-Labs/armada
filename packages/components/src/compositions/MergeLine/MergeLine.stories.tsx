@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { GuidanceProvider } from "../../guidance";
 import { GUIDE_MERGE_LINE } from "../../guides";
@@ -362,14 +362,13 @@ export const WaitingWhy: Story = {
 };
 
 /**
- * Main is red, a Job has it, and the open pull requests show which `ci` is red for their own reasons
+ * Main is red, a Session has it, and the open pull requests show which `ci` is red for their own reasons
  * and which only because main is: those wait on the fix, and say so in their tooltip.
  */
 export const MainRed: Story = {
   name: "Main red, pull requests waiting on the fix",
   args: {
     line: [],
-    onOpenJob: fn(),
     onOpenCheck: fn(),
     hub: {
       main: {
@@ -380,32 +379,31 @@ export const MainRed: Story = {
           testUrl: `${PULL}1812/files`,
           merge: { number: 1812, url: `${PULL}1812`, branch: "fleet/gate-policy-every-run", branchUrl: "https://git.example/armada/tree/fleet/gate-policy-every-run" },
         },
-        taken: { id: "job-1", title: "Cache the manifest read between dispatches" },
+        takenBySession: { id: "session-1", title: "Cache the manifest read between dispatches" },
       },
-      recent: [],
       pulls: [
-        { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", ci: "waiting_on_main", job: { id: "job-4", title: "Name the zone a read-in lands in" } },
+        { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", ci: "waiting_on_main" },
         { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens", ci: "waiting_on_main" },
-        { number: 1816, url: `${PULL}1816`, branch: "fleet/pause-markers", ci: "failed", job: { id: "job-5", title: "Store a pause marker on the Job" } },
+        { number: 1816, url: `${PULL}1816`, branch: "fleet/pause-markers", ci: "failed" },
         { number: 1817, url: `${PULL}1817`, branch: "docs/merge-line-hub", ci: "running" },
       ],
     },
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByRole("img", { name: "Main is red" })).toBeVisible();
-    // Main's light carries what the red band holds: the Check, and the Job already on the fix.
+    // Main's light carries what the red band holds: the Check, and the Session already on the fix.
     const light = canvas.getByRole("img", { name: "main: red" });
     await userEvent.hover(light);
-    await waitFor(() => expect(within(light).getByText("Cache the manifest read between dispatches")).toBeVisible());
-    await expect(within(light).getByText("red")).toBeVisible();
-    await expect(within(light).getByText("screens_test")).toBeVisible();
+    const card = await screen.findByRole("tooltip");
+    await expect(within(card).getByText("Cache the manifest read between dispatches")).toBeVisible();
+    await expect(within(card).getByText("red")).toBeVisible();
+    await expect(within(card).getByText("screens_test")).toBeVisible();
     await userEvent.unhover(light);
+    await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
     const waiting = canvas.getByRole("listitem", { name: /^studio\/zone-proposal, ci red because main is/ });
     // The fix is named on the mark, and the failure is not charged to the branch.
     await expect(within(waiting).getByRole("img", { name: /waiting on the fix: Cache the manifest read between dispatches/ })).toBeVisible();
     await expect(canvas.getByRole("listitem", { name: "fleet/pause-markers, ci failed" })).toBeVisible();
-    await userEvent.click(within(waiting).getByRole("button", { name: "Name the zone a read-in lands in" }));
-    await expect(args.onOpenJob).toHaveBeenCalledWith("job-4");
     await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");
   },
@@ -418,10 +416,9 @@ export const MainGreen: Story = {
     line: [],
     hub: {
       main: { state: "green" },
-      recent: [],
       pulls: [
         { number: 1817, url: `${PULL}1817`, branch: "docs/merge-line-hub", ci: "passed" },
-        { number: 1818, url: `${PULL}1818`, branch: "fleet/pause-markers", ci: "running", job: { id: "job-5", title: "Store a pause marker on the Job" } },
+        { number: 1818, url: `${PULL}1818`, branch: "fleet/pause-markers", ci: "running" },
       ],
     },
   },
@@ -430,13 +427,13 @@ export const MainGreen: Story = {
     await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
     // The light at the horizon's end names main and says its state, on hover and on focus.
     const light = canvas.getByRole("img", { name: "main: green" });
-    const card = () => within(light).queryByText("main");
-    await expect(card()).not.toBeVisible();
+    const card = () => screen.queryByRole("tooltip");
+    await expect(card()).not.toBeInTheDocument();
     await userEvent.hover(light);
     await waitFor(() => expect(card()).toBeVisible());
-    await expect(within(light).getByText("green")).toBeVisible();
+    await expect(within(card()!).getByText("green")).toBeVisible();
     await userEvent.unhover(light);
-    await waitFor(() => expect(card()).not.toBeVisible());
+    await waitFor(() => expect(card()).not.toBeInTheDocument());
     // One stop, straight after the band, and focus opens the same card.
     canvas.getByRole("button", { name: "Collapse Merge line" }).focus();
     await userEvent.tab();
@@ -450,7 +447,7 @@ export const MainNotKnown: Story = {
   name: "Main not known, a pull request nothing ran on",
   args: {
     line: [],
-    hub: { recent: [], pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
+    hub: { pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
   },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("img", { name: /^Main is/ })).toBeNull();
@@ -505,7 +502,6 @@ export const MainHeld: Story = {
         },
         checking: [{ commit: "d".repeat(40), number: 1852, url: `${PULL}1852` }],
       },
-      recent: [],
       pulls: [],
     },
     landed: [
@@ -516,7 +512,7 @@ export const MainHeld: Story = {
     await expect(canvas.getByRole("img", { name: "Main is red, new checks are running" })).toBeVisible();
     const band = canvas.getByRole("status", { name: "New checks are running on main" });
     await expect(within(band).getByText(/New checks are running on main:/)).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");

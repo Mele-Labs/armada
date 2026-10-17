@@ -26,9 +26,8 @@ export type SessionTrail = {
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
-  /** `handed` is a slot that came with a Job a person piloted, which the Session did not lease. */
-  | { kind: "slot"; slot: number; handed?: { job: number } }
-  | { kind: "branch"; name: string; slot: number; handed?: { job: number } }
+  | { kind: "slot"; slot: number }
+  | { kind: "branch"; name: string; slot: number }
   | {
       kind: "pull_request";
       number: number;
@@ -55,12 +54,8 @@ export type SessionAttachment =
       branch: string;
       /** Absent where the Job's own slot is not known: Fleet holds it on the Job, not on the Session. */
       slot?: number;
-      /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
-      looking?: true;
       /** Closed by a person's word and not by its gates. */
       attested?: true;
-      /** The Job is piloted, but from another Session: this one's ledger offers no exit on it. Absent is this Session's own. */
-      pilotedElsewhere?: true;
     }
   | { kind: "studio"; id: string; title: string }
   /**
@@ -72,6 +67,26 @@ export type SessionAttachment =
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
+  /**
+   * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
+   * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
+   * its output is written to, read as an artifact file is; absent where Fleet was not told it. `exit` is
+   * the code a `done` or `failed` command ended on, absent where it was not told.
+   * **Stopped is a command the agent or a person killed**, or one whose process went with the Session, and has no exit of its own.
+   */
+  | {
+      kind: "background";
+      id: string;
+      form: "command" | "monitor";
+      task: string;
+      command: string;
+      /** RFC 3339 instants. */
+      started: string;
+      ended?: string;
+      state: "running" | "done" | "failed" | "stopped";
+      exit?: number;
+      output?: string;
+    }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
@@ -88,9 +103,13 @@ export type SessionAttachment =
    * `moved` is the repository the Session was moved from and `branch` the branch it left there, comma-separated.
    */
   | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
-  /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
-  | { kind: "started_to"; id: string }
-  | { kind: "started_by"; id: string };
+  /**
+   * A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's.
+   * `group` is the plan group it was handed from, which makes it a linked Session drawn on that group and in the Ledger's Linked section (`linkedOf`).
+   * Every Session started from another stands under it in Work, group or none.
+   */
+  | { kind: "started_to"; id: string; group?: string }
+  | { kind: "started_by"; id: string; group?: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -230,6 +249,9 @@ export type SessionVoice =
   | { kind: "agent" }
   | { kind: "session"; id: string; title: string };
 
+/** What a followed Session did that its parent is told of. */
+export type LinkedEvent = "needs" | "done" | "merged";
+
 export type SessionRow =
   | {
       id: string;
@@ -272,23 +294,6 @@ export type SessionRow =
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation: not the person's words. */
   | { id: string; at: string; kind: "compaction"; text: string }
-  /**
-   * What a piloted Session starts with: the Job's own worktree, handed over,
-   * and what Fleet knew when its Drone stopped. Structured, never prose.
-   */
-  | {
-      id: string;
-      at: string;
-      kind: "handoff";
-      job: { number: number; title: string };
-      slot: number;
-      branch: string;
-      step?: { id: string; label: string };
-      attempts: number;
-      refusals: readonly string[];
-      plan: { outside: readonly string[]; unwritten: readonly string[] };
-      narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
-    }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
@@ -305,6 +310,13 @@ export type SessionRow =
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session that waits on this one: it was dispatched to, its start condition was changed by this Session's agent or by the person,
+   * or its condition was met and it started. `by` is who changed the condition. **A mock's row**: nothing in Fleet carries it yet.
+   */
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; /** Written in the waiting Session's own thread: `session` is the one it waits on. */ waiting?: true; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  /** A Session this one follows needs the person, finished, or merged its pull request. The agent was told in the same moment. */
+  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
@@ -331,6 +343,47 @@ export type HeldRow = {
 
 /** What a release gave back or handed over, and what stayed with why. `to` is the Session handed them. */
 export type HoldsReleased = { to?: string; moved: readonly HeldRow[]; kept: readonly (HeldRow & { why: string })[] };
+
+// ---- A Session that waits on another -------------------------------------------------------------------------
+// Draft, mock-only: nothing in Fleet or the protocol carries it. A Session dispatched after another holds no slot and
+// runs nothing until its condition is met; the Session it waits on is told, and may change the condition.
+
+/** What starts a waiting Session: the other Session ends, a part of its plan is done, its pull request is pushed, or lands. */
+export type StartWhen = "ends" | "plan" | "pushed" | "lands";
+
+export type SessionWait = {
+  /** The Session it waits on. */
+  on: { id: string; title: string };
+  when: StartWhen;
+  /** With `plan`: the group or task of the other Session's plan, by id. */
+  part?: { id: string; title: string };
+  /** With `pushed` and `lands`: the pull request, once the other Session has named it. */
+  pull?: { number: number; branch: string };
+  /** Where it starts from: main, or the branch of the other Session's pull request. */
+  base: StartBase;
+  /** What it needs of the Session it waits on: the rest of the clause the brief names the wait in. Empty where the brief names none. */
+  needs: string;
+  /** The words it was dispatched with, which it starts on. */
+  brief: string;
+  /** Who last set the condition. */
+  by: "you" | "agent";
+};
+
+export type StartBase = "main" | "branch";
+
+/**
+ * What the proposer reads of a brief that tags a Session: who it waits on, when it starts, where from, and what it needs. **A mock's
+ * stand-in**: the mock's `reads-waits.ts` reads the words by rule, and nothing in Fleet reads a wait yet.
+ */
+export type WaitReading = {
+  on: { id: string; title: string };
+  when: StartWhen;
+  part?: { id: string; title: string };
+  base: StartBase;
+  needs: string;
+  /** What the proposer would name the Session. Absent where it reads no name, as a Fleet's reading of the wait does. */
+  title?: string;
+};
 
 export type Session = {
   id: string;
@@ -420,21 +473,20 @@ export type Session = {
   mode?: SessionMode;
   /** The plan, workflow, subagents and concerns the view draws round the thread. Absent draws the thread and its ledger as before. */
   work?: SessionWork;
+  /** Dispatched after another Session and not started: it holds no slot and runs nothing until the condition is met. Absent once it has started. */
+  waits?: SessionWait;
 };
 
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
- * is meant: another Session, a Job, a pull request, a branch or an issue. A Job carries what the ledger
- * needs to hold it as one the Session is looking at.
+ * is meant: another Session, a pull request, a branch or an issue.
  */
 export type SessionTag = {
-  kind: "session" | "job" | "pull_request" | "branch" | "issue";
+  kind: "session" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request. */
   url?: string;
-  /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
-  job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };
 
 /** What a message carries: its words, and what was attached to it. */
@@ -534,13 +586,12 @@ export type SessionsDraft = {
   helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
-   * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real
-   * Fleet**, one call that takes the Job over and starts the Session; one Fleet refused says why in
-   * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
+   * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
+   * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.
    */
-  pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
+  handOff?: (id: string, group: string) => string | Promise<string | undefined> | undefined;
   /**
-   * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
+   * Starts a new Session as a copy of a dead one's conversation and returns its id.
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.
    */
   fork?: (id: string) => string | Promise<string | undefined>;
@@ -557,7 +608,7 @@ export type SessionsDraft = {
    * moved. Absent where nothing serves it, and the repository is not drawn as a control.
    */
   move?: (id: string, manifestId: string) => Promise<string | undefined>;
-  /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
+  /** One of the three ways out of a pilot. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
@@ -566,8 +617,23 @@ export type SessionsDraft = {
    * `request` is the words the person dispatched with: Fleet reads them once to fill in the title, workflow,
    * model and effort, and the Session starts on the answer without the press waiting for it.
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
+   * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">) => string | Promise<string | undefined>;
+  /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
+  readsWait?: (words: string) => WaitReading | undefined;
+  /**
+   * The reading of a brief once the proposer has answered for it, which a send waits for so a Session is not started on the defaults
+   * while the real reading is out. Absent where `readsWait` answers at once.
+   */
+  settlesWait?: (words: string) => Promise<WaitReading | undefined>;
+  /**
+   * Changes when a waiting Session starts, and from where. The Session it waits on is told. Absent where nothing serves it, and the
+   * waiting Session's page offers no condition to change.
+   */
+  startWhen?: (id: string, when: StartWhen, part?: { id: string; title: string }) => void;
+  /** Starts a waiting Session now, whatever its condition. The Session it waits on is told. Absent with `startWhen`. */
+  startNow?: (id: string) => void;
   /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
   queued?: () => readonly QueuedIdea[];
   /** Saves an idea without starting it. Absent with `queued`. */
@@ -637,8 +703,6 @@ export type SessionsDraft = {
   writePullRequest?: (id: string, number: number, write: Pick<WritePullRequest, "kind" | "body">) => Promise<PullRequestPageRead>;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
   said?: () => string | undefined;
-  /** What `@` offers beyond other Sessions: the Jobs. */
-  taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;
   /**
@@ -656,8 +720,6 @@ export type SessionsDraft = {
    * draw the press as underway until then. A refusal is `said`, not thrown.
    */
   act: (id: string, number: number, act: PullRequestAct) => Promise<boolean>;
-  /** Set where `act` dispatches the review itself, so the window does not propose one beside it. */
-  reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
   /** The model a Session follows while it names none, as Fleet's model list holds it. */
@@ -737,6 +799,15 @@ export function isBlank(session: Session): boolean {
   return session.blank ?? (session.attachments.length === 0 && session.rows.length === 0);
 }
 
+/** The Sessions a parent follows: those its plan groups were handed to, with the group each came from. */
+export function linkedOf(sessions: readonly Session[], parent: Session): { session: Session; group: string }[] {
+  return parent.attachments.flatMap((one) => {
+    if (one.kind !== "started_to" || one.group === undefined) return [];
+    const session = sessions.find((other) => other.id === one.id);
+    return session === undefined ? [] : [{ session, group: one.group }];
+  });
+}
+
 export function attachmentsOf<K extends SessionAttachmentKind>(
   session: Session,
   kind: K,
@@ -764,7 +835,7 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "branch":
       return (
         (attachment.kind === "branch" && attachment.name === ref.name) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.branch === ref.name) ||
+        (attachment.kind === "job" && attachment.branch === ref.name) ||
         (attachment.kind === "pull_request" && attachment.branch === ref.name)
       );
     case "pull_request":
@@ -772,10 +843,10 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "slot":
       return (
         (attachment.kind === "slot" && attachment.slot === ref.slot) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.slot === ref.slot)
+        (attachment.kind === "job" && attachment.slot === ref.slot)
       );
     case "job":
-      return attachment.kind === "job" && attachment.looking !== true && attachment.id === ref.id;
+      return attachment.kind === "job" && attachment.id === ref.id;
   }
 }
 

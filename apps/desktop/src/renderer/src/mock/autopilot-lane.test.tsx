@@ -1,12 +1,13 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
 // repository picked and the mock's Autopilot mid-run: the switch in the deck's foot that opens its lane on the
-// stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's third kind. #2092.
+// stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's second kind. #2092.
 // Then #2105's: the second repository's paused by its Job cap and raised, All with none picked asking for
 // one, and a step the Judges sent back. The Cockpit is the flight deck (#2301).
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { repository } from "@armada/screens/src/fixtures/build/base";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import type { Scenario } from "./moment";
@@ -16,22 +17,39 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 beforeEach(forgetDismissals);
 
-/** The mock Autopilot's second started pick, whose Job has not had a Drone yet. */
-const PICKED_JOB = "01JAUTOPILOTJOB00000000002";
+/** The Session the mock Autopilot's second started pick opened, which has not run yet. */
+const PICKED_SESSION = "01JAUTOPILOTSESSION000000002";
 
 /**
- * The Cockpit on its own repository, where the mock's Autopilot runs. Two of its Jobs are made
- * Autopilot's: the one in bay 01 by origin, and the one waiting for a bay as a pick not yet started.
+ * The Cockpit on its own repository, where the mock's Autopilot runs. Its second pick's Session is
+ * added to the window's Sessions, idle and never run, as a pick not yet started.
  */
 function onTheRepository(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
-  const jobs = base.state.jobs.map((job) => {
-    if (job.title === "Debounce the Job Board's resize handler") return { ...job, origin: "autopilot_picked" };
-    if (job.title !== "Store a pause marker on the Job") return job;
-    const { started_at: _never, ...rest } = { ...job, id: PICKED_JOB, origin: "autopilot_picked" };
-    return rest;
-  });
-  return { ...base, name: "dashboard-cockpit-autopilot", state: { ...base.state, jobs, repository: repository().root } };
+  const picked: Session = { id: PICKED_SESSION, title: "Checkout total rounds the tax twice", turn: { state: "idle" }, rows: [], attachments: [] };
+  const sessions = base.draft!.sessions!;
+  return {
+    ...base,
+    name: "dashboard-cockpit-autopilot",
+    state: { ...base.state, repository: repository().root },
+    draft: {
+      ...base.draft,
+      sessions: (control) => {
+        const store = sessions(control);
+        let from: readonly Session[] | undefined;
+        let held: readonly Session[] = [];
+        // Stable between changes, as a store's snapshot must be.
+        return { ...store, get: () => {
+          const now = store.get();
+          if (now !== from) {
+            from = now;
+            held = [...now, picked];
+          }
+          return held;
+        } };
+      },
+    },
+  };
 }
 
 /** An issue's number as Bridge writes it, spelled so it never reads as a colour. */
@@ -122,7 +140,7 @@ test("the lane draws Next up as a numbered list and the set-aside siding", async
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
 });
 
-test("the Dispatch sheet's third kind is Autopilot: Tab steps to it, and the sheet reads the words and starts it", async () => {
+test("the Dispatch sheet's second kind is Autopilot: Tab steps to it, and the sheet reads the words and starts it", async () => {
   await cockpit();
   // The switch just pressed holds focus, and a bare key does nothing while a control does.
   (document.activeElement as HTMLElement).blur();
@@ -140,6 +158,28 @@ test("the Dispatch sheet's third kind is Autopilot: Tab steps to it, and the she
   await panel.getByRole("button", { name: "Read it" }).click();
   await expect.element(panel.getByRole("textbox", { name: "At once" })).toBeVisible();
   await panel.getByRole("button", { name: "Start Autopilot" }).click();
+  await expect.element(panel).not.toBeInTheDocument();
+});
+
+test("in a short window the Dispatch sheet stays inside it and its Autopilot form scrolls to the start act", async () => {
+  await page.viewport(1100, 460);
+  await cockpit();
+  (document.activeElement as HTMLElement).blur();
+  await userEvent.keyboard("n");
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  await userEvent.keyboard("Work the open bugs until 7am");
+  for (let tries = 0; tries < 3; tries += 1) {
+    if ((await panel.getByRole("tab", { name: "Autopilot" }).element().getAttribute("aria-selected")) === "true") break;
+    await userEvent.keyboard("{Tab}");
+  }
+  await panel.getByRole("button", { name: "Read it" }).click();
+  const start = panel.getByRole("button", { name: "Start Autopilot" });
+  await expect.element(start).toBeInTheDocument();
+  const frame = panel.element().closest<HTMLElement>(".armada-dispatch-panel__frame")!;
+  await expect.poll(() => frame.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+  start.element().scrollIntoView();
+  await expect.element(start).toBeVisible();
+  await start.click();
   await expect.element(panel).not.toBeInTheDocument();
 });
 
@@ -197,13 +237,4 @@ test("pressing the switch again puts the lane away without stopping Autopilot", 
   await control().click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
-});
-
-test("a step the Judges sent back to its Drone says so on its card", async () => {
-  const base = scenarioNamed("dashboard-cockpit")!;
-  const job = base.state.jobs.find((one) => one.title === "Debounce the Job Board's resize handler")!;
-  mount({ ...base, name: "dashboard-cockpit-sent-back", opens: job.id });
-  await onScreen();
-  await page.getByRole("tab", { name: "Workflow" }).click();
-  await expect.element(page.getByText(/Sent back by the Judges · 1 of 2/)).toBeVisible();
 });

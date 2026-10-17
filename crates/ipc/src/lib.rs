@@ -196,6 +196,8 @@ mod requester;
 /// What one Job holds on this machine, and what came of asking whether it is
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
+/// What an agent says about one pull request, and the review tools it is asked with.
+mod review_runs;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -214,8 +216,10 @@ mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
+mod slot_asking;
 mod session_retro_row;
 mod session_starts;
+mod session_waits;
 mod session_summary;
 mod sessions;
 mod setup;
@@ -377,12 +381,12 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, ReleaseSessionHolds,
     RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
     SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
+    StopSession, TagKind, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -421,7 +425,7 @@ pub use manifest_proposal::{
 };
 pub use merge_hub::{
     CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
-    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub, PullRequestOwner,
 };
@@ -440,10 +444,7 @@ pub use territory::{
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
-pub use piloting::{
-    DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
-    TakeOver,
-};
+pub use piloting::{PilotNote, Piloted};
 pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
 pub use settings::{
     SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,
@@ -487,6 +488,12 @@ pub use repositories::{
     AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use review_runs::{
+    PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace, ReviewResult,
+    ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity, ReviewStep,
+    ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewToolScope,
+    ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
     Look, WorktreeOnDisk,
@@ -515,13 +522,18 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
+pub use slot_asking::{AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding};
 pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
-pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_starts::{ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_waits::{
+    ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition, StartWaitingNow, WaitBy, WaitPull,
+    WaitReading, WaiterEvent, WaiterSide,
+};
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,

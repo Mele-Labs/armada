@@ -1,7 +1,6 @@
 // Which row the rail marks. Overview is where a window with nothing else open
-// is, so everything else — a Job, the composer, the reports — is Overview with
-// something over it. That sentence was the Board's until the owner deleted
-// that page. Apart from `App.tsx`, which is at its length.
+// is, so everything else — the reports — is Overview with something over it.
+// Apart from `App.tsx`, which is at its length.
 
 import { SURFACE } from "@armada/shell";
 
@@ -18,9 +17,6 @@ export type Open = {
   learning: boolean;
   workflowing: boolean;
   checking: boolean;
-  sessioning: boolean;
-  /** The Jobs page, a rail row of its own: Overview's lists under the Sessions page's frame. */
-  jobbing?: boolean;
   /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
   doctoring?: boolean;
   /** The account's page, reached from the title row's menu and from Settings. */
@@ -43,9 +39,7 @@ export function showingOf(open: Open): string {
   if (open.learning) return SURFACE.lessons;
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
-  if (open.sessioning) return SURFACE.sessions;
   if (open.reviewing === true) return SURFACE.reviews;
-  if (open.jobbing === true) return SURFACE.jobs;
   if (open.doctoring === true) return SURFACE.doctor;
   return SURFACE.overview;
 }

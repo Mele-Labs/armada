@@ -1,16 +1,20 @@
 // The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
 // holds it, and the facts behind the state, each with its tooltip, grouped under a heading for each repository. A bay and the row of
-// the Job or Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
+// the Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
-import type { ReactNode } from "react";
-import { Button, Tooltip } from "@armada/components";
+import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Button, Inspect, Tooltip } from "@armada/components";
+import type { Outcome } from "@armada/protocol";
+import { refusalWords } from "@armada/screens/src/refusal-words";
+
+import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
-import { clockOf, holderKeyOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
+import { clockOf, holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
 
-export const kindGlyph = (kind: Holder["kind"], size = 12) => (kind === "job" ? <Box size={size} aria-hidden /> : <SquareTerminal size={size} aria-hidden />);
+export const kindGlyph = (size = 12) => <SquareTerminal size={size} aria-hidden />;
 
 /** A glyph with its tooltip, which is also its name. */
 function Mark({ said, children }: { said: string; children: ReactNode }) {
@@ -99,7 +103,7 @@ function Marks({ view }: { view: BayView }) {
         </Mark>
       )}
       {last === undefined || last.open ? null : (
-        <Mark said={last.kind === "job" ? "Job ended" : "Session closed"}>
+        <Mark said="Session closed">
           <Unplug size={12} aria-hidden />
         </Mark>
       )}
@@ -120,7 +124,7 @@ function Warmth({ view }: { view: BayView }) {
 
 /** The kind of whoever holds a leased bay. */
 function Kind({ view }: { view: BayView }) {
-  return view.state === "leased" && view.holder !== undefined ? <Mark said={view.holder.kind === "job" ? "Job" : "Session"}>{kindGlyph(view.holder.kind)}</Mark> : null;
+  return view.state === "leased" && view.holder !== undefined ? <Mark said="Session">{kindGlyph()}</Mark> : null;
 }
 
 /** The state as a glyph, its word in the tooltip. */
@@ -174,8 +178,39 @@ function Berth({ view }: { view: BayView }) {
   );
 }
 
+/**
+ * One more slot for a repository's pool, on the heading of its bays: the act and the glyph of Cleanup's add tile, sent the same way.
+ * A second press waits for the first, and a refusal is said under the heading until the next press.
+ */
+function AddSlot({ repo, manifest, onAdd }: { repo: string; manifest: string; onAdd: (manifest: string) => Promise<Outcome> }) {
+  const [adding, setAdding] = useState(false);
+  const [refused, setRefused] = useState<string | undefined>();
+  const press = async () => {
+    if (adding) return;
+    setAdding(true);
+    setRefused(undefined);
+    const outcome = await onAdd(manifest);
+    if (!outcome.ok) setRefused(`Slot not added: ${refusalWords(outcome)}`);
+    setAdding(false);
+  };
+  return (
+    <>
+      <Tooltip label="Add a slot" asChild>
+        <Button variant="ghost" size="sm" iconOnly className="deck-bays__add" aria-label={`Add a slot to ${repo}`} aria-disabled={adding || undefined} onClick={() => void press()}>
+          <FolderPlus size={14} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+      {refused === undefined ? null : (
+        <p className="deck-bays__refused" role="alert">
+          {refused}
+        </p>
+      )}
+    </>
+  );
+}
+
 /** The bays panel: every slot of the pool, a bay each, under a heading for its repository. A press selects the slot. */
-export function Bays({ views, repoName, working, selected, hovered, onHover, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; hovered: string | undefined; onHover: (holder: string | undefined) => void; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
+export function Bays({ views, repoName, working, selected, hovered, onHover, onSelect, onOpenSlots, onAddSlot }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; hovered: string | undefined; onHover: (holder: string | undefined) => void; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined; onAddSlot?: ((manifest: string) => Promise<Outcome>) | undefined }) {
   const groups = [...new Set(views.map((view) => view.slot.manifest_id))].map((manifest) => ({ manifest, views: views.filter((view) => view.slot.manifest_id === manifest) }));
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
@@ -195,18 +230,21 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
           const repo = repoName(group.manifest);
           return (
             <li key={group.manifest} className="deck-list__band">
-              <h3 className="deck-list__repository">{repo}</h3>
+              <div className="deck-bays__head">
+                <h3 className="deck-list__repository">{repo}</h3>
+                {onAddSlot === undefined ? null : <AddSlot repo={repo} manifest={group.manifest} onAdd={onAddSlot} />}
+              </div>
               <ul className="deck-list__group">
                 {group.views.map((view) => {
                   const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
                   const holder = holderKeyOf(view);
                   return (
                     <li key={view.key}>
+                      <Inspect card={<BayCard view={view} repo={repo} />} name={`slot-${view.slot.slot}`} side="beside" pin={false}>
                       <button
                         type="button"
                         className="deck-bay"
                         data-bay={view.state}
-                        data-kept={view.kept !== undefined || undefined}
                         data-live={live || undefined}
                         data-hover={(holder !== undefined && holder === hovered) || undefined}
                         data-selected={selected === view.key || undefined}
@@ -219,6 +257,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
                       >
                         <Berth view={view} />
                       </button>
+                      </Inspect>
                     </li>
                   );
                 })}

@@ -355,27 +355,12 @@
 .bf-callout__lead circle { fill: var(--tip); }
 /* Placement moves this; the card inside has its entry animation to itself. */
 .bf-callout__place { position: absolute; inset: 0; pointer-events: none; }
-.bf-callout__card {
+/* The card is the inspect card; this only places it and gives its entry the map's own scale, from the thing it is about. */
+.bf-callout .bf-callout__card {
   position: absolute;
   left: 0;
   top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: calc(var(--space-12) * 5);
-  padding: var(--space-3) var(--space-4) var(--space-3);
-  border: var(--border-width) solid var(--border-glass);
-  border-top: calc(2 * var(--bf-u)) solid var(--tip);
-  border-radius: calc(var(--radius-lg) * 1.5);
-  background: color-mix(in srgb, var(--bg-base) 88%, transparent);
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-overlay);
-  backdrop-filter: blur(calc(10 * var(--bf-u)));
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-default);
   transform-origin: var(--ox, 0) var(--oy, 0);
-  overflow: hidden;
 }
 .bf-callout[data-placed] .bf-callout__card,
 .bf-callout[data-placed] .bf-callout__lead { animation: bf-callout-in 120ms var(--ease) backwards; }
@@ -383,18 +368,7 @@
   from { opacity: 0; scale: 0.55; }
   to { opacity: 1; scale: 1; }
 }
-/* A soft glow in the state's colour behind the card, breathing slowly. */
-.bf-callout__glow { position: absolute; left: 50%; top: -60%; width: 140%; aspect-ratio: 1; translate: -50% 0; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--tip) 24%, transparent), transparent 62%); opacity: 0.8; animation: bf-callout-glow calc(var(--duration-pulse) * 3) ease-in-out infinite alternate; pointer-events: none; }
-@keyframes bf-callout-glow { to { opacity: 0.35; } }
-.bf-callout__card > * { position: relative; }
-.bf-callout__card > .bf-callout__glow { position: absolute; }
 .bf-callout__card > .bf-ask { position: absolute; top: var(--space-1); right: var(--space-1); margin: 0; }
-.bf-callout__kind { color: var(--tip); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.bf-callout__title { font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-heading); overflow-wrap: anywhere; }
-.bf-callout__state { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
-.bf-callout__state[data-tone="good"] { color: var(--status-completed-success); }
-.bf-callout__state[data-tone="ask"] { color: var(--status-awaiting-review); }
-.bf-callout__state[data-tone="bad"] { color: var(--status-completed-failed); }
 .bf-callout__line { color: var(--fg-muted); }
 .bf-callout__pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .bf-callout__pill { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 0 var(--space-3); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); background: color-mix(in srgb, var(--fg-default) 7%, transparent); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -705,7 +679,6 @@
   .bf-slab[data-pulse] .bf-top,
   .bf-callout[data-placed] .bf-callout__card,
   .bf-callout[data-placed] .bf-callout__lead,
-  .bf-callout__glow,
   .bf-reticle[data-flick] { animation: none; }
   .bf-sprite,
   .bf-drone[data-hover][data-alive] .bf-alt,

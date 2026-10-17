@@ -1,6 +1,6 @@
 // The map's projection on the canvas: `camera.ts`'s own turn, scale and perspective, with the pitch free to be anywhere between the wide
 // and the near one so the canvas can ease between them as the CSS did. The shader does this for every vertex of the ground; this file
-// does it for the few things that stand upright and are placed from script (a flag, a pin, a name), and packs the numbers the shader
+// does it for the few things that stand upright and are placed from script (a flag, a name), and packs the numbers the shader
 // reads. At a pitch of `CAM.wide` or `CAM.near` it is `projectOf`, point for point.
 
 import { CAM, type P3, type Size } from "../layout";

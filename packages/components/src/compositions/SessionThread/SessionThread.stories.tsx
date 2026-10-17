@@ -27,7 +27,7 @@ export default meta;
 type Story = StoryObj<typeof SessionThread>;
 
 const ROWS: SessionThreadRow[] = [
-  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], tags: [{ kind: "session", id: "s2", title: "Release notes script" }, { kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
+  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], tags: [{ kind: "session", id: "s2", title: "Release notes script" }] },
   { id: "2", at: "14:03:14", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
   { id: "3", at: "14:03:21", kind: "lease", slot: 3, branch: "fix/flaky-store" },
   { id: "4", at: "14:03:28", kind: "message", from: "agent", text: "The test reads the wall clock." },
@@ -336,33 +336,6 @@ export const QuestionsSkipped: Story = {
   },
 };
 
-/** A Job taken over from a gate or an escalation: no Drone said what it was stuck on, so the Drone's account is not drawn, and neither is any other group with nothing in it. */
-export const HandedOverWithNoAccount: Story = {
-  args: {
-    rows: [
-      {
-        id: "h1",
-        at: "14:03:07",
-        kind: "handoff",
-        job: { number: 55, title: "Cap the retry backoff" },
-        slot: 3,
-        branch: "fix/retry-backoff",
-        step: { id: "regression_verify", label: "Verify the fix" },
-        attempts: 3,
-        refusals: [],
-        plan: { outside: ["crates/retry/src/loop.rs"], unwritten: [] },
-      },
-    ],
-  },
-  play: async ({ canvas }) => {
-    const handoff = canvas.getByRole("region", { name: "Handed over: Job 55" });
-    await expect(within(handoff).getByText("Stopped on")).toBeInTheDocument();
-    await expect(within(handoff).getByText("written, not declared")).toBeInTheDocument();
-    await expect(within(handoff).queryByText("Judge refused")).toBeNull();
-    await expect(within(handoff).queryByText("Trying to")).toBeNull();
-  },
-};
-
 /** A running turn marks the thread's end: on the last tool group's row when that is last, else a row of its own. Ended, no mark. */
 export const WorkingMark: Story = {
   args: { rows: WORKED.slice(0, 4), working: true },
@@ -633,8 +606,8 @@ const LIVE_ROWS: SessionThreadRow[] = [
   { id: "l3", at: "14:08:40", kind: "message", from: "you", text: "Update the plan: the queue should survive a restart." },
 ];
 
-/** A plan with four groups and ten tasks pending, beside a judge's concerns and a permission: the thread's last message stays in view and the calls scroll in a region of their own. */
-export const LivePlanKeepsTheLastMessageInView: Story = {
+/** A plan with four groups and ten tasks pending, beside a judge's concerns and a permission: they are the thread's last card, after its last message, and the thread scrolls to them. */
+export const WhatWaitsIsTheThreadsLastCard: Story = {
   args: {
     rows: LIVE_ROWS,
     approval: LIVE_PLAN,
@@ -654,18 +627,11 @@ export const LivePlanKeepsTheLastMessageInView: Story = {
   play: async ({ canvas }) => {
     const thread = canvas.getByRole("region", { name: "Thread" });
     const last = canvas.getByText("Update the plan: the queue should survive a restart.");
-    const view = thread.getBoundingClientRect();
-    const row = last.getBoundingClientRect();
-    await expect(view.height).toBeGreaterThan(60);
-    await expect(row.top).toBeGreaterThanOrEqual(view.top - 1);
-    await expect(row.bottom).toBeLessThanOrEqual(view.bottom + 1);
-    const calls = canvas.getByRole("region", { name: "Pinned calls" });
-    const body = calls.querySelector<HTMLElement>(".armada-session-thread__calls-body")!;
-    const whole = thread.parentElement!.getBoundingClientRect().height;
-    await expect(body.getBoundingClientRect().height).toBeLessThanOrEqual(whole * 0.41);
-    const plan = canvas.getByRole("article", { name: "Plan to approve" });
-    await expect(plan.getBoundingClientRect().height).toBeLessThanOrEqual(240.5);
-    await expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
+    const tail = within(thread).getByRole("listitem", { name: "Waiting on you" });
+    await expect(thread.contains(tail)).toBe(true);
+    await expect(last.compareDocumentPosition(tail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(canvas.queryByRole("region", { name: "Pinned calls" })).toBeNull();
+    await expect(within(tail).getByRole("article", { name: "Plan to approve" })).toBeInTheDocument();
   },
 };
 

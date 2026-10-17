@@ -101,10 +101,13 @@ pub async fn execute_told(
     priority: Priority,
     told: Option<&crate::session_checks::Told>,
 ) -> Result<Ran, NotDeclared> {
-    let test = match asked {
-        Asked::OneTest(test) => Some(test),
+    let tests = match asked {
+        Asked::Tests(tests) => Some(tests),
         _ => None,
     };
+    // The names as said and as told to a Session's row: one line, in the order given.
+    let test = tests.map(|tests| tests.join(" "));
+    let test = test.as_deref();
     // **A key names its manifest**: `<dir>:<name>` runs in that workspace's
     // directory, and a bare name is the root's. `key` is kept for what is said.
     let manifests = Manifests::load(root)?;
@@ -141,9 +144,9 @@ pub async fn execute_told(
     let Some(command) = command else {
         return Err(unknown(manifest, registry, name));
     };
-    let command = match (test, manifest.check(name)) {
+    let command = match (tests.zip(test), manifest.check(name)) {
         (None, _) => command,
-        (Some(test), check) => check
+        (Some((tests, test)), check) => check
             .and_then(|check| Some((check, check.one_test()?)))
             .ok_or_else(|| NotDeclared::NoOneTest {
                 name: name.to_string(),
@@ -151,17 +154,21 @@ pub async fn execute_told(
                 path: manifest.path().to_path_buf(),
             })
             .and_then(|(check, one)| {
-                checks_runner::one_test_in(root, one, check.narrow(), test).map_err(
+                checks_runner::tests_in(root, one, check.narrow(), tests).map_err(
                     |refused| match refused {
                         checks_runner::OneTestRefused::Blank => NotDeclared::NoOneTest {
                             name: name.to_string(),
                             test: test.to_string(),
                             path: manifest.path().to_path_buf(),
                         },
-                        checks_runner::OneTestRefused::NoMember { under, excepted } => {
+                        checks_runner::OneTestRefused::NoMember {
+                            test,
+                            under,
+                            excepted,
+                        } => {
                             NotDeclared::NoMemberHolds {
                                 name: name.to_string(),
-                                test: test.to_string(),
+                                test,
                                 under,
                                 excepted,
                             }
@@ -382,7 +389,7 @@ pub struct Ran {
     pub name: String,
     /// The `run` string, verbatim as the Manifest wrote it.
     pub command: String,
-    /// The one test asked for, where `command` is the Check's `one_test`.
+    /// The tests asked for, space-separated, where `command` is the Check's `one_test`.
     pub test: Option<String>,
     /// Whether the Manifest calls this destructive. **Said, never enforced** —
     /// the flag pauses a Drone, and the person typing this is already the one
@@ -419,7 +426,7 @@ impl Ran {
         }
     }
 
-    /// Whether the one test asked for matched nothing. **Not a pass**, though
+    /// Whether the tests asked for matched nothing. **Not a pass**, though
     /// both runners can exit zero on it. `checks_runner::one_test_ran`.
     pub fn matched_nothing(&self) -> bool {
         self.test.is_some()

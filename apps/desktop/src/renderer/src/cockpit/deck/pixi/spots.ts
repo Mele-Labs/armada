@@ -4,7 +4,6 @@
 
 import type { P3, Point } from "../layout";
 import { onPlane } from "../bf-parts";
-import type { PinIn } from "../mission";
 import { project, type View } from "./project";
 import type { DroneSpec, Placed, WorkerSpec } from "./scene";
 import { workerAt } from "./workers";
@@ -30,7 +29,7 @@ function outline(rings: readonly (readonly Screen[])[]): Spot {
 export function droneSpot(view: View, spec: DroneSpec, big: number): Spot | undefined {
   const here = project(view, { x: spec.at.x, y: spec.at.y, z: spec.alt });
   if (here.scale <= 0) return undefined;
-  const wide = spec.drone.kind === "job" ? 26 : 20;
+  const wide = 20;
   return beside(here, view.eye * here.scale * big, -(wide + 12), -34, wide + 12, 22);
 }
 
@@ -73,12 +72,6 @@ export function goalSpot(view: View, goal: Point): Spot | undefined {
 export function crateSpot(view: View, at: P3): Spot | undefined {
   const here = project(view, at);
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -13, -13, 13, 13);
-}
-
-/** A pin of a Job's route, standing on its waypoint. */
-export function pinSpot(view: View, pin: PinIn): Spot | undefined {
-  const here = project(view, { ...onPlane(pin.at), z: 0 });
-  return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -20, -51, 20, 7);
 }
 
 /** A subagent: the CSS map's box round the small drone, which the zoom scales and the Session's size does not. */

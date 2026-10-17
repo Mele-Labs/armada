@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -13,8 +13,7 @@ unmountAfterEach();
 test("Session checks: a running row ends, and pressing it opens the run with the Session's owner chip", async () => {
   mount("session-checks");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "Session check rows" }));
+  await toSession("Session check rows");
 
   const thread = page.getByRole("region", { name: "Thread" });
   await expect.element(thread.getByRole("button", { name: "Check desktop:typecheck, passed" })).toBeVisible();
@@ -22,6 +21,9 @@ test("Session checks: a running row ends, and pressing it opens the run with the
   await expect.element(thread.getByRole("button", { name: "Check app_smoke, running" })).toBeVisible();
 
   timePasses();
+  // The pointer is still over the Session's row in the list, whose hover card lies across the thread.
+  await userEvent.unhover(page.getByRole("region", { name: "Work", exact: true }));
+  await expect.poll(() => document.querySelector(".armada-inspect")).toBeNull();
   await userEvent.click(thread.getByRole("button", { name: "Check app_smoke, failed" }));
 
   await expect.element(page.getByRole("dialog", { name: "Check log" })).toBeVisible();

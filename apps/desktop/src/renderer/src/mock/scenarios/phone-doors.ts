@@ -7,7 +7,7 @@
 // Session "Fix the flaky store test": open it, then the Bash calls fold. Two asks: the phone's is marked.
 
 import { asRow, holding } from "../holding";
-import { awaitingApproval, running } from "@armada/jobs/fixtures/build/index";
+import { awaitingApproval, running } from "@armada/screens/src/fixtures/build/index";
 import type { Turn } from "@armada/protocol";
 
 import { FakeSessionsFleet, asking, hosted } from "../sessions-fleet";

@@ -7,7 +7,7 @@ import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { HelmCarry } from "../shared/api/helm";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
-import type { AskTurn } from "@armada/jobs/review-wire";
+import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 import type { HelmContext, LandCheckAt, StagedAttachment, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -63,6 +63,7 @@ import { handleBayHistory } from "./bay-history-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
+import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 
 // Bridge's window, and the one connection under it.
 //
@@ -221,9 +222,9 @@ function anyWindowShown(): boolean {
 }
 
 function createWindow(): BrowserWindow {
+  const placed = restoreWindow();
   const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...placed.bounds,
     show: false,
     // Frameless: the title row Bridge draws itself — #1087 — replaces macOS's
     // grey bar, which said only "Armada" while the app's own controls sat
@@ -244,6 +245,9 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  if (placed.maximized) window.maximize();
+  if (placed.fullScreen) window.setFullScreen(true);
+  rememberWindow(window);
   window.on("ready-to-show", () => window.show());
 
   // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
@@ -571,6 +575,7 @@ void app.whenReady().then(() => {
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
+  connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));

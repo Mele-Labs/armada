@@ -180,46 +180,83 @@ vibrating.
 
 ### Depth
 
+One look, drawn by `packages/components/src/depth.css`, `pages.css` and the roles in
+`packages/tokens/takes.css`. The root carries `data-look="new"`, which
+`@armada/components/src/look` sets in each window that loads the stylesheet. There is no flag to turn it off.
+
+**Restraint is the rule.** The model is Linear, Vercel Geist, Raycast and the macOS HIG.
+Elevation is a solid lightness step, a 1px hairline and a small neutral shadow. **No
+gradients, no glows, no sheen and no texture** on a surface, a control or a state. Colour is the theme's: nothing in these
+files names a hue, and a shade is a `color-mix` of a theme token.
+
+**Four levels of lift**, each a shadow and the edge that goes with it:
+
 ```
---bg-glass          rgb(25 33 45 / 0.86)   card top
---bg-glass-end      rgb(22 30 41 / 0.86)   card bottom
---border-glass      rgb(255 255 255 / 0.07) card edge
---border-highlight  rgb(255 255 255 / 0.05) 1px light along a card's top inner edge
---accent-faint      --accent at 10%        the canvas's pool of light
---shadow-card       1px contact + 28px soft drop
---glass-blur        12px                   backdrop blur under a card
+rest      --shadow-rest      a card or panel on the canvas, a button at rest
+hover     --shadow-hover     the same under the pointer
+lifted    --shadow-lifted    picked up, or a panel with focus inside it
+overlay   --shadow-overlay   a layer over everything: menu, popover, dialog, sheet
 ```
 
-**A card** is a vertical gradient from `--bg-glass` to `--bg-glass-end`, with
-`--border-glass`, `--shadow-card`, a `--border-highlight` line along its top
-inner edge and a `--glass-blur` backdrop blur. The gradient, the highlight and
-the blur sit on a layer behind the card's content rather than on the card, so
-a tooltip or menu inside a card is never clipped by it. It
-replaces `--bg-raised` and `--border-subtle` on every panel that sits directly
-on the canvas: Overview's cards, Helm's dock,
-and every `Card` a surface draws on the canvas — Dispatch, Studios, Reports,
-Worktree Slots and Settings — each at `--radius-lg`. A `Card` inside a sheet, a
-dialog, a well or another card is not on the canvas: it stays flat, at
-`--radius-md`. A row, a well or an input inside a card stays flat on its
-Ground token.
+Edges are `--edge-rest`, `--edge-hover`, `--edge-lifted` and `--edge-overlay`, steps of
+`--border-subtle` to `--border-strong`. A shadow is black on a dark theme and slate on a
+light one. Nothing inside a panel takes a shadow.
 
-**The canvas** is `--bg-base` under two radial pools of light. `--accent-faint`
-sits in a 760 × 480px ellipse centred on the top leading corner.
-`--helm-faint` sits in a 640 × 520px ellipse on the bottom trailing corner,
-behind Helm's dock, and only while the dock is open.
+**A panel is glass.** Every Cockpit panel and pane, the Studios page's cards, and the layers that float over
+them share one material:
 
-**The glass top is set by contrast.** It is the lightest ground text sits on,
-measured under the accent pool. `--fg-subtle` reads 4.74:1 there, and every
-status badge clears 4.5:1 on its own 12% tint, `not_started` included at
-4.55:1. A lighter top, `rgb(30 41 55)`, dropped `--fg-subtle` to 4.37:1.
+```
+--glass-fill   56%   --bg-sunken over the canvas, translucent
+blur           28px, saturated 170%
+edge           1px rgb(255 255 255 / 0.11), 0.18 while focus is inside
+highlight      1px rgb(255 255 255 / 0.05) along the top inner edge
+menu, popover, palette, inspect card, combobox list
+               --bg-overlay at 78%, the same blur, edge 0.12, --shadow-overlay
+```
 
-**No blur while a scrim covers the card.** Behind an open Sheet or Dialog the
-blur cannot be seen, and redrawing it every frame under the scrim made presses
-on the sheet go missing: three full runs of the app's tests in six, and none in
-five once it was off. The glass is 86% opaque, so the card paints the same
-without it. A Drift or Verify panel inside a Sheet or Dialog is not on the
-canvas, so it takes no glass at all and stays on `--bg-raised` and
-`--border-subtle`.
+The fill is the sunken charcoal rather than the raised one so that the canvas shows through without
+lifting the ground under text; `--fg-subtle` is held at 4.5:1 where the pool is strongest. Rows, fields
+and wells inside a panel stay flat on their Ground token. The map pane keeps its own opaque fill and takes the
+frame only, because its drawing animates and the blur samples what is behind it. No blur while a scrim covers
+the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
+
+**The canvas** is `--bg-base` under one radial pool of `--accent-faint`, in a 760 x 480px ellipse on the top
+leading corner, which the title row does not cut off (it has no ground of its own). `--helm-faint` pools on the
+bottom trailing corner behind Helm's dock, only while the dock is open. These are the only gradients, they are
+the light the glass blurs, and they carry no information.
+
+**A `Card` on the canvas outside the Cockpit and Studios** (Overview, Reports, Settings) still draws the
+tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in
+`tokens/colors.css`, until it takes the panel material above.
+
+**Two look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, and `--blur-glass`
+(28px), the backdrop blur under glass. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
+colour token it is.
+
+**Radius is two values.** `--radius-lg` 8px for panels, cards, menus and the palette; `--radius-md` 6px for
+controls, rows and tiles; `--radius-sm` 3px for badges. No pill except an avatar.
+
+**Selection is flat.** A selected row is a low-alpha accent wash, 16%, and a 2px accent bar on the leading
+edge. The keyboard cursor is the hover step and a hairline. Hover is one flat background step,
+`--bg-step`. **A row never lifts, moves or grows a shadow under the pointer**; only a card that is itself a
+control rises one pixel. An active segment of a tab strip is a solid step over its track with a hairline.
+
+**A panel header has no icon.** It is small tracked caps over one hairline, with a keycap at the far end.
+A count is never drawn beside what it counts.
+
+**The Work row** is two lines on one left edge, with no icon for its kind. Line 1 is the title and a fixed
+column of three slots: the clash mark, the phase glyph and the state mark, in that order, which lines up down the
+list. Line 2 is the last thing the Job or Session said, quiet and cut to the width, and its age in mono under the marks.
+A linked Session alone has a glyph, `link`, before its title. A queued row keeps the single line it had.
+
+**The repository field** at the head of the Cockpit's left column is a combobox
+(WAI-ARIA: a text input with a listbox popup). Pressing or focusing it turns it into a search box in place,
+showing the current pick as its placeholder; the list opens under it as a glass layer and narrows as he types.
+ArrowDown and ArrowUp move, Enter picks, Esc puts the previous pick back and closes. All repositories leads, a rule under
+it; the repositories follow; Add a repository is a footer row outside the filter, reachable by arrow like any row.
+
+**Studios on All repositories** draws one glass panel for each repository, headed by its name, and never
+asks for a repository first. Nothing else about a list changes with the scope.
 
 ### Foreground
 
@@ -654,19 +691,19 @@ and content left edges align with their header's left edge.
 
 ```
 --radius-sm  3px    badges, small controls
---radius-md  5px    buttons, inputs, a flat card
+--radius-md  6px    buttons, inputs, rows and tiles, a flat card
 --radius-lg  8px    dialogs, panels, a card on the canvas
 ```
 
-**A card's radius follows its surface.** On the canvas it takes the card
+**A card's radius follows its surface.** On the canvas it takes the panel
 treatment under Depth and `--radius-lg`, the same corner as the panel beside
 it. Flat — inside a sheet, a dialog or another card — it is `--radius-md`.
 
 No full-round pills except avatars.
 
-**Two heights of shadow.** A card lifts off the canvas on `--shadow-card`. A
-floating layer (dialog, popover, dropdown) lifts off the card on
-`--shadow-overlay`, the deeper of the two. Nothing inside a card takes a
+**Four heights of shadow**, under Depth: rest, hover, lifted and overlay. A card lifts off the
+canvas on `--shadow-rest`. A floating layer (dialog, popover, dropdown) lifts off the card on
+`--shadow-overlay`, the deepest. Nothing inside a card takes a
 shadow: a shadowed row inside a card reads as a second card. The one solid
 accent on a view takes `--shadow-primary` (see Button).
 
@@ -1027,7 +1064,7 @@ The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
 mapped, never chosen; see [Iconography](iconography.md).
 
-**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan ring's levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
+**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan ring's levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens an inspect card (hover or focus, kept by a press, closed by Esc or a press outside): kind `Context`, the tokens over the window, a state band `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
 
 **pid, port, protocol and uptime do not follow it.** They stay in the panel.
 A dot cannot carry a figure; Fleet's own figures are read in the panel.
@@ -1237,6 +1274,7 @@ measuring in JavaScript.
 | Dropdown menu | Below the trigger | Trailing edges flush, caller may set leading |
 | Popover | Below the trigger | Leading edges flush, caller may set trailing |
 | Tooltip | Below the element it wraps | Leading edges flush |
+| Inspect card | Below the trigger, or beside it for a row in a column | Leading edges flush; flips where there is no room |
 | Split-button menu | Below the whole control, not the caret | Leading edges flush |
 
 **Alignment is a preference, not a rule.** The trigger's edge is what the
@@ -1317,7 +1355,7 @@ order is the order a person meets them.
 | --- | --- | --- |
 | `--z-dock` | Helm's dock, and the workflow canvas's inspector | Over the content, under anything opened from inside it |
 | `--z-menu` | Dropdown, popover, split-button menu | Opens over the surface |
-| `--z-tooltip` | Tooltip | Explains the thing a menu is over |
+| `--z-tooltip` | Tooltip, inspect card | Explains the thing a menu is over |
 | `--z-modal` | Dialog, sheet | Interrupts both |
 | `--z-toast` | Toast | Over every panel, its scrim and every dialog, so a failure raised from inside one is pressable where it appears |
 | `--z-palette` | Command palette | The way out of anything |
@@ -1401,6 +1439,7 @@ is the back-fill by hand that this section existed to prevent.
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
+⌥A       dispatch after another Session: a Session with an @ typed in the request
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
 ⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
@@ -1442,7 +1481,6 @@ r              review             (list only)
 t              attest   (list and detail)
 d              redirect   (list and detail)
 s              restart step        (detail only)
-p              pilot               (not built)
 c              copy debug info
 b              report this job     (detail only) (confirms)
 x              kill                (confirms)
@@ -1468,9 +1506,10 @@ m              show the map   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopilot, Dispatch   (deck only)
-1–6            press a flight control   (deck only)
+0–9            press a flight control   (deck only)
 v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
+/              search the list   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
 L              open the lists   (review only)
@@ -1507,7 +1546,7 @@ description. They stand down in a text field and while a dialog is up.
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
 hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
 the keymap does not count them against `t` and `c`. `l b c q f a d` go to a panel, `m` shows
-the map, `1–6` press a flight control, `t` shows the timeline, `v` swaps a Job's mission
+the map, `0–9` press a flight control, `t` shows the timeline, `/` opens the list's Filter menu with its search focused, `v` swaps a Job's mission
 and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
 while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,
@@ -1661,16 +1700,19 @@ ring is the cursor.
 A floating layer, so `--bg-overlay` and a shadow.
 
 ```
-surface    --bg-overlay · --border-default · --radius-lg · shadow
+surface    glass (Depth): --bg-overlay at 78%, blurred · 1px light edge ·
+           --radius-lg · --shadow-overlay
 width      560px · max-height 400px · scroll-area beyond
 anchor     horizontally centred across the window; field top-aligned at
            20% of viewport height; never vertically centered
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
-row        32px · 12px padding · --text-sm · --fg-default
+input row  48px · --text-base · set off by a hairline
+row        32px · --radius-md · --text-sm · --fg-default
            16px leading icon · shortcut right-aligned as kbd
-active row --bg-hover
-section    --text-2xs · --fg-subtle
+hover row  one flat step, --bg-step
+active row 16% accent wash and a 2px accent bar, no fill block
+section    28px · mono caps --text-2xs · --fg-subtle
 ```
 
 Top-anchored rather than centered because a centered dialog shifts
@@ -2087,6 +2129,63 @@ word a reader sees. Two explanations of what a Check is would be two
 things that can disagree, which is the distinction the gate rests on.
 
 Placement, alignment and collision are under Floating layers.
+
+**The tooltip is for one line of words.** Anything with a head, a state
+and facts is an inspect card, below.
+
+### Inspect card
+
+**One card opens on every rich hover, the same over a Session as over a
+pull request.** A reader who has seen one has seen them all, and only what
+is said in it changes with the kind of thing. It is `Inspect` and
+`InspectCard` in `packages/components/src/primitives/Inspect/Inspect.tsx`. It replaced
+`StopCard`, the Session ledger's preview bubble, the owner chip's card, the
+merge queue light's card, the plan usage card and the map's callout, each
+of which drew its own surface and kept its own timing.
+
+```
+head     kind glyph · kind in small caps · item id or place, mono, trailing
+name     --text-sm · --weight-heading
+state    glyph + words in the item's status tone, on a 14% wash of it
+facts    label --fg-muted · value --fg-default, values right-aligned
+section  a muted heading over more facts, or the caller's own body
+keys     key chip + verb for each key that works on it now, ending in Esc
+```
+
+**The material is one solid surface.** `--bg-overlay`, a hairline
+`--border-default`, `--radius-lg`, `--shadow-overlay`, and a 2px top edge in
+the item's status tone. No glow, no blur and no translucency.
+
+**The state band is the only other place the tone is drawn**, and the tone
+is the status token the item already maps to, never a colour chosen for the
+card. A card with no state has a top edge of no colour.
+
+Facts are `--text-2xs` in tabular figures, so a column of figures lines up
+on the right edge, and a value the system made (a branch, a path, an id, a
+duration) is mono. The card is narrow or wide and nothing between.
+
+**One rule set opens, pins, closes and places every card.**
+
+| | |
+|---|---|
+| Opens | On hover after `--tooltip-delay`, and on keyboard focus. A press focuses a button too, and it is the press that decides then |
+| Switches | While one is open, or within `--tooltip-grace` of one closing, the next opens on arrival, and the first is put away. One card is open at a time |
+| Pointer | It can cross into the card; the card closes `150ms` after the pointer leaves both |
+| Pins | A press pins it, where the trigger's press is not already an act. A pinned card is a dialog named for the item, takes focus, can be pressed in, and stays when the pointer leaves. A row that opens on a press, or a chip that selects, does not pin (`pin={false}`) |
+| Closes | Esc, or a press outside. Esc on a card the reader holds is taken whole and returns focus to the trigger; on a card only hovered it goes on to whatever else answers it |
+| Placed | Below the trigger, or beside it on the inline-start side for a row in a column whose card below would cover the rows under it. Anchor positioning with a flip where there is no room, in the top layer, so it clears every sheet and is never clipped by what it hangs off |
+| Reads | Hovered it is a `tooltip` that describes its trigger; pinned it is a `dialog` |
+| Motion | It eases in for `--duration-fast` only where motion is allowed, and draws still under reduced motion |
+
+**The keys are read from the registry.** A key that works on the item is
+an action of the shortcut registry, so Settings → Keyboard moves it in the
+card too; a key only the browser answers, such as Enter on a focused
+button, is written by hand. The footer always ends in Esc.
+
+**The activity graph keeps its own `Hour` card, by the owner's choice
+(16 Oct 2026).** It is a `Tooltip` in `card` mode and the only one left.
+A new rich hover is an inspect card; a second card of its own would be a
+second answer to the same question.
 
 ### Prose — model-written markdown
 
@@ -2669,8 +2768,7 @@ read plausibly under a different job has failed.
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no
   difference in kind. Helm's thread and its session record are the case:
-  Fleet writes the *no reply came* sentences
-  (`crates/fleet/src/helm/unanswered.rs`) and Bridge words the row about
+  Fleet writes the *no reply came* sentences and Bridge words the row about
   a session it could not resume. Fleet's open lower case and cannot do
   otherwise — some of them lead with the program that would not start,
   `claude` or `codex`, and the lexicon refuses a model or program name
@@ -2996,7 +3094,7 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — Fleet's
 panel carries neither, and nothing in the shell
-states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one hover card of both, each limit's name and percent on one line over when it resets.
+states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one inspect card of both, each limit's name and percent on one line over when it resets.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation

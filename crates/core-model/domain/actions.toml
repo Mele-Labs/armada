@@ -126,6 +126,18 @@ destructive = false
 confirms = false
 notes = "In the Dispatch panel on a Session, saves the request as an idea to start later instead of starting it: the idea keeps its words, its repository and the model and effort picked, and waits at the head of its repository's group in the Cockpit's list, with Start and Remove. The same act as the Queue for later button, from inside the request where `Enter` starts. Global, because it is modifier-based, and the shifted form of `send_message` so the two keys read as one family: the ⌘ key that sends, and the same key with Shift that saves. Plain `Enter` still starts a Session. A Job and an Autopilot have no queue, so the key does nothing there. The button draws the key while ⌘ is held, as Send does. No glyph: the button is a word. Added 16 Oct 2026."
 
+[actions.dispatch_after]
+kind = "Action"
+tier = "Global"
+verb = "Dispatch after another Session"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥A"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Opens the Dispatch panel on a Session with an `@` typed at the end of the request, and the menu of live Sessions open on it: pick one and the brief waits on it. Inside the panel it types the `@` at the caret, from any kind. The sentence over the request then shows the proposer's reading of the wait (which Session, when, from where, what it needs). A modifier means this tier, so it works from inside the request. Read by the key's place on the keyboard, since Option changes the character A types. No glyph: the request is the act, and `link` is the mark of a Session that already waits. Added 16 Oct 2026 with the Session that waits on another."
+
 [actions.close]
 kind = "Action"
 tier = "Global"
@@ -265,18 +277,6 @@ scope = "detail"
 destructive = false
 confirms = false
 notes = "`rotate-cw` is Redispatch and `refresh-cw` is reserved to churning, so the two rotation glyphs are both spoken for. Restarting one step is neither. Carries no `unbuilt`: Bridge has this act — `Acts.tsx` fires `restart_step` from the step panel and has since #62. What it has no keyboard path to is a different thing from what it cannot do, and #233 read the missing binding as a missing act."
-
-[actions.pilot]
-kind = "Action"
-tier = "Contextual"
-verb = "Pilot"
-icon = "terminal"
-shortcut = "p"
-scope = "list and detail"
-destructive = false
-confirms = false
-unbuilt = "#250"
-notes = "The glyph is reserved to Pilot. Once the terminal has focus every keystroke belongs to it and this tier is suspended; only Esc Esc releases it — a safety rule written against an act that does not exist yet, which is what #233 found. #250 is the control; the handover the exemption describes is #255's three exits."
 
 [actions.copy_debug_info]
 kind = "Action"
@@ -649,11 +649,11 @@ tier = "Contextual"
 verb = "Press a flight control"
 icon = ""
 icon_absent = "undecided"
-shortcut = "1–6"
+shortcut = "0–9"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline. While a Session is open on the stage the same digits press its tiles, `1` to `6`: Ask for update, Auto land, Compact, Report, Map and Judge. They are not rows of their own because each is a press on a tile and the digit is the only key."
+notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline. While a Session is open on the stage the same digits press its tiles, `1` to `9` and `0`: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. The eleventh, Slot, has no digit: it is lit only when the slot is wrong, and the call in the thread opens it. They are not rows of their own because each is a press on a tile and the digit is the only key."
 
 [actions.deck_view]
 kind = "Action"
@@ -678,6 +678,18 @@ scope = "deck"
 destructive = false
 confirms = false
 notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. `m` shows the map."
+
+[actions.deck_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the list"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_search` on the Reviews tab: a different scope, so neither is the other's conflict."
 
 [actions.deck_page]
 kind = "Action"

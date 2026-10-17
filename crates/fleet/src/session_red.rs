@@ -145,12 +145,12 @@ where
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: Some(ForkFrom {
                     session_id: SessionId::carried(old),
                     at,
                 }),
                 request: None,
+                after: None,
             })
         };
         let made: Result<SessionRecord, _> = match fork(None).await {

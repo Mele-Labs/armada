@@ -14,13 +14,13 @@
 // over. Only addresses moved off the file the gate measures.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
-import type { PilotOutcome } from "@armada/protocol";
+import type { StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
@@ -369,6 +369,7 @@ export class FleetConnection {
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       timeline: this.timeline,
+      reviews: this.reviews,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,
@@ -699,22 +700,12 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }): Promise<SessionActed> {
+  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    const start = startOn(repository, title, root, request, tuning);
+    const start = startOn(repository, title, root, request, tuning, after);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
-  }
-
-  /**
-   * Takes a Job over and starts a Session on its worktree. **The repository is the Job's own**, read
-   * off the row main holds, so a window on another repository, or on All, takes over the same Job.
-   */
-  async pilotJob(jobId: string, outcome: PilotOutcome): Promise<SessionActed> {
-    const job = this.current.jobs.find((row) => row.id === jobId);
-    if (job === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    return await this.sessions.start({ manifest_id: job.owner_manifest_id, pilot: { job_id: jobId, outcome } });
   }
 
   private connected(): BridgeStateFleet | null {

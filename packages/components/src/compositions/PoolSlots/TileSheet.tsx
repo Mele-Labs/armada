@@ -29,7 +29,8 @@ import type { TileRow } from "./tiles";
 export type TileSheetProps = {
   row: TileRow;
   floor: boolean;
-  onOpenJob: (jobId: string) => void;
+  /** Absent draws the Job as a name. */
+  onOpenJob?: ((jobId: string) => void) | undefined;
   /** Absent draws no slot acts. */
   onAct?: (act: SlotAct, slot?: number) => void;
   /** Absent draws none of the rescue acts. */

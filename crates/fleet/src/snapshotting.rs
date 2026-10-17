@@ -31,9 +31,8 @@ where
     /// Read the Manifest as it stands **right now** and record it against a
     /// Job this same call just inserted.
     ///
-    /// **The only two callers this crate has**: the three dispatch paths that
-    /// create a Job — `crate::daemon::answering`, `crate::sub_dispatch`,
-    /// `crate::redispatch` — call this once, right after `insert_job`, to
+    /// **The only two callers this crate has**: the dispatch paths that
+    /// create a Job — `crate::daemon::answering`, `crate::redispatch` — call this once, right after `insert_job`, to
     /// turn the Manifest Fleet resolved into what every later read sees; and
     /// a person-approved scope revision is `docs/concepts/drone.md`'s one
     /// re-snapshot, calling it again on a Job already running. Nothing else

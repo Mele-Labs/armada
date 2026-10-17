@@ -49,9 +49,6 @@ mod build_notice;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
 mod check_runs;
 mod checked;
-/// A question a Job's Commander has put to the owner, and the model chosen for it.
-mod commander_cards;
-mod commander_model;
 mod columns;
 /// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
 mod crew;
@@ -68,9 +65,6 @@ mod gaming;
 mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
-mod commander;
-mod commander_repairs;
-mod commander_wakes;
 mod helm_sessions;
 /// The model and effort a person chose for a Helm conversation.
 mod helm_tuning;
@@ -146,6 +140,10 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// What Fleet told a Session about one it follows, so it is told once.
+mod linked_told;
+/// A Session dispatched to wait on another, until its condition is met.
+mod session_waits;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.
@@ -176,6 +174,8 @@ mod review_dismissals;
 mod review_followups;
 mod review_model;
 mod review_record;
+/// What an agent said about one pull request, kept for the commit it read.
+mod review_runs;
 mod review_view;
 mod revision;
 mod row;
@@ -231,10 +231,6 @@ pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
-pub use commander_cards::{CardAnswered, CardRaised, CardRaiser, NewCard, StoredCard};
-pub use commander_model::CommanderChoice;
-pub use commander_repairs::RepairOut;
-pub use commander_wakes::{CommanderProblem, CommanderWake};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use devices::{Device, PushSubscription};
@@ -245,6 +241,7 @@ pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
+pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
@@ -263,7 +260,7 @@ pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, Tur
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
 pub use pending_evidence::PendingEvidence;
-pub use piloting::{KeptPilot, Narrative, PilotExit};
+pub use piloting::{KeptPilot, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
@@ -276,6 +273,7 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use review_runs::KeptReviewRun;
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,

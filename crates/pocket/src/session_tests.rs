@@ -4,11 +4,12 @@
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-use axum::extract::Query;
+use axum::extract::ws::{Message, WebSocketUpgrade};
 use axum::http::{Method, StatusCode};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
-use std::collections::HashMap;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::pairing_tests::{call, paired, rig_with, signed, Rig};
 
@@ -40,7 +41,7 @@ fn sessions() -> String {
     let rows = [
         record("h1", "bridge", "live", &hosted(&format!(r#","asked":{}"#, ask("c1", "AskUserQuestion", "", question)))),
         record("h2", "bridge", "live", &hosted(&format!(r#","asked":{}"#, ask("c2", "Bash", "ls -la", "")))),
-        record("h3", "bridge", "live", &hosted("")),
+        record("h3", "bridge", "live", &format!(r#"{}{}"#, hosted(""), r#","standing":"working""#)),
         record(
             "t1",
             "terminal",
@@ -68,20 +69,37 @@ fn sessions() -> String {
             &format!(r#","terminal":{{"listening":false,"asked":{}}}"#, ask("tc4", "Bash", "ls", "")),
         ),
         record("t2", "terminal", "live", ""),
-        record("e1", "bridge", "ended", &hosted(&format!(r#","asked":{}"#, ask("c9", "Bash", "x", "")))),
+        record(
+            "e1",
+            "bridge",
+            "ended",
+            &format!(r#"{}{}"#, hosted(&format!(r#","asked":{}"#, ask("c9", "Bash", "x", ""))), r#","ended_at":"2026-10-08T04:00:00.000Z""#),
+        ),
+        record("e2", "terminal", "ended", r#","ended_at":"2026-10-08T05:00:00.000Z""#),
     ];
     format!(r#"{{"sessions":[{}]}}"#, rows.join(","))
 }
 
-async fn fake_fleet(seen: Seen, from_request_status: u16) -> u16 {
+/// Fleet's events: a Session that changed, and one that is not a Session.
+async fn events(upgrade: WebSocketUpgrade) -> impl IntoResponse {
+    upgrade.on_upgrade(|mut socket| async move {
+        let changed = record("h3", "bridge", "live", r#","standing":"stuck""#).replacen('{', r#"{"kind":"session.changed","#, 1);
+        let changed = format!(r#"{{"message":"event","cursor":2,"event":{changed}}}"#);
+        let other = r#"{"message":"event","cursor":3,"event":{"kind":"repositories.changed","repositories":[]}}"#;
+        for text in [other.to_string(), changed] {
+            socket.send(Message::Text(text)).await.ok();
+        }
+    })
+}
+
+async fn fake_fleet(seen: Seen, start_status: u16) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
-    let proposed = seen;
+    let started = seen;
     let app = Router::new()
         .route("/sessions", get(|| async { sessions() }))
-        .route("/jobs", get(|| async { r#"{"jobs":[]}"# }))
-        .route("/alerts", get(|| async { r#"{"blocked":[],"waiting":[]}"# }))
         .route("/manifests", get(move || async move { manifests }))
+        .route("/events", get(events))
         .route(
             "/sessions/ask/answer",
             post(move |body: String| async move {
@@ -90,20 +108,14 @@ async fn fake_fleet(seen: Seen, from_request_status: u16) -> u16 {
             }),
         )
         .route(
-            "/jobs/from_request",
-            post(move |Query(query): Query<HashMap<String, String>>, body: String| async move {
-                proposed
-                    .lock()
-                    .unwrap()
-                    .push((format!("/jobs/from_request?manifest_id={}", query["manifest_id"]), body));
-                if from_request_status == 201 {
-                    let job = format!(
-                        r#"{{"jobs":[{{"id":"j9","handle":"h","title":"Made","status":"awaiting_approval","created_at":"2026-10-08T06:00:00.000Z","workflow_id":"bug","owner_manifest_id":"m2","origin":"manual","urgency":"normal","atomic":false,"model":"{SECRET}"}}]}}"#
-                    );
-                    (StatusCode::CREATED, job)
+            "/sessions/start",
+            post(move |body: String| async move {
+                started.lock().unwrap().push(("/sessions/start".into(), body));
+                if start_status == 200 {
+                    (StatusCode::OK, record("s9", "bridge", "live", &hosted("")))
                 } else {
                     (
-                        StatusCode::from_u16(from_request_status).unwrap(),
+                        StatusCode::from_u16(start_status).unwrap(),
                         format!(r#"{{"code":"x","message":"Say what you want done.","run_id":"r","fields":{{}},"chain":["{SECRET}"]}}"#),
                     )
                 }
@@ -138,7 +150,7 @@ async fn send(app: &App, method: Method, path: &str, body: &str) -> (StatusCode,
 
 async fn rig() -> (App, Seen) {
     let seen = Seen::default();
-    (on(fake_fleet(seen.clone(), 201).await).await, seen)
+    (on(fake_fleet(seen.clone(), 200).await).await, seen)
 }
 
 #[tokio::test]
@@ -150,7 +162,12 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
     for field in ["cwd", "model", "commands", "end_reason", "usage", "attachments", "hosted", "terminal"] {
         assert!(!body.contains(&format!("\"{field}\":")), "{field} in {body}");
     }
-    assert!(!body.contains("\"e1\""), "{body}");
+    assert!(!body.contains("\"e1\"") && !body.contains("\"e2\""), "{body}");
+    // Only a Session with a turn running is working; each carries when it began.
+    let working = &body[body.find(r#""id":"h3""#).unwrap()..];
+    let working = &working[..working.find('}').unwrap()];
+    assert!(working.contains(r#""working":true"#) && working.contains(r#""started_at":"2026-10-08T01:00:00.000Z""#), "{working}");
+    assert!(body.matches(r#""working":true"#).count() == 1, "{body}");
     // The hosted question: its text, its options, its id.
     assert!(body.contains(r#""ask_id":"c1""#) && body.contains("Which branch?") && body.contains(r#""label":"dev""#), "{body}");
     assert!(body.contains(r#""repository":"armada""#), "{body}");
@@ -171,6 +188,18 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
     let deaf = &body[body.find(r#""id":"t4""#).unwrap()..];
     let deaf = &deaf[..deaf.find('}').unwrap()];
     assert!(deaf.contains(r#""waiting":true"#) && !deaf.contains("ask"), "{deaf}");
+}
+
+#[tokio::test]
+async fn the_ended_sessions_come_newest_first_and_carry_no_marker() {
+    let (app, _) = rig().await;
+    let (status, body) = send(&app, Method::GET, "/api/sessions?state=ended", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (e2, e1) = (body.find("\"e2\"").unwrap(), body.find("\"e1\"").unwrap());
+    assert!(e2 < e1, "{body}");
+    assert!(body.contains(r#""ended_at":"2026-10-08T05:00:00.000Z""#), "{body}");
+    assert!(!body.contains("\"h1\"") && !body.contains(SECRET) && !body.contains("ask_id"), "{body}");
+    assert_eq!(send(&app, Method::GET, "/api/sessions?state=nope", "").await.0, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -240,15 +269,15 @@ async fn answers_that_cannot_be_given_are_refused_before_fleet() {
 }
 
 #[tokio::test]
-async fn dispatch_maps_the_label_to_the_manifest_id() {
+async fn dispatch_starts_a_session_on_the_manifest_the_label_maps_to() {
     let (app, seen) = rig().await;
-    let (status, body) = send(&app, Method::POST, "/api/jobs", r#"{"text":"Fix the thing","repository":"notes"}"#).await;
+    let (status, body) = send(&app, Method::POST, "/api/sessions", r#"{"text":"Fix the thing","repository":"notes"}"#).await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert!(body.contains(r#""id":"j9""#) && body.contains(r#""repository":"notes""#), "{body}");
+    assert!(body.contains(r#""id":"s9""#) && body.contains(r#""repository":"notes""#), "{body}");
     assert!(!body.contains(SECRET), "{body}");
     assert_eq!(
         seen.lock().unwrap()[0],
-        ("/jobs/from_request?manifest_id=m2".to_string(), r#"{"request":"Fix the thing","attachments":[]}"#.to_string())
+        ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string())
     );
 }
 
@@ -260,12 +289,12 @@ async fn dispatch_refuses_what_it_does_not_know_and_passes_fleets_refusal() {
         r#"{"text":"x","repository":"nope"}"#,
         r#"{"text":"x","repository":"armada","manifest_id":"m2"}"#,
     ] {
-        let (status, _) = send(&app, Method::POST, "/api/jobs", body).await;
+        let (status, _) = send(&app, Method::POST, "/api/sessions", body).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     }
     assert!(seen.lock().unwrap().is_empty());
     let refusing = on(fake_fleet(Seen::default(), 422).await).await;
-    let (status, body) = send(&refusing, Method::POST, "/api/jobs", r#"{"text":"","repository":"armada"}"#).await;
+    let (status, body) = send(&refusing, Method::POST, "/api/sessions", r#"{"text":"","repository":"armada"}"#).await;
     assert_eq!((status, body.as_str()), (StatusCode::UNPROCESSABLE_ENTITY, "Say what you want done."));
 }
 
@@ -276,12 +305,38 @@ async fn repositories_are_the_labels() {
 }
 
 #[tokio::test]
+async fn live_forwards_a_session_change_and_drops_everything_else() {
+    let port = fake_fleet(Seen::default(), 200).await;
+    let gateway_listener = crate::bind(0).await.unwrap();
+    let at = gateway_listener.local_addr().unwrap().port();
+    let app = on(port).await;
+    let time = app.rig.now.fetch_add(1, Ordering::Relaxed) + 1;
+    let signed: String = signed(&app.device, "GET", "/api/live", time, "")
+        .iter()
+        .map(|(name, value)| format!("{name}: {value}\r\n"))
+        .collect();
+    let served = app.rig.app.clone();
+    tokio::spawn(async move { axum::serve(gateway_listener, served).await });
+    let mut socket = tokio::net::TcpStream::connect(("127.0.0.1", at)).await.unwrap();
+    socket
+        .write_all(format!("GET /api/live HTTP/1.1\r\nHost: x\r\n{signed}Connection: close\r\n\r\n").as_bytes())
+        .await
+        .unwrap();
+    let mut raw = String::new();
+    socket.read_to_string(&mut raw).await.unwrap();
+    assert!(raw.contains("text/event-stream"), "{raw}");
+    assert!(raw.contains(r#"data: {"change":"session","session_id":"h3"}"#), "{raw}");
+    assert!(!raw.contains("repositories") && !raw.contains(SECRET), "{raw}");
+}
+
+#[tokio::test]
 async fn unsigned_is_401_and_fleet_down_says_what_to_do() {
     let (app, _) = rig().await;
     for (method, path) in [
         (Method::GET, "/api/sessions"),
         (Method::POST, "/api/sessions/answer"),
-        (Method::POST, "/api/jobs"),
+        (Method::POST, "/api/sessions"),
+        (Method::GET, "/api/needs"),
         (Method::GET, "/api/repositories"),
     ] {
         assert_eq!(call(&app.rig.app, method, path, &[], "{}").await.0, StatusCode::UNAUTHORIZED, "{path}");
@@ -293,9 +348,12 @@ async fn unsigned_is_401_and_fleet_down_says_what_to_do() {
     let down = on(closed).await;
     for (method, path, body) in [
         (Method::GET, "/api/sessions", ""),
+        (Method::GET, "/api/sessions?state=ended", ""),
+        (Method::GET, "/api/needs", ""),
+        (Method::GET, "/api/live", ""),
         (Method::GET, "/api/repositories", ""),
         (Method::POST, "/api/sessions/answer", r#"{"session_id":"h2","answer":"refuse"}"#),
-        (Method::POST, "/api/jobs", r#"{"text":"x","repository":"armada"}"#),
+        (Method::POST, "/api/sessions", r#"{"text":"x","repository":"armada"}"#),
     ] {
         let (status, said) = send(&down, method, path, body).await;
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{path}");

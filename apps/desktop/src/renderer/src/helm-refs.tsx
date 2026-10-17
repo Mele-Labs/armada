@@ -1,6 +1,6 @@
-// What Helm's thread links: a pull request or an issue by its number, a Job, a Session. **Each opens where
-// Bridge already shows it**: a Job on its detail, a Session on its page, a pull request on its row of the merge
-// line, and an issue on the composer's open issues. The finding is `@armada/helm`'s `scanRefs`; this holds what
+// What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
+// Bridge already shows it**: a Session on the Cockpit, a pull request on its row of the merge
+// line, and an issue in the Dispatch panel. The finding is `@armada/helm`'s `scanRefs`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
@@ -27,7 +27,6 @@ export type Host = {
   repositories: readonly RepositorySummary[];
   /** Where each kind is shown. A pull request is its branch's row on the merge line. */
   openSession: (id: string) => void;
-  openJob: (jobId: string) => void;
   openPullRequest: (branch: string | undefined) => void;
   openIssues: (root: string | undefined) => void;
   /** The forge, where a pull request or an issue has no place of its own here. */
@@ -46,7 +45,7 @@ function numbersIn(session: Session | undefined): number[] {
 /** Where a reference is read: the repository it is in, the Session whose words and pull requests it holds, and a pull request that Session shows itself. */
 type Scope = { manifestId: string | undefined; session: Session | undefined; showOwn?: (number: number) => void };
 
-function useRefs({ state, repositories, openSession, openJob, openPullRequest, openIssues, openLink }: Host, { manifestId, session: thread, showOwn }: Scope): ProseReferences {
+function useRefs({ state, repositories, openSession, openPullRequest, openIssues, openLink }: Host, { manifestId, session: thread, showOwn }: Scope): ProseReferences {
   const root = repositories.find((one) => one.manifest?.id === manifestId)?.root;
   const numbered = useNumbered(manifestId);
   const sessions = useSessions();
@@ -72,7 +71,7 @@ function useRefs({ state, repositories, openSession, openJob, openPullRequest, o
     );
     const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
     const world: RefWorld = {
-      jobs: state.jobs,
+      jobs: [],
       // Helm's own Session is named by its repository, which would link every mention of it. An ended one
       // still has its page.
       sessions: sessions.filter((one) => one.helm !== true),
@@ -86,7 +85,6 @@ function useRefs({ state, repositories, openSession, openJob, openPullRequest, o
       scan: (text) => scanRefs(text, world),
       open: (ref: ProseReference) => {
         if (ref.kind === "session") return openSession(ref.id);
-        if (ref.kind === "job") return openJob(ref.id);
         const address = addressOf(ref);
         if (ref.kind === "pull_request") {
           const branch = branchOfPullRequest(line, ref.id);
@@ -97,7 +95,7 @@ function useRefs({ state, repositories, openSession, openJob, openPullRequest, o
         } else openIssues(root);
       },
     };
-  }, [numbered, looked, manifestId, thread, state.jobs, state.mergeLines, sessions, root, showOwn, openSession, openJob, openPullRequest, openIssues, openLink]);
+  }, [numbered, looked, manifestId, thread, state.mergeLines, sessions, root, showOwn, openSession, openPullRequest, openIssues, openLink]);
 }
 
 /** What Helm's thread links, read in its repository and from its own Session. */

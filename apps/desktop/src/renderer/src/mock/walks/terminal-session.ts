@@ -3,7 +3,7 @@
 // files and pictures that start a turn there. Model and effort are set from the
 // box and run in the terminal as typed; the permission mode is the terminal's
 // own and is shown and not set. Told twice: wide, and below the
-// breakpoint, where the ledger folds into a sheet.
+// breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
@@ -11,7 +11,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { message, thread } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   return [
     { press: inside(sessions, button("CI timeout hunt")), say: "A Session from a terminal is in the list with the others" },
     { look: inside(thread, text("It sleeps 50 ms")), say: "A long conversation opens at its newest message, with no scrolling" },

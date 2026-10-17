@@ -8,7 +8,7 @@ import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, rail } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   return [
     { press: inside(sessions, button("Pin the store clock")), say: "A Session that holds a branch and a pull request" },
     ...opened([
@@ -18,12 +18,6 @@ function steps(narrow: boolean): Step[] {
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Store clock spike")), say: "A Session that has not written anything yet" },
     ...opened([{ look: inside(ledger, role("img", "Nothing attached")), say: "No section, only a small picture" }]),
-    ...(narrow
-      ? []
-      : [
-          { press: button("Hide attachments"), say: "The button in the ledger panel's head hides it and the conversation takes the width" },
-          { press: button("Show attachments"), say: "The conversation's header holds the button that shows it again" },
-        ]),
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that made three things" },
     ...opened([

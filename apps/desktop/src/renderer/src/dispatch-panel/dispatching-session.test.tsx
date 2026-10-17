@@ -3,7 +3,7 @@
 
 import { forgetAllKept } from "@armada/components";
 import { repository } from "@armada/screens/src/fixtures/build/base";
-import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -21,7 +21,9 @@ const armada = { ...repository(), manifest: { ...repository().manifest!, id: "ar
 const start = vi.fn(async (_tag?: unknown, _root?: string, _request?: string, _tuning?: unknown) => "01SESSION");
 const send = vi.fn();
 const opened = vi.fn();
-const draft = { get: () => [], subscribe: () => () => undefined, start, send, models: [], efforts: [] } as unknown as SessionsDraft;
+// One list, since the sheet reads the Sessions through `useSyncExternalStore` and a new array each read never settles.
+const NO_SESSIONS: Session[] = [];
+const draft = { get: () => NO_SESSIONS, subscribe: () => () => undefined, start, send, models: [], efforts: [] } as unknown as SessionsDraft;
 
 function Outside() {
   held = useDispatching();
@@ -32,11 +34,8 @@ function Window() {
   const dispatching = useDispatch({
     state,
     repositories: [armada],
-    proposeFrom: async () => null,
     openSession: opened,
-    openJob: () => undefined,
     openAutopilot: () => undefined,
-    said: () => undefined,
   });
   return (
     <DispatchingProvider value={dispatching}>
@@ -76,7 +75,6 @@ test("starting a Session from the sheet passes the typed words as the request an
   const request = page.getByRole("textbox", { name: "Request" });
   await expect.element(request).toBeVisible();
   await expect.element(request).toHaveFocus();
-  await userEvent.keyboard("{Tab}");
   await expect.element(page.getByRole("button", { name: "Start" })).toBeVisible();
   await userEvent.keyboard("Fix the login page");
   await expect.element(request).toHaveValue("Fix the login page");

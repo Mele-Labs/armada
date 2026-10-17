@@ -1,0 +1,78 @@
+// Progress: the workflow as one line of glyphs, each named by its hover card, and the plan's groups under it. The step Fleet names is lit,
+// the ones before it are done, and with none named every step is to come. Browser: a rendering is what is read.
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, test } from "vitest";
+import type { Session, SessionWork, WorkPlan } from "@armada/screens/src/draft/sessions";
+
+import type { PlanEditing } from "./PlanEdit";
+import { ProgressPanel } from "./ProgressPanel";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const roots: { root: Root; host: HTMLElement }[] = [];
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  for (const { root, host } of roots.splice(0)) {
+    act(() => root.unmount());
+    host.remove();
+  }
+  localStorage.clear();
+});
+
+const plan = { scope: [], approved: false, groups: [{ id: "g1", title: "Retry", agent: "rust-engineer", paths: [], tasks: [{ id: "t1", text: "Retry the lease", state: "open" }] }] } as unknown as WorkPlan;
+const ed: PlanEditing = { id: "p1", plan, marks: [], set: () => undefined, send: () => undefined };
+const session = { id: "s1", attachments: [], rows: [], turn: { state: "idle" } } as unknown as Session;
+
+function mount(work: SessionWork, editing: PlanEditing | undefined = undefined): HTMLElement {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  act(() => root.render(<ProgressPanel work={work} place="side" id="s1" session={session} acts={undefined} ed={editing} onOpenSketch={() => undefined} onOpenSession={() => undefined} />));
+  roots.push({ root, host });
+  return host;
+}
+
+const states = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".sv-rail__step")].map((one) => one.dataset["state"]);
+
+test("the step Fleet names is lit, the ones before it are done and the ones after are to come", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 } });
+  expect(states(host)).toEqual(["done", "now", "next"]);
+  expect(host.querySelector('[aria-current="step"] [aria-label="Build · current"]')).not.toBeNull();
+});
+
+test("with no step named every step is to come and none is lit", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"] } });
+  expect(states(host)).toEqual(["next", "next"]);
+  expect(host.querySelector('[aria-current="step"]')).toBeNull();
+});
+
+test("a step is a glyph with its name in its hover card, and no name is written beside it", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 } });
+  expect(host.querySelector('[aria-label="Plan · current"]')).not.toBeNull();
+  expect(host.querySelector('[aria-label="Build · next"]')).not.toBeNull();
+  expect(host.querySelectorAll(".sv-rail__step [role='img']")).toHaveLength(2);
+  expect(host.querySelector(".sv-step__name")).toBeNull();
+});
+
+test("it is one panel, Progress, and neither a Status nor a Plan panel is drawn beside it", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, plan }, ed);
+  expect(host.querySelectorAll('section[aria-label="Progress"]')).toHaveLength(1);
+  expect(host.querySelectorAll('section[aria-label="Status"], section[aria-label="Plan"]')).toHaveLength(0);
+  expect(host.querySelector('section[aria-label="Retry"]')).not.toBeNull();
+});
+
+test("Ask for an update is a button in the band, and pressing it leaves the panel open", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, plan }, ed);
+  const section = host.querySelector<HTMLElement>('section[aria-label="Progress"]')!;
+  const ask = section.querySelector<HTMLButtonElement>('header button[aria-label="Ask for an update"]');
+  expect(ask).not.toBeNull();
+  act(() => ask!.click());
+  expect(section.dataset["collapsed"]).toBeUndefined();
+});
+
+test("a Session with no plan is its band alone", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 } });
+  expect(host.querySelector(".sv-plan")).toBeNull();
+});

@@ -8,7 +8,7 @@ use crate::Gateway;
 use axum::response::{IntoResponse, Response};
 
 /// A file under `dir`, or `index.html` for a path with no extension (the app's
-/// own screens, such as `/jobs/:id`, which a push opens). A missing directory
+/// own screens, such as `/sessions/:id`). A missing directory
 /// is 404, not an error: the app may not be built yet.
 pub async fn serve(State(gateway): State<Gateway>, request: Request) -> Response {
     let Some(dir) = gateway.assets else {

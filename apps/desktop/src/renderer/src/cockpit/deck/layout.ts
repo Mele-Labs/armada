@@ -1,5 +1,5 @@
 // The flight deck's battlefield, as pure readings. Each repository is a territory with a base at its near edge and its
-// main as the objective at the far edge; each Job and Session is a drone placed inside its territory and kept where it
+// main as the objective at the far edge; each Session is a drone placed inside its territory and kept where it
 // was put. Nothing here draws or moves anything.
 //
 // **A drone is only ever put where something observed puts it.** The areas it has edited (`touches.ts`) place it over
@@ -18,14 +18,14 @@ export type Rect = { x: number; y: number; w: number; h: number };
 export type Size = { width: number; height: number };
 export type Point = { x: number; y: number };
 
-// ---- A drone, read off the Job or Session it is --------------------------------------------------------
+// ---- A drone, read off the Session it is --------------------------------------------------------
 
 /** Grey is the baseline; amber is owed to him or stuck, red is a Check failing now. */
 export type Hue = "calm" | "ask" | "bad";
 
 export type DroneIn = {
   key: string;
-  kind: "job" | "session";
+  kind: "session";
   title: string;
   root: string;
   /** Its state, for the tooltip. */
@@ -41,7 +41,7 @@ export type DroneIn = {
   stuck: boolean;
   /** A Check is failing. */
   flare: boolean;
-  /** At work: a Job or Session whose turn is running, stuck or failing ones included. Idle and waiting drones are not. */
+  /** At work: a Session whose turn is running, stuck or failing ones included. Idle and waiting drones are not. */
   working: boolean;
   /** What a working drone's latest tool event says it is doing, over its plot. Set from the timeline, not here. */
   doing?: Doing;
@@ -49,8 +49,6 @@ export type DroneIn = {
   check?: Check;
   /** The command or path of that tool event. */
   via?: string;
-  /** The Job it belongs to or was dispatched by. */
-  parent?: string;
   /** The file it is over, where the repository draws files as bars: it hovers at the bar and not at the middle of the plot. */
   file?: string;
   /** The directories it is changing, and how much of its change is in each. */
@@ -61,14 +59,14 @@ export type DroneIn = {
   shown: boolean;
 };
 
-export function droneOf(subject: Subject, owed: boolean, extra: { parent?: string | undefined; slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
+export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
   const failing = !stuck && (subject.alarm || subject.mark.tone === "bad");
   const ask = owed || subject.needs;
   const working = subject.phase === "working";
   return {
     key: subject.key,
-    kind: subject.kind === "job" ? "job" : "session",
+    kind: "session",
     title: subject.title,
     root: subject.root,
     said: subject.mark.said,
@@ -79,7 +77,6 @@ export function droneOf(subject: Subject, owed: boolean, extra: { parent?: strin
     stuck,
     flare: failing,
     working,
-    ...(extra.parent === undefined ? {} : { parent: extra.parent }),
     ...(extra.slot === undefined ? {} : { slot: extra.slot }),
     ...(extra.file === undefined ? {} : { file: extra.file }),
     shown: extra.shown,
@@ -325,7 +322,6 @@ export function layoutOf(
   // a route that is not its own. Rects are in the layout's own units, a drone's lifted to where it is drawn.
   const keys = [...want.keys()].sort();
   const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
-  const owner = new Map(drones.map((one) => [one.key, one] as const));
   const goals = new Map(territories.flatMap((one) => (one.goal === undefined ? [] : [[one.root, one.goal] as const])));
   const homes = new Map(territories.map((one) => [one.root, { x: one.base.x - one.base.w / 2 + 36, y: one.base.y + 8 }] as const));
   const free = prs.filter((pr) => pr.stage !== "landed");
@@ -352,9 +348,8 @@ export function layoutOf(
     }
     return out;
   };
-  const reach = (key: string, at: Point): Box => {
-    const job = owner.get(key)?.kind === "job";
-    const half = Math.max(((job ? 26 : 20) + 12) * big, 80);
+  const reach = (at: Point): Box => {
+    const half = Math.max((20 + 12) * big, 80);
     // From the top of its name to the pool of light on the ground under it, which takes the pointer too.
     return boxOf(at.x - half, at.y - DRONE_UP - 34 * big - 46, at.x + half, at.y + 20 * big, 10);
   };
@@ -380,14 +375,14 @@ export function layoutOf(
       for (let j = i + 1; j < keys.length; j += 1) {
         const b = place.get(keys[j]!)!;
         if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1) a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
-        push(reach(keys[i]!, a), reach(keys[j]!, b), a, b);
+        push(reach(a), reach(b), a, b);
       }
     }
     // What is fixed is settled last, so a drone is moved off a flag before it is moved against another drone.
     for (const key of keys) {
       const a = place.get(key)!;
-      for (const box of statics) push(reach(key, a), box, a);
-      for (const route of routes) if (route.by !== key) push(reach(key, a), route.box, a);
+      for (const box of statics) push(reach(a), box, a);
+      for (const route of routes) if (route.by !== key) push(reach(a), route.box, a);
     }
     for (const key of keys) {
       const p = place.get(key)!;

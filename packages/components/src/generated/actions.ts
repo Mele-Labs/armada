@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Settings, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Settings, Shapes, Stamp, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -152,6 +152,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⇧⌘Enter",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "dispatch_after",
+    kind: "Action",
+    tier: "Global",
+    verb: "Dispatch after another Session",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥A",
     scope: "anywhere",
     destructive: false,
     confirms: false,
@@ -312,19 +325,6 @@ export const ACTIONS: readonly Action[] = [
     destructive: false,
     confirms: false,
     unbuilt: null,
-  },
-  {
-    id: "pilot",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Pilot",
-    icon: Terminal,
-    iconAbsent: null,
-    shortcut: "p",
-    scope: "list and detail",
-    destructive: false,
-    confirms: false,
-    unbuilt: "#250",
   },
   {
     id: "copy_debug_info",
@@ -736,7 +736,7 @@ export const ACTIONS: readonly Action[] = [
     verb: "Press a flight control",
     icon: null,
     iconAbsent: "undecided",
-    shortcut: "1–6",
+    shortcut: "0–9",
     scope: "deck",
     destructive: false,
     confirms: false,
@@ -763,6 +763,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "t",
+    scope: "deck",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "deck_search",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Search the list",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "/",
     scope: "deck",
     destructive: false,
     confirms: false,

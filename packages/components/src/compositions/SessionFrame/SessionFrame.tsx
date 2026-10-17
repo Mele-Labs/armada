@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, Link, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -11,6 +11,7 @@ import { ClashNotice } from "../ClashMark/ClashMark";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
+import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { useMarking, type Mark } from "../../marking";
 
 /**
@@ -19,10 +20,11 @@ import { useMarking, type Mark } from "../../marking";
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
  * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
  * pull request's Checks red, and ended is nothing listening, whether it was ended
- * or its terminal stopped asking, and limited is held until the plan's limit resets. `[conventions.session_state_borrowing]` and
+ * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
+ * (`link`, the Queued reason's upstream that has not finished). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited";
+export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -42,6 +44,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   quiet: Unplug,
   ended: Unplug,
   limited: BatteryLow,
+  after: Link,
 };
 
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */
@@ -115,6 +118,12 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
+  /**
+   * The Checks the Session has out, drawn as the running glyph and their count before the context tank: a press lists
+   * them and a press on one calls `onOpenCheck` with its run. Absent or empty draws nothing.
+   */
+  checks?: readonly RunningCheck[];
+  onOpenCheck?: (run: number) => void;
   /** Big or old: a quiet mark after the context tank, offering a fresh Session or a fork. Absent draws nothing. */
   fresh?: FreshStart;
   /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
@@ -195,7 +204,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
@@ -207,6 +216,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {repository}
         {actions}
+        {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
         <span className="armada-session-frame__marks">
           {fresh === undefined ? null : <FreshNudge fresh={fresh} />}

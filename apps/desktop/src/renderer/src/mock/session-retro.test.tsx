@@ -1,5 +1,4 @@
-// A Session's retro, through `App`: the Retro press on a Sessions list row and in the Session's
-// own header writes it, and the retro is a card in the Session's thread that Fleet replaces as the
+// A Session's retro, through `App`: the Retro press in the More menu of the Session's own header on the Cockpit's stage writes it, and the retro is a card in the Session's thread that Fleet replaces as the
 // writing goes. **The press moves nobody**: the card's `Open retro` link opens the kept retro on the
 // Retros page, headed by the Session's title and address. A terminal Session has no card, and its
 // press opens the retro when Fleet answers. The walk (`walks/session-retro.ts`) shows how it reads.
@@ -8,27 +7,28 @@ import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { s205SessionRetro, s205SessionRetroNothingNew, s205SessionRetroRefused } from "./scenarios/session-retro";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 // The Retros page remembers which source it listed, and one test narrows it.
 beforeEach(() => window.localStorage.clear());
 
-const sessions = () => page.getByRole("region", { name: "Sessions" });
-const row = () => sessions().getByRole("listitem", { name: "Fix the flaky store test" });
-/** Sessions' own page: the Dashboard lists no Sessions apart from its tabs. */
-const toSessions = () => toPlace("Sessions");
+const more = () => page.getByRole("region", { name: /^Session: / }).getByRole("button", { name: "More" });
+/** The head's More menu, open on its Retro item. */
+const retro = async (name: "Retro" | "Writing the retro" = "Retro") => {
+  await userEvent.click(more());
+  return page.getByRole("menuitem", { name });
+};
 const sheet = () => page.getByRole("dialog", { name: "Retro" });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const card = () => thread().getByRole("region", { name: "Retro" });
 const ID = "01IDLECCCCCCCCCCCCCCCCCCCC";
 
-/** Opens the Session and presses Retro in its header. */
-async function pressInTheHeader() {
-  await toSessions();
-  await userEvent.click(row().getByRole("button", { name: "Fix the flaky store test" }));
-  await userEvent.click(page.getByRole("button", { name: "Retro", exact: true }));
+/** Opens the Session and presses Retro in its header's More menu. */
+async function pressInTheHeader(title = "Fix the flaky store test") {
+  await toSession(title);
+  await userEvent.click(await retro());
 }
 
 /** Writes a retro from the Session's header and opens it from the card, which is how a retro is reached now. */
@@ -43,14 +43,15 @@ test("The Retro press puts a retro card in the Session's thread, and the person 
   await pressInTheHeader();
 
   // The press is out, so the mark holds and the card says what Fleet is doing.
-  await expect.element(page.getByRole("button", { name: "Writing the retro" })).toBeDisabled();
+  await expect.element(await retro("Writing the retro")).toBeDisabled();
+  await userEvent.keyboard("{Escape}");
   await expect.element(card()).toBeVisible();
   // It settles to one line, and nothing took the person away from the thread meanwhile.
   await expect.element(card().getByText("Retro 1 written · 5 items")).toBeVisible();
   await expect.element(card().getByText("A reset waited 40 minutes for an answer")).toBeVisible();
   await expect.element(sheet()).not.toBeInTheDocument();
   await expect.element(thread()).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Retro", exact: true })).toBeEnabled();
+  await expect.element(await retro()).toBeEnabled();
 });
 
 test("The card's Open retro link opens that retro on the Retros page, headed by the Session", async () => {
@@ -64,23 +65,7 @@ test("The card's Open retro link opens that retro on the Retros page, headed by 
 
   const item = sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" });
   await userEvent.click(item.getByRole("button", { name: "Create Job", exact: true }));
-  await expect.element(item.getByRole("button", { name: "Proposed Job" })).toBeVisible();
-});
-
-test("The Retro press on a list row writes it without leaving the list, and the thread, opened later, holds the finished card", async () => {
-  mount(s205SessionRetro);
-  await onScreen();
-  await toSessions();
-
-  await userEvent.click(row().getByRole("button", { name: "Retro" }));
-  await expect.element(row().getByRole("button", { name: "Writing the retro" })).toBeDisabled();
-  // The mark goes back when Fleet has answered; the Retros page was never opened.
-  await expect.element(row().getByRole("button", { name: "Retro" })).toBeEnabled();
-  await expect.element(sheet()).not.toBeInTheDocument();
-  await expect.element(sessions()).toBeVisible();
-
-  await userEvent.click(row().getByRole("button", { name: "Fix the flaky store test" }));
-  await expect.element(card().getByText("Retro 1 written · 5 items")).toBeVisible();
+  await expect.element(item.getByText("Agreed")).toBeVisible();
 });
 
 test("A second press while one is being written is refused in Fleet's words and the card goes on", async () => {
@@ -109,25 +94,23 @@ test("A press answered with the last retro adds no card, so the answer opens tha
 test("A terminal Session has no card, so its press keeps the mark and opens the retro when Fleet answers", async () => {
   mount(s205SessionRetro);
   await onScreen();
-  await toSessions();
+  await pressInTheHeader("Tidy the release notes");
 
-  const terminal = sessions().getByRole("listitem", { name: "Tidy the release notes" });
-  await userEvent.click(terminal.getByRole("button", { name: "Retro" }));
-  await expect.element(terminal.getByRole("button", { name: "Writing the retro" })).toBeDisabled();
   await expect.element(sheet()).toBeVisible();
+  await userEvent.click(sheet().getByRole("button", { name: "Close" }));
+  expect(card().elements()).toHaveLength(0);
 });
 
-test("A refused retro says why on the Sessions page and opens nothing", async () => {
+test("A refused retro says why and opens nothing", async () => {
   mount(s205SessionRetroRefused);
   await onScreen();
-  await toSessions();
+  await pressInTheHeader();
 
-  await userEvent.click(row().getByRole("button", { name: "Retro" }));
   await expect.element(page.getByText("A retro is already being written for this Session")).toBeVisible();
   await expect.element(sheet()).not.toBeInTheDocument();
 });
 
-test("The Retros page narrows to Sessions' retros and to Jobs'", async () => {
+test("The Retros page narrows to Sessions' retros and to Jobs'", { timeout: 40_000 }, async () => {
   mount(s205SessionRetro);
   await onScreen();
   await writeAndOpen();

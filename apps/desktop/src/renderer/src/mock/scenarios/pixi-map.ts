@@ -1,5 +1,5 @@
-// The Cockpit map with work going on, for the walk `pixi-map`: the ship at rest, and over it one Session writing now, one reading and a Job
-// running a Check. Three Sessions name the files they touch, and every room holds a pill for each of its files; those three lit on theirs (`full-rooms`). The
+// The Cockpit map with work going on, for the walk `pixi-map`: the ship at rest, and over it one Session writing now, one reading and one
+// with a red Check. Three Sessions name the files they touch, and every room holds a pill for each of its files; those three lit on theirs (`full-rooms`). The
 // walk plays it on the CSS map and on the canvas one, so the two can be set side by side.
 
 import type { TimelineEvent } from "@armada/protocol";
@@ -38,7 +38,7 @@ function build(): Scenario {
   return {
     ...ship,
     name: "pixi-map",
-    says: "The Cockpit map at rest with one Session writing, one reading, a Job running a Check, and a pill for every file in each room, lit for the files three Sessions touch",
+    says: "The Cockpit map at rest with one Session writing, one reading, one with a red Check, and a pill for every file in each room, lit for the files three Sessions touch",
     draft: {
       ...draft,
       areas: mockRooms,

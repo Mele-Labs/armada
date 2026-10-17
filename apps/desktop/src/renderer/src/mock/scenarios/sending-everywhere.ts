@@ -4,7 +4,7 @@
 // and takes a redirect to the Drone slowly. Each wait stands until a step of the walk lets Fleet go (`walks/sending-everywhere.ts`).
 
 import type { Outcome } from "@armada/protocol";
-import { everyDroneHad } from "@armada/jobs/fixtures/build/drones-had";
+import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 
 import type { BridgeApi } from "../../../../shared/api";
 import { gate } from "../cockpit-routes";

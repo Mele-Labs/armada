@@ -5,11 +5,11 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -18,12 +18,10 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 const message = () => page.getByRole("textbox", { name: "Message" });
 
 test("Sessions inline tags: the chip stands in the line, Backspace takes it whole, and a send carries it", async () => {
-  const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" })]);
-  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
-  mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root })));
+  const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" }), hosted("01SESSIONBBBBBBBBBBBBBBBBB", { title: "The retry loop" })]);
+  mount(fleet.scenario(onBoard([], { repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("button", { name: "First one" }));
+  await toSession("First one");
 
   await userEvent.click(message());
   await userEvent.keyboard("What stopped @retry");
@@ -44,6 +42,6 @@ test("Sessions inline tags: the chip stands in the line, Backspace takes it whol
   await userEvent.keyboard("again{Enter}");
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.text).toBe("What stopped @The retry loop again");
-  expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
+  expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "session", id: "01SESSIONBBBBBBBBBBBBBBBBB", title: "The retry loop" }]);
   await expect.element(page.getByRole("region", { name: "Thread" }).getByText("The retry loop")).toBeVisible();
 });

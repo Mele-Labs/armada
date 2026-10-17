@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
-import { ArrowUpToLine, Ban, Box, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, GitMerge, type LucideIcon } from "lucide-react";
+import { ArrowUpToLine, Ban, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, GitMerge, type LucideIcon } from "lucide-react";
 import type { HeldCheckout } from "@armada/protocol";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
+import { Inspect, InspectCard, type InspectFact } from "../../primitives/Inspect/Inspect";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GUIDE_MERGE_LINE } from "../../guides";
@@ -18,9 +19,7 @@ import {
   MainRedBand,
   type FixChoice,
   type FixRefusal,
-  type HubJob,
   type MainState,
-  type RecentJob,
   type RecentSession,
 } from "../MainHead/MainHead";
 
@@ -72,12 +71,10 @@ export type MergeLineEntry = {
   pr?: {
     number: number;
     url: string;
-    /** How it ended, as the Job's own pull request badge reads it. Absent is nothing known. */
+    /** How it ended, as a pull request badge reads it. Absent is nothing known. */
     settled?: { status: string; icon: LucideIcon; label: string };
   };
   state: MergeLineState;
-  /** The Job the branch came from, where one is known. A Session that owns it is found through `ChipOwnership`. */
-  job?: { id: string; title: string };
   /** Waiting only: why it is not in the running turn. Absent draws nothing. */
   why?: MergeLineWaiting;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
@@ -137,8 +134,6 @@ export type HubPull = {
   branch: string;
   /** Absent where nothing has run on it: no mark. */
   ci?: "passed" | "running" | "failed" | "waiting_on_main";
-  /** The Job it came from. Absent for a person's. */
-  job?: HubJob;
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
   queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
   /** The login that opened it. Absent where the forge named none. */
@@ -158,12 +153,11 @@ export type HubPull = {
   mergeByHand?: true;
 };
 
-/** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
+/** What the hub adds to the line: main's state, every open pull request, and the Sessions work can go back to. */
 export type MergeLineHub = {
   /** Absent where Fleet has not read main, or main is running or ran nothing: no mark and no band. */
   main?: MainState;
   pulls: readonly HubPull[];
-  recent: readonly RecentJob[];
   /** The Sessions work can go back to, as a message. Absent is none. */
   recentSessions?: readonly RecentSession[];
   /** The served checkout, where main moved past it and Fleet would not catch it up. Absent while it has main's tip. */
@@ -177,10 +171,9 @@ export type MergeLineHub = {
 export type MergeLineProps = {
   /** Main's state and the open pull requests. Absent draws the line alone. */
   hub?: MergeLineHub;
-  onOpenJob?: (jobId: string) => void;
   /** A Session the head names as having merged. Absent, its title is not a press. */
   onOpenSession?: (sessionId: string) => void;
-  /** Told the owner's choice of a Job for red main. */
+  /** Told the owner's choice of a Session for red main. */
   onFix?: (choice: FixChoice) => void | Promise<FixRefusal | undefined | void>;
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
@@ -233,11 +226,10 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onOpenSession, onFix, id, focus, pinned } = props;
+  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenSession, onFix, id, focus, pinned } = props;
   const acts = {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
-    ...(onOpenJob === undefined ? {} : { onOpenJob }),
     ...(focus === undefined ? {} : { focus }),
   };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
@@ -289,11 +281,9 @@ export function MergeLine(props: MergeLineProps) {
         {hub?.main?.state !== "red" ? null : (
           <MainRedBand
             main={hub.main}
-            recent={hub.recent}
             {...(hub.recentSessions === undefined ? {} : { recentSessions: hub.recentSessions })}
             onOpenLink={onOpenPullRequest}
             {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
-            {...(onOpenJob === undefined ? {} : { onOpenJob })}
             {...(onOpenSession === undefined ? {} : { onOpenSession })}
             {...(onFix === undefined ? {} : { onFix })}
           />
@@ -341,7 +331,7 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? (hub.main.taken ?? hub.main.takenBySession) : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.takenBySession : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} />
                       ))}
                     </ul>
                   </>
@@ -516,7 +506,7 @@ function mainSays(main: MainState | undefined): string {
 /**
  * Main's light, and on hover or focus a card naming it: its state in words, then what the panel
  * already holds about it. Red adds the failing Checks, the test, the merge that broke it and the
- * Job on the fix, as the red band does; checks running on main name the merges they run for.
+ * Session on the fix, as the red band does; checks running on main name the merges they run for.
  * **Only what is in memory**: nothing here asks Fleet for more.
  */
 function MainLight({ main }: { main: MainState | undefined }) {
@@ -525,55 +515,23 @@ function MainLight({ main }: { main: MainState | undefined }) {
   const Icon = reading?.icon ?? null;
   const red = main?.state === "red" ? main : undefined;
   const failed = red === undefined ? [] : [red.red, ...(red.red.also ?? [])];
-  const card = (
-    <span className="armada-merge-line__card" data-state={main?.state}>
-      <span className="armada-merge-line__card-head mono">main</span>
-      <span className="armada-merge-line__card-state">
-        {Icon === null ? null : (
-          <Icon size={MARK} strokeWidth={STROKE} aria-hidden style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined} />
-        )}
-        {said}
-      </span>
-      {failed.length === 0 && red?.red.merge === undefined && red?.taken === undefined && red?.takenBySession === undefined && (main?.checking?.length ?? 0) === 0 ? null : (
-        <span className="armada-merge-line__card-rows">
-          {failed.map((one, at) => (
-            <Fragment key={`${one.check}:${at}`}>
-              <span>{one.unmapped === true ? "CI job" : "Check"}</span>
-              <span className="mono">{one.check}</span>
-              {one.test === undefined ? null : (
-                <>
-                  <span>Test</span>
-                  <span className="mono">{one.test}</span>
-                </>
-              )}
-            </Fragment>
-          ))}
-          {red?.red.merge === undefined ? null : (
-            <>
-              <span>Broke in</span>
-              <span className="mono">{[`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" ")}</span>
-            </>
-          )}
-          {red?.taken === undefined && red?.takenBySession === undefined ? null : (
-            <>
-              <span>Fixing</span>
-              <span>{(red.taken ?? red.takenBySession)!.title}</span>
-            </>
-          )}
-          {(main?.checking?.length ?? 0) === 0 ? null : (
-            <>
-              <span>Checking</span>
-              <span className="mono">{main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" ")}</span>
-            </>
-          )}
-        </span>
-      )}
-    </span>
-  );
+  const facts: InspectFact[] = [
+    ...failed.flatMap((one): InspectFact[] => [
+      { label: one.unmapped === true ? "CI job" : "Check", value: one.check, mono: true },
+      ...(one.test === undefined ? [] : [{ label: "Test", value: one.test, mono: true }]),
+    ]),
+    ...(red?.red.merge === undefined ? [] : [{ label: "Broke in", value: [`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" "), mono: true }]),
+    ...(red?.takenBySession === undefined ? [] : [{ label: "Fixing", value: red.takenBySession.title }]),
+    ...((main?.checking?.length ?? 0) === 0 ? [] : [{ label: "Checking", value: main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" "), mono: true }]),
+  ];
   return (
-    <Tooltip label={card} card asChild>
-      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} />
-    </Tooltip>
+    <Inspect
+      name={`main: ${said}`}
+      pin={false}
+      card={<InspectCard kind={{ Glyph: GitMerge, label: "Main" }} title="main" state={{ ...(Icon === null ? {} : { Glyph: Icon }), said, ...(reading?.statusToken ? { tone: `var(${reading.statusToken})` } : {}) }} facts={facts} />}
+    >
+      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} tabIndex={0} />
+    </Inspect>
   );
 }
 
@@ -609,13 +567,11 @@ function Entry({
   entry,
   onOpenPullRequest,
   onOpenCheck,
-  onOpenJob,
   focus,
 }: {
   entry: MergeLineEntry;
   onOpenPullRequest: (url: string) => void;
   onOpenCheck?: (branch: string, check: string) => void;
-  onOpenJob?: (jobId: string) => void;
   focus?: string;
 }) {
   const row = useRef<HTMLLIElement>(null);
@@ -635,7 +591,6 @@ function Entry({
       tabIndex={0}
       data-merge-item=""
       data-branch={entry.branch}
-      data-job={entry.job?.id}
       data-state={entry.state}
       data-lit={LIT.has(entry.state) || undefined}
       style={hueOf(reading?.statusToken)}
@@ -679,7 +634,7 @@ function Entry({
             {entry.pr.settled.label}
           </Badge>
         )}
-        <EntryOwner entry={entry} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+        <EntryOwner entry={entry} />
       </span>
       <span className="armada-merge-line__detail">
         <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
@@ -690,43 +645,22 @@ function Entry({
 
 /**
  * Who the entry came from: the Session that owns its pull request or branch, drawn as the owner
- * chip draws it everywhere (hover for the card, press to keep it), else the Job whose branch it
- * is. Nobody known draws nothing.
+ * chip draws it everywhere (hover for the card, press to keep it). Nobody known draws nothing.
  */
-function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch" | "pr" | "job">; onOpenJob?: (jobId: string) => void }) {
+function EntryOwner({ entry }: { entry: Pick<MergeLineEntry, "branch" | "pr"> }) {
   const branch: OwnerChipRef = { kind: "branch", name: entry.branch };
   const pull: OwnerChipRef | undefined = entry.pr === undefined ? undefined : { kind: "pull_request", number: entry.pr.number };
   const byBranch = useChipOwner(branch);
   const byPull = useChipOwner(pull ?? branch);
   const session = pull === undefined ? byBranch : (byPull ?? byBranch);
-  if (session !== undefined) {
-    return (
-      <OwnerChip chip={pull !== undefined && byPull !== undefined ? pull : branch}>
-        <span className="armada-merge-line__owner">
-          <SquareTerminal size={MARK} strokeWidth={STROKE} aria-hidden />
-          <span className="armada-merge-line__owner-name">{session.title ?? session.address ?? session.id}</span>
-        </span>
-      </OwnerChip>
-    );
-  }
-  const job = entry.job;
-  if (job === undefined) return null;
-  const said = (
-    <>
-      <Box size={MARK} strokeWidth={STROKE} aria-hidden />
-      <span className="armada-merge-line__owner-name">{job.title}</span>
-    </>
-  );
+  if (session === undefined) return null;
   return (
-    <Tooltip label={`Job: ${job.title}`}>
-      {onOpenJob === undefined ? (
-        <span className="armada-merge-line__owner">{said}</span>
-      ) : (
-        <button type="button" className="armada-merge-line__owner armada-merge-line__owner--press" onClick={() => onOpenJob(job.id)}>
-          {said}
-        </button>
-      )}
-    </Tooltip>
+    <OwnerChip chip={pull !== undefined && byPull !== undefined ? pull : branch}>
+      <span className="armada-merge-line__owner">
+        <SquareTerminal size={MARK} strokeWidth={STROKE} aria-hidden />
+        <span className="armada-merge-line__owner-name">{session.title ?? session.address ?? session.id}</span>
+      </span>
+    </OwnerChip>
   );
 }
 
@@ -790,21 +724,19 @@ function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun
   );
 }
 
-/** One open pull request: its `ci` as a mark, the branch, the number, and the Job it came from. */
+/** One open pull request: its `ci` as a mark, the branch, the number, and the Session that owns it. */
 function Pull({
   pull,
   fixing,
   onOpenPullRequest,
-  onOpenJob,
   focus,
 }: {
   pull: HubPull;
   /** A branch another surface asked for, as an `Entry` takes it. */
   focus?: string;
-  /** The Job working on main's red, named on a pull request that waits for it. */
-  fixing: HubJob | undefined;
+  /** The Session working on main's red, named on a pull request that waits for it. */
+  fixing: { title: string } | undefined;
   onOpenPullRequest: (url: string) => void;
-  onOpenJob?: (jobId: string) => void;
 }) {
   const row = useRef<HTMLLIElement>(null);
   const focused = focus === pull.branch;
@@ -828,7 +760,6 @@ function Pull({
       tabIndex={0}
       data-merge-item=""
       data-branch={pull.branch}
-      data-job={pull.job?.id}
       data-lit={pull.queue?.state === "unmergeable" || (queued === undefined && pull.ci === "failed") || undefined}
       style={hueOf(mark?.reading?.statusToken)}
     >
@@ -872,8 +803,7 @@ function Pull({
       <span className="armada-merge-line__detail">
         <RegisteredOwnerOf repository={repositoryOfAddress(pull.url)} number={pull.number} />
         <EntryOwner
-          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url }, ...(pull.job === undefined ? {} : { job: pull.job }) }}
-          {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url } }}
         />
       </span>
     </li>

@@ -22,11 +22,11 @@ fn supplied() -> Supplied {
         .list(s::MODELS_ROSTER, &["big", "middle", "small"])
         .words(s::MODELS_DEFAULT, "big")
         .words(s::MODELS_SESSION, "big")
+        .words(s::MODELS_REVIEW, "big")
         .words(s::MODELS_JUDGE, "small")
         .words(s::MODELS_PROPOSER, "small")
         .words(s::MODELS_RETRO, "middle")
         .words(s::MODELS_SECOND_OPINION, "middle")
-        .words(s::MODELS_COMMANDER, "big")
         .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
@@ -142,7 +142,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::TURN_INTERVAL_MS,
         s::BRIDGE_RECONNECT_MS,
         s::RUN_LOG_DAYS,
-        s::HELM_SESSION_DAYS,
         s::PLAN_DOWNSHIFT_AT,
     ] {
         assert!(
@@ -188,17 +187,16 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
         s::MODELS_SESSION,
+        s::MODELS_REVIEW,
         s::MODELS_JUDGE,
         s::MODELS_PROPOSER,
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
-        s::MODELS_COMMANDER,
         s::PLAN_DOWNSHIFT_TO,
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
         s::EFFORT_HELM,
-        s::EFFORT_COMMANDER,
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
@@ -227,7 +225,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 15 + 5 + 23 + 2 + 3 + s::prompt_keys().count();
+    let handles = 21 + 15 + 5 + 22 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

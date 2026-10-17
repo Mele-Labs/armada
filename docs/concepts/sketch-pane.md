@@ -6,12 +6,12 @@
 
 **Kind:** Concept.
 
-The pane is drawn by `packages/surfaces/jobs/src/OverviewBoard.tsx`. Its views are `SketchScene` and `AskerView` in `packages/components/src/compositions/`, and the panel that picks between them is `NowPanel` beside them.
+The Overview board that drew the pane is deleted with the Jobs surface, and no screen draws it now. Its views are `SketchScene` and `AskerView` in `packages/components/src/compositions/`, and the panel that picks between them is `NowPanel` beside them.
 
 ## Status
 
 **Rule.** The Now panel's Drones, Checks, Judge, asks, issues and waiting are served by Fleet ([Job](job.md), *A Job's Now*). Its Plan interview, sketches and askers are still mock data, and a real Fleet draws none of them.
-Why: Fleet publishes no plan interview. The shapes are in `packages/surfaces/jobs/src/draft/now.ts`.
+Why: Fleet publishes no plan interview. The shapes are in `packages/screens/src/draft/now.ts`.
 
 **Rule.** What the owner marks on a sketch lives for the window and is lost on reload.
 
@@ -56,7 +56,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | Part | Fields |
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
-| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `step` |
+| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `step` |
 | Edge | `id`, `from`, `to`, optional `label`, `flow`, `step` |
 | Stroke | `id`, `points` of `x` and `y` |
 
@@ -68,6 +68,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | `label` | Bare words |
 | `code` | A snippet, with `lang` in the header |
 | `wire` | A wireframe block named by `wire`, never a control |
+| `screen` | A wireframe screen drawn from a layout tree in `screen`; needs `screen` |
 
 **Rule.** A scene arrives as `unknown`, and `parseScene` is the only way in.
 
@@ -77,6 +78,74 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 **Rule.** A node `icon` is a registry glyph from `SCENE_ICONS`, and any other name fails the scene.
 
 **Rule.** `sceneOfDrawing` takes a pad's drawing as it is, so nothing the pad can draw is outside the format.
+
+## Screens
+
+**Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues. An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
+
+**Rule.** The tree is `ScreenElement` in `packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
+
+| Element | Takes |
+|---|---|
+| `row`, `column` | `children`, `gap`, `pad`, `border` |
+| `grid` | `cols` of 1 to 12, `children`, `gap`, `pad`, `border` |
+| `window` | `chrome` of `desktop`, `browser` or `phone`; `title`, `url`, `children` |
+| `nav` | `brand`, `items`, `active`, `actions`, `vertical` |
+| `panel` | `title`, `icon`, `actions`, `gap`, `pad`, `children` |
+| `tabs` | `items`, `active` |
+| `list` | `rows` of `text`, `meta`, `icon`, `selected` |
+| `table` | `columns`, `rows` |
+| `button` | `text`, `icon`, `variant` of `primary`, `secondary` or `ghost` |
+| `field` | `label`, `value`, `placeholder`, `kind` of `input`, `textarea`, `select`, `checkbox`, `toggle` or `search` |
+| `text` | `text`, or `lines` bars; `style` of `heading`, `title`, `body` or `caption` |
+| `image` | `label` |
+| `avatar`, `badge` | `text` |
+| `divider`, `spacer` | Nothing |
+| `chat` | `messages` of `from` as `me` or `them`, and `text` |
+| `modal` | `title`, `children` |
+
+### Sizing
+
+**Rule.** Every element takes `id`, `step`, `size` and `align`. A `size` of `auto` takes the content, `fill` shares what is left along the parent's axis, and a number is the weight of its share.
+
+**Rule.** `size` is a share only in a `row` or a `column`, and a grid cell ignores it.
+
+**Rule.** A part stretches across its parent's cross axis. A `button`, `badge` and `avatar` keep their own size in a column, and a `button`, `badge`, `avatar`, `text`, `field` and `tabs` sit centred in a row.
+
+**Rule.** An `align` of `start`, `center`, `end` or `stretch` wins over both.
+
+**Rule.** A `gap` or a `pad` is `none`, `sm`, `md` or `lg`. Layouts default to a `sm` gap and no `pad`, and a panel's body to `sm` and `md`. Nothing inside a screen is written in pixels.
+
+### Icons
+
+**Rule.** An element's `icon` is a registry glyph from `SCREEN_ICONS`, kept apart from `SCENE_ICONS`, and any other name fails the whole scene. A bare string in `items` or `actions` is the words of a button, and `{ icon }` is a button of a glyph alone.
+
+**Rule.** A screen has no `house`, which the registry reserves to the shared home. A Home item takes `layout-dashboard`.
+
+### Steps and modals
+
+**Rule.** An element's `step` joins the scene's step order, beside the steps of nodes and arrows. While it plays the element is ringed and the rest of the screen stands back.
+
+**Rule.** A screen that holds the step in an element does not stand back, and the other nodes do. A screen with a `step` of its own lights as a box does, with its ring on the sheet.
+
+**Rule.** Under a part that stands back nothing else is decided, and under the ringed element nothing stands back.
+
+**Rule.** A `modal` with a `step` is hidden until its step plays and stays up after it. A `modal` with none is always up.
+
+**Rule.** The ring is on a modal's dialog and never on the scrim round it.
+
+**Rule.** An arrow joins whole screens, so two screens and an arrow are a screen flow.
+
+### Sharing
+
+**Rule.** Save as web page and Save as image draw a screen as the canvas does: its own HTML in a `foreignObject`, with the kit's rules and the theme's token values written into the file. Nothing is fetched.
+Why: the browser that opens the file lays the screen out, so the file holds no measurements of it.
+
+**Rule.** The web page holds the screen at rest and once for each step an element of it carries, and its player shows the one for the step playing. The image holds the screen at rest.
+
+**Rule.** Save as image reads its picture from a data address, because Chromium taints a canvas for a `foreignObject` loaded from an object address.
+
+**Rule.** Copy as Mermaid names a screen as one node with its title, or its id where it has none, and nothing inside it.
 
 ## Reading a sketch
 

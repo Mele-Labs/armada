@@ -39,49 +39,55 @@ mod retro;
 mod studio;
 /// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
 mod trigger;
+/// The workflow a Session or a Job follows, and the ids it is spelled in.
+mod workflow;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
 };
 pub use job::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
-    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
+    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrModeTiers, ProposalEdit,
 };
-pub use job::{collisions, under};
-pub use job::{Decision, DroneQuestion, GivenAnswer, OfferedAnswer};
+pub use job::collisions;
 pub use job::{
-    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
+    Decision, DroneQuestion, GivenAnswer, OfferedAnswer,
 };
 pub use job::{
-    handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AdvanceGate, AllowedCommand,
-    Answered, Area, Attachment, Attempt, AutoMerge, BadPattern, Became, BlankBranch, BlankModel,
-    BlankTitle, Branch, Breakage, BreakageClaim, Bucket, BudgetHold, ChangedTest, CheckOutcome,
-    Citation, CitedAt, ClearedFlag, Collision, Confidence, ContextSource, Covers, CriteriaOwed,
-    CriterionId, CriterionSource, DecidedBy, DeclarePlanAt, DeclaredPaths, DependencyDirection,
-    DependencyEdge, Dismissal, DispatchOrigin, DroneAssigned, DroneId, DroneMoved, DronePresence,
-    DroneStanding, Edge, Effort, EscalationTrigger, EvidenceRef, EvidenceScope, EvidenceType,
-    Facts, Finding, FixWaiter, FollowUp, FrozenWorkflow, GamingCheck, GamingFlag, GamingPattern,
-    GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
-    IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
-    JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName,
-    AGREED_RETRIES,
-    Narrowing, NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin,
-    PathPattern, Pause, PausedBy, PilotReason, Prerequisite, ProposalId, Proves, QueuedReason,
-    Reach, Recourse, RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath,
-    ResolvedCheck, ResolvedPolicies, ResolvedStep, Resumption, ReviewGate, ReviewRecord, Runner,
-    RunsAt, ScopeClaim, ScopeRevision, ScopeRevisionOutcome, Side, Spent, Standing, StepCheck,
-    StepEdge, StepEvent, StepEvidence, StepFrame, StepId, StepLevelTrigger, StepPhase, StepSeed,
-    StepState, StepTarget, StepTransitioned, StepTuning, StepVerdict, Stuck, Subject, Target,
-    TestChange, TestsInChange, Title, TopLevelOrigin, TransitionReason, Transitioned, TriggerKind,
-    TriggerLevel, Untested, Urgency, ViewStep, WhenBlocked, WhenRefused, WorkflowId,
-    WorkflowSource, WriteTargets, ADVANCING_STATUSES, ARTIFACT_EXISTS, CREDENTIAL_NAMES,
-    DIFF_NONEMPTY, EDGES, EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
+    handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AllowedCommand, Answered,
+    Area, Attachment, Attempt, AutoMerge, Became, BlankBranch, Branch, Breakage, BreakageClaim,
+    Bucket, BudgetHold, ChangedTest, Collision, Confidence, CriteriaOwed, CriterionSource,
+    DependencyDirection, DependencyEdge, Dismissal, DispatchOrigin, DroneAssigned, DroneMoved,
+    DronePresence, DroneStanding, Edge, EscalationTrigger, Facts, Finding, FixWaiter, FollowUp,
+    GateManifest, GateOutcome, Guard, IllegalDroneMove, IllegalStepTransition,
+    IllegalTransition, Job, JobEvent, JobNumber, JobReference, JobStatus, JobStep, LandedHold,
+    NewJob, NewProposal, NotRunDisposition, NotRunReason, Origin, Pause, PausedBy, PilotReason,
+    Proves, QueuedReason, Reach, Recourse, RedirectAlreadyWaiting, RedirectWaiting, Refusal,
+    Refusals, ResolvedPolicies, Resumption, ReviewGate, ReviewRecord, ScopeClaim, ScopeRevision,
+    ScopeRevisionOutcome, Side, Standing, StepEdge, StepEvent, StepEvidence, StepFrame,
+    StepLevelTrigger, StepSeed, StepState, StepTarget, StepTransitioned, StepVerdict, Stuck,
+    Subject, Target, TestChange, TestsInChange, TopLevelOrigin, TransitionReason, Transitioned,
+    TriggerKind, TriggerLevel, Untested, Urgency, ViewStep, WhenBlocked, WhenRefused,
+    WriteTargets, ADVANCING_STATUSES, CREDENTIAL_NAMES, EDGES, STEP_EDGES,
 };
 pub use job::{
     Apart, Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove,
     GroupRuns, GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
     PlanTask, Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels,
-    WorkPlan, WorkingWindow, PLAN_RECORDED,
+    WorkPlan, WorkingWindow,
+};
+pub use workflow::{
+    AGREED_RETRIES, ARTIFACT_EXISTS, ASSERTION_WEAKENED_QUESTION, AdvanceGate, BadPattern,
+    BlankModel, BlankTitle, CheckOutcome, Citation, CitedAt, ClearedFlag, ContextSource, Covers,
+    CriterionId, DIFF_NONEMPTY, DecidedBy, DeclarePlanAt, DeclaredPaths, DroneId,
+    EVERY_MANIFEST_CHECK, Effort, EvidenceRef, EvidenceScope, EvidenceType,
+    FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, FrozenWorkflow, GamingCheck,
+    GamingFlag, GamingPattern, GateVerdict, Given, Iteration, JobId, JudgeCheck, JudgeCriterion,
+    JudgeVerdict, Judgment, MANIFEST_CHECK, ManifestId, ModelName, NO_FINDINGS_QUESTION,
+    Narrowing, OnRefusal, PLAN_RECORDED, PathPattern, PrMode, Prerequisite, ProposalId,
+    RepoPath, ResolvedCheck, ResolvedStep, Runner, RunsAt, Spent, StepCheck, StepId, StepPhase,
+    StepTuning, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION, Title, WorkflowId,
+    WorkflowSource, under,
 };
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,

@@ -1,5 +1,4 @@
-// A drone, drawn once around its own origin (its centre, at altitude) and put on the screen by the stage: a Job the large X quad and a
-// Session the small plus quad. **It hovers still**: the rotors do not turn and it does not bob or circle, whatever it is doing. What it
+// A drone, drawn once around its own origin (its centre, at altitude) and put on the screen by the stage: a Session, the small plus quad. **It hovers still**: the rotors do not turn and it does not bob or circle, whatever it is doing. What it
 // is doing is on the ground under it (`ground.ts`). Gray shell, with the nose lens, the LED and a soft glow behind it carrying the hue.
 // The marker of a call is a second picture, which the stage holds at one size on the screen however far the camera stands.
 
@@ -31,32 +30,19 @@ function rotor(g: Graphics, x: number, y: number, r: number, spin: boolean, p: P
   g.circle(x, y, 2).fill(colour(mix(p.base, p.fg, 0.45))).stroke({ ...colour(p.base), width: 0.8 });
 }
 
-/** The quad itself: a Job the large X, a Session the small plus. A subagent is drawn as the small one. */
-export function body(kind: "job" | "session", spin: boolean, hue: Rgba, p: Palette): Graphics {
+/** The quad itself: the small plus. A subagent is drawn as the small one. */
+export function body(spin: boolean, hue: Rgba, p: Palette): Graphics {
   const g = new Graphics();
-  const arm = { ...colour(p.muted), width: kind === "job" ? 2.6 : 2, cap: "round" as const };
+  const arm = { ...colour(p.muted), width: 2, cap: "round" as const };
   const hull = { ...colour(mix(p.muted, hue, 0.7)), width: 1.2 };
-  if (kind === "job") {
-    g.moveTo(-17, -7).lineTo(-4, -1).moveTo(17, -7).lineTo(4, -1).moveTo(-15, 9).lineTo(-4, 2).moveTo(15, 9).lineTo(4, 2).stroke(arm);
-    rotor(g, -21, -8, 11, spin, p);
-    rotor(g, 21, -8, 11, spin, p);
-    g.moveTo(-7, 6).lineTo(-7, 11).moveTo(7, 6).lineTo(7, 11).stroke({ ...colour(p.subtle), width: 1.6, cap: "round" });
-    g.roundRect(-10, -6.5, 20, 13, 5).fill(colour(mix(p.base, p.fg, 0.38))).stroke(hull);
-    g.roundRect(-5.5, -3.6, 11, 5, 2).fill(colour(mix(p.base, p.fg, 0.15)));
-    g.circle(0, 7.6, 2.7).fill(colour(p.base)).stroke({ ...colour(hue), width: 1.2 });
-    g.circle(0, -0.8, 1.5).fill(colour(hue));
-    rotor(g, -17, 10, 12, spin, p);
-    rotor(g, 17, 10, 12, spin, p);
-  } else {
-    g.moveTo(-13, 0).lineTo(-4, 0).moveTo(13, 0).lineTo(4, 0).moveTo(0, -8).lineTo(0, -3).moveTo(0, 8).lineTo(0, 3).stroke(arm);
-    rotor(g, -15, 0, 7, spin, p);
-    rotor(g, 15, 0, 7, spin, p);
-    rotor(g, 0, -10, 6, spin, p);
-    g.circle(0, 0, 6.2).fill(colour(mix(p.base, p.fg, 0.38))).stroke(hull);
-    g.circle(0, 0, 3.2).fill(colour(mix(p.base, p.fg, 0.15)));
-    g.circle(0, 0, 1.4).fill(colour(hue));
-    rotor(g, 0, 10, 7, spin, p);
-  }
+  g.moveTo(-13, 0).lineTo(-4, 0).moveTo(13, 0).lineTo(4, 0).moveTo(0, -8).lineTo(0, -3).moveTo(0, 8).lineTo(0, 3).stroke(arm);
+  rotor(g, -15, 0, 7, spin, p);
+  rotor(g, 15, 0, 7, spin, p);
+  rotor(g, 0, -10, 6, spin, p);
+  g.circle(0, 0, 6.2).fill(colour(mix(p.base, p.fg, 0.38))).stroke(hull);
+  g.circle(0, 0, 3.2).fill(colour(mix(p.base, p.fg, 0.15)));
+  g.circle(0, 0, 1.4).fill(colour(hue));
+  rotor(g, 0, 10, 7, spin, p);
   return g;
 }
 
@@ -144,15 +130,15 @@ export type DroneParts = {
 
 export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   const d = s.drone;
-  const wide = d.kind === "job" ? 26 : 20;
+  const wide = 20;
   const hue = hueOf(d.hue, p);
   const out = new Container();
   const shell = new Container();
   shell.scale.set(big);
   // The light a drone gives off: stronger where it is calling or failing, and where it is at work.
   const stands = d.hue !== "calm" || d.spin;
-  if (stands || s.selected) shell.addChild(glowSprite(d.kind === "job" ? 40 : 30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
-  shell.addChild(body(d.kind, d.spin, hue, p), marks(s, wide, hue, p));
+  if (stands || s.selected) shell.addChild(glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
+  shell.addChild(body(d.spin, hue, p), marks(s, wide, hue, p));
   if (d.ping || d.flare) {
     const lamp = glowSprite(10, d.flare ? p.bad : hue, 0.9);
     lamp.position.set(0, d.flare ? -22 : -21.5);

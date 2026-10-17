@@ -69,7 +69,7 @@ export function drawGround(shade: PlaneBuilder, glow: PlaneBuilder, s: PixiScene
     const { x: cx, y: cy } = spec.at;
     const z = floor(spec.tile) + 1;
     const hue = hueOf(d.hue, p);
-    const r = (d.kind === "job" ? 26 : 20) * 0.85 * s.big;
+    const r = 20 * 0.85 * s.big;
     const act = d.doing === undefined ? undefined : actOf(d, p);
     const lit = d.hover || d.ping;
 

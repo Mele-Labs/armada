@@ -16,7 +16,7 @@ import { StrictMode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import { Alert, Button, Card, Kbd, Switch, Tooltip } from "@armada/components";
-import type { WalkHandle, WalkState } from "@armada/jobs/fake";
+import type { WalkHandle, WalkState } from "@armada/screens/src/fixtures/walk-window";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import "./mock.css";

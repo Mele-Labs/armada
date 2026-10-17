@@ -1,5 +1,5 @@
 // What a person can press, hover or tab to on the canvas map. The canvas draws and takes no pointer; over it stands this layer, an invisible
-// element for each drone, pad, flag, crate, pin and piece of a ring, put where its picture is by `spots.ts` each time the view moves. Each
+// element for each drone, pad, flag, crate and piece of a ring, put where its picture is by `spots.ts` each time the view moves. Each
 // carries what the same thing carries on the CSS map (its role and label, its keys, its press and its card), so the keyboard, a screen
 // reader, the cards and the owner's notes (which read these components' names and these elements) find the same things on either map. The
 // plots, files and bases that are only hovered are asked of the pointer instead (`plates.ts`), since there are as many as the repository
@@ -14,14 +14,12 @@ import { keyed, onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf, type BuildIn } from "../build";
 import type { CallTone } from "../field";
 import { alongOf, type P3, type Point } from "../layout";
-import type { PinIn } from "../mission";
-import { pinSaid, tipOf } from "../Route";
 import { goalSaid, goalTip, payloadSaid, payloadTip } from "../Scene";
 import { clashLines, clashTip, droneTip, padTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
 import type { Crate, DroneSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
-import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, padSpot, pieceSpot, pinSpot, workerSpot, type Spot } from "./spots";
+import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, padSpot, pieceSpot, workerSpot, type Spot } from "./spots";
 import type { Stage } from "./stage";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, where the pointer was if it is too large to have a middle, and what it lights. */
@@ -33,10 +31,7 @@ export type HitActs = {
   pad: (key: string) => void;
   goal: (root: string) => void;
   pr: (key: string) => void;
-  pin: (pin: PinIn, target: Element) => void;
   tip: ShowTip;
-  /** A pin's card: put away while another is pressed open. */
-  pinTip: ShowTip;
 };
 
 // ---- Putting them where the picture is ------------------------------------------------------------------
@@ -117,7 +112,7 @@ function Drone({ spec, facts, big, acts }: DroneProps) {
         role="option"
         tabIndex={0}
         aria-selected={spec.selected}
-        aria-label={`${d.title}, ${d.kind === "job" ? "Job" : "Session"}, ${d.said}`}
+        aria-label={`${d.title}, Session, ${d.said}`}
         data-hit="drone"
         data-key={d.key}
         data-label={d.title}
@@ -257,29 +252,6 @@ function Payload({ crate, acts }: { crate: Crate; acts: MutableRefObject<HitActs
   );
 }
 
-/** A pin of a Job's route: pressing it opens its step's card beside it. */
-function Pin({ pin, pinned, acts }: { pin: PinIn; pinned: boolean; acts: MutableRefObject<HitActs> }) {
-  const ref = usePlaced<HTMLDivElement>((view) => pinSpot(view, pin));
-  return (
-    <div
-      ref={ref}
-      className="bf-hits__item"
-      role="option"
-      tabIndex={0}
-      aria-selected={pinned}
-      aria-label={pinSaid(pin)}
-      data-hit="pin"
-      data-pin={pin.id}
-      data-label={pin.label}
-      data-state={pin.state}
-      data-pinned={pinned || undefined}
-      onClick={(event) => acts.current.pin(pin, event.currentTarget)}
-      onKeyDown={(event) => keyed(event, () => acts.current.pin(pin, event.currentTarget))}
-      {...speaking((target) => acts.current.pinTip(tipOf(pin), target, undefined, { part: `pin:${pin.id}` }), () => acts.current.pinTip(undefined))}
-    />
-  );
-}
-
 type Said = { tip: Tip; said: string };
 
 /** A piece of a ring, an arc of its road or its band: a card, and a place to stop. */
@@ -415,14 +387,12 @@ function usePlates(layer: MutableRefObject<HTMLDivElement | null>, stage: Stage,
 export type HitLayerProps = {
   stage: Stage;
   scene: PixiSceneIn;
-  /** What the listbox is called: the map, or a Job's route. */
-  label: "Map" | "Route";
   facts: ReadonlyMap<string, DroneFacts>;
   acts: MutableRefObject<HitActs>;
 };
 
-/** The layer over the canvas. In the order Tab goes round: pads, flags, crates, pins, rings, then the drones from the far side of the field to the near. */
-function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
+/** The layer over the canvas. In the order Tab goes round: pads, flags, crates, rings, then the drones from the far side of the field to the near. */
+function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
   const layer = useRef<HTMLDivElement>(null);
   const placer = useRef(new Placer()).current;
   useLayoutEffect(() => {
@@ -433,7 +403,7 @@ function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
   const drones = [...scene.drones].sort((a, b) => a.at.y - b.at.y);
   return (
     <PlacerContext.Provider value={placer}>
-      <div ref={layer} className="bf-hits" role="listbox" aria-label={label}>
+      <div ref={layer} className="bf-hits" role="listbox" aria-label="Map">
         {scene.layout.territories.flatMap((one) =>
           one.pads.map((pad) => {
             const info = scene.pads.get(pad.key);
@@ -446,9 +416,6 @@ function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
         })}
         {scene.crates.map((crate) => (
           <Payload key={crate.pr.key} crate={crate} acts={acts} />
-        ))}
-        {(scene.route?.pins ?? []).map((pin) => (
-          <Pin key={pin.id} pin={pin} pinned={scene.pinned === pin.id} acts={acts} />
         ))}
         {scene.builds.map((one) => (
           <Ring key={one.build.key} one={one} heights={scene.heights} big={scene.big} acts={acts} />

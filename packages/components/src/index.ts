@@ -33,6 +33,7 @@ export * from "./primitives/TerminalPane/XtermScreen";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
+export * from "./primitives/Inspect/Inspect";
 
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/ActiveJobsList/ActiveJobsList";
@@ -176,6 +177,7 @@ export * from "./concepts";
 export * from "./actions";
 // The keys each act answers now, with a person's own bindings laid over the registry's.
 export * from "./keymap";
+export * from "./since";
 export * from "./tile-grid";
 
 // Whether Cmd is held, for a control that carries a Global-tier binding to
@@ -454,6 +456,7 @@ export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
+export * from "./compositions/SketchScene/screen";
 export * from "./compositions/SketchScene/share";
 export { SketchShareContext } from "./compositions/SketchScene/SketchShare";
 export * from "./compositions/AskerView/AskerView";
@@ -461,6 +464,7 @@ export * from "./compositions/OwnerChip/OwnerChip";
 // The owner a pull request was registered to, from any machine under one GitHub login.
 export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
+export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/CommanderPanel/CommanderPanel";
@@ -470,8 +474,8 @@ export * from "./compositions/ForkedFrom/ForkedFrom";
 export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";
+export * from "./compositions/LinkedSession/LinkedSession";
 export * from "./compositions/StepsPanel/StepsPanel";
-export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/PullRequestPanel/PullRequestPanel";
@@ -495,7 +499,6 @@ export * from "./compositions/AutopilotBar/AutopilotBar";
 export * from "./compositions/ThoughtCard/ThoughtCard";
 // A write clash on a row, and the line it becomes in an open Job or Session.
 export * from "./compositions/ClashMark/ClashMark";
-export * from "./compositions/StopCard/StopCard";
 export * from "./clock";
 export * from "./marking";
 export * from "./compositions/SubagentMarks/SubagentMarks";

@@ -6,7 +6,7 @@
 import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -18,8 +18,7 @@ const row = () => page.elementLocator(head().element().querySelector("header")!)
 const model = () => page.getByRole("combobox", { name: "Model", exact: true });
 
 async function open(title: RegExp) {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
+  await toSession(title);
 }
 
 /** How much of the tank is filled, read off its fill as drawn, and the tone it is drawn in. */
@@ -36,23 +35,23 @@ test("The head is one row: the address in the glyph's tooltip, a one-line title,
   await onScreen();
   await open(/How does armada interface/);
 
-  const glyph = head().getByRole("img", { name: "s-e07cfe09", exact: true });
+  const glyph = head().getByRole("img", { name: /s-e07cfe09/ });
   await expect.element(glyph).toBeVisible();
-  await expect.element(page.elementLocator(glyph.element().parentElement!)).toHaveAccessibleDescription("s-e07cfe09");
+  await expect.element(page.elementLocator(glyph.element().parentElement!)).toHaveAccessibleDescription("Working · s-e07cfe09");
   await expect.element(row().getByText("s-e07cfe09")).not.toBeVisible();
 
   const title = head().getByRole("button", { name: `${TITLE}, rename` });
   await expect.element(title).toHaveAccessibleDescription(TITLE);
   const box = title.element() as HTMLElement;
 
-  const end = head().getByRole("button", { name: "End session" });
-  await expect.element(end).toBeVisible();
-  expect(end.element().textContent).toBe("");
-  await expect.element(head().getByRole("button", { name: "Retro" })).toBeVisible();
+  // End session and Retro are in the head's More menu on the Cockpit's stage; its button is the one icon act.
+  const more = head().getByRole("button", { name: "More" });
+  await expect.element(more).toBeVisible();
+  expect(more.element().textContent).toBe("");
 
   // The glyph, the title, the act, the tank and the state mark stand on one line.
   const centre = (one: Element) => one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2;
-  for (const one of [box, end.element(), head().getByRole("button", { name: /^Context/ }).element(), row().getByRole("img", { name: "Working" }).element()]) {
+  for (const one of [box, more.element(), head().getByRole("button", { name: /^Context/ }).element(), row().getByRole("img", { name: "Working" }).element()]) {
     expect(Math.abs(centre(one) - centre(glyph.element()))).toBeLessThan(8);
   }
 
@@ -76,8 +75,7 @@ test("The tank fills to the percent and turns to the warning tone at 80, not bef
   expect(high.tone).not.toBe(low.tone);
 
   // 72% is still the normal tone.
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Cart totals rounding/ }));
+  await toSession(/Cart totals rounding/);
   const resting = page.getByRole("region", { name: "Session s-b4a1d2c7" }).getByRole("button", { name: /^Context/ }).element() as HTMLElement;
   expect(parseFloat(getComputedStyle(resting, "::before").width) / resting.clientWidth).toBeCloseTo(0.72, 1);
   expect(getComputedStyle(resting).color).toBe(low.tone);
@@ -93,8 +91,8 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
   await expect.element(model()).toHaveDisplayValue("sonnet");
 });
 
-/** Both cards hang from the trailing edge of the head's marks, so they open leftward inside the Session's panel; the frame clips what runs past it. */
-test("The context card and the fresh card open inside the Session's panel, with the ledger open", async () => {
+/** Both cards are inspect cards: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
+test("The context card and the fresh card open whole", async () => {
   await page.viewport(1512, 949);
   onTestFinished(() => page.viewport(1440, 900));
   mount("session-head");
@@ -102,23 +100,24 @@ test("The context card and the fresh card open inside the Session's panel, with 
   await open(/Cart totals rounding/);
 
   const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
-  await expect.element(page.getByRole("region", { name: "Attachments" })).toBeVisible();
-  const inside = (card: Element) => {
-    const edge = frame.element().getBoundingClientRect();
+  const whole = (card: Element) => {
     const box = card.getBoundingClientRect();
     expect(box.width).toBeGreaterThan(0);
-    expect(box.right).toBeLessThanOrEqual(edge.right);
-    expect(box.left).toBeGreaterThanOrEqual(edge.left);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
   };
 
   await userEvent.click(frame.getByRole("button", { name: /^Context/ }));
-  await expect.element(frame.getByRole("dialog", { name: "Context" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Context" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Context" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Context" }).element());
 
   await userEvent.click(frame.getByRole("button", { name: "Fresh start" }));
-  await expect.element(frame.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Fresh start" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Fresh start" }).element());
 });
+
 
 test("A done Session's head draws End session in a glyph other than the Done mark's", async () => {
   mount("session-head");
@@ -127,9 +126,10 @@ test("A done Session's head draws End session in a glyph other than the Done mar
 
   const done = page.getByRole("region", { name: "Session s-c9e3a5f1" });
   const header = done.element().querySelector("header")!;
-  // The callout beneath the thread has an End session of its own, in words; the head's is the icon.
-  const act = header.querySelector('button[aria-label="End session"]')!;
-  const mark = header.querySelector('[role="img"][aria-label="Done"]')!;
+  // The callout beneath the thread has an End session of its own, in words; the head's is the icon in its More menu.
+  await userEvent.click(done.getByRole("button", { name: "More" }));
+  const act = page.getByRole("menuitem", { name: "End session" }).element();
+  const mark = header.querySelector('[role="img"][aria-label^="Done"]')!;
   const glyph = (one: Element) => one.querySelector("svg")!.getAttribute("class")!.split(" ").find((name) => name.startsWith("lucide-"));
   expect(glyph(mark)).toBe("lucide-power");
   expect(glyph(act)).toBeDefined();

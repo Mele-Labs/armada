@@ -32,3 +32,18 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 16 Oct 2026 for the walk `cockpit-release-holds`, and kept by the owner the same day. A need is a wait on something another holder may take first, which is what the Queued reason already draws. Tooltip `Need: <what it was declared for>`."
+
+[[icons.link.usage]]
+  means = "A Session dispatched to wait on another and not started: its mark in the Cockpit's Work list and in its head, and the row in the other Session's thread that tells it waits"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "A Session that has not started because something upstream has not finished. Never a Session that is blocked on the person, which is `eye`, and never a link to an address, which is the Studio meaning above."
+  notes = "Proposed 16 Oct 2026 for the walk `sessionAfterAnother`. The Queued reason already says something upstream is unfinished, and a Session that starts when another ends is that, one level up from a Job. Tooltips `Starts when <Session> ends`, `Starts when <part> is done in <Session>`, `Starts when #<number> is pushed` and `Starts when #<number> lands`. In the other Session's thread the row's mark has the tooltip `Waits on this Session`. Drawn in the row's own hue, calm: nothing is asked of the person."
+
+[[icons.link.usage]]
+  means = "A Session linked to the one it was handed from: the Sessions a parent follows"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 16 Oct 2026 for the walk `linkedSessions`. A plan group handed to a Session of its own. Leads the Session's row on the Plan, in the Ledger's Linked section, under its parent in Work, and in the parent's thread where it needs him, finishes or merges; it is also the Hand to a Session act. A chain is what a link between two things draws. Tooltip `Linked Session`. Refused: `corner-up-right` is Redirect and the Started row's glyph, and a Session its agent started with no group stays that; `git-fork` is Fork a Session, which copies a conversation. The owner may rule otherwise."

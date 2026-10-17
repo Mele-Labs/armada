@@ -47,6 +47,7 @@ mod history;
 mod journal;
 mod limits;
 mod mcp;
+mod review_runs;
 mod merge_hub;
 mod layout;
 mod key_bindings;

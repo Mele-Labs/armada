@@ -33,6 +33,7 @@
 @import "./primitives/Tabs/Tabs.css";
 @import "./primitives/Toast/Toast.css";
 @import "./primitives/Tooltip/Tooltip.css";
+@import "./primitives/Inspect/Inspect.css";
 @import "./primitives/Textarea/Textarea.css";
 
 /* Compositions. Same rule: a component owns its own file. */
@@ -393,9 +394,12 @@
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/RegisteredOwner/RegisteredOwner.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
+@import "./compositions/RunningChecks/RunningChecks.css";
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionThread/StartedRow.css";
 @import "./compositions/SessionThread/MovedRow.css";
+@import "./compositions/SessionThread/WaiterRow.css";
+@import "./compositions/SessionThread/LinkedRow.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/CommanderPanel/CommanderPanel.css";
@@ -408,10 +412,11 @@
 @import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
+@import "./compositions/LinkedSession/LinkedSession.css";
 @import "./compositions/StepsPanel/StepsPanel.css";
 @import "./compositions/NowPanel/NowPanel.css";
-@import "./compositions/SessionList/SessionList.css";
 @import "./compositions/SketchScene/SketchScene.css";
+@import "./compositions/SketchScene/ScreenView.css";
 @import "./compositions/AskerView/AskerView.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
@@ -452,7 +457,6 @@
 @import "./compositions/AutopilotBar/AutopilotBar.css";
 @import "./compositions/ThoughtCard/ThoughtCard.css";
 @import "./compositions/ClashMark/ClashMark.css";
-@import "./compositions/StopCard/StopCard.css";
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
 @import "./compositions/PullRequestPanel/PullRequestTabs.css";
 @import "./compositions/Account/Account.css";
@@ -462,3 +466,7 @@
 @import "./compositions/SubagentMarks/SubagentMarks.css";
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";
+
+/* Bridge's look. Last, so it reads over every component above. */
+@import "./depth.css";
+@import "./pages.css";

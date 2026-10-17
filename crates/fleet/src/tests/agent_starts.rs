@@ -9,9 +9,9 @@ use std::time::Duration;
 
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    CloseSession, ForkThisSession, ManifestId, SendSessionMessage, SessionHeld, SessionId, SessionRecord,
-    SessionRow, SessionState, SessionVoice, StartAnotherSession, StartSession, WaitingActKind,
-    WaitingSource,
+    CloseSession, ForkThisSession, HandToSession, LinkedEvent, ManifestId, PlanGroupInput, PlanTaskInput, RecordPlan,
+    SendSessionMessage, SessionFact, SessionHeld, SessionId, SessionRecord, SessionReport, SessionRow, SessionState,
+    SessionVoice, SetWaitingFor, StartAnotherSession, StartSession, WaitingActKind, WaitingInput, WaitingSource,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -20,18 +20,18 @@ use crate::tests::peer::Placing;
 use crate::tests::session_host::{Shared, StandIn};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const FIRST: &str = "Read crates/reader and say why it drops lines.";
 
-struct Rig {
-    fleet: Arc<Hosted>,
-    stand_in: Arc<StandIn>,
-    manifest: ManifestId,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Hosted>,
+    pub(super) stand_in: Arc<StandIn>,
+    pub(super) manifest: ManifestId,
     home: TempDir,
 }
 
-fn rig(peers: Option<Arc<Placing>>) -> Rig {
+pub(super) fn rig(peers: Option<Arc<Placing>>) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
@@ -44,12 +44,12 @@ fn rig(peers: Option<Arc<Placing>>) -> Rig {
     Rig { fleet: Arc::new(fleet), stand_in, manifest, home }
 }
 
-fn caller() -> Option<api::Caller> {
+pub(super) fn caller() -> Option<api::Caller> {
     Some(api::Caller::at("127.0.0.1:50999".parse().unwrap()))
 }
 
-fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
-    StartAnotherSession { manifest_id: rig.manifest.clone(), title: title.into(), message: message.into() }
+pub(super) fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
+    StartAnotherSession { manifest_id: rig.manifest.clone(), title: title.into(), message: message.into(), group: None, after: None }
 }
 
 /// A transcript line the agent CLI wrote: `kind` is `user` or `assistant`.
@@ -61,15 +61,15 @@ fn line(kind: &str, uuid: &str, text: &str) -> String {
 }
 
 impl Rig {
-    async fn record(&self, id: &SessionId) -> SessionRecord {
+    pub(super) async fn record(&self, id: &SessionId) -> SessionRecord {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").session
     }
 
-    async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
+    pub(super) async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
-    async fn send(&self, id: &SessionId, text: &str) {
+    pub(super) async fn send(&self, id: &SessionId, text: &str) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),
@@ -82,7 +82,7 @@ impl Rig {
     }
 
     /// A hosted session with its process up: the agent that makes the calls.
-    async fn an_agent(&self) -> SessionId {
+    pub(super) async fn an_agent(&self) -> SessionId {
         let id = self
             .fleet
             .start_session(StartSession {
@@ -92,9 +92,9 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
@@ -155,7 +155,7 @@ impl Rig {
     }
 }
 
-fn kind<'a>(record: &'a SessionRecord, kind: &str) -> Option<&'a ipc::Attachment> {
+pub(super) fn kind<'a>(record: &'a SessionRecord, kind: &str) -> Option<&'a ipc::Attachment> {
     record.attachments.iter().find(|one| one.kind == kind)
 }
 
@@ -351,4 +351,170 @@ async fn a_blank_title_or_message_is_refused() {
         let refused = code(rig.fleet.start_another_session(caller(), begins(&rig, title, message)).await);
         assert!(refused.contains("fleet.agent_start_empty"), "{refused}");
     }
+}
+
+// ---- Linked Sessions: a group of the plan handed to a Session the caller follows ----------------------
+
+pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
+    let group = |title: &str, tasks: &[&str]| PlanGroupInput {
+        id: None,
+        title: title.into(),
+        agent: "rust-engineer".into(),
+        paths: vec!["crates/store".into()],
+        tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
+    };
+    RecordPlan {
+        groups: vec![
+            group("Name the migrations", &["Give each migration a name", "Record the name with the version"]),
+            group("Apply them in order", &["Sort by name before applying"]),
+        ],
+        sketch: None,
+        session_id: Some(agent.clone()),
+    }
+}
+
+fn handing(rig: &Rig, group: &str) -> StartAnotherSession {
+    StartAnotherSession { group: Some(group.into()), ..begins(rig, "Ignored", "Mind the order.") }
+}
+
+impl Rig {
+    /// An agent whose plan holds two groups, with the Fleet telling parents about the Sessions they follow.
+    async fn a_parent_with_a_plan(&self) -> SessionId {
+        crate::linked_watching::keep_the_linked(Arc::clone(&self.fleet));
+        let agent = self.an_agent().await;
+        self.fleet.record_plan(None, two_groups(&agent)).await.expect("recorded");
+        agent
+    }
+
+    /// The `linked` rows of the thread, once there are `count`.
+    async fn linked_rows(&self, id: &SessionId, count: usize) -> Vec<(String, LinkedEvent)> {
+        for _ in 0..500 {
+            let rows: Vec<(String, LinkedEvent)> = self
+                .rows(id)
+                .await
+                .iter()
+                .filter_map(|row| match row {
+                    SessionRow::Linked { session, event, .. } => Some((session.id.as_str().to_string(), *event)),
+                    _ => None,
+                })
+                .collect();
+            if rows.len() >= count {
+                return rows;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("the thread did not hold {count} linked rows within five seconds");
+    }
+
+    /// How many lines the process of the agent at index 0 was sent that contain `text`.
+    pub(super) fn told(&self, text: &str) -> usize {
+        self.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(text)).count()
+    }
+
+    pub(super) async fn report(&self, child: &SessionId, fact: SessionFact) {
+        let harness = self.record(child).await.harness;
+        self.fleet.report_session(SessionReport { harness, session_id: child.clone(), fact }).await.expect("reported");
+    }
+}
+
+#[tokio::test]
+async fn a_grouped_start_is_the_groups_own_and_both_ledgers_keep_the_group() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+
+    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    assert_eq!(held.title, "Name the migrations", "the group's title, whatever the call said");
+
+    let child = rig.record(&held.session_id).await;
+    let unsent = kind(&child, "unsent").expect("the brief is held").target.clone();
+    assert!(unsent.contains("- Give each migration a name\n- Record the name with the version"), "the tasks word for word: {unsent}");
+    assert!(unsent.contains("Handoff from The agent"), "the parent's handoff: {unsent}");
+    assert!(unsent.trim_end().ends_with("Mind the order."), "the caller's words last: {unsent}");
+
+    let by = kind(&child, "started_by").expect("it names its parent");
+    assert_eq!((by.target.as_str(), by.detail.get("group").map(String::as_str)), (agent.as_str(), Some("g1")));
+    let parent = rig.record(&agent).await;
+    let to = kind(&parent, "started_to").expect("the parent names it");
+    assert_eq!((to.target.as_str(), to.detail.get("group").map(String::as_str)), (held.session_id.as_str(), Some("g1")));
+    assert!(rig.rows(&agent).await.iter().any(|row| matches!(row, SessionRow::Started { session, .. } if session.id == held.session_id)));
+}
+
+#[tokio::test]
+async fn a_group_is_handed_once_and_must_be_in_the_plan() {
+    let rig = rig(None);
+    rig.a_parent_with_a_plan().await;
+    rig.fleet.start_another_session(caller(), handing(&rig, "g2")).await.expect("held");
+
+    let again = code(rig.fleet.start_another_session(caller(), handing(&rig, "g2")).await);
+    assert!(again.contains("fleet.group_handed"), "{again}");
+    let missing = code(rig.fleet.start_another_session(caller(), handing(&rig, "g9")).await);
+    assert!(missing.contains("fleet.group_unknown"), "{missing}");
+}
+
+#[tokio::test]
+async fn the_person_handing_a_group_starts_the_session_and_sends_the_brief() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+
+    let held = Arc::clone(&rig.fleet)
+        .hand_to_session(HandToSession { session_id: agent.clone(), group: "g1".into() })
+        .await
+        .expect("handed");
+    assert_eq!(held.title, "Name the migrations");
+
+    let child = rig.record(&held.session_id).await;
+    assert_eq!(kind(&child, "started_by").unwrap().detail.get("group").map(String::as_str), Some("g1"));
+    assert_eq!(kind(&child, "unsent").map(|one| one.state), Some(ipc::AttachmentState::Spent), "the press is the first send");
+    let rows = rig.rows(&held.session_id).await;
+    let sent = rows.iter().find_map(|row| match row {
+        SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.clone()),
+        _ => None,
+    });
+    assert!(sent.is_some_and(|text| text.contains("- Give each migration a name")), "the brief is the first message");
+}
+
+#[tokio::test]
+async fn the_parent_is_told_when_a_linked_session_needs_the_owner() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    // Its unsent first message waits on the owner, which is his to send and no call on him.
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(rig.linked_rows(&agent, 0).await.is_empty());
+
+    let question = WaitingInput { id: "q1".into(), text: "Sort by name or by version?".into(), act: None, options: Vec::new(), steps: Vec::new() };
+    rig.fleet.waiting_for(None, SetWaitingFor { items: vec![question], session_id: Some(held.session_id.clone()) }).await.expect("set");
+
+    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Needs)]);
+    assert_eq!(rig.told("needs the owner"), 1, "the parent's agent is woken with it");
+}
+
+#[tokio::test]
+async fn the_parent_is_told_when_a_linked_session_ends() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+
+    rig.fleet.close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
+
+    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Done)]);
+    assert_eq!(rig.told("ended"), 1);
+}
+
+#[tokio::test]
+async fn the_parent_is_told_once_when_a_linked_sessions_pull_request_merges() {
+    let rig = rig(None);
+    let agent = rig.a_parent_with_a_plan().await;
+    let held = rig.fleet.start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
+    let attached = SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "2412".into(), detail: Default::default() } };
+    rig.report(&held.session_id, attached).await;
+    let merged = || SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "2412".into() }, state: ipc::AttachmentState::Spent };
+    rig.report(&held.session_id, merged()).await;
+
+    assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Merged)]);
+    // The same merge seen again is not news.
+    rig.report(&held.session_id, merged()).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(rig.linked_rows(&agent, 1).await.len(), 1);
+    assert_eq!(rig.told("pull request #2412 merged"), 1);
 }

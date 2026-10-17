@@ -101,10 +101,10 @@ where
                     model: chosen(model).or(last.as_ref().and_then(|last| last.model.clone())),
                     effort: effort.or(last.as_ref().and_then(|last| last.effort.clone())),
                     mode: last.as_ref().map(|last| mode_of(&last.mode)),
-                    pilot: None,
                     root: None,
                     fork: None,
                     request: None,
+                    after: None,
                 },
                 true,
             )

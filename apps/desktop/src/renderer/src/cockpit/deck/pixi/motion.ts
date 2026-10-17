@@ -1,14 +1,12 @@
 // The activity log as motion on the ground and in the air between: what an event looks like when it is new. A Check turns a radar cone on
-// the drone that runs it; something said sends a ring out from its drone; a plot that was touched sends one out from its middle; a turn
-// between a Session and its Job is a light that runs along the line between them three times; a merge flashes the objective, sends a
+// the drone that runs it; something said sends a ring out from its drone; a plot that was touched sends one out from its middle; a merge flashes the objective, sends a
 // shockwave over its territory and a column of light up the flag. A launch and a pull request's hop are the drones' and the crates' own
 // (`fliers.ts`, `stands.ts`), and the plots that rise are the stage's. Each is a function of how long ago it began, so none keeps state.
 // Light, so it is added to what is under it.
 
-import { alongOf, type P3 } from "../layout";
 import { onPlane } from "../bf-parts";
 import type { Play } from "../plays";
-import { soft, type Clock } from "./clock";
+import type { Clock } from "./clock";
 import { pool, sweep } from "./ground";
 import { PlaneBuilder } from "./plane";
 import { fade, type Palette } from "./palette";
@@ -46,7 +44,7 @@ export function drawPlays(glow: PlaneBuilder, s: PixiSceneIn, p: Palette, floor:
         sweep(glow, drone.at.x, drone.at.y, 110, -Math.PI / 2 + t * 4 * Math.PI, fade(p.fg, hold), z, 62);
       }
     }
-    if (play.kind === "blip" || (play.kind === "tracer" && drone.above === undefined)) {
+    if (play.kind === "blip" || play.kind === "tracer") {
       // Two rings, one after the other.
       const lap = pulse * 0.9;
       const t = within(since, lap * 2);
@@ -57,22 +55,7 @@ export function drawPlays(glow: PlaneBuilder, s: PixiSceneIn, p: Palette, floor:
       const t = main === undefined ? undefined : within(since - (play.kind === "launch" ? 1000 : 300), pulse * 1.3);
       if (main !== undefined && t !== undefined) ring(glow, main.at, floor(main.tile) + 1.5, 100, t, 0.15, p.accent, 1);
     }
-    if (play.kind === "tracer" && drone.above !== undefined) tracer(glow, drone.flying, drone.above, p, since, pulse);
   }
-}
-
-/** A light that runs along the line to a Job and back three times, a seventh of the way long. */
-function tracer(glow: PlaneBuilder, from: P3, to: P3, p: Palette, since: number, pulse: number): void {
-  const lap = pulse * 0.85;
-  const t = within(since, lap * 3);
-  if (t === undefined) return;
-  const run = soft((t * 3) % 1);
-  const [head, tail] = [Math.min(1, run * 1.07), Math.max(0, run * 1.07 - 0.07)];
-  if (head <= tail) return;
-  const path: P3[] = Array.from({ length: 9 }, (_, i) => alongOf(from, to, 34, tail + ((head - tail) * i) / 8));
-  const live = Math.min(1, ((t * 3) % 1) / 0.12) * (1 - 0.8 * ((t * 3) % 1));
-  glow.stroke(path, 1.4, fade(p.fg, live));
-  glow.stroke(path, 5, fade(p.fg, 0.2 * live));
 }
 
 /** A merge: a flash on the objective, a shockwave out over its territory, then a column of light up the flag. */

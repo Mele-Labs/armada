@@ -4,3 +4,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 11 Oct 2026 with the Cockpit's Bays tab, its rail glyph. The tab draws every bay's work as one row through the same stations, so the glyph is the rows, not a slot's state: `door-open` and `door-closed-locked` keep those."
+
+[[icons.rows-3.usage]]
+  means = "Slot: the bay and branch a Session holds, as a key on Flight control, lit only when something is wrong"
+  group = "Session"
+  size = "16px"
+  status = "Specified"
+  notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The bay's rows, not a state: it draws in the stranded hue when the slot is stranded, behind or in conflict, and plain otherwise. Tooltip `Slot`."

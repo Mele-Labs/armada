@@ -70,12 +70,6 @@ const RETRO_MODEL: &str = "sonnet";
 /// and paid only where a flag was raised.
 const SECOND_OPINION_MODEL: &str = "sonnet";
 
-/// The model a Job's Commander runs on when nothing names one. **Named rather
-/// than derived**, and held to the roster by a test: the owner chose the
-/// strongest tier on 12 Oct 2026. It is `crates/config/settings.toml`'s
-/// `commander-model` row.
-const COMMANDER_MODEL: &str = "opus";
-
 /// The model the Session default steps down to when the weekly plan window runs out.
 /// **Named rather than derived**, and held to the roster by a test: the middle
 /// tier, as the retro's. It is `crates/config/settings.toml`'s
@@ -122,6 +116,12 @@ impl HeadlessAgent {
         }
     }
 
+    /// The model an agent run about a pull request runs on: **the Session model**, which is what
+    /// `crates/config/settings.toml`'s `review-model` row decided, and its own dial after that.
+    pub fn review_model() -> &'static str {
+        HeadlessAgent::session_model()
+    }
+
     /// The model a dispatch request is read by when nothing names one.
     pub fn proposer_model() -> &'static str {
         PROPOSER_MODEL
@@ -135,12 +135,6 @@ impl HeadlessAgent {
     /// The model a judged gaming flag is read a second time on.
     pub fn second_opinion_model() -> &'static str {
         SECOND_OPINION_MODEL
-    }
-
-    /// The model a Job's Commander runs on when neither the Job nor the
-    /// machine names one.
-    pub fn commander_model() -> &'static str {
-        COMMANDER_MODEL
     }
 
     /// The model the Session default is offered a step down to.

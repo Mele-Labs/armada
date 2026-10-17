@@ -172,9 +172,9 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
@@ -195,9 +195,9 @@ impl Rig {
             effort: None,
             mode: None,
             root: None,
-            pilot: None,
             fork: None,
             request: Some(request.to_string()),
+            after: None,
         };
         set(&mut start);
         Arc::clone(&self.fleet)
@@ -689,9 +689,9 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             effort: None,
             mode: None,
             root: None,
-            pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .unwrap()
@@ -895,6 +895,42 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
 
     rig.fleet.close_session(CloseSession { session_id: id.clone() }).await.unwrap();
     assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_folders.is_empty());
+}
+
+/// A reach that names only the root offers no "always": no folder holds it that Fleet would take,
+/// so every Always press on it was refused (16 Oct 2026, `find / -name …`).
+#[tokio::test]
+async fn a_reach_into_the_root_is_asked_once_only() {
+    let rig = rig();
+    let id = rig.start().await;
+    let body = r#"{"tool_name":"Bash","input":{"command":"find / -name x-2441.json"}}"#;
+    let asking: ipc::AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let waiting = tokio::spawn(async move { fleet.session_permission(&session, asking).await });
+    let seen = Mutex::new(None);
+    eventually(|| async {
+        let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let some = now.is_some();
+        *seen.lock().unwrap() = now;
+        some
+    })
+    .await;
+    let ask = seen.into_inner().unwrap().unwrap();
+    assert_eq!(ask.reaches.as_deref(), Some("/"));
+    assert_eq!(ask.offers, vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse]);
+    rig.fleet
+        .answer_session_ask(AnswerSessionAsk {
+            session_id: id.clone(),
+            call: ask.call.clone(),
+            answer: HelmCallAnswer::Refuse,
+            note: None,
+            answers: Vec::new(),
+            folder: None,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
 }
 
 #[tokio::test]

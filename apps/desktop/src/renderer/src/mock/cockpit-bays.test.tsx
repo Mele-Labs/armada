@@ -1,5 +1,5 @@
 // The Cockpit's Bays through `App` on a pool with a bay in every state: grouped under a heading for each repository with none in the
-// card, narrowed to what a picked Job holds, and lit with its holder's row in the list from either end. The look is the walk's
+// card, and lit with its holder's row in the list from either end. The look is the walk's
 // (`walks/bays-look-like-bays.ts`); this holds what the bays do.
 
 import { expect, test } from "vitest";
@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const bays = () => page.getByRole("region", { name: "Bays" });
 const bay = (name: RegExp) => bays().getByRole("button", { name });
 const labels = (selector: string) => [...document.querySelectorAll(selector)].map((one) => one.getAttribute("aria-label"));
@@ -43,20 +43,6 @@ test("the bays are grouped under a heading for each repository, and the card nam
   }
 });
 
-test("a Job picked in the list narrows the bays to the ones it holds, and Back brings them all", async () => {
-  await deck();
-  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
-  const pane = page.getByRole("region", { name: /^Job: Shorten the reconnect wait/ });
-  await expect.element(pane).toBeVisible();
-  expect(labels(".deck-bay")).toEqual(["slot-3, armada, Held, Shorten the reconnect wait"]);
-  // A repository with none of its bays left has no heading.
-  expect([...document.querySelectorAll(".deck-bays h3")].map((one) => one.textContent)).toEqual(["armada"]);
-
-  await pane.getByRole("button", { name: "Back", exact: true }).click();
-  await expect.poll(() => labels(".deck-bay").length).toBe(9);
-  expect(document.querySelectorAll(".deck-bays h3")).toHaveLength(2);
-});
-
 test("a bay under the pointer lights its holder's row, and a row lights the bays it holds", async () => {
   await deck();
   expect(lit(".deck-row")).toEqual([]);
@@ -67,9 +53,9 @@ test("a bay under the pointer lights its holder's row, and a row lights the bays
   expect(lit(".deck-bay")).toEqual(["slot-4, armada, Held, Pin the store clock"]);
   expect(document.querySelector(".deck-row[data-selected]")).toBeNull();
 
-  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).hover();
-  await expect.poll(() => lit(".deck-bay")).toEqual(["slot-3, armada, Held, Shorten the reconnect wait"]);
-  expect(lit(".deck-row")).toEqual(["Shorten the reconnect wait"]);
+  await list().getByRole("button", { name: "Pin the store clock", exact: true }).hover();
+  await expect.poll(() => lit(".deck-bay")).toEqual(["slot-4, armada, Held, Pin the store clock"]);
+  expect(lit(".deck-row")).toEqual(["Pin the store clock"]);
   expect(document.querySelector(".deck-bay[data-selected]")).toBeNull();
 });
 

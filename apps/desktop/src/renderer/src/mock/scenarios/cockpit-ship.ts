@@ -1,5 +1,5 @@
-// The whole ship at rest, in the wire shapes Fleet serves, for the flight deck: two repositories, four Jobs, seven Sessions in
-// the states Fleet reads them to be in, four pull requests each owned by a Job, a Session or nobody, main green, eight bays
+// The whole ship at rest, in the wire shapes Fleet serves, for the flight deck: two repositories, seven Sessions in
+// the states Fleet reads them to be in, four pull requests each owned by a Session or nobody, main green, eight bays
 // (five held, one free, one stranded, one closed), Autopilot off.
 //
 // **Everything the deck reads is something Fleet records.** The tools a drone has used are `session.read`, `session.edited`,
@@ -10,11 +10,9 @@
 // replies, main goes red once PR 1890 lands, and the fix lands. #2301.
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
-import type { HubJob, HubMerged, HubPullRequest, MainStanding, MergeLines, PlanUsage, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld, WriteClash } from "@armada/protocol";
+import type { HubMerged, HubPullRequest, MainStanding, MergeLines, PlanUsage, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld, WriteClash } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionChecks } from "@armada/screens/src/draft/sessions";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
-import { queued, review, running } from "@armada/jobs/fixtures/build/index";
+import { queued, review, running } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
@@ -137,7 +135,30 @@ const working: Session = {
     say("w1-a", "14:16:58", "0043 adds the pause marker column and backfills it to null."),
     tool("w1-t3", "14:17:02", "Grep crates/store -e pause_marker"),
   ],
-  attachments: [],
+  attachments: [pr(1892, "Add the pause marker column", "fleet/pause-marker-column", { state: "pending" })],
+  context: { tokens: 612_000, window: 1_000_000 },
+  contextBreakdown: {
+    categories: [
+      { name: "System prompt", tokens: 3_100, kind: "used" },
+      { name: "System tools", tokens: 12_400, kind: "used" },
+      { name: "MCP tools", tokens: 8_200, kind: "used" },
+      { name: "Memory files", tokens: 4_600, kind: "used" },
+      { name: "Messages", tokens: 583_700, kind: "used" },
+      { name: "Free space", tokens: 238_000, kind: "free" },
+      { name: "Autocompact buffer", tokens: 150_000, kind: "buffer" },
+    ],
+    memoryFiles: [
+      { path: "NOTES.md", tokens: 2_100 },
+      { path: "apps/NOTES.md", tokens: 700 },
+    ],
+    mcpTools: [
+      { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },
+      { name: "query", server: "gitnexus", tokens: 1_500 },
+    ],
+    totalTokens: 612_000,
+    maxTokens: 1_000_000,
+    autocompactThreshold: 850_000,
+  },
 };
 
 /** Its turn is running and has said nothing for 25 minutes. In the pocket repository. */
@@ -205,9 +226,9 @@ const REPLIED: Partial<Session> = {
 };
 
 /** The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly Session[] = SESSIONS): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2], list: readonly Session[] = SESSIONS): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, [], control, [], list);
+  const store = sessionsStore([none, none], none, control, [], list);
   let moment = 0;
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
   const own = new Set(list.map((one) => one.id));
@@ -245,7 +266,6 @@ function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly S
   };
 }
 
-const hubJob = (one: JobFixture): HubJob => ({ id: one.job.id, title: one.job.title });
 const COMMIT = "9f3c1d2e4b5a69788796a5b4c3d2e1f001122334";
 const READ_AT = new Date().toISOString();
 
@@ -283,7 +303,7 @@ function lines(moment: "rest" | "red" | "fixed"): MergeLines {
       pull_requests: [
         ...(landed ? [] : [open(1890, "Gate policy on every run", "fleet/gate-policy-every-run", "passed", { queue: { state: "queued", position: 1 }, opened_at: ago(70), updated_at: ago(3) })]),
         open(1896, "Fix the reconnect wait", "fleet/reconnect-wait", "failed", { opened_at: ago(40) }),
-        open(1892, "Add the pause marker column", pause.job.branch ?? "armada/82-pause-column", "running", { job: hubJob(pause), opened_at: ago(30) }),
+        open(1892, "Add the pause marker column", "fleet/pause-marker-column", "running", { opened_at: ago(30) }),
       ],
       merged: [
         ...(landed ? [merged(1890, "Gate policy on every run", "fleet/gate-policy-every-run", 1, moment === "red" ? "failed" : "passed")] : []),
@@ -317,7 +337,7 @@ const bay = (manifest: string, slot: number, held: WorktreeSlot["held"], rest: P
   ...rest,
 });
 
-/** Eight bays: held by two Jobs and three Sessions, one free, one stranded, one closed. */
+/** Eight bays: held by five Sessions, one free, one stranded, one closed. */
 function pool(): WorktreesHeld {
   const session = (manifest: string, slot: number, one: Session, branch: string, minutes: number) =>
     bay(manifest, slot, { state: "hosted_session", session_id: one.id, session_title: one.title ?? one.id }, { branch, since: ago(minutes) });
@@ -325,8 +345,8 @@ function pool(): WorktreesHeld {
     worktrees: [],
     slots: [
       session(ARMADA, 1, queuedOwner, "fleet/gate-policy-every-run", 80),
-      bay(ARMADA, 2, { state: "job", job_id: cache.job.id, job_title: cache.job.title }, { branch: "armada/81-cache", since: ago(17) }),
-      bay(ARMADA, 3, { state: "job", job_id: reconnect.job.id, job_title: reconnect.job.title }, { branch: "armada/83-reconnect", since: ago(33) }),
+      session(ARMADA, 2, asking, "fix/cache-key", 17),
+      session(ARMADA, 3, red, "fleet/reconnect-wait", 33),
       session(ARMADA, 4, WORKING_REPLY, "fix/pin-store-clock", 16),
       bay(ARMADA, 5, { state: "free" }, { behind: 2, warm: false }),
       bay(
@@ -353,46 +373,12 @@ function pool(): WorktreesHeld {
   };
 }
 
-/** What each Job's Drone is doing: the lines a Peek reads. */
-const NOWS: Record<string, NowView> = {
-  [cache.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Fix", line: "Editing manifest-read.ts", step: { id: "fix", name: "Fix" }, state: "running", tail: ["Read crates/manifest/src/read.rs", "Edit crates/manifest/src/read.rs: key the cache on the hash", "cargo test -p manifest read_again"] },
-      { key: "c", of: "check", name: "manifest_test", state: "running" },
-      { key: "l", of: "check", name: "lint", state: "running" },
-    ],
-  },
-  [reconnect.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Fix", line: "Waiting on the store test", state: "running", tail: ["Edit crates/fleet/src/reconnect.rs", "cargo test -p store reconnect", "FAIL store::reconnect::waits_five_seconds"] },
-      { key: "c", of: "check", name: "store", state: "failed" },
-    ],
-  },
-  [code.job.id]: { waiting: [{ key: "w", kind: "resource", text: "A bay in pocket" }] },
-};
 
-const CALLS: Record<string, CallView> = {
-  [reconnect.job.id]: {
-    request: "When Bridge loses its socket to Fleet, it waits a flat 30s before reconnecting. Cut the first wait to 5s and back off from there, keeping the cap at 60s.",
-    running: [{ key: "r", of: "drone", name: "Drone on Fix", line: "Waiting on the store test", state: "running" }],
-    issues: [
-      {
-        key: "i1",
-        of: "check",
-        name: "store",
-        text: "store: 2 failed",
-        said: "Check failed",
-        context: ["FAIL store::reconnect::waits_five_seconds", "  expected: 5s", "  actual:   30s", "FAIL store::reconnect::caps_at_sixty", "  assertion failed: backoff(9) <= 60s"],
-      },
-    ],
-  },
-};
 
 // ---- What Fleet did, for the flight deck's timeline ---------------------------------------------------
 
 let count = 0;
 type Who = { subject: TimelineSubject; title: string };
-const jobWho = (one: JobFixture): Who => ({ subject: { kind: "job", id: one.job.id }, title: one.job.title });
 const sessionWho = (one: Session): Who => ({ subject: { kind: "session", id: one.id }, title: one.title ?? one.id });
 const pullWho = (number: number, title: string): Who => ({ subject: { kind: "pull_request", number, url: `${FORGE}${number}` }, title });
 function event(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: { detail?: string; items?: string[]; live?: boolean; over?: boolean; repo?: string } = {}): TimelineEvent {
@@ -402,20 +388,6 @@ function event(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: Tim
 }
 
 const BASE_EVENTS: TimelineEvent[] = [
-  event(19, jobWho(cache), "job.created", "idle", "Dispatched"),
-  event(18, jobWho(cache), "job.started", "run", "Started", { live: true }),
-  event(14, jobWho(cache), "job.step", "ok", "Scope passed", { live: true }),
-  event(9, jobWho(cache), "job.step", "run", "Fix started", { live: true }),
-  event(97, jobWho(pause), "job.created", "idle", "Dispatched"),
-  event(96, jobWho(pause), "job.started", "run", "Started", { live: true }),
-  event(52, jobWho(pause), "job.step", "ok", "Implement passed", { live: true }),
-  event(33, jobWho(pause), "job.step", "ask", "Awaiting review"),
-  event(35, jobWho(reconnect), "job.created", "idle", "Dispatched"),
-  event(34, jobWho(reconnect), "job.started", "run", "Started", { live: true }),
-  event(20, jobWho(reconnect), "job.step", "ok", "Scope passed", { live: true }),
-  event(6, jobWho(reconnect), "job.step", "bad", "store failed", { detail: "store::reconnect::waits_five_seconds", live: true }),
-  event(5, jobWho(reconnect), "job.asked", "ask", "Asked: what to do about the store Check"),
-  event(4, jobWho(code), "job.queued", "idle", "Queued, waits for a bay in pocket", { repo: POCKET }),
   event(70, sessionWho(queuedOwner), "session.started", "run", "Started", { live: true }),
   event(3, pullWho(1890, "Gate policy on every run"), "pr.opened", "idle", "Opened", { detail: "fleet/gate-policy-every-run" }),
   event(2, pullWho(1890, "Gate policy on every run"), "pr.checks", "ok", "Checks passed"),
@@ -426,7 +398,6 @@ const BASE_EVENTS: TimelineEvent[] = [
   event(40, sessionWho(red), "session.started", "run", "Started", { live: true }),
   event(40, pullWho(1896, "Fix the reconnect wait"), "pr.opened", "idle", "Opened", { detail: "fleet/reconnect-wait" }),
   event(22, pullWho(1896, "Fix the reconnect wait"), "pr.checks", "bad", "Checks failed", { detail: "desktop_test" }),
-  event(30, jobWho(pause), "pr.opened", "idle", "Opened"),
   event(50, sessionWho(done), "session.started", "run", "Started", { live: true }),
   event(4, sessionWho(done), "session.ended", "ok", "Done", { over: true }),
   event(12, sessionWho(working), "session.started", "run", "Started", { live: true }),
@@ -450,44 +421,38 @@ const burst = (minutes: number, who: Who, kind: TimelineEvent["kind"], tone: Tim
 const TOOLS: TimelineEvent[] = [
   // At rest, within the last two minutes: Migration notes reads, Cache the manifest runs. The rest are older, so they say what was done.
   burst(1, sessionWho(working), "session.read", "run", "Read 3 files", ["crates/store/migrations/0044.sql", "crates/store/migrations/0043.sql", "crates/store/migrations/0042.sql"]),
-  burst(1, jobWho(cache), "job.ran", "run", "Ran 1 command", ["cargo test -p fleet manifest"]),
   burst(12, sessionWho(WORKING_REPLY), "session.edited", "run", "Edited 2 files", [`${slotPath(ARMADA_ROOT, 4)}/crates/store/tests/clock.rs`, `${slotPath(ARMADA_ROOT, 4)}/crates/store/tests/pool.rs`]),
   burst(6, sessionWho(WORKING_REPLY), "session.ran", "run", "Ran 2 commands", ["cargo test -p store", "cargo clippy -p store"]),
   burst(5, sessionWho(queuedOwner), "session.edited", "run", "Edited 3 files", ["~/armada/.armada/slots/slot-1/crates/fleet/src/gate.rs", "~/armada/.armada/slots/slot-1/crates/gate/src/run.rs", "~/armada/.armada/slots/slot-1/crates/gate/src/policy.rs"]),
-  event(7, jobWho(cache), "job.files", "run", "Changed 2 files", { detail: "crates/fleet/src/manifest.rs", live: true }),
-  event(6, jobWho(reconnect), "job.files", "run", "Changed 1 file", { detail: "apps/desktop/src/renderer/src/cockpit/reconnect.ts", live: true }),
-  burst(30, sessionWho(red), "session.edited", "run", "Edited 1 file", ["apps/desktop/src/renderer/src/cockpit/reconnect.ts"]),
+  burst(30, sessionWho(red), "session.edited", "run", "Edited 2 files", ["apps/desktop/src/renderer/src/cockpit/reconnect.ts", "crates/fleet/src/reconnect.rs"]),
   burst(50, sessionWho(stuck), "session.edited", "run", "Edited 1 file", ["/Users/user/pocket/.armada/slots/slot-1/src/sw/cache.ts"], POCKET),
 ];
 
 /** Who held a bay, and when, as Fleet notes it: `slot.leased` when a holder takes the slot, `slot.released` when it gives it back. */
 const lease = (minutes: number, who: Who, slot: number, kind: "slot.leased" | "slot.released" = "slot.leased", repo?: string): TimelineEvent =>
   event(minutes, who, kind, "idle", kind === "slot.leased" ? `Slot ${slot} leased` : `Slot ${slot} given back`, { detail: `slot-${slot}`, ...(repo === undefined ? {} : { repo }) });
-const gone = (kind: "job" | "session", id: string, title: string): Who => ({ subject: { kind, id }, title });
+const gone = (id: string, title: string): Who => ({ subject: { kind: "session", id }, title });
 
 const SLOTS: TimelineEvent[] = [
   // Bay 1: an earlier Session, given back, then the one that holds it.
-  lease(230, gone("session", "01SESSIONRELEASENOTES0001", "Release notes"), 1),
-  lease(205, gone("session", "01SESSIONRELEASENOTES0001", "Release notes"), 1, "slot.released"),
+  lease(230, gone("01SESSIONRELEASENOTES0001", "Release notes"), 1),
+  lease(205, gone("01SESSIONRELEASENOTES0001", "Release notes"), 1, "slot.released"),
   lease(80, sessionWho(queuedOwner), 1),
-  // Bay 2: a Job given back, then the one that holds it.
-  lease(150, gone("job", "01JOBBUMPLOCKFILE000001", "Bump the lockfile"), 2),
-  lease(120, gone("job", "01JOBBUMPLOCKFILE000001", "Bump the lockfile"), 2, "slot.released"),
-  lease(17, jobWho(cache), 2),
-  lease(33, jobWho(reconnect), 3),
+  lease(33, sessionWho(red), 3),
+  lease(17, sessionWho(asking), 2),
   lease(16, sessionWho(WORKING_REPLY), 4),
   // Bay 5 is free and bay 2 of pocket is closed, and no event names either: they have no history.
   // Bay 6: its holder took it and was never heard to give it back; it stands stranded.
-  lease(180, gone("session", "01SESSIONCLOSEDFRAME0000", "Frame the reply"), 6),
+  lease(180, gone("01SESSIONCLOSEDFRAME0000", "Frame the reply"), 6),
   lease(40, sessionWho(stuck), 1, "slot.leased", POCKET),
 ];
 
 const EVENTS: TimelineEvent[] = [...BASE_EVENTS, ...TOOLS, ...SLOTS];
 
-/** The write clashes Fleet reports, as `GET /clashes` returns them: a Job and a Session in one file, and a Session against a main that moved. */
+/** The write clashes Fleet reports, as `GET /clashes` returns them: two Sessions in one file, and a Session against a main that moved. */
 const CLASHES: WriteClash[] = [
   {
-    one: { kind: "job", id: reconnect.job.id, label: reconnect.job.title },
+    one: { kind: "session", id: asking.id, label: asking.title ?? asking.id },
     other: { kind: "session", id: red.id, label: red.title ?? red.id },
     paths: ["apps/desktop/src/renderer/src/cockpit/reconnect.ts"],
     since: ago(9),
@@ -511,7 +476,7 @@ const PLAN = (): PlanUsage => ({
 
 function build(): Scenario {
   const pocketManifest = { ...repository().manifest!, id: POCKET, repository: POCKET, path: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada` };
-  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
+  const base = holding("cockpit-ship-flightdeck", "The whole ship at rest: two repositories, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
     alsoServed: [{ root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest }],
   });
   const jobs = JOBS.map((one) => one.job);
@@ -521,7 +486,7 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
     later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, SESSIONS), events: EVENTS, clashes: CLASHES, areas: mockAreas },
+    draft: { sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

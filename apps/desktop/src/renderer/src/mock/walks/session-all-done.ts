@@ -11,7 +11,7 @@ import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 const callout = role("article", "Nothing left to do");
 
 function opened(title: RegExp): Step[] {
-  const mine = inside(region("Sessions"), button(title));
+  const mine = inside(region("Work", { exact: true }), button(title));
   return [
     toSessions,
     { press: mine, say: "Opened" },

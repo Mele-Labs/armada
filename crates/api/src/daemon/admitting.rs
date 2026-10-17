@@ -12,9 +12,8 @@
 //! the answer arrives as a [`HelmReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
-use ipc::door::{Reachable, COMMANDER_ONLY, DRAFTING, HELM_ONLY, REACHABLE};
+use ipc::door::{Reachable, DRAFTING, HELM_ONLY, REACHABLE};
 
-use super::CommanderReach;
 use crate::mcp::Caller;
 
 /// The fifth surface: which caller a door call came from.
@@ -25,14 +24,6 @@ pub trait Admitting: Send + Sync + 'static {
     /// did before a Helm session could be told apart — a person's own agent
     /// session keeps every row the inventory marks `Yes`.
     fn helm_at(&self, caller: Caller) -> Option<HelmReach>;
-
-    /// What the Commander holding this call's connection may reach, **placed
-    /// the way [`helm_at`](Admitting::helm_at) places Helm**: by the process
-    /// that holds the socket, never by what the call says. `#2164`.
-    ///
-    /// `None` is every other caller. A Commander is one more caller, so no
-    /// path, header or body field makes a call a Commander's.
-    fn commander_at(&self, caller: Caller) -> Option<CommanderReach>;
 }
 
 /// What one Helm session may call through the door.
@@ -98,10 +89,6 @@ impl HelmReach {
 ///
 /// **Two, because nothing else places a call this way**, so Fleet or a Drone
 /// recorded as having redirected or drafted is not a value this can carry.
-///
-/// **No Commander**: it drafts no Job and works no Studio, so every site that
-/// takes this has no arm for one. [`Steerer`] is the word for the two acts a
-/// Commander shares, `redirect_drone` and `redirect_one_drone`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Redirector {
     /// A person, through Bridge or through their own agent's door session.
@@ -110,16 +97,12 @@ pub enum Redirector {
     Helm,
 }
 
-/// Who is steering a Drone: [`Redirector`]'s two, and the Job's Commander.
-///
-/// **Three, and only a redirect takes it.** The transport places a Commander
-/// by its connection, as it places Helm, so a body cannot name one.
+/// Who is steering a Drone: [`Redirector`]'s two. The transport places Helm by
+/// its connection, so a body cannot name it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Steerer {
     Person,
     Helm,
-    /// A Job's Commander, acting on that Job.
-    Commander,
 }
 
 impl From<Redirector> for Steerer {
@@ -129,12 +112,6 @@ impl From<Redirector> for Steerer {
             Redirector::Helm => Steerer::Helm,
         }
     }
-}
-
-/// Every row a Job's Commander could be offered: [`offerable`]'s, and the
-/// `Commander only` rows no other caller is, Helm included (`#2166`).
-pub fn offerable_to_a_commander() -> impl Iterator<Item = &'static Reachable> {
-    offerable().chain(COMMANDER_ONLY.iter())
 }
 
 /// Every row a Helm session could be offered before its daemon decides: what

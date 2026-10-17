@@ -117,6 +117,13 @@ refuses if it cannot be. Two callers: an agent, through Bash, after a merge that
 Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
 (*Restarting from Bridge*, below).
 
+**Bridge is launched from a copy of Electron's app named Armada**, made under
+`node_modules/.cache/armada-bridge/` with a changed `Info.plist` and an ad hoc
+signature (no Apple certificate), and handed to `electron-vite preview` as
+`ELECTRON_EXEC_PATH`. That is what puts "Armada" in the menu bar, Dock and app
+switcher of an unpackaged Bridge. It is rebuilt only when Electron's version
+changes.
+
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
 `Armada/` touched). Sessions load the mod from there, so after a restart the
@@ -463,7 +470,7 @@ already running. Stop it the way you stop Fleet, then delete the directory — w
 
 **`node scripts/record-job.mjs <job> <slug> "<the state, as a sentence>"` records
 one Job off a running Fleet** into `packages/screens/src/fixtures/recorded/<slug>/`,
-and the mock below opens it as `recorded/<slug>` and a row of `every-state`. It
+and a scenario row built with `holding` can replay it. It
 writes what Fleet answered — every read the job-detail screen makes, and every
 message on the Job's two sockets — and the mock replays that through the same
 fold Bridge runs, so what you see there is what the app would draw.
@@ -483,9 +490,9 @@ refusal it was, and the mock draws it that way.
 
 **`node scripts/record-job.mjs --board <slug>` records the whole Board instead**:
 every row the Job list serves, and the workflows and manifests they name, into
-`packages/screens/src/fixtures/boards/<slug>.json`. The mock's `recorded-board`
-scenario replays `real-board.json`; another slug needs its own scenario in
-`apps/desktop/src/renderer/src/mock/scenario.ts`. It makes only those three reads, so it changes
+`packages/screens/src/fixtures/boards/<slug>.json`. The mock holds no scenario
+for one now; a slug needs its own row in
+`apps/desktop/src/renderer/src/mock/scenarios/`. It makes only those three reads, so it changes
 nothing on the Fleet it reads, and it scrubs and refuses exactly as above. It
 prints how many Jobs and workflows it wrote.
 
@@ -513,53 +520,37 @@ back to the first scenario and says so in the browser console.
 reading.** It rests as one control saying which scenario is on — a glyph alone
 where the column is at its rail, with the scenario in its tooltip. Pressing it
 opens the list over the content, and only then: type to narrow it, which is a
-fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
+fuzzy search, so `mlfch` reaches `merge-line-failed-check`; the arrows walk
 what is left, Enter takes the top row and Esc gives up. Every row is a link to
 this page on `?scenario=`, which is the reload that puts the window on it. The
 walks come first, under *Walks*, above the scenarios, each as a link on `?walk=`
-named in words (`back from a drone` for `backFromADrone`, and the search matches
+named in words (`cockpit sessions list` for `cockpitSessionsList`, and the search matches
 those words), so Enter on an empty query plays the first walk. The picker stays
 on a walk page, resting on the walk that is playing, so you can switch walks or
 return to a scenario without editing the address.
 
 | Scenario | What the window holds |
 |---|---|
-| `every-state` | One Job in every state, each opening onto its own detail. The page opens here |
+| `default` | Fleet serving two repositories, a Studio worth looking at, and a Session in none. The page opens here |
 | `fleet-not-running` | No runtime file, so what Bridge draws with no Fleet |
 | `nothing-set-up` | Two repositories served and neither set up, so no surface that needs a Manifest has one |
 | `first-launch` | A Fleet serving no repository, so Add a repository opens by itself |
-| `empty-store` | One repository and no Job yet |
-| `recorded-board` | The Board as Fleet served it, from `--board` above |
+| `empty-store` | One repository and no Session yet |
 | `setting-up` | A set-up repository and a folder nobody set up, over a Fleet that scans, proposes, applies each Setup edit and Write, and adds or clones a repository |
 | `manifest` | This repository's own Manifest, on a Fleet that saves the file, applies the forms' edits, and lists runs, drift and an always-allowed command |
 | `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes Helm makes on one |
 | `helm-talking` | Helm pointed at a repository, with an answer given about the Job on the Board and a second ask that never came back — the dock's thread, its composer, *Start fresh* and the record's split button, all reachable without building the state in a test |
-| `arc/<moment>` | One moment of the Feature Job the new boards were drawn against, for each moment `ARC_MOMENTS` lists — from an empty prompt to a merge |
-| `proposing-fills-in` | The arc's request in the composer, over a Fleet whose proposer answers: Dispatch mints the Job and `proposal.moved` fills it in a field at a time, as Fleet sends it. `mock/proposer-fleet.ts` |
-| `members/<order>` | Several Jobs landing in order under one parent, the last of them stacked on the one before it or merged into it |
-| `epic/wave` | A wave of Jobs dispatched under one plan, some merged and some still out |
-| `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
-| `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
-| `kind/<workflow>` | One of those Jobs, already open |
-| `job/<builder>` | One Job, already open, for each builder `packages/surfaces/jobs/src/fixtures/build/index.ts` exports |
-| `recorded/<slug>` | One recorded Job, already open, for each recording under `packages/screens/src/fixtures/recorded/` |
 
-**Every Job is a Storybook fixture, never data made up for the mock.** A
-recording added to `packages/screens` is a scenario and an `every-state` row with
-no other edit. A builder needs its name added to `BUILDERS` in
-`apps/desktop/src/renderer/src/mock/scenario.ts`, and the test beside it fails
-until it is. A moment added to `ARC_MOMENTS` and a Job added to `KIND_FIXTURES`
-are scenarios with no edit at all — both rosters are walked.
-**A row of its own** — one Job, already open, for a walk — is a file in
+**Every Job the mock holds is a Storybook fixture, never data made up for the mock.**
+Fleet still serves Jobs, so a few rows hold one as the thing a merge line's
+batch or a worktree's holder names, built in `mock/scenario.ts`.
+**A row of its own** — for a walk — is a file in
 `apps/desktop/src/renderer/src/mock/scenarios/` and nothing else;
 `scenario.ts` reads the directory and is not edited, so two branches adding rows do not conflict.
 `docs/practices/list-files.md`.
 
-**A moment can hold no Job, or four.** The two dispatch moments are before any
-Job exists and draw the Board the work would have joined; the landing orders and
-the wave are a parent and its members. `Scenario.draft` is what those moments
-carry that Fleet cannot serve yet — the groups, the tasks, the Record's rows and
-the rest, in the draft types under `packages/screens/src/draft/`. **It is held on
+**A moment can hold no Job.** `Scenario.draft` is what a moment carries that
+Fleet cannot serve yet, in the draft types under `packages/screens/src/draft/`. **It is held on
 the scenario rather than on a read**, because no operation answers it; a board
 built in this milestone takes it as props, and a shape promoted to the wire
 (`#1545`) moves onto the fixture's own reads instead.
@@ -581,7 +572,7 @@ fails typecheck there until the fake answers it.
 
 **Every scenario keeps Studios**, so the surface opens wherever it is reached. A
 scenario naming none keeps an empty list and draws its empty state, never a read
-failure — the defect #1341 fixed. `every-state` keeps one Studio holding a node
+failure — the defect #1341 fixed. `default` keeps one Studio holding a node
 of every kind and an edge of every kind, and a second nobody has named.
 
 **Helm can be pointed, and answers nothing once it is.** The dock's switch and
@@ -612,7 +603,7 @@ are fixed, so how long ago something happened reads in days.
 **`mountApp` in `apps/desktop/src/renderer/src/mock/mount.tsx` mounts `App` on a
 scenario** for a vitest browser test. Name the file `.test.tsx` under
 `apps/desktop/src/renderer/` and it runs in Chromium with `pnpm -C apps/desktop
-test`. `every-state.test.tsx` beside it opens every `every-state` row.
+test`.
 
 **`testing.ts` is what a test starts from.** `mount(scenario)` mounts it and
 `unmountAfterEach()` takes it down. `openHelm()` opens Helm's dock,
@@ -652,7 +643,6 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 | **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended. **Bridge reads the link by its form**: `http://localhost` or `http://127.0.0.1`, any port, with a `walk` query parameter. In a Session's thread that opens it in the Session's walk window, so a link written another way is a web link |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
 | **The test** | Every walk in `walks/` runs in one of the `walks-*of4.test.tsx` files, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
-| **Inside Bridge** | A Prototype held at Build serves its own worktree's mock, and opening the Job opens it in Bridge's window; **Walk in Bridge** on the Job's lead opens it again. The picker chooses a walk, and ⌥⌘A there leaves a note on the Job that goes to its Drone with Request changes. The `prototype-walked` scenario plays it in a browser |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
 
 **A walk stops on the step whose target never came.** After five seconds its
@@ -737,8 +727,9 @@ that matched nothing exits 1.
 (`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
 `mod tests` runs that module, in its crate only, and the line under the command
 names which (`touched tests::x in -p fleet`). A change that touches no test
-module runs nothing and says so: name a test with `armada check test <name>`,
-which compiles only the crate that declares it. Whole crates and the crates
+module runs nothing and says so: name the tests with `armada check test a b c`,
+one run that compiles only the crates declaring them. Never one call per name:
+each is its own build and its own wait for a Check slot. Whole crates and the crates
 depending on them are CI's. **CI and the merge line read `--changed` the old
 way** (every crate the paths name), which `ARMADA_CHECK_PRIORITY=normal` asks
 for here too. `../concepts/manifest.md`, *How much of the tree a Check reads*.
@@ -893,7 +884,7 @@ already a file read away.
 armada worktree lease <branch>      # a warm slot on the branch at its tip, or on a new one cut from the base; prints its path
 armada worktree lease --existing <branch>   # the same, refusing a name nothing has rather than cutting it
 armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
-armada worktree --status            # every slot, who holds it, and for how long
+armada worktree --status            # every slot, the branch checked out in it, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
 armada worktree remove <n>          # slot n gone, if it is free or not made
 armada worktree close <n>           # no lease takes slot n until it is opened

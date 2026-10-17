@@ -1,4 +1,4 @@
-//! What a Session or a Drone read, wrote and ran, entered one per burst and not one per tool call.
+//! What a Session read, wrote and ran, entered one per burst and not one per tool call.
 //!
 //! **A tool call is a fact an agent makes hundreds of times an hour**, so each is counted here and
 //! the count is entered once the burst is over: `Read 14 files`, `Edited 3 files`, `Ran 5 commands`,
@@ -12,14 +12,12 @@
 //! secret in it hidden ([`scrubbed`]).
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, DroneEvent, ToolUse};
-use ipc::{Saw, TimelineKind, TimelineTone, Voice};
+use ipc::{TimelineKind, TimelineTone};
 
 use super::{bare, Fact, Subject, Timeline, DETAIL};
-use crate::transcript::Tap;
 
 /// A burst is over when its subject has done none of that act for this long, in milliseconds.
 const QUIET: i64 = 15_000;
@@ -53,13 +51,8 @@ impl Doer {
         Doer::session(&session.id, session.title.clone(), session.manifest_id.clone())
     }
 
-    pub(crate) fn job(id: &str, title: Option<String>, manifest: Option<String>) -> Doer {
-        Doer { subject: Subject::Job(id.to_string()), title, manifest }
-    }
-
     fn key(&self) -> String {
         match &self.subject {
-            Subject::Job(id) => format!("job:{id}"),
             Subject::Session(id) => format!("session:{id}"),
             Subject::Pull(number, _) => format!("pull:{number}"),
             Subject::Main => "main".to_string(),
@@ -125,33 +118,27 @@ impl Bursts {
         keys.into_iter()
             .filter_map(|key| {
                 let burst = self.open.remove(&key)?;
-                fact(key.1, burst)
+                Some(fact(key.1, burst))
             })
             .collect()
     }
 }
 
-/// A burst as the entry it becomes. A Job's edits are `job.files`, so a Job has none here.
-fn fact(act: Act, burst: Burst) -> Option<Fact> {
-    let job = matches!(burst.doer.subject, Subject::Job(_));
-    let (kind, verb, noun) = match (job, act) {
-        (false, Act::Read) => (TimelineKind::SessionRead, "Read", "file"),
-        (false, Act::Edit) => (TimelineKind::SessionEdited, "Edited", "file"),
-        (false, Act::Ran) => (TimelineKind::SessionRan, "Ran", "command"),
-        (true, Act::Read) => (TimelineKind::JobRead, "Read", "file"),
-        (true, Act::Ran) => (TimelineKind::JobRan, "Ran", "command"),
-        (true, Act::Edit) => return None,
+/// A burst as the entry it becomes.
+fn fact(act: Act, burst: Burst) -> Fact {
+    let (kind, verb, noun) = match act {
+        Act::Read => (TimelineKind::SessionRead, "Read", "file"),
+        Act::Edit => (TimelineKind::SessionEdited, "Edited", "file"),
+        Act::Ran => (TimelineKind::SessionRan, "Ran", "command"),
     };
     let n = burst.count;
     let says = format!("{verb} {n} {noun}{}", if n == 1 { "" } else { "s" });
-    Some(
-        Fact::new(burst.began_at, kind, burst.doer.subject, TimelineTone::Run, says)
-            .titled(burst.doer.title)
-            .detail(burst.items.first().cloned())
-            .items(burst.items)
-            .in_repository(burst.doer.manifest)
-            .live(),
-    )
+    Fact::new(burst.began_at, kind, burst.doer.subject, TimelineTone::Run, says)
+        .titled(burst.doer.title)
+        .detail(burst.items.first().cloned())
+        .items(burst.items)
+        .in_repository(burst.doer.manifest)
+        .live()
 }
 
 /// What a Drone's call did that the timeline counts, and what it named: a file it changed, a file it
@@ -164,26 +151,6 @@ pub(crate) fn tool_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Optio
         ToolUse::Read(path) => (Act::Read, path),
         ToolUse::Ran(command) => (Act::Ran, command),
     })
-}
-
-/// Counts what a Job's Drone reads and runs, off its stream as it is heard. **Never awaits**, as a tap
-/// may not. A Job's edits are `job.files`, so only the reads and the commands are counted here.
-pub(crate) struct JobToolsSeen<H> {
-    pub(crate) harness: Arc<H>,
-    pub(crate) timeline: Timeline,
-    pub(crate) doer: Doer,
-}
-
-impl<H: AgentHarness + Send + Sync> Tap for JobToolsSeen<H> {
-    fn saw(&self, events: &[DroneEvent]) {
-        for event in events {
-            if let Some((act, what)) = tool_of(&*self.harness, event).filter(|(act, _)| *act != Act::Edit) {
-                self.timeline.used(self.doer.clone(), act, 1, Some(what));
-            }
-        }
-    }
-
-    fn noted(&self, _by: Voice, _saw: Saw) {}
 }
 
 fn millis(at: &str) -> Option<i64> {
@@ -346,20 +313,18 @@ mod tests {
         note(&mut bursts, who("s1"), Act::Read, 0, "a.rs");
         note(&mut bursts, who("s1"), Act::Edit, 0, "a.rs");
         note(&mut bursts, who("s2"), Act::Read, 0, "b.rs");
-        note(&mut bursts, Doer::job("j1", None, None), Act::Ran, 0, "cargo build");
-        note(&mut bursts, Doer::job("j1", None, None), Act::Edit, 0, "a.rs");
+        note(&mut bursts, who("s1"), Act::Ran, 0, "cargo build");
         let mut entered: Vec<_> =
             bursts.due(ms(15)).iter().map(|f| (f.kind_name(), f.says().to_string())).collect();
         entered.sort();
         assert_eq!(
             entered,
             [
-                ("job.ran".to_string(), "Ran 1 command".to_string()),
                 ("session.edited".to_string(), "Edited 1 file".to_string()),
+                ("session.ran".to_string(), "Ran 1 command".to_string()),
                 ("session.read".to_string(), "Read 1 file".to_string()),
                 ("session.read".to_string(), "Read 1 file".to_string()),
-            ],
-            "a Job's edits are job.files, not here"
+            ]
         );
     }
 

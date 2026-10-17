@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
+import "@armada/components/src/look";
 import { watchStill } from "./still";
 
 watchStill();
@@ -27,9 +28,8 @@ import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
-import { ReviewsFrom, createReviewStore } from "./pr-review/store";
+import { NO_SEARCH, ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { reviewSourceOf } from "./pr-review/source";
-import { NO_FIXTURES } from "./pr-review/tools";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
 import { AccountFromFleet } from "./account-fleet";
@@ -73,8 +73,8 @@ const TIMELINE = createFleetTimeline(withState(window.armada));
 const CLASHES = createFleetClashes(withState(window.armada));
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
 const TERRITORY = createFleetTerritory(withState(window.armada));
-/** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens. The agent half is fixtures until wave 2. */
-const REVIEWS = createReviewStore(reviewSourceOf(window.armada), NO_FIXTURES);
+/** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search is off until it is built. */
+const REVIEWS = createReviewStore(reviewSourceOf(window.armada), NO_SEARCH);
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
 const ACCOUNT = createFleetAccount(withState(window.armada));
 

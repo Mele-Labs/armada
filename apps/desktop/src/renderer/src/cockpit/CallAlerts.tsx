@@ -5,7 +5,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
-import type { CallView } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useItems, type Hosts } from "../Dashboard";
@@ -16,7 +15,7 @@ export const ALERT_MS = 15_000;
 
 /**
  * How long after the first reading nothing is told. **Sessions arrive on their own channel**, a little
- * after the Jobs do, so a Session's question standing since Friday would otherwise read as arriving at
+ * after the others do, so a Session's question standing since Friday would otherwise read as arriving at
  * once on the heels of the seeding reading. An object so a test can shorten it.
  */
 export const settle = { ms: 1500 };
@@ -25,7 +24,7 @@ export const settle = { ms: 1500 };
 const MOST = 3;
 
 /** `useItems` draws acts it never calls here, and a stable object keeps its memo. */
-const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
+const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
 const NONE: ReadonlySet<string> = new Set();
 
 type Standing = Alert & { until: number };
@@ -33,19 +32,17 @@ type Standing = Alert & { until: number };
 export function CallAlerts({
   state,
   picked,
-  nowViews,
   onCockpit,
   onShow,
 }: {
   state: BridgeState;
   picked: RepositorySummary | null;
-  nowViews: Readonly<Record<string, CallView>> | undefined;
   /** The Cockpit is what is on screen: its Incoming calls are always drawn, so a call is already in front. */
   onCockpit: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;
 }) {
-  const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
+  const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const [standing, setStanding] = useState<readonly Standing[]>([]);
   const held = useRef<Held>(null);
   const first = useRef<number | null>(null);
@@ -89,7 +86,6 @@ export function CallAlerts({
       {standing.map((one) => (
         <Toast
           key={one.key}
-          {...(one.status === undefined ? {} : { status: one.status })}
           onPress={() => {
             setStanding((was) => was.filter((other) => other !== one));
             onShow(one.key);

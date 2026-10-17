@@ -50,15 +50,13 @@ use crate::working::Working;
 /// | `running`, a question on the Job | its Drone asked, and a person answered | the same step, told the answer |
 /// | `stopped` | a restart | the same step, told what stopped it |
 /// | `running`, parked by the plan's limit | Fleet, once the limit reset | the same step, with no reason in the record |
-/// | `advanced`, no dispatch | an override | the step after it, told a person cleared this one |
-/// | `advanced`, it dispatched | Fleet, once the children finished | the step after it, told what they came to |
-/// | `advanced` and `passed`, no dispatch | Fleet, once a freeze lifted | the step after it, told the gate cleared this one |
+/// | `advanced` | an override | the step after it, told a person cleared this one |
+/// | `advanced` and `passed` | Fleet, once a freeze lifted | the step after it, told the gate cleared this one |
 ///
 /// The first two `running` cases are told apart by the waiting note, which is
 /// `request_changes`'s alone; the third by the question on the record, which
 /// only `crate::questioning` writes.
-/// The two `advanced` cases are told apart by the frozen workflow, which is the
-/// only thing that knows whether a step was allowed to create Jobs.
+/// The two `advanced` cases are told apart by the step's last verdict.
 ///
 /// **Three are a person and the other two are not**, which is what
 /// [`Owed::resumption`] answers `None` for.
@@ -77,16 +75,6 @@ pub(crate) enum Owed {
     /// The step is `advanced` — a person overruled the verdict that stopped it.
     /// The step after it is entered at the spawn.
     Overruled { advanced: StepId, next: StepId },
-    /// The step is `advanced` and it dispatched Jobs — the machine cleared it,
-    /// the Job stood its Drone down so its children could have the slot, and
-    /// every child has now finished.
-    ///
-    /// **The same two step ids as [`Owed::Overruled`] and a different
-    /// sentence.** What the Drone is told about the part before it is the whole
-    /// difference: nobody read that part, a gate did, and telling a fresh Drone
-    /// a person accepted it would be the record saying something that did not
-    /// happen.
-    AfterADispatch { dispatched: StepId, next: StepId },
     /// The step is `advanced` and `passed` — the machine cleared it — and a
     /// freeze stood the Job down before the next one started. Fleet's doing.
     AfterAFreeze { advanced: StepId, next: StepId },
@@ -111,11 +99,9 @@ impl Owed {
     /// # `None` is a real answer, and it is not the absence of a fourth word
     ///
     /// [`Resumption`] names **a person's act**: all three of its values are
-    /// something somebody did. A parent re-queued because it dispatched Jobs
-    /// and is waiting on them was put back by Fleet, and nobody did anything —
-    /// so the honest answer is that nothing resumed it, and the row reads as
-    /// the ordinary queued Job it is, with `blocked_by_dependency` as its
-    /// reason.
+    /// something somebody did. A Job re-queued after a freeze was put back by
+    /// Fleet, and nobody did anything — so the honest answer is that nothing
+    /// resumed it, and the row reads as the ordinary queued Job it is.
     ///
     /// **Do not add a variant for it.** `Resumption` is a strict `wire_enum!`,
     /// so a fourth value is a major protocol bump — and the thing that would be
@@ -132,8 +118,7 @@ impl Owed {
             Owed::Standing { .. } => Some(Resumption::Reviewed),
             Owed::Restarted { .. } => Some(Resumption::Restarted),
             Owed::Overruled { .. } => Some(Resumption::Overruled),
-            Owed::AfterADispatch { .. }
-            | Owed::AfterAFreeze { .. }
+            Owed::AfterAFreeze { .. }
             | Owed::Answered { .. }
             | Owed::Held { .. } => None,
         }
@@ -172,9 +157,8 @@ where
     ///
     /// **A shape that resolves and answers `None` reads the same way** and means
     /// something different: re-admission knows which step this Job is owed, and
-    /// no person is why it waits. A parent that dispatched Jobs and stood its
-    /// Drone down is the case — [`Owed::resumption`] holds why that is not a
-    /// fourth word.
+    /// no person is why it waits. A Job a freeze stood down is the case —
+    /// [`Owed::resumption`] holds why that is not a fourth word.
     pub(crate) fn resumption(&self, job: &Job) -> Option<core_model::Resumption> {
         if job.status() != core_model::JobStatus::Queued {
             return None;
@@ -263,14 +247,7 @@ where
 
         let job = self.move_job(&job, Target::Running, Actor::Fleet).await?;
         let (job, step) = self.entered(job, &owed).await?;
-        // **Read only after a dispatch**, and it is a board read: every other
-        // act here pays nothing for it. `None` on the other three is the
-        // ordinary boundary carrying nothing.
-        let dispatched = match &owed {
-            Owed::AfterADispatch { .. } => self.dispatched_jobs(&job_id).await?,
-            _ => None,
-        };
-        let crossed = carried_across(&job, &step, &owed, &recorded).and_dispatched(dispatched);
+        let crossed = carried_across(&job, &step, &owed, &recorded);
         let opening = match stopped {
             // **`resuming`, which no other path here takes.** The Drone is as
             // new as a fresh one and knows only what stopped *this* part.
@@ -324,21 +301,6 @@ where
             }),
             StepState::Stopped => Ok(Owed::Restarted { step }),
             StepState::Advanced => match job.workflow().after(&step) {
-                // Which of the two an advanced step is, read off the frozen
-                // workflow rather than off a column: a step that dispatched is
-                // one the definition gave the dispatching role, and a person
-                // cannot have overruled a gate that never refused.
-                Some(next)
-                    if job
-                        .workflow()
-                        .step(&step)
-                        .is_some_and(ResolvedStep::may_dispatch_jobs) =>
-                {
-                    Ok(Owed::AfterADispatch {
-                        dispatched: step,
-                        next: next.id().clone(),
-                    })
-                }
                 // An override keeps the `failed` it stopped on, so a step that
                 // reads `passed` here was stood down by a freeze.
                 Some(next)
@@ -385,9 +347,7 @@ where
                 let job = self.move_step(&job, step, StepTarget::Running).await?;
                 Ok((job, step.clone()))
             }
-            Owed::Overruled { next, .. }
-            | Owed::AfterADispatch { next, .. }
-            | Owed::AfterAFreeze { next, .. } => {
+            Owed::Overruled { next, .. } | Owed::AfterAFreeze { next, .. } => {
                 // `entering` for `crate::dispatch`'s reason: the step a
                 // forward walk arrives at is already `running` where a loop
                 // came round to it, and the two entrances walk different edges.
@@ -426,26 +386,16 @@ fn carried_across(
         // across a gate was not accepted at all; the person's own note is what
         // says why the Drone is there, and `put_a_drone_on` folds it in.
         //
-        // The part after a dispatch is not here either, and it is the one case
-        // left out for the opposite reason: the part before it *was* cleared, by
-        // the machine, and that is `Cleared::checked` two arms down rather than
-        // `Cleared::reviewed`.
         // An answered question continues the same part, so nothing before it
         // was just cleared by anybody.
         Owed::Standing { .. }
         | Owed::Restarted { .. }
-        | Owed::AfterADispatch { .. }
         | Owed::AfterAFreeze { .. }
         | Owed::Answered { .. }
         | Owed::Held { .. } => None,
     };
-    if let Owed::AfterADispatch { dispatched, .. }
-    | Owed::AfterAFreeze {
-        advanced: dispatched,
-        ..
-    } = owed
-    {
-        if let Some(passed) = job.workflow().step(dispatched) {
+    if let Owed::AfterAFreeze { advanced, .. } = owed {
+        if let Some(passed) = job.workflow().step(advanced) {
             return crossed.and_cleared(Cleared::checked(passed));
         }
     }

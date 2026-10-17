@@ -1,5 +1,5 @@
 // The lines a drone leaves in the air and the beam it hangs from: the contrail of a launch, the tether to the bay it holds, the beams to the
-// plots it changes, the formation from a Session to its Job, the line between two drones changing one area. Real lines through the scene,
+// plots it changes, the line between two drones changing one area. Real lines through the scene,
 // so they stand right at any pitch. The beam is a dashed vertical from the drone's shadow up to its foot, with a light along it.
 
 import { FOOT } from "../geometry";
@@ -26,7 +26,6 @@ export function drawLifted(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, 
       if (drawn > 0) b.stroke(arc(spec.origin, to, 46, drawn), 0.65, fade(p.muted, Math.max(0.05, 0.2 * (1 - spec.trail / TRAIL_MS)) * hold));
     }
     if (spec.pad !== undefined) b.stroke(arc({ ...spec.pad, z: 2 }, to, 30), 0.55, fade(p.subtle, 0.55 * hold), { dash: [1, 4] });
-    if (spec.above !== undefined) b.stroke(arc(to, spec.above, 26), 0.65, fade(spec.lit ? p.accent : p.muted, (spec.lit ? 0.9 : 0.55) * hold), { dash: [1.5, 5] });
     spec.touches.forEach(({ tile, at }, i) => {
       const top: P3 = { ...at, z: s.heights.get(tile) ?? 0 };
       const tone = spec.selected ? fade(p.accent, 0.85) : fade(p.muted, i === 0 ? 0.62 : 0.34);

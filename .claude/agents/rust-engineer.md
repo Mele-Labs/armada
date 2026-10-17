@@ -60,8 +60,9 @@ durable one.
 ## Build and test time
 
 `armada check test`, which runs `cargo nextest` at the machine's width and in
-its turn among every other Check on the machine; one test by name is `armada
-check test <name>` (compiles the crate that declares it) and the tests you touched
+its turn among every other Check on the machine; tests by name are `armada
+check test a b c`, every name in one call (one build of the crates that declare
+them; a call per name is a build and a queue turn each) and the tests you touched
 are `armada check test --changed` with the diff's paths on stdin. Never `cargo test`, and never `nextest` bare: nextest is
 measured at 3x `cargo test` on v1, 83 seconds against 27 for the same 2,034
 tests, and a bare run skips both the width and the turn. Install nextest with

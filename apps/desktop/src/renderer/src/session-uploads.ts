@@ -6,13 +6,12 @@
 import type { SessionTag as WireTag, SessionUpload } from "@armada/protocol";
 import type { DrawnSketch, SentFile, SessionSketch, SessionTag } from "@armada/screens/src/draft/sessions";
 
-/** A tag as the wire has it: an issue or a pull request carries the forge's address, a Job what the ledger needs of it. */
+/** A tag as the wire has it: an issue or a pull request carries the forge's address. */
 export const wireTagOf = (tag: SessionTag): WireTag => ({
   kind: tag.kind,
   id: tag.id,
   title: tag.title,
   ...(tag.url === undefined ? {} : { url: tag.url }),
-  ...(tag.job === undefined || tag.job.slot === undefined ? {} : { job: { number: tag.job.number, branch: tag.job.branch, slot: tag.job.slot, state: tag.job.state } }),
 });
 
 /** Base64 of bytes, in slices so a large picture does not overflow the argument list. */

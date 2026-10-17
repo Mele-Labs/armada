@@ -7,11 +7,11 @@ use super::{Applies, Entry, Integer, Kind, List, Options, Section, Shipped, Word
 pub const MODELS_ROSTER: List = List("models.roster");
 pub const MODELS_DEFAULT: Words = Words("models.default");
 pub const MODELS_SESSION: Words = Words("models.session");
+pub const MODELS_REVIEW: Words = Words("models.review");
 pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
-pub const MODELS_COMMANDER: Words = Words("models.commander");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
@@ -20,7 +20,6 @@ pub const EFFORT_DEFAULT: Words = Words("effort.default");
 pub const EFFORT_JUDGE: Words = Words("effort.judge");
 pub const EFFORT_PROPOSER: Words = Words("effort.proposer");
 pub const EFFORT_HELM: Words = Words("effort.helm");
-pub const EFFORT_COMMANDER: Words = Words("effort.commander");
 
 /// Passing no effort at all, which is the harness picking — every call before
 /// these settings existed.
@@ -64,6 +63,19 @@ pub(super) const MODEL: &[Entry] = &[
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("session-model"),
+        env: None,
+    },
+    // Ships as the Session model, and is its own dial so a plan step down of Sessions leaves the
+    // read of a pull request where the owner put it.
+    Entry {
+        key: MODELS_REVIEW.0,
+        section: Section::Model,
+        title: "Review model",
+        description: "The model an agent run about a pull request in the Reviews tab runs on.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("review-model"),
         env: None,
     },
     // The cheapest in the roster: the Judge is the cheap one checking the work,
@@ -116,19 +128,6 @@ pub(super) const MODEL: &[Entry] = &[
         row: None,
         env: None,
     },
-    // The strongest on the roster: a Commander reads a whole Job and acts on it
-    // with nobody watching. A Job may name its own, which wins.
-    Entry {
-        key: MODELS_COMMANDER.0,
-        section: Section::Model,
-        title: "Commander model",
-        description: "The model a Job's Commander runs on when the Job names none.",
-        kind: Kind::Choice(Options::Models),
-        shipped: Shipped::Supplied,
-        applies: Applies::Live,
-        row: Some("commander-model"),
-        env: Some("ARMADA_COMMANDER_MODEL"),
-    },
 ];
 
 pub(super) const EFFORT: &[Entry] = &[
@@ -174,17 +173,6 @@ pub(super) const EFFORT: &[Entry] = &[
         kind: Kind::Choice(Options::Fixed(EFFORTS)),
         shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
         applies: Applies::AtRestart,
-        row: None,
-        env: None,
-    },
-    Entry {
-        key: EFFORT_COMMANDER.0,
-        section: Section::Effort,
-        title: "Commander effort",
-        description: "How hard a Job's Commander thinks when it is woken.",
-        kind: Kind::Choice(Options::Fixed(EFFORTS)),
-        shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
-        applies: Applies::Live,
         row: None,
         env: None,
     },

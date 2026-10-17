@@ -4,17 +4,17 @@
 // test asserts against is the window Bridge draws. `main.tsx` is not imported
 // because it mounts itself on import.
 
-import { StrictMode, useEffect, useSyncExternalStore } from "react";
+import { StrictMode, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
 import { HapticsProvider, forgetAllKept } from "@armada/components";
 
 import "../styles/index.css";
+import "@armada/components/src/look";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
-import { DraftedFrom } from "../drafted";
 import { FleetEventsFrom } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
@@ -25,9 +25,9 @@ import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
-import { fakeBridge, heldSessions, liveDraft } from "./fake";
+import { fakeBridge, heldSessions } from "./fake";
 import { MockFleetBuild } from "./fleet-build";
-import type { FakeOptions, LiveDraft } from "./fake";
+import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
@@ -45,7 +45,7 @@ import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
 import { ReviewsFrom, createReviewStore } from "../pr-review/store";
 import { reviewSourceOf } from "../pr-review/source";
-import { agentOf } from "./review-forge";
+import { searchOf } from "./review-forge";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 
@@ -85,22 +85,6 @@ function SessionsHere({ held, children }: { held: ReturnType<typeof heldSessions
   return held === undefined ? <WiredSessions>{children}</WiredSessions> : <SessionsFrom held={held}>{children}</SessionsFrom>;
 }
 
-/** The fixed draft a fake that holds none stands in with. */
-const HELD = (draft: Scenario["draft"]): LiveDraft => ({ current: () => draft, subscribe: () => () => undefined });
-
-/**
- * The app over the draft its fake holds as it stands — **live**, because a
- * plan edit the fake accepts changes the groups an arc board draws.
- */
-function Drafted({ draft }: { draft: LiveDraft }) {
-  const held = useSyncExternalStore(draft.subscribe, draft.current);
-  return (
-    <DraftedFrom held={held ?? {}}>
-      <App {...(held === undefined ? {} : { draft: held })} />
-    </DraftedFrom>
-  );
-}
-
 /**
  * Install a fake `window.armada` on `scenario` and mount the app into `host`.
  * **Throws on a name no scenario has**, so a test never passes against a default.
@@ -118,7 +102,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
+  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
@@ -128,7 +112,7 @@ export function mountApp(
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
   // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
-  const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api), agentOf(chosen.draft.prReview));
+  const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api), searchOf(chosen.draft.prReview));
   // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
   if (reviews !== undefined) forgetAllKept();
   const root = createRoot(host);
@@ -141,10 +125,6 @@ export function mountApp(
       <Boundary region="the window" usable={false} bridge={chosen.state.bridge}>
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
-          {/* What this moment holds that Fleet cannot serve yet. The app's own
-              mount provides none, so every field is absent there. The context
-              is what a composer reads before a Job exists; the prop is what a
-              Job's own boards read. */}
           <Themed source={mockThemes}>
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
@@ -162,7 +142,7 @@ export function mountApp(
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
-                                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                            <App />
                                           </ReviewsFrom>
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>

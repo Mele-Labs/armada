@@ -20,9 +20,9 @@ import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } f
  * a sketch, then what is waiting to be sent in a single row that scrolls
  * sideways, so nothing waiting ever takes room from the typing area.
  *
- * **`/` opens the skills and commands, `@` opens the Sessions, then the Jobs, then the files that match
+ * **`/` opens the skills and commands, `@` opens the Sessions, then the files that match
  * what follows it**, and **`#` the repository's issues and pull requests by number**; choosing a
- * Session, a Job, an issue or a pull request writes it into the message as a chip, at the caret, so
+ * Session, an issue or a pull request writes it into the message as a chip, at the caret, so
  * the agent knows what is meant, and choosing a file writes `@path` as plain text. **A
  * picture or file is pasted or dropped in**, or attached. **A sketch is drawn
  * on the pad Dispatch draws on**, which the host opens, and comes back as a
@@ -64,19 +64,18 @@ const NUMBERED_ROWS = 6;
 const LOOKUP_MS = 150;
 
 /** What each kind is called, on the glyph that leads a `#` row. */
-const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
+const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
 
 /**
  * The kinds `@` offers as chips, in the order it groups them, each named for the group's label. Files
- * follow them, so Sessions and Jobs carry the weight; pull requests and branches are `#`'s and the
+ * follow them, so Sessions carry the weight; pull requests and branches are `#`'s and the
  * ledger's, not `@`'s.
  */
 const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
   { kind: "session", label: "Sessions" },
-  { kind: "job", label: "Jobs" },
 ];
 
-/** How many file rows `@` offers under the Sessions and the Jobs. */
+/** How many file rows `@` offers under the Sessions. */
 const FILE_ROWS = 5;
 
 /** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
@@ -111,11 +110,11 @@ export type SessionComposerProps = {
   proposed?: { model?: boolean; effort?: boolean };
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
-  /** What `@` offers as chips, grouped by kind: other Sessions, then Jobs. */
+  /** What `@` offers as chips, grouped by kind: other Sessions. */
   taggable: readonly ComposerTag[];
   /**
    * The paths under the repository that match what follows an `@`. Asked once the query is not empty and has
-   * rested; the first few answers show under the Jobs. Absent, `@` offers no files.
+   * rested; the first few answers show under the Sessions. Absent, `@` offers no files.
    */
   searchFiles?: (query: string) => Promise<readonly string[]>;
   /** What `#` offers for the repository this box speaks for. Absent, `#` is only a character. */
@@ -134,7 +133,7 @@ export type SessionComposerProps = {
    */
   grows?: "panel" | "scroller";
   /**
-   * Tags that arrive from outside the box (a Job opened in a Session): each is written in at the
+   * Tags that arrive from outside the box: each is written in at the
    * end of the message, and `onTags([])` says it was taken.
    */
   tags: readonly ComposerTag[];
@@ -437,7 +436,7 @@ export function SessionComposer({
     const box = editor.current;
     if (box === null) return;
     const now = readDom(box);
-    // The box carries a tag's kind, id and title; the rest of what the host gave it (a Job's number, its state) is looked up.
+    // The box carries a tag's kind, id and title; the rest of what the host gave it (a Session's state) is looked up.
     setDraft((was) => ({
       ...was,
       text: now.text,
@@ -570,7 +569,7 @@ export function SessionComposer({
   return (
     <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session, a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
+        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
           {token?.trigger === "/" || token?.trigger === "#"
             ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
             : [...TAG_KINDS.map(({ kind, label }) => ({ key: kind, label, rows: items.filter((one) => one.tag?.kind === kind) })), { key: "file", label: "Files", rows: items.filter((one) => one.file !== undefined) }].map(({ key, label, rows }) => {

@@ -8,9 +8,9 @@
 // Session of its repository, behind a confirmation that names each thing (`ReleaseHolds.tsx`); the owner's ask of 16 Oct 2026.
 
 import type { RepositorySummary } from "@armada/protocol";
-import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot";
 
 const ARMADA = "armada";
 
@@ -24,7 +24,10 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
   return armada?.root ?? reported;
 }
 
-/** In the order their keys, `1` to `7`, press them. `label` is the accessible name, `text` the word under the glyph. */
+/**
+ * In the order their keys, `1` to `9` and `0`, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
+ * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Slot lit only when something is wrong with it.
+ */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
   { id: "ask", label: "Ask for update", text: "Update" },
   { id: "land", label: "Auto land", text: "Auto land" },
@@ -33,7 +36,14 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "map", label: "Map", text: "Map" },
   { id: "judge", label: "Judge", text: "Judge" },
   { id: "release", label: "Release everything the Session holds", text: "Release" },
+  { id: "artifacts", label: "Artifacts", text: "Artifacts" },
+  { id: "subagents", label: "Subagents", text: "Subagents" },
+  { id: "checks", label: "Checks", text: "Checks" },
+  { id: "slot", label: "Slot", text: "Slot" },
 ];
+
+/** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
+export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
 
 export const LAND_ON_TEXT = "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main.";
 export const LAND_OFF_TEXT = "Auto land is off. Do not land on your own.";
@@ -63,7 +73,7 @@ export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; target: st
 
 /** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
 export function heldOfAttachment(one: SessionAttachment): Held | undefined {
-  if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` };
+  if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: "Slot" };
   if (one.kind === "branch") return { kind: "branch", target: one.name, name: one.name, said: "Branch" };
   if (one.kind === "pull_request" && one.state !== "merged") return { kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" };
   if (one.kind === "job") return { kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" };
@@ -110,8 +120,12 @@ export function handTargets(session: Session, all: readonly Session[]): Session[
 export const releaseKeyOf = (to: Session | undefined, all = true): string => (to === undefined ? (all ? "Release all" : "Release") : `Hand to ${to.title ?? to.address ?? to.id}`);
 
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
-export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined): Offered {
+export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, wrong = false): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
+  // What the Session made or used can be read after it ended; the layers are drawn from what Bridge holds.
+  if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Session has no subagents";
+  if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Session has run no Checks";
+  if (!wrong) off.slot = "Nothing is wrong with the slot";
   // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
   if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";

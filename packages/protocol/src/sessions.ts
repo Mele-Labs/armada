@@ -13,6 +13,7 @@ import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
+import type { SessionWait, StartAfter } from "./session-waits";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -25,7 +26,7 @@ export type SessionState = "live" | "ended";
  */
 export type AttachmentState = "standing" | "spent" | "given_back";
 
-export type HolderKind = "session" | "job";
+export type HolderKind = "session";
 
 export type Holder = { kind: HolderKind; id: string };
 
@@ -140,6 +141,11 @@ export type SessionRecord = {
    * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
    */
   settled?: WaitingItem[];
+  /**
+   * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
+   * met. Absent once it has started. Since 16 Oct 2026.
+   */
+  waits?: SessionWait;
 };
 
 /** A value of a Session the proposer can pick. */
@@ -167,10 +173,13 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
  * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
- * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card. `replied` is no longer served: a reply is the
+ * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
+ * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
+ * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` is no longer served: a reply is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -241,7 +250,29 @@ export type AnswerWaiting = {
  * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
  * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
  */
-export type StartAnotherSession = { manifest_id: string; title: string; message: string };
+export type StartAnotherSession = {
+  manifest_id: string;
+  title: string;
+  message: string;
+  /**
+   * The id of a group of the caller's recorded plan, which makes the new Session a linked Session the caller follows.
+   * It is titled with the group's title, its held message is the group's tasks word for word and the caller's handoff
+   * with `message` after them, and both ledgers keep the group as `detail.group` on the `started_by` and `started_to` rows.
+   * Refused 422 `fleet.group_unknown` for a group the plan lacks, and 409 `fleet.group_handed` for one handed already.
+   */
+  group?: string;
+  /**
+   * A Session this one waits on, and when it starts. The new Session starts when the condition is met, and its held first
+   * message is then the other Session's handoff followed by `message`. The Session waited on is told `after.needs`.
+   */
+  after?: StartAfter;
+};
+
+/**
+ * `POST /sessions/hand_to_session`, the person's: hand one group of a Session's plan to a linked Session. The same start as
+ * `StartAnotherSession` with a `group`, except the first message is sent, since the press is his. Answers `SessionHeld`.
+ */
+export type HandToSession = { session_id: string; group: string };
 
 /**
  * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
@@ -254,15 +285,14 @@ export type ForkThisSession = { title: string; message: string; at?: string };
 export type SessionHeld = { session_id: string; title: string; fork: boolean };
 
 /**
- * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
- * `session_id` or `job_id` names the claimant where the connection places none, which is Bridge's case:
- * exactly one of the two. Fleet refuses
+ * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session holds.
+ * `session_id` names the claimant where the connection places none, which is Bridge's case. Fleet refuses
  * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
  */
-export type ClaimPullRequest = { number: number; session_id?: string; job_id?: string };
+export type ClaimPullRequest = { number: number; session_id?: string };
 
-/** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
-export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
+/** What `claim_pull_request` answers: the pull request now held, and by which Session. */
+export type PullRequestClaimed = { number: number; branch: string; url: string; holder_id: string };
 
 /**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job
@@ -474,6 +504,19 @@ export type SessionCheckCall = {
   /** All of it on `end`; what is new since the last one on `chunk`. */
   log?: string;
 };
+
+/**
+ * `ask_for_slot` (`POST /sessions/slot_wanted`): a Session's `armada worktree lease` found every slot
+ * held (`ask`, repeated about once a second as its heartbeat) or is done waiting (`done`). Bridge never
+ * sends it; it is here so the wire reads whole. The call it raises is the Session's `slot_choice` item.
+ */
+export type AskForSlot = { act: "ask" | "done"; session_id: string };
+
+/**
+ * What it answers: `asking` the call is on the list, `waiting` he chose to wait, `added` a slot was
+ * made and is held for the command for about thirty seconds, `unasked` Fleet does not host the Session.
+ */
+export type SlotAsked = { standing: "asking" | "waiting" | "added" | "unasked" };
 
 /** How a person asked a running Check to stop: `SIGTERM` to its group, or `SIGKILL`. */
 export type SessionCheckStop = "graceful" | "force";

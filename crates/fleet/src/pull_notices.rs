@@ -372,12 +372,7 @@ where
                 head: "",
                 base,
             };
-            let mut owners = self.owners_of(served, one.pull.number, branch, true).await;
-            if let Some(job) = one.job {
-                if !owners.contains(&Owner::Job(job.clone())) {
-                    owners.push(Owner::Job(job));
-                }
-            }
+            let owners = self.owners_of(served, one.pull.number, branch, true).await;
             for owner in owners {
                 let mut none = None;
                 self.told(
@@ -390,6 +385,7 @@ where
                 )
                 .await;
             }
+            self.slots_told_of_merge(served, one.pull.number, branch).await;
         }
     }
 

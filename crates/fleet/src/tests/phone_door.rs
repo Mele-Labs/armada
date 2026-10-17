@@ -44,7 +44,7 @@ async fn a_job_dispatched_in_bridge_names_no_door() {
 /// answered it through `door`.
 async fn ask_answered_through(door: &str) -> Option<ipc::Via> {
     use crate::tests::session_host::{eventually, rig_placing};
-    use api::{Conversations, HostedSessions, Sessions};
+    use api::HostedSessions;
 
     let rig = rig_placing(None);
     let id = rig.start().await;

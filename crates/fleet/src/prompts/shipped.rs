@@ -153,8 +153,6 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
             keys::PROMPT_DRONE_REDECLARE_WHAT,
             crate::terms::REDECLARE_WHAT,
         ),
-        (keys::PROMPT_DRONE_SPLIT_DECIDES, crate::terms::DECIDES_IT),
-        (keys::PROMPT_DRONE_SPLIT_PROPOSES, crate::terms::PROPOSES_IT),
         (keys::PROMPT_DRONE_REVIEW, crate::review_term::REVIEW),
         (keys::PROMPT_CROSSING_PRODUCED, crate::crossing::PRODUCED),
         (
@@ -202,10 +200,6 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
         ),
         (keys::PROMPT_CROSSING_PLAN_READ, crate::crossing::PLAN_READ),
         (keys::PROMPT_CROSSING_PLAN_TASK, crate::crossing::PLAN_TASK),
-        (
-            keys::PROMPT_CROSSING_DISPATCHED,
-            crate::crossing::DISPATCHED,
-        ),
         (keys::PROMPT_CROSSING_SENT_BACK, crate::crossing::SENT_BACK),
         (
             keys::PROMPT_CROSSING_SENT_BACK_UNRECORDED,
@@ -304,46 +298,5 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
             keys::PROMPT_PERMIT_REJECTED_NOTE,
             crate::permitting::PERMIT_REJECTED_NOTE,
         ),
-        (
-            keys::PROMPT_PILOT_OPENING,
-            crate::session_host::PILOT_OPENING,
-        ),
-        (
-            keys::PROMPT_PILOT_WORKTREE,
-            crate::session_host::PILOT_WORKTREE,
-        ),
-        (
-            keys::PROMPT_PILOT_RESTART,
-            crate::session_host::PILOT_RESTART,
-        ),
-        (
-            keys::PROMPT_PILOT_FOR_GOOD,
-            crate::session_host::PILOT_FOR_GOOD,
-        ),
-        (
-            keys::PROMPT_PILOT_STOPPED,
-            crate::session_host::PILOT_STOPPED,
-        ),
-        (
-            keys::PROMPT_PILOT_JUDGE_REFUSED,
-            crate::session_host::PILOT_JUDGE_REFUSED,
-        ),
-        (
-            keys::PROMPT_PILOT_CHECKS_FAILED,
-            crate::session_host::PILOT_CHECKS_FAILED,
-        ),
-        (
-            keys::PROMPT_PILOT_OUTSIDE_PLAN,
-            crate::session_host::PILOT_OUTSIDE_PLAN,
-        ),
-        (
-            keys::PROMPT_PILOT_CHANGED,
-            crate::session_host::PILOT_CHANGED,
-        ),
-        (
-            keys::PROMPT_PILOT_NARRATIVE,
-            crate::session_host::PILOT_NARRATIVE,
-        ),
-        (keys::PROMPT_PILOT_RECORD, crate::session_host::PILOT_RECORD),
     ]
 }

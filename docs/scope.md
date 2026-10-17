@@ -88,12 +88,6 @@ signal. The Board is scanned because reading a transcript is the thing being
 escaped. Every time a design reaches for "ask the agent", it is reaching for the
 attempt that was already rejected.
 
-**A Job's Commander is the one agent he chose to put in charge, on 11 Oct 2026.**
-A Job of Drones with nobody leading it sent every judgement call to him, so a
-Commander per Job steers its Drones, its plan and its caps. It claims nothing:
-the Checks and the Judge still decide whether work advances.
-`.claude/decisions/2026-10-11-a-job-has-a-commander.md`.
-
 ## What Armada is not
 
 **It is not a sandbox, and confinement is not the point.** A Drone runs in a

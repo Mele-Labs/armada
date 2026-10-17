@@ -3,13 +3,13 @@ import { expect, test } from 'claude-code/testing'
 import {
   promptDetail,
   artifactOf,
+  backgroundEndOf,
+  backgroundOf,
   commitIn,
   effortOf,
   ghAct,
   modeOf,
   modelName,
-  isDispatch,
-  jobIdsIn,
   madeTask,
   mayMoveBranch,
   needAct,
@@ -34,6 +34,7 @@ import {
   waitingItemsOf,
   withReplyNeeds,
 } from './facts'
+import { BASH_LAUNCH, NOTICE_COMPLETED, NOTICE_KILLED } from './background.fixture'
 
 test('a title is the first line of a prompt, cut, and never a command', () => {
   expect(titleOf('\n  fix the   ledger intake\nand its tests')).toBe('fix the ledger intake')
@@ -72,20 +73,6 @@ test('a gh command is read for the act and the number it names', () => {
   expect(ghAct('gh pr merge --auto --merge 2027 | tail -1')).toBeUndefined()
   expect(ghAct('gh pr close')).toEqual({ act: 'close', number: undefined })
   expect(ghAct('gh pr view 12')).toBeUndefined()
-})
-
-test('a dispatch is an armada-fleet tool that makes or sends a Job', () => {
-  expect(isDispatch('mcp__armada-fleet__propose_job')).toBe(true)
-  expect(isDispatch('mcp__armada-fleet__list_jobs')).toBe(false)
-  expect(isDispatch('mcp__other__propose_job')).toBe(false)
-})
-
-test('Job ids are ULIDs in an answer, each once and at most ten', () => {
-  const one = '01J8ZQ4W8N5T6V7Y9B2C3D4E5F'
-  expect(jobIdsIn(`created ${one} and ${one}`)).toEqual([one])
-  expect(jobIdsIn('nothing')).toEqual([])
-  const many = Array.from({ length: 12 }, (_, n) => `01J8ZQ4W8N5T6V7Y9B2C3D4E${String(10 + n)}`)
-  expect(jobIdsIn(many.join(' ')).length).toBeLessThanOrEqual(10)
 })
 
 test('a sender is the teammate where there is one and the kind where there is not', () => {
@@ -477,4 +464,30 @@ test("the agent's own items are read from the session Fleet holds, and the ones 
   expect(agentItemsIn(JSON.stringify({ session: { waiting_for: [] }, rows: [] }))).toEqual([])
   expect(agentItemsIn('{}')).toBeUndefined()
   expect(agentItemsIn('not json')).toBeUndefined()
+})
+
+test('a background command is the call with the id its result gave, and a call without one is not', () => {
+  expect(backgroundOf('Bash', { command: 'pnpm dev\nmore', description: 'Serve it', run_in_background: true }, BASH_LAUNCH)).toEqual({
+    target: 'b3wd556q5',
+    detail: {
+      form: 'command',
+      task: 'Serve it',
+      command: 'pnpm dev',
+      output: '/private/tmp/claude-501/-Users-nickmele-Development-armada--armada-slots-slot-12/aa994f6f-56ce-4b09-9e06-66342d14548f/tasks/b3wd556q5.output',
+    },
+  })
+  expect(backgroundOf('Bash', { command: 'pnpm dev' }, BASH_LAUNCH)).toBeUndefined()
+  expect(backgroundOf('Bash', { command: 'pnpm dev', run_in_background: true }, 'refused')).toBeUndefined()
+  // No Monitor result was recorded: the pattern is tolerant and this only holds the shapes it was written for.
+  expect(backgroundOf('Monitor', { description: 'Watch', command: 'tail -f x', timeout_ms: 1 }, 'Monitor started (task mon42)')?.detail).toEqual({
+    form: 'monitor',
+    task: 'Watch',
+    command: 'tail -f x',
+  })
+})
+
+test('a task notice names the task, its word, the exit code the summary gives and the file it wrote', () => {
+  expect(backgroundEndOf(NOTICE_COMPLETED)).toEqual({ target: 'byry3zett', status: 'completed', exit: '0', output: '/private/tmp/claude-501/.../tasks/byry3zett.output' })
+  expect(backgroundEndOf(NOTICE_KILLED)).toEqual({ target: 'bdjviwn7c', status: 'killed', output: '/private/tmp/claude-501/.../tasks/bdjviwn7c.output' })
+  expect(backgroundEndOf('Just a prompt')).toBeUndefined()
 })

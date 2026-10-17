@@ -206,11 +206,19 @@ function legend(): Studio {
 export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   const store = new Map<string, Studio>(seeded.map((one) => [one.id, one]));
   let fleet: FleetHandle<StudioHeld> | null = null;
-  let listing: string | null = null;
+  /** The repositories whose lists are held, and whether they are held as All repositories. */
+  let listing: readonly string[] = [];
+  let many = false;
   let opened: string | null = null;
 
   const listOf = (manifestId: string) =>
     [...store.values()].filter((one) => one.manifest_id === manifestId).reduce(foldStudio, []);
+
+  /** What main publishes of the lists it holds: one repository's own, or each of several's. */
+  const listed = () => {
+    const reads = listing.map((manifestId) => ({ state: "read" as const, manifestId, list: { studios: listOf(manifestId) } }));
+    return many ? ({ state: "many", reads } as const) : (reads[0] ?? ({ state: "none" } as const));
+  };
 
   /** What main publishes after a write it heard: the open Studio whole, and the list's row. */
   function published(studio: Studio): void {
@@ -218,9 +226,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
     for (const heard of [...listeners]) heard();
     if (fleet === null) return;
     if (opened === studio.id) fleet.publish({ studio: { state: "read", studio } });
-    if (listing === studio.manifest_id) {
-      fleet.publish({ studios: { state: "read", manifestId: listing, list: { studios: listOf(listing) } } });
-    }
+    if (listing.includes(studio.manifest_id)) fleet.publish({ studios: listed() });
   }
 
   function write(studioId: string, change: (studio: Studio) => Studio) {
@@ -281,10 +287,9 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
     fleet = handle;
     return {
       watchStudios: async (manifestId) => {
-        listing = manifestId;
-        handle.publish({
-          studios: manifestId === null ? { state: "none" } : { state: "read", manifestId, list: { studios: listOf(manifestId) } },
-        });
+        many = typeof manifestId === "object" && manifestId !== null;
+        listing = manifestId === null ? [] : typeof manifestId === "string" ? [manifestId] : manifestId;
+        handle.publish({ studios: listed() });
       },
       watchStudio: async (studioId) => {
         opened = studioId;
@@ -637,8 +642,8 @@ const TOUCHED = "2026-09-17T08:40:00Z";
 
 /**
  * A Studio holding a node of every kind and an edge of every kind, proposed and accepted — what
- * `every-state` carries for Studios, the way it carries a Job in every state. `jobId` is a row on
- * that Board, so the Job node draws the state the Board holds rather than a bare id.
+ * `default` carries for Studios. `jobId` is a row on that Fleet, so the Job node draws the state
+ * it holds rather than a bare id.
  */
 export const EVERY_KIND_STUDIO = "01STUDIOEVERYKIND0000000000";
 

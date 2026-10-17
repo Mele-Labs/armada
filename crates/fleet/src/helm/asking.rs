@@ -139,7 +139,7 @@ impl Asks {
 
     /// [`Asks::minted`] for a call that reaches past a session's slots (`Some`), and whether it
     /// reads or writes there: its card offers the folder answers where the guard named the path,
-    /// for it or a folder above it, and only the two "once" answers where it named none.
+    /// for it or a folder above it, and only the two "once" answers where it named none or the root.
     pub fn minted_reaching(
         &self,
         manifest_id: &ManifestId,
@@ -168,9 +168,12 @@ impl Asks {
             truncated: detail.truncated(),
             length: Some(detail.length()),
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
+            // The root names no folder an "always" could take, so `find /` is asked once only.
             offers: match &reach {
-                Some((Some(_), _)) => REACHING_OFFERS.to_vec(),
-                Some((None, _)) => REACHING_OFFERS[..2].to_vec(),
+                Some((Some(path), _)) if path.split('/').any(|part| !part.is_empty()) => {
+                    REACHING_OFFERS.to_vec()
+                }
+                Some(_) => REACHING_OFFERS[..2].to_vec(),
                 None => offers_for(&asking.tool_name),
             },
             holding_for_seconds: self.hold().as_secs(),

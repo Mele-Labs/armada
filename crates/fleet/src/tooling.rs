@@ -28,7 +28,7 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{PermissionAnswer, Tools};
 use ipc::mcp::{
-    AskQuestion, ChecksStarted, DeclareScope, DispatchJob, NotRecorded, PermissionAsked, PlanCall,
+    AskQuestion, ChecksStarted, DeclareScope, NotRecorded, PermissionAsked, PlanCall,
     Receipt, RequestScope, ServerReport, SubmitEvidence,
 };
 
@@ -195,30 +195,6 @@ where
         let (job, drone) = self.placed(&caller)?;
         as_caller(drone, Fleet::run_checks(&self, &job, ask)).await?;
         Ok(ChecksStarted)
-    }
-
-    /// The Drone asking for one more Job to exist.
-    ///
-    /// **What is different is what a success is** — every other tool answers
-    /// about the Job the call was made on, and this one answers with the id of
-    /// a record that did not exist a moment ago. `crate::sub_dispatch` holds
-    /// whether the caller was allowed to ask.
-    async fn dispatch_job(
-        &self,
-        caller: api::Caller,
-        dispatch: DispatchJob,
-    ) -> Result<Receipt, NotRecorded> {
-        let (job, drone) = self.placed(&caller)?;
-        match as_caller(drone, Fleet::sub_dispatch(self, &job, &dispatch)).await {
-            // The minted id, and nothing else. A Drone needs it to name this
-            // Job in a later call's `after`, and it needs nothing else — the
-            // Job's state is not knowable yet and a receipt implying it were
-            // would be the verdict `Receipt` exists to have no room for.
-            Ok(minted) => Ok(Receipt {
-                word: minted.as_str().to_string(),
-            }),
-            Err(why) => Err(why.into()),
-        }
     }
 
     /// The Drone asking for a server the Manifest declares. Which instance,

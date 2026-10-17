@@ -242,6 +242,77 @@ path.armada-session-ledger__picture-later {
   color: var(--fg-default);
 }
 
+/* The bar across the top: one glyph per kind, held down while the ledger is narrowed to it, as the
+   Artifacts head's kind toggles are. Search grows sideways into its one-line field on the same row and the
+   kinds stay beside it, pushed right: the bar never wraps, the field takes the free width. The motion
+   tokens are zero under prefers-reduced-motion, so the width then changes at once. */
+.armada-session-ledger__bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-session-ledger__bar > * {
+  flex-shrink: 0;
+}
+
+.armada-session-ledger__search {
+  display: flex;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 0;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  transition:
+    flex-grow var(--duration-base) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    background-color var(--duration-fast) var(--ease);
+}
+
+.armada-session-ledger__search[data-open] {
+  flex-grow: 1;
+  border-color: var(--border-default);
+  background: var(--bg-sunken);
+}
+
+/* Held down means open here, and the field's own well draws it, so the glyph needs no fill. */
+.armada-session-ledger__search [aria-pressed="true"] {
+  background: transparent;
+}
+
+.armada-session-ledger__bar [aria-pressed="false"]:not(:disabled) {
+  color: var(--fg-muted);
+}
+
+.armada-session-ledger__bar [aria-pressed="true"] {
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+/* The field adds no width of its own to the button's, so the row's free width is what the grow takes. */
+.armada-session-ledger__find {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+}
+
+.armada-session-ledger__find .armada-textarea-field {
+  display: block;
+}
+
+.armada-session-ledger__find .armada-textarea {
+  min-height: 0;
+  padding-block: 0;
+  border: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* A quiet press under the newest rows that reveals the rest. */
 .armada-session-ledger__more {
   align-self: flex-start;
@@ -303,11 +374,6 @@ path.armada-session-ledger__picture-later {
 .armada-session-ledger__held[data-removable] > :first-child {
   flex: 1;
   min-width: 0;
-}
-
-/* The section that needs the person carries the awaiting-review edge the list's rows do. */
-.armada-session-ledger__group[aria-label="Waiting on you"] .armada-session-ledger__row {
-  border-inline-start: var(--space-1) solid var(--status-awaiting-review);
 }
 
 /* A row's mark is in its state's hue, as the PR chip's Checks are, and the row carries that hue on its

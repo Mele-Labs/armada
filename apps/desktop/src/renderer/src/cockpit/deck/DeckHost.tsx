@@ -1,5 +1,5 @@
 // What the flight deck mounts at the window, outside the Cockpit's body: the places in the title bar, and the keys, which are the
-// window's wherever the person is (the page chord and the next call work over a Job's page too). **Mounted only while the preview
+// window's wherever the person is (the page chord and the next call work over a page opened from the deck too). **Mounted only while the preview
 // switch is on**, so with it off none of this is in the window. The body is `Deck.tsx`; the state is `store.ts`, a module, so
 // this, the body and the keys are one thing and a body that unmounts while a page is open comes back exact. #2301.
 
@@ -12,8 +12,6 @@ import { useItems, type Hosts } from "../../Dashboard";
 import { useQueued } from "../../sessions-draft";
 import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { holdFor } from "./props";
@@ -25,20 +23,19 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
+import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
-const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
+const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
 
-/** How long a Session asked for on the deck is waited on before it opens on its own page instead. */
+/** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
 
 type Where = {
   state: BridgeState;
   picked: RepositorySummary | null;
-  nowViews: Readonly<Record<string, CallView>> | undefined;
-  nows: Readonly<Record<string, NowView>> | undefined;
 };
 
 const NONE: ReadonlySet<string> = new Set();
@@ -49,11 +46,11 @@ const NONE: ReadonlySet<string> = new Set();
  * that was opened from the deck goes back**, so the deck returns exactly as it was left; pressing another place from over the
  * Cockpit replaces the layers, so Back from it returns to the Cockpit.
  */
-export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onGoTo, onBack, onReplaceNext }: Pick<Where, "state" | "picked" | "nowViews"> & {
+export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBack, onReplaceNext }: Where & {
   showing: string;
   /** Surfaces nothing serves yet, left off the tabs beside what a layout hides. */
   hidden: readonly string[];
-  /** A page opened from the deck stands over the Cockpit: the Job's page, the composer, a report. */
+  /** A page opened from the deck stands over the Cockpit: the composer, a report. */
   away: boolean;
   onGoTo: (surface: string) => void;
   onBack: () => void;
@@ -62,7 +59,7 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onG
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
-  const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
+  const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, held, visited).length > 0;
   useEffect(() => {
     if (deckTabOf(showing) === "system") rememberSystemPage(showing);
@@ -85,21 +82,15 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
+export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
   here: boolean;
-  openJobId: string | null;
   onGoTo: (surface: string) => void;
-  /** Where a call about a Job or Session the deck does not list goes, as a link to it does. */
-  onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked, nowViews, nows }, false);
-  const only = useDeck((deck) => deck.only);
-  const needs = useDeck((deck) => deck.needs);
-  const checks = useDeck((deck) => deck.checks);
+  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked }, false);
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
@@ -116,8 +107,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     return () => window.clearTimeout(timer);
   }, [held, ship.calls]);
 
-  // A Session asked for on the deck (a note sent to it) opens as its row does, once the ship holds it: a new one arrives a moment
-  // after Fleet answers. One the ship never holds, Helm's own or one the picked repository leaves out, opens on its own page.
+  // A Session asked for on the deck (a link to it, a note sent to it) opens as its row does, once the ship holds it: a new one arrives a
+  // moment after Fleet answers. There is no page for one the ship never holds, Helm's own or one the picked repository leaves out.
   const [awaited, setAwaited] = useState<{ id: string; since: number } | undefined>();
   useOpenSessionInCockpitAsked((id) => setAwaited({ id, since: Date.now() }));
   useEffect(() => {
@@ -129,14 +120,14 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       if (!deckNow().here) onGoTo(SURFACE.overview);
       return;
     }
-    const timer = window.setTimeout(() => (setAwaited(undefined), onOpenSession(awaited.id)), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
+    const timer = window.setTimeout(() => setAwaited(undefined), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [awaited, ship.subjects, onGoTo, onOpenSession]);
+  }, [awaited, ship.subjects, onGoTo]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
   const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
-  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
+  const { listed } = useListed(ship, banding);
   const queued = useQueued();
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
@@ -151,7 +142,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     moveCursor(key);
     const row = () => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`);
     if (row() !== null) row()!.focus();
-    else window.requestAnimationFrame(() => row()?.focus());
+    else {
+      // A row past the page drawn: the list draws up to it, and then it is focused.
+      showRows(walkOrder(listed, banding, queued, picked).indexOf(key));
+      window.requestAnimationFrame(() => row()?.focus());
+    }
   };
 
   const go = (place: (typeof PAGE_LETTERS)[PageLetter]) => {
@@ -170,7 +165,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       callTrail.at = callTrail.keys.length - 1;
     }
     if (to === undefined) return;
-    if (openCall(ship, to, { onOpen, onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
+    if (openCall(ship, to, { onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
   };
 
   useDeckKeys((event) => {
@@ -192,8 +187,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return walkCalls(event.shiftKey ? -1 : 1);
     }
-    // Two keys: the page in front reads neither (`armChord` takes the second before it can). Not over a Job's page, where `g` is its own.
-    if (isPressed("deck_page", event) && openJobId === null) {
+    // Two keys: the page in front reads neither (`armChord` takes the second before it can).
+    if (isPressed("deck_page", event)) {
       event.preventDefault();
       return armChord(Object.fromEntries(Object.entries(PAGE_LETTERS).map(([letter, place]) => [letter, () => go(place)])));
     }
@@ -217,7 +212,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     if (digit !== null) {
       // With a Session open the tiles drawn are its own, and a key presses the one it names as a press on it does.
       const drawn = document.querySelector('.deck-controls__block[data-subject="session"]');
-      const tile = drawn === null ? TILES[digit - 1] : drawn.querySelectorAll<HTMLElement>(".deck-tile")[digit - 1];
+      // The tenth tile of a Session's is `0`.
+      const tile = drawn === null ? TILES[digit - 1] : drawn.querySelectorAll<HTMLElement>(".deck-tile")[digit === 0 ? 9 : digit - 1];
       if (tile === undefined) return;
       event.preventDefault();
       if (tile instanceof HTMLElement) tile.click();
@@ -230,6 +226,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return focusPanel(goes, state.cursor);
     }
+    if (isPressed("deck_search", event)) {
+      event.preventDefault();
+      setSearching(true);
+      return;
+    }
     if (isPressed("deck_timeline", event)) {
       event.preventDefault();
       setView("timeline");
@@ -240,19 +241,6 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       setView("map");
       return focusSoon("stage");
-    }
-    // With a Job open, `v` swaps its mission and its canvas, wherever focus is on the deck.
-    if (isPressed("deck_view", event) && state.sel?.kind === "job") {
-      event.preventDefault();
-      return toggleJobView();
-    }
-    // In a Job's pane, 0 is the canvas's own Fit or the mission's whole route: the whole run in the frame.
-    if (event.key === "0" && !event.shiftKey && state.sel?.kind === "job") {
-      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] :is(.deck-job__canvas button[aria-label="Fit"], .deck-job__mission button[aria-label="Whole route"])');
-      if (fit !== null) {
-        event.preventDefault();
-        return fit.click();
-      }
     }
     // Zoom is the map's wherever focus is, while the map is what the stage is showing.
     if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && !event.shiftKey && state.sel === undefined && state.view === "map") {
@@ -279,6 +267,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       // The ideas saved for later sit in their repository's group, ahead of its rows, and the cursor walks them in that order.
       const order = walkOrder(listed, banding, queued, picked);
       const at = order.findIndex((one) => one === state.cursor);
+      // Up from the first row opens the Filter menu, with the search focused.
+      if (!down && at === 0) {
+        setSearching(true);
+        return;
+      }
       const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? (down ? 0 : order.length - 1) : at + (down ? 1 : -1)))];
       if (next !== undefined) rowFocus(next);
       return;
@@ -301,7 +294,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       const row = listed.find((one) => one.key === state.cursor);
       if (row === undefined) return;
       event.preventDefault();
-      return select(selOfSubject(row));
+      return openSubject(ship, row);
     }
     if (isPressed("close", event)) {
       if (state.sel?.kind === "autopilot") {

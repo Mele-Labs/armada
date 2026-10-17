@@ -121,11 +121,6 @@ async fn the_job_whose_pull_request_turned_main_red_is_sent_back_by_itself_once(
         "the log's tail goes with it"
     );
 
-    let hub = the_hub(&fleet).await;
-    assert_eq!(
-        hub.fixing.map(|job| job.id),
-        Some(ipc::JobId::from(take.by.job().expect("a Job")))
-    );
     let summary = fleet.summarised(&fixing).await.unwrap();
     let mark = summary.fixes_main.expect("the Job carries its part");
     assert_eq!(mark.state, ipc::FixesMainState::Fixing);
@@ -148,7 +143,6 @@ async fn a_red_from_nobodys_job_is_left_for_the_bands_buttons() {
     assert!(kept(&fleet).await.unwrap().red_at.is_some());
     let main = kept(&fleet).await.unwrap();
     assert!(fleet.taking(&main).await.is_none());
-    assert!(the_hub(&fleet).await.fixing.is_none());
     let (loaded, _) = fleet.every_job().await.unwrap();
     assert!(loaded.jobs.is_empty());
 }
@@ -184,10 +178,6 @@ async fn a_person_dispatches_a_new_job_that_claims_the_failing_test() {
         .unwrap()
         .expect("the test is claimed for the fix");
     assert_eq!(&claim.fix, job.id());
-    assert_eq!(
-        the_hub(&fleet).await.fixing.unwrap().title,
-        "Fix test on main"
-    );
 
     let again = fleet.fix_main(&main.repository, None, None, false).await;
     assert!(again.unwrap_err().to_string().contains("already working"));
@@ -309,10 +299,6 @@ async fn the_green_after_a_take_ends_it_and_names_the_job_whose_pull_request_did
     forge.merged_by(TWO, merged(1821));
     fleet.turn().await.unwrap();
 
-    assert!(
-        the_hub(&fleet).await.fixing.is_none(),
-        "the hub's fixing clears"
-    );
     let mark = fleet
         .summarised(&fleet.load(job.id()).await.unwrap())
         .await
@@ -334,16 +320,14 @@ async fn a_job_that_was_stopped_no_longer_holds_the_red() {
         .await
         .unwrap();
     Fleet::kill_job(&fleet, job.id()).await.unwrap();
-    assert!(the_hub(&fleet).await.fixing.is_none());
     let again = fleet.fix_main(&root(&fleet).await, None, None, false).await;
     assert!(again.is_ok(), "offered again once the first was stopped");
 }
 
 #[tokio::test]
-async fn the_hub_lists_the_newest_merged_pull_requests_with_the_job_that_opened_each() {
+async fn the_hub_lists_the_newest_merged_pull_requests() {
     let home = TempDir::new();
     let fleet = a_fleet_holding_bug(&home, true);
-    let finished = a_finished_job(&fleet, &home, "fix the reader").await;
     let forge = &fleet.vcs().main_ci;
     forge.head_is(Some(ONE));
     forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
@@ -366,11 +350,6 @@ async fn the_hub_lists_the_newest_merged_pull_requests_with_the_job_that_opened_
     let hub = the_hub(&fleet).await;
     let numbers: Vec<u64> = hub.merged.iter().map(|one| one.number).collect();
     assert_eq!(numbers, [1815, 1]);
-    assert!(hub.merged[0].job.is_none(), "a person's");
-    assert_eq!(
-        hub.merged[1].job.as_ref().map(|job| job.id.clone()),
-        Some(ipc::JobId::from(finished.id()))
-    );
     assert_eq!(hub.merged[0].commit.as_deref(), Some(ONE));
     assert_eq!(
         forge.times_asked_for_the_recently_merged(),

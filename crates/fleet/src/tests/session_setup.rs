@@ -41,10 +41,10 @@ fn setting_up(root: &str) -> StartSession {
         model: None,
         effort: None,
         mode: None,
-        pilot: None,
         root: Some(root.to_string()),
         fork: None,
         request: None,
+        after: None,
     }
 }
 

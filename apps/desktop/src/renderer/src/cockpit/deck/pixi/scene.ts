@@ -1,8 +1,7 @@
-// What the canvas map is handed to draw: the battlefield's own readings (the layout, the plots' heights, the route, the pull requests),
+// What the canvas map is handed to draw: the battlefield's own readings (the layout, the plots' heights, the pull requests),
 // cut to what the canvas needs and with the few placements the CSS map made in its render worked out here, once. Pure. Nothing here
 // draws, and nothing is read off the page.
 
-import type { RouteIn } from "../mission";
 import type { Frame } from "../frame";
 import type { CallTone } from "../field";
 import { ROUTE } from "../geometry";
@@ -85,12 +84,8 @@ export type DroneSpec = {
   pad: Point | undefined;
   /** Where its contrail begins: its bay, or the base where it holds none. */
   origin: P3;
-  /** It, or the Job it belongs to, is the one picked. */
-  lit: boolean;
   /** How long ago it was dispatched, for the contrail it left. */
   trail: number | undefined;
-  /** The Job it belongs to, and where that flies. */
-  above: P3 | undefined;
   /** The plots it touches, the biggest first. */
   touches: readonly { tile: string; at: Point }[];
 };
@@ -102,7 +97,7 @@ export type PixiSceneIn = {
   plane: Size;
   big: number;
   heights: ReadonlyMap<string, number>;
-  /** The plot and the part (a pad, a flag, a crate or a pin, by `pad:<key>`, `goal:<root>`, `crate:<key>` or `pin:<id>`) under the pointer or focus. */
+  /** The plot and the part (a pad, a flag or a crate, by `pad:<key>`, `goal:<root>` or `crate:<key>`) under the pointer or focus. */
   hotTile: string | undefined;
   hotPart: string | undefined;
   /** The names written on the plots. */
@@ -115,9 +110,6 @@ export type PixiSceneIn = {
   pads: ReadonlyMap<string, PadIn>;
   goals: ReadonlyMap<string, GoalIn>;
   crates: readonly Crate[];
-  /** A Job's mission: its route, and the pin whose card is open. */
-  route: RouteIn | undefined;
-  pinned: string | undefined;
   /** Zoomed in far enough that a name can be read. */
   readable: boolean;
   builds: readonly Placed[];
@@ -141,8 +133,6 @@ export type SceneInputs = {
   goals: ReadonlyMap<string, GoalIn>;
   prs: readonly PrIn[];
   plays: readonly Play[];
-  route: RouteIn | undefined;
-  pinned: string | undefined;
   readable: boolean;
   builds: readonly Placed[];
   selected: string | undefined;
@@ -174,7 +164,7 @@ export function baseOf(layout: Layout, world: Size, root: string): P3 {
 }
 
 /** How the CSS map placed a pull request, which stands on a route from its drone (or the base) to the flag, further along the nearer it is to merging. */
-export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "drones" | "prs" | "plays" | "route">): Crate[] {
+export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "drones" | "prs" | "plays">): Crate[] {
   const droneBy = new Map(i.drones.map((one) => [one.key, one] as const));
   const landing = new Set(i.plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
   const out: Crate[] = [];
@@ -182,7 +172,7 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
     const territory = i.layout.territories.find((one) => one.root === pr.root);
     if (territory?.goal === undefined) continue;
     const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-    const start: P3 = i.route !== undefined ? { ...onPlane(i.route.crate), z: ROUTE } : ((owner === undefined ? undefined : i.frame.flying(owner)) ?? { ...baseOf(i.layout, i.world, pr.root), z: ROUTE });
+    const start: P3 = (owner === undefined ? undefined : i.frame.flying(owner)) ?? { ...baseOf(i.layout, i.world, pr.root), z: ROUTE };
     const end: P3 = { ...onPlane(territory.goal), z: ROUTE };
     const landed = pr.stage === "landed";
     if (landed && !landing.has(pr.number)) continue;
@@ -210,7 +200,6 @@ const trailAge = (age: number | undefined): number | undefined => (age === undef
 /** The drones as the canvas draws them. */
 function dronesOf(i: SceneInputs): DroneSpec[] {
   const { layout, frame } = i;
-  const droneBy = new Map(i.drones.map((one) => [one.key, one] as const));
   const out: DroneSpec[] = [];
   for (const drone of i.drones) {
     const placed = layout.at.get(drone.key);
@@ -222,7 +211,6 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
     const launch = i.plays.find((one) => one.key === drone.key && one.kind === "launch");
     const pad = drone.slot === undefined ? undefined : i.padAt.get(drone.slot);
     const origin: P3 = pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 };
-    const parent = drone.parent === undefined ? undefined : droneBy.get(drone.parent);
     const on = i.selected === drone.key;
     out.push({
       drone,
@@ -245,9 +233,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       launch: launch === undefined ? undefined : { id: launch.id, delay: launch.delay, from: origin },
       pad,
       origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
-      lit: i.selected === drone.key || i.selected === drone.parent,
       trail: trailAge(i.trails.get(drone.key)),
-      above: parent === undefined ? undefined : frame.flying(parent),
       touches: (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
     });
   }
@@ -305,8 +291,6 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     pads: i.pads,
     goals: i.goals,
     crates: cratesOf(i),
-    route: i.route,
-    pinned: i.pinned,
     readable: i.readable,
     builds: i.builds,
     drones: dronesOf(i),

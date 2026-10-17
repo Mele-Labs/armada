@@ -24,14 +24,8 @@ pub struct MergeLineHub {
     /// an older Fleet**, and a Bridge then draws the line's own `landed`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub merged: Vec<HubMerged>,
-    /// The Job working on main's red, since 23.42: the newest Job that took it
-    /// and has not been stopped. Absent while nobody has it, and once main is
-    /// green.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fixing: Option<HubJob>,
-    /// The Session working on main's red, where a Session holds it and no Job does: the newest
-    /// that took it and has not ended. Absent while nobody has it, once main is green, and
-    /// whenever `fixing` is present.
+    /// The Session working on main's red: the newest that took it and has not ended. Absent
+    /// while nobody has it, and once main is green.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_session: Option<HubSession>,
     /// Another machine's claim on main's red, read from the central store. Absent
@@ -159,7 +153,7 @@ pub struct FixingElsewhere {
     pub since: Instant,
 }
 
-/// A Job or a Session, by its short id.
+/// A Session, by its short id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimHolder {
     pub kind: crate::sessions::HolderKind,
@@ -179,9 +173,6 @@ pub struct HubMerged {
     /// The merge commit, whole. Absent where the forge named none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commit: Option<String>,
-    /// The Job that opened it. Absent for a person's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job: Option<HubJob>,
     /// The CI run on the merge commit, on main itself, distinct from the pull
     /// request's own checks. Since 23.44. Absent where nothing ran on it, where
     /// it was not asked yet, or from an older Fleet.
@@ -207,13 +198,6 @@ pub enum MainRunState {
     Passed,
     Running,
     Failed,
-}
-
-/// A Job, by its id and what it is called.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HubJob {
-    pub id: JobId,
-    pub title: String,
 }
 
 /// A Session, by its id and the title the ledger holds for it. Since 23.80.
@@ -309,10 +293,7 @@ pub struct MainMerge {
     pub url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
-    /// The Job whose pull request that is. Absent for a person's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job: Option<HubJob>,
-    /// The Session that held the pull request or its branch, where no Job owns it. Since 23.80.
+    /// The Session that held the pull request or its branch. Since 23.80.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<HubSession>,
 }
@@ -329,9 +310,6 @@ pub struct HubPullRequest {
     /// Absent where nothing has run on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ci: Option<HubPullCi>,
-    /// The Job that opened it. Absent for a person's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job: Option<HubJob>,
     /// Where it stands in the merge queue, since 23.70. Absent where it is not
     /// in the queue and has no auto-merge waiting on its checks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -358,7 +336,7 @@ pub struct HubPullRequest {
     pub additions: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletions: Option<u32>,
-    /// The Session or Job that claimed it, from the central store. **Absent** where nobody
+    /// The Session that claimed it, from the central store. **Absent** where nobody
     /// registered it, where the repository's switch is off (rows another machine wrote
     /// included), and whenever the store could not be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -391,7 +369,7 @@ fn is_mine(it: &bool) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestOwner {
     pub kind: crate::sessions::HolderKind,
-    /// The Session's or Job's short id.
+    /// The Session's short id.
     pub id: String,
     /// The host's name, or `machine.name` where two hosts share one.
     pub machine: String,

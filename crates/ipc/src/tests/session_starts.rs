@@ -47,3 +47,34 @@ fn the_answer_the_row_and_the_item_round_trip() {
     assert_eq!((read.source, read.act.as_ref().map(|act| act.kind)), (WaitingSource::FirstMessage, Some(WaitingActKind::Message)));
     assert_eq!(serde_json::to_value(&read).unwrap(), item);
 }
+
+#[test]
+fn a_group_is_optional_on_a_start_and_written_only_when_set() {
+    let plain = StartAnotherSession { manifest_id: crate::ManifestId::carried("armada"), title: "t".into(), message: "m".into(), group: None, after: None };
+    assert_eq!(serde_json::to_value(&plain).unwrap(), json!({"manifest_id":"armada","title":"t","message":"m"}));
+    let grouped: StartAnotherSession =
+        crate::decode("a session to start", br#"{"manifest_id":"armada","title":"t","message":"m","group":"g2"}"#).unwrap();
+    assert_eq!(grouped.group.as_deref(), Some("g2"));
+}
+
+#[test]
+fn a_hand_names_the_session_and_the_group() {
+    let hand: crate::HandToSession = crate::decode("a group to hand", br#"{"session_id":"s1","group":"g2"}"#).unwrap();
+    assert_eq!((hand.session_id.as_str(), hand.group.as_str()), ("s1", "g2"));
+    assert!(crate::decode::<crate::HandToSession>("a group to hand", br#"{"session_id":"s1"}"#).is_err());
+}
+
+#[test]
+fn a_linked_row_names_the_session_and_what_it_did() {
+    let row = json!({
+        "kind": "linked", "id": "r10", "at": "2026-10-16T09:00:00Z",
+        "session": {"id": "s3", "title": "Migrations apply in order"}, "event": "needs"
+    });
+    let read: SessionRow = serde_json::from_value(row.clone()).unwrap();
+    assert_eq!(read.id(), "r10");
+    assert!(matches!(read, SessionRow::Linked { event: crate::LinkedEvent::Needs, .. }));
+    assert_eq!(serde_json::to_value(&read).unwrap(), row);
+    for (spelling, event) in [("done", crate::LinkedEvent::Done), ("merged", crate::LinkedEvent::Merged)] {
+        assert_eq!(serde_json::from_value::<crate::LinkedEvent>(json!(spelling)).unwrap(), event);
+    }
+}

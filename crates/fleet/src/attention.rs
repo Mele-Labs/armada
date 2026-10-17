@@ -86,15 +86,10 @@ where
         let owned = self.owned_by(within)?;
         let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
         let (mut blocked, mut waiting) = (Vec::new(), Vec::new());
-        let cards_out = self.jobs_with_a_card_out().await;
         for job in loaded.jobs.iter().filter(|job| owned(job) && !job.status().is_terminal()) {
             let stopped = stopped_mid_flight(job);
             let resting = awaiting_sign_off(job) || job.status() == JobStatus::AwaitingApproval;
-            // **A card its Commander put out is waiting on a person**, whatever
-            // the Job's status says: it is one the Job asks, and the summary
-            // reads `asking` for it.
-            let carded = cards_out.contains(job.id());
-            if !stopped && !resting && !carded {
+            if !stopped && !resting {
                 continue;
             }
             let summary = self.summarised(job).await?;

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 use crate::protocol_id::ProtocolId;
 
 /// A session, by the id its harness knows it by.
@@ -67,7 +67,6 @@ pub enum AttachmentState {
 #[serde(rename_all = "snake_case")]
 pub enum HolderKind {
     Session,
-    Job,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -559,6 +558,13 @@ pub enum WaitingSource {
     /// Fleet: a judge raised a concern about the work. Kept, id `judge:<n>`, with `concern` beside the
     /// text. It is settled by `send_concern` or `dismiss_concern`.
     Judge,
+    /// Fleet: the session's first write found every worktree slot held and it is in the line for one,
+    /// and the person has not said whether it waits or Fleet makes a slot. Derived on every read,
+    /// never kept: id `slot-choice`, text `Every slot is in use`, an `answer` act, and exactly two
+    /// options, `Wait for a slot` (choice 0) and `Add a slot` (choice 1), labels only. Answering
+    /// with a `choice` settles it and no message goes to the agent: it was told to end its turn and
+    /// is moved in when a slot is granted. A free-text answer is refused.
+    SlotChoice,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -810,6 +816,11 @@ pub struct SessionRecord {
     /// `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settled: Vec<WaitingItem>,
+    /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
+    /// process until the condition is met. Absent once it has started, and on a Session that never
+    /// waited. `docs/concepts/session.md`, *A Session that waits on another*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waits: Option<crate::session_waits::SessionWait>,
 }
 
 /// A value of a Session the proposer can pick.
@@ -881,7 +892,7 @@ pub struct Owners {
     pub holders: Vec<Ownership>,
 }
 
-/// `claim_pull_request`: a Session or Job takes an open pull request nobody holds.
+/// `claim_pull_request`: a Session takes an open pull request nobody holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimPullRequest {
     pub number: u64,
@@ -889,10 +900,6 @@ pub struct ClaimPullRequest {
     /// Drone**, as `ShowWindow::session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
-    /// Or which Job, for a person attaching the pull request to one they picked. Exactly one of
-    /// the two, read where `session_id` is.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
 }
 
 /// `take_main_red`: a Session takes a repository's red main, so no Job on another machine is
@@ -926,7 +933,6 @@ pub struct PullRequestClaimed {
     pub number: u64,
     pub branch: String,
     pub url: String,
-    /// `session` or `job`, and its id.
-    pub holder_kind: String,
+    /// The Session's id.
     pub holder_id: String,
 }

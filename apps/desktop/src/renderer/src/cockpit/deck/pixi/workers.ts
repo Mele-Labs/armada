@@ -35,7 +35,7 @@ export class Workers {
       kept?.root.destroy({ children: true });
       const root = new Container();
       root.eventMode = "none";
-      const glyph = body("session", false, palette.muted, palette);
+      const glyph = body(false, palette.muted, palette);
       glyph.scale.set(0.5 * scene.big);
       root.addChild(glyph);
       this.layer.addChild(root);

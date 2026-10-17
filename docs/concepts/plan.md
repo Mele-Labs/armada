@@ -64,10 +64,10 @@ itself. Epic plans too and asks nothing, because its steps that follow the
 plan are handed no `reference_docs` and a task there is a dispatched Job.
 
 **Every change records who made it** — a step, a person, Helm acting for
-one, or the Job's Commander — and **every change is an appended row**. The
+one — and **every change is an appended row**. The
 current list is derived; history is never overwritten. **Who made it is the
 caller Fleet placed by its connection**, never a field in the request: Bridge is
-a person, a Helm session's door is Helm, and a Commander's is the Commander.
+a person, and a Helm session's door is Helm.
 A task wears the hand of whoever last added, edited, moved, dropped or
 reopened it, where that was not a step (`PlanTask.by`); a task only steps have
 touched wears none.
@@ -80,7 +80,7 @@ touched wears none.
 | A step declaring `follows_plan: true` | Add a task, and move one to `working`, `done` or `dropped` with a reason. A `done` task may move back; a `dropped` one stays dropped. Legal on the recording step itself, so one step may plan and keep its own tasks current |
 | A step declaring `drone_per_task: true` | Nothing, by its Drones. Fleet marks each task from its Drone, as below, and the step's Drones are given no plan tool even beside `follows_plan` |
 | A person | Add a task, or drop one with a reason, from Bridge, while the Job runs. Move a group, or a task into any group, by the one it comes after (`move_plan`, #1685), never a task still working or handed in. Restart a failed task (`restart_task`, #1656). Edit an open or failed task's title, note, scope, expects or model (`edit_task`, #1657) |
-| Helm, or a Job's Commander | The same acts as a person, through the same route and the same refusals, **signed as their own**. A task still working is not moved, a settled one is not dropped, and a blank title is not accepted, for any of the three. The Commander has no act a person lacks |
+| Helm | The same acts as a person, through the same route and the same refusals, **signed as its own**. A task still working is not moved, a settled one is not dropped, and a blank title is not accepted, for either |
 | Any other step | Read the plan. Change nothing |
 
 A retry of a step that follows the plan keeps task states — the work behind

@@ -258,24 +258,24 @@ test("Delete 1 node confirms, with Cancel first, and takes the node's edges with
   expect(fleet.studios()[0]!.edges).toEqual([]);
 });
 
-test("on All repositories the surface asks for one, since a Studio belongs to one", async () => {
+test("on All repositories the surface asks for none: a Studio belongs to one repository, and the page lists each one's", async () => {
   const fleet = studying();
   open({ ...fleet.scenario, state: { ...fleet.scenario.state, repository: null } });
   await toSystemPage("Studios");
-  await expect.element(page.getByText("Pick a repository to open its Studios")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Studios", level: 1 })).toBeVisible();
+  expect(page.getByText("Pick a repository to open its Studios").query()).toBeNull();
+  expect(page.getByRole("button", { name: "Choose a repository", exact: true }).query()).toBeNull();
 });
 
-/** Studios from the rail, answering the surface's own ask for a repository. */
+/** Studios from the rail: no repository is asked for first. */
 async function openStudios(): Promise<void> {
   await toSystemPage("Studios");
-  await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
-  await page.getByRole("menuitem", { name: "armada", exact: true }).first().click();
 }
 
 const FAILED = "This repository's Studios could not be read";
 
-test("every-state keeps Studios, so the surface opens on a list and not a read failure", async () => {
-  open("every-state");
+test("default keeps Studios, so the surface opens on a list and not a read failure", async () => {
+  open("default");
   await openStudios();
 
   await expect.element(page.getByRole("cell", { name: "Every kind of node and edge", exact: true })).toBeVisible();
@@ -619,7 +619,8 @@ test("a scenario keeping no Studios draws no list and no sentence, and not a rea
   open("empty-store");
   await openStudios();
 
-  await expect.element(page.getByRole("button", { name: "New Studio" })).toBeVisible();
+  // On All a repository that keeps none draws no panel, so there is no New Studio to press either.
+  await expect.element(page.getByRole("heading", { name: "Studios", level: 1 })).toBeVisible();
   expect(page.getByRole("table").query()).toBeNull();
   expect(page.getByText("No Studios yet.", { exact: false }).query()).toBeNull();
   expect(page.getByText(FAILED).query()).toBeNull();
@@ -923,17 +924,10 @@ test("reading an epic in asks what to take, and narrowing leaves what a person w
 });
 
 /**
- * `#1379`'s definition of done, which is the owner's own walkthrough: paste a
- * milestone's address, read it in, press Dispatch on one issue's node, open
- * that Job from the node and watch it run, then come back and see the same
- * node reading running.
- *
- * **The Job node holds no status.** What it draws here is the Board's row,
- * which is why the last assertion is worth making: the Studio was left
- * standing while the Job moved, and it says what the Job is doing rather than
- * what it was doing when the node was made.
+ * `#1379`'s definition of done, as far as Bridge goes now: paste a milestone's address, read it in, press
+ * Dispatch on one issue's node, and the Job node lands. Bridge draws no Job page, so the node opens nothing.
  */
-test("an issue read in is dispatched, its Job opens from the node, and the node reads it running", async () => {
+test("an issue read in is dispatched, and its Job node lands with a Produced edge", async () => {
   const fleet = studying();
   open(fleet.scenario);
   await toSystemPage("Studios");
@@ -983,26 +977,6 @@ test("an issue read in is dispatched, its Job opens from the node, and the node 
     kind: "issue",
     address: "https://example.invalid/o/r/issues/1293",
   });
-
-  // The node opens the Job, the way a Board row does.
-  await pick(dispatched);
-  await act("Open Job");
-  // The gate is unchanged: a Job from a Studio stands at `awaiting_approval`
-  // like any other, and this is where it is approved.
-  // The header's, and the lead's under it: one act, reached two ways.
-  await expect.element(page.getByRole("button", { name: "Approve dispatch" }).first()).toBeVisible();
-  // The origin, in the registry's own words. Spelled whole rather than as the
-  // trailing clause: `getByText` matches a substring without case, so the
-  // shorter `Dispatched by you` passed against `From a Studio, dispatched by
-  // you` and would pass against a row that had lost the Studio entirely.
-  await expect.element(page.getByText("From a Studio, by you")).toBeVisible();
-
-  await page.getByRole("button", { name: "Approve dispatch" }).first().click();
-  await userEvent.keyboard("{Escape}");
-
-  // Back on the Studio it was left on, and the node reads what the Job is
-  // doing now rather than what it was doing when it was made.
-  await expect.element(node(/^Job: An issue cannot be read into a Studio, running/)).toBeVisible();
 });
 
 /**

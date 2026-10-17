@@ -1,23 +1,17 @@
-// What a Session is doing. Every running Session carries a line under its title that Fleet detected from
-// its last tool call. A Session whose agent keeps a todo list also has Working on over the box, folded
+// What a Session is doing. A Session whose agent keeps a todo list also has Working on over the box, folded
 // to one glyph a todo with the one being done first, beside Needs you where the Session waits on the
 // person. The Cockpit tile reads the todo being done, or the line where there is no list. Nothing is drawn for a Session that is done. Over `session-working-on`.
 
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const working = region("Working on");
 const glass = role("listbox", "Tiles");
-const row = (title: RegExp) => inside(sessions, role("listitem", title));
 const open = (title: RegExp) => inside(sessions, button(title));
 
 const sessionWorkingOn = walk("session-working-on", [
   toSessions,
-  { look: inside(row(/Gate policy for every run/), text("Editing gate.rs")), say: "A line under the title: what Fleet last saw it do" },
-  { look: inside(row(/Backfill dry run/), text("Running cargo check")), say: "A turn with no todo list has this line and nothing more" },
-  { look: row(/Order the store migrations/), say: "A Session that is done draws no line" },
-
   { press: open(/Gate policy for every run/), say: "Opened" },
   { look: working, say: "Working on, folded over the box. The todo being done leads" },
   { hover: inside(working, role("img", /^Working: Run the policy on every Job/)), say: "Each todo is a glyph, named on hover" },

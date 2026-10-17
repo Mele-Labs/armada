@@ -1,5 +1,5 @@
 // The lines the field leaves in the air, on one layer above the slabs: the contrail of a launch, the tether to a bay a drone holds, the
-// beams to the plots it changes, the formation from a Session to its Job, the laser and the probe of a drone at work, the line between
+// beams to the plots it changes, the laser and the probe of a drone at work, the line between
 // two drones changing one area, the tracer of a turn and the routes of pull requests. Each is shifted by the height it stands for, so
 // it shows where it is at the camera's pitch. Ported from proto/cockpit-flight-deck. #2301.
 
@@ -26,8 +26,6 @@ export type LiftedProps = {
   prs: readonly PrIn[];
   selected: string | undefined;
   loops: ReadonlySet<string>;
-  /** A mission's own route: where its crate starts. */
-  crate: Point | undefined;
   plane: { width: number; height: number };
   pitch: number;
   easing: boolean;
@@ -36,7 +34,7 @@ export type LiftedProps = {
   onTip: OnTip;
 };
 
-export function Lifted({ layout, frame, drones, droneBy, territory, padAt, baseOf, trails, plays, prs, selected, loops, crate, plane, pitch, easing, curve, lift, onTip }: LiftedProps) {
+export function Lifted({ layout, frame, drones, droneBy, territory, padAt, baseOf, trails, plays, prs, selected, loops, plane, pitch, easing, curve, lift, onTip }: LiftedProps) {
   const { flying, heights, aimOf, aimPoint } = frame;
   const playOf = (key: string, kind: Play["kind"]) => plays.find((one) => one.key === key && one.kind === kind);
   return (
@@ -47,9 +45,6 @@ export function Lifted({ layout, frame, drones, droneBy, territory, padAt, baseO
         const age = trails.get(drone.key);
         const pad = drone.slot === undefined ? undefined : padAt.get(drone.slot);
         const origin: P3 = pad === undefined ? baseOf(drone.root) : { ...pad, z: 2 };
-        const parent = drone.parent === undefined ? undefined : droneBy.get(drone.parent);
-        const above = parent === undefined ? undefined : flying(parent);
-        const on = selected === drone.key || selected === drone.parent;
         const launching = playOf(drone.key, "launch");
         return (
           <g key={drone.key} data-dim={!drone.shown || undefined}>
@@ -63,7 +58,6 @@ export function Lifted({ layout, frame, drones, droneBy, territory, padAt, baseO
               />
             )}
             {pad === undefined ? null : <path className="bf-tether" d={curve({ ...pad, z: 2 }, to, 30)} />}
-            {above === undefined ? null : <path className="bf-formation" data-lit={on || undefined} d={curve(to, above, 26)} />}
             {(layout.over.get(drone.key) ?? []).map(({ tile }, i) => {
               const end = onPlane({ x: tile.cx, y: tile.cy });
               const top: P3 = { ...end, z: heights.get(tile.path) ?? 0 };
@@ -119,20 +113,11 @@ export function Lifted({ layout, frame, drones, droneBy, territory, padAt, baseO
           </g>
         );
       })}
-      {plays.map((play) => {
-        if (play.kind !== "tracer" || play.key === undefined) return null;
-        const drone = droneBy.get(play.key);
-        const from = drone === undefined ? undefined : flying(drone);
-        const parent = drone?.parent === undefined ? undefined : droneBy.get(drone.parent);
-        const to = parent === undefined ? undefined : flying(parent);
-        if (from === undefined || to === undefined) return null;
-        return <path key={play.id} className="bf-tracer" pathLength={100} d={curve(from, to, 34)} style={{ animationDelay: `${play.delay}ms` }} />;
-      })}
       {prs.map((pr) => {
         const home = territory.get(pr.root);
         if (home?.goal === undefined || pr.stage === "landed") return null;
         const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-        const start = crate !== undefined ? { ...onPlane(crate), z: ROUTE } : ((owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE });
+        const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
         const end: P3 = { ...onPlane(home.goal), z: ROUTE };
         return <path key={pr.key} className="bf-route" data-stage={pr.stage} data-dim={(owner !== undefined && !owner.shown) || undefined} d={curve(start, end, 34)} />;
       })}

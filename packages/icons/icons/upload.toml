@@ -1,0 +1,7 @@
+[icons.upload]
+  means = "An arrow leaving an open tray: a file sent from the person's device"
+  group = "Sketch screens"
+  size = "16px"
+  status = "Proposed"
+  reserved = "An upload on a wireframed screen of another product. Never adding a row to the shared home, which is `arrow-up-from-line`, and never ahead of main, which is `arrow-up`."
+  notes = "Added with the `screen` node. `arrow-up-from-line` is reserved against being an upload. Pair of `download`."

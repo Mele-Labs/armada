@@ -8,14 +8,8 @@
 .sv-slot { display: flex; min-width: 0; min-height: 0; }
 .sv-slot:empty { display: none; }
 .sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); flex-direction: column; min-width: calc(var(--space-12) * 7); }
-/* The right column's own children: Status, the Ledger at the size it has with a Session open and no workspace, then Incoming calls. */
+/* The right column's own children: the Field, then Progress. */
 .sv-side { display: contents; }
-
-/* Status takes what its content needs up to a cap and scrolls past it. The Ledger is a kept panel and does not shrink for it. */
-.sv-side > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
-.sv-side > .sv-panel[data-area="ledger"] { flex: 2 1 0; min-height: calc(var(--space-12) * 5); }
-/* The Plan stands in the right column where Incoming calls did, under the Ledger. */
-.sv-side > .sv-panel[data-area="plan"] { flex: 3 1 0; min-height: calc(var(--space-12) * 3); }
 
 /* ---- A panel -------------------------------------------------------------------------------------------- */
 
@@ -77,28 +71,10 @@
 }
 .sv-panel__body:empty { display: none; }
 .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { border-bottom: 0; }
-.sv-panel[data-area="field"] > .sv-panel__body,
-.sv-panel[data-area="ledger"] > .sv-panel__body { padding: 0; }
+.sv-panel[data-area="field"] > .sv-panel__body { padding: 0; }
 .sv-field { position: relative; display: flex; flex: 1 1 0; min-height: 0; }
-.sv-ledger { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
-.sv-ledger > .armada-session-ledger { flex: 1 1 0; width: auto; background: none; }
-.sv-hold { display: inline-flex; align-items: center; gap: var(--space-1); max-width: calc(var(--space-12) * 2.5); color: var(--fg-muted); font-size: var(--text-2xs); }
-.sv-hold code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---- Status: the steps, the scope and the plan ---------------------------------------------------------- */
-
-.sv-step { color: var(--fg-subtle); font-family: var(--font-sans); }
-.sv-step__mark { display: inline-flex; }
-.sv-step__name { font-size: var(--text-2xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
-.sv-step[data-state="done"] { color: var(--fg-muted); }
-.sv-step[data-state="done"] .sv-step__mark { color: var(--step-advanced); }
-.sv-step[data-state="now"] { color: var(--fg-default); font-weight: var(--weight-heading); }
-.sv-step[data-state="now"] .sv-step__mark { color: var(--accent); }
-.sv-outline { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.sv-outline > .sv-step { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); }
-.sv-outline > .sv-step[data-state="now"] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
-.sv-step__row { display: flex; align-items: center; gap: var(--space-2); }
-.sv-outline .sv-step__name { font-size: var(--text-xs); }
+/* ---- Progress: the plan's scope, groups and tasks ----------------------------------------------------------- */
 
 .sv-scope { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-scope code {
@@ -130,6 +106,8 @@
 .sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
 .sv-group__title { overflow-wrap: anywhere; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
 .sv-group__marks { display: flex; gap: var(--space-1); }
+/* The Session a group was handed to: its row, under the group's own and set off by a rule. */
+.sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
 .sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }
@@ -160,9 +138,7 @@
 /* A panel that scrolls rests with a whole row at its top, and a row it was moved to is never left half under the band. */
 .sv-panel__body { scroll-snap-type: y proximity; scroll-padding-top: var(--space-2); }
 .sv-panel__body > *,
-.sv-plan > *,
-.sv-outline > .sv-step,
-.sv-step__plan > * { scroll-snap-align: start; }
+.sv-plan > * { scroll-snap-align: start; }
 
 /* ---- The plan opened to review ---------------------------------------------------------------------------------- */
 
@@ -229,3 +205,108 @@
 .sv-edit-group__head .sv-group__title { font-size: var(--text-sm); color: var(--fg-default); text-align: left; }
 
 .sv-group__row > .sv-group__title { color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
+
+/* ==== Compact: what a Session open keeps on screen ================================================================ */
+
+/* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
+.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
+.sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+
+/* Progress: the workflow as one line of glyphs in the band. */
+.sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }
+.sv-rail__step { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-default); }
+.sv-rail__mark { display: inline-flex; }
+.sv-rail__step[data-state="done"] { color: var(--step-advanced); }
+.sv-rail__step[data-state="now"] { color: var(--accent); }
+
+/* ---- A layer over the stage ------------------------------------------------------------------------------------ */
+
+/* It covers the thread and the box, which stay under it. A solid fill: the thread must not show through. */
+.deck-pane { position: relative; }
+.sv-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
+.sv-layer__head { display: flex; flex: none; align-items: center; gap: var(--space-3); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+.sv-layer__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-layer__search { flex: 1 1 0; min-width: 0; max-width: calc(var(--space-12) * 8); margin-inline-start: auto; }
+.sv-layer__head > .armada-button { margin-inline-start: auto; }
+.sv-layer__search + .armada-button, .sv-layer__search ~ .armada-button { margin-inline-start: 0; }
+.sv-layer__body { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
+.sv-layer__group { display: flex; flex-direction: column; gap: var(--space-1); }
+.sv-layer__group-label { margin: 0; padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-layer__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.sv-layer__row {
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr) minmax(0, auto) auto;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--h-row);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+}
+button.sv-layer__row { cursor: pointer; }
+button.sv-layer__row:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+/* Selection is a flat wash and a 2px bar. */
+button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.sv-layer__kind { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
+.sv-layer__kind [data-spinning] { animation: deck-spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sv-layer__kind [data-spinning] { animation: none; } }
+.sv-layer__title-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-layer__sub { min-width: 0; max-width: calc(var(--space-12) * 6); overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.sv-layer__state { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--space-2); min-width: var(--space-4); }
+.sv-layer__mark { display: inline-flex; color: var(--fg-muted); }
+.sv-layer__mark[data-tone="passed"], .sv-layer__mark[data-tone="done"] { color: var(--step-advanced); }
+.sv-layer__mark[data-tone="running"] { color: var(--step-running); }
+.sv-layer__mark[data-tone="failed"] { color: var(--step-failed); }
+.sv-layer__mark[data-tone="escalated"], .sv-layer__mark[data-tone="pending"] { color: var(--status-awaiting-review); }
+
+/* Slot: the facts of what is wrong, and the way to the bay. */
+.sv-layer__slot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+.sv-layer__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-6); margin: 0; font-size: var(--text-sm); }
+.sv-layer__fact { display: contents; }
+.sv-layer__fact dt { color: var(--fg-muted); }
+.sv-layer__fact dd { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.sv-layer__fact code { font-size: var(--text-xs); }
+
+/* ---- A Work row whose Session is calling him ------------------------------------------------------------------- */
+
+/* A 2px bar in the call's colour on the row's left edge fades in and out on a slow loop. Only its opacity moves. */
+.deck-row[data-calling]::before { content: ""; position: absolute; inset-block: var(--space-1); inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@keyframes deck-call-pulse { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-calling]::before { animation: none; } }
+
+/* ---- A Session's card, half as padded ---------------------------------------------------------------------------- */
+
+/* The card's own padding and the gutters of what is in it: the head, the message column, the last card and the box are half what they were.
+   Here and not in the components, so it holds wherever a Session is open. */
+.armada-card.armada-session-frame { --pad-card: calc(var(--space-6) / 2); gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-frame__centre,
+.armada-session-frame .armada-session-thread,
+.armada-session-frame .armada-session-thread__stage,
+.armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-needs__band,
+.armada-session-frame .armada-session-needs__rows,
+.armada-session-frame .armada-session-working__band,
+.armada-session-frame .armada-session-working__rows,
+.armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
+.armada-session-frame .armada-question-deck__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
+.armada-session-frame .armada-question-deck__body { padding: calc(var(--space-4) / 2); }
+
+/* ---- The chip over the thread's last card ----------------------------------------------------------------------------- */
+
+/* The chip over the composer that jumps back to the thread's last card: no height of its own, drawn up out of the composer's top edge. */
+.sv-callchip { position: relative; z-index: 2; flex: none; height: 0; }
+.sv-callchip__press { position: absolute; inset-block-end: calc(var(--space-8) + var(--space-2)); inset-inline-start: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: var(--space-1); height: var(--h-control-sm); padding: 0 var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--status-awaiting-review); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.sv-callchip__press:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-raised)); }
+.sv-callchip__press:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--accent); }
+

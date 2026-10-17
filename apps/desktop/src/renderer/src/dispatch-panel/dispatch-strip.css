@@ -1,8 +1,7 @@
 /* The strip a send leaves where the one bar's field was: the cockpit's band (raised, mono, ruled) as one slim row,
-   laid over the title bar's field. The refusal hue fills it as a held bay's is filled. Tokens only. */
+   laid over the title bar's field. Tokens only. */
 
 .armada-dispatch-strip {
-  --hue: var(--status-completed-failed);
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -31,16 +30,6 @@
   color: var(--accent);
 }
 
-.armada-dispatch-strip__mark[data-turning] > svg { animation: armada-dispatch-strip-spin var(--duration-pulse) linear infinite; }
-
-@keyframes armada-dispatch-strip-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-dispatch-strip__mark[data-turning] > svg { animation: none; }
-}
-
 .armada-dispatch-strip__title {
   flex: 1 1 auto;
   min-width: 0;
@@ -53,14 +42,6 @@
 /* The hint is for a bar that has the cursor, which is where ↵ lands. */
 .armada-dispatch-strip__enter { visibility: hidden; }
 .armada-dispatch-strip:focus-within .armada-dispatch-strip__enter { visibility: visible; }
-
-.armada-dispatch-strip[data-refused] {
-  background: var(--hue);
-  color: var(--fg-inverse);
-}
-
-.armada-dispatch-strip[data-refused] .armada-dispatch-strip__mark,
-.armada-dispatch-strip[data-refused] .armada-dispatch-strip__title { color: var(--fg-inverse); }
 
 /* Over the title bar's field: its box, read when the strip appears. The row is a drag region and the strip opts out. */
 .armada-dispatch-strip {
@@ -77,5 +58,4 @@
   -webkit-app-region: no-drag;
 }
 
-.armada-dispatch-strip[data-refused] { border-color: var(--hue); }
 .armada-dispatch-strip:focus-within { border-color: var(--accent); }

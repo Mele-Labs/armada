@@ -1,4 +1,4 @@
-// What stands upright on the map: a base's hangar and its name, the flag that is main, a Job's pins, the crate of a pull request and the
+// What stands upright on the map: a base's hangar and its name, the flag that is main, the crate of a pull request and the
 // stakes of a survey. Each is a picture drawn once around its own origin, which the stage puts at the screen point of its anchor and
 // scales by the zoom and the perspective, so it faces the viewer however the plane is tilted. A name is also held to a readable size
 // as the field is zoomed out, as the CSS held it. Drones go in the layer above these, in the same depth order.
@@ -7,7 +7,6 @@ import { Container, Graphics, Text, TextStyle } from "pixi.js";
 
 import { onPlane } from "../bf-parts";
 import { FLAT, type P3 } from "../layout";
-import type { PinState } from "../mission";
 import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import type { Crate, PixiSceneIn } from "./scene";
 
@@ -70,32 +69,6 @@ function flag(red: boolean, hot: boolean, p: Palette): Container {
   return out;
 }
 
-const PIN_TONE: Record<PinState, (p: Palette) => Rgba> = { done: (p) => p.good, live: (p) => p.hot, next: (p) => p.dormant, failed: (p) => p.bad, ask: (p) => p.ask };
-
-function pin(state: PinState, label: string | undefined, bright: boolean, pinned: boolean, hot: boolean, p: Palette): Container {
-  const tone = PIN_TONE[state](p);
-  const body = state === "next" ? mix(tone, p.base, 0.45) : tone;
-  const out = new Container();
-  const g = new Graphics();
-  if (state === "failed") g.moveTo(-9, -44).lineTo(-13, -55).moveTo(0, -47).lineTo(0, -61).moveTo(9, -44).lineTo(13, -55).stroke({ ...colour(p.bad), width: 1.7, cap: "round" });
-  g.moveTo(0, 0).bezierCurveTo(-3, -8, -12, -15, -12, -25).arc(0, -25, 12, Math.PI, 0).bezierCurveTo(12, -15, 3, -8, 0, 0).closePath();
-  g.fill(colour(body)).stroke({ ...colour(pinned || hot ? p.fg : p.base), width: 1.6, join: "round" });
-  const ink = { ...colour(p.base), width: 2.6, cap: "round" as const, join: "round" as const };
-  if (state === "done") g.moveTo(-5, -26).lineTo(-1.5, -22.5).lineTo(5, -30).stroke(ink);
-  else if (state === "failed") g.moveTo(-4.5, -29.5).lineTo(4.5, -20.5).moveTo(4.5, -29.5).lineTo(-4.5, -20.5).stroke(ink);
-  else if (state === "ask") g.moveTo(0, -31).lineTo(0, -25).moveTo(0, -21.4).lineTo(0, -21.2).stroke(ink);
-  else if (state === "live") g.circle(0, -25.5, 4).fill(colour(p.base));
-  else g.circle(0, -25.5, 3.6).stroke(ink);
-  g.scale.set(1.15);
-  out.addChild(g);
-  if (label !== undefined) {
-    const text = name(label.length > 22 ? `${label.slice(0, 21)}…` : label, p, bright ? p.fg : p.muted, { x: 0.5, y: 1 });
-    text.position.set(0, 44);
-    out.addChild(text);
-  }
-  return out;
-}
-
 function crate(stage: Crate["pr"]["stage"], dim: boolean, hot: boolean, p: Palette): Container {
   const solid = stage === "ready" || stage === "queued" || stage === "landed";
   const red = stage === "red";
@@ -139,17 +112,6 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
     const goal = s.goals.get(one.root);
     const hot = s.hotPart === `goal:${one.root}`;
     if (goal !== undefined && one.goal !== undefined) out.push({ key: `flag:${one.root}`, sig: `flag:${goal.red}:${hot}`, at: { ...onPlane(one.goal), z: 1 }, make: (q) => flag(goal.red, hot, q) });
-  }
-  for (const at of s.route?.pins ?? []) {
-    const state = at.state;
-    const bright = state === "live" || state === "ask" || state === "failed" || s.pinned === at.id;
-    const hot = s.hotPart === `pin:${at.id}`;
-    out.push({
-      key: `pin:${at.id}`,
-      sig: `pin:${state}:${s.readable ? at.label : ""}:${bright}:${s.pinned === at.id}:${hot}`,
-      at: { ...onPlane(at.at), z: 0 },
-      make: (q) => pin(state, s.readable ? at.label : undefined, bright, s.pinned === at.id, hot, q),
-    });
   }
   for (const one of s.crates) {
     const hot = s.hotPart === `crate:${one.pr.key}`;

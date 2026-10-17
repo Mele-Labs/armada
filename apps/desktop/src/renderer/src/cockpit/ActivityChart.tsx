@@ -1,12 +1,11 @@
 // The flight deck's Activity: a beeswarm with no words. Each event is a dot at its time over the last hour, the newest at the right, packed
 // up and down a centre line so none overlap, in the colour of its tone and smaller and fainter where it is a coalesced read, edit or
 // command. Hovering or focusing a dot shows the events near it in a card, itself first, and pressing it picks its event. Takes what
-// the feed took, so the Job or Session open narrows it.
+// the feed took, so the Session open narrows it.
 
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
-import type { JobSummary } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 
 import { QUIET_KINDS, ageOf, titleOf, type FleetEvent, type Subject } from "./fleet-events";
@@ -154,7 +153,6 @@ function Swarm({ events, now, lit, onPick }: { events: readonly FleetEvent[]; no
 
 export function ActivityGraph({
   now,
-  jobs,
   views = NO_VIEWS,
   filter,
   keep,
@@ -163,18 +161,17 @@ export function ActivityGraph({
   of,
 }: {
   now: number;
-  jobs: readonly JobSummary[];
   views?: readonly MergeLineView[];
   filter: DashboardTab;
   keep?: (subject: Subject) => boolean;
-  /** Narrows the chart to this Job or Session alone: the one open on the flight deck's stage. */
+  /** Narrows the chart to this Session alone: the one open on the flight deck's stage. */
   of?: Of;
   /** A press on a dot picks its event. */
   onPick: (event: FleetEvent) => void;
   /** The event held lit, by id: it is marked on the chart. */
   lit?: string;
 }) {
-  const lanes = useLanes(now, jobs, views, filter, keep, of, MOST_GRAPH);
+  const lanes = useLanes(now, views, filter, keep, of, MOST_GRAPH);
   const events = useMemo(() => lanes.flatMap((lane) => lane.events).filter((event) => now - Date.parse(event.at) < HOUR), [lanes, now]);
   return (
     <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour">

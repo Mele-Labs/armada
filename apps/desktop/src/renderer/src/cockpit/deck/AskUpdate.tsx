@@ -1,12 +1,11 @@
-// The button that asks a ring's owner for an update, wherever a ring is drawn: the tall column's header, the drone's pinned card and a
-// Job's mission. A bare glyph, so its tooltip names it. After a press it reads sent until the next reply, and a refusal is its tooltip.
+// The button that asks a ring's owner for an update, wherever a ring is drawn: the tall column's header, the drone's pinned card. A bare glyph, so its tooltip names it. After a press it reads sent until the next reply, and a refusal is its tooltip.
 
 import { MessageCircleMore } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
 import { useUpdateAsk } from "./ask-update";
 
-/** `subject` is the drone's key: `session:<id>` or `job:<id>`. */
+/** `subject` is the drone's key: `session:<id>`. */
 export function AskUpdate({ subject }: { subject: string }) {
   const { held, press } = useUpdateAsk(subject);
   const sent = held?.state === "sent";

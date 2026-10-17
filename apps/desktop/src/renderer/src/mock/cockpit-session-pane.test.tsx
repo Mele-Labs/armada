@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const bays = () => page.getByRole("region", { name: "Bays" });
 const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const right = () => document.querySelector(".deck-right")!;
@@ -50,13 +50,7 @@ test("while a Session is open the right column shows its ledger instead of the B
   // The calls stay where they were.
   await expect.element(incoming()).toBeVisible();
 
-  // Opening a Job brings the Bays back; so does closing the Session.
-  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
-  await expect.element(bays()).toBeVisible();
-  expect(right().querySelector('[aria-label="Attachments"]')).toBeNull();
-
-  await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
-  await expect.poll(() => right().querySelector('[aria-label="Attachments"]') !== null).toBe(true);
+  // Closing the Session brings the Bays back.
   await page.getByRole("region", { name: "Session: Pin the store clock" }).getByRole("button", { name: "Back" }).click();
   await expect.element(bays()).toBeVisible();
   expect(right().querySelector('[aria-label="Attachments"]')).toBeNull();

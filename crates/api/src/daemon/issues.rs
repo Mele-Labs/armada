@@ -5,6 +5,7 @@
 //! handler that takes only this cannot reach for a Job.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use ipc::{
     Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, IssueList, IssueRead,
@@ -55,7 +56,7 @@ pub trait Autopilots: Send + Sync + 'static {
         settings: AutopilotSettings,
     ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
 
-    /// `pause_autopilot`: no new picks; started Jobs finish.
+    /// `pause_autopilot`: no new picks; the Sessions it started carry on.
     fn pause_autopilot(
         &self,
         manifest_id: ManifestId,
@@ -75,7 +76,7 @@ pub trait Autopilots: Send + Sync + 'static {
         settings: AutopilotSettings,
     ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
 
-    /// `stop_autopilot`: no new picks, picks whose Job has not started withdrawn, and the end.
+    /// `stop_autopilot`: no new picks, picks whose Session has not run closed, and the end.
     fn stop_autopilot(
         &self,
         manifest_id: ManifestId,
@@ -90,9 +91,10 @@ pub trait Autopilots: Send + Sync + 'static {
         manifest_id: ManifestId,
     ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
 
-    /// `dispatch_set_aside`: a person dispatches a set-aside pick, to the approval gate.
+    /// `dispatch_set_aside`: a person dispatches a set-aside pick, and a Session starts on it.
+    /// **Takes the `Arc`** because the Session's first message is sent from a task of its own.
     fn dispatch_set_aside(
-        &self,
+        self: Arc<Self>,
         manifest_id: ManifestId,
         pick_id: String,
     ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;

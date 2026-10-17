@@ -3,7 +3,7 @@
 // pull request ready, a step each time the walk lets time pass or he presses an act. The Session's `work` is draft data
 // (`packages/screens/src/draft/sessions.ts`); nothing here reaches Fleet. The walk `oneSessionView` plays it, in two takes.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent, WriteClash, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { PlanChanges, Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 
@@ -382,9 +382,9 @@ const QUESTIONS = [
 
 // ---- The store -------------------------------------------------------------------------------------------
 
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big, live]);
+  const base = sessionsStore([none, none], none, control, [], [dispatched, quiet, busy, big, live]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   revision.on = false;

@@ -7,6 +7,7 @@ import type {
   ApprovePlan,
   CheckoutCaughtUp,
   CheckoutDiff,
+  ChangeWaiting,
   CheckoutSentAsPullRequest,
   ClaimPullRequest,
   DismissConcern,
@@ -14,7 +15,6 @@ import type {
   Followed,
   FrameRead,
   Outcome,
-  PilotOutcome,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
@@ -25,7 +25,11 @@ import type {
   SendConcern,
   SendPlanChanges,
   SendSessionMessage,
+  SessionWait,
+  StartAfter,
+  WaitReading,
   ChosenHold,
+  SessionHeld,
   SessionHoldsReleased,
   SessionRecord,
   SessionRow,
@@ -56,14 +60,15 @@ export type SessionsApi = {
    * refusal in words where there are several. **`root` names the repository instead** of the pick: the
    * annotation layer starts on the notes' own, whatever the window has picked. **`request` is the words the person
    * dispatched**, which Fleet reads once to fill in the title, workflow, model and effort; the answer is not waited on.
+   * **`after` makes the Session wait on another**: `request` is then its brief, kept, and nothing is sent until the condition is met.
    */
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => Promise<SessionActed>;
-  /**
-   * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
-   * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
-   * nothing changed.
-   */
-  pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter) => Promise<SessionActed>;
+  /** Fleet's proposer reads a brief that tags `sessionId` for the wait it names. A reading it could not make is `ends`, from main. */
+  readSessionWait: (sessionId: string, request: string) => Promise<SessionActed<WaitReading>>;
+  /** Changes when a waiting Session starts, or where from. The Session it waits on is told, and both threads carry a row. */
+  changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
+  /** Starts a waiting Session now, whatever its condition. */
+  startWaitingNow: (sessionId: string) => Promise<SessionActed>;
   /**
    * Starts a new Session as a copy of an ended or dead one's conversation. **Main names the repository
    * from the Session**, so the renderer sends the Session and nothing else.
@@ -123,6 +128,11 @@ export type SessionsApi = {
    * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
    */
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
+  /**
+   * Hands one group of the Session's plan to a linked Session of its own: Fleet starts it in the same repository, titled with the
+   * group's, and sends the group's tasks and the Session's handoff as its first message. Answers the new Session's id.
+   */
+  handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
   /**
    * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
@@ -225,7 +235,6 @@ export const SESSIONS_NOTHING_YET: SessionsState = {
 
 export const SESSIONS_CHANNELS = {
   startSession: "bridge:start-session",
-  pilotJob: "bridge:pilot-job",
   forkSession: "bridge:fork-session",
   forkSessionAt: "bridge:fork-session-at",
   exitPilot: "bridge:exit-pilot",
@@ -233,6 +242,9 @@ export const SESSIONS_CHANNELS = {
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
+  readSessionWait: "bridge:read-session-wait",
+  changeWaiting: "bridge:change-waiting",
+  startWaitingNow: "bridge:start-waiting-now",
   dismissWaiting: "bridge:dismiss-waiting",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
@@ -247,6 +259,7 @@ export const SESSIONS_CHANNELS = {
   stopSession: "bridge:stop-session",
   setSessionWorkflow: "bridge:set-session-workflow",
   releaseSessionHolds: "bridge:release-session-holds",
+  handToSession: "bridge:hand-to-session",
   moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

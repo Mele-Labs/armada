@@ -1,9 +1,8 @@
 // What a send leaves over the one bar's field: one slim strip in the cockpit's band style, holding the kind's
-// mark, the Job's title or the Autopilot's repository, and the way to open it. It stays until the next
-// dispatch or a dismiss and shows only the latest. A Session opens itself and leaves none. Before the
-// Job's id is known the mark is a turning ring; a refusal puts Fleet's words where the title was.
+// mark, the Autopilot's repository, and the way to open it. It stays until the next dispatch or a dismiss
+// and shows only the latest. A Session opens itself and leaves none.
 
-import { LoaderCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { CSSProperties, KeyboardEvent, Ref } from "react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
@@ -14,13 +13,9 @@ import "./dispatch-strip.css";
 export type SentView = {
   /** Which send this is, so one after another is told from one still standing. */
   id: number;
-  kind: "job" | "autopilot";
-  /** A Job's request, first line; an Autopilot's repository. */
+  kind: "autopilot";
+  /** The Autopilot's repository. */
   title: string;
-  /** What it opens is known. A Job's is not until Fleet has made its row. */
-  ready: boolean;
-  /** Fleet's refusal words. */
-  refused?: string;
 };
 
 export function DispatchedStrip({
@@ -41,8 +36,6 @@ export function DispatchedStrip({
   style?: CSSProperties;
 }) {
   const Mark = KIND_ICON[sent.kind];
-  const pending = !sent.ready && sent.refused === undefined;
-  const openable = sent.ready && sent.refused === undefined;
   return (
     <div
       ref={rootRef}
@@ -50,42 +43,29 @@ export function DispatchedStrip({
       role="group"
       aria-label="Last dispatch"
       data-kind={sent.kind}
-      data-refused={sent.refused === undefined ? undefined : ""}
-      data-openable={openable || undefined}
+      data-openable=""
       tabIndex={-1}
       style={style}
-      onClick={() => openable && onOpen()}
+      onClick={onOpen}
       onKeyDown={onKeyDown}
     >
-      {pending ? (
-        <Tooltip label="Dispatching">
-          <span className="armada-dispatch-strip__mark" data-turning>
-            <LoaderCircle size={16} aria-hidden />
-          </span>
-        </Tooltip>
-      ) : (
-        <Tooltip label={KIND_LABEL[sent.kind]}>
-          <span className="armada-dispatch-strip__mark">
-            <Mark size={16} aria-hidden />
-          </span>
-        </Tooltip>
-      )}
-      <span className="armada-dispatch-strip__title">{sent.refused ?? sent.title}</span>
-      {openable ? (
-        <>
-          <Kbd className="armada-dispatch-strip__enter">↵</Kbd>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
-          >
-            Open
-          </Button>
-        </>
-      ) : null}
+      <Tooltip label={KIND_LABEL[sent.kind]}>
+        <span className="armada-dispatch-strip__mark">
+          <Mark size={16} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="armada-dispatch-strip__title">{sent.title}</span>
+      <Kbd className="armada-dispatch-strip__enter">↵</Kbd>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+      >
+        Open
+      </Button>
       <Tooltip label="Dismiss">
         <Button
           variant="ghost"

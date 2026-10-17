@@ -10,7 +10,8 @@ import { CircleHelp, DoorClosedLocked, DoorOpen, Ghost, KeyRound, LoaderCircle, 
 import type { TimelineEvent, WorktreeSlot } from "@armada/protocol";
 import { stateOf as poolStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 
-export type Holder = { kind: "job" | "session"; id: string; title?: string | undefined };
+/** Who held a bay. A past holder can be a Job Fleet still serves; only Sessions are drawn as holding one now. */
+export type Holder = { kind: "session" | "job"; id: string; title?: string | undefined };
 
 /** One holder's time on a bay. A start is absent where only the slot's own record names the holder. */
 export type Lease = { holder: Holder; from?: number; to?: number };
@@ -29,8 +30,6 @@ export type BayView = {
   said?: string;
   Glyph: LucideIcon;
   holder?: Holder;
-  /** Why a Job's lease is kept where it has ended. */
-  kept?: string;
   /** The branch the slot is on now. A past lease does not carry one. */
   branch?: string;
   /** When the holder took it, and for how long it has held it, at the instant the view is of. */
@@ -66,24 +65,23 @@ export const slotKey = (slot: Pick<WorktreeSlot, "manifest_id" | "slot">) => `sl
 /** The holder a bay has now, as the pool says it. */
 export function holderOf(slot: WorktreeSlot): Holder | undefined {
   const held = slot.held;
-  if (held.state === "job") return { kind: "job", id: held.job_id, title: held.job_title };
   if (held.state === "hosted_session") return { kind: "session", id: held.session_id, title: held.session_title };
   if (held.state === "session") return { kind: "session", id: held.session_id ?? held.holder, title: held.session_title ?? held.holder };
   return undefined;
 }
 
-/** The Job or Session a bay is lit with in the list: its holder, or a stranded bay's last holder, by the key the list's rows carry. */
+/** The Session a bay is lit with in the list: its holder, or a stranded bay's last holder, by the key the list's rows carry. */
 export function holderKeyOf(view: BayView): string | undefined {
   const holder = view.holder ?? view.last;
   return holder === undefined ? undefined : `${holder.kind}:${holder.id}`;
 }
 
-/** The slot each Job or hosted Session holds now, by the subject key the drones carry. A drone's pad, and so its arc, comes from here. */
+/** The slot each hosted Session holds now, by the subject key the drones carry. A drone's pad, and so its arc, comes from here. */
 export function holdersOf(slots: readonly WorktreeSlot[]): Map<string, WorktreeSlot> {
   return new Map(
     slots.flatMap((slot) => {
       const held = slot.held;
-      const key = held.state === "job" ? `job:${held.job_id}` : held.state === "hosted_session" ? `session:${held.session_id}` : undefined;
+      const key = held.state === "hosted_session" ? `session:${held.session_id}` : undefined;
       return key === undefined ? [] : [[key, slot] as const];
     }),
   );
@@ -91,10 +89,10 @@ export function holdersOf(slots: readonly WorktreeSlot[]): Map<string, WorktreeS
 
 const same = (a: Holder, b: Holder) => a.kind === b.kind && a.id === b.id;
 
-/** The Job or Session a slot event is about. Events about a pull request or main are not a holder. */
+/** The Session a slot event is about. Events about a pull request or main are not a holder. */
 function holderOfEvent(event: TimelineEvent): Holder | undefined {
   const { subject } = event;
-  return subject.kind === "job" || subject.kind === "session" ? { kind: subject.kind, id: subject.id, title: event.title } : undefined;
+  return subject.kind === "session" ? { kind: subject.kind, id: subject.id, title: event.title } : undefined;
 }
 
 /**
@@ -174,7 +172,6 @@ export function bayViewOf(slot: WorktreeSlot, key: string, ledger: Ledger, at: n
       Glyph: live.bay === "kept" ? live.Glyph : KeyRound,
       said: live.said,
       holder,
-      ...(slot.held.state === "job" && slot.held.kept !== undefined ? { kept: slot.held.kept } : {}),
       ...(slot.branch === undefined ? {} : { branch: slot.branch }),
       ...(since === undefined ? {} : { since, heldFor: instant - since }),
     };

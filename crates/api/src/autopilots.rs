@@ -126,7 +126,7 @@ pub(crate) async fn dispatch_set_aside<D: Autopilots>(
     Path((repository, pick_id)): Path<(String, String)>,
 ) -> Response {
     let dispatched = served
-        .daemon()
+        .shared()
         .dispatch_set_aside(ManifestId::carried(repository), pick_id)
         .await;
     answered(StatusCode::OK, dispatched, served.run_id())

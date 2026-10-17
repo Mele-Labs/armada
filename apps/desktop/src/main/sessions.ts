@@ -15,6 +15,7 @@ import WebSocket from "ws";
 
 import type {
   ReleaseSessionHolds,
+  SessionHeld,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -24,16 +25,19 @@ import type {
   CheckoutSentAsPullRequest,
   CheckoutToPullRequest,
   ApprovePlan,
+  ChangeWaiting,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
+  HandToSession,
   Outcome,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
+  ReadSessionWait,
   JudgeSession,
   RenameSession,
   RunSessionCommand,
@@ -49,11 +53,14 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionThread,
+  SessionWait,
   StartSession,
+  StartWaitingNow,
   ResizeSessionRun,
   StartSessionRun,
   StopSessionRun,
   TuneSession,
+  WaitReading,
   WindowClosed,
   WalkTold,
   WindowFailed,
@@ -434,6 +441,27 @@ export class SessionsHost {
     return answer.ok === true ? { ok: true, value: answer.body as PullRequestClaimed } : { ok: false, outcome: answer.outcome };
   }
 
+  /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
+  async readWait(read: ReadSessionWait): Promise<SessionActed<WaitReading>> {
+    return await this.asked("/sessions/read_wait", read);
+  }
+
+  /** A waiting Session's condition or base, changed. Fleet writes a row in both threads, so nothing is folded here. */
+  async changeWaiting(change: ChangeWaiting): Promise<SessionActed<SessionWait>> {
+    return await this.asked("/sessions/change_waiting", change);
+  }
+
+  async startWaitingNow(start: StartWaitingNow): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/start_waiting", start);
+  }
+
+  private async asked<T>(path: string, body: unknown): Promise<SessionActed<T>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", path, body);
+    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+  }
+
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
@@ -505,6 +533,14 @@ export class SessionsHost {
   }
 
   /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  /** One group of a Session's plan handed to a Session of its own. The new Session and the parent's row change by `session.changed`. */
+  async handToSession(hand: HandToSession): Promise<SessionActed<SessionHeld>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/hand_to_session", hand);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHeld } : { ok: false, outcome: answer.outcome };
+  }
+
   async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };

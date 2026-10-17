@@ -5,15 +5,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 test("Reply: a no-act item opens a box, keeps its draft, and a send answers it", async () => {
   mount("session-reply");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
+  await toSession(/Pin the store clock/);
 
   const section = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));
@@ -37,8 +36,7 @@ test("Reply: a no-act item opens a box, keeps its draft, and a send answers it",
 test("Reply: an answer item with no choices and no question in the thread opens a box too", async () => {
   mount("session-reply");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
+  await toSession(/Pin the store clock/);
 
   const section = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));

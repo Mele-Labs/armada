@@ -87,10 +87,13 @@ jobs:
       # covers` prints into the jobs below and fails on one that CI neither runs
       # nor excludes: docs/practices/ci.md, *How a Check is chosen*. A whole run
       # asks about every tracked path, so it names every Check there is.
+      # A pull request keeps only the Checks that compile (`--quick`); the merge
+      # queue runs the rest once, docs/practices/ci.md, *What runs when*.
       - name: Which Checks
         id: covers
         env:
           WHOLE: ${{ steps.paths.outputs.whole }}
+          QUICK: ${{ github.event_name == 'pull_request' && '--quick' || '' }}
         run: |
           set -euo pipefail
           if [ "$WHOLE" = true ]; then
@@ -101,7 +104,7 @@ jobs:
           else
             ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
           fi
-          python3 .github/ci/plan.py < plan/covers.txt > plan/plan.json
+          python3 .github/ci/plan.py $QUICK < plan/covers.txt > plan/plan.json
           checks=$(jq -c .checks plan/plan.json)
           matrix=$(jq -c .matrix plan/plan.json)
           echo "checks=$checks" >> "$GITHUB_OUTPUT"
@@ -110,6 +113,7 @@ jobs:
           echo "CHECKS $checks"
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.queued[] | "in the merge queue: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
 
       # The matrix job runs `armada check <key>` and needs a binary; the plan
       # has just built one, and the runners are the same image.
@@ -148,12 +152,21 @@ jobs:
             export PATH="$PWD/target/debug:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check build; else armada check build --changed < plan/changed.txt; fi
 
+  # Four runners, each a quarter of the tests nextest would run (`--partition
+  # slice:<n>/4`): 572s of tests on one runner, measured 17 Oct 2026. `armada
+  # check` has no way to pass the flag, so a `cargo` ahead on PATH adds it to
+  # `nextest run`. `--no-tests=pass`: a narrowed run of a few tests leaves some
+  # slices empty.
   test:
-    name: test
+    name: test ${{ matrix.shard }}/4
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.checks), 'test')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -165,6 +178,21 @@ jobs:
           key: test
           nextest: "true"
       - run: cargo build -p armada --locked
+      - name: Slice nextest
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/slice"
+          cat > "$RUNNER_TEMP/slice/cargo" <<EOF
+          #!/bin/sh
+          if [ "\$1" = nextest ] && [ "\$2" = run ]; then
+            shift 2
+            exec "$(command -v cargo)" nextest run --partition slice:$SHARD/4 --no-tests=pass "\$@"
+          fi
+          exec "$(command -v cargo)" "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/slice/cargo"
+          echo "$RUNNER_TEMP/slice" >> "$GITHUB_PATH"
       - uses: ./.github/actions/run-check
         with:
           name: test
