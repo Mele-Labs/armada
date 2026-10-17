@@ -24,8 +24,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use adapter_traits::{
-    FileRead, HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, StyleApplied,
-    StyleFacts, StyleFrom, Unreadable, WhatWasRead,
+    FileRead, HarnessSetup, Inventory, ItemAsked, ItemRead, KindRead, SetupFiles, SetupItem, SetupKind,
+    StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 use serde::de::IgnoredAny;
 use serde::Deserialize;
@@ -34,6 +34,8 @@ use serde::Deserialize;
 /// written. Apart from this file because what it knows is macOS, where
 /// everything above knows one harness.
 mod home;
+/// One Loadout row's file, read whole: `read_loadout_item`.
+mod item;
 
 pub use home::Home;
 
@@ -476,6 +478,12 @@ impl<F: SetupFiles> HarnessSetup for ExistingSetup<F> {
             present,
             kinds,
         }
+    }
+
+    /// **Off the disk under the home, not through `F`**: whether a file stays inside its folder is
+    /// a question about links, which only the disk answers.
+    fn read_item(&self, asked: &ItemAsked<'_>) -> ItemRead {
+        item::read_item(&self.home, asked)
     }
 }
 

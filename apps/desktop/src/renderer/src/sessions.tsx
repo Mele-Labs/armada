@@ -288,6 +288,8 @@ export type LedgerGoes = {
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
+  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens. */
+  onOpenLoadout: (sessionId: string) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
@@ -903,6 +905,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
+        {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         menu={{
           entries: [

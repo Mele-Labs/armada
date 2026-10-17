@@ -35,10 +35,11 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   SessionSubagent,
+  SessionLoadout,
   TuneSession,
   WritePullRequest,
 } from "@armada/protocol";
-import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -145,6 +146,10 @@ export type SessionsApi = {
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** A subagent's own thread as its transcript stands. Read again while it runs. */
   readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
+  /** What a Session's agent knows, was told and used each turn: `get_session_loadout`. Read again on a `session.changed`. */
+  readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+  /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
+  readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
@@ -263,6 +268,8 @@ export const SESSIONS_CHANNELS = {
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",
+  readSessionLoadout: "bridge:read-session-loadout",
+  readLoadoutItem: "bridge:read-loadout-item",
   openSessionFile: "bridge:open-session-file",
   openSessionWindow: "bridge:open-session-window",
   getSessionWindows: "bridge:get-session-windows",

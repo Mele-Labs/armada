@@ -146,6 +146,7 @@ fn a_helm_record() -> SessionRecord {
         standing: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: true,
         activity: None,
         build: None,
