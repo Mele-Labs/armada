@@ -118,3 +118,18 @@ fn a_commit_made_on_a_detached_head_keeps_the_slot() {
 
     assert_eq!(pool.after_merge(1, "feat"), SlotAfterMerge::Unpushed(1));
 }
+
+#[test]
+fn a_slot_detached_on_a_pushed_commit_the_base_lacks_is_new_work() {
+    let (repo, pool, slot) = a_merged_slot();
+    git(repo.root(), &["switch", "-q", "-c", "other"]);
+    std::fs::write(repo.root().join("other.rs"), "fn other() {}").unwrap();
+    git(repo.root(), &["add", "."]);
+    git(repo.root(), &["commit", "-q", "-m", "someone else's work"]);
+    git(repo.root(), &["push", "-q", "origin", "other"]);
+    git(repo.root(), &["switch", "-q", "main"]);
+    git(&slot, &["fetch", "-q"]);
+    git(&slot, &["switch", "-q", "--detach", "origin/other"]);
+
+    assert_eq!(pool.after_merge(1, "feat"), SlotAfterMerge::Moved);
+}

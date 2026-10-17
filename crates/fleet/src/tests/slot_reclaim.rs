@@ -33,8 +33,17 @@ async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) 
 
     leased(&rig.root, 3, branch, By::Job(id.as_str()));
     rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
-    // The merged listing a visit reads, as a repository with a base would leave it.
-    let merged = MergedPulled {
+    let merged = merged_pull(branch, &rig);
+    rig.fleet.sweeping().lock().await.merged.insert(rig.root.clone(), vec![merged]);
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.pulls_told(&served).await;
+    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new(), "the notice alone gives nothing back");
+    (rig, id)
+}
+
+/// The merged listing a visit reads, as a repository with a base would leave it.
+fn merged_pull(branch: &str, rig: &Rig) -> MergedPulled {
+    MergedPulled {
         pull: RecentlyMerged {
             number: 9,
             title: FromOutside::verbatim("Fix the reader"),
@@ -45,12 +54,7 @@ async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) 
             commit: None,
         },
         job: None,
-    };
-    rig.fleet.sweeping().lock().await.merged.insert(rig.root.clone(), vec![merged]);
-    let served = rig.fleet.repositories().served().remove(0);
-    rig.fleet.pulls_told(&served).await;
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new(), "the notice alone gives nothing back");
-    (rig, id)
+    }
 }
 
 fn said_to_the_session(rig: &Rig) -> Vec<String> {
@@ -135,6 +139,8 @@ async fn a_slot_nobody_told_is_not_given_back_at_a_turn_s_end() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     leased(&rig.root, 3, BRANCH, By::Job(id.as_str()));
+    // Merged, and seen to by no reading: the holder has not been told.
+    rig.fleet.sweeping().lock().await.merged.insert(rig.root.clone(), vec![merged_pull(BRANCH, &rig)]);
     rig.send(&id, "do the thing").await;
     rig.stand_in.init(0);
     rig.stand_in.finishes(0, "done");
