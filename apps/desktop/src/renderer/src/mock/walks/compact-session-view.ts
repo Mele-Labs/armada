@@ -15,7 +15,7 @@ const compactSessionView = walk("compact-session-view", [
   { type: "lease", into: inside(region("Artifacts"), role("searchbox", "Search artifacts")), say: "Typing narrows the groups at once. Esc is Back" },
   { press: key("Subagents"), say: "Subagents (9) lists every one. The Field draws only those at work" },
   { later: inside(region("Subagents"), button("Back")), say: "Time passes. Slot 3 is left stranded" },
-  { press: inside(region("Subagents"), button("Back")), say: "Back returns to the thread where it was. The Slot key is lit and the thread has the call" },
+  { press: inside(region("Subagents"), button("Back")), say: "Back returns to the thread where it was. The Bays key is lit and the thread has the call" },
 ]);
 
 export { compactSessionView };
