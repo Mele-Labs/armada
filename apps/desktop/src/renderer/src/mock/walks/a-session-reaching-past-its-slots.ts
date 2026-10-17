@@ -1,7 +1,8 @@
-// A Session in auto held on a read of ~/Documents (the owner, 16 Oct 2026): its card offers four
-// answers over the path, a press on Documents picks the folder, Always allow settles it, and
-// Settings, Features lists it beside the blocked ~/.ssh. `session-reach-outside.test.tsx` holds
-// the claims. #2441.
+// A Session in auto held on a read of ~/Documents (the owner, 16 Oct 2026): its card says it is a
+// read and offers five answers over the path, a press on Documents picks the folder, Always allow
+// settles it. A second Session's write to ~/Desktop says it is a write, and Always allow for this
+// session settles it. Settings, Features lists Documents beside the blocked ~/.ssh.
+// `session-reach-outside.test.tsx` holds the claims. #2441.
 
 import { button, inside, place, region, role, text, toSystemPage, walk } from "../walk";
 
@@ -14,12 +15,19 @@ export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { press: place("Sessions"), say: "Sessions" },
   { press: inside(region("Sessions"), button(/Custom margins/)), say: "A session held on a read outside its slots" },
   { look: CARD, say: "What it wants to read, and why it is asked" },
+  { look: inside(CARD, text("Permission to read")), say: "A read" },
   { look: ANSWERS, say: "Reject once for this call, and Always in its own panel" },
-  { look: inside(CARD, text("Always applies to")), say: "The path in the panel is what Always covers" },
+  { look: inside(CARD, text("Always applies to reads of")), say: "The path in the panel is what Always covers" },
+  { look: inside(ANSWERS, button("Always allow for this session HANDOFF.md", { exact: true })), say: "Allowed for this session only, and not listed in Settings" },
   { look: inside(PICKER, button("HANDOFF.md")), say: "It starts on the file itself" },
   { press: inside(PICKER, button("Documents")), say: "Press a folder to widen it" },
   { look: inside(CARD, text("/Users/user/Documents/*")), say: "Documents and all it holds, lit up to the end" },
-  { press: inside(ANSWERS, button("Always allow")), say: "Always allow everything under Documents" },
+  { press: inside(ANSWERS, button("Always allow Documents", { exact: true })), say: "Always allow everything under Documents" },
+  { press: place("Sessions"), say: "Back to Sessions" },
+  { press: inside(region("Sessions"), button(/Release notes/)), say: "Another session, held on a write" },
+  { look: inside(CARD, text("Permission to write")), say: "A write" },
+  { look: inside(CARD, text("Always applies to writes to")), say: "Always covers writes to this path" },
+  { press: inside(ANSWERS, button("Always allow for this session notes.md", { exact: true })), say: "Allowed for this session until it is closed" },
   ...toSystemPage("Settings", "Settings"),
   { press: role("tab", "Features"), say: "Features" },
   { look: inside(LIST, text("/Users/user/Documents")), say: "The folder it allowed" },

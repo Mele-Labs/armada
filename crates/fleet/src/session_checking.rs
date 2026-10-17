@@ -1,8 +1,10 @@
 //! The Checks a Session's agent runs with `armada check` in the slot it holds. `ipc::session_checks`.
 //!
 //! **The caller is a bare CLI and writes nothing, so it tells Fleet twice.** Fleet places the run
-//! by the directory it ran in, resolved to a pool slot and then to the Session standing in that
-//! slot, never by anything the call claims. A directory no Session holds is a person's own run and
+//! by the directory it ran in, resolved to a pool slot and then to the Session the pool's lease
+//! names there, else the one whose ledger row stands in it, never by anything the call claims. A
+//! Session leases more slots than its ledger row names, so the lease answers first
+//! (`slot_holders::session_in_slot`). A directory no Session holds is a person's own run and
 //! answers no run, which is not a refusal.
 //!
 //! A run is a thread row on the Session, replaced by id as it ends, and a row on the Checks page.
@@ -14,11 +16,12 @@ use ipc::{
     ManifestCheckLog, ManifestCheckRow, SessionCheckAct, SessionCheckAnswer, SessionCheckCall,
     SessionCheckState, SessionCheckStop, WireError,
 };
-use store::{AttachmentState, HolderKind, KeptSessionCheck};
+use store::KeptSessionCheck;
 
 use crate::check_output::{windowed, A_READING, MOST};
 use crate::daemon::Fleet;
 use crate::sessioning::placed;
+use crate::slot_holders::session_in_slot;
 
 /// A run that no Session kept, asked for by its id.
 const NO_SUCH_RUN: &str = "fleet.session_check_unknown";
@@ -112,20 +115,15 @@ where
         if name.is_empty() {
             return Err(self.session_check_refusal(UNNAMED, "a Check run needs the Check's name"));
         }
-        let place = placed(&call.cwd, &self.ledger_roots());
+        let roots = self.ledger_roots();
+        let place = placed(&call.cwd, &roots);
         let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
             return Ok(SessionCheckAnswer { run: None, stop: None });
         };
         let at = self.clock().now().as_str().to_string();
         let mut store = self.store().lock().await;
-        let holders = store
-            .attachments_at("slot", &slot.to_string(), Some(&manifest))
-            .map_err(|why| self.ledger_fault(why))?;
-        let Some(session) = holders
-            .iter()
-            .find(|held| held.holder.kind == HolderKind::Session && held.state == AttachmentState::Standing)
-            .map(|held| held.holder.id.clone())
-        else {
+        let root = roots.iter().find(|(id, _)| *id == manifest).map(|(_, root)| root.as_str());
+        let Some(session) = root.and_then(|root| session_in_slot(&store, &manifest, root, slot)) else {
             return Ok(SessionCheckAnswer { run: None, stop: None });
         };
         let run = store

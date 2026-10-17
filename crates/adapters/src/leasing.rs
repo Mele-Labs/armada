@@ -810,6 +810,17 @@ impl Pool {
             .map_err(|why| why.to_string())
     }
 
+    /// Whether a take or a release has slot `number`'s lock, asked of the file
+    /// as it stands: nothing is created, and the shared lock taken to ask is
+    /// dropped at once. A reading is made of the slot while this is true only
+    /// by what it is in the middle of, so it says Busy and no more.
+    pub(super) fn under_way(&self, number: usize) -> bool {
+        let Ok(file) = File::open(self.record_path(number)) else {
+            return false;
+        };
+        matches!(file.try_lock_shared(), Err(TryLockError::WouldBlock))
+    }
+
     /// The slot's lock, or `None` where another take or release has it.
     fn locked(&self, number: usize) -> Result<Option<File>, String> {
         let file = self.lock_file(number)?;

@@ -7,7 +7,10 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, PullRequestFilePatch, PullRequestPage, WritePullRequest};
+use ipc::{
+    ManifestId, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved,
+    ResolvePullThread, WritePullRequest,
+};
 
 use crate::daemon::Refusal;
 
@@ -39,4 +42,18 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         write: WritePullRequest,
     ) -> impl Future<Output = Result<PullRequestPage, Refusal>> + Send;
+
+    /// `get_review_lists` — the pull requests waiting on the person, as four lists read from
+    /// the forge across every served repository. **Read when somebody looks, never polled.**
+    /// [`Refusal::Fault`] where no list could be read, or no login is known.
+    fn get_review_lists(&self) -> impl Future<Output = Result<PullReviewLists, Refusal>> + Send;
+
+    /// `resolve_review_thread` — resolve a conversation on a pull request's diff, or open it
+    /// again. **A write to a shared place, taken at once**, so a person's press.
+    /// [`Refusal::IllegalMove`] with the forge's own sentence where it would not take it.
+    fn resolve_review_thread(
+        &self,
+        manifest_id: ManifestId,
+        resolve: ResolvePullThread,
+    ) -> impl Future<Output = Result<PullThreadResolved, Refusal>> + Send;
 }

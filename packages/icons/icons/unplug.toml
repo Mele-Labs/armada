@@ -45,3 +45,10 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 16 Oct 2026 for the walk `session-ledger-release-row`, after the owner asked to release ledger items one by one, and approved on its walk the same day. The same glyph as the flight control's Release, so the act reads the same in both places. Tooltip `Release <item>` on the act, shown on the row's hover or focus, and `Given back` on the mark. The row carries no reservation."
+
+  [[icons.unplug.usage]]
+    means = "The forge has stopped answering Fleet: the merge queue's main chip is held from the last visit that was answered, since the time its tooltip names"
+    group = "Merge line"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 16 Oct 2026 for the walk `merge-line-freshness`. The sign-in that could not reach the forge already draws this glyph for a connection that is gone. The registry has no cloud-off or wifi-off, and a new glyph for the same silence would be a second answer. Tooltip `GitHub not answering since 18:40`. The row carries no reservation."

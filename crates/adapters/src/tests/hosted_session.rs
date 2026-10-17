@@ -534,3 +534,19 @@ fn a_picture_read_is_looked_at_and_code_and_a_written_picture_are_not() {
         Some("/repo/shot.png".into())
     );
 }
+
+/// Both refused a read on 16 Oct 2026: a line that sets a name first, and a subshell.
+#[test]
+fn an_assignment_and_a_subshell_read_as_what_they_run() {
+    for read in [
+        "L=/x/audit.jsonl; grep -n foo \"$L\" | tail -30",
+        "F=~/a.jsonl; wc -l $F",
+        "(cd /repo && git status)",
+        "{ ls; pwd; }",
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in ["(cd /repo && rm x)", "X=1; touch y", "{ ls; npm install; }"] {
+        assert!(!reads_only(write), "{write}");
+    }
+}

@@ -126,14 +126,26 @@ where
 {
     /// Read one repository's open pull requests. **A forge that will not answer
     /// keeps the last reading**, rather than drawing every pull request as gone.
-    pub(crate) async fn notice_pulls(&self, served: &Served) {
+    /// Says whether the forge answered, as the next two do.
+    pub(crate) async fn notice_pulls(&self, served: &Served) -> bool {
         let gate = served.manifest().ci_gate().to_string();
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
                 vcs.open_pull_requests(root, &gate)
             })
             .await;
-        let Some(listed) = listed else { return };
+        let Some(mut listed) = listed else { return false };
+        // The list stops at 100: a pull request someone holds that it left out is read by number.
+        let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
+        for number in self.held_beyond(served, &shown).await {
+            let gate = served.manifest().ci_gate().to_string();
+            let one = self
+                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                    vcs.open_pull_request(root, &gate, number)
+                })
+                .await;
+            listed.extend(one);
+        }
         // **The same visit, not a call of its own**: one `owners` for the repository, and the
         // rows of what has left the list deleted.
         let numbers: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
@@ -159,40 +171,42 @@ where
             .pulls
             .insert(served.root().to_string(), read);
         self.needs_status_published(served).await;
+        true
     }
 
     /// The base branch's merge queue, **a forge call on the same visit** as
     /// the open pull requests, which it marks. A forge that will not answer
     /// keeps the last reading.
-    pub(crate) async fn notice_queue(&self, served: &Served) {
+    pub(crate) async fn notice_queue(&self, served: &Served) -> bool {
         let Some(base) = served.manifest().base().map(str::to_string) else {
-            return;
+            return true;
         };
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
                 vcs.merge_queue(root, &base)
             })
             .await;
-        let Some(listed) = listed else { return };
+        let Some(listed) = listed else { return false };
         self.sweeping()
             .lock()
             .await
             .queues
             .insert(served.root().to_string(), listed);
+        true
     }
 
     /// The newest merged pull requests, **a second forge call on the same
     /// visit**. A forge that will not answer keeps the last reading.
-    pub(crate) async fn notice_merged(&self, served: &Served) {
+    pub(crate) async fn notice_merged(&self, served: &Served) -> bool {
         let Some(base) = served.manifest().base().map(str::to_string) else {
-            return;
+            return true;
         };
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
                 vcs.recently_merged_pull_requests(root, &base, DECIDING_WINDOW)
             })
             .await;
-        let Some(listed) = listed else { return };
+        let Some(listed) = listed else { return false };
         let read: Vec<MergedPulled> = {
             let store = self.store().lock().await;
             listed
@@ -208,6 +222,24 @@ where
             .await
             .merged
             .insert(served.root().to_string(), read);
+        true
+    }
+
+    /// Note how the forge answered a repository's visit. **One call unanswered makes it quiet**,
+    /// from the first such visit until a visit is answered whole.
+    pub(crate) async fn forge_visited(&self, root: &str, answered: bool) {
+        let now = self.now();
+        let mut sweep = self.sweeping().lock().await;
+        let visit = sweep.forge_visits.entry(root.to_string()).or_default();
+        match answered {
+            true => {
+                visit.read_at = Some(now);
+                visit.quiet_since = None;
+            }
+            false => {
+                visit.quiet_since.get_or_insert(now);
+            }
+        }
     }
 
     /// The CI run on main's head and on each merged pull request's commit, newest
@@ -217,12 +249,12 @@ where
     /// settled reading is kept. A forge that will not answer keeps what was read.
     /// The head and the newest [`MERGED_SHOWN`] are always read; older merges
     /// only while none of the newer has finished, up to [`DECIDING_WINDOW`]. Usually
-    /// none after the first visit.
+    /// none after the first visit. Also says whether every ask was answered.
     pub(crate) async fn notice_merged_runs(
         &self,
         served: &Served,
         head: &str,
-    ) -> Vec<(String, Option<MergedRun>)> {
+    ) -> (Vec<(String, Option<MergedRun>)>, bool) {
         let root = served.root().to_string();
         let (listed, kept) = {
             let sweep = self.sweeping().lock().await;
@@ -249,6 +281,7 @@ where
             }
         }
         let mut read = BTreeMap::new();
+        let mut answered = true;
         let mut candidates: Vec<(String, Option<MergedRun>)> = Vec::new();
         for (at, (commit, merged_at)) in asked.into_iter().enumerate() {
             let decided = candidates.iter().any(|(_, run)| {
@@ -271,6 +304,7 @@ where
                 })
                 .await;
             let Some(runs) = answer else {
+                answered = false;
                 let old = kept.get(&commit).cloned();
                 if let Some(old) = &old {
                     read.insert(commit.clone(), old.clone());
@@ -312,7 +346,7 @@ where
             candidates.push((commit, Some(reading)));
         }
         self.sweeping().lock().await.main_runs.insert(root, read);
-        candidates
+        (candidates, answered)
     }
 
     /// The log of one job that failed on a merged commit's run on main, for
@@ -460,7 +494,7 @@ where
                 .collect();
             (roots, by_hand)
         };
-        let (pulls, merged, runs, queues, elsewhere, held_back, checkout_sent) = {
+        let (pulls, merged, runs, queues, elsewhere, held_back, checkout_sent, visits) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
@@ -470,6 +504,7 @@ where
                 sweep.elsewhere.clone(),
                 sweep.held_back.clone(),
                 sweep.checkout_sent.clone(),
+                sweep.forge_visits.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -500,13 +535,19 @@ where
                     &titled,
                     &session_titled,
                 )
-                // A held checkout is said before main's CI was ever read.
-                .or_else(|| held_back.contains_key(&root).then(MergeLineHub::default))?;
+                // A held checkout, and a forge that has never answered, are said before main's CI was ever read.
+                .or_else(|| {
+                    let quiet = visits.get(&root).is_some_and(|it| it.quiet_since.is_some());
+                    (held_back.contains_key(&root) || quiet).then(MergeLineHub::default)
+                })?;
                 let fixing = main.as_ref().and_then(|main| self.fixing_of(&store, main));
                 hub.fixing = fixing.as_ref().and_then(|by| by.job()).and_then(titled);
                 hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
                 hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
                 hub.checkout = held_back.get(&root).map(|held| held_checkout(held, checkout_sent.get(&root).copied()));
+                let instant = |at: &core_model::Timestamp| ipc::Instant::carried(at.as_str());
+                hub.forge_read_at = visits.get(&root).and_then(|it| it.read_at.as_ref()).map(instant);
+                hub.quiet_since = visits.get(&root).and_then(|it| it.quiet_since.as_ref()).map(instant);
                 if let Some(number) = by_hand.get(&root) {
                     for pull in hub.pull_requests.iter_mut().filter(|it| it.number == *number) {
                         pull.merge_by_hand = true;
@@ -610,6 +651,8 @@ pub(crate) fn hub_of(
         fixing_session: None,
         fixing_elsewhere: None,
         checkout: None,
+        forge_read_at: None,
+        quiet_since: None,
     })
 }
 

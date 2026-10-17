@@ -1,9 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { ChevronLeft, X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
 import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
 import { rememberSheetWidth, useSheetWidth } from "../../sheet-width";
+import { useMarking, type Mark } from "../../marking";
+
+/** `glass.css` drops the blur beneath a scrim, which is a rule about the document. */
+const SCRIMMED: readonly Mark[] = [{ of: ":root", as: "data-scrimmed" }];
 
 /**
  * A panel that enters from an edge. The contract gives it exactly one line —
@@ -240,6 +244,14 @@ export function Sheet({
 }: SheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
+  const scrimmed = useMarking(SCRIMMED);
+  const scrimmedRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      scrimRef.current = element;
+      scrimmed(element);
+    },
+    [scrimmed],
+  );
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const remembered = useSheetWidth(kind);
@@ -346,7 +358,7 @@ export function Sheet({
 
   return (
     <div
-      ref={scrimRef}
+      ref={scrimmedRef}
       className="armada-sheet-scrim"
       style={follows && room > 0 ? ({ "--armada-sheet-beside": `${followed}px` } as CSSProperties) : undefined}
       data-contained={(contained && !floating) || undefined}

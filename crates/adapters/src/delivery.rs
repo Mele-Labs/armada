@@ -241,8 +241,26 @@ impl Delivery for GitVcs {
         crate::main_ci::open_pulls(in_repo, gate)
     }
 
+    fn open_pull_request(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::OpenPull> {
+        crate::main_ci::open_pull(in_repo, gate, number)
+    }
+
     fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
         crate::pull_watch::read(in_repo, gate)
+    }
+
+    fn watched_pull(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::WatchedPull> {
+        crate::pull_watch::read_one(in_repo, gate, number)
     }
 
     fn forge_login(&self, in_repo: &str) -> Option<String> {
@@ -343,6 +361,23 @@ impl Delivery for GitVcs {
         write: &adapter_traits::PullRequestWrite,
     ) -> Result<(), String> {
         crate::pull_request_writes::write(in_repo, pull_request, write)
+    }
+
+    fn pull_review_list(
+        &self,
+        in_repo: &str,
+        ask: &adapter_traits::ReviewListAsk<'_>,
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        crate::pull_review_lists::read(in_repo, ask)
+    }
+
+    fn resolve_review_thread(
+        &self,
+        in_repo: &str,
+        thread: &str,
+        resolved: bool,
+    ) -> Result<bool, String> {
+        crate::pull_request_threads::resolve(in_repo, thread, resolved)
     }
 
     fn merge_by_push(

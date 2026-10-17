@@ -3591,6 +3591,8 @@ The agent is sent the same words as before (the command, `Exit <code>.` or `Stop
 
 **Skew.** A Fleet before 23.83 answers 404 to both, so a Bridge that opens the panel draws its tabs empty and cannot write.
 
+The page's `head`, `body` and `threads`, the write's `comments` and `commit`, and the two operations the Reviews tab adds are in *The Reviews tab* below.
+
 ## Protocol 23.81: write clashes between agents
 
 `docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one fact a terminal reports, and one new reach for `leave_note`.
@@ -4228,6 +4230,24 @@ Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `docs/pra
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. A Bridge that predates the row field opens the window with no origins, as it has no word for them. The migration is none: the ledger's `detail` holds strings and `origins` is one more.
 
+## The Reviews tab: the lists waiting on a person, a page's threads and a review's comments
+
+`docs/concepts/pull-review.md`. Bridge reads the pull requests waiting on a person from the forge through Fleet, opens any pull request of a served repository, and posts a review as one call with its line comments. **Additive**: two operations, new DTOs in `ipc::pull_reviews`, and optional fields on the page and the write of *Protocol 23.83* above. Bridge's half is `packages/protocol/src/pull-reviews.ts` and `pull-requests.ts`, written by hand like the rest.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `get_review_lists` (`GET /review_lists`) | Bridge reads | `PullReviewLists`: `me`, `fetched_at`, and `requested[]`, `team[]`, `assigned[]`, `mine[]` of `PullReviewRow`, each capped at `MOST_PER_LIST`. `Bridge only` |
+| `PullReviewLists.silent` | Fleet writes, Bridge reads | `Vec<PullReviewList>`, left out when empty: a list the forge would not answer, so Bridge keeps what it held. All four silent is a 500 `fleet.review_lists_unreadable` |
+| `PullReviewRow.team` | Fleet writes, Bridge reads | The team asked, left out off the Team list |
+| `PullRequestPage.head`, `.body` | Fleet writes, Bridge reads | The whole head commit and the description, left out where the forge gave none |
+| `PullRequestPage.threads` | Fleet writes, Bridge reads | `Vec<PullReviewThread>`, left out when empty: `id`, `path`, `line?`, `side`, `resolved`, `comments[]`. A page whose threads the forge would not give is a 500 `fleet.pull_request_unreadable`, not a page |
+| `WritePullRequest.comments` | Bridge writes, Fleet reads | `Vec<PullReviewComment>`, left out when empty: `kind` `line` (path, line, side), `file` (path) or `reply` (thread), each with `body`. Set, the write is one review with `kind` as the verdict, and `body` may be empty |
+| `WritePullRequest.commit` | Bridge writes, Fleet reads | The commit the person read, left out for the branch as it stands |
+| Fleet's check (`pull_request_panel.rs`, `write_of`) | Fleet refuses | 422 `fleet.pull_request_write_blank` for a comment with a blank `body`, as for a plain comment, nothing sent to the forge |
+| `resolve_review_thread` (`POST /review_threads/:repository`) | Bridge writes | `ResolvePullThread` (`thread`, `resolved`), answers `PullThreadResolved`. A 409 `fleet.review_thread_refused` carries the forge's sentence. `Bridge only` |
+
+**Additive.** Every new field is optional and left out when empty. The IDs differ, so a Bridge and a Fleet that differ are refused regardless.
+
 ## A Session's running Check: its log live, and a stop
 
 Since 16 Oct 2026. `docs/concepts/session.md`. **Additive only**: one value on `SessionCheckAct` (`chunk`), one optional field on `SessionCheckAnswer` (`stop`), `SessionCheckStop`, `SessionCheckOutputMessage` and its opening, and three operations, `observe_session_check` (`GET /sessions/checks/:run/observe`, a WebSocket), `stop_session_check` and `force_stop_session_check` (`POST /sessions/checks/:run/stop` and `/force_stop`), all `agent_access` `No`. Fleet and Bridge both carry them; Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
@@ -4246,10 +4266,13 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a g
 | `HelmCallInFlight.reaches?` (`session.row`, the hosted record's `asked`) | Fleet writes, Bridge reads | The absolute path the guard named first: a tool's `file_path` or `path`, a shell line's first refused word with `~` and `$HOME` read as the home. Left out for any other call |
 | `AnswerSessionAsk.folder?`, `AnswerHelmCall.folder?` (`answer_session_ask`) | Bridge sends, Fleet checks | The folder an "always" answer is for: `reaches` or a folder above it, compared a part at a time. Without one that holds `reaches` it is a 422 `fleet.session_answer_not_a_folder`, and the card stays |
 | `SessionAskState` `always_allowed`, `always_blocked` (`session.row`) | Fleet writes, Bridge reads | How a card settled where the folder went on the list |
+| `HelmCallAnswer` `allow_for_session` | Bridge sends, Fleet takes | Since 16 Oct 2026, offered beside the two "always" answers and carrying `folder` the same way. Fleet keeps the folder on the hosted session's in-memory state (`session_host::State::allowed_folders`), read by the guard after the owner's list, and clears it when the session is closed. Nothing is written to `features.reachFolders` |
+| `HelmCallInFlight.reaches_to?` (`ReachesTo`: `read`, `write`) | Fleet writes, Bridge reads | Since 16 Oct 2026. Whether a reach card's call reads the path or writes to it: `Read`, `Grep`, `Glob`, `LS` and a shell segment of reading programs with no redirect are `read`, everything else `write`. Set where `reaches` is, and where the path could not be read as one. Left out for any other call |
+| `SessionAskState` `allowed_for_session` (`session.row`) | Fleet writes, Bridge reads | How a card settled on `allow_for_session` |
 | `ipc::reach_folders::ReachFolders` (`features.reachFolders` in `get_settings`, `save_settings`) | Both | `{allow?, block?}`, absolute paths, a `Json` setting in Features. Fleet writes it on an "always" answer; Settings removes an entry by saving the list without it, or `null` when both are empty. Read leniently: an entry that is not an absolute path is dropped |
 | `ReachFolders`, `reachFoldersOf`, `REACH_FOLDERS_KEY`, the fields above | Bridge reads | `packages/protocol/src/reach-folders.ts`, `helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
-**Additive.** Two variants on each of two enums, three optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the two settled states as words it has none for. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
+**Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for. A Bridge before `reaches_to` draws the card with no read or write word. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
 
 ## Open questions
 

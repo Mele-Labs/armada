@@ -123,6 +123,34 @@ pub(crate) fn slots_of(served: &Served, session: &str) -> Vec<u32> {
         .collect()
 }
 
+/// The Session working slot `slot` of the repository at `root`. **The lease answers first**: a
+/// live Session it names holds the slot, whatever slot its own `slot` row says, since a Session
+/// leases more than the one it first wrote in. Where the lease names none, the standing `slot` row
+/// of a Session the pool does not deny.
+pub(crate) fn session_in_slot(store: &Store, manifest: &str, root: &str, slot: u32) -> Option<String> {
+    let at = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
+    let at = std::path::Path::new(&at);
+    let named = match adapters::leasing::holder_of(at) {
+        Some(Lease::Job(id)) => Some(id),
+        Some(held) if held.alive() => adapters::leasing::session_of(at),
+        _ => None,
+    };
+    if let Some(id) = named.filter(|id| live(store, id)) {
+        return Some(id);
+    }
+    store
+        .attachments_at("slot", &slot.to_string(), Some(manifest))
+        .unwrap_or_default()
+        .into_iter()
+        .find(|row| {
+            let handed = row.detail.get("handed").and_then(|said| said.strip_prefix("job "));
+            row.holder.kind == HolderKind::Session
+                && row.state == AttachmentState::Standing
+                && claim_on(store, root, slot, &row.holder.id, handed) != Claim::Not
+        })
+        .map(|row| row.holder.id)
+}
+
 /// The live Sessions the pool confirms are working `branch`: a standing `branch` row, a standing
 /// `slot` row, a lease that is theirs, and the branch checked out there. Those whose lease is
 /// written as theirs, else those whose lease names nobody.

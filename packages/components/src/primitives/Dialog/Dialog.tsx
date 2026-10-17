@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ban, Signpost } from "lucide-react";
 
+import { useMarking, type Mark } from "../../marking";
 import { Kbd } from "../Kbd/Kbd";
 import { ScrollArea } from "../ScrollArea/ScrollArea";
 
@@ -86,6 +87,9 @@ export type DialogProps = {
   onCancel?: () => void;
 };
 
+/** `glass.css` drops the blur beneath a scrim, which is a rule about the document. */
+const SCRIMMED: readonly Mark[] = [{ of: ":root", as: "data-scrimmed" }];
+
 export function Dialog({
   open,
   title,
@@ -121,6 +125,7 @@ export function Dialog({
   // whichever control the key fires and a render needs the answer too. No
   // dependency list: it runs after every render and sets a boolean, so an
   // unchanged answer costs nothing and a field that appears is picked up.
+  const scrimmed = useMarking(SCRIMMED);
   const [collects, setCollects] = useState(false);
   useEffect(() => {
     setCollects(open && layer.current?.querySelector(COLLECTED_IN) != null);
@@ -151,7 +156,7 @@ export function Dialog({
   const destructive = tone === "destructive";
 
   return (
-    <div className="armada-dialog-scrim">
+    <div ref={scrimmed} className="armada-dialog-scrim">
       <div
         ref={layer}
         className="armada-dialog"

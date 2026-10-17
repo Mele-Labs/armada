@@ -22,6 +22,14 @@ pub enum Delivered {
         pull_request: String,
         write: adapter_traits::PullRequestWrite,
     },
+    /// One of the review lists was asked for, with the login and repositories the search named.
+    AskedForReviewList {
+        list: adapter_traits::ReviewList,
+        login: String,
+        repositories: Vec<String>,
+    },
+    /// A review thread was resolved, or opened again.
+    ResolvedReviewThread { thread: String, resolved: bool },
     /// `branch` was merged into the one `into` has checked out.
     MergedBranch { branch: String, into: String },
     /// The remote was asked for its copy of `base`.

@@ -88,8 +88,9 @@ fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> S
 /// refused, in the order the segment names them; empty where it runs.
 pub(super) fn reaches_into_owners_files(said: &str) -> Vec<String> {
     let said = literal_text(said).replace("\\ ", "\u{0}");
-    let named: Vec<String> = said
-        .split_whitespace()
+    // A quoted path is one word: `"~/Library/Application Support/x"` is no `~/Library/Application`.
+    let named: Vec<String> = words_of(&said)
+        .into_iter()
         .filter(|word| reaches_outside(word))
         .map(|word| word.replace('\u{0}', " "))
         .collect();
@@ -98,6 +99,29 @@ pub(super) fn reaches_into_owners_files(said: &str) -> Vec<String> {
     }
     let walks = walks(&said);
     named.into_iter().filter(|word| read_refused(word, walks)).collect()
+}
+
+/// `said` cut at blanks outside quotes, each quoted run kept with its quotes.
+fn words_of(said: &str) -> Vec<String> {
+    let (mut words, mut word, mut quote) = (Vec::new(), String::new(), None::<char>);
+    for c in said.chars() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            None if c == '\'' || c == '"' => quote = Some(c),
+            None if c.is_whitespace() => {
+                if !word.is_empty() {
+                    words.push(std::mem::take(&mut word));
+                }
+                continue;
+            }
+            _ => {}
+        }
+        word.push(c);
+    }
+    if !word.is_empty() {
+        words.push(word);
+    }
+    words
 }
 
 /// Whether a reading segment searches below the paths it names, rather than looking at them.
@@ -152,6 +176,11 @@ fn literal_text(line: &str) -> String {
         .collect()
 }
 
+/// [`only_reads`] for a segment as it was written, read as [`reaches_into_owners_files`] reads it.
+pub(super) fn segment_only_reads(said: &str) -> bool {
+    only_reads(&literal_text(said).replace("\\ ", "\u{0}"))
+}
+
 /// Whether a segment only reads: a program that reads, and no redirect into a file.
 fn only_reads(said: &str) -> bool {
     const READERS: &[&str] = &[
@@ -173,20 +202,24 @@ fn only_reads(said: &str) -> bool {
                 || word.starts_with("-fprint")
                 || *word == "-fls"
         });
-    READERS.contains(&program) && !find_acts
+    // `sqlite3 -readonly` opens a database it cannot change.
+    let reads_a_database = program == "sqlite3" && arguments.contains(&"-readonly");
+    (READERS.contains(&program) && !find_acts) || reads_a_database
 }
 
 /// The program a segment runs, and its arguments: the first word that is not an assignment, a
 /// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
 pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
     const KEYWORDS: &[&str] = &[
-        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{",
+        "env", "command", "do", "then", "else", "elif", "if", "while", "until", "time", "!", "{", "(",
     ];
     let mut rest = said
         .split_whitespace()
         .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))
         .peekable();
     let program = rest.next()?;
+    // A subshell's `(` is not the program: `(cd x && ls)` runs `cd`.
+    let program = program.trim_start_matches('(');
     let program = program.rsplit('/').next().unwrap_or(program);
     Some((program, rest.collect()))
 }

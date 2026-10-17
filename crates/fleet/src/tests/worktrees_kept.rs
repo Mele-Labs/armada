@@ -113,6 +113,20 @@ async fn a_slot_taken_elsewhere_is_in_the_snapshot_soon_but_not_in_the_answer_th
 }
 
 #[tokio::test]
+async fn a_lease_fact_is_followed_by_an_answer_that_has_the_slot() {
+    let home = TempDir::new();
+    let (fleet, app) = warm(&home).await;
+    held(&app).await;
+
+    // The gate leases the slot, then enters the fact Bridge reads the pool again on. A
+    // read begun in the middle of the lease saw the slot made and not yet held.
+    fleet.vcs().hold_slot(&root(&home), 2, "01SESSION");
+    fleet.session_slot("01SESSION", None, None, 2, true);
+
+    assert_eq!(held_slots(&held(&app).await), vec![1, 2]);
+}
+
+#[tokio::test]
 async fn an_act_on_the_pool_is_in_the_answer_that_follows_it() {
     let home = TempDir::new();
     let (fleet, app) = warm(&home).await;

@@ -455,6 +455,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
+**A forge that does not answer keeps the last reading, and the hub says how old it is.** Each repository's visit makes five asks: the head, the open pull requests, the merge queue, the merged listing and the runs on the commits it decides main from. `forge_read_at` is the instant of the last visit in which all five were answered, which `main.read_at` is not: that moves only when the head does. `quiet_since` is the instant of the first visit in which any of them was not, kept until a visit is answered whole, and absent while the forge answers. Both are in memory and a restart forgets them. A repository whose forge has never answered since the start is served as a hub holding `quiet_since` alone. A log or a culprit asked only after main changes is not one of the five. Every visit moves `forge_read_at`, so the merge line is published once a visit.
+
 ### Telling the owner of a pull request
 
 **Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, and where the merge queue holds it. The merged pull requests are the listing already read for the hub.
@@ -466,6 +468,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | Left the queue | It was in the merge queue at the last reading and is not now |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
+
+**A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the watch's the 100 updated last, the hub's the 100 created last), and a repository can have more open. So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Session or a Job, or the pull request of a Job not yet settled. It is added to the list as one entry, so a pull request in both is told once, and the hub shows it in Bridge. A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to watch pull requests nobody owns.
 
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said. Hung again, it is told like any failure.
 
@@ -486,6 +490,16 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | Not mine, not in the queue | Not shown | None | None | None |
 
 **The queue is where a team shares a line, so it stays whole.** Someone else's pull request in the queue is a fact about when yours lands. Outside it, it is theirs to watch. The pull watch reads every open pull request with its author on one call, so the rule costs no second ask.
+
+### The pull requests waiting on a person
+
+**`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh. The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them. Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Session holds it**. A row of a repository Fleet does not serve is dropped. A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
+
+**A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list. All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+
+**`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review. A 409 `fleet.review_thread_refused` carries the forge's sentence, and a repository Fleet does not serve is a 422.
+
+**A page carries its `head`, its `body` and its `threads`, and a write with `comments` is one review.** `get_pull_request_detail` reads the threads in a second forge call, the first 100 with their comments; a page whose threads the forge would not give is a 500 and not a page without them. `write_pull_request` with `comments` opens a pending review at the commit the person read, adds each line, file and reply comment, and submits it with the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and posts nothing: a 409 with the forge's sentence.
 
 ### Telling sessions the build they now run
 
@@ -595,11 +609,18 @@ worktrees a repository leases* — until a person changes the pool on this machi
 
 **Bridge's Cleanup list is kept from file events, with a deadline.** Fleet keeps the list and
 reads it again behind Bridge's asking: for the slots the file system named (a slot's git
-directory, the base branch's ref, the work tree of a free slot, never a held slot's, whose builds
-write thousands of events a minute), and for every slot every 10 seconds. **The list is never
-wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026); a change an event
-announces shows in under three. What no event announces is a holder dying, another process
-changing the pool's size, and a branch deleted from under a free slot's commits.
+directory, its lease record, the base branch's ref, the work tree of a free slot, never a held
+slot's, whose builds write thousands of events a minute), and for every slot every 10 seconds.
+**The list is never wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026);
+a change an event announces shows in under three. What no event announces is a holder dying,
+another process changing the pool's size, and a branch deleted from under a free slot's commits.
+
+**A lease takes the slot's branch first and writes its record last** (16 Oct 2026). A made slot
+read in between has files and no record, so it would read as stranded with no holder: a reading
+made while a take or a release holds the slot's lock says busy instead. The record is watched so
+the read after it is corrected, and a slot lease or release Fleet enters on the timeline is
+answered from a read begun after it: Bridge reads the list again on that fact and on nothing
+else, so a list from before it would stay on the screen.
 
 **The 10-second read asks `git status` of a free slot only where the watch cannot vouch for
 the last answer** (16 Oct 2026). `git status` was the expensive part of it: about four a minute

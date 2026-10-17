@@ -90,6 +90,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   dashboard: [],
   // The flight deck's keys: found from the deck's own `?` sheet.
   deck: [],
+  // The Reviews tab's keys: found from Settings → Keyboard and the tab's own caps.
+  review: [],
   call: [],
 };
 

@@ -193,6 +193,12 @@ pub(crate) fn found_in(cwd: &Path, ceiling: Option<&Path>) -> Result<Standing, S
             return read_at(at, cwd);
         }
         if at.join(REPOSITORY).exists() {
+            // **A slot or a Job's worktree is its repository's own checkout**, and a Manifest
+            // the root keeps out of git is not in it: a session Fleet moved into a lendinghome
+            // slot lost every tool but its own seven (16 Oct 2026).
+            if let Some(root) = checkout_root(at).filter(|root| root.join(MANIFEST).is_file()) {
+                return read_at(root, cwd);
+            }
             return Err(format!(
                 "{} is a repository Armada has not been set up for — it has no {MANIFEST}, and \
                  the repository above it is not what you are working in. Nothing here says which \
@@ -214,6 +220,15 @@ pub(crate) fn found_in(cwd: &Path, ceiling: Option<&Path>) -> Result<Standing, S
          repository you are standing in is what selects it.",
         cwd.display()
     ))
+}
+
+/// The repository a checkout Armada made belongs to: `<root>` for `<root>/.armada/slots/<slot>`
+/// and `<root>/.armada/worktrees/<job>`. `None` for any other directory.
+fn checkout_root(at: &Path) -> Option<&Path> {
+    let pool = at.parent()?;
+    let armada = pool.parent()?;
+    let kept = matches!(pool.file_name()?.to_str()?, "slots" | "worktrees");
+    (kept && armada.file_name()? == ".armada").then(|| armada.parent()).flatten()
 }
 
 /// The Manifest at a root the walk settled on.

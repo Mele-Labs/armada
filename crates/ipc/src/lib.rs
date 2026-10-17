@@ -170,6 +170,8 @@ mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
+/// The pull requests waiting on a person as four lists, and the acts of a review on one.
+mod pull_reviews;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
@@ -365,7 +367,7 @@ pub use timeline::{
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
-    RunOrNot, ASKS_A_QUESTION,
+    ReachesTo, RunOrNot, ASKS_A_QUESTION,
 };
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
@@ -455,6 +457,10 @@ pub use pull_requests::{
     PullRequestFile, PullRequestFileOf, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
     PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
+};
+pub use pull_reviews::{
+    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow,
+    PullReviewThread, PullReviewThreadComment, PullThreadResolved, ResolvePullThread, MOST_PER_LIST,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{

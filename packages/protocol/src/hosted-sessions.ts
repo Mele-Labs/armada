@@ -86,7 +86,7 @@ export type AnswerSessionAsk = {
   note?: string;
   /** One entry per question, for an ask that carries some. Since protocol 23.71. */
   answers?: QuestionAnswer[];
-  /** The folder an `always_allow` or `always_block` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
+  /** The folder an `always_allow`, `always_block` or `allow_for_session` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
   folder?: string;
 };
 
@@ -215,6 +215,7 @@ export type SessionAskState =
   | "allowed_and_remembered"
   | "always_allowed"
   | "always_blocked"
+  | "allowed_for_session"
   | "refused"
   | "unanswered"
   | "session_gone";
