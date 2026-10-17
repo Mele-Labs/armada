@@ -29,8 +29,8 @@
 //! [`narrowed_over`]. The one Cargo fact either holds, kept apart from
 //! [`narrow`], which knows none.
 //!
-//! [`one_test_in`] and [`touched_run`] are what an agent runs when it asks for
-//! less than a crate: one test by name, or the tests a change touched, each
+//! [`tests_in`] and [`touched_run`] are what an agent runs when it asks for
+//! less than a crate: tests by name, or the tests a change touched, each
 //! compiling only the members that hold them. Read off source, not out of
 //! cargo, which would build every test binary to answer.
 //!
@@ -73,7 +73,7 @@ mod tests;
 pub use build_slots::{build_cap, compiler_running, keep, offer, offered, BuildSlots, Settled};
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
-pub use named::{one_test_in, touched_run, OneTestRefused, TouchedRun};
+pub use named::{one_test_in, tests_in, touched_run, OneTestRefused, TouchedRun};
 pub use narrow::{
     narrowed, narrowed_at_the_gate, narrowed_over, one_test, relative_to_dir, run_changed, Narrowed,
 };

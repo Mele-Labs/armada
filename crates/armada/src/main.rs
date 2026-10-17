@@ -52,7 +52,7 @@ async fn main() -> ExitCode {
         },
         Verb::Check {
             name,
-            test,
+            tests,
             changed,
         } => {
             let paths = match changed {
@@ -62,14 +62,15 @@ async fn main() -> ExitCode {
                 },
                 false => None,
             };
-            let asked = match (&test, &paths) {
-                (Some(test), _) => Asked::OneTest(test),
-                (None, Some(paths)) => armada::reaching::asked_changed(
+            let tests: Vec<&str> = tests.iter().map(String::as_str).collect();
+            let asked = match (tests.is_empty(), &paths) {
+                (false, _) => Asked::Tests(&tests),
+                (true, Some(paths)) => armada::reaching::asked_changed(
                     paths,
                     checks_runner::Priority::from_env(),
                     checks_runner::CheckWidth::is_sole_tenant(),
                 ),
-                (None, None) => Asked::Whole,
+                (true, None) => Asked::Whole,
             };
             declared_by_the_manifest(Registry::Checks, &name, asked, "check").await
         }
@@ -165,12 +166,12 @@ async fn declared_by_the_manifest(
     };
     let slots = declared::machine_slots();
     let filter = match asked {
-        Asked::OneTest(test) => Some(test),
+        Asked::Tests(tests) => Some(tests.join(" ")),
         _ => None,
     };
     // A Session's agent running a Check in its slot: Fleet is told at both ends. Only a Check.
     let told = match registry {
-        Registry::Checks => armada::session_checks::begin(&root, name, filter),
+        Registry::Checks => armada::session_checks::begin(&root, name, filter.as_deref()),
         Registry::Commands => None,
     };
     let began = std::time::Instant::now();
