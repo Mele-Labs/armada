@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.30'
+export const MOD_VERSION = '0.3.31'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -757,4 +757,235 @@ export function agentItemsIn(thread: string): WaitingItem[] | undefined {
       ...(options === undefined ? {} : { options }),
       ...(steps === undefined ? {} : { steps }),
     }))
+}
+
+// The Loadout: what a session's agent knows, was told and used, each with where it came from.
+// `crates/ipc/src/sessions.rs`. **Names, sources and counts only**, never a body or a text.
+
+/** Where an item came from. `kit` is the person's harness home, `~/.claude`; `managed` an organisation's settings. */
+export type LoadoutSource = 'kit' | 'armada' | 'repository' | 'plugin' | 'mcp' | 'built_in' | 'managed'
+
+export type LoadoutKind = 'skill' | 'subagent' | 'mcp_server' | 'tool' | 'memory_file' | 'output_style' | 'rules' | 'injection'
+
+export type LoadoutItem = {
+  kind: LoadoutKind
+  name: string
+  source: LoadoutSource
+  from?: string
+  state?: 'connected' | 'failed' | 'pending' | 'deferred' | 'loaded'
+  tokens?: number
+}
+
+export type LoadoutUse = {
+  turn_started_at: string
+  kind: 'skill' | 'tool' | 'subagent'
+  name: string
+  source: LoadoutSource
+  from?: string
+  model?: string
+  by?: string
+}
+
+type Origin = { source: LoadoutSource; from?: string }
+
+export type ServerState = 'connected' | 'failed' | 'pending'
+
+/** This mod's own plugin name, so what it ships reads as Armada's and not as any plugin's. */
+const ARMADA_PLUGIN = 'armada'
+/** The harness's own output styles; `default` is no style at all and is not an item. */
+const BUILT_IN_STYLES = ['Explanatory', 'Learning']
+/** The name Armada's own rules go by, as Kit lists them (`crates/fleet/src/kit.rs`). */
+export const ARMADA_RULES = 'Armada session rules'
+/** The block `prompt.context` adds with the session id (`idNote`). */
+export const ARMADA_INJECTION = 'armadaSession'
+
+function pluginOrigin(plugin: string | undefined): Origin | undefined {
+  if (plugin === undefined || plugin === '') return undefined
+  return plugin === ARMADA_PLUGIN ? { source: 'armada' } : { source: 'plugin', from: plugin }
+}
+
+/** A plugin's skill, agent or style is spelled `<plugin>:<name>`. */
+function prefixOf(name: string): string | undefined {
+  const at = name.indexOf(':')
+  return at > 0 ? name.slice(0, at) : undefined
+}
+
+/** A skill's source by the engine's word for it (`SkillSource`); nothing for one Armada has no word for. */
+export function skillOrigin(source: string, name: string, plugin?: string): Origin | undefined {
+  if (source === 'userSettings' || source === 'syncedSkills') return { source: 'kit' }
+  if (source === 'projectSettings') return { source: 'repository' }
+  if (source === 'policySettings') return { source: 'managed' }
+  if (source === 'plugin') return pluginOrigin(plugin ?? prefixOf(name))
+  if (source === 'built-in' || source === 'bundled') return { source: 'built_in' }
+  if (source === 'mcp') {
+    const server = prefixOf(name)
+    return server === undefined ? undefined : { source: 'mcp', from: server }
+  }
+  return undefined
+}
+
+/** A subagent's source by the engine's word for where it was defined (`ContextAgent.source`). */
+export function agentOrigin(source: string, type: string): Origin | undefined {
+  if (source === 'userSettings') return { source: 'kit' }
+  if (source === 'projectSettings' || source === 'localSettings') return { source: 'repository' }
+  if (source === 'policySettings' || source === 'flagSettings') return { source: 'managed' }
+  if (source === 'plugin') return pluginOrigin(prefixOf(type))
+  if (source === 'built-in') return { source: 'built_in' }
+  return undefined
+}
+
+/**
+ * A memory file's source and the name it goes by: under `~/.claude` the person's, under the session's
+ * root the repository's, relative to it. Elsewhere the engine's label decides.
+ */
+export function memoryItem(path: string, type: string, home: string, root: string): { name: string; source: LoadoutSource } | undefined {
+  const kit = `${home.replace(/\/$/, '')}/.claude/`
+  const repository = `${root.replace(/\/$/, '')}/`
+  if (path.startsWith(kit)) return { name: `~/.claude/${path.slice(kit.length)}`, source: 'kit' }
+  if (path.startsWith(repository)) return { name: path.slice(repository.length), source: 'repository' }
+  if (type === 'Project' || type === 'Local') return { name: path, source: 'repository' }
+  if (type === 'User' || type === 'AutoMem') return { name: path, source: 'kit' }
+  if (type === 'Managed') return { name: path, source: 'managed' }
+  return undefined
+}
+
+/**
+ * An MCP server's name and source. A plugin's server is listed as `plugin:<plugin>:<server>` and is
+ * that plugin's; any other is its own.
+ */
+export function serverItem(listed: string): { name: string; source: LoadoutSource; from: string } {
+  const parts = /^plugin:([^:]+):(.+)$/.exec(listed)
+  if (parts === null) return { name: listed, source: 'mcp', from: listed }
+  const [, plugin = '', name = ''] = parts
+  return { name, source: plugin === ARMADA_PLUGIN ? 'armada' : 'plugin', from: plugin }
+}
+
+/** The server an `mcp__<server>__<tool>` name names, as the tool name spells it. */
+export function serverOfTool(tool: string): string | undefined {
+  const parts = /^mcp__(.+?)__.+$/.exec(tool)
+  return parts?.[1]
+}
+
+/** A tool's source: an MCP tool's server as `/mcp` lists it where the breakdown says, else the harness's. */
+export function toolOrigin(tool: string, mcpTools: readonly { name: string; serverName: string }[] = []): Origin {
+  const server = mcpTools.find(one => one.name === tool)?.serverName ?? serverOfTool(tool)
+  return server === undefined ? { source: 'built_in' } : { source: 'mcp', from: server }
+}
+
+/**
+ * The output style's source. A plugin's is `<plugin>:<name>`; Armada's own is `Armada`; a style
+ * found in the repository's `.claude/output-styles` is the repository's, and any other the person's.
+ */
+export function styleOrigin(name: string, inRepository: boolean): Origin {
+  if (name === 'Armada') return { source: 'armada' }
+  const plugin = pluginOrigin(prefixOf(name))
+  if (plugin !== undefined) return plugin
+  if (BUILT_IN_STYLES.includes(name)) return { source: 'built_in' }
+  return { source: inRepository ? 'repository' : 'kit' }
+}
+
+/** What the mod holds of a session to make its Loadout from. */
+export type Equipment = {
+  breakdown?: SessionContextBreakdown
+  home: string
+  root: string
+  /** The output style in force and its source; absent for the default. */
+  style?: { name: string } & Origin
+  /** Whether Fleet hosts the session, so Armada's session rules ride on its prompt (`ARMADA_SESSION`). */
+  rules: boolean
+  /** What `ToolSearch` and `WaitForMcpServers` last said of each server. */
+  servers: Record<string, ServerState>
+  /** The tools a `ToolSearch` loaded. */
+  loaded: string[]
+}
+
+/**
+ * The whole Loadout, in a fixed order so two readings that hold the same compare equal. An item the
+ * engine gives no source Armada has a word for is left out rather than guessed.
+ */
+export function loadoutOf(equipment: Equipment): LoadoutItem[] {
+  const { breakdown, home, root } = equipment
+  const items: LoadoutItem[] = []
+  const tokens = (count: number) => (Number.isFinite(count) && count > 0 ? { tokens: count } : {})
+  for (const skill of breakdown?.skills?.skillFrontmatter ?? []) {
+    const origin = skillOrigin(skill.source, skill.name, skill.pluginName)
+    if (origin !== undefined) items.push({ kind: 'skill', name: skill.name, ...origin, ...tokens(skill.tokens) })
+  }
+  for (const agent of breakdown?.agents ?? []) {
+    const origin = agentOrigin(agent.source, agent.agentType)
+    if (origin !== undefined) items.push({ kind: 'subagent', name: agent.agentType, ...origin, ...tokens(agent.tokens) })
+  }
+  const mcpTools = breakdown?.mcpTools ?? []
+  const servers = new Map<string, ServerState>(Object.entries(equipment.servers))
+  // A server whose tools the window lists is connected, whatever was said of it before.
+  for (const tool of mcpTools) servers.set(tool.serverName, 'connected')
+  for (const [name, state] of [...servers].sort(([a], [b]) => a.localeCompare(b))) {
+    items.push({ kind: 'mcp_server', ...serverItem(name), state })
+  }
+  const loaded = new Set(equipment.loaded)
+  for (const tool of mcpTools) {
+    const state = tool.isLoaded || loaded.has(tool.name) ? 'loaded' : 'deferred'
+    items.push({ kind: 'tool', name: tool.name, source: 'mcp', from: tool.serverName, state, ...tokens(tool.tokens) })
+  }
+  for (const name of [...loaded].sort()) {
+    if (mcpTools.some(tool => tool.name === name)) continue
+    items.push({ kind: 'tool', name, ...toolOrigin(name), state: 'loaded' })
+  }
+  for (const file of breakdown?.memoryFiles ?? []) {
+    const named = memoryItem(file.path, file.type, home, root)
+    if (named !== undefined) items.push({ kind: 'memory_file', ...named, ...tokens(file.tokens) })
+  }
+  if (equipment.style !== undefined) {
+    const { name, ...origin } = equipment.style
+    items.push({ kind: 'output_style', name, ...origin })
+  }
+  if (equipment.rules) items.push({ kind: 'rules', name: ARMADA_RULES, source: 'armada' })
+  items.push({ kind: 'injection', name: ARMADA_INJECTION, source: 'armada' })
+  return items
+}
+
+/** What a `ToolSearch` result says: the tools it loaded, and the servers not yet or never connected. */
+export function searchedOf(result: unknown): { matches: string[]; servers: Record<string, ServerState> } {
+  const read = (result ?? {}) as { matches?: unknown; pending_mcp_servers?: unknown; failed_mcp_servers?: unknown }
+  const names = (list: unknown) => (Array.isArray(list) ? list.filter((one): one is string => typeof one === 'string') : [])
+  const servers: Record<string, ServerState> = {}
+  for (const name of names(read.pending_mcp_servers)) servers[name] = 'pending'
+  if (Array.isArray(read.failed_mcp_servers)) {
+    for (const one of read.failed_mcp_servers) if (typeof one?.name === 'string') servers[one.name] = 'failed'
+  }
+  return { matches: names(read.matches), servers }
+}
+
+/** What a `WaitForMcpServers` result says of each server. One that needs signing in to gives no tools, so it is `failed`. */
+export function waitedOf(result: unknown): Record<string, ServerState> {
+  const read = (result ?? {}) as Record<string, unknown>
+  const servers: Record<string, ServerState> = {}
+  const mark = (key: string, state: ServerState) => {
+    const list = read[key]
+    if (Array.isArray(list)) for (const name of list) if (typeof name === 'string') servers[name] = state
+  }
+  mark('stillPending', 'pending')
+  mark('connected', 'connected')
+  mark('failed', 'failed')
+  mark('needsAuth', 'failed')
+  return servers
+}
+
+/** A skill the agent called, sourced from the listing the window carries, else by its plugin prefix. */
+export function skillUseOrigin(name: string, breakdown?: SessionContextBreakdown): Origin | undefined {
+  const bare = name.replace(/^\//, '')
+  const listed = breakdown?.skills?.skillFrontmatter.find(one => one.name === bare)
+  if (listed !== undefined) return skillOrigin(listed.source, listed.name, listed.pluginName)
+  return pluginOrigin(prefixOf(bare))
+}
+
+/**
+ * A subagent dispatched, sourced from the agent listing the window carries. The listing leaves the
+ * harness's own out, so one it does not name that the engine provides is built in.
+ */
+export function agentUseOrigin(type: string, provider: string, breakdown?: SessionContextBreakdown): Origin | undefined {
+  const listed = breakdown?.agents.find(one => one.agentType === type)
+  if (listed !== undefined) return agentOrigin(listed.source, listed.agentType)
+  if (provider !== 'engine') return pluginOrigin(provider)
+  return prefixOf(type) === undefined ? { source: 'built_in' } : pluginOrigin(prefixOf(type))
 }

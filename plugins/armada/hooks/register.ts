@@ -12,6 +12,9 @@
 // `waiting_for` after it was sent back.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
+// The Loadout is reported the same way: each skill, subagent, MCP server and tool, memory file, output style,
+// Armada's rules and this mod's own `armadaSession` block by name and where it came from, and each skill, MCP
+// tool, loaded tool and subagent the agent used by name, never a body, an input or a prompt (`loadoutOf`).
 //
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
@@ -57,8 +60,15 @@ import {
   withReplyNeeds,
   promptDetail,
   transcriptPath,
+  agentUseOrigin,
+  loadoutOf,
+  searchedOf,
+  skillUseOrigin,
+  styleOrigin,
+  toolOrigin,
+  waitedOf,
 } from './facts'
-import type { RateLimit, WaitingItem } from './facts'
+import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
 
 const HARNESS = 'claude_code'
@@ -98,7 +108,11 @@ type Known = {
   waiting: WaitingItem[]
   sawWaiting: boolean
   turn: Turn
+  loadout: Loadout
 }
+
+/** What the Loadout is made from, the list Fleet last heard, and when the turn its uses go under began. */
+type Loadout = { equipment: Equipment; told?: LoadoutItem[]; turnAt: string }
 
 /**
  * What this turn did about the owner. `sentBack` holds the lines the Stop hook sent the session back
@@ -141,6 +155,7 @@ function everything(): Report[] {
     ]),
     ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
     ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
+    ...(one.loadout.told === undefined ? [] : [told(id, { kind: 'equipped', loadout: { items: one.loadout.told } })]),
   ])
 }
 
@@ -476,10 +491,73 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn() })
+  const loadout = { equipment: { home: '', root: where, rules: false, servers: {}, loaded: [] }, turnAt: '' }
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn(), loadout })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
+  void equipped($, id).catch(() => undefined)
+}
+
+/** The Loadout's first reading: where the session's files are, whether Fleet hosts it, and the window's listings. */
+async function equipped($: Dollar, id: string): Promise<void> {
+  const one = known.get(id)
+  if (one === undefined) return
+  const equipment = one.loadout.equipment
+  if (one.loadout.turnAt === '') one.loadout.turnAt = new Date(await $.clock.now()).toISOString()
+  equipment.home = (await $.env.get('HOME')) ?? ''
+  equipment.root = await $.session.root().catch(() => equipment.root)
+  equipment.rules = Boolean(await $.env.get('ARMADA_SESSION'))
+  await equip($, id, true)
+}
+
+/** The Loadout, told when it moved; `read` takes the window's listings afresh first. */
+async function equip($: Dollar, id: string, read = false): Promise<void> {
+  const one = known.get(id)
+  if (one === undefined) return
+  if (read) one.loadout.equipment.breakdown = (await breakdownNow($)) ?? one.loadout.equipment.breakdown
+  const items = loadoutOf(one.loadout.equipment)
+  if (JSON.stringify(items) === JSON.stringify(one.loadout.told)) return
+  one.loadout.told = items
+  say($, id, { kind: 'equipped', loadout: { items } })
+}
+
+/** One skill, MCP tool, loaded tool or subagent the agent used, under the turn it was used in. */
+async function equipmentUsed($: Dollar, use: Omit<LoadoutUse, 'turn_started_at'> | undefined): Promise<void> {
+  if (use === undefined) return
+  const [id, one] = await current($)
+  say($, id, { kind: 'used', use: { turn_started_at: one.loadout.turnAt, ...use } })
+}
+
+/** What a hook learned of the servers and the loaded tools, folded in and told if it moved anything. */
+async function reequipped($: Dollar, servers: Equipment['servers'], loaded: string[] = []): Promise<void> {
+  const [id, one] = await current($)
+  const equipment = one.loadout.equipment
+  equipment.servers = { ...equipment.servers, ...servers }
+  equipment.loaded = [...new Set([...equipment.loaded, ...loaded])]
+  await equip($, id)
+}
+
+/**
+ * The output style a system prompt was composed with. A teammate's or an analysis prompt is not the
+ * session's own; the default style is no item.
+ */
+async function styled($: Dollar, name: string | undefined): Promise<void> {
+  const one = known.get(await $.session.id())
+  if (one === undefined || one.loadout.equipment.style?.name === name) return
+  const equipment = one.loadout.equipment
+  if (name === undefined) {
+    equipment.style = undefined
+  } else {
+    const inRepository = await $.fs.exists(`${equipment.root}/.claude/output-styles/${name}.md`).catch(() => false)
+    equipment.style = { name, ...styleOrigin(name, inRepository) }
+  }
+  await equip($, await $.session.id())
+}
+
+/** A use with its source, or nothing where Armada has no source to give it. */
+function sourced(use: Omit<LoadoutUse, 'turn_started_at' | 'source' | 'from'>, origin: Pick<LoadoutUse, 'source' | 'from'> | undefined) {
+  return origin === undefined ? undefined : { ...use, ...origin }
 }
 
 /**
@@ -726,20 +804,24 @@ async function measured(
   // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
   if (held && !changed.includes('rateLimits')) return
   measuredAt = at
-  const [id] = await current($)
+  const [id, one] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
   const plan = planOf(limits)
   const fact: Extract<Fact, { kind: 'measured' }> = { kind: 'measured', usage }
   if (plan.length > 0) fact.plan = plan
   // `summary` estimates locally; `full` would call the token-count API for every tool and file.
-  if (!held && changed.includes('context')) fact.context_breakdown = await breakdown($)
+  const found = !held && changed.includes('context') ? await breakdownNow($) : undefined
+  if (found !== undefined) fact.context_breakdown = breakdownOf(found)
   say($, id, fact)
+  if (found !== undefined) {
+    one.loadout.equipment.breakdown = found
+    await equip($, id)
+  }
 }
 
-async function breakdown($: Dollar) {
+async function breakdownNow($: Dollar) {
   try {
-    const found = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
-    return found === undefined ? undefined : breakdownOf(found)
+    return (await $.session.usage({ breakdown: 'summary' })).context.breakdown
   } catch {
     return undefined
   }
@@ -772,6 +854,7 @@ async function turnBegan($: Dollar, prompt: string): Promise<void> {
   if (withoutMarkup(prompt).trim().startsWith('/')) return
   const [id, one] = await current($)
   one.prompts = []
+  one.loadout.turnAt = new Date(await $.clock.now()).toISOString()
   say($, id, { kind: 'turn_started' })
 }
 
@@ -1173,7 +1256,66 @@ export const register: Register = on => {
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description).catch(() => undefined)
+      void current($)
+        .then(([, one]) => {
+          const use = { kind: 'subagent' as const, name: e.subagentType, ...(e.model === undefined ? {} : { model: e.model }), ...(e.parentAgentId === undefined ? {} : { by: e.parentAgentId }) }
+          return equipmentUsed($, sourced(use, agentUseOrigin(e.subagentType, e.provider?.plugin ?? 'engine', one.loadout.equipment.breakdown)))
+        })
+        .catch(() => undefined)
     }
+    return out
+  })
+
+  // The Loadout's uses. An ordinary built-in tool is on the timeline already, so only a skill, an MCP
+  // tool and what a ToolSearch loaded are told here, and a subagent at its spawn.
+  on('tool.call', { tool: 'Skill' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined) {
+      const by = e.agentId === undefined ? {} : { by: e.agentId }
+      void current($)
+        .then(([, one]) => equipmentUsed($, sourced({ kind: 'skill', name: e.skill, ...by }, skillUseOrigin(e.skill, one.loadout.equipment.breakdown))))
+        .catch(() => undefined)
+    }
+    return ran
+  })
+
+  on('tool.call', { tool: /^mcp__/ }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined) {
+      const by = e.agentId === undefined ? {} : { by: e.agentId }
+      void current($)
+        .then(([, one]) => equipmentUsed($, { kind: 'tool', name: e.tool, ...toolOrigin(e.tool, one.loadout.equipment.breakdown?.mcpTools), ...by }))
+        .catch(() => undefined)
+    }
+    return ran
+  })
+
+  on('tool.call', { tool: 'ToolSearch' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) {
+      const { matches, servers } = searchedOf(ran.result)
+      const by = e.agentId === undefined ? {} : { by: e.agentId }
+      void current($)
+        .then(async ([, one]) => {
+          for (const name of matches) {
+            await equipmentUsed($, { kind: 'tool', name, ...toolOrigin(name, one.loadout.equipment.breakdown?.mcpTools), ...by })
+          }
+          await reequipped($, servers, matches)
+        })
+        .catch(() => undefined)
+    }
+    return ran
+  })
+
+  on('tool.call', { tool: 'WaitForMcpServers' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) void reequipped($, waitedOf(ran.result)).catch(() => undefined)
+    return ran
+  })
+
+  on('prompt.compose', async ($, e, next) => {
+    const out = await next(e)
+    if (!e.traits.includes('teammate') && !e.traits.includes('analysis')) void styled($, e.outputStyle?.name).catch(() => undefined)
     return out
   })
 

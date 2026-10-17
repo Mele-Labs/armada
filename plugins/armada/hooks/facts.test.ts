@@ -33,6 +33,18 @@ import {
   sentBackReason,
   waitingItemsOf,
   withReplyNeeds,
+  agentOrigin,
+  agentUseOrigin,
+  loadoutOf,
+  memoryItem,
+  searchedOf,
+  serverItem,
+  serverOfTool,
+  skillOrigin,
+  skillUseOrigin,
+  styleOrigin,
+  toolOrigin,
+  waitedOf,
 } from './facts'
 import { BASH_LAUNCH, NOTICE_COMPLETED, NOTICE_KILLED } from './background.fixture'
 
@@ -490,4 +502,108 @@ test('a task notice names the task, its word, the exit code the summary gives an
   expect(backgroundEndOf(NOTICE_COMPLETED)).toEqual({ target: 'byry3zett', status: 'completed', exit: '0', output: '/private/tmp/claude-501/.../tasks/byry3zett.output' })
   expect(backgroundEndOf(NOTICE_KILLED)).toEqual({ target: 'bdjviwn7c', status: 'killed', output: '/private/tmp/claude-501/.../tasks/bdjviwn7c.output' })
   expect(backgroundEndOf('Just a prompt')).toBeUndefined()
+})
+
+test('a skill is sourced by the engine\'s word for it, and one Armada has no word for has none', () => {
+  expect(skillOrigin('userSettings', 'notes')).toEqual({ source: 'kit' })
+  expect(skillOrigin('projectSettings', 'land')).toEqual({ source: 'repository' })
+  expect(skillOrigin('plugin', 'armada:walk', 'armada')).toEqual({ source: 'armada' })
+  expect(skillOrigin('plugin', 'productivity:start')).toEqual({ source: 'plugin', from: 'productivity' })
+  expect(skillOrigin('built-in', 'loop')).toEqual({ source: 'built_in' })
+  expect(skillOrigin('mcp', 'github:triage')).toEqual({ source: 'mcp', from: 'github' })
+  expect(skillOrigin('policySettings', 'house')).toEqual({ source: 'managed' })
+  expect(skillOrigin('syncedSkills', 'mine')).toEqual({ source: 'kit' })
+  expect(skillOrigin('somewhereNew', 'x')).toBeUndefined()
+})
+
+test('a subagent is sourced by where it was defined, a plugin\'s by its prefix', () => {
+  expect(agentOrigin('userSettings', 'scout')).toEqual({ source: 'kit' })
+  expect(agentOrigin('localSettings', 'reviewer')).toEqual({ source: 'repository' })
+  expect(agentOrigin('plugin', 'armada:judge')).toEqual({ source: 'armada' })
+  expect(agentOrigin('plugin', 'productivity:planner')).toEqual({ source: 'plugin', from: 'productivity' })
+  expect(agentOrigin('flagSettings', 'x')).toEqual({ source: 'managed' })
+  expect(agentOrigin('policySettings', 'x')).toEqual({ source: 'managed' })
+})
+
+test('a memory file is the person\'s under ~/.claude, the repository\'s under its root, and a managed one an organisation\'s', () => {
+  expect(memoryItem('/home/user/.claude/CLAUDE.md', 'User', '/home/user', '/repos/a')).toEqual({ name: '~/.claude/CLAUDE.md', source: 'kit' })
+  expect(memoryItem('/repos/a/crates/CLAUDE.md', 'Project', '/home/user', '/repos/a/')).toEqual({ name: 'crates/CLAUDE.md', source: 'repository' })
+  expect(memoryItem('/repos/CLAUDE.md', 'Project', '/home/user', '/repos/a')).toEqual({ name: '/repos/CLAUDE.md', source: 'repository' })
+  expect(memoryItem('/etc/claude-code/CLAUDE.md', 'Managed', '/home/user', '/repos/a')).toEqual({ name: '/etc/claude-code/CLAUDE.md', source: 'managed' })
+})
+
+test('a tool is an MCP server\'s as the breakdown names it, else as its name spells it, else the harness\'s', () => {
+  expect(serverOfTool('mcp__claude_ai_Gmail__create_draft')).toBe('claude_ai_Gmail')
+  expect(serverOfTool('WebFetch')).toBeUndefined()
+  expect(toolOrigin('mcp__claude_ai_Gmail__create_draft', [{ name: 'mcp__claude_ai_Gmail__create_draft', serverName: 'claude.ai Gmail' }])).toEqual({ source: 'mcp', from: 'claude.ai Gmail' })
+  expect(toolOrigin('mcp__github__get_me')).toEqual({ source: 'mcp', from: 'github' })
+  expect(toolOrigin('WebFetch')).toEqual({ source: 'built_in' })
+})
+
+test('an output style is Armada\'s, a plugin\'s, built in, the repository\'s or the person\'s', () => {
+  expect(styleOrigin('Armada', false)).toEqual({ source: 'armada' })
+  expect(styleOrigin('armada:Armada', false)).toEqual({ source: 'armada' })
+  expect(styleOrigin('acme:Terse', false)).toEqual({ source: 'plugin', from: 'acme' })
+  expect(styleOrigin('Explanatory', false)).toEqual({ source: 'built_in' })
+  expect(styleOrigin('Terse', true)).toEqual({ source: 'repository' })
+  expect(styleOrigin('Terse', false)).toEqual({ source: 'kit' })
+})
+
+test('a plugin\'s MCP server is that plugin\'s, Armada\'s is Armada\'s, and any other is its own', () => {
+  expect(serverItem('plugin:productivity:asana')).toEqual({ name: 'asana', source: 'plugin', from: 'productivity' })
+  expect(serverItem('plugin:armada:browser')).toEqual({ name: 'browser', source: 'armada', from: 'armada' })
+  expect(serverItem('claude.ai Gmail')).toEqual({ name: 'claude.ai Gmail', source: 'mcp', from: 'claude.ai Gmail' })
+})
+
+test('a ToolSearch and a WaitForMcpServers result say which tools loaded and how each server stands, and no error text', () => {
+  expect(searchedOf({ matches: ['WebFetch', 3], pending_mcp_servers: ['linear'], failed_mcp_servers: [{ name: 'slack', error: 'tunnel refused' }] })).toEqual({
+    matches: ['WebFetch'],
+    servers: { linear: 'pending', slack: 'failed' },
+  })
+  expect(searchedOf(undefined)).toEqual({ matches: [], servers: {} })
+  expect(waitedOf({ connected: ['github'], failed: ['slack'], stillPending: ['linear'], needsAuth: ['notion'] })).toEqual({
+    github: 'connected',
+    slack: 'failed',
+    linear: 'pending',
+    notion: 'failed',
+  })
+})
+
+test('the Loadout sources an organisation\'s items as managed, and a server with tools listed is connected whatever was said of it', () => {
+  const items = loadoutOf({
+    breakdown: {
+      memoryFiles: [],
+      mcpTools: [{ name: 'mcp__github__get_me', serverName: 'github', tokens: 0, isLoaded: true }],
+      agents: [{ agentType: 'x', source: 'flagSettings', tokens: 1 }],
+      skills: { totalSkills: 1, includedSkills: 1, tokens: 1, skillFrontmatter: [{ name: 'house', source: 'policySettings', tokens: 1 }] },
+    } as never,
+    home: '/home/user',
+    root: '/repos/a',
+    rules: false,
+    servers: { github: 'pending', slack: 'failed', 'plugin:productivity:asana': 'pending' },
+    loaded: [],
+  })
+  expect(items).toEqual([
+    { kind: 'skill', name: 'house', source: 'managed', tokens: 1 },
+    { kind: 'subagent', name: 'x', source: 'managed', tokens: 1 },
+    { kind: 'mcp_server', name: 'github', source: 'mcp', from: 'github', state: 'connected' },
+    { kind: 'mcp_server', name: 'asana', source: 'plugin', from: 'productivity', state: 'pending' },
+    { kind: 'mcp_server', name: 'slack', source: 'mcp', from: 'slack', state: 'failed' },
+    { kind: 'tool', name: 'mcp__github__get_me', source: 'mcp', from: 'github', state: 'loaded' },
+    { kind: 'injection', name: 'armadaSession', source: 'armada' },
+  ])
+})
+
+test('a skill or subagent used is sourced from the listing, else by its prefix, and an unlisted engine agent is built in', () => {
+  const breakdown = {
+    agents: [{ agentType: 'reviewer', source: 'projectSettings', tokens: 1 }],
+    skills: { totalSkills: 1, includedSkills: 1, tokens: 1, skillFrontmatter: [{ name: 'land', source: 'projectSettings', tokens: 1 }] },
+  } as never
+  expect(skillUseOrigin('land', breakdown)).toEqual({ source: 'repository' })
+  expect(skillUseOrigin('/land', breakdown)).toEqual({ source: 'repository' })
+  expect(skillUseOrigin('armada:walk', breakdown)).toEqual({ source: 'armada' })
+  expect(skillUseOrigin('unlisted', breakdown)).toBeUndefined()
+  expect(agentUseOrigin('reviewer', 'engine', breakdown)).toEqual({ source: 'repository' })
+  expect(agentUseOrigin('Explore', 'engine', breakdown)).toEqual({ source: 'built_in' })
+  expect(agentUseOrigin('judge', 'armada', breakdown)).toEqual({ source: 'armada' })
 })
