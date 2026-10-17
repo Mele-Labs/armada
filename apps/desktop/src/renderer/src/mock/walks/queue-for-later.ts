@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, tab, walk } from "../walk";
 
-const cockpit = region("Jobs and Sessions");
+const cockpit = region("Work", { exact: true });
 const frame = role("region", "Dispatch", { exact: true });
 const request = inside(frame, role("textbox", "Request"));
 const repository = (name: string) => inside(frame, role("radio", `Repository ${name}`));

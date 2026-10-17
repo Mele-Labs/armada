@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { expect, fn, waitFor } from "storybook/test";
 import { DropdownMenu, type DropdownMenuEntry } from "./DropdownMenu";
 
@@ -287,5 +288,90 @@ export const Searchable: Story = {
     await expect(args.onSelect).toHaveBeenCalledTimes(1);
     await expect(args.onSelect).toHaveBeenCalledWith("recent:/code/billing-api");
     await expect(canvas.queryByRole("menu")).toBeNull();
+  },
+};
+
+const scopes: DropdownMenuEntry[] = [
+  { kind: "item", id: "active", label: "Active", selected: true },
+  { kind: "item", id: "ended", label: "Ended" },
+];
+
+/**
+ * **A search that can be emptied in one press.** The clear button sits inside the right of the
+ * field and is drawn only while there is something to clear; pressing it empties the field,
+ * gives the rows back and leaves the caret in the field to type again.
+ */
+export const SearchClears: Story = {
+  args: {
+    defaultOpen: true,
+    triggerLabel: "Filter",
+    searchLabel: "Search Work",
+    entries: [
+      { kind: "item", id: "active", label: "Active" },
+      { kind: "item", id: "ended", label: "Ended" },
+    ],
+    onSelect: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    const field = canvas.getByRole("searchbox", { name: "Search Work" });
+    await waitFor(() => expect(field).toHaveFocus());
+    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+
+    await userEvent.keyboard("end");
+    await expect(canvas.getByRole("button", { name: "Clear search" })).toBeVisible();
+    await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
+
+    // The press empties the field and returns the caret to it, and the button goes with the text.
+    await userEvent.click(canvas.getByRole("button", { name: "Clear search" }));
+    await expect(field).toHaveValue("");
+    await expect(field).toHaveFocus();
+    await expect(canvas.getAllByRole("menuitem")).toHaveLength(2);
+    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+  },
+};
+
+const held = fn();
+
+function HeldSearch() {
+  const [value, setValue] = useState("");
+  return (
+    <DropdownMenu
+      defaultOpen
+      triggerLabel="Filter"
+      searchLabel="Search Work"
+      search={{
+        value,
+        onChange: (next) => (held(next), setValue(next)),
+        onEnter: () => {},
+      }}
+      entries={scopes}
+    />
+  );
+}
+
+/**
+ * **The same button where the caller holds the text**, as the Cockpit's list does: its search
+ * narrows the list and not the menu's own rows, and the clear reports the empty text through
+ * `onChange` like any other edit.
+ */
+export const SearchClearsHeldByTheCaller: Story = {
+  render: () => <HeldSearch />,
+  play: async ({ canvas, userEvent }) => {
+    held.mockClear();
+    const field = canvas.getByRole("searchbox", { name: "Search Work" });
+    await waitFor(() => expect(field).toHaveFocus());
+    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+
+    await userEvent.keyboard("17");
+    await expect(field).toHaveValue("17");
+    await expect(canvas.getByRole("button", { name: "Clear search" })).toBeVisible();
+    // The rows are the caller's to narrow: typing leaves both of them.
+    await expect(canvas.getAllByRole("menuitem")).toHaveLength(2);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Clear search" }));
+    await expect(held).toHaveBeenLastCalledWith("");
+    await expect(field).toHaveValue("");
+    await expect(field).toHaveFocus();
+    await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
   },
 };

@@ -4,7 +4,7 @@
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const controls = region("Flight controls");
 const tile = inside(controls, button("Release everything the Session holds"));
 const asked = dialog(/^Release what /);

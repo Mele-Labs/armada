@@ -7,7 +7,7 @@ import { button, inside, place, region, role, tab, text, walk } from "../walk";
 const frame = role("region", "Dispatch", { exact: true });
 const request = inside(frame, role("textbox", "Request"));
 const strip = role("group", "Last dispatch");
-const cockpit = region("Jobs and Sessions");
+const cockpit = region("Work", { exact: true });
 const repository = (name: string) => inside(frame, role("radio", `Repository ${name}`));
 const title = "Show the Drone's branch on each Bridge cockpit tile";
 

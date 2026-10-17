@@ -39,7 +39,7 @@ const LOUD: Record<Tone, number> = { bad: 0, ask: 1, calm: 2 };
 
 /** The Jobs and Sessions of the ship, grouped by standing, the loudest first inside each. */
 export function groupedOf(ship: Ship): { group: (typeof GROUPS)[number]; rows: Subject[] }[] {
-  const rows = ship.subjects.filter((one) => one.kind !== "pr");
+  const rows = ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined);
   return GROUPS.map((group) => ({
     group,
     rows: rows.filter((one) => groupOf(one) === group.id).sort((a, b) => LOUD[toneOf(a)] - LOUD[toneOf(b)]),

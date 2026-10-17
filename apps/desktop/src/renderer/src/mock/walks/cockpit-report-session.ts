@@ -3,7 +3,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const controls = region("Flight controls");
 
 const cockpitReportSession = walk("cockpit-report-session", [
