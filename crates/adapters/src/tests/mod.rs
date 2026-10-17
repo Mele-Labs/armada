@@ -50,6 +50,7 @@ mod leasing_parking;
 mod leasing_reclaiming;
 mod leasing_rescue;
 mod leasing_sessions;
+mod leasing_settled;
 mod leasing_shape;
 mod leasing_trim;
 mod manifest_edit;

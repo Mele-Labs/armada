@@ -13,6 +13,7 @@ use config::Manifest;
 use fleet::{CopyOnWrite, NotCloned, TheVolume};
 
 use crate::setup::MANIFEST;
+use crate::slot_asking::Asking;
 
 /// The base a Manifest that names none is leased from.
 const BASE_UNSTATED: &str = "main";
@@ -36,8 +37,24 @@ pub fn pool_of(within: &Path) -> Result<Pool, String> {
 }
 
 /// `armada worktree lease [--existing] <branch>`. Waits while every slot is
-/// held, and says so once.
+/// held, and says so once. **Run by a hosted Session**, it also tells Fleet, which asks the
+/// owner whether to wait or add a slot; with no Fleet to ask it waits alone, as ever.
 pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
+    let asker = || {
+        let session = std::env::var(Holder::SESSION_ENV).ok().filter(|id| !id.is_empty())?;
+        Asking::for_session(&session)
+    };
+    lease_asking(within, branch, existing, asker)
+}
+
+/// [`lease`], with `asker` finding who to tell once every slot proves held. It is not called
+/// for a lease that finds a slot at once.
+pub(crate) fn lease_asking(
+    within: &Path,
+    branch: &str,
+    existing: bool,
+    asker: impl FnOnce() -> Option<Asking>,
+) -> u8 {
     let pool = match pool_of(within) {
         Ok(pool) => pool.leased_for(std::env::var(Holder::AGENT_SESSION_ENV).ok()),
         Err(why) => return refused(&why),
@@ -49,6 +66,8 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
         );
     };
     let mut told = false;
+    let mut asker = Some(asker);
+    let mut asking: Option<Asking> = None;
     let seed = |from: &Path, to: &Path| {
         TheVolume.clone_tree(from, to).map_err(|why| match why {
             NotCloned::Unsupported { why } | NotCloned::Failed { why } => why,
@@ -59,11 +78,19 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
             told = true;
             waiting(full, pool.count());
         }
+        if let Some(find) = asker.take() {
+            asking = find();
+        }
+        if let Some(asking) = asking.as_mut() {
+            asking.look();
+        }
     };
     let leased = match existing {
         true => pool.lease_existing(branch, &holder, now(), &seed, &mut wait),
         false => pool.lease(branch, &holder, now(), &seed, &mut wait),
     };
+    // The call comes off the owner's list before the path is printed.
+    drop(asking);
     match leased {
         Ok(lease) => {
             said(&lease, branch);

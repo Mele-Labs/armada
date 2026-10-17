@@ -448,6 +448,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/checks",
     },
     Route {
+        operation: "ask_for_slot",
+        method: "POST",
+        path: "/sessions/slot_wanted",
+    },
+    Route {
         operation: "get_session_check_output",
         method: "GET",
         path: "/sessions/checks/:run/output",
