@@ -53,7 +53,7 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
   // And the flight deck's: the switch, its view and its filters.
-  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters"]) localStorage.removeItem(`armada.bridge.${key}`);
+  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters", "deck-scope"]) localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
@@ -165,7 +165,7 @@ export async function toPageByName(name: string): Promise<void> {
 
 /** A Job's page, from the Cockpit: its row in the list, then the Open in its pane. */
 export async function toJobPage(title: RegExp | string): Promise<void> {
-  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: title }));
+  await userEvent.click(page.getByRole("region", { name: "Work", exact: true }).getByRole("button", { name: title }));
   await userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Open the Job page" }));
 }
 

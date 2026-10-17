@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const session = region(/^Session: Pin the store clock/);
 const thread = inside(session, region("Thread"));
 const box = inside(session, role("textbox", "Message"));

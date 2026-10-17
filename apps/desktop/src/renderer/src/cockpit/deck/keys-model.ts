@@ -25,7 +25,7 @@ export type Panel = {
 
 /** In the order Tab goes round them. */
 export const PANELS: readonly Panel[] = [
-  { id: "list", name: "Jobs and Sessions", root: ".deck-list", items: ".deck-row" },
+  { id: "list", name: "Work", root: ".deck-list", items: ".deck-row" },
   { id: "activity", name: "Activity", root: ".deck-activity", items: ".armada-tl__dot", aside: true },
   { id: "stage", name: "the stage", root: ".deck-stage > .deck-pane" },
   { id: "bays", name: "Bays", root: ".deck-bays", items: ".deck-bay" },
@@ -75,6 +75,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         ...PANEL_SLOTS.map((id) => ({ keys: [panelKey(id)], does: PANELS.find((one) => one.id === id)!.name })),
         { keys: ["Tab", "⇧Tab"], does: "Next, previous panel" },
+        ...(built("deck_search") ? [{ keys: caps("deck_search"), does: actionOf("deck_search").verb }] : []),
       ],
     },
     {

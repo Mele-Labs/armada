@@ -44,6 +44,8 @@ import { JobsSurface } from "./jobs-surface"; import { Overview } from "./Overvi
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
+import { focusPanel } from "./cockpit/deck/keys";
+import { deckNow } from "./cockpit/deck/store";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -161,8 +163,8 @@ import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store";
-import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
+import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions";
+import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
@@ -251,7 +253,8 @@ export function App({ draft }: AppProps = {}) {
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [reviewing, setReviewing] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`).
   const [sessioning, setSessioning] = useState(false); const [jobbing, setJobbing] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined), ...reviewsHidden(useReviewStore() !== undefined)]; // Left off the rail and the palette.
+  // Left off the rail and the palette. Jobs too: they are being folded into Sessions, so the Cockpit's Work list holds them.
+  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined)];
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -525,8 +528,9 @@ export function App({ draft }: AppProps = {}) {
       askToOpenHelm();
       return;
     }
-    goTo(SURFACE.sessions);
-    setSessionOpen(id);
+    // A Session is viewed on the Cockpit only: it is selected there, once the deck holds it.
+    goTo(SURFACE.overview);
+    askToOpenSessionInCockpit(id);
   }
   /** Setup's reading handed to a new Session in the repository being set up, and that Session opened. */
   function setUpWithSession(held: typeof setting.held, root: string): void {
@@ -540,7 +544,10 @@ export function App({ draft }: AppProps = {}) {
   }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ job: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
-  function goTo(surfaceId: string): void {
+  function goTo(place: string): void {
+    // The Sessions page is the Cockpit's list: ⌘3, a Sessions link and the palette arrive there with focus on it.
+    const surfaceId = place === SURFACE.sessions ? SURFACE.overview : place;
+    if (place === SURFACE.sessions) window.requestAnimationFrame(() => focusPanel("list", deckNow().cursor));
     setOpenJob(null);
     setComposing(false);
     setAuditing(false);
