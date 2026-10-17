@@ -47,8 +47,7 @@ function pilotSteps(narrow: boolean): Step[] {
     { look: inside(region("Handed over: Job 55"), text("Plan against diff")), say: "What was declared against what was written" },
     { look: inside(region("Handed over: Job 55"), text("Blocked by")), say: "And the Drone's own account: trying to, blocked by, tried" },
     ...opened([
-      { look: inside(ledger, role("img", "Handed over with Job 55, not leased")), say: "The slot is the Job's own, handed over and not leased" },
-      { look: inside(ledger, role("img", "Handed over with Job 55, not created here")), say: "And so is the branch" },
+      { look: inside(ledger, role("img", "Handed over with Job 55, not created here")), say: "The branch is the Job's own, handed over, and its slot is the chip on it" },
       { look: inside(ledger, role("img", /^Piloted/)), say: "The Job is marked piloted on the ledger" },
       { look: inside(ledger, role("group", "Ways out of the pilot")), say: "The three ways out, on the Job's row" },
     ]),
