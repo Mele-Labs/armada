@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -8,6 +8,7 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
+import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedSession";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -30,7 +31,7 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -95,6 +96,8 @@ export type LedgerEntry = {
   artifact?: ArtifactForm;
   /** Which of the two a `background` row is, and so its glyph and what its tooltip names. */
   background?: BackgroundForm;
+  /** A `linked` row: a Session this one follows, drawn as a press that opens it. */
+  linked?: LinkedSessionProps;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
   /** Came with a Job a person piloted: handed over, not leased. */
@@ -158,6 +161,7 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
+  { kind: "linked", label: "Linked", Glyph: Link },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "job", label: "Jobs", Glyph: Box },
@@ -492,6 +496,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               />
               {removal(row)}
               {reasoning(row)}
+            </li>
+          );
+        }
+        if (kind === "linked" && row.linked !== undefined) {
+          return (
+            <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+              <LinkedSession {...row.linked} />
             </li>
           );
         }

@@ -113,6 +113,7 @@ import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { PlanReview } from "./session-view/PlanReview";
+import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
@@ -708,6 +709,7 @@ export function entriesOf(
   runner: Runner | undefined,
   removeWaiting?: (itemId: string, reason: string) => void,
   release?: LedgerRelease["rowOf"],
+  linkedIn?: SessionsDraft["linkedIn"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
@@ -766,7 +768,9 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
+  // A Session a plan group was handed to is drawn where the parent keeps its children: on the Plan, or here under Linked.
+  const handed = (one: SessionAttachment) => one.kind === "started_to" && one.group !== undefined && linkedIn !== undefined;
+  const drawn = session.attachments.filter((one) => (one.kind !== "slot" || !carried.has(one.slot)) && (!handed(one) || linkedIn === "ledger"));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {
@@ -777,9 +781,16 @@ export function entriesOf(
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
+      case "started_to": {
+        const child = one.group === undefined || linkedIn !== "ledger" ? undefined : sessions.find((other) => other.id === one.id);
+        if (child !== undefined) {
+          const props = linkedPropsOf(child, open, groupTitleOf(session, one.group!));
+          return { key: `linked${child.id}`, kind: "linked", name: `${props.title}, ${props.said}`, text: props.title, linked: props, onOpen: props.onOpen };
+        }
+        return linkEntry(one, sessions, open);
+      }
       case "forked_to":
       case "forked_from":
-      case "started_to":
       case "started_by":
         return linkEntry(one, sessions, open);
       case "slot":
@@ -1050,6 +1061,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
+    draft.linkedIn,
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -1064,7 +1076,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen}>
       <SessionFrame
         state={state}
         said={said}
