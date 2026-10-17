@@ -1,5 +1,4 @@
-// The Cockpit map drawn two ways, for the owner to set side by side: the CSS map and the canvas one. The same steps play on both; `&map=pixi`
-// on the walk's link is the canvas. Over the `pixi-map` scenario, where one Session writes, one reads and one has a red Check.
+// The Cockpit canvas map, for the owner to look at. Over the `pixi-map` scenario, where one Session writes, one reads and one has a red Check.
 
 import { inside, region, role, walk } from "../walk";
 

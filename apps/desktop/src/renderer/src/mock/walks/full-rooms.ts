@@ -1,5 +1,5 @@
 // The Cockpit canvas map with every room full, for the owner to look at: a pill for each file of a directory, quiet until a Session works on
-// its file. Plays over the `pixi-map` scenario, on the canvas map (`&map=pixi` on the walk's link). A pill is hovered with the pointer, which
+// its file. Plays over the `pixi-map` scenario. A pill is hovered with the pointer, which
 // a step cannot do, so the step that names a file says to.
 
 import { inside, role, walk } from "../walk";

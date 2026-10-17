@@ -6,11 +6,11 @@ import type { Frame } from "../frame";
 import type { CallTone } from "../field";
 import { ROUTE } from "../geometry";
 import { ALONG, type Play } from "../plays";
-import { FRESH_LAND_MS } from "../Builds";
+import { FRESH_LAND_MS } from "../builds";
 import { askedOf, seatOf } from "../build";
 import { FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
 import type { GoalIn, PadIn } from "../tip";
-import type { placeBuilds } from "../Builds";
+import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
 
 /** A construction placed on the field: its ring and where it lies. */

@@ -4,8 +4,7 @@
 
 import { onPlane } from "../bf-parts";
 import { FLAT, type Bar, type Tile } from "../layout";
-import { FILE_SAID } from "../Scene";
-import { clashLines, type Tip } from "../tip";
+import { FILE_SAID, clashLines, type Tip } from "../tip";
 import { pillAt } from "../pills";
 import { project, unproject, type View } from "./project";
 import type { PixiSceneIn } from "./scene";

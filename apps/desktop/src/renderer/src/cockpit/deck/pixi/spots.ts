@@ -1,6 +1,5 @@
 // Where each thing a person can press or hover is on the canvas, as a box (and for a ring's piece or a bay's pad, the shape) in the pixels of
-// the pane. The DOM that stands over the canvas is put there from these each time the view moves (`Hits.tsx`). Every size is the CSS map's
-// own hit box, scaled the way the canvas scales the picture beneath it, so a pointer lands on what it looks at. Pure.
+// the pane. The DOM that stands over the canvas is put there from these each time the view moves (`Hits.tsx`). Every size is a hit box scaled the way the canvas scales the picture beneath it, so a pointer lands on what it looks at. Pure.
 
 import type { P3, Point } from "../layout";
 import { onPlane } from "../bf-parts";
@@ -25,7 +24,7 @@ function outline(rings: readonly (readonly Screen[])[]): Spot {
   return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0), shape: path };
 }
 
-/** A drone's hit box: round its body, as the CSS map's `bf-hit` is. */
+/** A drone's hit box: round its body. */
 export function droneSpot(view: View, spec: DroneSpec, big: number): Spot | undefined {
   const here = project(view, { x: spec.at.x, y: spec.at.y, z: spec.alt });
   if (here.scale <= 0) return undefined;

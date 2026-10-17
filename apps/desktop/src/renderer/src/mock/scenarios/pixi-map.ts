@@ -1,6 +1,6 @@
 // The Cockpit map with work going on, for the walk `pixi-map`: the ship at rest, and over it one Session writing now, one reading and one
 // with a red Check. Three Sessions name the files they touch, and every room holds a pill for each of its files; those three lit on theirs (`full-rooms`). The
-// walk plays it on the CSS map and on the canvas one, so the two can be set side by side.
+// walk plays it on the canvas map.
 
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";

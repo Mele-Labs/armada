@@ -1,4 +1,4 @@
-// The map drawn on a canvas, in the place of the CSS plane: it takes the camera the page already keeps and the scene the battlefield has
+// The map drawn on a canvas: it takes the camera the page already keeps and the scene the battlefield has
 // already read, and hands both to the stage, which draws when they change. It holds no state of its own. The pictures a person can press
 // are `Hits.tsx`'s: `children` is the layer they go in, over the canvas and under the controls, and `onStage` gives them the stage to
 // place themselves by.

@@ -1,7 +1,7 @@
 // What a person can press, hover or tab to on the canvas map. The canvas draws and takes no pointer; over it stands this layer, an invisible
 // element for each drone, pad, flag, crate and piece of a ring, put where its picture is by `spots.ts` each time the view moves. Each
-// carries what the same thing carries on the CSS map (its role and label, its keys, its press and its card), so the keyboard, a screen
-// reader, the cards and the owner's notes (which read these components' names and these elements) find the same things on either map. The
+// carries a role and a label, its keys, its press and its card, so the keyboard, a screen reader, the cards and the owner's notes (which
+// read these components' names and these elements) find the things the canvas draws. The
 // plots, files and bases that are only hovered are asked of the pointer instead (`plates.ts`), since there are as many as the repository
 // has files.
 
@@ -9,13 +9,12 @@ import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, ty
 import { ShieldCheck } from "lucide-react";
 import { clashSaid, useClashesOf, useOpenClash } from "@armada/components";
 
-import { FRESH_LAND_MS, arcTip, bandTip, pieceTip } from "../Builds";
+import { FRESH_LAND_MS, arcTip, bandTip, pieceTip } from "../builds";
 import { keyed, onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf, type BuildIn } from "../build";
 import type { CallTone } from "../field";
 import { alongOf, type P3, type Point } from "../layout";
-import { goalSaid, goalTip, payloadSaid, payloadTip } from "../Scene";
-import { clashLines, clashTip, droneTip, padTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
+import { clashLines, clashTip, droneTip, goalSaid, goalTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
 import type { Crate, DroneSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
