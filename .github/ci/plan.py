@@ -2,6 +2,7 @@
 """Sorts the keys `armada covers` prints into the jobs that run them.
 
     armada covers < paths | plan.py      JSON on stdout, exit 1 on a key nothing runs
+    armada covers < paths | plan.py --quick    the same, keeping only QUICK to run
 
 A root Check is a bare name and has a static job in checks.yml. A workspace
 Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
@@ -33,8 +34,13 @@ NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test"}
 # Keys CI deliberately does not run, and why.
 EXCLUDED = {}
 
+# Check names a pull request's own run keeps with `--quick`: the ones that
+# compile. The merge queue runs every Check, so the pull request run is an early
+# warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
+QUICK = {"build", "typecheck", "bridge_build"}
 
-def plan(keys):
+
+def plan(keys, quick=False):
     run, matrix, excluded, unrun = [], [], [], []
     for key in dict.fromkeys(keys):
         name = key.rsplit(":", 1)[-1]
@@ -49,12 +55,17 @@ def plan(keys):
             matrix.append({"key": key, "browsers": str(name not in NO_BROWSER).lower()})
         else:
             unrun.append(key)
-    return {"checks": run, "matrix": {"include": matrix}, "excluded": excluded, "unrun": unrun}
+    queued = []
+    if quick:
+        queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK]
+        run = [key for key in run if key not in queued]
+        matrix = [row for row in matrix if row["key"] in run]
+    return {"checks": run, "matrix": {"include": matrix}, "excluded": excluded, "unrun": unrun, "queued": queued}
 
 
 def main():
     keys = [line.strip() for line in sys.stdin if line.strip()]
-    answer = plan(keys)
+    answer = plan(keys, quick="--quick" in sys.argv[1:])
     if answer["unrun"]:
         for key in answer["unrun"]:
             print(f"::error::`armada covers` names {key}, which CI neither runs nor excludes: add it to .github/ci/plan.py", file=sys.stderr)

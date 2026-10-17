@@ -15,10 +15,12 @@ repository. The owner, as admin, bypasses the ruleset.
 
 | Trigger | For | Runs |
 |---|---|---|
-| `pull_request` into `main` | Seeing a branch's Checks before it lands | What `armada covers` names for the diff |
-| `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group |
+| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build` |
+| `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
 | `push` to `main` | Seeing a red `main` | Every Check in CI |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
+
+**The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those. The queue's run is the one that decides, so a pull request that also ran the whole suite paid for it twice, back to back: 8 to 20 minutes on the pull request, then 6 to 16 in the queue, measured over the 60 runs before 17 Oct 2026. A branch that breaks a test is now caught in the queue and dropped from it, and Fleet tells its holder (`docs/concepts/fleet.md`, *Telling the owner of a pull request*); the other entries of its group wait one run more. Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue. `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
 **A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`docs/capabilities/merge-line.md`, *Choosing what reruns*). The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.
 
@@ -79,7 +81,8 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 
 | Check | Runner | Command | Cache |
 |---|---|---|---|
-| `build`, `test` | `ubuntu-latest` | `armada check <name> --changed`, whole on `main` and dispatch | rust-cache, cargo-nextest |
+| `build` | `ubuntu-latest` | `armada check build --changed`, whole on `main` and dispatch | rust-cache |
+| `test` | `ubuntu-latest`, four jobs `test 1/4` to `test 4/4` | `armada check test --changed`, whole on `main` and dispatch, each job a quarter of it: a `cargo` ahead on `PATH` adds `--partition slice:<n>/4 --no-tests=pass` to `nextest run` | rust-cache, cargo-nextest |
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
 | Every workspace key except the two desktop Checks below and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
