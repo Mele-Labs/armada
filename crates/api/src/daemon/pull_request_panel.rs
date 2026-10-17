@@ -9,7 +9,8 @@ use std::future::Future;
 
 use ipc::{
     ManifestId, PullRequestFilePatch, PullRequestPage, PullReviewLists, PullThreadResolved,
-    ResolvePullThread, WritePullRequest,
+    ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun,
+    WritePullRequest,
 };
 
 use crate::daemon::Refusal;
@@ -56,4 +57,37 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         resolve: ResolvePullThread,
     ) -> impl Future<Output = Result<PullThreadResolved, Refusal>> + Send;
+
+    /// `list_review_tools` — the review tools and explanations a repository has, repository
+    /// over Kit over Armada, and the files left out and why. Read from the folders each time.
+    fn list_review_tools(
+        &self,
+        manifest_id: ManifestId,
+    ) -> impl Future<Output = Result<ReviewTools, Refusal>> + Send;
+
+    /// `save_review_tool` — write one definition in Kit's folder or the repository's.
+    /// [`Refusal::Unacceptable`] for a blank or wordless name, a blank prompt, and an id the
+    /// scope already defines unless `overwrite`; [`Refusal::Fault`] where it cannot be written.
+    fn save_review_tool(
+        &self,
+        manifest_id: ManifestId,
+        save: SaveReviewTool,
+    ) -> impl Future<Output = Result<ReviewTools, Refusal>> + Send;
+
+    /// `start_review_run` — ask an agent, read-only, about a pull request. **Answers at once**:
+    /// a kept result, the run already going, or a new one queued whose work goes on a task of
+    /// its own. [`Refusal::Unacceptable`] for a name no definition has or a blank question;
+    /// [`Refusal::Fault`] where the forge would not give the pull request.
+    fn start_review_run(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        start: StartReviewRun,
+    ) -> impl Future<Output = Result<ReviewRun, Refusal>> + Send;
+
+    /// `get_review_runs` — every run kept or going for a pull request, newest first.
+    fn get_review_runs(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> impl Future<Output = Result<ReviewRuns, Refusal>> + Send;
 }

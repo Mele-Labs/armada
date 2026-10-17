@@ -1,13 +1,15 @@
 // The review store over a fake source: the lists merged by pull request, a list the forge would not answer keeping what
 // it held, a page read when a pull request is opened, a patch read when its change is shown, and a review posted as one
-// call with every comment placed by path, line and side. Nothing here touches `window.armada`.
+// call with every comment placed by path, line and side. The agent half is runs Fleet keeps: read when a pull request is opened,
+// moved by `review_run.changed`, started only on a press, and shown failed in Fleet's words. Nothing here touches `window.armada`.
 
-import type { PullRequestPage, PullReviewLists, PullReviewRow, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, PullReviewLists, PullReviewRow, ReviewPlace, ReviewRun, ReviewTools, StartReviewRun, WritePullRequest } from "@armada/protocol";
 import { expect, test } from "vitest";
 
+import type { ToolDef } from "./model";
 import type { Read, ReviewSource } from "./source";
-import { createReviewStore } from "./store";
-import { NO_FIXTURES } from "./tools";
+import { NO_SEARCH, createReviewStore } from "./store";
+import { COMMENTS_TOOL } from "./tools";
 
 const row = (number: number, at: string, over: Partial<PullReviewRow> = {}): PullReviewRow => ({
   manifest_id: "m1",
@@ -48,10 +50,28 @@ const page = (number: number, over: Partial<PullRequestPage> = {}): PullRequestP
 
 const said = (words: string): Read<never> => ({ ok: false, said: words });
 
-type Calls = { writes: WritePullRequest[]; resolves: { thread: string; resolved: boolean }[]; files: string[] };
+type Calls = { writes: WritePullRequest[]; resolves: { thread: string; resolved: boolean }[]; files: string[]; starts: StartReviewRun[]; saves: string[]; emit: (run: ReviewRun) => void };
+
+const TOOLS: ReviewTools = {
+  tools: [
+    { id: "risks", kind: "tool", name: "Risks", prompt: "What could go wrong", source: "armada" },
+    { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", prompt: "Public shapes", source: "armada" },
+    { id: "how-it-works", kind: "explanation", name: "How it works", prompt: "How the code does it", source: "armada" },
+    { id: "why", kind: "explanation", name: "Why", prompt: "The problem", source: "armada", replaces: "armada" },
+  ],
+  left_out: [{ file: "/kit/notes.md", source: "kit", said: "No kind in its front matter" }],
+};
+
+const run = (over: Partial<ReviewRun> = {}): ReviewRun => {
+  const state = over.state ?? "done";
+  const going = state === "queued" || state === "running";
+  return { manifest_id: "m1", number: 1, kind: "tool", name: "risks", head: "head1", state, started_at: "2026-10-16T10:00:00Z", ...(going ? {} : { finished_at: "2026-10-16T10:00:05Z" }), ...over };
+};
+const place = (start: number, end = start, over: Partial<ReviewPlace> = {}): ReviewPlace => ({ path: "a.rs", side: "right", start, end, ...over });
 
 function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: Calls } {
-  const calls: Calls = { writes: [], resolves: [], files: [] };
+  let told: (run: ReviewRun) => void = () => undefined;
+  const calls: Calls = { writes: [], resolves: [], files: [], starts: [], saves: [], emit: (one) => told(one) };
   const source: ReviewSource = {
     lists: async () => ({ ok: true, value: lists() }),
     page: async (_id, number) => ({ ok: true, value: page(number) }),
@@ -67,6 +87,20 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
       calls.resolves.push(resolve);
       return { ok: true, value: resolve };
     },
+    tools: async () => ({ ok: true, value: TOOLS }),
+    saveTool: async (_id, save) => {
+      calls.saves.push(`${save.scope}:${save.kind}:${save.name}`);
+      return { ok: true, value: { tools: [...TOOLS.tools, { id: "test-gaps", kind: "tool", name: save.name, prompt: save.prompt, source: save.scope }] } };
+    },
+    startRun: async (_id, start) => {
+      calls.starts.push(start);
+      return { ok: true, value: run({ kind: start.kind, name: start.name, state: "queued" }) };
+    },
+    runs: async () => ({ ok: true, value: { runs: [] } }),
+    onRun: (on) => {
+      told = on;
+      return () => undefined;
+    },
     ...over,
   };
   return { source, calls };
@@ -76,7 +110,7 @@ const settle = () => new Promise((done) => setTimeout(done, 0));
 
 async function opened(over: Partial<ReviewSource> = {}) {
   const { source, calls } = fake({ lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z")] }) }), ...over });
-  const store = createReviewStore(source, NO_FIXTURES);
+  const store = createReviewStore(source, NO_SEARCH);
   store.fetch();
   await settle();
   store.open("Mele-Labs/armada#1");
@@ -92,7 +126,7 @@ test("one pull request on two lists is one row that knows both, ordered by when 
       value: lists({ requested: [both, row(1, "2026-10-16T08:00:00Z")], team: [{ ...both, team: "@Mele-Labs/bridge" }], mine: [row(3, "2026-10-16T11:00:00Z")] }),
     }),
   });
-  const store = createReviewStore(source, NO_FIXTURES);
+  const store = createReviewStore(source, NO_SEARCH);
   store.fetch();
   await settle();
   const snapshot = store.get();
@@ -111,7 +145,7 @@ test("a list the forge would not answer keeps what it held, and the others are r
       return { ok: true, value: reads === 1 ? lists({ requested: [row(1, "2026-10-16T08:00:00Z")], assigned: [row(2, "2026-10-16T09:00:00Z")] }) : lists({ silent: ["assigned"] }) };
     },
   });
-  const store = createReviewStore(source, NO_FIXTURES);
+  const store = createReviewStore(source, NO_SEARCH);
   store.fetch();
   await settle();
   store.fetch();
@@ -123,7 +157,7 @@ test("a list the forge would not answer keeps what it held, and the others are r
 test("a refused read says why and leaves the lists as they were", async () => {
   let reads = 0;
   const { source } = fake({ lists: async () => (reads++ === 0 ? { ok: true, value: lists({ requested: [row(1, "2026-10-16T08:00:00Z")] }) } : said("gh is not signed in")) });
-  const store = createReviewStore(source, NO_FIXTURES);
+  const store = createReviewStore(source, NO_SEARCH);
   store.fetch();
   await settle();
   store.fetch();
@@ -217,23 +251,145 @@ test("a thread is resolved at the forge and then here, and a refusal changes not
   expect(refused.store.get().work[refused.key]!.refused).toBe("Not allowed to resolve");
 });
 
-test("where nothing runs behind the agent half, an agent tool answers nothing and Comments stays live", async () => {
-  const { store, key } = await opened();
-  expect(store.get().agentsBuilt).toBe(false);
-  const tools = store.get().armada;
-  const risks = tools.find((one) => one.id === "risks")!;
-  const comments = tools.find((one) => one.id === "comments")!;
-  store.runTool(key, risks);
-  store.rerun(key, risks);
-  store.explain(key, tools.find((one) => one.id === "how-it-works")!);
-  store.ask(key, "Does this change anything?");
-  store.find("PRs that touch files I have touched");
+const toolOf = (store: ReturnType<typeof createReviewStore>, id: string): ToolDef => {
+  const found = [...(store.get().tools["m1"] ?? []), COMMENTS_TOOL].find((one) => one.id === id);
+  if (found === undefined) throw new Error(`no tool ${id}`);
+  return found;
+};
+
+test("the tools are read once for a repository, and Comments stays Bridge's own", async () => {
+  const { store } = await opened();
+  expect(store.get().tools["m1"]!.map((one) => one.id)).toEqual(["risks", "api-breaking-changes", "how-it-works", "why"]);
+  expect(store.get().tools["m1"]!.find((one) => one.id === "risks")).toMatchObject({ mark: "risks", agent: true, source: "armada" });
+  expect(store.get().tools["m1"]!.find((one) => one.id === "why")?.replaces).toBe("armada");
+  expect(store.get().leftOut["m1"]).toEqual([{ file: "/kit/notes.md", source: "kit", said: "No kind in its front matter" }]);
+  expect(COMMENTS_TOOL.agent).toBe(false);
+});
+
+test("a row's holder is the Session that holds the pull request", async () => {
+  const { store } = await opened({ lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z", { holder: { id: "s1", title: "Fix the wait" } })] }) }) });
+  expect(store.get().prs[0]!.holder).toEqual({ id: "s1", title: "Fix the wait" });
+});
+
+test("opening a pull request reads what is kept for it, so a result survives a restart", async () => {
+  const themes = run({ kind: "explanation", name: "how-it-works", result: { shape: "themes", summary: "It caches the read", themes: [{ title: "Cache", purpose: "Hold it", changes: [{ title: "Serve", why: "Fewer calls", at: place(2) }] }] } });
+  const found = run({ result: { shape: "findings", findings: [{ title: "Lock held", body: "Across the call", severity: "high", at: place(2) }] } });
+  const asked = run({ kind: "ask", name: "What if Fleet restarts?", result: { shape: "text", body: "It is lost." } });
+  const impact = run({ kind: "explanation", name: "user-impact", head: "old0000", result: { shape: "impact", rows: [{ what: "Meters", before: "Five seconds", after: "A minute" }] } });
+  const { store, key } = await opened({ runs: async () => ({ ok: true, value: { runs: [found, themes, asked, impact] } }) });
   const work = store.get().work[key]!;
-  expect(work.runs).toEqual({});
-  expect(work.findings).toEqual([]);
-  expect(work.explains).toEqual({});
-  expect(work.asks).toEqual([]);
+  expect(work.explains["how-it-works"]).toMatchObject({ state: "done", head: "head1" });
+  expect(work.explains["user-impact"]).toMatchObject({ state: "done", head: "old0000" });
+  expect(work.accounts["user-impact"]).toEqual({ shape: "change", rows: [{ what: "Meters", before: "Five seconds", after: "A minute" }] });
+  expect(work.runs["risks"]).toMatchObject({ state: "done" });
+  expect(work.findings.map((one) => [one.id, one.severity, one.dismissed])).toEqual([["tool:risks:0", "high", false]]);
+  expect(work.asks.map((one) => [one.words, one.answer])).toEqual([["What if Fleet restarts?", "It is lost."]]);
+  expect(work.kind).toBe("how-it-works");
+  expect(store.get().prs[0]!.explanation.themes[0]!.changes[0]).toMatchObject({ id: "t1c1", title: "Serve", hunks: [] });
+});
+
+test("a change's hunk is cut from its file's patch once the patch is read", async () => {
+  const themes = run({ kind: "explanation", name: "how-it-works", result: { shape: "themes", summary: "", themes: [{ title: "Cache", purpose: "Hold it", changes: [{ title: "Serve", why: "", at: place(2) }] }] } });
+  const { store, key } = await opened({ runs: async () => ({ ok: true, value: { runs: [themes] } }) });
+  store.readFile(key, "a.rs");
+  await settle();
+  const hunk = store.get().prs[0]!.explanation.themes[0]!.changes[0]!.hunks[0]!;
+  expect(hunk.path).toBe("a.rs");
+  expect(hunk.lines.map((one) => one.kind)).toEqual(["hunk", "context", "removed", "added"]);
+  expect(hunk.lines[0]!.text).toBe("@@ -1,2 +1,2 @@");
+});
+
+test("a press starts a run only when nothing is kept, and Run again asks for another", async () => {
+  const { store, calls, key } = await opened();
+  const risks = toolOf(store, "risks");
+  store.runTool(key, risks);
+  expect(store.get().work[key]!.runs["risks"]?.state).toBe("running");
+  expect(store.get().work[key]!.view).toBe("risks");
+  await settle();
+  expect(calls.starts).toEqual([{ number: 1, kind: "tool", name: "risks" }]);
+  // Pressed again while it is going, nothing starts.
+  store.runTool(key, risks);
+  expect(calls.starts).toHaveLength(1);
+  store.rerun(key, risks);
+  store.rerun(key, risks);
+  await settle();
+  expect(calls.starts).toEqual([{ number: 1, kind: "tool", name: "risks" }]);
+  calls.emit(run({ result: { shape: "findings", findings: [] } }));
+  store.rerun(key, risks);
+  await settle();
+  expect(calls.starts.at(-1)).toEqual({ number: 1, kind: "tool", name: "risks", again: true });
+});
+
+test("a run that moves on the stream is replaced whole, a late start does not take a finished run back, and a dismissed finding stays put", async () => {
+  const { store, calls, key } = await opened();
+  const done = run({ started_at: "2026-10-16T10:00:00Z", result: { shape: "findings", findings: [{ title: "One", body: "", severity: "low", at: place(2) }, { title: "Two", body: "", severity: "medium", at: place(2) }] } });
+  calls.emit(run({ state: "running" }));
+  expect(store.get().work[key]!.runs["risks"]?.state).toBe("running");
+  calls.emit(done);
+  store.dismiss(key, "tool:risks:0");
+  calls.emit(run({ state: "queued" }));
+  expect(store.get().work[key]!.runs["risks"]?.state).toBe("done");
+  calls.emit(done);
+  expect(store.get().work[key]!.findings.map((one) => [one.id, one.dismissed])).toEqual([["tool:risks:0", true], ["tool:risks:1", false]]);
+  // A run for another pull request is not this one's.
+  calls.emit(run({ number: 99 }));
+  expect(Object.keys(store.get().work)).toEqual([key]);
+});
+
+test("a failed run is Fleet's reason and never a result, and Run again starts another", async () => {
+  const { store, calls, key } = await opened();
+  calls.emit(run({ kind: "explanation", name: "how-it-works", state: "failed", failed: "The model answered something that was not themes" }));
+  const work = store.get().work[key]!;
+  expect(work.explains["how-it-works"]).toMatchObject({ state: "failed", said: "The model answered something that was not themes" });
+  expect(store.get().prs[0]!.explanation.themes).toEqual([]);
+  store.explainAgain(key, toolOf(store, "how-it-works"));
+  await settle();
+  expect(calls.starts).toEqual([{ number: 1, kind: "explanation", name: "how-it-works", again: true }]);
+});
+
+test("a run Fleet would not start is failed in Fleet's words", async () => {
+  const { store, key } = await opened({ startRun: async () => said("No definition has that name") });
+  store.runTool(key, toolOf(store, "risks"));
+  await settle();
+  expect(store.get().work[key]!.runs["risks"]).toMatchObject({ state: "failed", said: "No definition has that name" });
+});
+
+test("a question is asked under his words, answered by the run, and removing it keeps it off the page", async () => {
+  const { store, calls, key } = await opened();
+  store.ask(key, "  Does this   change anything? ");
+  await settle();
+  expect(calls.starts).toEqual([{ number: 1, kind: "ask", name: "Does this change anything?" }]);
+  const [asked] = store.get().work[key]!.asks;
+  expect(asked).toMatchObject({ words: "Does this change anything?", run: { state: "running" } });
+  expect(store.get().work[key]!.kind).toBe(asked!.id);
+  calls.emit(run({ kind: "ask", name: "Does this change anything?", result: { shape: "text", body: "No." } }));
+  expect(store.get().work[key]!.asks[0]).toMatchObject({ answer: "No.", run: { state: "done" } });
+  store.removeAsk(key, asked!.id);
+  calls.emit(run({ kind: "ask", name: "Does this change anything?", started_at: "2026-10-16T10:01:00Z", result: { shape: "text", body: "No." } }));
+  expect(store.get().work[key]!.asks).toEqual([]);
+});
+
+test("saving a tool writes it at Fleet and reads the tools again, and a refusal is Fleet's words", async () => {
+  const { store, calls } = await opened();
+  const saved = await store.addTool({ kind: "tool", name: "Test gaps", checks: "What no test would notice", scope: "kit", manifestId: "m1" });
+  expect(saved).toBeUndefined();
+  expect(calls.saves).toEqual(["kit:tool:Test gaps"]);
+  expect(store.get().tools["m1"]!.map((one) => one.id)).toContain("test-gaps");
+
+  const refused = await opened({ saveTool: async () => said("test-gaps.md is already in the Kit") });
+  expect(await refused.store.addTool({ kind: "tool", name: "Test gaps", checks: "x", scope: "kit", manifestId: "m1" })).toBe("test-gaps.md is already in the Kit");
+});
+
+test("a commit pushed since a result was kept leaves the result held with the commit it ran on", async () => {
+  const kept = run({ head: "old0000", result: { shape: "findings", findings: [] } });
+  const { store, key } = await opened({ runs: async () => ({ ok: true, value: { runs: [kept] } }) });
+  expect(store.get().work[key]!.runs["risks"]).toMatchObject({ state: "done", head: "old0000" });
+  expect(store.get().prs[0]!.head).toBe("head1");
+});
+
+test("Natural Search stays off where no mock forge holds what a find would come to", async () => {
+  const { store } = await opened();
+  expect(store.get().searchBuilt).toBe(false);
+  store.find("PRs that touch files I have touched");
   expect(store.get().finds).toEqual([]);
-  store.runTool(key, comments);
-  expect(store.get().work[key]!.view).toBe("comments");
 });

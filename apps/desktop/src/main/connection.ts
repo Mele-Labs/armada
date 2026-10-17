@@ -369,6 +369,7 @@ export class FleetConnection {
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       timeline: this.timeline,
+      reviews: this.reviews,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,

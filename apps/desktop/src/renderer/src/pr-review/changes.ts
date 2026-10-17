@@ -2,27 +2,40 @@
 // file** (`path`, `line`, `side`), as the forge names it, so any view of the same file finds it: a change an explanation
 // grouped, or the bare file. The change that owns a place is the first that holds that line of that path.
 
-import type { Change, Draft, PrWork, ReviewPr, Thread } from "./model";
+import type { Change, Draft, Finding, PrWork, ReviewPr, Thread } from "./model";
 import { indexOfPlace, type Place } from "./patch";
 
 /** Where on a change a place is drawn: the hunk, and the line of it. No line is the change itself. */
 export type Spot = { hunk: number; line?: number };
 
+/** A change nobody grouped is a file: it is named by its path, and no explanation placed it. */
+export const isFile = (change: Change): boolean => change.at === undefined;
+
+/** The path of the file whose patch a change draws. */
+export const fileOf = (change: Change): string => change.at?.path ?? change.id;
+
+/** The place a finding is on: where its range begins. */
+export const placeOfFinding = (finding: Pick<Finding, "at">): Place => ({ line: finding.at.start, side: finding.at.side });
+
+const fileChange = (path: string, work: Pick<PrWork, "patches">): Change => {
+  const read = work.patches[path];
+  return { id: path, title: path, why: "", hunks: read?.state === "read" ? [{ path, lines: read.lines }] : [] };
+};
+
 /**
  * The changes of a pull request. Where an explanation grouped them, its themes' changes with their hunks; otherwise **one a
- * file**, whose hunk is the patch once it has been read from the forge, and none before.
+ * file**, whose hunk is the patch once it has been read from the forge, and none before. **A finding no change holds is never
+ * dropped**: its file is a change of its own, after the others.
  */
-export function changesOf(pr: ReviewPr, work: Pick<PrWork, "patches">): Change[] {
+export function changesOf(pr: ReviewPr, work: Pick<PrWork, "patches" | "findings">): Change[] {
   const themed = pr.explanation.themes.flatMap((theme) => theme.changes);
-  if (themed.length > 0) return themed;
-  return pr.page.files.map((file) => {
-    const read = work.patches[file.path];
-    return { id: file.path, title: file.path, why: "", hunks: read?.state === "read" ? [{ path: file.path, lines: read.lines }] : [] };
-  });
+  const base = themed.length > 0 ? themed : pr.page.files.map((file) => fileChange(file.path, work));
+  const loose = [...new Set(work.findings.filter((one) => !one.dismissed && ownerOf(base, one.at.path, placeOfFinding(one)) === undefined).map((one) => one.at.path))];
+  return [...base, ...loose.map((path) => fileChange(path, work))];
 }
 
 /** The paths a change touches. A bare file's change is named by its path, so it answers before its patch is read. */
-const pathsOf = (change: Change): string[] => (change.hunks.length > 0 ? change.hunks.map((hunk) => hunk.path) : [change.id]);
+const pathsOf = (change: Change): string[] => (change.hunks.length > 0 ? change.hunks.map((hunk) => hunk.path) : [fileOf(change)]);
 
 /** The place a thread is on, or none where it is on the file as a whole. */
 export const placeOfThread = (thread: Pick<Thread, "line" | "side">): Place | undefined => (thread.line === undefined ? undefined : { line: thread.line, side: thread.side });

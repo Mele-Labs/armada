@@ -1,0 +1,10 @@
+[operations.get_review_runs]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every agent run kept or going for one pull request, with its result and the commit it ran on"
+notes = """
+`GET /review_runs/:repository/:number`, `repository` a manifest id. `ReviewRuns`, newest first. **Read when a pull request is opened**, and again after a reconnect, since `review_run.changed` is not replayed. A run for each key (kind and name) at each head it ran on; a result is not removed when the head moves.
+
+A 422 for a repository Fleet does not serve.
+"""

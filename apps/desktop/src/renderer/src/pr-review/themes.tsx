@@ -9,7 +9,7 @@ import { Button, DiffSize, Prose, PrMark, Tooltip, UnifiedDiff } from "@armada/c
 import type { DiffFile } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { changesOf, ownerOf, placeOfDraft, placeOfThread, spotOf } from "./changes";
+import { changesOf, fileOf, ownerOf, placeOfDraft, placeOfFinding, placeOfThread, spotOf } from "./changes";
 import type { Spot } from "./changes";
 import { DraftCard, FindingCard, LineComposer, ThreadCard } from "./lines";
 import { TOOL_MARK } from "./marks";
@@ -55,7 +55,7 @@ export function ThemeBlock({ pr, theme, number, mode, tool, send, quiet }: { pr:
  */
 export function BareChanges({ pr, mode, tool, send, quiet }: { pr: ReviewPr; mode: ChangeMode; tool?: string; send: Send; quiet?: (change: Change) => boolean }) {
   const all = changesOf(pr, useReviews().work[pr.key] ?? NO_WORK);
-  const shown = [...all].sort((a, b) => (a.hunks[0]?.path ?? "").localeCompare(b.hunks[0]?.path ?? "")).filter((one) => quiet === undefined || !quiet(one));
+  const shown = [...all].sort((a, b) => fileOf(a).localeCompare(fileOf(b))).filter((one) => quiet === undefined || !quiet(one));
   if (shown.length === 0) return null;
   return (
     <ol className="pr-bare">
@@ -79,7 +79,7 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   const all = changesOf(pr, work);
   const threads = work.threads.filter((one) => ownerOf(all, one.path, placeOfThread(one))?.id === change.id);
   const drafts = work.drafts.filter((one) => (one.thread === undefined ? ownerOf(all, one.path, placeOfDraft(one))?.id === change.id : threads.some((thread) => thread.id === one.thread)));
-  const findings = work.findings.filter((one) => one.change === change.id && !one.dismissed);
+  const findings = work.findings.filter((one) => ownerOf(all, one.at.path, placeOfFinding(one))?.id === change.id && !one.dismissed);
   const shownFindings = tool === undefined ? [] : findings.filter((one) => one.tool === tool);
   const onLines = threads.some((one) => one.line !== undefined) || drafts.some((one) => one.line !== undefined && one.thread === undefined);
   // Comments opens the hunks that have words on their lines, so a thread sits on the line it is about.
@@ -88,12 +88,12 @@ function ChangeBlock({ pr, change, number, mode, tool, send, bare = false }: { p
   const marked = [...new Set(findings.map((one) => tools.find((def) => def.id === one.tool)?.mark ?? "custom"))];
   const open = threads.some((one) => !one.resolved) || drafts.length > 0;
   const place = change.hunks[0]?.path ?? change.title;
-  // **A change nobody grouped is a file**, whose patch is read from the forge the first time it is shown.
-  const file = pr.explanation.themes.length === 0;
-  const patch = file ? work.patches[change.id] : undefined;
+  // **A change's hunk is cut from its file's patch**, which is read from the forge the first time the change is shown.
+  const path = fileOf(change);
+  const patch = work.patches[path];
   useEffect(() => {
-    if (shown && file) store.readFile(pr.key, change.id);
-  }, [shown, file, store, pr.key, change.id]);
+    if (shown) store.readFile(pr.key, path);
+  }, [shown, store, pr.key, path]);
 
   const spotOfThread = (thread: Thread) => spotOf(change, thread.path, placeOfThread(thread));
   const spotOfDraft = (draft: Draft) => spotOf(change, draft.path, placeOfDraft(draft));

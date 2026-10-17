@@ -39,6 +39,7 @@ pub(crate) fn supplied() -> Supplied {
         .list(s::MODELS_ROSTER, &["a-model", "another-model"])
         .words(s::MODELS_DEFAULT, "a-model")
         .words(s::MODELS_SESSION, "a-model")
+        .words(s::MODELS_REVIEW, "a-model")
         .words(s::MODELS_JUDGE, "a-model")
         .words(s::MODELS_PROPOSER, "a-model")
         .words(s::MODELS_RETRO, "another-model")
