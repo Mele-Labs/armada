@@ -16,6 +16,9 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
+// `?take=teal|ember|graphite` draws the depth treatment in one of three colourways (`@armada/tokens/takes.css`).
+const take = query.get("take");
+if (take === "teal" || take === "ember" || take === "graphite") document.documentElement.dataset.take = take;
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 const walking = query.get("walk");
 const script = walking === null ? undefined : EVERY_WALK.get(walking);

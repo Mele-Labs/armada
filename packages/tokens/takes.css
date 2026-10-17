@@ -1,0 +1,158 @@
+/* Three colourways for one depth treatment, a design mock the owner walks
+   with `?take=teal|ember|graphite`. Nothing here applies until the page
+   carries `data-take` on its root, so the app without one draws as before.
+
+   Not in the cascade `styles.css` declares and not generated: when he picks a
+   take, its block moves into `src/colors.css` and the shared tokens into
+   `src/colors.css` and `src/spacing.css`, and this file goes.
+
+   What a take changes is ground, edge and accent, and nothing else. Status
+   hues, the Helm indigo and the You gold are untouched, so a status means what
+   it meant. The accent stays interactive affordance only.
+
+   Contrast, measured as design-system.md → Depth measures it: the lightest
+   ground text sits on is the glass top under the accent pool, plus the sheen.
+   Every text token and every status badge clears 4.5:1 there and on an inset
+   tile. The hover and overlay grounds are one step lighter and carry the
+   same exception --status-not-started already had on --bg-overlay. */
+
+/* ---- Shared by all three ------------------------------------------------------------------------------- */
+:root[data-take] {
+  color-scheme: dark;
+
+  /* Light on a card: a sheen from the top leading corner, and a brighter line along the top edge. */
+  --glass-sheen: rgb(255 255 255 / 0.035);
+  --border-glass: rgb(255 255 255 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.11);
+  --glass-blur: 14px;
+
+  /* A softer, longer drop than the flat one it replaces. */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 28px 56px -24px rgb(0 0 0 / 0.85);
+  --shadow-primary:
+    inset 0 1px 0 rgb(255 255 255 / 0.32),
+    0 8px 18px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+
+  /* A row inside a card is an inset tile: a little lighter than the glass, no rule between two. */
+  --bg-tile: rgb(255 255 255 / 0.02);
+  --bg-tile-hover: rgb(255 255 255 / 0.045);
+  --tile-edge: rgb(255 255 255 / 0.05);
+
+  /* A recessed well: a segmented control, a field. */
+  --well: inset 0 1px 3px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.025);
+
+  /* A raised button: a fill gradient and a light line along its top inner edge. */
+  --button-sheen: linear-gradient(rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.015));
+  --button-raise: inset 0 1px 0 rgb(255 255 255 / 0.11), 0 1px 2px rgb(0 0 0 / 0.45);
+
+  /* A meter's track is hatched, and its fill brightens along its length. */
+  --track-hatch: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 6px);
+
+  /* A panel header: small caps, tracked wide, one hairline that fades under it. */
+  --tracking-head: 0.14em;
+  --head-rule: rgb(255 255 255 / 0.12);
+
+  /* The canvas's grid: hairlines every 48px, faint enough to be felt and not read. */
+  --canvas-grid: rgb(255 255 255 / 0.028);
+}
+
+/* The canvas: grain over a hairline grid over the accent's pool of light over the ground.
+   `body` and the shell both paint it, as `base.css` and `TheShell.css` paint the pool. */
+:root[data-take] body,
+:root[data-take] .armada-shell,
+:root[data-take] .armada-shell[data-dock] {
+  background:
+    url("./textures/grain.png") 0 0 / 128px 128px,
+    linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
+    radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
+    var(--bg-base);
+}
+:root[data-take] .armada-shell[data-dock] {
+  background:
+    url("./textures/grain.png") 0 0 / 128px 128px,
+    linear-gradient(var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px) 0 0 / 48px 48px,
+    radial-gradient(640px 520px at 100% 100%, var(--helm-faint), transparent),
+    radial-gradient(760px 480px at 0 0, var(--accent-faint), transparent),
+    var(--bg-base);
+}
+
+/* ---- Teal: a teal-tinted near-black ground, a teal accent ------------------------------------------------ */
+:root[data-take="teal"] {
+  --bg-base: #061010;
+  --bg-sunken: #040b0c;
+  --bg-raised: #0f1c1e;
+  --bg-overlay: #14252a;
+  --bg-hover: #172a2d;
+  --border-subtle: #172a2d;
+  --border-default: #213639;
+  --border-strong: #31504f;
+
+  --fg-default: #e3eeec;
+  --fg-muted: #93aeaa;
+  --fg-subtle: #80a09b;
+  --fg-inverse: #07201c;
+
+  --accent: #2fcdb8;
+  --accent-hover: #4edcc9;
+  --accent-muted: #124a47;
+
+  --bg-glass: rgb(9 21 23 / 0.86);
+  --bg-glass-end: rgb(7 16 18 / 0.86);
+}
+
+/* ---- Ember: a warm charcoal ground, a copper accent ----------------------------------------------------- */
+:root[data-take="ember"] {
+  --bg-base: #0d0b0a;
+  --bg-sunken: #080706;
+  --bg-raised: #181413;
+  --bg-overlay: #211b18;
+  --bg-hover: #261f1c;
+  --border-subtle: #272019;
+  --border-default: #352c26;
+  --border-strong: #4b3e35;
+
+  --fg-default: #eee8e2;
+  --fg-muted: #a99d93;
+  --fg-subtle: #968a80;
+  --fg-inverse: #1a0f08;
+
+  --accent: #db8552;
+  --accent-hover: #e89a6b;
+  --accent-muted: #4a2e1e;
+
+  --bg-glass: rgb(21 17 15 / 0.86);
+  --bg-glass-end: rgb(16 13 12 / 0.86);
+
+  /* Copper is warmer than neutral glass, so the wash under a lit control leans on it. */
+  --head-rule: rgb(255 214 190 / 0.13);
+}
+
+/* ---- Graphite: a neutral charcoal ground, a teal accent, the quietest -------------------------------------- */
+:root[data-take="graphite"] {
+  --bg-base: #0b0c0d;
+  --bg-sunken: #070809;
+  --bg-raised: #161819;
+  --bg-overlay: #1d2021;
+  --bg-hover: #232628;
+  --border-subtle: #202325;
+  --border-default: #2d3133;
+  --border-strong: #41464a;
+
+  --fg-default: #e7e9ea;
+  --fg-muted: #9ba1a5;
+  --fg-subtle: #8a9095;
+  --fg-inverse: #06201c;
+
+  --accent: #3cbfae;
+  --accent-hover: #58d0c0;
+  --accent-muted: #17443f;
+  --accent-faint: color-mix(in srgb, var(--accent) 5%, transparent);
+
+  --bg-glass: rgb(17 19 21 / 0.86);
+  --bg-glass-end: rgb(13 14 15 / 0.86);
+
+  --border-highlight: rgb(255 255 255 / 0.08);
+  --canvas-grid: rgb(255 255 255 / 0.02);
+  --tracking-head: 0.12em;
+}
