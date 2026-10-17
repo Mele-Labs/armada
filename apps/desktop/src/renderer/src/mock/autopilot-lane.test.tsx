@@ -7,6 +7,7 @@
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { repository } from "@armada/screens/src/fixtures/build/base";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import type { Scenario } from "./moment";
@@ -16,22 +17,39 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 beforeEach(forgetDismissals);
 
-/** The mock Autopilot's second started pick, whose Job has not had a Drone yet. */
-const PICKED_JOB = "01JAUTOPILOTJOB00000000002";
+/** The Session the mock Autopilot's second started pick opened, which has not run yet. */
+const PICKED_SESSION = "01JAUTOPILOTSESSION000000002";
 
 /**
- * The Cockpit on its own repository, where the mock's Autopilot runs. Two of its Jobs are made
- * Autopilot's: the one in bay 01 by origin, and the one waiting for a bay as a pick not yet started.
+ * The Cockpit on its own repository, where the mock's Autopilot runs. Its second pick's Session is
+ * added to the window's Sessions, idle and never run, as a pick not yet started.
  */
 function onTheRepository(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
-  const jobs = base.state.jobs.map((job) => {
-    if (job.title === "Debounce the Job Board's resize handler") return { ...job, origin: "autopilot_picked" };
-    if (job.title !== "Store a pause marker on the Job") return job;
-    const { started_at: _never, ...rest } = { ...job, id: PICKED_JOB, origin: "autopilot_picked" };
-    return rest;
-  });
-  return { ...base, name: "dashboard-cockpit-autopilot", state: { ...base.state, jobs, repository: repository().root } };
+  const picked: Session = { id: PICKED_SESSION, title: "Checkout total rounds the tax twice", turn: { state: "idle" }, rows: [], attachments: [] };
+  const sessions = base.draft!.sessions!;
+  return {
+    ...base,
+    name: "dashboard-cockpit-autopilot",
+    state: { ...base.state, repository: repository().root },
+    draft: {
+      ...base.draft,
+      sessions: (control) => {
+        const store = sessions(control);
+        let from: readonly Session[] | undefined;
+        let held: readonly Session[] = [];
+        // Stable between changes, as a store's snapshot must be.
+        return { ...store, get: () => {
+          const now = store.get();
+          if (now !== from) {
+            from = now;
+            held = [...now, picked];
+          }
+          return held;
+        } };
+      },
+    },
+  };
 }
 
 /** An issue's number as Bridge writes it, spelled so it never reads as a colour. */

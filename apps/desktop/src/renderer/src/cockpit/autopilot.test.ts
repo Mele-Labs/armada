@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Autopilot, IssueList, JobSummary } from "@armada/protocol";
+import type { Autopilot, IssueList } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { capsOf, clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
 
@@ -18,9 +19,9 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
     jobs_started: 3,
     at_work: 2,
     picks: [
-      { pick_id: "p1", issue_reference: "#1850", issue_title: "Log viewer drops the last line", issue_url: "u", job_id: "j1", state: "started", reason: "clear", at: "" },
-      { pick_id: "p2", issue_reference: "#1820", issue_title: "Flaky scout cost test", issue_url: "u", job_id: "j2", state: "started", reason: "clear", at: "" },
-      { pick_id: "p3", issue_reference: "#1834", issue_title: "Wrong label on Settings", issue_url: "u", job_id: "j3", state: "started", reason: "clear", at: "" },
+      { pick_id: "p1", issue_reference: "#1850", issue_title: "Log viewer drops the last line", issue_url: "u", session_id: "s1", state: "started", reason: "clear", at: "" },
+      { pick_id: "p2", issue_reference: "#1820", issue_title: "Flaky scout cost test", issue_url: "u", session_id: "s2", state: "started", reason: "clear", at: "" },
+      { pick_id: "p3", issue_reference: "#1834", issue_title: "Wrong label on Settings", issue_url: "u", session_id: "s3", state: "started", reason: "clear", at: "" },
       { pick_id: "p4", issue_reference: "#1802", issue_title: "Which settings file wins", issue_url: "u", state: "set_aside", reason: "A design call.", at: "" },
       { pick_id: "p5", issue_reference: "#1790", issue_title: "Old one", issue_url: "u", state: "withdrawn", reason: "clear", at: "" },
     ],
@@ -28,8 +29,8 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
   };
 }
 
-const job = (id: string, over: Partial<JobSummary> = {}) => ({ id, status: "running", started_at: "2026-10-12T03:01:00Z", ...over }) as JobSummary;
-const JOBS = [job("j1", { status: "queued", started_at: undefined }), job("j2"), job("j3")];
+const session = (id: string, over: Partial<Session> = {}): Session => ({ id, turn: { state: "working" }, rows: [], attachments: [], lastTurnAt: "2026-10-12T03:01:00Z", ...over });
+const SESSIONS = [session("s1", { turn: { state: "idle" }, lastTurnAt: undefined }), session("s2"), session("s3")];
 
 describe("the caps row", () => {
   it("is each cap used of its limit, with the one reached lit", () => {
@@ -65,12 +66,12 @@ describe("which cap paused it", () => {
 });
 
 describe("what Stop says before it is pressed", () => {
-  it("names the picks withdrawn and the Jobs that carry on", () => {
-    expect(stoppingOf(autopilot(), JOBS)).toBe("Stop ends Autopilot. #1850, picked and not started, is withdrawn. #1820 and #1834 keep going to the end.");
+  it("names the picks withdrawn and the Sessions that carry on", () => {
+    expect(stoppingOf(autopilot(), SESSIONS)).toBe("Stop ends Autopilot. #1850, picked and not started, is withdrawn. #1820 and #1834 keep going to the end.");
   });
 
-  it("falls back to what Stop does where no Job of its own is on the Board", () => {
-    expect(stoppingOf(autopilot(), [])).toBe("Stop ends Autopilot. Picks that have not started are withdrawn, and started Jobs finish.");
+  it("falls back to what Stop does where no Session of its own is held", () => {
+    expect(stoppingOf(autopilot(), [])).toBe("Stop ends Autopilot. Picks that have not started are withdrawn, and started Sessions carry on.");
   });
 });
 
