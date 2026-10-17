@@ -44,8 +44,10 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 
-/// The last line of a message answering an agent item: it need not say the item again.
-pub(crate) const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
+/// The last line of a message answering an agent item: it need not say the item again. It says the
+/// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
+/// stated the item again. Bridge leaves the line off the person's row, so keep it in step there.
+pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
 
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
