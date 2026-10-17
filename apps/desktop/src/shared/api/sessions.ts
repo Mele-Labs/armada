@@ -117,6 +117,10 @@ export type SessionsApi = {
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
+  /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
+  pauseSession: (sessionId: string) => Promise<SessionActed>;
+  /** Takes a slot again at the branch tip, or waits for one. A message to a paused Session does the same. */
+  resumeSession: (sessionId: string) => Promise<SessionActed>;
   /**
    * Sets the workflow a Session follows, or clears it with no `workflow` so it is a custom Session. Fleet tells the
    * agent at once. Answers the Session's record.
@@ -257,6 +261,8 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  pauseSession: "bridge:pause-session",
+  resumeSession: "bridge:resume-session",
   setSessionWorkflow: "bridge:set-session-workflow",
   releaseSessionHolds: "bridge:release-session-holds",
   handToSession: "bridge:hand-to-session",

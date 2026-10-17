@@ -424,6 +424,15 @@ describe("a session", () => {
     expect(unsaid.resolvedModel).toBeUndefined();
   });
 
+  it("marks a session paused from hosted.paused, and none otherwise", () => {
+    const hosted = (change: object) => ({ turn: { state: "idle" as const }, mode: "auto" as const, running: false, ...change });
+    const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ03", { hosted: hosted(change) }), undefined, beside());
+
+    expect(of({ paused: { at: "2026-10-17T10:00:00Z", resuming: false } }).paused).toBe(true);
+    expect(of({ paused: { at: "2026-10-17T10:00:00Z", resuming: true } }).paused).toBe(true);
+    expect(of({}).paused).toBeUndefined();
+  });
+
   it("carries the agent's questions on its ask", () => {
     const questions = [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }] }];
     const session = sessionOfRecord(

@@ -769,6 +769,8 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  pauseSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
+  resumeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
     ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),
