@@ -9,7 +9,6 @@ import { ROUTE } from "../geometry";
 import { ALONG, type Play } from "../plays";
 import { FRESH_LAND_MS } from "../Builds";
 import { askedOf, seatOf } from "../build";
-import { MOST_LOOPS } from "../doing";
 import { FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
 import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../Builds";
@@ -35,7 +34,7 @@ export type Crate = {
 /** A plot's name, written on it: the directory shortened to what the plot has room for. */
 export type PlotName = { tile: Tile; text: string; /** Two drones are writing it: the name is amber. */ clash: boolean };
 
-/** A subagent that circles the ring of the Session that sent it, or stands still by the pieces it wrote. */
+/** A subagent that hovers at a fixed place on the ring of the Session that sent it: by the pieces it wrote, else where its place among them puts it. */
 export type WorkerSpec = {
   key: string;
   /** What it was asked. */
@@ -46,13 +45,8 @@ export type WorkerSpec = {
   /** Its place among the Session's subagents: the further out and higher the later it is. */
   i: number;
   radius: number;
-  /** How long a lap takes, and how far round it is at the start, in laps. */
-  period: number;
+  /** How far round the ring it hovers, in turns from the top of the ring's first piece. */
   phase: number;
-  /** It laps, rather than standing at its phase. */
-  loop: boolean;
-  /** It laps the other way round. */
-  rev: boolean;
 };
 
 /** A plot a play lifts: the play that does it, how long after it begins, and how far. */
@@ -260,18 +254,15 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
   return out;
 }
 
-/** The subagents round each ring. They take the loops the drones leave, so the field never loops more than `MOST_LOOPS` things at once. */
+/** The subagents round each ring. A drone stands still, so these do: each at its own place on the ring. */
 function workersOf(i: SceneInputs): WorkerSpec[] {
-  let spare = Math.max(0, MOST_LOOPS - i.loops.size);
   return i.builds.flatMap(({ build, anchor, tile }) => {
     // A landed ring is cleared a quarter hour on, and its subagents with it.
     if (build.landedAt !== undefined && build.now - build.landedAt > FRESH_LAND_MS) return [];
     return build.workers.map((label, k): WorkerSpec => {
-      // One that wrote pieces sits by them and does not lap, so it spends no loop.
+      // One that wrote pieces sits by them; the others are spread round the ring by their place among the subagents.
       const seat = seatOf(build.tasks, label);
-      const loop = seat === undefined && spare > 0;
-      if (loop) spare -= 1;
-      return { key: `${build.key}/${label}`, detail: askedOf(label), anchor: onPlane(anchor), tile, i: k, radius: (34 + 9 * k) * i.big, period: (8 + k * 2) * 1000, phase: seat === undefined ? k * 0.27 : (seat / 360 + 1) % 1, loop, rev: k % 2 === 1 };
+      return { key: `${build.key}/${label}`, detail: askedOf(label), anchor: onPlane(anchor), tile, i: k, radius: (34 + 9 * k) * i.big, phase: seat === undefined ? k * 0.27 : (seat / 360 + 1) % 1 };
     });
   });
 }

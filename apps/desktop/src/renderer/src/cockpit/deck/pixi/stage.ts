@@ -72,7 +72,6 @@ export class Stage {
   private landed = new Map<string, number>();
   private stood = new Map<string, Stood>();
   private readonly listeners = new Set<(view: View) => void>();
-  private readonly ticks = new Set<() => void>();
   private fonts = 0;
   private themed: MutationObserver | undefined;
   private still: MediaQueryList | undefined;
@@ -213,22 +212,10 @@ export class Stage {
     return () => this.listeners.delete(listener);
   }
 
-  /** Called after each step of whatever eases, for what is placed over the canvas and moves with it (a subagent on its lap). */
-  onTick(listener: () => void): () => void {
-    this.ticks.add(listener);
-    return () => this.ticks.delete(listener);
-  }
-
-  /** The time a lap is told by, or nothing where motion is turned off and a subagent stands still. */
-  now(): number | undefined {
-    return (this.palette?.pulseMs ?? 0) > 0 ? performance.now() : undefined;
-  }
-
   destroy(): void {
     this.gone = true;
     cancelAnimationFrame(this.frame);
     this.listeners.clear();
-    this.ticks.clear();
     this.themed?.disconnect();
     this.still?.removeEventListener("change", this.restyle);
     const app = this.app;
@@ -337,7 +324,7 @@ export class Stage {
   private placeFliers(): void {
     const clock = this.clock();
     this.fliers?.place(this.shown, this.floorOf, clock);
-    this.workers?.place(this.shown, this.floorOf, clock);
+    this.workers?.place(this.shown, this.floorOf);
     if (this.scene !== undefined && this.palette !== undefined) this.beams?.update(this.scene, this.palette, this.shown, this.floorOf, clock);
   }
 
@@ -443,7 +430,7 @@ export class Stage {
     const pulse = this.palette?.pulseMs ?? 0;
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
-    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.workers.some((one) => one.loop) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
   }
 
   private get easing(): boolean {
@@ -490,7 +477,6 @@ export class Stage {
     this.rebuildFx();
     this.placeStands();
     this.placeFliers();
-    for (const listener of this.ticks) listener();
     if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();
   };

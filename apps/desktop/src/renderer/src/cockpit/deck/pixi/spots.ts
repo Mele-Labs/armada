@@ -81,9 +81,9 @@ export function pinSpot(view: View, pin: PinIn): Spot | undefined {
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -20, -51, 20, 7);
 }
 
-/** A subagent, wherever its lap has taken it: the CSS map's box round the small drone, which the zoom scales and the Session's size does not. */
-export function workerSpot(view: View, w: WorkerSpec, floor: number, now: number | undefined): Spot | undefined {
-  const here = project(view, workerAt(w, floor, now));
+/** A subagent: the CSS map's box round the small drone, which the zoom scales and the Session's size does not. */
+export function workerSpot(view: View, w: WorkerSpec, floor: number): Spot | undefined {
+  const here = project(view, workerAt(w, floor));
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -14, -12, 14, 8);
 }
 

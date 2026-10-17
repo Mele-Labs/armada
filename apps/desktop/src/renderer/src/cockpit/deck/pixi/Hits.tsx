@@ -44,22 +44,14 @@ export type HitActs = {
 class Placer {
   view: View | undefined;
   private readonly spots = new Map<HTMLElement, (view: View) => Spot | undefined>();
-  /** Those that move on their own, a subagent on its lap, and so are put again at each step of the clock and not only as the view moves. */
-  private readonly moving = new Set<HTMLElement>();
 
-  add(el: HTMLElement, spot: (view: View) => Spot | undefined, moving: boolean): void {
+  add(el: HTMLElement, spot: (view: View) => Spot | undefined): void {
     this.spots.set(el, spot);
-    if (moving) this.moving.add(el);
     this.put(el);
   }
 
   remove(el: HTMLElement): void {
     this.spots.delete(el);
-    this.moving.delete(el);
-  }
-
-  step(): void {
-    for (const el of this.moving) this.put(el);
   }
 
   run(view: View): void {
@@ -84,16 +76,16 @@ class Placer {
 const PlacerContext = createContext<Placer | undefined>(undefined);
 
 /** An element that stands over the canvas where `spot` says. It is put there again whenever its component is drawn, and by the stage as the view moves. */
-function usePlaced<T extends HTMLElement>(spot: (view: View) => Spot | undefined, moving = false) {
+function usePlaced<T extends HTMLElement>(spot: (view: View) => Spot | undefined) {
   const placer = useContext(PlacerContext)!;
   const el = useRef<T>(null);
   const latest = useRef(spot);
   latest.current = spot;
   useLayoutEffect(() => {
     const node = el.current!;
-    placer.add(node, (view) => latest.current(view), moving);
+    placer.add(node, (view) => latest.current(view));
     return () => placer.remove(node);
-  }, [placer, moving]);
+  }, [placer]);
   useLayoutEffect(() => placer.put(el.current!));
   return el;
 }
@@ -333,9 +325,9 @@ function Ring({ one, heights, big, acts }: { one: Placed; heights: ReadonlyMap<s
   );
 }
 
-/** A subagent circling a ring, or standing by the pieces it wrote. It is put again at each step of the clock while it laps. */
+/** A subagent hovering at its place on a ring. */
 function Worker({ worker, stage, acts }: { worker: WorkerSpec; stage: Stage; acts: MutableRefObject<HitActs> }) {
-  const ref = usePlaced<HTMLDivElement>((view) => workerSpot(view, worker, stage.floorOf(worker.tile), stage.now()), worker.loop);
+  const ref = usePlaced<HTMLDivElement>((view) => workerSpot(view, worker, stage.floorOf(worker.tile)));
   const tip: Tip = { label: "Subagent", title: worker.detail, hue: "quiet" };
   return (
     <div
@@ -435,8 +427,7 @@ function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
   const placer = useRef(new Placer()).current;
   useLayoutEffect(() => {
     placer.run(stage.shown);
-    const off = [stage.onView((view) => placer.run(view)), stage.onTick(() => placer.step())];
-    return () => off.forEach((one) => one());
+    return stage.onView((view) => placer.run(view));
   }, [stage, placer]);
   usePlates(layer, stage, scene, acts);
   const drones = [...scene.drones].sort((a, b) => a.at.y - b.at.y);
