@@ -3,23 +3,36 @@
 // panel shows the plan with no band of its own; once approved the panel carries the plan for the rest of the Session. Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState } from "react";
-import { BadgeCheck, Bot, ChevronDown, PencilLine, PencilRuler } from "lucide-react";
-import { Button, TaskMark, Tooltip } from "@armada/components";
-import type { WorkPlan } from "@armada/screens/src/draft/sessions";
+import { BadgeCheck, Bot, ChevronDown, Link, PencilLine, PencilRuler } from "lucide-react";
+import { Button, LinkedSession, TaskMark, Tooltip } from "@armada/components";
+import type { Session, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit";
+import { childrenOf, linkedPropsOf } from "./linked";
 import { viewOf, type ViewGroup } from "./plan-marks";
+import { wasOpen } from "./place";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
-/** A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full. */
-function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
-  const [open, setOpen] = useState(false);
+const NOWHERE = () => undefined;
+
+/**
+ * A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full.
+ * **A group handed to a Session carries that Session's row** under its own; one not handed
+ * offers the hand off in its open body.
+ */
+function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; ed: PlanEditing; parent: Session | undefined; onOpenSession: (id: string) => void }) {
+  const [open, setOpen] = useState(() => wasOpen(ed.id, group.id));
+  const sessions = useSessions();
+  const draft = useSessionsDraft();
+  const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
+  const handOff = draft?.handOff;
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done");
   const failed = group.tasks.some((task) => task.state === "failed");
   return (
-    <section className="sv-group" data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
+    <section className="sv-group" data-group={group.id} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
       <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setOpen((was) => !was)}>
         <span className="sv-group__title">{group.title}</span>
         <span className="sv-group__head">
@@ -46,16 +59,28 @@ function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
           </span>
         )}
       </button>
+      {child === undefined ? null : (
+        <div className="sv-group__linked">
+          <LinkedSession {...linkedPropsOf(child, onOpenSession)} />
+        </div>
+      )}
       {open ? (
         <div className="sv-group__body">
           <GroupEditor group={group} ed={ed} />
+          {child !== undefined || handOff === undefined ? null : (
+            <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
+              <Link size={12} strokeWidth={2} aria-hidden />
+              Hand to a Session
+            </Button>
+          )}
         </div>
       ) : null}
     </section>
   );
 }
 
-export function PlanPanel({ id, plan, place, ed, onOpenSketch }: { id: string; plan: WorkPlan; place: Place; ed: PlanEditing; onOpenSketch: (sketch: string) => void }) {
+export function PlanPanel({ id, plan, place, ed, onOpenSketch, onOpenSession }: { id: string; plan: WorkPlan; place: Place; ed: PlanEditing; onOpenSketch: (sketch: string) => void; onOpenSession?: (id: string) => void }) {
+  const parent = useSessions().find((one) => one.id === id);
   const finished = plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
   const state: PanelState | undefined = !plan.approved ? undefined : finished ? "done" : "live";
   const sketch = plan.sketch;
@@ -83,7 +108,7 @@ export function PlanPanel({ id, plan, place, ed, onOpenSketch }: { id: string; p
       <div className="sv-plan">
         <div className="sv-plan__groups">
           {viewOf(plan, ed.marks).map((group) => (
-            <Group key={group.id} group={group} ed={ed} />
+            <Group key={group.id} group={group} ed={ed} parent={parent} onOpenSession={onOpenSession ?? NOWHERE} />
           ))}
         </div>
         <div className="sv-plan__foot">

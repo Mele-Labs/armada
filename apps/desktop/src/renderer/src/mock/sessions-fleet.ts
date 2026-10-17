@@ -117,6 +117,8 @@ export type Calls = {
   /** The Sessions whose running turn was stopped. */
   stopped: string[];
   forked: string[];
+  /** The plan groups handed to a Session of their own, and the Session that handed each. */
+  handed: { sessionId: string; group: string }[];
   /** The Sessions forked from one message, and the message. */
   forkedAt: { sessionId: string; at: string }[];
   /** The Sessions moved to another repository, and where. */
@@ -137,7 +139,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -351,6 +353,16 @@ export class FakeSessionsFleet {
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
+          handToSession: async (sessionId, group) => {
+            this.calls.handed.push({ sessionId, group });
+            const parent = this.records.find((one) => one.id === sessionId);
+            const title = parent?.plan?.groups.find((one) => one.id === group)?.title;
+            if (parent === undefined || title === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            // The press is his, so the brief is sent: nothing is left held.
+            const id = this.agentStarts(sessionId, { title, message: title, group });
+            this.change(id, (one) => ({ ...one, attachments: one.attachments.filter((a) => a.kind !== "unsent"), waiting_for: [] }));
+            return { ok: true, value: { session_id: id, title, fork: false } };
+          },
           forkSessionAt: async (sessionId, at) => {
             this.calls.forkedAt.push({ sessionId, at });
             const old = this.records.find((one) => one.id === sessionId);
@@ -510,15 +522,16 @@ export class FakeSessionsFleet {
    * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the agent's first
    * message is stored as the Session's unsent message, and nothing runs until he sends it. Answers the new id.
    */
-  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string } }): string {
+  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string }; group?: string }): string {
     const id = `01AGENT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHI`;
-    const link = how.fork === undefined ? held("started_by", fromId, {}, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
+    const grouped: Record<string, string> = how.group === undefined ? {} : { group: how.group };
+    const link = how.fork === undefined ? held("started_by", fromId, grouped, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
     const record = hosted(id, {
       title: how.title,
       attachments: [link, held("unsent", how.message)],
       waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "first_message", act: { kind: "message", target: id } }],
     });
-    const back = how.fork === undefined ? held("started_to", id, {}, "spent") : held("forked_to", id, {}, "spent");
+    const back = how.fork === undefined ? held("started_to", id, grouped, "spent") : held("forked_to", id, {}, "spent");
     this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
     return id;
   }

@@ -26,6 +26,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn hand_to_session(self: Arc<Self>, _hand: ipc::HandToSession) -> Result<ipc::SessionHeld, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn send_session_message(
         self: Arc<Self>,
         _sent: SendSessionMessage,

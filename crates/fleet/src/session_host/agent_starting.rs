@@ -9,6 +9,8 @@
 //! **The caller is placed by its connection and never named**, so a fork can only be of the
 //! caller's own conversation.
 
+use std::collections::BTreeMap;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, HostedSessions, Refusal};
 use ipc::{
@@ -17,6 +19,7 @@ use ipc::{
 };
 use store::{AttachmentState, Holder, KeptAttachment};
 
+use super::linking::GROUP;
 use crate::daemon::Fleet;
 
 const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
@@ -31,9 +34,9 @@ const STARTED_BY: &str = "started_by";
 const STARTED_TO: &str = "started_to";
 
 /// The words a call must carry, trimmed.
-struct Words {
-    title: String,
-    message: String,
+pub(super) struct Words {
+    pub(super) title: String,
+    pub(super) message: String,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -74,10 +77,22 @@ where
         start: StartAnotherSession,
     ) -> Result<SessionHeld, Refusal> {
         let me = self.agent_placed(caller.as_ref())?;
-        let words = self.agent_words(&start.title, &start.message)?;
+        let mut words = self.agent_words(&start.title, &start.message)?;
+        let mut manifest = start.manifest_id;
+        // A group of the caller's plan: the Session is the caller's own repository and the group's work.
+        let group = match start.group.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
+            Some(group) => {
+                let (_, hosting) = self.session_and_hosting(&me).await?;
+                manifest = ManifestId::carried(&hosting.manifest_id);
+                let (title, brief) = self.group_brief(&me, group).await?;
+                words = Words { title, message: format!("{brief}\n\n{}", words.message) };
+                Some(group.to_string())
+            }
+            None => None,
+        };
         let made = self
             .start_session(StartSession {
-                manifest_id: start.manifest_id,
+                manifest_id: manifest,
                 title: Some(words.title.clone()),
                 model: None,
                 effort: None,
@@ -88,7 +103,7 @@ where
                 request: None,
             })
             .await?;
-        self.held_for_person(&me, made, words, false).await
+        self.held_for_person(&me, made, words, false, group.as_deref()).await
     }
 
     /// `fork_this_session`.
@@ -121,18 +136,19 @@ where
                 request: None,
             })
             .await?;
-        self.held_for_person(&me, made, words, true).await
+        self.held_for_person(&me, made, words, true, None).await
     }
 
     /// Keep the first message unsent, link the two ledgers, write the callout in the caller's thread
     /// and publish both. **A fork's links are the fork's own** (`forked_from`, `forked_to`), written
     /// when it was made.
-    async fn held_for_person(
+    pub(super) async fn held_for_person(
         &self,
         caller: &str,
         made: SessionRecord,
         words: Words,
         fork: bool,
+        group: Option<&str>,
     ) -> Result<SessionHeld, Refusal> {
         let new = made.id.as_str().to_string();
         let manifest = made
@@ -143,7 +159,10 @@ where
         let now = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
-            let mut keep = |holder: &str, kind: &str, target: &str, state: AttachmentState| {
+            // The group a linked Session was handed rides on both link rows, so each ledger serves it.
+            let linked: BTreeMap<String, String> =
+                group.map(|one| BTreeMap::from([(GROUP.to_string(), one.to_string())])).unwrap_or_default();
+            let mut keep = |holder: &str, kind: &str, target: &str, state: AttachmentState, detail: BTreeMap<String, String>| {
                 store
                     .attach(
                         &KeptAttachment {
@@ -152,7 +171,7 @@ where
                             manifest_id: manifest.clone(),
                             target: target.to_string(),
                             state,
-                            detail: Default::default(),
+                            detail,
                             since: now.clone(),
                             changed_at: now.clone(),
                         },
@@ -162,10 +181,10 @@ where
             };
             if !fork {
                 // `spent`, as a fork's links are: the link is a fact that stays.
-                keep(&new, STARTED_BY, caller, AttachmentState::Spent)?;
-                keep(caller, STARTED_TO, &new, AttachmentState::Spent)?;
+                keep(&new, STARTED_BY, caller, AttachmentState::Spent, linked.clone())?;
+                keep(caller, STARTED_TO, &new, AttachmentState::Spent, linked)?;
             }
-            keep(&new, UNSENT, &words.message, AttachmentState::Standing)?;
+            keep(&new, UNSENT, &words.message, AttachmentState::Standing, BTreeMap::new())?;
         }
         self.row_put(
             caller,

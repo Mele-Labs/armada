@@ -372,6 +372,18 @@ pub enum SessionAskState {
     SessionGone,
 }
 
+/// What a Session that is followed did, for the parent's thread.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkedEvent {
+    /// It waits on the person.
+    Needs,
+    /// It ended.
+    Done,
+    /// A pull request it held merged.
+    Merged,
+}
+
 /// One row of a hosted session's thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -472,6 +484,15 @@ pub enum SessionRow {
         at: Instant,
         session: crate::session_starts::SessionLink,
         fork: bool,
+    },
+    /// A Session this one follows needs the person, finished or had its pull request merged.
+    /// Written in **this** session's thread where it happened, and the agent is told the same
+    /// moment; `session` is the linked one, and the row is the press that opens it.
+    Linked {
+        id: String,
+        at: Instant,
+        session: crate::session_starts::SessionLink,
+        event: LinkedEvent,
     },
     /// A question the session asked in its walk window. **Replaced by id once answered**, with
     /// `answer` set to what the person chose and said.
@@ -610,6 +631,7 @@ impl SessionRow {
             | SessionRow::Lease { id, .. }
             | SessionRow::Window { id, .. }
             | SessionRow::Started { id, .. }
+            | SessionRow::Linked { id, .. }
             | SessionRow::Check { id, .. }
             | SessionRow::Ran { id, .. }
             | SessionRow::Retro { id, .. }

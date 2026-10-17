@@ -2,15 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Start a new session in any repository with a first message, which waits for the person to send it. Nothing runs until he does. Body: manifest_id, title, message"
+description = "Start a new session in any repository with a first message, which waits for the person to send it. Nothing runs until he does. Body: manifest_id, title, message, and group to hand a group of your plan to it"
 notes = """
-`POST /sessions/start_another`, body `StartAnotherSession`: `manifest_id`, `title` and `message`. Since 23.80. Answered with `SessionHeld`: the new session's id, its title and `fork` false.
+`POST /sessions/start_another`, body `StartAnotherSession`: `manifest_id`, `title`, `message` and optionally `group`. Since 23.80. Answered with `SessionHeld`: the new session's id, its title and `fork` false.
 
 **The session is created and listed at once, and nothing runs.** No process starts and no turn begins. The message is the agent's first message and the person's to send: Fleet keeps it as an `unsent` attachment on the new session's ledger, standing, whose target is its words, and derives a waiting item `unsent:<session id>` with source `first_message` and an `act` of `message` on the session, labelled "First message". Bridge puts the words in the new session's message box once, where the box is empty. The person's ordinary `send_session_message` sends whatever the box then holds, starts the first turn, and settles both the attachment and the item; editing it first is the same call. `close_session` discards it.
 
 **The caller is placed as `show_window` places it**, by the connection of a hosted session's process, and the call names no session. A call that places no hosted session is refused with 422 `fleet.agent_start_unplaced`. A blank `title` or `message` is refused with 422 `fleet.agent_start_empty`, and a `manifest_id` Fleet does not serve with the refusal `start_session` gives.
 
 **Both ledgers record it.** The new session carries a `started_by` attachment naming the caller and the caller a `started_to` naming the new one, both `spent`. The caller's thread gets a `started` row, `{ session: { id, title }, fork: false }`, which Bridge draws as the press that opens it.
+
+**With `group`, the new Session is a linked Session the caller follows.** `group` is the id of a group of the caller's recorded plan, in the caller's own repository. Fleet titles the Session with the group's title, whatever `title` says, and its held first message is the group's tasks word for word, the caller's handoff (title and id, slot, branches, open pull requests and the last rows of its thread) and `message` after them. Both ledgers keep the group as `detail.group` on the `started_by` and `started_to` rows, so Bridge draws the Session on the group in the Plan and under the caller in Work. **Fleet then tells the caller** when the linked Session needs the owner, ends, or has a pull request merged: a message that wakes the caller if it is idle, and a `linked` row in its thread (`event` `needs`, `done` or `merged`). Every Session an agent starts is followed in that way, with or without a group. Refused 422 `fleet.group_unknown` where the caller's plan holds no such group, and 409 `fleet.group_handed` where the group has a Session already.
 
 `agent_access` is `Yes`: starting work in another repository is the agent's to propose, and holding the first message for the person is what keeps it his to start. `start_session` stays `No`, since that one starts a process.
 """

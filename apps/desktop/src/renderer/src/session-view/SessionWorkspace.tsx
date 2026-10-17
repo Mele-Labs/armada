@@ -25,7 +25,7 @@ import "./session-view.css";
 /** The deck's own places, as elements: `null` before the deck has drawn one. */
 export type Hosts = { side: HTMLElement | null; foot: HTMLElement | null };
 
-export function SessionWorkspace({ session, entries, repositories, hosts, ed, onOpenSketch, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; onOpenSketch: (sketch: string) => void; children: ReactNode }) {
+export function SessionWorkspace({ session, entries, repositories, hosts, ed, onOpenSketch, onOpenSession, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; children: ReactNode }) {
   const draft = useSessionsDraft();
   const work = session.work;
   if (work === undefined || draft === undefined || hosts === undefined) return <>{children}</>;
@@ -35,7 +35,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, on
     <>
       <LedgerPanel session={session} entries={entries} place="side" />
       {work.railOff === true ? null : <StatusPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={acts} />}
-      {work.plan === undefined || ed === undefined ? null : <PlanPanel id={id} plan={work.plan} place="side" ed={ed} onOpenSketch={onOpenSketch} />}
+      {work.plan === undefined || ed === undefined ? null : <PlanPanel id={id} plan={work.plan} place="side" ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} />}
     </>
   );
   return (

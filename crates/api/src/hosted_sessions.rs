@@ -25,6 +25,21 @@ pub(crate) async fn start_session<D: HostedSessions>(
     }
 }
 
+/// The person hands a group of a Session's plan to a linked Session. 200 with `SessionHeld`.
+pub(crate) async fn hand_to_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let hand: ipc::HandToSession = match ipc::decode("a group to hand to a session", &body) {
+        Ok(hand) => hand,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().hand_to_session(hand).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The most a message may weigh. Its pictures and files ride inside it as base64, and one
 /// Retina screenshot is past axum's 2 MB default on its own.
 pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;

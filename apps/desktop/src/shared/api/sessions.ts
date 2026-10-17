@@ -26,6 +26,7 @@ import type {
   SendPlanChanges,
   SendSessionMessage,
   ChosenHold,
+  SessionHeld,
   SessionHoldsReleased,
   SessionRecord,
   SessionRow,
@@ -123,6 +124,11 @@ export type SessionsApi = {
    * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
    */
   releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
+  /**
+   * Hands one group of the Session's plan to a linked Session of its own: Fleet starts it in the same repository, titled with the
+   * group's, and sends the group's tasks and the Session's handoff as its first message. Answers the new Session's id.
+   */
+  handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
   /**
    * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
@@ -247,6 +253,7 @@ export const SESSIONS_CHANNELS = {
   stopSession: "bridge:stop-session",
   setSessionWorkflow: "bridge:set-session-workflow",
   releaseSessionHolds: "bridge:release-session-holds",
+  handToSession: "bridge:hand-to-session",
   moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

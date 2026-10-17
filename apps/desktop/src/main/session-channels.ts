@@ -127,6 +127,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
       connection()?.sessions.releaseHolds({ session_id: sessionId, ...(text(toSessionId) ? { to_session_id: toSessionId } : {}), ...(chosen === undefined ? {} : { rows: chosen }) }) ?? unsent
     );
   });
+  ipc.handle(CHANNELS.handToSession, (_event, sessionId: string, group: string) =>
+    text(sessionId) && text(group) ? (connection()?.sessions.handToSession({ session_id: sessionId, group }) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
     text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unread,
   );
