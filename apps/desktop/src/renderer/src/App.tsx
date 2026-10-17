@@ -253,7 +253,8 @@ export function App({ draft }: AppProps = {}) {
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [reviewing, setReviewing] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`).
   const [sessioning, setSessioning] = useState(false); const [jobbing, setJobbing] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), ...reviewsHidden(useReviewStore() !== undefined)]; // Left off the rail and the palette.
+  // Left off the rail and the palette. Jobs too: they are being folded into Sessions, so the Cockpit's Work list holds them.
+  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined)];
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
