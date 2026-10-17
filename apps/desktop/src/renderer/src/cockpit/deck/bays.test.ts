@@ -94,7 +94,8 @@ test("now is the pool's own reading, with the branch the slot is on and no ledge
 
 test("a slot a Session takes after the deck is drawn gets its drone, and a released slot loses it", () => {
   const drawn = [slot({ slot: 1, held: { state: "job", job_id: "j1" } }), slot({ slot: 4, held: { state: "free" } })];
-  expect([...holdersOf(drawn).keys()]).toEqual(["job:j1"]);
+  // A slot an old Job holds draws no holder: only hosted Sessions hold a bay.
+  expect([...holdersOf(drawn).keys()]).toEqual([]);
 
   // Slot 4 as `list_worktrees` returns it once the Session's first write has leased it.
   const leased = drawn.map((one) => (one.slot === 4 ? slot({ slot: 4, ...heldBy("d02bc3e3-94ce-4972-896c-9df4056ecf28", "2026-10-15T12:05:12Z") }) : one));
