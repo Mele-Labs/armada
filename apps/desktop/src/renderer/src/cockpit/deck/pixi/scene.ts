@@ -4,9 +4,10 @@
 
 import type { RouteIn } from "../mission";
 import type { Frame } from "../frame";
+import type { CallTone } from "../field";
 import { ROUTE } from "../geometry";
 import { ALONG, type Play } from "../plays";
-import { FLAT, alongOf, type DroneIn, type Layout, type P3, type PrIn, type Size } from "../layout";
+import { FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
 import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../Builds";
 import { onPlane } from "../bf-parts";
@@ -24,6 +25,49 @@ export type Crate = {
   at: P3;
   /** Its owner is outside the filters: the route and the crate dim. */
   dim: boolean;
+  /** It is on its way: a hop along an arc from where it was, and how long it waits to start. Landing hops, then goes. */
+  hop: { id: string; from: P3; delay: number; landing: boolean } | undefined;
+};
+
+/** Where a working drone's action lands: the plot, the point on it nearest the drone and how wide the action is there, on the plane. */
+export type Aim = { tile: string; at: Point; wide: number; deep: number };
+
+/** A drone and everything the canvas needs to draw it, read once: where it flies, how it stands and what it is doing over its plot. */
+export type DroneSpec = {
+  drone: DroneIn;
+  /** Where it stands on the plane, the plot under it, and how high it flies. */
+  at: Point;
+  tile: string | undefined;
+  alt: number;
+  /** Where it flies in the air, which a line to it ends at. */
+  flying: P3;
+  selected: boolean;
+  hot: boolean;
+  labelled: boolean;
+  muted: boolean;
+  away: boolean;
+  focused: boolean;
+  dim: boolean;
+  call: CallTone | undefined;
+  /** The call was opened or answered a moment ago: its marker is going. */
+  leaving: boolean;
+  /** Its action turns, rather than showing as one still frame: one of the most the map animates at once. */
+  loop: boolean;
+  aim: Aim | undefined;
+  /** Its launch: the play, and where it lifts from. */
+  launch: { id: string; delay: number; from: P3 } | undefined;
+  /** The bay it holds, where its tether is tied. */
+  pad: Point | undefined;
+  /** Where its contrail begins: its bay, or the base where it holds none. */
+  origin: P3;
+  /** It, or the Job it belongs to, is the one picked. */
+  lit: boolean;
+  /** How long ago it was dispatched, for the contrail it left. */
+  trail: number | undefined;
+  /** The Job it belongs to, and where that flies. */
+  above: P3 | undefined;
+  /** The plots it touches, the biggest first. */
+  touches: readonly { tile: string; at: Point }[];
 };
 
 export type PixiSceneIn = {
@@ -45,6 +89,14 @@ export type PixiSceneIn = {
   /** Zoomed in far enough that a name can be read. */
   readable: boolean;
   builds: readonly Placed[];
+  drones: readonly DroneSpec[];
+  plays: readonly Play[];
+  /** The plots a play lifts, and when. */
+  bumps: ReadonlyMap<string, { wait: number; amp: number }>;
+  /** The radius of the ring a running drone's sweep turns on. */
+  orbit: number;
+  /** Two drones changing one area, each end where it flies. */
+  clashLines: readonly { key: string; from: P3; to: P3 }[];
 };
 
 export type SceneInputs = {
@@ -61,6 +113,20 @@ export type SceneInputs = {
   pinned: string | undefined;
   readable: boolean;
   builds: readonly Placed[];
+  selected: string | undefined;
+  hot: string | undefined;
+  focus: string | undefined;
+  /** The drones whose name is drawn. */
+  labels: ReadonlySet<string>;
+  calls: ReadonlyMap<string, CallTone>;
+  /** The call markers on a drone, whether live or still going out. */
+  callOf: (key: string) => CallTone | undefined;
+  loops: ReadonlySet<string>;
+  /** The camera is locked on a drone, so the calm ones stand back. */
+  locked: boolean;
+  trails: ReadonlyMap<string, number>;
+  /** Each bay's pad on the plane. */
+  padAt: ReadonlyMap<string, Point>;
 };
 
 /** The base's hangar end, where a pull request with no drone of its own starts from. */
@@ -84,9 +150,84 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
     const landed = pr.stage === "landed";
     if (landed && !landing.has(pr.number)) continue;
     const rest = alongOf(start, end, 34, landed ? ALONG.queued : ALONG[pr.stage]);
-    out.push({ pr, start, end, at: landed ? end : rest, dim: owner !== undefined && !owner.shown });
+    const arrived = i.plays.find((one) => one.kind === "capture" && one.number === pr.number);
+    const opened = i.plays.find((one) => one.kind === "payload" && one.number === pr.number);
+    const hopping = landed ? arrived : opened;
+    out.push({
+      pr,
+      start,
+      end,
+      at: landed ? end : rest,
+      dim: owner !== undefined && !owner.shown,
+      hop: hopping === undefined ? undefined : { id: hopping.id, from: landed ? rest : start, delay: hopping.delay, landing: landed },
+    });
   }
   return out;
+}
+
+const tileUnder = (tiles: readonly Tile[], at: Point): Tile | undefined => tiles.find((t) => at.x >= t.rect.x && at.x <= t.rect.x + t.rect.w && at.y >= t.rect.y && at.y <= t.rect.y + t.rect.h);
+
+/** The drones as the canvas draws them. */
+function dronesOf(i: SceneInputs): DroneSpec[] {
+  const { layout, frame } = i;
+  const droneBy = new Map(i.drones.map((one) => [one.key, one] as const));
+  const out: DroneSpec[] = [];
+  for (const drone of i.drones) {
+    const placed = layout.at.get(drone.key);
+    if (placed === undefined) continue;
+    const at = onPlane(placed);
+    const tile = tileUnder(frame.tiles, placed);
+    const aimTile = frame.aimOf(drone);
+    const aimed = aimTile === undefined ? undefined : onPlane(frame.aimPoint(drone, aimTile));
+    const launch = i.plays.find((one) => one.key === drone.key && one.kind === "launch");
+    const pad = drone.slot === undefined ? undefined : i.padAt.get(drone.slot);
+    const origin: P3 = pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 };
+    const parent = drone.parent === undefined ? undefined : droneBy.get(drone.parent);
+    const on = i.selected === drone.key;
+    out.push({
+      drone,
+      at,
+      tile: tile?.path,
+      alt: frame.altOf(drone),
+      flying: frame.flying(drone)!,
+      selected: on,
+      hot: i.hot === drone.key,
+      labelled: i.labels.has(drone.key),
+      muted: drone.shown && i.locked && !on && drone.hue === "calm",
+      away: !drone.shown,
+      focused: i.focus === drone.key,
+      dim: i.focus !== undefined && i.focus !== drone.key,
+      call: i.callOf(drone.key),
+      leaving: !i.calls.has(drone.key),
+      loop: i.loops.has(drone.key),
+      aim: aimTile === undefined || aimed === undefined ? undefined : { tile: aimTile.path, at: aimed, wide: Math.min(aimTile.rect.w, 150) * 0.86, deep: Math.min(aimTile.rect.h * FLAT, 100) * 0.86 },
+      launch: launch === undefined ? undefined : { id: launch.id, delay: launch.delay, from: origin },
+      pad,
+      origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
+      lit: i.selected === drone.key || i.selected === drone.parent,
+      trail: i.trails.get(drone.key),
+      above: parent === undefined ? undefined : frame.flying(parent),
+      touches: (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
+    });
+  }
+  return out;
+}
+
+/** The plots that rise when something touches them: a Check, a turn or a launch under a drone, and the wave a merge sends over its territory. */
+function bumpsOf(i: SceneInputs): Map<string, { wait: number; amp: number }> {
+  const bump = new Map<string, { wait: number; amp: number }>();
+  for (const play of i.plays) {
+    if ((play.kind === "launch" || play.kind === "sweep" || play.kind === "tracer") && play.key !== undefined) {
+      for (const { tile } of i.layout.over.get(play.key) ?? []) if (!bump.has(tile.path)) bump.set(tile.path, { wait: play.delay + (play.kind === "launch" ? 900 : 250), amp: 8 });
+    }
+    if (play.kind === "capture") {
+      const root = play.root ?? i.prs.find((pr) => pr.number === play.number)?.root;
+      const at = root === undefined ? undefined : i.layout.territories.find((one) => one.root === root);
+      if (at?.goal === undefined) continue;
+      for (const tile of at.tiles) bump.set(tile.path, { wait: Math.round(play.delay + 900 + Math.hypot(tile.cx - at.goal.x, (tile.cy - at.goal.y) * FLAT) * 1.1), amp: 6 });
+    }
+  }
+  return bump;
 }
 
 export function sceneOf(i: SceneInputs): PixiSceneIn {
@@ -110,5 +251,16 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     pinned: i.pinned,
     readable: i.readable,
     builds: i.builds,
+    drones: dronesOf(i),
+    plays: i.plays,
+    bumps: bumpsOf(i),
+    orbit: i.frame.orbit,
+    clashLines: i.layout.clashes.flatMap((clash) => {
+      const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
+      const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
+      return from === undefined || to === undefined ? [] : [{ key: `${clash.root}:${clash.path}`, from, to }];
+    }),
   };
 }
+
+const droneBy = (i: Pick<SceneInputs, "drones">, key: string): DroneIn | undefined => i.drones.find((one) => one.key === key);

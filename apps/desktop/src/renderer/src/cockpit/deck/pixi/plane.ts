@@ -131,12 +131,12 @@ export class PlaneBuilder {
    * A line of the given half width (in plane units, kept at least a hairline on the screen), through `points`, optionally dashed:
    * `dash` is the length of a dash and of the gap after it. Corners are not mitred, so a stroke through a sharp one thins there.
    */
-  stroke(points: readonly P3[], half: number, c: Rgba, opts: { closed?: boolean; dash?: readonly [number, number]; offset?: number; shade?: (p: P3) => Rgba } = {}): void {
+  stroke(points: readonly P3[], half: number, c: Rgba, opts: { closed?: boolean; dash?: readonly [number, number]; offset?: number; shade?: (p: P3) => Rgba; normal?: { x: number; y: number } } = {}): void {
     const path = opts.closed === true ? [...points, points[0]!] : points;
     if (path.length < 2) return;
-    const { shade } = opts;
+    const { shade, normal } = opts;
     if (opts.dash === undefined) {
-      this.ribbon(path, half, c, shade);
+      this.ribbon(path, half, c, shade, normal);
       return;
     }
     const [on, off] = opts.dash;
@@ -144,7 +144,7 @@ export class PlaneBuilder {
     let phase = (((opts.offset ?? 0) % cycle) + cycle) % cycle;
     let run: P3[] = [];
     const flush = () => {
-      if (run.length >= 2) this.ribbon(run, half, c, shade);
+      if (run.length >= 2) this.ribbon(run, half, c, shade, normal);
       run = [];
     };
     for (let i = 0; i < path.length - 1; i += 1) {
@@ -169,10 +169,12 @@ export class PlaneBuilder {
     flush();
   }
 
-  private ribbon(path: readonly P3[], half: number, c: Rgba, shade?: (p: P3) => Rgba): void {
+  private ribbon(path: readonly P3[], half: number, c: Rgba, shade?: (p: P3) => Rgba, fixed?: { x: number; y: number }): void {
     const n = path.length;
-    // A normal in the plane at each point: the turn of the line there, the mean of its two sides.
+    // A normal in the plane at each point: the turn of the line there, the mean of its two sides. A line that stands upright has none
+    // of its own, so it is given one.
     const normals = path.map((_, i) => {
+      if (fixed !== undefined) return fixed;
       const a = path[Math.max(0, i - 1)]!;
       const b = path[Math.min(n - 1, i + 1)]!;
       const [dx, dy] = [b.x - a.x, b.y - a.y];
@@ -280,7 +282,8 @@ export class PlaneLayer {
   readonly mesh: Mesh<Geometry, Shader>;
   private readonly shader: Shader;
 
-  constructor(view: PlaneView) {
+  /** `glow` adds its colour to what is under it, so overlapping light brightens and nothing darkens. */
+  constructor(view: PlaneView, glow = false) {
     this.shader = new Shader({ glProgram: program(), resources: { view: view.group } });
     // A buffer cannot be empty, so the mesh starts as one invisible triangle and is hidden until it is given some.
     const seed = new PlaneBuilder();
@@ -290,6 +293,7 @@ export class PlaneLayer {
     // The mesh's own bounds are the plane's, not the screen's: it is never culled by them.
     this.mesh.cullable = false;
     this.mesh.eventMode = "none";
+    if (glow) this.mesh.state.blendMode = "add";
   }
 
   set(builder: PlaneBuilder): void {

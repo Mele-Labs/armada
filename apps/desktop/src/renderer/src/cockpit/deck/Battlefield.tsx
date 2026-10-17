@@ -319,9 +319,14 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
   // The canvas map is handed what the CSS one draws from, read once: its scene changes only when one of these does.
   const canvas = mapRenderer() === "pixi";
+  // The sets are rebuilt on every render of the camera; the scene is cut again only when what is in one changes.
+  const loopKey = [...loops].sort().join("|");
+  const labelKey = [...labels].sort().join("|");
+  const heldLoops = useMemo(() => loops, [loopKey]);
+  const heldLabels = useMemo(() => labels, [labelKey]);
   const pixiScene = useMemo(
-    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed }) : undefined),
-    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed],
+    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, focus, labels: heldLabels, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
+    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, focus, heldLabels, calls, gone, heldLoops, locked, trails],
   );
   const transform = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, ${px(0)})`;
   const locateWord = scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection";

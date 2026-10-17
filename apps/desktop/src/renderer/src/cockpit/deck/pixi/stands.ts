@@ -24,7 +24,7 @@ export type StandSpec = {
 const colour = (c: Rgba) => ({ color: hex(c), alpha: c[3] });
 
 /** A name: the smallest type, in mono, with a halo of the ground so it reads over a plot. */
-function name(text: string, p: Palette, fill: Rgba, anchor: { x: number; y: number }): Text {
+export function name(text: string, p: Palette, fill: Rgba, anchor: { x: number; y: number }): Text {
   const label = new Text({
     text,
     style: new TextStyle({ fontFamily: p.mono, fontSize: p.small, fill: hex(fill), letterSpacing: p.small * 0.04, stroke: { color: hex(p.base), width: 4, join: "round" } }),

@@ -3,8 +3,9 @@
 // (the camera to a lock-on, a plot rising, a landed ring fading) starts the ticker, which runs for as long as something eases and
 // then stops itself. A map nobody is touching costs nothing.
 //
-// The scene graph, back to front: the ground, the plots, the air, the standing pictures, the drones, the effects. The last two are
-// empty here; the group that draws drones and effects puts them in.
+// The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones, the lines they leave, the
+// standing pictures, the drones, the effects. Continuous motion belongs to the few drones the map animates at once and to the plays an
+// event started; the ticker runs while either does, at half rate where the camera is still, and stops when neither does.
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
@@ -13,6 +14,10 @@ import { Application, Container } from "pixi.js";
 import type { Cam } from "../camera";
 import type { Size } from "../layout";
 import { drawAir } from "./air";
+import { over, type Clock } from "./clock";
+import { Fliers } from "./fliers";
+import { drawGround } from "./ground";
+import { drawLifted } from "./lifted";
 import { PlaneBuilder, PlaneLayer, PlaneView } from "./plane";
 import { readPalette, type Palette } from "./palette";
 import { easeOut, lerp, project, viewOf, type View } from "./project";
@@ -39,6 +44,12 @@ export class Stage {
   private terrain: PlaneLayer | undefined;
   private tiles: PlaneLayer | undefined;
   private air: PlaneLayer | undefined;
+  private ground: PlaneLayer | undefined;
+  private groundGlow: PlaneLayer | undefined;
+  private lines: PlaneLayer | undefined;
+  private linesGlow: PlaneLayer | undefined;
+  private fliers: Fliers | undefined;
+  private readonly playStart = new Map<string, number>();
   private palette: Palette | undefined;
   private frame = 0;
   private size: Size = { width: 0, height: 0 };
@@ -95,8 +106,13 @@ export class Stage {
     this.terrain = new PlaneLayer(this.planeView);
     this.tiles = new PlaneLayer(this.planeView);
     this.air = new PlaneLayer(this.planeView);
+    this.ground = new PlaneLayer(this.planeView);
+    this.groundGlow = new PlaneLayer(this.planeView, true);
+    this.lines = new PlaneLayer(this.planeView);
+    this.linesGlow = new PlaneLayer(this.planeView, true);
+    this.fliers = new Fliers(this.drones);
     this.stands.sortableChildren = true;
-    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.stands, this.drones, this.effects);
+    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
     app.ticker.add(this.tick);
     // A name drawn before its font arrived is drawn again once it has.
     void document.fonts.ready.then(() => {
@@ -159,9 +175,14 @@ export class Stage {
     if (app === undefined) return;
     app.ticker.remove(this.tick);
     app.ticker.stop();
+    this.fliers?.destroy();
     this.terrain?.destroy();
     this.tiles?.destroy();
     this.air?.destroy();
+    this.ground?.destroy();
+    this.groundGlow?.destroy();
+    this.lines?.destroy();
+    this.linesGlow?.destroy();
     app.destroy({ removeView: true }, { children: true });
   }
 
@@ -176,6 +197,8 @@ export class Stage {
     const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.route !== scene.route || was.pinned !== scene.pinned || was.world !== scene.world;
     if (ground) this.build(this.terrain!, (b) => drawTerrain(b, scene, palette));
     this.restand(scene, palette);
+    this.noticePlays(scene);
+    this.fliers?.sync(scene, palette, this.fonts);
     if (force || was === undefined || was.crates !== scene.crates) this.build(this.air!, (b) => drawAir(b, scene, palette));
     this.noticeLandings(scene, was === undefined);
     const toward = scene.heights;
@@ -186,9 +209,48 @@ export class Stage {
       this.riseTween = undefined;
     } else if (moving) this.riseTween = { from: new Map(this.heights), to: toward, start: performance.now(), ms: palette.riseMs };
     this.rebuildTiles();
+    this.rebuildFx();
     if (this.cam !== undefined && this.shown.width === 0) this.setCamera(this.cam, true, true);
     this.placeStands();
+    this.placeFliers();
     this.wake();
+  }
+
+  /** A play is dated by the first time the canvas sees it, and forgotten once the log no longer lists it. */
+  private noticePlays(scene: PixiSceneIn): void {
+    const now = performance.now();
+    const live = new Set<string>();
+    for (const play of scene.plays) {
+      live.add(play.id);
+      if (!this.playStart.has(play.id)) this.playStart.set(play.id, now);
+    }
+    for (const id of this.playStart.keys()) if (!live.has(id)) this.playStart.delete(id);
+  }
+
+  private clock(): Clock {
+    const now = performance.now();
+    return { now, pulse: this.palette?.pulseMs ?? 0, since: (id, delay) => now - (this.playStart.get(id) ?? now) - delay };
+  }
+
+  /** The height a plot stands at as it is drawn now, which is not where it is going while it eases. */
+  private floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.heights.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
+
+  /** What lies on the ground under the drones, and the lines they leave: drawn again whenever the scene, a plot's height or a loop moves it. */
+  private rebuildFx(): void {
+    const { scene, palette } = this;
+    if (scene === undefined || palette === undefined || this.ground === undefined) return;
+    const clock = this.clock();
+    const [shade, glow, lines, lit] = [new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder()];
+    drawGround(shade, glow, scene, palette, this.floorOf, clock);
+    drawLifted(lines, lit, scene, palette, this.floorOf, clock);
+    this.ground.set(shade);
+    this.groundGlow!.set(glow);
+    this.lines!.set(lines);
+    this.linesGlow!.set(lit);
+  }
+
+  private placeFliers(): void {
+    this.fliers?.place(this.shown, this.floorOf, this.clock());
   }
 
   private build(layer: PlaneLayer, draw: (b: PlaneBuilder) => void): void {
@@ -260,6 +322,7 @@ export class Stage {
     this.shown = view;
     this.planeView.set(view);
     this.placeStands();
+    this.placeFliers();
     for (const listener of this.listeners) listener(view);
     this.wake();
   }
@@ -272,8 +335,17 @@ export class Stage {
     return pulse > 0 && [...this.landed.values()].some((born) => now - born < pulse * 2.7);
   }
 
+  /** A drone's loop is running, or a play an event started has not finished. */
+  private get moving(): boolean {
+    const { scene } = this;
+    const pulse = this.palette?.pulseMs ?? 0;
+    if (scene === undefined || pulse <= 0) return false;
+    const now = performance.now();
+    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+  }
+
   private get easing(): boolean {
-    return this.camTween !== undefined || this.riseTween !== undefined || this.fading;
+    return this.camTween !== undefined || this.riseTween !== undefined || this.fading || this.moving;
   }
 
   /** Something changed: draw it. On the ticker if it will keep changing, otherwise once on the next animation frame. */
@@ -283,6 +355,8 @@ export class Stage {
     if (this.easing) {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
+      // A loop or a play is smooth at thirty frames a second; only a hand or an easing camera needs more.
+      app.ticker.maxFPS = this.camTween !== undefined || this.riseTween !== undefined ? 0 : 30;
       if (!app.ticker.started) app.ticker.start();
       return;
     }
@@ -311,6 +385,9 @@ export class Stage {
       if (t >= 1) this.riseTween = undefined;
     }
     if (rise !== undefined || this.fading) this.rebuildTiles();
+    this.rebuildFx();
+    this.placeFliers();
+    if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();
   };
 }
