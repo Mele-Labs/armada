@@ -282,16 +282,17 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
               : found;
 
     // The sentence over the request: what the proposer read of the words, and his hand over it. A new Session picked on it is written into the words.
-    const read = kind === "session" ? draft?.readsWait?.(words) : undefined;
+    // Not `read`, which is the Autopilot's reading of the words and names the act below.
+    const sentence = kind === "session" ? draft?.readsWait?.(words) : undefined;
     const wait =
-      read === undefined
+      sentence === undefined
         ? undefined
-        : chipOf(read, hand, planPartsOf(live.find((one) => one.id === read.on.id)), (part, value) => {
+        : chipOf(sentence, hand, planPartsOf(live.find((one) => one.id === sentence.on.id)), (part, value) => {
             if (part === "on") {
               const next = offered.find((one) => one.id === value);
-              if (next !== undefined) typed(retagged(words, read.on.title, next.title));
+              if (next !== undefined) typed(retagged(words, sentence.on.title, next.title));
             }
-            setHand(handled(read, hand, part, value));
+            setHand(handled(sentence, hand, part, value));
           });
 
     /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */

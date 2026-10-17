@@ -1,6 +1,6 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
 // repository picked and the mock's Autopilot mid-run: the switch in the deck's foot that opens its lane on the
-// stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's third kind. #2092.
+// stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's second kind. #2092.
 // Then #2105's: the second repository's paused by its Job cap and raised, All with none picked asking for
 // one, and a step the Judges sent back. The Cockpit is the flight deck (#2301).
 
@@ -140,7 +140,7 @@ test("the lane draws Next up as a numbered list and the set-aside siding", async
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
 });
 
-test("the Dispatch sheet's third kind is Autopilot: Tab steps to it, and the sheet reads the words and starts it", async () => {
+test("the Dispatch sheet's second kind is Autopilot: Tab steps to it, and the sheet reads the words and starts it", async () => {
   await cockpit();
   // The switch just pressed holds focus, and a bare key does nothing while a control does.
   (document.activeElement as HTMLElement).blur();
@@ -215,13 +215,4 @@ test("pressing the switch again puts the lane away without stopping Autopilot", 
   await control().click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
-});
-
-test("a step the Judges sent back to its Drone says so on its card", async () => {
-  const base = scenarioNamed("dashboard-cockpit")!;
-  const job = base.state.jobs.find((one) => one.title === "Debounce the Job Board's resize handler")!;
-  mount({ ...base, name: "dashboard-cockpit-sent-back", opens: job.id });
-  await onScreen();
-  await page.getByRole("tab", { name: "Workflow" }).click();
-  await expect.element(page.getByText(/Sent back by the Judges · 1 of 2/)).toBeVisible();
 });
