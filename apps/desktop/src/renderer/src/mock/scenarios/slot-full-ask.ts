@@ -1,9 +1,7 @@
 // Every slot of the pool is taken when a Session's first write wants one. Fleet puts a call on the Session: wait for a slot or add
 // one. The call shows on the Cockpit and in the Session's Needs you band. Add a slot makes a bay and the Session moves into it; Wait
-// leaves it queued, and it takes the next bay that is free or made. The Bays panel adds a bay of its own.
-//
-// **`slot_choice` is not in the wire's `WaitingSource` yet** (Fleet's side is on `armada/slot-full-fleet`), so the item's source is
-// cast here and nowhere else. Over the cockpit ship, its one free bay now held. The claims are in `walks/slot-full-ask.ts`.
+// leaves it queued, and it takes the next bay that is free or made. The Bays panel adds a bay of its own. Over the cockpit ship,
+// its one free bay now held. The claims are in `walks/slot-full-ask.ts`.
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { WaitingItem, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
@@ -11,7 +9,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
 import type { BoardControl, SessionsStore } from "../sessions/script";
-import { SESSIONS, sessions as shipSessions, s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
+import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
 const ARMADA = repository().manifest!.id;
 const ITEM = "slot-choice";
@@ -25,9 +23,9 @@ const CHOICE: WaitingItem = {
   id: ITEM,
   text: "Every slot is in use",
   since: ago(1),
-  source: "slot_choice" as unknown as WaitingItem["source"],
+  source: "slot_choice",
   options: [{ label: "Wait for a slot" }, { label: "Add a slot" }],
-  act: { kind: "answer", target: "" },
+  act: { kind: "answer", target: ITEM },
 };
 
 /** At work, and held on its first write: the pool has no slot for it. */
@@ -92,7 +90,7 @@ function moveIn(control: BoardControl, store: SessionsStore, id: string, free: b
 }
 
 function sessions(control: BoardControl): SessionsStore {
-  const store = shipSessions(control, [...SESSIONS, WAITER]);
+  const store = ship.draft!.sessions!(control, [WAITER]);
   let queued = false;
   return {
     ...store,
