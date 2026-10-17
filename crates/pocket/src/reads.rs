@@ -1,19 +1,18 @@
-//! The phone's read routes, each one Fleet's answer narrowed to [`PhoneJob`].
+//! The phone's read routes, each one Fleet's answer narrowed to [`PhoneSession`].
 
 use std::collections::BTreeMap;
 
 use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::stream;
 use hyper::body::Bytes;
-use ipc::{AlertList, JobDetail, JobList, JobSummary, ManifestSummary, SessionList};
+use ipc::{ManifestSummary, SessionList};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::fleet_events::Messages;
-use crate::phone::{done, needs_you, running, PhoneJob};
 use crate::phone_sessions::PhoneSession;
 use crate::{fleet_client, live, Gateway};
 
@@ -22,10 +21,6 @@ const NOT_RUNNING: &str = "Armada is not running on your Mac. Open it there, the
 pub(crate) const NOT_ANSWERING: &str = "Armada is not answering on your Mac. Open it there, then try again.";
 pub(crate) const NOT_READABLE: &str =
     "Armada answered in a way this phone cannot read. Update Armada on your Mac.";
-const NO_SUCH_JOB: &str = "That Job is not here.";
-
-/// How many finished Jobs the Done list holds.
-const DONE_SHOWN: usize = 50;
 
 pub(crate) fn refusal(status: StatusCode, sentence: &'static str) -> Response {
     (status, sentence).into_response()
@@ -85,144 +80,37 @@ pub(crate) async fn repositories(gateway: &Gateway) -> BTreeMap<String, String> 
         .collect()
 }
 
-fn label<'a>(labels: &'a BTreeMap<String, String>, job: &JobSummary) -> Option<&'a str> {
-    labels.get(job.owner_manifest_id.as_str()).map(String::as_str)
-}
-
 #[derive(Serialize)]
 struct Needs {
-    needs: Vec<PhoneJob>,
     /// Sessions waiting on the owner: a hosted one with its ask, a Terminal
     /// one as waiting and nothing more.
     sessions: Vec<PhoneSession>,
 }
 
-#[derive(Serialize)]
-struct Jobs {
-    jobs: Vec<PhoneJob>,
-}
-
-/// Needs you: the Jobs Bridge's Needs you tab holds, and any Job Fleet's
-/// alerts name that the rule does not (a Trigger's repair waiting on a person).
-///
-/// **`/jobs/reviews` and `/jobs/board` are not read.** Reviews is a subset of
-/// the alerts, and the board is the not-yet-started queue, which holds Queued
-/// Jobs that are waiting on a slot and not on the owner.
+/// Needs you: the live Sessions waiting on the owner, oldest wait first.
 pub async fn needs(State(gateway): State<Gateway>) -> Response {
-    let jobs = match required::<JobList>(&gateway, "/jobs", "a job list").await {
-        Ok(list) => list.jobs,
+    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a session list").await {
+        Ok(list) => list.sessions,
         Err(refused) => return refused,
     };
-    let alerts = match required::<AlertList>(&gateway, "/alerts", "an alert list").await {
-        Ok(alerts) => alerts,
-        Err(refused) => return refused,
-    };
-    let since: BTreeMap<&str, Option<String>> = alerts
-        .blocked
+    let labels = repositories(&gateway).await;
+    let mut sessions: Vec<PhoneSession> = list
         .iter()
-        .chain(&alerts.waiting)
-        .map(|alert| {
-            (
-                alert.job_id.as_str(),
-                alert.since.as_ref().map(|at| at.as_str().to_string()),
-            )
+        .map(|record| {
+            let repository = record
+                .manifest_id
+                .as_ref()
+                .and_then(|id| labels.get(id.as_str()))
+                .map(String::as_str);
+            PhoneSession::of(record, repository, gateway.pairing.now())
         })
+        .filter(|session| session.waiting)
         .collect();
-    let labels = repositories(&gateway).await;
-    let mut waiting: Vec<&JobSummary> = jobs
-        .iter()
-        .filter(|job| job.reclaimed_at.is_none())
-        .filter(|job| needs_you(job) || since.contains_key(job.id.as_str()))
-        .collect();
-    waiting.sort_by(|a, b| (a.created_at.as_str(), a.id.as_str()).cmp(&(b.created_at.as_str(), b.id.as_str())));
-    let mut needs = Vec::with_capacity(waiting.len());
-    for job in waiting {
-        let repository = label(&labels, job);
-        let detail = read::<JobDetail>(&gateway, &format!("/jobs/{}", job.id.as_str()), "a job")
-            .await
-            .ok()
-            .flatten();
-        let mut phone = match detail {
-            Some(detail) => PhoneJob::of_detail(&detail, repository),
-            None => PhoneJob::of(job, repository),
-        };
-        phone.waiting_since = since.get(job.id.as_str()).cloned().flatten();
-        needs.push(phone);
-    }
-    // A Fleet that will not list Sessions costs the Sessions, not the page.
-    let mut sessions: Vec<PhoneSession> =
-        read::<SessionList>(&gateway, "/sessions?state=live", "a session list")
-            .await
-            .ok()
-            .flatten()
-            .map(|list| list.sessions)
-            .unwrap_or_default()
-            .iter()
-            .map(|record| {
-                let repository = record
-                    .manifest_id
-                    .as_ref()
-                    .and_then(|id| labels.get(id.as_str()))
-                    .map(String::as_str);
-                PhoneSession::of(record, repository, gateway.pairing.now())
-            })
-            .filter(|session| session.waiting)
-            .collect();
     sessions.sort_by(|a, b| (&a.waiting_since, &a.id).cmp(&(&b.waiting_since, &b.id)));
-    json(&Needs { needs, sessions })
+    json(&Needs { sessions })
 }
 
-#[derive(Deserialize)]
-pub struct Wanted {
-    state: Option<String>,
-}
-
-/// `?state=running` or `?state=done`. Fleet's `/jobs` takes only a repository,
-/// so the state is chosen here.
-pub async fn jobs(State(gateway): State<Gateway>, Query(wanted): Query<Wanted>) -> Response {
-    let keep: fn(&JobSummary) -> bool = match wanted.state.as_deref() {
-        Some("running") => running,
-        Some("done") => done,
-        _ => {
-            return refusal(
-                StatusCode::BAD_REQUEST,
-                "Ask for state=running or state=done.",
-            )
-        }
-    };
-    let list = match required::<JobList>(&gateway, "/jobs", "a job list").await {
-        Ok(list) => list.jobs,
-        Err(refused) => return refused,
-    };
-    let labels = repositories(&gateway).await;
-    let mut kept: Vec<&JobSummary> = list.iter().filter(|job| keep(job)).collect();
-    // Newest first.
-    kept.sort_by(|a, b| (b.created_at.as_str(), b.id.as_str()).cmp(&(a.created_at.as_str(), a.id.as_str())));
-    if wanted.state.as_deref() == Some("done") {
-        kept.truncate(DONE_SHOWN);
-    }
-    let jobs = kept
-        .into_iter()
-        .map(|job| PhoneJob::of(job, label(&labels, job)))
-        .collect();
-    json(&Jobs { jobs })
-}
-
-pub async fn job(State(gateway): State<Gateway>, Path(id): Path<String>) -> Response {
-    // An id is put into a path to Fleet, so only an id's own characters pass.
-    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-        return refusal(StatusCode::NOT_FOUND, NO_SUCH_JOB);
-    }
-    let detail = match read::<JobDetail>(&gateway, &format!("/jobs/{id}"), "a job").await {
-        Ok(Some(detail)) => detail,
-        Ok(None) => return refusal(StatusCode::NOT_FOUND, NO_SUCH_JOB),
-        Err(refused) => return refused,
-    };
-    let labels = repositories(&gateway).await;
-    json(&PhoneJob::of_detail(&detail, label(&labels, &detail.job)))
-}
-
-/// Server-Sent Events: each Job change Fleet publishes, narrowed.
+/// Server-Sent Events: each Session change Fleet publishes, narrowed.
 pub async fn live(State(gateway): State<Gateway>) -> Response {
     let port = match port(&gateway) {
         Ok(port) => port,
