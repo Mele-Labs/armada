@@ -308,6 +308,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::report_session_check::<D>),
         )
         .route(
+            "/sessions/slot_wanted",
+            post(crate::sessions::ask_for_slot::<D>),
+        )
+        .route(
             "/sessions/checks/:run/output",
             get(crate::sessions::get_session_check_output::<D>),
         )
