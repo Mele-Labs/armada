@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { GuidanceProvider } from "../../guidance";
 import { GUIDE_MERGE_LINE } from "../../guides";
@@ -396,10 +396,12 @@ export const MainRed: Story = {
     // Main's light carries what the red band holds: the Check, and the Job already on the fix.
     const light = canvas.getByRole("img", { name: "main: red" });
     await userEvent.hover(light);
-    await waitFor(() => expect(within(light).getByText("Cache the manifest read between dispatches")).toBeVisible());
-    await expect(within(light).getByText("red")).toBeVisible();
-    await expect(within(light).getByText("screens_test")).toBeVisible();
+    const card = await screen.findByRole("tooltip");
+    await expect(within(card).getByText("Cache the manifest read between dispatches")).toBeVisible();
+    await expect(within(card).getByText("red")).toBeVisible();
+    await expect(within(card).getByText("screens_test")).toBeVisible();
     await userEvent.unhover(light);
+    await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
     const waiting = canvas.getByRole("listitem", { name: /^studio\/zone-proposal, ci red because main is/ });
     // The fix is named on the mark, and the failure is not charged to the branch.
     await expect(within(waiting).getByRole("img", { name: /waiting on the fix: Cache the manifest read between dispatches/ })).toBeVisible();
@@ -430,13 +432,13 @@ export const MainGreen: Story = {
     await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
     // The light at the horizon's end names main and says its state, on hover and on focus.
     const light = canvas.getByRole("img", { name: "main: green" });
-    const card = () => within(light).queryByText("main");
-    await expect(card()).not.toBeVisible();
+    const card = () => screen.queryByRole("tooltip");
+    await expect(card()).not.toBeInTheDocument();
     await userEvent.hover(light);
     await waitFor(() => expect(card()).toBeVisible());
-    await expect(within(light).getByText("green")).toBeVisible();
+    await expect(within(card()!).getByText("green")).toBeVisible();
     await userEvent.unhover(light);
-    await waitFor(() => expect(card()).not.toBeVisible());
+    await waitFor(() => expect(card()).not.toBeInTheDocument());
     // One stop, straight after the band, and focus opens the same card.
     canvas.getByRole("button", { name: "Collapse Merge line" }).focus();
     await userEvent.tab();

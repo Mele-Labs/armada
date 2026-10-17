@@ -104,7 +104,7 @@ test("each entry names who it came from: a Session by its title, a Job by its ti
   expect(bare.querySelector(".armada-owner-chip")).toBeNull();
 
   await entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" }).click();
-  await expect.element(page.getByRole("group", { name: "Owned by Pin the store clock" })).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: "Owned by Pin the store clock" })).toBeVisible();
 });
 
 test("an open pull request wears its merge queue mark and place, and its owner", async () => {

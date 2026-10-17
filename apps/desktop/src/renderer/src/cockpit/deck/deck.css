@@ -263,37 +263,21 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip__dot[data-stale] { opacity: 0.4; }
 .deck-chip[data-main] .deck-chip__dot[data-stale] { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__quiet { display: inline-flex; flex: none; color: var(--status-escalated); }
-/* A red main's light opens a card, which says what the light's tooltip would. */
-.deck-chip[data-card] .armada-tooltip__bubble { display: none; }
 /* The queue's own tooltip stands down while a chip in it shows its card, which would sit on top of it. */
 .armada-tooltip:has(.deck-queue__track .deck-chip:is(:hover, :focus-visible)) > .armada-tooltip__bubble { display: none; }
 .deck-main-light { display: contents; }
-/* The card is drawn on the page and placed by the light, so it is not inside the deck's panels (their glass would clip a dialog). */
-.deck-main-card {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: var(--z-menu);
-  display: flex;
-  flex-direction: column;
-  width: var(--w-dialog-wide);
-  max-width: calc(100vw - var(--space-4) * 2);
-  max-height: calc(100vh - var(--space-4) * 2);
-  overflow-y: auto;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  color: var(--fg-default);
-}
+/* Main's card holds sections that run edge to edge (the red band, the checkout), so the inspect card's own padding moves onto its
+   head, title, band and keys, and the scroll is the card's. */
+.deck-main-card { gap: 0; padding: 0; max-height: calc(100vh - var(--space-4) * 2); overflow-y: auto; }
+.deck-main-card > :is(.armada-inspect-card__head, .armada-inspect-card__title, .armada-inspect-card__state, .armada-inspect-card__keys) { margin-inline: var(--space-3); }
+.deck-main-card > .armada-inspect-card__head { margin-block-start: var(--space-3); }
+.deck-main-card > .armada-inspect-card__state { margin-block: var(--space-2) var(--space-3); }
+.deck-main-card > .armada-inspect-card__keys { margin-block: var(--space-2) 0; padding-block: var(--space-2); }
 .deck-main-card__name { margin: 0; padding: var(--space-2) var(--space-3) 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); }
 /* The amber mark on main's chip while a checkout is held: small, beside the dot, which keeps meaning main's CI alone. */
 .deck-chip__checkout { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
 /* A form edit's pull request the forge would not auto-merge: a person's glyph after its number, in the hue of the state `user-check` is, awaiting a person. */
 .deck-chip__hand { display: inline-flex; flex: none; color: var(--status-awaiting-approval); }
-/* The state of a green main at the head of its card, in the success hue, as the red band is in the failure's. */
-.deck-main-card__state { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); background: var(--status-completed-success-bg); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
-.deck-main-card__state .deck-chip__dot { --dot: var(--status-completed-success); background: var(--dot); }
 /* How old main's reading is, and the forge's silence, under the rest of main's card. */
 .deck-main-card__forge { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-4); color: var(--fg-muted); font-size: var(--text-xs); }
 .deck-main-card__quiet { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-escalated); }

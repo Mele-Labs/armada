@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use adapter_traits::{SlotHeld, SlotLeased, SlotPool, Vcs, WorktreeSpec};
 
-use crate::leasing::watching::{heard_by, heard_of, last_reread, last_status_asked, unwatched};
+use crate::leasing::watching::{events_heard, heard_by, heard_of, last_reread, last_status_asked, unwatched};
 use crate::leasing::{Holder, Leased, Pool};
 use crate::tests::repo::TempRepo;
 use crate::GitVcs;
@@ -41,26 +41,47 @@ fn write(at: &Path, relative: &str) {
     std::fs::write(path, "x\n").expect("a file");
 }
 
-/// What has been heard, once something has.
-fn heard_soon(root: &Path) -> (bool, Vec<usize>) {
+/// How long no event must arrive before the file system counts as quiet.
+const QUIET: Duration = Duration::from_millis(300);
+
+/// Waits until `root`'s pool has been delivered no event for `QUIET`, and, with
+/// `heard`, until something has been heard. One write is several events (a
+/// create, then its modify and close), and a read taken between them leaves the
+/// last for the next read to ask git about, which a loaded runner showed
+/// (main red at bb9dd85). Ten seconds at most.
+fn quiet(root: &Path, heard: bool) {
     let until = Instant::now() + Duration::from_secs(10);
-    loop {
-        let heard = heard_of(root);
-        if heard.0 || !heard.1.is_empty() || Instant::now() > until {
-            return heard;
-        }
+    let mut seen = events_heard(root);
+    let mut since = Instant::now();
+    while Instant::now() < until {
         std::thread::sleep(Duration::from_millis(20));
+        let now = events_heard(root);
+        if now != seen {
+            (seen, since) = (now, Instant::now());
+            continue;
+        }
+        let some = heard_of(root);
+        if since.elapsed() >= QUIET && (!heard || some.0 || !some.1.is_empty()) {
+            return;
+        }
     }
 }
 
-fn settled() {
-    std::thread::sleep(Duration::from_millis(400));
+/// What has been heard, once something has and the file system is quiet.
+fn heard_soon(root: &Path) -> (bool, Vec<usize>) {
+    quiet(root, true);
+    heard_of(root)
+}
+
+/// The file system quiet after a read, so what the read stirred is in before the next.
+fn settled(root: &Path) {
+    quiet(root, false);
 }
 
 /// A read, a pause for whatever the read itself stirred, and one more.
 fn kept_and_quiet(repo: &TempRepo, pool: &SlotPool) {
     GitVcs.slot_pool_kept(pool, true);
-    settled();
+    settled(repo.root());
     GitVcs.slot_pool_kept(pool, false);
     assert_eq!(last_reread(repo.root()), Vec::<usize>::new(), "reading moved something");
 }
@@ -96,7 +117,7 @@ fn a_build_and_an_install_in_a_free_slot_are_not_an_edit() {
     // The control: a real edit elsewhere, heard after both.
     write(&slot(&repo, 3), "notes.txt");
     assert_eq!(heard_soon(repo.root()), (false, vec![3]));
-    settled();
+    settled(repo.root());
     assert_eq!(heard_of(repo.root()), (false, vec![3]));
 }
 
@@ -108,7 +129,7 @@ fn an_edit_in_a_held_slot_is_not_heard() {
     write(&slot(&repo, 1), "notes.txt");
     write(&slot(&repo, 3), "notes.txt");
     assert_eq!(heard_soon(repo.root()), (false, vec![3]));
-    settled();
+    settled(repo.root());
     assert_eq!(heard_of(repo.root()), (false, vec![3]));
 }
 
@@ -131,7 +152,7 @@ fn a_commit_in_a_held_slot_moves_that_slot() {
         "work",
     ]);
     assert_eq!(heard_soon(repo.root()), (false, vec![1]));
-    settled();
+    settled(repo.root());
     assert_eq!(heard_of(repo.root()), (false, vec![1]), "the branch moving is not the base moving");
     GitVcs.slot_pool_kept(&pool, false);
     assert_eq!(last_reread(repo.root()), vec![1]);
@@ -166,7 +187,7 @@ fn a_free_slot_read_for_the_first_time_asks_git() {
 
     GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), vec![2, 3]);
-    settled();
+    settled(repo.root());
     GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), Vec::<usize>::new());
 }
@@ -183,7 +204,7 @@ fn an_edit_is_found_by_the_next_full_read_which_asks_git_of_that_slot_alone() {
     assert!(matches!(read[1].held, SlotHeld::Stranded(_)), "{:?}", read[1].held);
 
     // Trusted again, and still what it was.
-    settled();
+    settled(repo.root());
     let read = GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), Vec::<usize>::new());
     assert!(matches!(read[1].held, SlotHeld::Stranded(_)), "{:?}", read[1].held);
@@ -271,7 +292,7 @@ fn a_stream_restarted_by_a_slot_coming_free_asks_git_of_every_free_slot_once() {
     assert_eq!(read[0].held, SlotHeld::Free);
     assert_eq!(last_status_asked(repo.root()), vec![1, 2, 3]);
 
-    settled();
+    settled(repo.root());
     GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), Vec::<usize>::new());
 }
@@ -294,16 +315,16 @@ fn a_stream_restarted_by_a_slot_being_taken_asks_git_of_every_free_slot_at_the_n
         direct.try_lease("feature/again", &holder, 0, &seed),
         Ok(Leased::Took(_))
     ));
-    settled();
+    settled(repo.root());
     let read = GitVcs.slot_pool_kept(&pool, true);
     assert!(matches!(read[0].held, SlotHeld::Session(_)), "{:?}", read[0].held);
     // Slots 2 and 3 were read before the stream let slot 1 go, so this read
     // trusts them and the next does not.
     assert_eq!(last_status_asked(repo.root()), Vec::<usize>::new());
-    settled();
+    settled(repo.root());
     GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), vec![2, 3]);
-    settled();
+    settled(repo.root());
     GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), Vec::<usize>::new());
     other.kill().expect("killed");
@@ -318,7 +339,7 @@ fn an_edit_under_a_directory_the_watch_skips_is_asked_about_where_git_counts_it(
     // `target` is ignored by the repository, and `.gitnexus` is not.
     write(&slot(&repo, 2), "target/debug/deps/a.rlib");
     write(&slot(&repo, 3), ".gitnexus/index.db");
-    settled();
+    settled(repo.root());
     let read = GitVcs.slot_pool_kept(&pool, true);
     assert_eq!(last_status_asked(repo.root()), vec![3]);
     assert_eq!(read[1].held, SlotHeld::Free);
@@ -363,7 +384,7 @@ fn a_lease_record_written_after_the_slot_moved_is_heard_and_read() {
     let between = GitVcs.slot_pool_kept(&pool, false);
     assert_eq!(between[1].held, SlotHeld::Free);
 
-    settled();
+    settled(repo.root());
     std::fs::write(lease_record(&repo, 2), "branch armada/session-x\nholder job 01X\nsince 1\n")
         .expect("a record");
     assert_eq!(heard_soon(repo.root()), (false, vec![2]), "the record is a change to the slot");

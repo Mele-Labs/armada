@@ -6,7 +6,7 @@
 import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -18,7 +18,7 @@ const row = () => page.elementLocator(head().element().querySelector("header")!)
 const model = () => page.getByRole("combobox", { name: "Model", exact: true });
 
 async function open(title: RegExp) {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
 }
 
@@ -76,7 +76,7 @@ test("The tank fills to the percent and turns to the warning tone at 80, not bef
   expect(high.tone).not.toBe(low.tone);
 
   // 72% is still the normal tone.
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Cart totals rounding/ }));
   const resting = page.getByRole("region", { name: "Session s-b4a1d2c7" }).getByRole("button", { name: /^Context/ }).element() as HTMLElement;
   expect(parseFloat(getComputedStyle(resting, "::before").width) / resting.clientWidth).toBeCloseTo(0.72, 1);
@@ -93,8 +93,8 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
   await expect.element(model()).toHaveDisplayValue("sonnet");
 });
 
-/** Both cards hang from the trailing edge of the head's marks, so they open leftward inside the Session's panel; the frame clips what runs past it. */
-test("The context card and the fresh card open inside the Session's panel, with the ledger open", async () => {
+/** Both cards are inspect cards: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
+test("The context card and the fresh card open whole, with the ledger open", async () => {
   await page.viewport(1512, 949);
   onTestFinished(() => page.viewport(1440, 900));
   mount("session-head");
@@ -103,22 +103,24 @@ test("The context card and the fresh card open inside the Session's panel, with 
 
   const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
   await expect.element(page.getByRole("region", { name: "Attachments" })).toBeVisible();
-  const inside = (card: Element) => {
-    const edge = frame.element().getBoundingClientRect();
+  const whole = (card: Element) => {
     const box = card.getBoundingClientRect();
     expect(box.width).toBeGreaterThan(0);
-    expect(box.right).toBeLessThanOrEqual(edge.right);
-    expect(box.left).toBeGreaterThanOrEqual(edge.left);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
   };
 
   await userEvent.click(frame.getByRole("button", { name: /^Context/ }));
-  await expect.element(frame.getByRole("dialog", { name: "Context" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Context" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Context" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Context" }).element());
 
   await userEvent.click(frame.getByRole("button", { name: "Fresh start" }));
-  await expect.element(frame.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Fresh start" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Fresh start" }).element());
 });
+
 
 test("A done Session's head draws End session in a glyph other than the Done mark's", async () => {
   mount("session-head");

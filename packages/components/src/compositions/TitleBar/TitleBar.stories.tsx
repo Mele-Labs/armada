@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
 import { Tabs } from "../../primitives/Tabs/Tabs";
@@ -413,10 +413,10 @@ export const PlanUsage: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     const ring = canvas.getByRole("button", { name: "5-hour limit 34%, Weekly limit 61%" });
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(ring);
-    const card = canvas.getByRole("dialog", { name: "Plan limits" });
+    const card = await screen.findByRole("tooltip");
     const five = within(card).getByRole("region", { name: "5-hour limit" });
     await expect(five).toHaveTextContent("34%");
     await expect(five).toHaveTextContent("Resets in");
@@ -425,9 +425,9 @@ export const PlanUsage: Story = {
 
     await userEvent.click(ring);
     await userEvent.unhover(ring);
-    await expect(canvas.getByRole("dialog", { name: "Plan limits" })).toBeVisible();
+    await expect(screen.getByRole("dialog", { name: "Plan limits" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
 };
 
