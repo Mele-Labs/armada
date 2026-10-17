@@ -2,7 +2,7 @@
 // tooltip, the waiting Session's page, the dispatch panel and the rows in the other Session's thread. Draft, mock-only
 // (`draft/sessions.ts`).
 
-import type { Session, SessionWait, StartWhen } from "./draft/sessions";
+import type { Session, SessionWait, StartBase, StartWhen } from "./draft/sessions";
 
 /** The four conditions, with the option each is picked by and where the Session starts from. **The other Session ending is the default.** */
 export const START_WHEN: readonly { id: StartWhen; label: string; from: string }[] = [
@@ -17,10 +17,13 @@ export const DEFAULT_START_WHEN: StartWhen = "ends";
 /** The condition as the option names it. */
 export const whenLabel = (when: StartWhen): string => START_WHEN.find((one) => one.id === when)!.label;
 
+/** Where a condition starts from unless the brief or the person says otherwise: a pushed pull request's branch, else main. */
+export const defaultBase = (when: StartWhen): StartBase => (when === "pushed" ? "branch" : "main");
+
 /** Where it starts from: the branch of the pull request once the other Session has named one. */
-export function startsFrom(wait: Pick<SessionWait, "when" | "pull">): string {
-  if (wait.when === "pushed" && wait.pull !== undefined) return wait.pull.branch;
-  return START_WHEN.find((one) => one.id === wait.when)!.from;
+export function startsFrom(wait: Pick<SessionWait, "when" | "base" | "pull">): string {
+  if (wait.base === "branch") return wait.pull?.branch ?? "its pull request's branch";
+  return wait.when === "pushed" ? "main" : START_WHEN.find((one) => one.id === wait.when)!.from;
 }
 
 /** What a waiting Session waits for, as the tooltip on its mark and the line under its title say it. */

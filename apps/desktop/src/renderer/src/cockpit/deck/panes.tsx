@@ -310,6 +310,12 @@ function WaitingPane({ subject, session, wait, sessions, draft }: { subject: Sub
               )}
             </dd>
           </div>
+          {wait.needs === "" ? null : (
+            <div className="deck-facts__row">
+              <dt>Needs</dt>
+              <dd>{wait.needs}</dd>
+            </div>
+          )}
           <div className="deck-facts__row">
             <dt>Starts from</dt>
             <dd data-mono>{startsFrom(wait)}</dd>

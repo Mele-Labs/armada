@@ -9,17 +9,19 @@
 // chosen the act gives the row the keys (← and →, ↵ picks and sends) before anything is built.
 // A Session's band also holds its Model and Effort, the composer's own pair of selects, and Queue for later beside Start: ⌘⇧↵ saves the idea
 // without starting it. State is carried by the frame (its edge and hue) and by the chosen chip's fill, not by a phrase.
-// A Session may wait on another: an After row under the repositories picks the Session, then when it starts, and for a plan part which one. ⌥A
-// moves to it from the request, from any kind, and opens the sheet on it from anywhere. It is not a registered act yet.
+// A Session may wait on another, and the brief says so: an `@` in the request opens the live Sessions (arrows, ↵, Esc), the Session picked stands in
+// the words as a tag, and a sentence over the request shows the proposer's reading of the wait, each part a button (`WaitChip`). ⌥A (`dispatch_after`)
+// opens the sheet on a Session with an `@` typed.
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
-import { Cpu, FolderGit2, Link, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
+import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, isPressed, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
-import type { StartWhen } from "@armada/screens/src/draft/sessions";
-import { START_WHEN, startsFrom, type PlanPart } from "@armada/screens/src/session-waits";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
+import { useAtMenu, SessionMenu, type Offered } from "./SessionMenu";
+import { WaitChip } from "./WaitChip";
+import { tagRange, type WaitChip as Chip } from "./waits";
 import "./dispatch-panel.css";
 
 /** What the chip says about the repository. A name is a repository; the rest are the ways there is none yet. */
@@ -67,15 +69,10 @@ export type PanelTuning = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
 };
 
-/** What a Session is dispatched to wait on: the Session, when it starts, and for a plan part which one. */
-export type AfterPick = { on: string; when: StartWhen; part?: string };
-
-/** The After row: the live Sessions that can be waited on, what is picked, and the plan parts of the picked one. Absent where the Session cannot wait. */
-export type PanelAfter = {
-  sessions: readonly { id: string; title: string }[];
-  picked?: AfterPick;
-  parts: readonly PlanPart[];
-  onPick: (next: AfterPick | undefined) => void;
+/** What the request can wait on: the live Sessions the `@` offers, and the sentence over the request where the words tag one. */
+export type PanelWait = {
+  sessions: readonly Offered[];
+  chip?: Chip;
 };
 
 /** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
@@ -117,9 +114,9 @@ export type PanelProps = {
   onAct: () => void;
   /** A Session's Model and Effort, beside the act. Absent for a Job and an Autopilot. */
   tuning?: PanelTuning;
-  /** The After row, under the repositories. Absent where a Session cannot wait. */
-  after?: PanelAfter;
-  /** The sheet was opened by ⌥A: the focus goes to the After row once it is drawn, and `onAfterFocused` says it has. */
+  /** The `@` menu and the sentence over the request. Absent where a Session cannot wait. */
+  wait?: PanelWait;
+  /** The sheet was opened by ⌥A with an `@` already typed: the focus goes to the request and the menu opens once it is drawn, and `onAfterFocused` says it has. */
   focusAfter?: boolean;
   onAfterFocused?: () => void;
   /** Queue for later: saves a Session's idea without starting it. Absent where the queue is not served, and for every other kind. */
@@ -138,6 +135,19 @@ export type PanelProps = {
   autoFocus?: boolean;
   disabled?: boolean;
 };
+
+/** The words, with the tag of the Session the sentence names lit where it stands. The mirror under the request draws it, in the request's own metrics. */
+function tagged(words: string, title: string | undefined): ReactNode {
+  const range = title === undefined ? undefined : tagRange(words, title);
+  if (range === undefined) return words;
+  return (
+    <>
+      {words.slice(0, range[0])}
+      <mark className="armada-dispatch-panel__tag">{words.slice(range[0], range[1])}</mark>
+      {words.slice(range[1])}
+    </>
+  );
+}
 
 /** `dispatch-panel.css` lifts the menus portalled onto the body above the panel while it is open. */
 const DISPATCHING: readonly Mark[] = [{ of: "body", as: "data-dispatching" }];
@@ -160,7 +170,7 @@ export function DispatchPanel({
   sending,
   onAct,
   tuning,
-  after,
+  wait,
   focusAfter = false,
   onAfterFocused,
   onQueue,
@@ -178,6 +188,7 @@ export function DispatchPanel({
   const row = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLElement>(null);
   const asked = useRef(false);
+  const mirror = useRef<HTMLDivElement>(null);
 
   // The row takes the keys when the act asks, and gives them back to the request when it stops.
   useEffect(() => {
@@ -191,25 +202,44 @@ export function DispatchPanel({
     if (!asking) field.current?.focus();
   };
 
-  // ⌥A asks for the After row, which is drawn once the kind is a Session: the focus lands when it is.
-  const wantsAfter = useRef(false);
+  const sessions = wait?.sessions ?? [];
+  const at = useAtMenu(words, onWords, kind === "session" ? sessions : [], `${useId()}-at`);
+
+  // ⌥A pressed outside the sheet left an `@` at the end of the request: the caret goes after it and the menu opens.
   useEffect(() => {
-    if (focusAfter) {
-      wantsAfter.current = true;
-      onAfterFocused?.();
-    }
-    if (!wantsAfter.current || !open || kind !== "session" || after === undefined) return;
-    wantsAfter.current = false;
-    frame.current?.querySelector<HTMLElement>('select[aria-label="After Session"]')?.focus();
+    if (!focusAfter || field.current === null) return;
+    const el = field.current;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+    at.evaluate(el);
+    onAfterFocused?.();
   });
 
+  /** ⌥A in the sheet: an `@` at the caret, a space before it where a word stands there, and the menu open. */
+  const typeAt = () => {
+    const el = field.current;
+    if (el === null) return;
+    const caret = el.selectionStart ?? words.length;
+    const lead = caret > 0 && !/\s/.test(words[caret - 1] ?? "") ? " " : "";
+    onWords(`${words.slice(0, caret)}${lead}@${words.slice(caret)}`);
+    const landed = caret + lead.length + 1;
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(landed, landed);
+      at.evaluate(el);
+    });
+  };
+
+  /** Shift+Tab from the request goes to the sentence above it. */
+  const toChip = () => frame.current?.querySelector<HTMLElement>(".armada-wait__part:not(:disabled)")?.focus();
+
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    // The key's place on the keyboard, since Option changes the character A types.
-    if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyA" && after !== undefined && !disabled) {
+    // `dispatch_after`, read by the key's place on the keyboard since Option changes the character A types.
+    if (isPressed("dispatch_after", event) && wait !== undefined && !disabled) {
       event.preventDefault();
       event.stopPropagation();
-      wantsAfter.current = true;
-      return kind === "session" ? frame.current?.querySelector<HTMLElement>('select[aria-label="After Session"]')?.focus() : onKind("session");
+      if (kind !== "session") onKind("session");
+      return typeAt();
     }
     // `dispatch_repository`'s row of digits, rebindable; Option changes the character a digit types, so it is read by its place on the keyboard.
     const digit = pressedDigit("dispatch_repository", event);
@@ -294,67 +324,6 @@ export function DispatchPanel({
     </div>
   );
 
-  const afterRow =
-    kind !== "session" || after === undefined ? null : (
-      <div className="armada-dispatch-panel__after" role="group" aria-label="After">
-        <Pick Glyph={Link} compact label="After">
-          <Select
-            aria-label="After Session"
-            value={after.picked?.on ?? ""}
-            disabled={disabled}
-            onChange={(event) => after.onPick(event.target.value === "" ? undefined : { on: event.target.value, when: after.picked?.when ?? "ends" })}
-          >
-            <option value="">None</option>
-            {after.sessions.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.title}
-              </option>
-            ))}
-          </Select>
-        </Pick>
-        {after.picked === undefined ? null : (
-          <>
-            <Pick Glyph={Link} compact={false} label="Starts when">
-              <Select
-                aria-label="Starts when"
-                value={after.picked.when}
-                disabled={disabled}
-                onChange={(event) => {
-                  const when = event.target.value as StartWhen;
-                  // A plan part is picked, never left open: the first one is chosen until another is.
-                  const first = after.parts[0];
-                  after.onPick({ on: after.picked!.on, when, ...(when === "plan" && first !== undefined ? { part: first.id } : {}) });
-                }}
-              >
-                {START_WHEN.map((one) => (
-                  <option key={one.id} value={one.id} disabled={one.id === "plan" && after.parts.length === 0}>
-                    {one.label}
-                  </option>
-                ))}
-              </Select>
-            </Pick>
-            {after.picked.when !== "plan" ? null : (
-              <Pick Glyph={Link} compact={false} label="Plan part">
-                <Select
-                  aria-label="Plan part"
-                  value={after.picked.part ?? after.parts[0]?.id ?? ""}
-                  disabled={disabled}
-                  onChange={(event) => after.onPick({ on: after.picked!.on, when: "plan", part: event.target.value })}
-                >
-                  {after.parts.map((one) => (
-                    <option key={one.id} value={one.id}>
-                      {`${one.kind === "group" ? "Group" : "Task"}: ${one.title}`}
-                    </option>
-                  ))}
-                </Select>
-              </Pick>
-            )}
-            <span className="armada-dispatch-panel__from">{`From ${startsFrom({ when: after.picked.when })}`}</span>
-          </>
-        )}
-      </div>
-    );
-
   const frameOf = (
     <section
       ref={frame}
@@ -366,32 +335,51 @@ export function DispatchPanel({
       data-asking={asking || undefined}
       onKeyDown={keys}
     >
+      {kind !== "session" || wait?.chip === undefined ? null : <WaitChip chip={wait.chip} sessions={sessions} disabled={disabled} onLeave={() => field.current?.focus()} />}
       <div className="armada-dispatch-panel__line">
         <Tooltip label={KIND_LABEL[kind]}>
           <span className="armada-dispatch-panel__prompt">
             <Mark size={20} aria-hidden />
           </span>
         </Tooltip>
-        <textarea
-          ref={(element) => {
-            field.current = element;
-            if (typeof fieldRef === "function") fieldRef(element);
-            else if (fieldRef) fieldRef.current = element;
-          }}
-          aria-label="Request"
-          className="armada-dispatch-panel__field"
-          rows={1}
-          autoFocus={autoFocus}
-          value={words}
-          placeholder={placeholder}
-          onChange={(event) => onWords(event.target.value)}
-          onKeyDown={(event) => {
-            onFieldKeyDown?.(event);
-            if (event.defaultPrevented || !open || kind === "session" || !sendsOn(event)) return;
-            event.preventDefault();
-            onAct();
-          }}
-        />
+        <div className="armada-dispatch-panel__words">
+          <div className="armada-dispatch-panel__mirror" aria-hidden ref={mirror}>
+            {tagged(words, kind === "session" ? wait?.chip?.on.title : undefined)}
+          </div>
+          <textarea
+            ref={(element) => {
+              field.current = element;
+              if (typeof fieldRef === "function") fieldRef(element);
+              else if (fieldRef) fieldRef.current = element;
+            }}
+            aria-label="Request"
+            className="armada-dispatch-panel__field"
+            rows={1}
+            autoFocus={autoFocus}
+            value={words}
+            placeholder={placeholder}
+            aria-controls={at.open ? at.listId : undefined}
+            aria-activedescendant={at.activeId}
+            onChange={(event) => {
+              onWords(event.target.value);
+              at.onChange(event);
+            }}
+            onSelect={at.onSelect}
+            onBlur={at.onBlur}
+            onScroll={(event) => mirror.current !== null && (mirror.current.scrollTop = event.currentTarget.scrollTop)}
+            onKeyDown={(event) => {
+              if (at.onKeyDown(event)) return;
+              if (event.key === "Tab" && event.shiftKey && kind === "session" && wait?.chip !== undefined) {
+                event.preventDefault();
+                return toChip();
+              }
+              onFieldKeyDown?.(event);
+              if (event.defaultPrevented || !open || kind === "session" || !sendsOn(event)) return;
+              event.preventDefault();
+              onAct();
+            }}
+          />
+        </div>
         {kinds.length < 2 ? null : (
           <Tooltip label={kinds.map((one) => KIND_LABEL[one]).join(" / ")}>
             <Kbd className="armada-dispatch-panel__tab">⇥</Kbd>
@@ -402,10 +390,11 @@ export function DispatchPanel({
         </Tooltip>
       </div>
 
+      {!at.open ? null : <SessionMenu id={at.listId} label="Sessions" sessions={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />}
+
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
           {repositories}
-          {afterRow}
 
           <div className="armada-dispatch-panel__band">
             {kinds.length < 2 ? null : (

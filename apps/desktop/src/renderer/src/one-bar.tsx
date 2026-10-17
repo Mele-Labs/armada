@@ -23,7 +23,7 @@ export function useOneBar({ live, dispatching }: { live: boolean; dispatching: D
 }
 
 /**
- * `n` and ⌘N open the dispatch sheet, from every surface; ⌥A opens it on a Session waiting on another. Read in the capture phase, so the surface under it never
+ * `n` and ⌘N open the dispatch sheet, from every surface; ⌥A opens it on a Session with an `@` typed. Read in the capture phase, so the surface under it never
  * hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
  * Where a sheet was put away holding words, they are the draft and the sheet comes back holding them.
  */
@@ -33,8 +33,8 @@ function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => 
   useEffect(() => {
     function press(event: KeyboardEvent): void {
       if (event.repeat || event.defaultPrevented || !held.current.live) return;
-      // ⌥A, by its place on the keyboard since Option changes the character: a Session that waits on another. Not a registered act yet.
-      if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyA" && held.current.openAfter !== undefined) {
+      // `dispatch_after`: a Session that waits on another. Option changes the character A types, so the registry's reader takes the key by its place.
+      if (isPressed("dispatch_after", event) && held.current.openAfter !== undefined) {
         if (holdsText(event.target) || document.querySelector('[role="dialog"]') !== null) return;
         event.preventDefault();
         event.stopPropagation();

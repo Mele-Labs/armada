@@ -372,10 +372,30 @@ export type SessionWait = {
   part?: { id: string; title: string };
   /** With `pushed` and `lands`: the pull request, once the other Session has named it. */
   pull?: { number: number; branch: string };
+  /** Where it starts from: main, or the branch of the other Session's pull request. */
+  base: StartBase;
+  /** What it needs of the Session it waits on: the rest of the clause the brief names the wait in. Empty where the brief names none. */
+  needs: string;
   /** The words it was dispatched with, which it starts on. */
   brief: string;
   /** Who last set the condition. */
   by: "you" | "agent";
+};
+
+export type StartBase = "main" | "branch";
+
+/**
+ * What the proposer reads of a brief that tags a Session: who it waits on, when it starts, where from, and what it needs. **A mock's
+ * stand-in**: the mock's `reads-waits.ts` reads the words by rule, and nothing in Fleet reads a wait yet.
+ */
+export type WaitReading = {
+  on: { id: string; title: string };
+  when: StartWhen;
+  part?: { id: string; title: string };
+  base: StartBase;
+  needs: string;
+  /** What the proposer would name the Session. */
+  title: string;
 };
 
 export type Session = {
@@ -616,7 +636,9 @@ export type SessionsDraft = {
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
    * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part">) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">) => string | Promise<string | undefined>;
+  /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
+  readsWait?: (words: string) => WaitReading | undefined;
   /**
    * Changes when a waiting Session starts, and from where. The Session it waits on is told. Absent where nothing serves it, and the
    * waiting Session's page offers no condition to change.

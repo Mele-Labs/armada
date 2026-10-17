@@ -352,5 +352,7 @@ export async function walkThrough(steps: readonly Step[]): Promise<void> {
     const element = await arrive(step);
     if (element === null) throw new Error(stopped(at, step));
     act(step, element);
+    // The Enter a newline sends comes a beat after the words, and a person takes longer than that to press Next: let it land before the next step looks.
+    if ("type" in step && step.type.endsWith("\n")) await sleep(120);
   }
 }

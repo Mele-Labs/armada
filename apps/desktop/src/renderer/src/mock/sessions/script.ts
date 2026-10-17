@@ -13,8 +13,9 @@ import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
-import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionWait, SessionsDraft, StartWhen } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionWait, SessionsDraft, StartBase, StartWhen } from "@armada/screens/src/draft/sessions";
 import { conditionSaid, firstLineOf, startsFrom } from "@armada/screens/src/session-waits";
+import { readWait } from "./reads-waits";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
 export type SessionsStore = SessionsDraft & {
@@ -29,7 +30,7 @@ export type SessionsStore = SessionsDraft & {
    * The agent of the Session a waiting one waits on changes when it starts, as its tool call would: a tool row in its thread and a
    * row that tells the change. `pull` names the pull request a `pushed` or `lands` condition waits on.
    */
-  agentChanges: (id: string, change: { when: StartWhen; part?: { id: string; title: string }; pull?: { number: number; branch: string } }) => void;
+  agentChanges: (id: string, change: { when: StartWhen; part?: { id: string; title: string }; pull?: { number: number; branch: string }; base?: StartBase }) => void;
   /** A waiting Session's condition is met: it starts, its first message carries the handoff, and the Session it waited on is told. `met` is what happened. */
   starts: (id: string, met: string) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
@@ -468,8 +469,7 @@ export function sessionsStore(
         const brief = (request ?? "").trim();
         const waiting: Session = {
           id,
-          // What the proposer would name it: a few words of the brief.
-          title: firstLineOf(brief).split(/\s+/).slice(0, 4).join(" "),
+          title: readWait(brief, now)?.title ?? firstLineOf(brief).split(/\s+/).slice(0, 4).join(" "),
           ...(manifestId === undefined ? {} : { manifestId }),
           attachments: [],
           rows: [],
@@ -477,9 +477,9 @@ export function sessionsStore(
           standing: "idle",
           ...(tuning?.model === undefined ? {} : { model: tuning.model }),
           ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
-          waits: { on: after.on, when: after.when, ...(after.part === undefined ? {} : { part: after.part }), brief, by: "you" },
+          waits: { on: after.on, when: after.when, ...(after.part === undefined ? {} : { part: after.part }), base: after.base, needs: after.needs, brief, by: "you" },
         };
-        set([waiting, ...now.map((one) => (one.id === after.on.id ? { ...one, rows: [...one.rows, row((rid, stamp): SessionRow => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title! }, event: "waits", says: firstLineOf(brief) }))] } : one))]);
+        set([waiting, ...now.map((one) => (one.id === after.on.id ? { ...one, rows: [...one.rows, row((rid, stamp): SessionRow => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title! }, event: "waits", says: after.needs === "" ? firstLineOf(brief) : after.needs }))] } : one))]);
         return id;
       }
       set([
@@ -497,6 +497,7 @@ export function sessionsStore(
       ]);
       return id;
     },
+    readsWait: (words) => readWait(words, now),
     queued: () => queued,
     queue(idea) {
       queuing += 1;
@@ -915,7 +916,7 @@ export function sessionsStore(
       const waiting = now.find((one) => one.id === id);
       if (waiting?.waits === undefined) return;
       const was = waiting.waits;
-      const next: SessionWait = { on: was.on, when: change.when, ...(change.part === undefined ? {} : { part: change.part }), ...(change.pull === undefined ? {} : { pull: change.pull }), brief: was.brief, by: "agent" };
+      const next: SessionWait = { on: was.on, when: change.when, ...(change.part === undefined ? {} : { part: change.part }), ...(change.pull === undefined ? {} : { pull: change.pull }), base: change.base ?? was.base, needs: was.needs, brief: was.brief, by: "agent" };
       edit(id, (one) => ({ ...one, waits: next }));
       addTo(was.on.id, [
         tool(`set_start_condition ${JSON.stringify({ session: id, when: change.when, ...(change.part === undefined ? {} : { part: change.part.id }) })}`),
