@@ -19,8 +19,8 @@ async function draw(screen: ScreenElement, at?: number) {
       <ScreenView screen={screen} at={at} />
     </div>,
   );
-  // React 19 renders a root on its own time.
-  await new Promise<void>((done) => requestAnimationFrame(() => done()));
+  // React 19 renders a root on its own time, and the first test of a cold browser can take more than a frame.
+  await expect.poll(() => document.querySelector(".armada-wireframe")).not.toBeNull();
   const part = (name: string): HTMLElement => {
     const found = document.querySelector<HTMLElement>(`[aria-label="${name}"]`);
     if (found === null) throw new Error(`no part named ${name}`);
