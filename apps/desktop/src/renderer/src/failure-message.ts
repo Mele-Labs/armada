@@ -30,7 +30,7 @@ function actSessionLine(payload: DebugPayload, view: WindowFacts, state: Pressed
   const id = payload.fields?.find((field) => field.key === "session_id")?.value;
   if (id === undefined || id === view.context?.session?.id || state.sessions.state !== "read") return null;
   const session = state.sessions.sessions.find((one) => one.id === id);
-  return session === undefined ? `- Act's Session: ${id}, not in Fleet's list` : sessionLine("Act's Session", sessionFacts(session));
+  return session === undefined ? `- Act's Job: ${id}, not in Fleet's list` : sessionLine("Act's Job", sessionFacts(session));
 }
 
 /** The message that carries a failure to a new Session. */

@@ -341,7 +341,7 @@ export function windowLines(note: WindowFacts): string[] {
       const facts = [`status ${job.status}`, job.reason === undefined ? null : `reason ${job.reason}`, job.step === undefined ? null : `step ${job.step}`, job.drone === undefined ? null : `Drone ${job.drone}`, `workflow ${job.workflow}`];
       lines.push(`- Job open: ${job.handle} "${job.title}" (${job.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
     } else if (note.openJobId !== undefined) lines.push(`- Job open: ${note.openJobId}`);
-    if (session !== undefined) lines.push(sessionLine("Session open", session));
+    if (session !== undefined) lines.push(sessionLine("Job open", session));
     lines.push(`- Connection to Fleet: ${context.connection}`, `- Doctor: ${doctor.summary}`);
     for (const row of doctor.rows) lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);
   }

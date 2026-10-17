@@ -13,7 +13,7 @@ export const IN_A_TERMINAL = "Runs in a terminal that is still listening";
 const REFUSED: Readonly<Record<string, string>> = {
   "fleet.session_move_same": "Already in that repository",
   "fleet.session_move_listening": IN_A_TERMINAL,
-  "fleet.no_such_session": "That Session is gone",
+  "fleet.no_such_session": "That Job is gone",
   "fleet.no_such_manifest": "That repository is not served",
 };
 

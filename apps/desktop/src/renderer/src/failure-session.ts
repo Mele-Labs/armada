@@ -60,7 +60,7 @@ export function useDispatchFailure(
     const id = started.current ?? (await draft.start(undefined, armada));
     if (id === undefined) {
       const why = draft.said?.();
-      askToTell(why === undefined ? "Session not started" : `Session not started: ${why}`);
+      askToTell(why === undefined ? "Job not started" : `Job not started: ${why}`);
       return false;
     }
     started.current = id;

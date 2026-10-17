@@ -112,12 +112,12 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
 
   add(
     "session",
-    "Sessions",
+    "Jobs",
     beside === undefined
       ? []
       : childrenOf(beside.sessions, session).map(({ session: child, title }) => {
           const props = linkedPropsOf(child, beside.open);
-          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Session", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
+          return { key: `session:${child.id}`, Glyph: Link, said: "Linked Job", title: props.title, ...(title === undefined ? {} : { sub: title }), mark: { glyph: TONE[props.state], said: props.said }, ...(props.pr === undefined ? {} : { pr: props.pr }), open: props.onOpen };
         }),
   );
 

@@ -6,7 +6,7 @@ import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 import type { Session, SessionRow, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** What the old Session is asked. It is a message of the person's, so it is read in the thread. */
-export const HANDOFF_ASK = "Write a short handoff for a new Session: the goal, where it stands, open pull requests and branches, and what is next.";
+export const HANDOFF_ASK = "Write a short handoff for a new Job: the goal, where it stands, open pull requests and branches, and what is next.";
 
 /** How long the old Session has to answer before the ledger's facts stand in. */
 export const HANDOFF_WITHIN_MS = 90_000;
