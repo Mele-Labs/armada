@@ -27,10 +27,20 @@ export type RepositoryArea = {
   files: number;
   /** Absent where none inside it made the list. */
   kids?: AreaKid[];
+  /**
+   * Its first files, as git lists them, named relative to `dir`: `src/lib.rs`. Present only where it has no kids, since
+   * each kid names its own. At most 100; the files past them are `files` less these.
+   */
+  names?: string[];
 };
 
 /** A directory inside a top directory, by its own name: `fleet` for `crates/fleet`. */
-export type AreaKid = { name: string; files: number };
+export type AreaKid = {
+  name: string;
+  files: number;
+  /** Its first files, as git lists them, named relative to the kid. At most 100; `files` stays the exact count. */
+  names?: string[];
+};
 
 /** `list_slot_touches`: `GET /slot_touches`. A holder with no slot, or no change in it, is absent. */
 export type SlotTouches = { repositories: TouchesInRepository[] };

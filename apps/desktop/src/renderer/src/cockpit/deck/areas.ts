@@ -8,10 +8,19 @@
 // directories counted by git. Where Fleet has not answered, has no such route or names none for a repository, its
 // territory shows pads and the main flag with no plots. A walk may stand a source in. #2301.
 
-import type { RepositoryAreas } from "@armada/protocol";
+import type { AreaKid, RepositoryArea, RepositoryAreas } from "@armada/protocol";
 
-/** One top directory with the directories inside it, each with a file count. A top directory with no children has none listed. */
-export type Area = { dir: string; kids: readonly (readonly [string, number])[] };
+/**
+ * A directory inside a top one: its name, its file count and, where Fleet named them, its first files as git lists them,
+ * relative to the kid. Fewer names than the count means the rest were cut, not that they are not there.
+ */
+export type Kid = readonly [name: string, files: number, names?: readonly string[]];
+
+/**
+ * One top directory with the directories inside it, each with a file count. A top directory with no children has none
+ * listed, and names its own first files instead (relative to `dir`); one with children names none.
+ */
+export type Area = { dir: string; kids: readonly Kid[]; names?: readonly string[] };
 
 export type Areas = readonly Area[];
 
@@ -21,11 +30,14 @@ export type AreaSource = (root: string) => Areas;
 /** No areas for any repository: before Fleet has answered, and from a Fleet with no such route. */
 export const noAreas: AreaSource = () => [];
 
+const kidOf = (kid: AreaKid): Kid => (kid.names === undefined ? [kid.name, kid.files] : [kid.name, kid.files, kid.names]);
+const areaFromWire = (area: RepositoryArea): Area => ({ dir: area.dir, kids: (area.kids ?? []).map(kidOf), ...(area.names === undefined ? {} : { names: area.names }) });
+
 /** The areas Fleet read, for the root each was read in. A root Fleet named none for has none. */
 export function areasFromFleet(read: RepositoryAreas): AreaSource {
   const bare = (root: string) => root.replace(/\/+$/, "");
   const byRoot = new Map(
-    read.repositories.map((one) => [bare(one.root), one.areas.map((area): Area => ({ dir: area.dir, kids: (area.kids ?? []).map((kid) => [kid.name, kid.files] as const) }))] as const),
+    read.repositories.map((one) => [bare(one.root), one.areas.map(areaFromWire)] as const),
   );
   return (root) => byRoot.get(bare(root)) ?? [];
 }

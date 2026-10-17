@@ -2,19 +2,36 @@
 // levels with a file count for each (F1 of the flight deck port, #2301). **Invented numbers, for a walk.** Nothing outside the
 // mock reads this; the real `AreaSource` is `noAreas`, and a territory then draws its pads and its main flag with no plots.
 
-import type { Area, AreaSource } from "../cockpit/deck/areas";
+import type { Area, AreaSource, Kid } from "../cockpit/deck/areas";
+
+/** What Fleet names at most for a directory (`MOST_NAMES` in `crates/fleet/src/territory.rs`). */
+const MOST_NAMES = 100;
+
+const STEMS = ["lib", "mod", "types", "client", "server", "state", "events", "routes", "store", "view", "panel", "layout", "format", "parse", "index", "config", "tests", "helpers", "queue", "ledger"];
+const EXTENSIONS = ["rs", "ts", "tsx", "md", "toml"];
+
+/** Plausible file names for a directory of `files`, sorted the way git lists them, `src/` ones among them, cut where Fleet cuts. */
+const named = (name: string, files: number): Kid => {
+  const all = Array.from({ length: files }, (_, at) => {
+    const stem = STEMS[at % STEMS.length]!;
+    const ext = EXTENSIONS[Math.floor(at / STEMS.length) % EXTENSIONS.length]!;
+    const round = Math.floor(at / (STEMS.length * EXTENSIONS.length));
+    return `${at % 3 === 0 ? "src/" : ""}${stem}${round === 0 ? "" : `-${round}`}.${ext}`;
+  }).sort();
+  return [name, files, all.slice(0, MOST_NAMES)];
+};
 
 const BY_NAME: Readonly<Record<string, readonly Area[]>> = {
   armada: [
-    { dir: "crates", kids: [["fleet", 150], ["store", 90], ["ipc", 60], ["drone", 55], ["gate", 40], ["config", 25]] },
-    { dir: "apps", kids: [["desktop", 230], ["cli", 30]] },
-    { dir: "packages", kids: [["components", 160], ["screens", 100], ["protocol", 70], ["jobs", 55], ["tokens", 20]] },
-    { dir: "docs", kids: [["concepts", 34], ["contracts", 28], ["practices", 22]] },
+    { dir: "crates", kids: [named("fleet", 150), named("store", 90), named("ipc", 60), named("drone", 55), named("gate", 40), named("config", 25)] },
+    { dir: "apps", kids: [named("desktop", 230), named("cli", 30)] },
+    { dir: "packages", kids: [named("components", 160), named("screens", 100), named("protocol", 70), named("jobs", 55), named("tokens", 20)] },
+    { dir: "docs", kids: [named("concepts", 34), named("contracts", 28), named("practices", 22)] },
   ],
   pocket: [
-    { dir: "src", kids: [["ui", 70], ["sw", 25], ["store", 20]] },
-    { dir: "public", kids: [] },
-    { dir: "tests", kids: [] },
+    { dir: "src", kids: [named("ui", 70), named("sw", 25), named("store", 20)] },
+    { dir: "public", kids: [], names: ["favicon.ico", "icon-192.png", "icon-512.png", "manifest.webmanifest"] },
+    { dir: "tests", kids: [], names: ["fixtures/cart.json", "fixtures/offline.json", "install.spec.ts", "offline.spec.ts", "sync.spec.ts"] },
   ],
 };
 
