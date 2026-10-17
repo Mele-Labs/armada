@@ -8,6 +8,7 @@
 
 import { bezierAt, type LabelPlace, type Rect } from "./edge-labels";
 import { CHANGE_SAID, partLabel, type Scene, type SceneChange, type SceneNode } from "./scene";
+import { screenSteps } from "./screen";
 import { pathOf } from "../SketchPad/ink-path";
 
 /** The tokens the drawing reads, by name. The caller resolves each against the theme in force. */
@@ -172,10 +173,12 @@ export function frameOf(scene: Scene, geometry: ExportGeometry, m: ExportMetrics
 export type StepPlan = { at: number; nodes: string[]; edges: string[] }[];
 
 export function stepPlan(scene: Scene): StepPlan {
-  const numbers = [...new Set([...scene.nodes.map((one) => one.step), ...scene.edges.map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b);
+  // A screen plays whole: the export keeps the steps of its elements, and lights the screen that holds one.
+  const stepsOf = (one: SceneNode) => [one.step, ...(one.screen === undefined ? [] : screenSteps(one.screen))];
+  const numbers = [...new Set([...scene.nodes.flatMap(stepsOf), ...scene.edges.map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b);
   return numbers.map((at) => ({
     at,
-    nodes: [...new Set([...scene.nodes.filter((one) => one.step === at).map((one) => one.id), ...scene.edges.filter((one) => one.step === at).map((one) => one.to)])],
+    nodes: [...new Set([...scene.nodes.filter((one) => stepsOf(one).includes(at)).map((one) => one.id), ...scene.edges.filter((one) => one.step === at).map((one) => one.to)])],
     edges: scene.edges.filter((one) => one.step === at).map((one) => one.id),
   }));
 }
@@ -186,7 +189,7 @@ export const EXPORT_CSS = `
 .sk-ground { fill: var(--bg-sunken); }
 .sk-node { --hue: var(--status-running); }
 .sk-node[data-kind="code"] { --hue: var(--status-not-started); }
-.sk-node[data-kind="wire"] { --hue: var(--border-strong); }
+.sk-node[data-kind="wire"], .sk-node[data-kind="screen"] { --hue: var(--border-strong); }
 .sk-node[data-change="added"], .sk-edge[data-change="added"] { --hue: var(--status-completed-success); }
 .sk-node[data-change="removed"], .sk-edge[data-change="removed"] { --hue: var(--status-completed-failed); }
 .sk-node[data-change="changed"], .sk-edge[data-change="changed"] { --hue: var(--status-awaiting-review); }
@@ -198,7 +201,7 @@ export const EXPORT_CSS = `
 .sk-border { fill: none; stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-frame { fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised)); stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-node[data-kind="group"] .sk-frame, .sk-node[data-kind="lane"] .sk-frame { fill: none; stroke-dasharray: var(--space-2) var(--space-2); }
-.sk-node[data-kind="wire"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
+.sk-node[data-kind="wire"] .sk-frame, .sk-node[data-kind="screen"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
 .sk-ring { display: none; fill: none; stroke: var(--edge-focus); stroke-width: var(--edge-active); }
 .sk-node[data-current] .sk-ring { display: inline; }
 .sk-head { fill: var(--hue); }
@@ -288,6 +291,10 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   } else if (mine) {
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
     body(e, node.body ?? "");
+  } else if (node.kind === "screen") {
+    // The screen's outer frame and its name; what is drawn inside it is not exported.
+    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    if (node.title !== undefined) parts.push(`<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`);
   } else if (node.kind === "wire") {
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
     const part = node.wire ?? "card";

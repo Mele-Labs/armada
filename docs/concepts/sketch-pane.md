@@ -56,7 +56,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | Part | Fields |
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
-| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `step` |
+| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `step` |
 | Edge | `id`, `from`, `to`, optional `label`, `flow`, `step` |
 | Stroke | `id`, `points` of `x` and `y` |
 
@@ -68,6 +68,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | `label` | Bare words |
 | `code` | A snippet, with `lang` in the header |
 | `wire` | A wireframe block named by `wire`, never a control |
+| `screen` | A wireframe screen drawn from a layout tree in `screen`; needs `screen` |
 
 **Rule.** A scene arrives as `unknown`, and `parseScene` is the only way in.
 
@@ -77,6 +78,28 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 **Rule.** A node `icon` is a registry glyph from `SCENE_ICONS`, and any other name fails the scene.
 
 **Rule.** `sceneOfDrawing` takes a pad's drawing as it is, so nothing the pad can draw is outside the format.
+
+## Screens
+
+**Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues. An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
+
+| Part | Types |
+|---|---|
+| Layout | `row`, `column`, `grid` with `cols`; each has `children`, `gap`, `pad` and `border` |
+| Frame | `window` with `chrome` of `desktop`, `browser` or `phone` |
+| Parts | `nav`, `panel`, `tabs`, `list`, `table`, `button`, `field`, `text`, `image`, `avatar`, `badge`, `divider`, `spacer`, `chat`, `modal` |
+
+**Rule.** Every element takes `id`, `step`, `size` and `align`. A `size` of `auto` takes the content, `fill` shares what is left, and a number is the weight of its share.
+
+**Rule.** A `gap` or a `pad` is `none`, `sm`, `md` or `lg`. Nothing inside a screen is written in pixels.
+
+**Rule.** An element's `icon` is a registry glyph from `SCREEN_ICONS`, kept apart from `SCENE_ICONS`, and any other name fails the whole scene. A bare string in `items` or `actions` is the words of a button, and `{ icon }` is a button of a glyph alone.
+
+**Rule.** An element's `step` joins the scene's step order. The element is ringed while its step plays and the rest of the screen stands back. A `modal` with a `step` comes up when its step does.
+
+**Rule.** An arrow joins whole screens, so two screens and an arrow are a screen flow.
+
+**Rule.** Share on a scene holding a screen draws the screen's outer frame and its title in the image and names it in the Mermaid text. The elements inside are not exported.
 
 ## Reading a sketch
 
