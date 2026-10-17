@@ -400,18 +400,16 @@ const CARDS: LedgerEntry[] = [
     onOpen: open,
   },
   {
-    key: "bc",
-    kind: "branch",
-    name: "Branch 52-pin-the-store-clock",
-    text: "52-pin-the-store-clock",
+    key: "st",
+    kind: "studio",
+    name: "Studio Flaky store shapes",
+    text: "Flaky store shapes",
     mark: { glyph: "running", said: "Running" },
-    slot: 4,
     card: {
-      title: "52-pin-the-store-clock",
+      title: "Flaky store shapes",
       facts: [
         { label: "State", value: "Running", tone: "running" },
-        { label: "Step", value: "implement", mono: true },
-        { label: "Branch", value: "52-pin-the-store-clock", mono: true },
+        { label: "Nodes", value: "3 nodes", mono: true },
       ],
     },
     onOpen: pressed,
@@ -439,9 +437,9 @@ export const PreviewCards: Story = {
     await userEvent.tab();
     await expect(pr).toHaveFocus();
     await userEvent.tab();
-    const branch = canvas.getByRole("button", { name: "Open Branch 52-pin-the-store-clock" });
-    await expect(branch).toHaveFocus();
-    await waitFor(() => expect(screen.getByText("implement")).toBeVisible());
+    const studio = canvas.getByRole("button", { name: "Open Studio Flaky store shapes" });
+    await expect(studio).toHaveFocus();
+    await waitFor(() => expect(screen.getByText("3 nodes")).toBeVisible());
     // The card does not take the press.
     await userEvent.keyboard("{Enter}");
     await expect(pressed).toHaveBeenCalledTimes(1);

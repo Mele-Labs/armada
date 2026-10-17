@@ -70,7 +70,7 @@ async fn the_record_holds_the_note_the_roster_and_the_thread() {
         record.note
     );
     assert!(
-        record.tools.contains(&"list_jobs".to_string())
+        record.tools.contains(&"list_sessions".to_string())
             && record.tools.contains(&"tell_session".to_string()),
         "the door's roster, by name: {:?}",
         record.tools

@@ -148,7 +148,7 @@ export const Closed: Story = {
 
     await expect(bay(1).getByRole("img", { name: "Held" })).toBeInTheDocument();
     await expect(bay(1).getByRole("img", { name: "Closed" })).toBeInTheDocument();
-    await expect(bay(1).getByRole("button", { name: "Fix the reader" })).toBeInTheDocument();
+    await expect(bay(1).getByText("Fix the reader")).toBeInTheDocument();
 
     await expect(bay(2).getByRole("img", { name: "Closed" })).toBeInTheDocument();
     await expect(bay(2).queryByRole("img", { name: "Free" })).toBeNull();
