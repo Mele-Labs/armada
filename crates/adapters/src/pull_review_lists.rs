@@ -85,7 +85,9 @@ pub(crate) fn search_of(ask: &ReviewListAsk<'_>) -> Option<String> {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '[' | ']'))
     };
-    if ask.repositories.is_empty() || !name(ask.login) || !ask.repositories.iter().all(|it| name(it)) {
+    // The open list names no one, so it needs no login; every other list is the login's.
+    let login_ok = ask.list == ReviewList::Open || name(ask.login);
+    if ask.repositories.is_empty() || !login_ok || !ask.repositories.iter().all(|it| name(it)) {
         return None;
     }
     let mut search = String::from("is:pr is:open sort:updated-desc");
@@ -99,6 +101,7 @@ pub(crate) fn search_of(ask: &ReviewListAsk<'_>) -> Option<String> {
         ReviewList::Team => format!(" review-requested:{login} -user-review-requested:{login}"),
         ReviewList::Assigned => format!(" assignee:{login}"),
         ReviewList::Mine => format!(" author:{login}"),
+        ReviewList::Open => String::new(),
     });
     Some(search)
 }

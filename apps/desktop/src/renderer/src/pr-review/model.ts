@@ -2,14 +2,14 @@
 // request's page, its threads and the review he writes are Fleet's** (`@armada/protocol`, `pull-reviews.ts`), and they
 // borrow the pull request panel's page (`PullRequestPage`) for the conversation, the checks and the commits. **What an
 // agent says is Fleet's too**: the explanation, the accounts, the answers and what a tool finds are runs
-// (`review-runs.ts`), mapped into these shapes in `runs.ts`. Only Natural Search is still a fixture.
+// (`review-runs.ts`), mapped into these shapes in `runs.ts`. So is Natural Search, a run across every repository.
 //
 // A pull request is read as what it makes happen, not as the files it touches: an explanation, then themes,
 // and each theme's changes in the order they were made, with why. A hunk is the evidence for a change, and a
 // path is only a caption on it. A line is named by its place in `Hunk.lines`, since the diff draws no numbers.
 
 import type { DiffLine } from "@armada/components";
-import type { DiffSide, PullRequestPage, PullReviewHolder, PullReviewThread, PullReviewThreadComment, ReviewPlace, ReviewRun, ReviewSeverity } from "@armada/protocol";
+import type { DiffSide, PullRequestPage, PullReviewHolder, PullReviewThread, PullReviewThreadComment, RememberedPlace, ReviewPlace, ReviewRun, ReviewSeverity, ReviewWalk, ReviewWalkState, WalkPlaceFound } from "@armada/protocol";
 
 /**
  * The lists a pull request can be on. **He is asked to review in two ways**: directly (`requested`), or through a team
@@ -24,14 +24,12 @@ export type ReviewTab = string;
 /** A pull request a find turned up, and the one line that says why it matched. */
 export type FindHit = { key: string; reason: string };
 
-/** What he asked a Drone to look for, in his own words, saved as a list of its own. */
+/**
+ * What he asked a Drone to look for, in his own words, saved as a list of its own. **Fleet keeps it** under the words, lower cased
+ * and single spaced, and `id` is that name behind `search:` so no list can share it. `words` are his own while this window
+ * has them, and the kept name after a restart.
+ */
 export type Find = { id: string; words: string; run: AgentRun; hits: readonly FindHit[] };
-
-/** What a find would come to. The first whose pattern fits the words answers; one that fits none finds nothing. */
-export type FindSeed = { when: string; hits: readonly FindHit[] };
-
-/** Natural Search, which no run serves yet: built only where a mock forge holds what a find would come to. */
-export type SearchFixtures = { built: boolean; finds: readonly FindSeed[] };
 
 /** One hunk of one file: the evidence for a change. */
 export type Hunk = { path: string; lines: DiffLine[] };
@@ -58,8 +56,8 @@ export type Draft = { id: string; path: string; line?: number; side?: DiffSide; 
 /** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
 export type ToolSource = "armada" | "kit" | "repository";
 
-/** What a tool is drawn with. Armada's four have a mark each; one anybody adds takes the clipboard. */
-export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "custom";
+/** What a tool is drawn with. Armada's five have a mark each; one anybody adds takes the clipboard. */
+export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "walk" | "custom";
 
 /** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
 export type DefKind = "tool" | "explanation";
@@ -172,6 +170,32 @@ export type PatchRead = { state: "reading" } | { state: "read"; lines: DiffLine[
 /** Whether the page of a pull request has been read from the forge, and the words of Fleet's refusal where it would not be. */
 export type PageRead = { state: "unread" } | { state: "reading" } | { state: "read" } | { state: "said"; said: string };
 
+/** Where Fleet found the place a change runs: one call that reads the pull request and then what Armada remembers. */
+export type WalkFound = { state: "idle" } | { state: "looking" } | { state: "found"; found: WalkPlaceFound } | { state: "said"; said: string };
+
+/** A note taken in a review's walk window that no Session holds. It stays here and is never a comment on the forge. */
+export type WalkNote = { at: string; text: string; location: string };
+
+/**
+ * What the Walk tool holds of one pull request beyond its kept run. **The walk itself is the run's result** (`web_walk` or
+ * `api_walk`, with the place it was written against), so it survives a restart; this is the finding, the question, the place
+ * held up for walking, and the notes.
+ */
+export type WalkWork = {
+  find: WalkFound;
+  /** Nothing found where it runs, so the question is up. */
+  asking: boolean;
+  /** The place held up for a walk, as Fleet last said it. */
+  held: ReviewWalk | undefined;
+  /** The last state it reached before it failed: which setup line broke. */
+  reached: ReviewWalkState | undefined;
+  /** The walk is being opened, and the window is not up yet. */
+  opening: boolean;
+  /** Why the walk did not open or the answer was not remembered, in Fleet's words. */
+  said: string | undefined;
+  notes: readonly WalkNote[];
+};
+
 export type PrWork = {
   page: PageRead;
   /** The patches opened, by path. Read from the forge when a file's change is first shown. */
@@ -200,11 +224,16 @@ export type PrWork = {
   submissions: readonly Submission[];
   /** The page's review state, which a submitted review moves. */
   review: PullRequestPage["review"];
+  walk: WalkWork;
 };
 
+/** The sheet that is up for the Walk: asking where this pull request runs, or the places Armada remembers. */
+export type WalkSheet = { kind: "ask"; key: string } | { kind: "places" } | undefined;
+
+/** The places Armada remembers, across the repositories it serves, as Fleet last said them. */
+export type PlacesRead = { state: "unread" | "reading" | "read"; list: readonly RememberedPlace[]; said: string | undefined };
+
 export type ReviewSnapshot = {
-  /** Whether Natural Search runs here (`SearchFixtures.built`). Off, it is drawn off and answers nothing. */
-  searchBuilt: boolean;
   /** The pull requests as last fetched. Empty until the view is first opened. */
   prs: readonly ReviewPr[];
   fetchedAt: number | undefined;
@@ -214,7 +243,7 @@ export type ReviewSnapshot = {
   me: string;
   /** Fleet's words where it would not read the lists. The rows above are those last held. */
   failed: string | undefined;
-  /** The finds he asked a Drone for, each a list in the dropdown. */
+  /** The finds he asked a Drone for, each a list in the dropdown. Fleet keeps them. */
   finds: readonly Find[];
   /** `key` of the pull request open in the reader. */
   open: string | undefined;
@@ -229,4 +258,6 @@ export type ReviewSnapshot = {
   /** The definition files Fleet could not read, by repository's manifest id. */
   leftOut: Readonly<Record<string, readonly LeftOut[]>>;
   work: Readonly<Record<string, PrWork>>;
+  sheet: WalkSheet;
+  places: PlacesRead;
 };

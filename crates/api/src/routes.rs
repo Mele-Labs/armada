@@ -181,6 +181,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/review_runs/:repository/:number",
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
+        .merge(crate::review_walks::mounted::<D>())
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))

@@ -12,7 +12,7 @@ import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
 import { REVIEW_KEYS, capOf } from "./key-table";
-import { ChecksMark, ReviewMark } from "./marks";
+import { ChecksMark, ReviewMark, RunFailed } from "./marks";
 import type { Find, ReviewPr } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 
@@ -32,7 +32,7 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking, searchBuilt: built } = useReviews();
+  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
@@ -56,7 +56,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
     ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
     { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search, ...(built ? {} : { disabled: true, hint: "Not built yet" }) },
+    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search },
   ];
   const ask = () => {
     if (words.trim() === "") return;
@@ -177,7 +177,9 @@ function FindHead({ find }: { find: Find }) {
         <span className="pr-review__mark" data-checks="running">
           <PrMark Glyph={LoaderCircle} said="Looking" tone="running" />
         </span>
-      ) : find.hits.length === 0 ? (
+      ) : find.run.state === "failed" ? (
+        <RunFailed said={find.run.said} />
+      ) : find.run.state === "done" && find.hits.length === 0 ? (
         <PrMark Glyph={Check} said="Nothing found" tone="success" />
       ) : null}
       {find.run.state === "done" ? <PrMark Glyph={History} said={`Kept. Ran ${agoOf(new Date(find.run.at).toISOString())}`} /> : null}
@@ -188,7 +190,7 @@ function FindHead({ find }: { find: Find }) {
           </Button>
         </Tooltip>
         <Tooltip label="Remove this find">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Remove this find" onClick={() => store.removeFind(find.id)}>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Remove this find" disabled={running} onClick={() => store.removeFind(find.id)}>
             <X size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>

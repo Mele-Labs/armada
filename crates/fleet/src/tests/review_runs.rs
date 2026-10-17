@@ -36,7 +36,7 @@ const DIFF: &str = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1,2 +1
 
 const FINDINGS: &str = r#"{"findings":[{"title":"Overflow","body":"`x` can wrap.","severity":"high","at":{"path":"a.rs","side":"right","start":1,"end":2}}]}"#;
 
-fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fixture> {
+pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fixture> {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.starting().workflows = one(workflow_named("code_review"));
     fittings.starting().manifest = config::Manifest::parse(
@@ -72,6 +72,7 @@ fn start(kind: ReviewRunKind, name: &str, again: bool) -> StartReviewRun {
         kind,
         name: name.into(),
         again,
+        place: None,
     }
 }
 
@@ -423,7 +424,7 @@ fn changed() -> Vec<String> {
 }
 
 fn read(shape: &str, answer: &str, dir: &TempDir, description: Option<&str>) -> Result<ReviewResult, String> {
-    answer_read(shape, answer, &changed(), dir.path(), description)
+    answer_read(shape, answer, &changed(), dir.path(), description, None)
 }
 
 #[test]

@@ -131,9 +131,14 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     take();
     return document.querySelector<HTMLElement>(".pr-list__pick button")?.click();
   }
-  if (snap.searchBuilt && isPressed("review_search", event)) {
+  if (isPressed("review_search", event)) {
     take();
     return store.setSearching(true);
+  }
+
+  if (isPressed("review_where", event)) {
+    take();
+    return store.showPlaces();
   }
 
   // The quick actions bar takes one key, and the description its own, for the pull request that is open.
@@ -215,7 +220,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       // A change opens its hunk, and a control is pressed (a key a walk sends does not press it on its own).
       if (control === null && target.matches("article[data-stop]")) {
         take();
-        return target.querySelector<HTMLElement>(".pr-change__toggle")?.click();
+        return target.querySelector<HTMLElement>(".pr-change__toggle, [data-run]")?.click();
       }
       if (control !== null && !target.closest(".pr-find")) {
         take();

@@ -1,17 +1,15 @@
 // **The agent half of the review store: everything an agent does, as runs Fleet keeps.** A quick action, Ask and a review tool
 // start a run (`start_review_run`) and meet its progress and result as `review_run.changed`; what is kept for a pull request is
 // read when it is opened, so a result survives a restart of Bridge or of Fleet. The store (`store.tsx`) reaches it only through
-// `AgentActs`. An agent runs only when he presses, and asks first: `spend` is the one gate. Natural Search is still a fixture.
+// `AgentActs`. An agent runs only when he presses, and asks first: `spend` is the one gate. Natural Search (`store-search.ts`)
+// and the Walk (`store-walk.ts`) are the other two halves, and both meet the run through the same `begin` and `apply`.
 
-import type { ReviewRun, ReviewTools } from "@armada/protocol";
+import type { PullReviewRow, ReviewRun, ReviewTools, WalkPlace } from "@armada/protocol";
 
-import type { Asked, Find, Finding, PrWork, ReviewPr, ReviewSnapshot, SearchFixtures, ToolDef } from "./model";
-import { accountOf, agentRunOf, answerOf, explanationOf, findingsOf, runKey, toolDefOf } from "./runs";
+import type { Asked, Finding, PrWork, ReviewPr, ReviewSnapshot, ToolDef } from "./model";
+import { accountOf, agentRunOf, answerOf, explanationOf, findingsOf, runKey, toolDefOf, wordsOf } from "./runs";
 import type { ReviewSource } from "./source";
 import type { ToolIn } from "./store";
-
-/** How long a find, and the mock Fleet's runs, take before they come to something. */
-export const AGENT_MS = 2200;
 
 /** What the agent half reads and moves of the store. */
 export type StoreHold = {
@@ -21,14 +19,12 @@ export type StoreHold = {
   change: (key: string, by: Partial<PrWork>) => void;
   mend: (key: string, by: Partial<ReviewPr>) => void;
   prOf: (key: string) => ReviewPr | undefined;
-  timers: Set<number>;
   nextId: (prefix: string) => string;
+  /** Takes a pull request a search turned up, which may be on none of the four lists, so it opens like any other. Answers its key. */
+  adopt: (row: PullReviewRow) => string;
 };
 
 export type AgentActs = {
-  find: (words: string) => void;
-  rerunFind: (id: string) => void;
-  removeFind: (id: string) => void;
   spend: (what: string, run: () => void, cancelled?: () => void) => void;
   confirmSpend: (again: boolean) => void;
   cancelSpend: () => void;
@@ -48,29 +44,28 @@ export type AgentActs = {
   readRuns: (key: string) => void;
   /** Reads a repository's tools and explanations, once. */
   readTools: (manifestId: string) => void;
-  /** A run moved, whole (`review_run.changed`). */
+  /** A run moved, whole (`review_run.changed`). A search has no pull request and is the store's to route (`store.tsx`). */
   apply: (run: ReviewRun) => void;
+  /** Starts a run, or asks for the one kept. `place` is where the Walk's change runs. A refusal is the run failed, in Fleet's words. */
+  begin: (key: string, kind: ReviewRun["kind"], name: string, again: boolean, place?: WalkPlace) => void;
   /** A file's patch was read or dropped: the explanation's hunks are cut from it again. */
   patched: (key: string) => void;
 };
 
-/** Nothing runs for Natural Search: where no mock forge holds what a find would come to. */
-export const NO_SEARCH: SearchFixtures = { built: false, finds: [] };
-
 const HOW_IT_WORKS = runKey("explanation", "how-it-works");
 
 /** A later run replaces an earlier; a run that has finished is not taken back to going by its own start arriving late. */
-const staler = (held: ReviewRun, run: ReviewRun): boolean => {
+export const staler = (held: ReviewRun, run: ReviewRun): boolean => {
   const was = Date.parse(held.started_at);
   const now = Date.parse(run.started_at);
   if (was !== now) return was > now;
   return (held.state === "done" || held.state === "failed") && (run.state === "queued" || run.state === "running");
 };
 
-const said = (words: string): string => words.trim().replace(/\s+/g, " ");
+const said = wordsOf;
 
-export function createAgentActs(search: SearchFixtures, source: ReviewSource, hold: StoreHold): AgentActs {
-  const { get, set, work, change, mend, prOf, timers, nextId } = hold;
+export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentActs {
+  const { get, set, work, change, mend, prOf, nextId } = hold;
   let waiting: (() => void) | undefined;
   let declined: (() => void) | undefined;
   const toolsHeld = new Set<string>();
@@ -78,17 +73,6 @@ export function createAgentActs(search: SearchFixtures, source: ReviewSource, ho
   /** Questions he removed this session, which Fleet still keeps: they stay off the page until he asks them again. */
   const removed = new Set<string>();
   const forgotten = (key: string, words: string) => `${key}\n${words.toLowerCase()}`;
-
-  const setFind = (id: string, by: Partial<Find>) => set({ finds: get().finds.map((one) => (one.id === id ? { ...one, ...by } : one)) });
-  const look = (id: string, words: string) => {
-    setFind(id, { run: { state: "running", since: Date.now() }, hits: [] });
-    timers.add(
-      window.setTimeout(() => {
-        const hits = search.finds.find((one) => new RegExp(one.when, "i").test(words))?.hits ?? [];
-        setFind(id, { run: { state: "done", at: Date.now(), head: "" }, hits });
-      }, AGENT_MS + 600),
-    );
-  };
 
   const askedBy = (key: string, words: string): Asked | undefined => work(key).asks.find((one) => one.words.toLowerCase() === words.toLowerCase());
   const setAsk = (key: string, words: string, by: Partial<Asked>) => change(key, { asks: work(key).asks.map((one) => (one.words.toLowerCase() === words.toLowerCase() ? { ...one, ...by } : one)) });
@@ -137,14 +121,14 @@ export function createAgentActs(search: SearchFixtures, source: ReviewSource, ho
   };
 
   /** Starts a run, or asks for the one kept: going at once on screen, then as Fleet says. A refusal is the run failed, in Fleet's words. */
-  const begin = (key: string, kind: ReviewRun["kind"], name: string, again: boolean) => {
+  const begin = (key: string, kind: ReviewRun["kind"], name: string, again: boolean, place?: WalkPlace) => {
     const pr = prOf(key);
     if (pr === undefined) return;
     const going = { state: "running", since: Date.now() } as const;
     if (kind === "explanation") change(key, { explains: { ...work(key).explains, [name]: going } });
     else if (kind === "tool") change(key, { runs: { ...work(key).runs, [name]: going } });
     else setAsk(key, name, { run: going });
-    void source.startRun(pr.manifestId, { number: pr.number, kind, name, ...(again ? { again: true } : {}) }).then((answer) => {
+    void source.startRun(pr.manifestId, { number: pr.number, kind, name, ...(again ? { again: true } : {}), ...(place === undefined ? {} : { place }) }).then((answer) => {
       if (answer.ok) return apply(answer.value);
       const failed = { state: "failed", said: answer.said, at: Date.now(), head: pr.head } as const;
       if (kind === "explanation") change(key, { explains: { ...work(key).explains, [name]: failed } });
@@ -162,21 +146,6 @@ export function createAgentActs(search: SearchFixtures, source: ReviewSource, ho
   };
 
   return {
-    find: (words) => {
-      const asked = said(words);
-      if (asked === "" || !search.built) return;
-      const snapshot = get();
-      const again = snapshot.finds.find((one) => one.words.toLowerCase() === asked.toLowerCase());
-      const id = again?.id ?? nextId("find");
-      if (again === undefined) set({ finds: [...snapshot.finds, { id, words: asked, run: { state: "idle" }, hits: [] }] });
-      set({ tab: id });
-      if (again?.run.state !== "running") look(id, asked);
-    },
-    rerunFind: (id) => {
-      const one = get().finds.find((one) => one.id === id);
-      if (search.built && one !== undefined && one.run.state !== "running") look(id, one.words);
-    },
-    removeFind: (id) => set({ finds: get().finds.filter((one) => one.id !== id), tab: get().tab === id ? "requested" : get().tab }),
     spend: (what, run, cancelled) => {
       if (!get().askFirst) return run();
       waiting = run;
@@ -227,12 +196,13 @@ export function createAgentActs(search: SearchFixtures, source: ReviewSource, ho
     },
     runTool: (key, tool) => {
       change(key, { view: tool.id });
-      if (!tool.agent) return;
+      // The Walk is started by its place being found (`store-walk.ts`): a run needs the place.
+      if (!tool.agent || tool.mark === "walk") return;
       const run = work(key).runs[tool.id];
       if (run === undefined || run.state === "idle") begin(key, "tool", tool.id, false);
     },
     rerun: (key, tool) => {
-      if (work(key).runs[tool.id]?.state !== "running") begin(key, "tool", tool.id, true);
+      if (tool.mark !== "walk" && work(key).runs[tool.id]?.state !== "running") begin(key, "tool", tool.id, true);
     },
     dismiss: (key, finding) => change(key, { findings: work(key).findings.map((one) => (one.id === finding ? { ...one, dismissed: true } : one)) }),
     sent: (key, findings) => change(key, { findings: work(key).findings.map((one) => (findings.includes(one.id) ? { ...one, sent: true } : one)) }),
@@ -265,6 +235,7 @@ export function createAgentActs(search: SearchFixtures, source: ReviewSource, ho
       });
     },
     apply,
+    begin,
     patched: (key) => {
       if (work(key).wire[HOW_IT_WORKS]?.state === "done") cut(key);
     },

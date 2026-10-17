@@ -4,11 +4,13 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Ask an agent, read-only, about one pull request: a tool, an explanation or a question, kept for the commit it read"
 notes = """
-`POST /review_runs/:repository`, `repository` a manifest id, body `StartReviewRun`: `number`, `kind` (`tool`, `explanation` or `ask`), `name` (the definition's id, or the question's words) and `again`. **Answers at once** with a `ReviewRun`; its progress and its result arrive as `review_run.changed`, and `get_review_runs` reads them again.
+`POST /review_runs/:repository`, `repository` a manifest id, body `StartReviewRun`: `number`, `kind` (`tool`, `explanation` or `ask`), `name` (the definition's id, or the question's words), `again` and `place`. **Answers at once** with a `ReviewRun`; its progress and its result arrive as `review_run.changed`, and `get_review_runs` reads them again.
 
 **Only a press starts one, and a kept result is answered as it stands.** Without `again`, a result kept for this pull request, this kind and name is answered with no run, at the commit it ran on: a newer head leaves it served, and Bridge marks it out of date. Nothing kept starts a run at the head the forge says now. With `again` a run starts whatever is kept and replaces the result for that head. A run already going for the same key is answered, not started twice.
 
 **The run reads and cannot write.** Fleet leases a bay, checks out the pull request's head there on a branch of the lease's own, and asks one model call with the read tools only (Read, Grep, Glob; no shell, no edit, no network) confined to that checkout, then gives the bay back. It is handed the definition's prompt, the pull request's title, description, head and diff. The model is `models.review`. The answer is JSON in the shape the kind has, validated; one that is not valid is a failed run with its reason and is never a result.
+
+**The tool `walk` writes a walk and needs `place`**, where the change runs (`find_walk_place`, or the sheet's answer). It answers `web_walk`, `show_window` steps over the page at the place, or `api_walk`, a list of requests with what to look for in each response, whichever the pull request is, and Fleet fills the `place` into the result itself. Without a `place` that is a 422 `fleet.review_walk_needs_a_place`; `place` on any other name is ignored. A walk's steps are checked as `show_window` checks them, and a request is checked for a path on the base address, a method of the five and a body that is JSON. Natural Search is not started here: `start_review_search`.
 
 A 422 `fleet.review_unknown_tool` for a name no definition has, `fleet.review_blank` for a blank question, and a 500 `fleet.review_pull_request_unreadable` where the forge would not give the pull request.
 """

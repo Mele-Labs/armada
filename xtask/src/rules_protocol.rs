@@ -46,8 +46,9 @@ const INVENTORY: &str = "crates/ipc/operations";
 /// The router: every `.route(` call.
 const TABLE: &str = "crates/api/src/routes.rs";
 /// Routers [`TABLE`] merges whole, read with it as one text: the issues and Autopilot's, mounted
-/// together because `routes.rs` sits at the line count the gate reports. #2092.
-const ROUTER_PARTS: &[&str] = &["crates/api/src/issues.rs"];
+/// together because `routes.rs` sits at the line count the gate reports. #2092. Natural Search and
+/// the Walk tool's, for the same reason.
+const ROUTER_PARTS: &[&str] = &["crates/api/src/issues.rs", "crates/api/src/review_walks.rs"];
 /// The inventory half of the same subject: every `SERVED` row.
 const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
 /// The tables [`SERVED_TABLE`] joins into `SERVED`, split out of it at the

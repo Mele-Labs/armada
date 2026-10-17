@@ -1,0 +1,10 @@
+[operations.find_walk_place]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Where a pull request's change runs, from the pull request itself and then from what Fleet remembers of the repository and the area of code"
+notes = """
+`GET /walk_finds/:repository/:number`, `repository` a manifest id. `WalkPlaceFound`. **Reads and spends nothing**: the pull request's page from the forge, and Fleet's own store. **The person's order, one source at a time, each only if the one before found nothing**: (1) the pull request, a deploy bot's comment naming a preview or deployed address, or the details address of a passed check named for a preview or a deploy; (2) the place Fleet remembers for this repository and the pull request's area, the two-deep directory with the most changed files, most changed lines on a tie, a remembered area covering it counting as a match. `tried` has one line for each source tried, `place` the first found. **Asking the person is the third source and is Bridge's**: `place` absent means ask.
+
+A 422 for a repository Fleet does not serve, and a 500 `fleet.review_pull_request_unreadable` where the forge would not give the pull request.
+"""
