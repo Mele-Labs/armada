@@ -19,7 +19,7 @@ Bridge talks to Fleet and nothing else, and a person choosing what to start has 
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
 | Read one issue | By its reference | `read_issue` |
 
-**Write-back is not wired.** The adapter can comment on an issue, put a label on or take one off, and name the closing line a pull request carries. Nothing in Fleet calls them, so an issue is not commented on, labelled or closed by Armada. #91 asked for it and it is lost for now.
+**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it. A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Session came from, and it is not built.
 
 ## Rules
 
@@ -95,6 +95,4 @@ What to look for: each issue has `key` and `fields.summary` (or `summary`), `fie
 
 | Missing | Waiting on it |
 |---|---|
-| A label put on without a read | Until `--labels` is known to add rather than replace, and write-back is wired |
-| Write-back to the issue | A comment, a label and the closing line are written in the adapter and called by nothing |
 | The Cockpit lane Autopilot chooses from | Autopilot's Bridge half, `#2092`. Its picker already reads this list, held the same five minutes: [autopilot.md](autopilot.md) |

@@ -85,7 +85,7 @@ Neither one stops a Session that is working.
 |---|---|
 | The decisions | Taken, `.claude/decisions/2026-10-11-*.md` |
 | A waiting Session gives its place back | Built: a Session with a call standing for the person, or one that has replied or gone idle, holds no place |
-| Fleet reads issues | Built, #91: `docs/concepts/tracker.md`. Write-back to the issue is not wired. The list is in the composer; the Cockpit lane is Autopilot's |
+| Fleet reads issues | Built, #91: `docs/concepts/tracker.md`. Fleet never comments on or labels the issue. The list is in the composer; the Cockpit lane is Autopilot's |
 | The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Proposer's is, not an agent. A Session waiting on a person, or idle, holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick, which starts a Session, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |

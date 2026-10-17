@@ -66,14 +66,15 @@ model by difficulty, and the effort.
 
 Made in the pull requests that deleted the Job code (#2495, #2497, #2498,
 #2499, #2500, #2502), where the plan above did not say. The pull requests
-chose these. One row waits on his answer.
+chose these. The write-back row was answered by the owner the same day, in the
+table below this one.
 
 | Asked | Ruled | The cost |
 |---|---|---|
 | Autopilot, when a pick's Session replies or goes idle (#2497) | The Session gives its place back and stays open. A Session counts against the cap while it works or has not run yet, and does not while it waits on the person. The spend and Sessions-started caps count Sessions | A Session that replied once no longer holds Autopilot's place, so Autopilot can start another beside it |
 | Autopilot, which issues are "already taken" (#2497) | Every pick's issue, from any run, whose Session is still live | A Session that ended frees its issue to be picked again |
 | Autopilot, what Stop does (#2497) | It closes a picked Session whose agent never ran, and leaves the others | A Session already working keeps running after Stop |
-| Autopilot, issue write-back (#91) | **Lost for now.** It was keyed on Jobs, so a landed pick no longer writes back to the tracker. **Waiting on his answer** whether it is keyed on Sessions or dropped | An issue Autopilot finished is not marked on the tracker |
+| Autopilot, issue write-back (#91) | Lost when Jobs went: it was keyed on Jobs, so a landed pick no longer wrote back to the tracker. Answered below | An issue Autopilot finished is not marked on the tracker |
 | Pocket, which acts stay (#2498) | Needs you, Running and Done list Sessions from the routes Bridge reads. Dispatch starts a Session, and the phone answers a Session's ask. A stuck Session pushes once | The seven Job acts are lost on the phone: approve, redirect, restart a step, kill, redispatch, approve a review and request changes. So are the Job and Review screens |
 | A bay held by an old Job (#2500) | Drawn without a holder | The bay does not say who has it |
 | The Job tables | Left in place and unread until one later migration drops them (#2495, #2499, #2502). Wire types stay until #30 | A store carries tables nothing reads until then |
@@ -82,3 +83,11 @@ chose these. One row waits on his answer.
 | The Epic workflow (#2499) | Inert once Job dispatch went, and removed with #30 | Epics are Sessions linked to a parent, as decided above |
 | The Helm session retention setting (#2499) | `retention.helmSessionDays` went with the Commander. After the Commander left, the only conversation it swept was the Commander's | None |
 | What else left with Job dispatch (#2502) | `dispatch_studio_draft`, the retro `agree_lesson` op and the seed warm-up. Copy-on-write cloning stays. Triggers stay as saved definitions, with no firing, holds, repair or added steps | A retro item starts a Session with Start Session |
+
+## Fleet does not comment for him, 17 Oct 2026
+
+His words: *"Fleet should never comment on issues or PRs on my behalf."*
+
+| Asked | He ruled | The cost he took |
+|---|---|---|
+| Whether issue write-back (#91) is rebuilt for Sessions | No. It is deleted. Fleet never comments on, labels or edits an issue or a pull request unless he presses for it. A review or comment he approves, or types and sends from Bridge, is his own act | An issue Autopilot picked and finished stays as it was on the tracker until he marks it |
