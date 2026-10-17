@@ -79,6 +79,7 @@ mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
+pub mod linked_watching;
 pub mod rail_watching;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
@@ -313,6 +314,10 @@ mod pull_review_lists;
 mod review_runs;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
+/// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.
+mod review_walk_runs;
+/// Where a pull request's change runs, and the places Fleet remembers.
+mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;

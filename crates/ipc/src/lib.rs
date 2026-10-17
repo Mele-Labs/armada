@@ -383,7 +383,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
     RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
     SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
@@ -538,7 +538,7 @@ pub use session_checks::{
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
-pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_starts::{ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession};
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,

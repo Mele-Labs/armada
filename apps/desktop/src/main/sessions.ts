@@ -15,6 +15,7 @@ import WebSocket from "ws";
 
 import type {
   ReleaseSessionHolds,
+  SessionHeld,
   SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
@@ -29,6 +30,7 @@ import type {
   DismissWaiting,
   Followed,
   FrameRead,
+  HandToSession,
   Outcome,
   PullRequestClaimed,
   PullRequestFilePatch,
@@ -505,6 +507,14 @@ export class SessionsHost {
   }
 
   /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  /** One group of a Session's plan handed to a Session of its own. The new Session and the parent's row change by `session.changed`. */
+  async handToSession(hand: HandToSession): Promise<SessionActed<SessionHeld>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/hand_to_session", hand);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHeld } : { ok: false, outcome: answer.outcome };
+  }
+
   async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };

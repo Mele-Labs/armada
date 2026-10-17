@@ -246,6 +246,36 @@ fn an_agent_to_agent_hand_back_is_not_drawn() {
     assert!(read_from(&file, 0).expect("readable").rows.is_empty());
 }
 
+/// An agent sometimes ends a reply by writing out a `<task-notification>` of its
+/// own, a copy of the CLI's notice. It is not the agent's prose, so it is not drawn.
+#[test]
+fn a_task_notification_an_agent_writes_itself_is_not_drawn() {
+    let (_home, file) = written(&[
+        line(
+            "assistant",
+            "f1",
+            "",
+            r#"[{"type":"text","text":"Both agents are still running.\n\n<task-notification>\n<task-id>a1</task-id>\n<status>completed</status>\n</task-notification>"}]"#,
+        ),
+        line(
+            "assistant",
+            "f2",
+            "",
+            r#"[{"type":"text","text":"<task-notification><task-id>a1</task-id></task-notification>"}]"#,
+        ),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    let said: Vec<&str> = thread
+        .rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Message { from: SessionVoice::Agent, text, .. } => text.as_str(),
+            other => panic!("not drawn so: {other:?}"),
+        })
+        .collect();
+    assert_eq!(said, vec!["Both agents are still running."]);
+}
+
 fn in_agent(kind: &str, uuid: &str, reason: &str, content: &str) -> String {
     format!(
         r#"{{"type":"{kind}","uuid":"{uuid}","isSidechain":true,"agentId":"x1","timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":{content}}}}}"#

@@ -113,6 +113,7 @@ import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { PlanReview } from "./session-view/PlanReview";
+import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
@@ -777,9 +778,16 @@ export function entriesOf(
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
+      case "started_to": {
+        const child = one.group === undefined ? undefined : sessions.find((other) => other.id === one.id);
+        if (child !== undefined) {
+          const props = linkedPropsOf(child, open, groupTitleOf(session, one.group!));
+          return { key: `linked${child.id}`, kind: "linked", name: `${props.title}, ${props.said}`, text: props.title, linked: props, onOpen: props.onOpen };
+        }
+        return linkEntry(one, sessions, open);
+      }
       case "forked_to":
       case "forked_from":
-      case "started_to":
       case "started_by":
         return linkEntry(one, sessions, open);
       case "slot":
@@ -1064,7 +1072,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen}>
       <SessionFrame
         state={state}
         said={said}
