@@ -403,8 +403,8 @@ export type WaitReading = {
   part?: { id: string; title: string };
   base: StartBase;
   needs: string;
-  /** What the proposer would name the Session. */
-  title: string;
+  /** What the proposer would name the Session. Absent where it reads no name, as a Fleet's reading of the wait does. */
+  title?: string;
 };
 
 export type Session = {
@@ -653,6 +653,11 @@ export type SessionsDraft = {
   start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">) => string | Promise<string | undefined>;
   /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
   readsWait?: (words: string) => WaitReading | undefined;
+  /**
+   * The reading of a brief once the proposer has answered for it, which a send waits for so a Session is not started on the defaults
+   * while the real reading is out. Absent where `readsWait` answers at once.
+   */
+  settlesWait?: (words: string) => Promise<WaitReading | undefined>;
   /**
    * Changes when a waiting Session starts, and from where. The Session it waits on is told. Absent where nothing serves it, and the
    * waiting Session's page offers no condition to change.

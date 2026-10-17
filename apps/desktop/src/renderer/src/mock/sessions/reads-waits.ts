@@ -12,20 +12,9 @@
 
 import type { Session, WaitReading } from "@armada/screens/src/draft/sessions";
 import { defaultBase, planPartsOf } from "@armada/screens/src/session-waits";
+import { taggedIn } from "../../dispatch-panel/waits";
 
 type Found = { at: number; end: number; when: WaitReading["when"]; part?: { id: string; title: string } };
-
-const escaped = (words: string) => words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** The Session the words tag: the live Session whose title follows an `@` at the start of a word, the longest title first. */
-export function taggedIn(words: string, sessions: readonly Session[]): { session: Session; at: number; end: number } | undefined {
-  const live = sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined);
-  for (const session of [...live].sort((a, b) => b.title!.length - a.title!.length)) {
-    const found = new RegExp(`(^|\\s)@(${escaped(session.title!)})(?![\\w])`, "i").exec(words);
-    if (found !== null) return { session, at: found.index + (found[1]?.length ?? 0), end: found.index + found[0].length };
-  }
-  return undefined;
-}
 
 /** The part of the plan a phrase names: its title contains the phrase, or the phrase contains its title. */
 function partNamed(phrase: string, session: Session): { id: string; title: string } | undefined {

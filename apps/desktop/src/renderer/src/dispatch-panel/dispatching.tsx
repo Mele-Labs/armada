@@ -227,18 +227,23 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     if (draft === undefined) return;
     const text = wordsNow().trim();
     recall(at);
-    // A brief that tags a Session that is still there waits on it, as the sentence over the request read it and as his hand left it.
-    const read = draft.readsWait?.(text);
-    const waitsOn = read === undefined ? undefined : draft.get().find((one) => one.id === read.on.id && one.dead === undefined);
-    const one = read === undefined || waitsOn === undefined ? undefined : waitChosen(read, handNow(), planPartsOf(waitsOn));
-    const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
+    const hand = handNow();
     setSending(true);
-    void Promise.resolve(draft.start(undefined, at, text, tuningNow(), after)).then((id) => {
-      if (id === undefined) return setSending(false);
-      if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [] });
-      clearAll();
-      openSession(id);
-    });
+    // A real reading is waited for, so a Session is not started on the defaults while the proposer is still out.
+    void Promise.resolve(draft.settlesWait?.(text) ?? draft.readsWait?.(text))
+      .then((read) => {
+        // A brief that tags a Session that is still there waits on it, as the sentence over the request read it and as his hand left it.
+        const waitsOn = read === undefined ? undefined : draft.get().find((one) => one.id === read.on.id && one.dead === undefined);
+        const one = read === undefined || waitsOn === undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
+        const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
+        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after }));
+      })
+      .then(({ id, after }) => {
+        if (id === undefined) return setSending(false);
+        if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [] });
+        clearAll();
+        openSession(id);
+      });
   }
 
   /** Saves the idea in the Cockpit's Jobs and Sessions list and lets the sheet go. Nothing is started and nothing opens. */

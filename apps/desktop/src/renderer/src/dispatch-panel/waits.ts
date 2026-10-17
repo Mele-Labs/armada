@@ -3,7 +3,7 @@
 // the words read when he made it (`was`), so a correction typed in the brief that changes the reading takes the part back and one that
 // leaves it alone does not undo his change.
 
-import type { StartBase, StartWhen, WaitReading } from "@armada/screens/src/draft/sessions";
+import type { Session, StartBase, StartWhen, WaitReading } from "@armada/screens/src/draft/sessions";
 import type { PlanPart } from "@armada/screens/src/session-waits";
 
 /** The four parts of the sentence. */
@@ -107,6 +107,16 @@ export function chipOf(read: WaitReading, hand: Hand, parts: readonly PlanPart[]
     his: one.his,
     set,
   };
+}
+
+/** The Session the words tag: the live Session whose title follows an `@` at the start of a word, the longest title first. */
+export function taggedIn(words: string, sessions: readonly Session[]): { session: Session; at: number; end: number } | undefined {
+  const live = sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined);
+  for (const session of [...live].sort((a, b) => b.title!.length - a.title!.length)) {
+    const range = tagRange(words, session.title!);
+    if (range !== undefined) return { session, at: range[0], end: range[1] };
+  }
+  return undefined;
 }
 
 /** Where the tag of the Session called `title` stands in the words: from its `@` to the end of its title. */
