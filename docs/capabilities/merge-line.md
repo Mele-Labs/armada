@@ -16,16 +16,15 @@ milestone: Throughput
 GitHub's pull requests and the `checks` workflow land this repository's code
 ([the decision](../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md)).
 **The rest of this page describes the line being retired**, and what stays of
-it: needs, main going red, and Bridge's panel. It is kept for the reasoning.
+it: main going red, and Bridge's panel. It is kept for the reasoning.
 
 | The line's part | What replaces it |
 |---|---|
 | Queue and turn | GitHub's merge queue |
 | Rerunning what `main` moved under | The `plan` job, through `armada covers`, as in *Choosing what reruns* |
 | `verify-foundations` on every turn | A `foundations` job, on the branch `ci-foundations` and not merged. Until it lands CI does not run it |
-| Needs | The `needs` status Fleet publishes on every open pull request (`docs/capabilities/needs.md`). Built; required in the ruleset: not yet |
 | Batching | The merge queue's own grouping |
-| Bridge's panel | A thin view of every open pull request and how Fleet knows them to connect, by needs and Session links. Not built |
+| Bridge's panel | A thin view of every open pull request and how Fleet knows them to connect, by Session links. Not built |
 
 Two branches can each pass every Check, merge a minute apart, and leave `main`
 red. Each one's Checks ran against a `main` that had moved by the time it
@@ -55,7 +54,6 @@ Fleet, listed under *Where each part goes in Fleet*.
 | A failed Check is told while the turn runs | Right after it fails, with a Check still to run, `main` is asked about it; green is `--status` exit 10, naming the Check and its log |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
-| A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 
 ## One turn
 
@@ -254,40 +252,6 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 **The remote branch is deleted only where everything on it landed**, with `git push --delete`. One holding a commit that did not land is kept, and so is its pull request, and the outcome says so.
 
-## Needs: numbers land in the order they were declared
-
-Two branches that each took the same protocol minor, and whichever landed
-second renumbered. (A migration no longer takes a number: it has a name,
-`docs/practices/store-migrations.md`.) `armada need <path> "<what>"` (#1059,
-`.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
-the number is chosen. **A need is a row on Fleet's session ledger** now
-(`docs/capabilities/needs.md`), with its holder, path, what was said, what was
-taken, and when; `armada need` asks Fleet and says so where Fleet is not running.
-**The old files** under `armada-needs/` in the git common directory are read
-only by Fleet, once, to carry them into the ledger. `armada land`, their other
-reader, is gone, and the pull request's status is Fleet's order (*Not built*, above).
-
-- **First to declare goes first.** The declarer is told which needs are ahead and
-  what each took, and picks the value after. A branch that already changes the
-  path when it declares is told to search comments and docs for its old number.
-- **The line holds a branch behind its needs.** A turn takes only entries with no
-  unspent need ahead of them; a held one stays queued with `waiting behind ...` in
-  its outcome. A runner left with only held entries ends, and the next `land`,
-  `--status` or `need --release` starts one that looks again.
-- **Spent on landing, given back when the branch is gone.** A Session whose
-  work merges spends its needs and one that ends gives them back; a need held by
-  a branch alone is given back the next time anything reads the needs after the
-  branch is deleted.
-- **Nothing expires by time.** Whether a stalled need should is open, so a person
-  gives it back with `armada need --release <path>`, and a stalled one holds the
-  branches behind it until then. This is the cost the owner took.
-
-A terminal's `armada need` is a row held by the Session standing on its branch,
-or by the branch alone. Fleet's own press to merge reads the same order and
-refuses with `fleet.merge_waiting_behind` while a need ahead stands
-(`docs/concepts/fleet.md`, *Declared needs*). A Session ending spends or gives
-back what it held. Nothing is added to a plan's task.
-
 ## The guard
 
 **`.claude/hooks/guard_merge.py` refuses `gh pr merge`, any `git push` whose destination is `main`**, including `--delete main`, **and any `git merge` run in the checkout that has `main` checked out**, and splits a compound command so `cd x && git push origin main` is caught too. The merge rule reads `.git/HEAD` of the checkout the command runs in, so a branch catching up with `origin/main` in its own worktree is left alone, and `--ff-only`, `--abort`, `--continue` and `--quit` are too: none adds a commit nobody gated. Added 5 Oct 2026, after a plain `git merge --no-ff` in the checkout at `main` went around the line. Its refusal names `scripts/land preflight`, `scripts/land`, `scripts/land --status` and this page. `.claude/settings.json` registers it as a `PreToolUse` matcher on Bash.
@@ -424,7 +388,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 ## What it depends on
 
-- `concepts/fleet.md` — *Write clashes*, *Declared needs* and *What Fleet knows about main's CI*.
+- `concepts/fleet.md` — *Write clashes* and *What Fleet knows about main's CI*.
 - `concepts/manifest.md` — *Which paths a Check covers*.
 - `practices/running-locally.md` — *Landing a branch*, how a branch lands now.
 

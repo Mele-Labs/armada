@@ -1,8 +1,8 @@
 //! `list_write_clashes`: what Fleet last found, drawn as a person would name it.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
-use ipc::{ClashHolder, ClashSide, ManifestId, WriteClash, WriteClashes};
+use api::{Clashing, Refusal};
+use ipc::{ClashHolder, ClashSide, ManifestId, RepositoryAreas, SlotTouches, WriteClash, WriteClashes};
 
 use super::{Side, Who};
 use crate::daemon::Fleet;
@@ -64,5 +64,32 @@ where
             });
         }
         Ok(WriteClashes { clashes })
+    }
+}
+
+impl<H, V, W> Clashing for Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    async fn list_write_clashes(
+        &self,
+        manifest_id: Option<ManifestId>,
+        holder: Option<String>,
+    ) -> Result<WriteClashes, Refusal> {
+        self.write_clashes(manifest_id, holder).await
+    }
+
+    async fn list_repository_areas(&self) -> Result<RepositoryAreas, Refusal> {
+        self.repository_areas().await
+    }
+
+    async fn list_slot_touches(&self) -> Result<SlotTouches, Refusal> {
+        self.slot_touches().await
     }
 }

@@ -69,7 +69,7 @@ export type Offered = {
 };
 
 /** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
-export type Held = { kind: "slot" | "branch" | "pr" | "need"; target: string; name: string; said: string };
+export type Held = { kind: "slot" | "branch" | "pr"; target: string; name: string; said: string };
 
 /** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
 export function heldOfAttachment(one: SessionAttachment): Held | undefined {
@@ -82,7 +82,7 @@ export function heldOfAttachment(one: SessionAttachment): Held | undefined {
 /** A row's key across what Bridge sends and what Fleet answers. */
 export const heldKey = (one: { kind: string; target: string }) => `${one.kind}:${one.target}`;
 
-/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, needs. */
+/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests. */
 export function heldOf(session: Session): Held[] {
   const held: Held[] = [];
   for (const kind of ["slot", "branch", "pull_request"] as const) {
@@ -91,7 +91,6 @@ export function heldOf(session: Session): Held[] {
       if (row !== undefined) held.push(row);
     }
   }
-  for (const need of session.needs ?? []) held.push({ kind: "need", target: need.path, name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
   return held;
 }
 

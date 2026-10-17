@@ -1,5 +1,5 @@
 # Runs this repository's Checks on pull requests, in the merge queue and after
-# a merge to main, and reports them as `ci`, `needs` and `desktop_test`.
+# a merge to main, and reports them as `ci` and `desktop_test`.
 # docs/practices/ci.md says what each trigger is for and how a Check is added.
 #
 # This workflow gates nothing by itself: a ruleset that requires `ci` does.

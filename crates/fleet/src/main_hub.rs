@@ -162,7 +162,6 @@ where
             .await
             .pulls
             .insert(served.root().to_string(), read);
-        self.needs_status_published(served).await;
         true
     }
 

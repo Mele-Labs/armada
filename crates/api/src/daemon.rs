@@ -27,12 +27,12 @@
 mod accounts;
 mod admitting;
 mod authoring;
+mod clashing;
 mod commands;
 mod conversing;
 mod hosted_sessions;
 mod issues;
 mod mods;
-mod needs;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -45,12 +45,12 @@ mod studios;
 pub use accounts::Accounts;
 pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
 pub use authoring::Authoring;
+pub use clashing::Clashing;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
 pub use issues::{Autopilots, Issues};
 pub use mods::Mods;
-pub use needs::Needs;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
 pub use queries::Queries;
@@ -95,7 +95,7 @@ use ipc::WireError;
 /// its module says why the answer is placed rather than asked for. [`Studios`]
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
-/// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
+/// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
 /// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] beside them.
 pub trait Daemon:
     Queries
@@ -107,7 +107,7 @@ pub trait Daemon:
     + Authoring
     + Sessions
     + HostedSessions
-    + Needs
+    + Clashing
     + PullRequests
     + PullRequestPanel
     + Issues
@@ -129,7 +129,7 @@ impl<
             + Authoring
             + Sessions
             + HostedSessions
-            + Needs
+            + Clashing
             + PullRequests
             + PullRequestPanel
             + Issues

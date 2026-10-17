@@ -110,7 +110,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 ### Write clashes
 
-**Decided by the owner, 12 Oct 2026.** Two agents in one repository learn they collide from what they wrote, with no declaration needed. Nobody is paused, held or refused, and a declared need stays as it is.
+**Decided by the owner, 12 Oct 2026.** Two agents in one repository learn they collide from what they wrote, with no declaration needed. Nobody is paused, held or refused.
 
 | Whose writes | Where Fleet sees them |
 |---|---|
@@ -137,7 +137,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 **Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed. Each live holder whose files main changed since their merge base is set against main's new tip, and a conflict is told to that holder only, with the commit on main that changed the file.
 
-**A holder leaves the table with its clashes** where its needs are given back: a Session ending. Any check also drops a holder whose worktree or branch is gone, or a terminal Session unheard for six hours.
+**A holder leaves the table with its clashes** when its Session ends. Any check also drops a holder whose worktree or branch is gone, or a terminal Session unheard for six hours.
 
 **Memory only, filled from git on start.** A restart forgets the table. The first pass after a start credits each live Session with the files its worktrees changed since they left the base (`git diff --name-only` from the merge base to the tree as it stands), so a pair that clashed before the restart is checked again without either writing. `list_write_clashes` reads the standing clashes per repository, or per Session.
 
@@ -159,28 +159,6 @@ Process-group semantics differ across platforms, and where that difference belon
 **Who holds a slot is `list_worktrees`' answer**, so these add no pool read. A slot held by a process Fleet does not host, a free one, a stranded one, and a subagent's slot are not read, and a holder with no change in its slot is absent. A slot git cannot read is left out of that read, not reported as unchanged.
 
 **Memory only.** A restart reads again. Bridge reads both when Fleet connects, again 35 seconds after the board last changed, and again every 35 seconds while any holder has changed something, so a holder that stops goes. A Fleet with neither route answers 404 and Bridge takes it as none. `apps/desktop/src/renderer/src/fleet-territory.ts`.
-
-### Declared needs
-
-**Decided by the owner, 2 Oct 2026, built 5 Oct 2026 (#1059).** A need is a path and what is needed there, in the declarer's words: `crates/store/src/migrations.rs`, *a new migration*. No repository declares kinds up front, because the file is the resource. A write clash stays a warning; a declared need is the part that is ordered. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md` has the reasoning.
-
-**One order, shared with `armada need` and with sessions.** A need is a row of `ledger_attachments`, the session ledger's table (`docs/capabilities/needs.md`), kind `need`, held by the Session. Fleet writes it, and serves `armada need` from the same table, so a session that reported the need through the intake and a terminal on its own branch see the same line, and none can be ahead of another without having declared first. A terminal's holder is the session standing on its branch, else the branch alone. The files under `armada-needs/` that this replaced are read once at Fleet's first start and left on disk.
-
-| | |
-|---|---|
-| **Declaring** | A hosted Session reports a need through the intake, a terminal's `armada need` declares one for its branch, and the `armada` mod reports one from a Bash command |
-| **First goes first** | Declaring again records nothing. A Session says what it took by declaring again with `took` on the need |
-| **A later declarer is told** | Which branch is ahead and what it took, as a message from Fleet that wakes a Session, **at once** |
-| **Landing follows the order** | A press to merge is refused while a need ahead of the Session's on the same file stands, as `fleet.merge_waiting_behind`, naming what it waits behind |
-| **Spent or given back** | Spent when the holder's work merges, given back when it is released or the holder is gone. A need held by a branch alone is given back by whatever reads next after the branch is deleted |
-| **Its own slot and branch** | A Session holds them as rows too, written where Fleet leases the slot and records the branch, so `who_owns` names the Session that holds a slot and a Session that moves slots gives the old one back |
-
-**`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the pull request is noticed merged. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
-
-**Fleet publishes the order on each pull request as the `needs` commit status.** Pending while a need ahead of the holder's on the same path has not merged, success otherwise. It rides the same sweep that lists open pull requests and is also sent when a need is declared, given back or spent; it is sent only when it changed. Fleet needs a token that may write commit statuses, and without one it logs and carries on.
-
-**Nothing expires by time.** A need that stalls holds every pull request behind it, the cost the owner took. A person gives it back with `armada need --release <path>`, run from the branch; an act in Bridge that does the same is not built.
-
 
 ### What Fleet knows after the merge, and what it does not
 
@@ -251,7 +229,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 **Fleet tells, checks and draws a call for the person's own pull requests, and for no one else's.** Mine is the pull request's author login equalling, in any case, either the GitHub login Armada is signed in as for the repository (the profile bound to it, `SigningIn::login_for`) or the login the forge's command line is signed in as on this machine (`gh api user`, asked until it answers and then kept). **Where neither login is known every pull request is mine**, and so is one whose forge named no author: a rule that cannot be read does not go quiet. Fleet puts the result on each open pull request in the hub as `mine`, absent meaning mine.
 
-| Pull request | Merge line | Call cards | Messages to owners, merged notices | `needs` status and timeline |
+| Pull request | Merge line | Call cards | Messages to owners, merged notices | Timeline |
 |---|---|---|---|---|
 | Mine | As ever | As ever | As ever | As ever |
 | Not mine, in the merge queue | Shown quietly: its place, a neutral tone, never the ask or bad tone | None | None | None |

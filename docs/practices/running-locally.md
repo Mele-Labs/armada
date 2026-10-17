@@ -1000,17 +1000,6 @@ in the background.
 Fleet's own Jobs that merge through the forge (`merge_by`, `auto_merge`) are
 unchanged.
 
-**A branch that declared a need waits behind the ones ahead of it.**
-`armada need <path> "<what>"` records what the branch needs on a path
-(a file two branches both mean to change; a migration needs none, it has a name), says which branches are ahead and what they took, and the first to
-declare goes first. `armada need --took <path> "<value>"` records the value
-chosen, `--status` lists the needs by path, `--release <path>` gives one back.
-A need is spent when its branch lands and given back when the branch no
-longer exists here. **Nothing expires by time**: a stalled need holds the
-branches behind it until a person runs `armada need --release <path>` from its
-branch, or deletes the branch. **The needs are Fleet's** (`docs/capabilities/needs.md`):
-`armada need` asks the running Fleet and says so where there is none.
-
 ### What is left of the merge line
 
 `armada land` and `scripts/land` are gone, and Fleet no longer reads the files

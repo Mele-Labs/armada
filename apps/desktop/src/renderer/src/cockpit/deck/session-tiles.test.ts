@@ -54,7 +54,6 @@ const held = (over: Partial<Session> = {}): Session =>
       { kind: "pull_request", number: 2430, title: "Ledger rows", branch: "fix/ledger", address: "", checks: { state: "none" }, state: "open", auto: false },
       { kind: "pull_request", number: 2401, title: "Old one", branch: "x", address: "", checks: { state: "none" }, state: "merged", auto: false },
     ],
-    needs: [{ path: "crates/ipc", what: "a new operation" }],
     rows: [],
     turn: { state: "idle" },
     ...over,
@@ -65,7 +64,6 @@ test("Release names each thing the Session holds, and leaves a merged pull reque
     ["slot", "slot-3"],
     ["branch", "fix/ledger"],
     ["pr", "#2430 Ledger rows"],
-    ["need", "crates/ipc"],
   ]);
 });
 
@@ -86,7 +84,7 @@ test("Fleet's rows are named as the confirmation named them", () => {
 test("Release is off where the Session holds nothing or nothing serves it", () => {
   const draft = { releaseHolds: async () => undefined, commands: [] } as unknown as SessionsDraft;
   expect(offeredOf(held(), draft, "/code").off.release).toBeUndefined();
-  expect(offeredOf(held({ attachments: [], needs: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
+  expect(offeredOf(held({ attachments: [] }), draft, "/code").off.release).toBe("The Session holds nothing");
   expect(offeredOf(held(), { commands: [] } as unknown as SessionsDraft, "/code").off.release).toBe("Fleet does not offer this");
 });
 

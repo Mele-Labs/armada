@@ -75,7 +75,7 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 3. One issue. Finish it, and stop.
 
-**A migration needs no `armada need`: it has a name, not a number.** Add one file,
+**A migration takes no number: it has a name.** Add one file,
 `crates/store/migrations/<UTC yyyymmddThhmmZ>-<module.slug>.sql`, and nothing
 collides: no two branches touch the same file, and order between them does not
 matter. It is additive unless a `-- breaking` comment line says otherwise, and
@@ -86,8 +86,7 @@ with a breaking migration `main` lacks is refused by `scripts/restart --from`.
 **A wire change carries no number.** The protocol ID is a hash of the wire
 files, so changing `crates/ipc`, `crates/ipc/operations/`, the route table or
 `packages/protocol` moves it and nothing is bumped, declared or renumbered.
-`docs/practices/protocol.md` says what it covers. `armada need` is still there
-for a path two branches both mean to change.
+`docs/practices/protocol.md` says what it covers.
 
 ### 4. Test
 
