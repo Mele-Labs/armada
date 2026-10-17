@@ -36,7 +36,7 @@ pub use sketch::{
 };
 
 use crate::envelope::{Timestamp, Ulid};
-use crate::job::{id_newtype, JobId, ManifestId};
+use crate::workflow::{id_newtype, JobId, ManifestId};
 
 id_newtype! {
     /// A Studio's own key.

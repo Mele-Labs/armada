@@ -24,7 +24,7 @@
 //! to buy six lines would cost a tenth positional argument on
 //! [`ResolvedStep::frozen`] at ten call sites — a worse shape. What went
 //! instead is the pair of closed sets a step declares, to
-//! [`declared`](crate::job::declared): `xtask::rules_enums` reads each in the
+//! [`declared`](crate::workflow::declared): `xtask::rules_enums` reads each in the
 //! file its variants are spelled in, so they lose nothing by sitting alone.
 
 use alloc::borrow::Cow;
@@ -34,22 +34,22 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::num::NonZeroU32;
 
-use crate::job::approval::PrMode;
-use crate::job::attempt::{Iteration, Spent};
-use crate::job::covers::Covers;
-use crate::job::declared::{AdvanceGate, EvidenceType};
-use crate::job::gaming::GamingCheck;
-use crate::job::ids::{ModelName, StepId, WorkflowId};
-use crate::job::judge::JudgeCheck;
-use crate::job::narrowing::Narrowing;
-use crate::job::phase::StepPhase;
-use crate::job::prerequisite::Prerequisite;
-use crate::job::runs_at::RunsAt;
-use crate::job::scope::EvidenceScope;
-use crate::job::source::WorkflowSource;
-use crate::job::tuning::{Effort, StepTuning};
-use crate::job::verdict::GateVerdict;
-use crate::job::Runner;
+use crate::workflow::PrMode;
+use crate::workflow::{Iteration, Spent};
+use crate::workflow::covers::Covers;
+use crate::workflow::declared::{AdvanceGate, EvidenceType};
+use crate::workflow::gaming::GamingCheck;
+use crate::workflow::ids::{ModelName, StepId, WorkflowId};
+use crate::workflow::judge::JudgeCheck;
+use crate::workflow::narrowing::Narrowing;
+use crate::workflow::phase::StepPhase;
+use crate::workflow::prerequisite::Prerequisite;
+use crate::workflow::runs_at::RunsAt;
+use crate::workflow::scope::EvidenceScope;
+use crate::workflow::source::WorkflowSource;
+use crate::workflow::tuning::{Effort, StepTuning};
+use crate::workflow::verdict::GateVerdict;
+use crate::workflow::Runner;
 
 /// A deterministic assertion with everything it needs already in hand.
 #[derive(Debug, Clone, PartialEq, Eq)]

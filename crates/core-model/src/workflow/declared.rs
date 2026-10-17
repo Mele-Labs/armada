@@ -1,7 +1,7 @@
 //! The two closed sets a workflow step declares: what its work product is, and
 //! what it takes to advance past it.
 //!
-//! **Beside [`super::workflow`] rather than in it**, because `xtask::rules_enums`
+//! **Beside [`super::frozen`] rather than in it**, because `xtask::rules_enums`
 //! holds each against a registry table by reading the file its variants are
 //! spelled in — so the pair has a file of its own rather than sharing one with
 //! the resolved types that carry them.

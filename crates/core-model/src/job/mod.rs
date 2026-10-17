@@ -29,41 +29,25 @@ mod approval;
 mod asking;
 mod attempt;
 mod breakage;
-mod check;
 mod collision;
-mod covers;
-mod declared;
 mod drone;
 mod escalation;
 mod event;
 mod fields;
-mod gaming;
 mod guard;
 mod handle;
-mod ids;
-mod judge;
-mod narrowing;
 mod note;
-mod phase;
 mod plan_group;
 mod policy;
-mod prerequisite;
 mod record;
 mod review;
-mod runner;
-mod runs_at;
-mod scope;
-mod source;
 mod status;
 mod step;
 mod step_machine;
 mod stuck;
 mod tiers;
 mod transition;
-mod tuning;
-mod verdict;
 mod work_plan;
-mod workflow;
 
 #[cfg(test)]
 mod tests;
@@ -71,15 +55,12 @@ mod tests;
 pub use allowed::{AllowedCommand, Reach, WhenBlocked};
 pub use approval::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, IssueSource, Landing,
-    NotAtApproval, PrMode, PrModeTiers, ProposalEdit,
+    NotAtApproval, PrModeTiers, ProposalEdit,
 };
 pub use asking::WhenRefused;
-pub use attempt::{Attempt, Iteration, Spent};
+pub use attempt::Attempt;
 pub use breakage::{Breakage, BreakageClaim, FixWaiter, LandedHold};
-pub use check::{CheckOutcome, StepCheck};
 pub use collision::{collisions, Collision, ScopeClaim};
-pub use covers::{BadPattern, Covers, PathPattern};
-pub use declared::{AdvanceGate, EvidenceType};
 pub use drone::{DroneAssigned, DroneMoved, DronePresence, IllegalDroneMove};
 pub use escalation::{EscalationTrigger, StepLevelTrigger, TriggerKind, TriggerLevel};
 pub use event::{JobEvent, StepEvent};
@@ -89,30 +70,11 @@ pub use fields::{
     GateManifest, GateOutcome, NotRunDisposition, NotRunReason, Origin, QueuedReason, Resumption,
     ScopeRevision, ScopeRevisionOutcome, Subject, TopLevelOrigin, Urgency, WriteTargets,
 };
-pub use gaming::{
-    CitedAt, ClearedFlag, DecidedBy, EvidenceRef, GamingCheck, GamingFlag, GamingPattern,
-};
-/// What the Judge is asked about each judged pattern, as Armada ships it.
-pub use gaming::{
-    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION,
-    NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
-};
 pub use guard::Guard;
 pub use handle::{handle_of, names_a_credential, JobNumber, JobReference, CREDENTIAL_NAMES};
-pub(crate) use ids::id_newtype;
-pub use ids::{
-    BlankModel, BlankTitle, CriterionId, DroneId, JobId, ManifestId, ModelName, ProposalId,
-    RepoPath, StepId, Title, WorkflowId,
-};
-pub use judge::{
-    Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal, AGREED_RETRIES,
-};
-pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
-pub use phase::StepPhase;
 pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
-pub use prerequisite::Prerequisite;
 pub use record::{
     Answered, Decision, DroneQuestion, GivenAnswer, Job, NewJob, NewProposal, OfferedAnswer, Pause, PausedBy,
     StepTransitioned, Transitioned,
@@ -121,10 +83,6 @@ pub use review::{
     Area, Became, Bucket, ChangedTest, Confidence, Dismissal, Finding, FollowUp, Proves,
     ReviewRecord, TestChange, TestsInChange, Untested, ViewStep,
 };
-pub use runner::Runner;
-pub use runs_at::RunsAt;
-pub use scope::{under, ContextSource, DeclarePlanAt, DeclaredPaths, EvidenceScope};
-pub use source::WorkflowSource;
 pub use status::{JobStatus, StepState};
 pub use step::{JobStep, Side, StepEvidence, StepFrame, StepSeed, StepVerdict};
 pub use step_machine::{
@@ -135,14 +93,8 @@ pub use tiers::{TaskEdit, TaskTier, TierModels};
 pub use transition::{
     CriteriaOwed, Edge, IllegalTransition, PilotReason, Target, TransitionReason, EDGES,
 };
-pub use tuning::{Effort, StepTuning};
-pub use verdict::GateVerdict;
 pub use work_plan::{
     Approach, DropReason, FailReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry,
     PlanRefused, PlanTask, Shown, TaskCounts, TaskId, TaskState, TaskUpdate, WorkPlan,
     WorkingWindow,
-};
-pub use workflow::{
-    FrozenWorkflow, ResolvedCheck, ResolvedStep, ARTIFACT_EXISTS, DIFF_NONEMPTY,
-    EVERY_MANIFEST_CHECK, MANIFEST_CHECK, PLAN_RECORDED,
 };

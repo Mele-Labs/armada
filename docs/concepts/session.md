@@ -205,7 +205,10 @@ engine with a note and a few more tools, one per repository.
                 both on the ledger, refuses the write and the turn ends; the
                 process is ended and resumed with the slot as its directory
  first write, pool full ─▶ the session is queued, told its place, and stops its
-                turn; Fleet leases it a slot when one frees and resumes it there
+                turn; the owner is asked: wait for a slot, or add one
+                wait ─▶ Fleet leases it the next slot to free and resumes it there
+                add  ─▶ Fleet makes a slot, leases it to this session ahead of the
+                        line and resumes it there
  later writes ─▶ held to the slot
  quiet for a while ─▶ the process is ended; the next message resumes it, leased a
                 slot first if it holds none and the line ahead of it is empty
@@ -231,22 +234,32 @@ any other `>`, a `$(` or a backtick, or a quote left open is a write. `sed -n` w
 address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
-**A full pool queues the session rather than telling it to try again.** Every
+**A full pool queues the session, and asks the owner what to do about it.** Every
 slot held, the write is refused with the session's place in its repository's
-line and the instruction to stop for the turn. The line is in Fleet's memory,
-first come first served, and a session is in it once; a session behind others
-is not leased a slot a moment before the one ahead of it. When a slot is given
-back, Fleet leases one for the head of the line, writes the lease as it would
-for a first write and moves the session into it, whether or not its refused turn
-has ended: an idle session is resumed at once, one still finishing the turn is
-moved as that turn ends. A slot is given back by a session closing or its
+line, the news that the owner is being asked, and the instruction to stop for the
+turn. The line is in Fleet's memory, first come first served, and a session is in
+it once; a session behind others is not leased a slot a moment before the one
+ahead of it. **The owner's call is `slot_choice`**, a derived waiting item with
+id `slot-choice`, text *Every slot is in use* and two options, *Wait for a slot*
+and *Add a slot*, raised when the session joins the line and gone when he answers
+or the session leaves. A session resumed onto a full pool raises it at once, before
+any write. **Wait** leaves the session where it is in the line: when a slot is given
+back, Fleet leases one for the head of the line, writes the lease as it would for a
+first write and moves the session into it, whether or not its refused turn has ended:
+an idle session is resumed at once, one still finishing the turn is moved as that turn
+ends. **Add** is `Fleet::change_slot_pool(Add)` for the repository and a lease of the
+new slot to **that** session, not to the head of the line; the grant is held back
+while it does, so the head cannot take the new slot first. A slot freed before he
+answers goes to the head as it always did, and the call goes with it. A slot is given
+back by a session closing or its
 terminal ending, a Job ending, being paused or cleared, a release or rescue from
 Cleanup (a release of a bay a hosted Session holds is refused while its turn runs, and otherwise gives back its slot and branch rows), and the pool growing or a slot reopening; a slot freed where Fleet is
 not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A session that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the session's next write
-joins again. A terminal session is not queued, because `armada worktree lease`
-waits for a slot itself.
+joins again and he is asked again. A terminal session is not queued, because
+`armada worktree lease` waits for a slot itself, and so does that command run by a
+hosted session: it does not ask the owner yet.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere

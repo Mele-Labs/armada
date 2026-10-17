@@ -13,16 +13,18 @@
 // A press the form would not send is one toast per kind, replaced, not five.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import type { DebugPayload } from "@armada/components";
 import type { BridgeIdentity, Outcome } from "@armada/protocol";
 import { CopiedToast, FailureToast, GuidanceToast, SaidToast, ToastRegion, watchUncaught } from "@armada/shell";
 import type { Raised } from "./failing";
 import { failedCommand, guidanceOf, raisedFailure } from "./failing";
+import type { RefusedAct } from "./tell";
 
 /**
  * The toasts standing, oldest first. Each command answer that failed raises
  * one, and so does each throw no boundary saw; guidance replaces its own kind.
  */
-export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void; tell: (sentence: string) => void } {
+export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void; tell: (sentence: string, act?: RefusedAct) => void } {
   const [raised, setRaised] = useState<Raised[]>([]);
   const next = useRef(0);
   const raise = useCallback((one: Omit<Raised, "key">) => {
@@ -40,13 +42,23 @@ export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (
   }, [outcome, raise]);
   useEffect(() => watchUncaught((uncaught) => raise({ uncaught })), [raise]);
   const lower = useCallback((key: number) => setRaised((held) => held.filter((one) => one.key !== key)), []);
-  // A sentence a surface with no command of its own has to say, raised as the refusal it is.
+  // A sentence a surface with no command of its own has to say, raised as the refusal it is. The act it was for, where
+  // told, rides as the refusal's fields, so Copy debug info and a Session sent the failure both carry the request.
   const tell = useCallback(
-    (message: string) =>
-      raise({ outcome: { ok: false, why: "refused", error: { code: "bridge.not_sent", message, run_id: "", fields: {}, chain: [] } } }),
+    (message: string, act?: RefusedAct) =>
+      raise({ outcome: { ok: false, why: "refused", error: { code: "bridge.not_sent", message, run_id: "", fields: act === undefined ? {} : actFields(act), chain: [] } } }),
     [raise],
   );
   return { raised, lower, tell };
+}
+
+/** An act as the refusal's fields: its name, each part of the request, then what the card showed. A structured part is JSON. */
+export function actFields({ act, request, card }: RefusedAct): Record<string, string> {
+  const fields: Record<string, string> = { act };
+  for (const [key, value] of Object.entries({ ...request, ...card })) {
+    if (value !== undefined) fields[key] = typeof value === "string" ? value : JSON.stringify(value);
+  }
+  return fields;
 }
 
 /** Whether a toast is guidance of the same kind as this answer. */
@@ -63,7 +75,7 @@ export type ToastsProps = {
   said: string | null;
   onCopied: (value: string) => void;
   /** Hands a failure's debug info to a new Session. Absent where none can be started, and the toast draws no such control. */
-  onDispatchSession?: ((info: string) => Promise<boolean>) | undefined;
+  onDispatchSession?: ((payload: DebugPayload) => Promise<boolean>) | undefined;
   /** Toasts of another owner's that stand in this column too, so two never sit on one spot. */
   children?: ReactNode;
 };

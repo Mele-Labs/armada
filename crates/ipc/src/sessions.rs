@@ -559,6 +559,13 @@ pub enum WaitingSource {
     /// Fleet: a judge raised a concern about the work. Kept, id `judge:<n>`, with `concern` beside the
     /// text. It is settled by `send_concern` or `dismiss_concern`.
     Judge,
+    /// Fleet: the session's first write found every worktree slot held and it is in the line for one,
+    /// and the person has not said whether it waits or Fleet makes a slot. Derived on every read,
+    /// never kept: id `slot-choice`, text `Every slot is in use`, an `answer` act, and exactly two
+    /// options, `Wait for a slot` (choice 0) and `Add a slot` (choice 1), labels only. Answering
+    /// with a `choice` settles it and no message goes to the agent: it was told to end its turn and
+    /// is moved in when a slot is granted. A free-text answer is refused.
+    SlotChoice,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
