@@ -167,6 +167,9 @@ export function cratesOf(i: Pick<SceneInputs, "layout" | "world" | "frame" | "dr
 
 const tileUnder = (tiles: readonly Tile[], at: Point): Tile | undefined => tiles.find((t) => at.x >= t.rect.x && at.x <= t.rect.x + t.rect.w && at.y >= t.rect.y && at.y <= t.rect.y + t.rect.h);
 
+/** A contrail's age to the nearest five minutes: it fades over three quarters of an hour, and a figure that moved every clock tick would redraw the map for nothing. */
+const trailAge = (age: number | undefined): number | undefined => (age === undefined ? undefined : Math.floor(age / 300_000) * 300_000);
+
 /** The drones as the canvas draws them. */
 function dronesOf(i: SceneInputs): DroneSpec[] {
   const { layout, frame } = i;
@@ -205,7 +208,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       pad,
       origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
       lit: i.selected === drone.key || i.selected === drone.parent,
-      trail: i.trails.get(drone.key),
+      trail: trailAge(i.trails.get(drone.key)),
       above: parent === undefined ? undefined : frame.flying(parent),
       touches: (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
     });

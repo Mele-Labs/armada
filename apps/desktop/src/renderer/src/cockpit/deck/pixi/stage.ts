@@ -22,6 +22,7 @@ import { PlaneBuilder, PlaneLayer, PlaneView } from "./plane";
 import { readPalette, type Palette } from "./palette";
 import { easeOut, lerp, project, viewOf, type View } from "./project";
 import type { PixiSceneIn } from "./scene";
+import { same } from "./same";
 import { standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
 import { drawTiles } from "./tiles";
@@ -151,6 +152,7 @@ export class Stage {
   }
 
   setScene(scene: PixiSceneIn): void {
+    if (this.scene !== undefined && same(this.scene, scene)) return;
     this.scene = scene;
     this.sync(false);
   }
