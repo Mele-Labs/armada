@@ -16,7 +16,7 @@ majors spike 020 priced are no longer needed.
 message followed by a resync (`crates/api/src/sockets.rs`). The per-Job turn
 socket sends `missed` with a count and no resync, and Bridge keeps the gap. The
 Job log and a Check's output follow a file by byte offset
-(`crates/api/src/journal.rs`, `crates/api/src/following.rs`), so they cannot
+(`crates/api/src/journal.rs (deleted)`, `crates/api/src/following.rs`), so they cannot
 drop anything. What nobody has is a rate, so slice 0b measures one and answers
 the turn socket's gap.
 
@@ -349,7 +349,7 @@ one rather than several.
 | Every other row on this page | Minor | New DTO, route, event kind or optional field | Per row |
 
 **Where the new counts sit in a person's figure.** `TaskCounts`
-(`crates/ipc/src/work_plan.rs`), on `JobPlanChanged` and `JobSummary.tasks`, is
+(`crates/ipc/src/work_plan.rs (deleted)`), on `JobPlanChanged` and `JobSummary.tasks`, is
 read as done over `done + working + open`. A `handed_in` task and a `failed` one
 both join that total and neither joins `done`; `dropped` stays out of it.
 
@@ -367,7 +367,7 @@ both join that total and neither joins `done`; `dropped` stays out of it.
 two signers is a migration in `crates/store/src/migrations.rs`, on top of V87
 (`job_step_policies`, from #1683), which moves `KNOWN_SCHEMA_VERSION`. An older
 Fleet then refuses to open the store, rather than folding a row it cannot spell
-in `crates/store/src/fold.rs`.
+in `crates/store/src/fold.rs (deleted)`.
 
 ### The bodies the lock agrees
 
@@ -402,7 +402,7 @@ is a type served today or one that never crosses.
 | Type | Lands on | Change | Bump | Source of truth | Slice |
 |---|---|---|---|---|---|
 | `RunCoord` | `CheckRun`, `Recorded` | Optional `group`, `group_attempt`, `task` | Minor | Fleet's group record | 2 |
-| `TaskState` | `TaskState` | Adds `handed_in` and `failed` | Major | `crates/core-model/src/job/work_plan.rs` | 1a |
+| `TaskState` | `TaskState` | Adds `handed_in` and `failed` | Major | `crates/core-model/src/job/work_plan.rs (deleted)` | 1a |
 | `TaskTier` | `PlanTask.tier` | New, optional | Minor | The planner's `record_plan` | 3 |
 | `TaskTreatment` | Nothing | Every task gets its own Drone | None | — | — |
 | `TaskView` | `PlanTask` | Field by field below | Minor | `WorkPlan` in core-model | 1b–5 |
@@ -437,7 +437,7 @@ rows that carry the group, and `cases_at_boundary` waits on #1274 with `cases`.
 |---|---|---|---|---|---|
 | `VerifiedBy` | `Criterion.source` | Kept as `source` | None | — | — |
 | `CriterionOrigin` | `Criterion.origin` | New: issue with ref and url, prompt, or person | Minor | Proposer, then the approval body | 4 |
-| `CriterionView` | `Criterion` | Adds `origin`, `origin_moved_at`; id stays required | Minor | `crates/core-model/src/job/fields.rs` | 4 |
+| `CriterionView` | `Criterion` | Adds `origin`, `origin_moved_at`; id stays required | Minor | `crates/core-model/src/job/fields.rs (deleted)` | 4 |
 | `OriginSaid` | Nothing | Bridge's sentence | None | — | — |
 | `LandsWhen` | `JobRequest` settings | New, optional | Minor | The dispatch form | 4 |
 | `DispatchSettingsView` | `JobRequest` settings | Workflow, tiers, cap, lands, all optional | Minor | The dispatch form | 4 |
@@ -446,7 +446,7 @@ rows that carry the group, and `cases_at_boundary` waits on #1274 with `cases`.
 | `BranchView`, `BranchesAnswer` | A new branch-list read | New route | Minor | git, through the Vcs adapter | 4 |
 
 **Which `CompleteWhen` values Fleet honours** follows `COMPLETE_WHEN_SERVED` in
-`packages/screens/src/draft/landing.ts`. `delivered` is honoured from slice 4,
+`packages/screens/src/draft/landing.ts (deleted)`. `delivered` is honoured from slice 4,
 and `all_members_landed` from slice 6. `pr_merged` stays unserved by #1532's
 decision, `pr_opened` has no writer that tells it from `delivered`, and the
 approval body refuses both.
@@ -534,10 +534,10 @@ type to the wire.
 
 | Draft | Says | True under the lock | Slice |
 |---|---|---|---|
-| `packages/screens/src/draft/task.ts`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
-| `packages/screens/src/draft/task.ts`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
-| `packages/screens/src/draft/task.ts`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
-| `packages/screens/src/draft/proposal.ts`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
+| `packages/screens/src/draft/task.ts (deleted)`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
+| `packages/screens/src/draft/task.ts (deleted)`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
+| `packages/screens/src/draft/task.ts (deleted)`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
+| `packages/screens/src/draft/proposal.ts (deleted)`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
 
 ## The issues filed since
 
@@ -595,7 +595,7 @@ reworks this; it is also what keeps a Drone's peek a live tail
 `HANDOVER`, a quarter of a second, for the next Drone, then is told
 `drone_ended`. In 1b no gate runs between tasks, so the gap is the exit and the
 next spawn, as at a step boundary with no gate. Where it runs longer, Bridge
-reopens the socket on `drone.spawned` (`apps/desktop/src/main/screen.ts`), and
+reopens the socket on `drone.spawned` (`apps/desktop/src/main/screen.ts (deleted)`), and
 slice 5's channel removes the gap.
 
 ## The backend milestone
@@ -663,7 +663,7 @@ are not recorded anywhere to count afterwards: `job.files_changed` and
 | Builds | A per-kind tally of what the broadcaster published, written to Fleet's log each minute; on `/observe`, a `missed` reopens the socket so the backfill redraws the pane |
 | Measures | Events per Job-minute by kind, from live runs on this machine, against `BACKLOG` |
 | Already built | `a_client_that_cannot_keep_up_is_told_and_resynced` in `crates/api/src/tests/stream.rs` covers `/events`' drop and resync |
-| Write scope | `crates/api/src/stream.rs`, `packages/protocol/src/folding.ts`, `apps/desktop/src/main/observe.ts` |
+| Write scope | `crates/api/src/stream.rs`, `packages/protocol/src/folding.ts`, `apps/desktop/src/main/observe.ts (deleted)` |
 | Blocks | 5 |
 | Waits on | Nothing |
 
@@ -686,7 +686,7 @@ close.
 
 - `TaskState` gains `handed_in` and `failed`. The `task_state` vocabulary lands
   in `crates/core-model/domain/enum-verbs.toml` with every row, from
-  `packages/screens/src/draft/words.ts`, and the draft's `classifying` word goes.
+  `packages/screens/src/draft/words.ts (deleted)`, and the draft's `classifying` word goes.
 - `Actor` gains `judge` and `check`. The rows a Judge's verdict and a Check's
   outcome write are signed by them, in the `gate` module (deleted since),
   the `settling` module (deleted since) and `crates/fleet/src/judging/`.
@@ -695,12 +695,12 @@ close.
 - **Nothing writes `handed_in` or `failed` yet.** 1b writes `handed_in`, and
   slice 2 writes `failed`.
 
-Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/envelope.rs`,
+Write scope: `crates/core-model/src/job/work_plan.rs (deleted)`, `crates/core-model/src/envelope.rs`,
 `crates/core-model/domain/enum-verbs.toml`, `xtask/src/rules_enums.rs`,
-`crates/ipc/src/work_plan.rs`, `crates/ipc/src/enums.rs`, the `gate` module (deleted since),
+`crates/ipc/src/work_plan.rs (deleted)`, `crates/ipc/src/enums.rs`, the `gate` module (deleted since),
 The `settling` module (deleted since), `crates/fleet/src/judging/`, `crates/store/src/migrations.rs`,
-`crates/store/src/fold.rs`, `packages/screens/src/draft/words.ts`,
-`packages/screens/src/draft/task.ts`, and the wire set above.
+`crates/store/src/fold.rs (deleted)`, `packages/screens/src/draft/words.ts (deleted)`,
+`packages/screens/src/draft/task.ts (deleted)`, and the wire set above.
 
 ### 1b — Task by task, each by its own Drone
 
@@ -729,9 +729,9 @@ The `settling` module (deleted since), `crates/fleet/src/judging/`, `crates/stor
 Write scope: the `spawning` module (deleted since), the `briefing` module (deleted since),
 The `crossing` module (deleted since), the `work_plan` module (deleted since),
 The `drones_had` module (deleted since), the `evidence` module (deleted since),
-`crates/core-model/src/job/work_plan.rs`, the `workflow` module (deleted since),
+`crates/core-model/src/job/work_plan.rs (deleted)`, the `workflow` module (deleted since),
 `crates/config/src/workflow/step.rs`, `crates/core-model/domain/workflowdef-fields.toml`,
-`.armada/workflows/`, `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`,
+`.armada/workflows/`, `crates/ipc/src/work_plan.rs (deleted)`, `crates/ipc/src/drones.rs (deleted)`,
 `docs/contracts/agent-prompt.md`, and the wire set above.
 
 **Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
@@ -783,9 +783,9 @@ retries run out.
 
 Write scope: the `gate` module (deleted since), the `checking` module (deleted since),
 The `settling` module (deleted since), the `work_plan` module (deleted since),
-`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs`,
-`crates/store/src/migrations.rs`, `crates/store/src/fold.rs`, `crates/ipc/src/enums.rs`,
-`crates/ipc/src/checks.rs`, `crates/ipc/src/history.rs`, `crates/ipc/src/work_plan.rs`,
+`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs (deleted)`,
+`crates/store/src/migrations.rs`, `crates/store/src/fold.rs (deleted)`, `crates/ipc/src/enums.rs`,
+`crates/ipc/src/checks.rs`, `crates/ipc/src/history.rs (deleted)`, `crates/ipc/src/work_plan.rs (deleted)`,
 `packages/protocol/src/pending.ts`, the split of `crates/api/src/routes/served.rs`,
 and the wire set above.
 
@@ -810,10 +810,10 @@ and the wire set above.
 - The draft comments on tier and model above are corrected.
 
 Write scope: the `job_settings` module (deleted since), the `spawning` module (deleted since),
-`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs`,
-`crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`, `crates/ipc/src/detail.rs`,
-`packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts`,
-`packages/screens/src/draft/proposal.ts`, and the wire set above.
+`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs (deleted)`,
+`crates/ipc/src/work_plan.rs (deleted)`, `crates/ipc/src/drones.rs (deleted)`, `crates/ipc/src/detail.rs (deleted)`,
+`packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts (deleted)`,
+`packages/screens/src/draft/proposal.ts (deleted)`, and the wire set above.
 
 ### 4 — Deciding what a Job will be, and how it lands
 
@@ -841,8 +841,8 @@ Write scope: the `job_settings` module (deleted since), the `spawning` module (d
 
 Write scope: the `proposing` module (deleted since), `crates/fleet/src/commanding.rs`,
 The `policy` module (deleted since), `crates/fleet/src/noticing.rs`, the `delivery` module (deleted since),
-`crates/adapters/src/worktree.rs`, `crates/core-model/src/job/fields.rs`,
-The `declared` module (deleted since), `crates/ipc/src/job.rs`, `crates/ipc/src/detail.rs`,
+`crates/adapters/src/worktree.rs`, `crates/core-model/src/job/fields.rs (deleted)`,
+The `declared` module (deleted since), `crates/ipc/src/job.rs (deleted)`, `crates/ipc/src/detail.rs (deleted)`,
 `crates/adapters/src/issue_lookup.rs`, `packages/protocol/src/pending.ts`, the three
 documents, and the wire set above.
 
@@ -875,10 +875,10 @@ documents, and the wire set above.
 - `docs/contracts/system-architecture.md` is amended in the same change.
 
 Write scope: `crates/fleet/src/slots.rs`, the `admitting` module (deleted since),
-`crates/fleet/src/resources.rs`, `crates/fleet/src/commanding.rs`,
+`crates/fleet/src/resources.rs (deleted)`, `crates/fleet/src/commanding.rs`,
 The `spawning` module (deleted since), the `ending` module (deleted since), the `observing` module (deleted since),
-`crates/core-model/src/job/work_plan.rs`, `crates/ipc/src/work_plan.rs`,
-`crates/ipc/src/mcp/planning.rs`, `crates/ipc/src/resources.rs`, `crates/ipc/src/limits.rs`,
+`crates/core-model/src/job/work_plan.rs (deleted)`, `crates/ipc/src/work_plan.rs (deleted)`,
+`crates/ipc/src/mcp/planning.rs (deleted)`, `crates/ipc/src/resources.rs (deleted)`, `crates/ipc/src/limits.rs`,
 `crates/config/settings.toml`, `docs/contracts/system-architecture.md`, a new module
 reading a group's edit calls from its Drones' transcripts, and the wire set above.
 
@@ -901,15 +901,15 @@ it end that task's Drone alone.
 - An Epic's split creates its children at `awaiting_approval`, with their waits-on
   edges and the pass that made them. One act releases the wave, all or nothing.
 - **The pass is a store change.** `DispatchOrigin` is read from two columns on
-  the Job (`crates/store/src/read.rs`), and the pass needs a third, by a
+  the Job (`crates/store/src/read.rs (deleted)`), and the pass needs a third, by a
   migration.
 - A merged pull request records when it merged, read off the forge. A parent
   completes when every member has landed.
 
 Write scope: the sub-dispatch module (deleted since), `crates/fleet/src/noticing.rs`,
-`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/fields.rs`,
-`crates/store/src/migrations.rs`, `crates/store/src/read.rs`, `crates/ipc/src/job.rs`,
-`crates/ipc/src/detail.rs`, and the wire set above.
+`crates/fleet/src/commanding.rs`, `crates/core-model/src/job/fields.rs (deleted)`,
+`crates/store/src/migrations.rs`, `crates/store/src/read.rs (deleted)`, `crates/ipc/src/job.rs (deleted)`,
+`crates/ipc/src/detail.rs (deleted)`, and the wire set above.
 
 ### 7 — Workflow profiles
 

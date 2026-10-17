@@ -131,7 +131,7 @@ where
         Ok(RepositoryAreas { repositories })
     }
 
-    /// What each Job or hosted Session holding a slot has changed in it. The slots and their holders
+    /// What each hosted Session holding a slot has changed in it. The slots and their holders
     /// are `list_worktrees`' answer, so this adds no pool read of its own.
     pub(crate) async fn slot_touches(&self) -> Result<SlotTouches, Refusal> {
         if let Some(kept) = self.territory().kept() {
@@ -147,9 +147,6 @@ where
             .iter()
             .filter_map(|slot| {
                 let (kind, id) = match &slot.held {
-                    SlotHolding::Job { job_id, kept: None, completed: false, .. } => {
-                        (SlotHolderKind::Job, job_id.as_str().to_string())
-                    }
                     SlotHolding::HostedSession { session_id, .. } => (SlotHolderKind::Session, session_id.clone()),
                     _ => return None,
                 };

@@ -2,17 +2,12 @@
 // clean and one that fails. The card runs the command where the Session works, as its ledger does.
 // The walk `callCardRunsCommand` plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-const { reclaimed_at: _cleared, ...job } = { ...asRow(featureRunning(), 92, "runs-job", "Cache the manifest read").job, owner_manifest_id: OWNER };
-const running = { ...asRow(featureRunning(), 92, "runs-job", "Cache the manifest read"), job };
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -35,12 +30,11 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("call-card-runs-command", "The Cockpit with one Session waiting on two commands to run, one that exits clean and one that fails", [running]);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("call-card-runs-command", "The Cockpit with one Session waiting on two commands to run, one that exits clean and one that fails");
   return {
     ...base,
-    state: { ...base.state, repository: repository().root, jobs: [running.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], [SESSION]) },
+    state: { ...base.state, repository: repository().root },
+    draft: { sessions: () => sessionsStore([SESSION]) },
   };
 }
 

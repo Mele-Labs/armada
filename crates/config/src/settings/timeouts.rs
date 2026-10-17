@@ -7,17 +7,11 @@ use super::{Applies, Entry, Integer, Kind, Seconds, Section, Shipped};
 pub const CHECK_SECONDS: Seconds = Seconds("timeouts.checkSeconds");
 pub const JUDGE_SECONDS: Seconds = Seconds("timeouts.judgeSeconds");
 pub const COMMAND_SECONDS: Seconds = Seconds("timeouts.commandSeconds");
-pub const UNANSWERED_ASK_SECONDS: Seconds = Seconds("timeouts.unansweredAskSeconds");
 pub const PROPOSER_SECONDS: Seconds = Seconds("timeouts.proposerSeconds");
-pub const STEP_WALL_CLOCK_SECONDS: Seconds = Seconds("timeouts.stepWallClockSeconds");
-pub const STEP_GRACE_SECONDS: Seconds = Seconds("timeouts.stepGraceSeconds");
-pub const DRONE_QUIET_AFTER_SECONDS: Seconds = Seconds("timeouts.droneQuietAfterSeconds");
-pub const DRONE_POKE_LIMIT: Integer = Integer("timeouts.dronePokeLimit");
 pub const HELM_ASK_HOLD_SECONDS: Seconds = Seconds("timeouts.helmAskHoldSeconds");
 pub const SESSION_QUIET_SECONDS: Seconds = Seconds("timeouts.sessionQuietSeconds");
 pub const HELM_REPLY_SECONDS: Seconds = Seconds("timeouts.helmReplySeconds");
 pub const MERGE_NOTICE_SECONDS: Seconds = Seconds("timeouts.mergeNoticeSeconds");
-pub const RECLAIM_SWEEP_SECONDS: Seconds = Seconds("timeouts.reclaimSweepSeconds");
 pub const RESOURCE_POLL_SECONDS: Seconds = Seconds("timeouts.resourcePollSeconds");
 pub const BUILD_SWEEP_SECONDS: Seconds = Seconds("timeouts.buildSweepSeconds");
 pub const TURN_INTERVAL_MS: Integer = Integer("timeouts.turnIntervalMs");
@@ -71,20 +65,6 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         row: None,
         env: None,
     },
-    // Measured on nothing: an order of magnitude past the harness's own few
-    // minutes of hold, and comfortably short of the overnight `#801` was filed
-    // about. The Drone is ended, the step stopped, the Job escalated.
-    Entry {
-        key: UNANSWERED_ASK_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Unanswered permission ask",
-        description: "How long a Drone's permission ask may go unanswered before Fleet ends the Drone and the Job asks for a person.",
-        kind: Kind::Seconds { min: 60, max: 86_400 },
-        shipped: Shipped::Seconds(1_800),
-        applies: Applies::Live,
-        row: None,
-        env: None,
-    },
     // **Longer than the Judge's, and the difference is who is waiting.** A Judge
     // runs with nobody watching, so its budget is the only thing that ends a
     // call that will not answer. A proposal is watched and `stop_proposal` kills
@@ -100,70 +80,6 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         shipped: Shipped::Seconds(600),
         applies: Applies::Live,
         row: None,
-        env: None,
-    },
-    // Down from an 1800s nothing had measured. Spike 009: nine steps in ten
-    // finished inside 500s and the longest honest one took 1777s, but the floor
-    // is 1337s — one Check at the Check budget plus a p90 step's own work,
-    // because a step's clock runs through Fleet's Checks and does not restart on
-    // a retry. What none of the three step wires catches is what stopped every
-    // stuck step measured: they were quiet, not long, which is the silence
-    // threshold's to catch.
-    Entry {
-        key: STEP_WALL_CLOCK_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Step wall clock",
-        description: "How long a step may run before the Judge is asked whether its Drone is going in circles. A step's own value wins.",
-        kind: Kind::Seconds { min: 60, max: 86_400 },
-        shipped: Shipped::Seconds(1_500),
-        applies: Applies::Live,
-        row: None,
-        env: None,
-    },
-    // The shortest of the three deliberately. Spike 4 measured an injected turn
-    // consumed in 1.59s mid-task and 33s against a forty-second command, so two
-    // minutes is a Drone that is not answering rather than one inside a call.
-    Entry {
-        key: STEP_GRACE_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Grace to report",
-        description: "How long a Drone told to report has before its step is looked at.",
-        kind: Kind::Seconds { min: 10, max: 3_600 },
-        shipped: Shipped::Seconds(120),
-        applies: Applies::Live,
-        row: None,
-        env: None,
-    },
-    // **Two minutes, the bottom of the band spike 009 leaves open.** Inside an
-    // honest step the longest silence was 79s, so none of 31 honest steps would
-    // have been poked. Three of the eight stuck ones were quieter than that —
-    // 147s, 409s, 1636s — and only the bottom of the band catches the first.
-    // Firing early costs one injected turn; firing late cost 27 minutes of a
-    // person watching a step that had already stopped. A step's own
-    // `quiet_after_seconds` wins, `fleet::Liveness::at`.
-    Entry {
-        key: DRONE_QUIET_AFTER_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Drone silence",
-        description: "How long a Drone may say nothing before Fleet asks whether it is still there. A step's own value wins.",
-        kind: Kind::Seconds { min: 10, max: 3_600 },
-        shipped: Shipped::Seconds(120),
-        applies: Applies::Live,
-        row: Some("drone-silence-threshold-quiet-after"),
-        env: None,
-    },
-    // **Two pokes.** What must not fire routinely is the escalation rather than
-    // the poke, and it needs the silence to survive both — about six minutes,
-    // four and a half times the longest silence any honest step produced.
-    Entry {
-        key: DRONE_POKE_LIMIT.0,
-        section: Section::Timeouts,
-        title: "Times a silent Drone is asked",
-        description: "How many times Fleet asks a silent Drone before the Job stops as stalled. A step's own value wins.",
-        kind: Kind::Integer { min: 0, max: 10, unit: "times" },
-        shipped: Shipped::Integer(2),
-        applies: Applies::Live,
-        row: Some("poke-limit-poke-limit"),
         env: None,
     },
     // `fleet::helm::SHIPPED_ASK_HOLD` says what the fourteen minutes is measured
@@ -215,19 +131,6 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         description: "How often Fleet asks the forge what became of one open pull request, in rotation.",
         kind: Kind::Seconds { min: 10, max: 3_600 },
         shipped: Shipped::Seconds(60),
-        applies: Applies::Live,
-        row: None,
-        env: None,
-    },
-    // Five minutes: a `git status` per worktree still held, and what filled a
-    // disk was seventy-four worktrees over days, not five minutes of one.
-    Entry {
-        key: RECLAIM_SWEEP_SECONDS.0,
-        section: Section::Timeouts,
-        title: "Disk reclaim",
-        description: "How often Fleet looks for worktrees whose disk it may give back.",
-        kind: Kind::Seconds { min: 30, max: 86_400 },
-        shipped: Shipped::Seconds(300),
         applies: Applies::Live,
         row: None,
         env: None,

@@ -3,127 +3,6 @@
 use super::Route;
 
 pub(super) const ROUTES: &[Route] = &[
-    // Every event kind is served on the one socket, and every one is named:
-    // `SERVED` is what a rule compares to the inventory, so a kind published
-    // and not listed here is a kind no rule can see. The rule also compares
-    // this group to `crates/ipc/src/event.rs`'s `Event` enum, which is the
-    // closed set of kinds that can actually be published — a variant there
-    // with no row here now fails the gate rather than reading as complete
-    // while two kinds went unlisted.
-    Route {
-        operation: "job.created",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.state_changed",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.step_advanced",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "drone.spawned",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "drone.exited",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.files_changed",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.judging",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.checking",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.dry_run",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "evidence.submitted",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.asking",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.command_waiting",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.forgotten",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.landed",
-        method: "GET",
-        path: "/events",
-    },
-    // The forge's comments on a Job's pull request changed since the last
-    // sweep found it open. `#661`.
-    Route {
-        operation: "job.remarks_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // A Job was paused or resumed, which moves no status at a gate.
-    Route {
-        operation: "job.paused",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "job.resumed",
-        method: "GET",
-        path: "/events",
-    },
-    // A Job's plan was recorded or a task changed. The counts ride along; the
-    // plan is `get_job`'s. `#893`.
-    Route {
-        operation: "job.plan_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // One of a Job's Triggers moved, carried whole. Since 23.57.
-    Route {
-        operation: "job.trigger_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // One of a Job's added steps moved, carried whole. Since 23.68.
-    Route {
-        operation: "job.addition_changed",
-        method: "GET",
-        path: "/events",
-    },
-    // The one kind on this stream that names no Job. A proposal is the interval
-    // before any exists, which is why it carries an id of its own.
-    Route {
-        operation: "proposal.moved",
-        method: "GET",
-        path: "/events",
-    },
     // The other kind that names no Job, and it names no Drone or step either.
     // A Manifest is Fleet's own, so nothing on the Board moves when it arrives.
     Route {
@@ -191,18 +70,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // A Job's Commander started or finished a turn. #2166.
-    Route {
-        operation: "commander.changed",
-        method: "GET",
-        path: "/events",
-    },
-    // A Job's card to the owner went out, or was answered. #2166.
-    Route {
-        operation: "commander.card",
-        method: "GET",
-        path: "/events",
-    },
     // One entry Fleet just kept for the timeline, for a client holding a window to append.
     Route {
         operation: "timeline.appended",
@@ -244,21 +111,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // Helm's reading sent a person's words to a Session or a Job instead of to Helm.
+    // Helm's reading sent a person's words to a Session instead of to Helm.
     Route {
         operation: "helm.thought_routed",
         method: "GET",
         path: "/events",
     },
-    // A person's run ending. It names a Job and moves nothing on it; what the
-    // run prints is `observe_run`'s, never this stream's.
-    Route {
-        operation: "run.finished",
-        method: "GET",
-        path: "/events",
-    },
-    // The same, for a run in the main checkout. Its own kind because it names
-    // no Job, so a reader folding the one above by `job_id` cannot be given it.
+    // A person's run in the main checkout ending. What the run prints is
+    // `observe_checkout_run`'s, never this stream's.
     Route {
         operation: "checkout_run.finished",
         method: "GET",

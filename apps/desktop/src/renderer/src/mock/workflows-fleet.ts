@@ -9,7 +9,7 @@
 
 import { leftOutRowsOf, MOCK_FILES, workflowRowsOf, type MockFile } from "@armada/components";
 import type { Outcome, RepositorySummary, WorkflowSummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { BridgeApi } from "../../../shared/api";
 import { manifesting } from "./manifest-fake";
@@ -84,7 +84,7 @@ const SITE: RepositorySummary = {
  * left a workflow file out: what the Workflow creator is walked on.
  */
 export function workflowing(): Scenario {
-  const state = connected([], [], [repository(), LEDGER, SITE]);
+  const state = connected([], [repository(), LEDGER, SITE]);
   return {
     name: "workflows",
     says: "A repository picked, workflow files of every kind, and one set aside",
@@ -93,7 +93,6 @@ export function workflowing(): Scenario {
       repository: repository().root,
       health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: true } },
     },
-    reads: {},
     // The Commands a Trigger names are the ones this repository's Manifest declares.
     behaves: (fleet) => ({ readManifestFile: manifesting().behaves?.(fleet).readManifestFile! }),
   };

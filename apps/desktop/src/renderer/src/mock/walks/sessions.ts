@@ -9,7 +9,7 @@ import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, role, region, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
 
-const words = "Fix the flaky store test. Dispatch the sleep cleanup as Jobs and have subagents read the CI history.";
+const words = "Fix the flaky store test and have subagents read the CI history.";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, thread, rail, sheet, close, opened, row } = kit(narrow);
@@ -30,8 +30,6 @@ function steps(narrow: boolean): Step[] {
     ]),
     { later: thread, say: "The agent carries on" },
     ...opened([
-      inLedger("Job 52", "A Job dispatched from the Session, with its own slot"),
-      inLedger("Job 53", "A second Job. A Session holds several of each"),
       inLedger("Subagent Read the CI history", "A subagent, running, then done"),
       inLedger("Studio Flaky store shapes", "A Studio it opened"),
       inLedger("Sketch CI history", "A sketch the agent published"),
@@ -40,7 +38,7 @@ function steps(narrow: boolean): Step[] {
     ...opened([inLedger("Pull request #1843, checks failed", "Checks ran and failed on it")]),
     ...row("Open Pull request #1843", "Every row opens what it names"),
     { look: sheet("Pull request #1843"), say: "The pull request, with its Checks" },
-    { look: role("group", "Pull request acts"), say: "Red: no merge, and a review is still there" },
+    { look: role("group", "Pull request acts"), say: "Red: no merge" },
     { press: close(sheet("Pull request #1843")), say: "Back to the Session" },
     { later: thread, say: "Another Session writes to this one" },
     { look: region("Message from Release notes script"), say: "Set apart, with the sender's band" },

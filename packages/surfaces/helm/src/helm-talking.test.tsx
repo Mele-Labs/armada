@@ -55,5 +55,5 @@ test("the record's split button offers both acts, and Details opens this session
   // not a second fixture that happens to be drawable.
   const text = shown.element().textContent ?? "";
   expect(text).toContain("why did 77 stop");
-  expect(text).toContain("called get_job");
+  expect(text).toContain("called list_sessions");
 });

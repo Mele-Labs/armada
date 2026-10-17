@@ -389,5 +389,5 @@ fn a_lease_record_written_after_the_slot_moved_is_heard_and_read() {
         .expect("a record");
     assert_eq!(heard_soon(repo.root()), (false, vec![2]), "the record is a change to the slot");
     let read = GitVcs.slot_pool_kept(&pool, false);
-    assert_eq!(read[1].held, SlotHeld::Job(String::from("01X")));
+    assert_eq!(read[1].held, SlotHeld::Hosted(String::from("01X")));
 }

@@ -289,7 +289,7 @@ Rules that follow:
 - **The Drone asks for a narrowed run and never names the paths.** The tool
   takes one boolean, `only_what_changed`. A path list would be the Drone
   choosing the scope it is measured over, which is the same refusal
-  `crates/ipc/src/mcp/tools.rs` already makes about a Check name. Which paths a
+  `crates/ipc/src/mcp/tools.rs (deleted)` already makes about a Check name. Which paths a
   narrowed run reads is Fleet's reading of the worktree's own diff.
 - **A Drone's narrowed run is never a verdict and never gates a step.** The
   gate takes its own reading below, whatever a Drone asked for mid-step, and the
@@ -705,7 +705,7 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   purpose — `armada.yml` says so where it declares it. So a Job's gate never
   reads it, and on 8 Sept 2026 Job `01M21BKVPW002DC0ATD1X9T0VF` merged three
   over-long comment blocks past a fully green gate: `crates/armada/src/clean.rs`
-  at 27 lines, the `ending` module (deleted since) at 32, `crates/store/src/forget.rs`
+  at 27 lines, the `ending` module (deleted since) at 32, `crates/store/src/forget.rs (deleted)`
   at 28, all over the cap the hook refuses at, all in files the Job had touched.
   Every declared Check passed. A person running the gate afterwards is what
   caught it.

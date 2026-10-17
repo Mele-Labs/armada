@@ -6,28 +6,16 @@
 //! minor-skew row, and would break silently the day somebody added
 //! `deny_unknown_fields` for tidiness. Each module below holds one subject's
 //! share of that.
-//!
-//! What is left here is the Job every one of them starts from. The fixtures
-//! are shared rather than copied per module because a case that built its own
-//! Job would be asserting against a shape nothing else on this seam sees.
-//!
-//! The Evidence tool's transport is the other seam and is [`mcp`]'s. Nothing
-//! about it is version-skewed — a Drone is spawned by the Fleet it reports to —
-//! so what those cases hold is the opposite property: a field the tool does not
-//! take is refused rather than ignored.
 
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod accounts;
 mod annotations;
 mod building;
-mod capacity;
-/// A refused command, and the answers a person has for it.
+/// The allowlist rows and the Kit changes.
 mod commanding;
 /// One Job, whole: the step rows, the gates' answers and the fields a Board
 /// row leaves behind.
-mod details;
-mod judges_sent_back;
 /// One entry added to a document this crate did not write.
 mod document;
 /// The agent's door: a tool call becomes a request on the HTTP surface, and an
@@ -35,44 +23,26 @@ mod document;
 mod door;
 /// What the stream carries, under the names `operations/` declares.
 mod events;
-mod fixtures;
-mod gates;
 mod helm;
 mod helm_box;
 /// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
-mod issues;
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
-mod history;
-mod journal;
 mod limits;
-mod mcp;
 mod review_runs;
-mod merge_hub;
 mod layout;
 mod key_bindings;
 mod mods;
-mod needing;
-/// The one tool the harness calls rather than the model, and the two answers.
-mod permission;
-mod planning;
 mod preferences;
 mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
-mod proposals;
 mod protocol_id;
-mod pull_request_card;
 /// A given-back worktree, and the absent halves Bridge reads as absent.
-mod reclaimed;
 /// A person's run: the two kinds it streams under, and the record it leaves.
 mod rehearsal;
-mod reports;
 /// A repository to clone, as Bridge spells it.
 mod repositories;
 mod requester;
-/// What a reviewing person is handed, and the note they send back.
-mod review_argument;
-mod reviewing;
 mod servers;
 mod session_activity;
 mod session_build;
@@ -84,93 +54,8 @@ mod studio;
 mod studio_sketch;
 mod studio_zones;
 /// The Board row, and the redaction it exists for.
-mod summaries;
 mod timeline;
 mod bay_history;
-/// Triggers: a firing as Bridge reads it, absent where empty.
-mod added_steps;
-mod triggers;
-mod turns;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
-mod walk_notes;
 mod window_asks;
 mod sketch;
-/// An Epic's wave: each pass's line, and each member's waits-on edges.
-mod waves;
-mod work_plan;
-
-use core_model::{
-    AdvanceGate, EvidenceType, Facts, FrozenWorkflow, Job, JobId, ManifestId, ModelName, NewJob,
-    ResolvedStep, StepId, StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WorkflowId,
-};
-
-use crate::{JobDetail, StepFacts};
-
-fn at(instant: &str) -> Timestamp {
-    Timestamp::from_rfc3339(instant)
-}
-
-/// The one-step workflow the fixture Jobs freeze.
-fn workflow() -> FrozenWorkflow {
-    FrozenWorkflow::frozen(
-        WorkflowId::carried(Ulid::carried("01WF")),
-        "bug".to_string(),
-        1,
-        vec![ResolvedStep::frozen(
-            StepId::new("repro"),
-            "Reproduce".to_string(),
-            Some(EvidenceType::FailingTest),
-            Vec::new(),
-            AdvanceGate::Auto,
-            Vec::new(),
-            None,
-            0,
-            None,
-        )],
-    )
-}
-
-fn job() -> Job {
-    Job::create_top_level(
-        NewJob {
-            id: JobId::carried(Ulid::carried("01JOB")),
-            title: Title::new("fix the off-by-one").expect("a title"),
-            workflow: workflow(),
-            owner_manifest_id: ManifestId::carried(Ulid::carried("01MF")),
-            urgency: Urgency::Normal,
-            atomic: false,
-            model: ModelName::new("a-model").expect("a model name"),
-            acceptance_criteria: Vec::new(),
-            steps: vec![StepSeed {
-                step_id: StepId::new("repro"),
-                ordinal: 0,
-            }],
-            dependencies: Vec::new(),
-            gate_manifests: Vec::new(),
-            write_targets: None,
-            subject: None,
-            redispatched_from: None,
-            proposal_id: None,
-            number: core_model::JobNumber::carried(1),
-            facts: Facts::new("a secret nobody outside Fleet needs"),
-            scope_revisions: Vec::new(),
-            attachments: Vec::new(),
-        },
-        TopLevelOrigin::Manual,
-        at("2026-08-26T09:00:00.000Z"),
-    )
-}
-
-/// One Job's detail, with every fact that is not the Job itself absent.
-///
-/// **A helper because the signature is fifteen positional arguments**, ten
-/// of which every case here passes `None` for. Two of the ten were added on
-/// one night by two people who could not see each other's, and a run of
-/// `None`s is where the next one lands in the wrong slot silently. What a
-/// case is about is the Job and its steps, and this says so.
-pub(super) fn detail_of(job: &core_model::Job, steps: &[StepFacts]) -> JobDetail {
-    JobDetail::of(
-        job, None, None, None, None, None, None, steps, None, None, None, None, None, None, None,
-        None,
-    )
-}

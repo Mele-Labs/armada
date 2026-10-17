@@ -21,7 +21,7 @@ const gate: Session = {
   lastTurn: "14:12",
   lastTurnAt: minutesAgo(1),
   rows: [
-    ...asked("g1", "Make the gate run its policy on every Job, not only the first."),
+    ...asked("g1", "Make the check run its policy on every pull request, not only the first."),
     { id: "g2", at: "14:06:10", kind: "tool", text: "Read crates/fleet/src/gate.rs" },
     { id: "g3", at: "14:11:48", kind: "tool", text: "Edit crates/fleet/src/gate.rs" },
   ],
@@ -30,7 +30,7 @@ const gate: Session = {
     now: "Editing gate.rs",
     todos: [
       { text: "Read the gate policy", state: "done" },
-      { text: "Run the policy on every Job", state: "doing" },
+      { text: "Run the policy on every pull request", state: "doing" },
       { text: "Cover a second run in the gate tests", state: "todo" },
       { text: "Update the gate contract", state: "todo" },
     ],

@@ -42,7 +42,7 @@ fn a_slot_locked_for_a_moment_is_not_a_full_pool_and_nobody_is_told_it_is() {
             std::thread::sleep(Duration::from_millis(700));
             drop(lock);
         });
-        pool.lease("mine", &Holder::job("me"), 0, &no_seed, |_| told.store(true, Ordering::SeqCst))
+        pool.lease("mine", &Holder::hosted("me"), 0, &no_seed, |_| told.store(true, Ordering::SeqCst))
     });
 
     assert!(leased.is_ok(), "it took the slot once the lock was let go");
@@ -59,7 +59,7 @@ fn a_try_lease_rides_out_a_lock_that_is_let_go_at_once() {
             std::thread::sleep(Duration::from_millis(60));
             drop(lock);
         });
-        pool.try_lease("mine", &Holder::job("me"), 0, &no_seed)
+        pool.try_lease("mine", &Holder::hosted("me"), 0, &no_seed)
     });
 
     assert!(matches!(leased, Ok(Leased::Took(_))), "{leased:?}");
@@ -68,9 +68,9 @@ fn a_try_lease_rides_out_a_lock_that_is_let_go_at_once() {
 #[test]
 fn a_pool_whose_every_slot_is_held_is_full_and_says_so() {
     let (_repo, pool) = a_pool_of_one();
-    assert!(matches!(pool.try_lease("theirs", &Holder::job("someone"), 0, &no_seed), Ok(Leased::Took(_))));
+    assert!(matches!(pool.try_lease("theirs", &Holder::hosted("someone"), 0, &no_seed), Ok(Leased::Took(_))));
 
-    let Ok(Leased::Full(full)) = pool.try_lease("mine", &Holder::job("me"), 0, &no_seed) else {
+    let Ok(Leased::Full(full)) = pool.try_lease("mine", &Holder::hosted("me"), 0, &no_seed) else {
         panic!("every slot is held");
     };
 
@@ -82,7 +82,7 @@ fn a_pool_whose_only_slot_is_closed_is_full_and_says_so() {
     let (_repo, pool) = a_pool_of_one();
     pool.close(1).expect("closed");
 
-    let Ok(Leased::Full(full)) = pool.try_lease("mine", &Holder::job("me"), 0, &no_seed) else {
+    let Ok(Leased::Full(full)) = pool.try_lease("mine", &Holder::hosted("me"), 0, &no_seed) else {
         panic!("a closed slot is not leased");
     };
 

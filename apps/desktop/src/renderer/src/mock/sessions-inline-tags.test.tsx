@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
@@ -19,7 +19,7 @@ const message = () => page.getByRole("textbox", { name: "Message" });
 
 test("Sessions inline tags: the chip stands in the line, Backspace takes it whole, and a send carries it", async () => {
   const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" }), hosted("01SESSIONBBBBBBBBBBBBBBBBB", { title: "The retry loop" })]);
-  mount(fleet.scenario(onBoard([], { repositories: [ARMADA], picked: ARMADA.root })));
+  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
   await toSession("First one");
 

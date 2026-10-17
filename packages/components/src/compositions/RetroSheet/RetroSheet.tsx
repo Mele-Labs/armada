@@ -16,13 +16,10 @@ export type RetroSheetItem = LessonCardItem & {
   settled?: LessonSettled;
 };
 
-/** A note the owner left with this Job's detail open. */
-export type RetroNote = { id: string; text: string; when?: string };
-
 export type RetroSheetProps = {
   open: boolean;
-  /** The Job, as a person reads it. */
-  job?: ReactNode;
+  /** The Session, as a person reads it. */
+  session?: ReactNode;
   /** The read has not answered yet. */
   reading?: boolean;
   /** Why the read failed, in Fleet's words. Draws in place of everything else. */
@@ -30,34 +27,31 @@ export type RetroSheetProps = {
   /** Where the retro stands, where it is not simply written. Absent draws nothing. */
   status?: string;
   items: readonly RetroSheetItem[];
-  notes: readonly RetroNote[];
   /** The window is at `--window-floor`. */
   floor?: boolean;
   onClose?: () => void;
 };
 
 /**
- * One Job's retro: what got in the way, whose way, and the record rows that
+ * One Session's retro: what got in the way, whose way, and the record rows that
  * show it — `docs/concepts/retro.md`.
  *
  * **One sheet, opened from two places**: a row on the Lessons page, and the
- * Job's own Record. The same layer in both, so a retro reads the same
+ * Session's own thread. The same layer in both, so a retro reads the same
  * wherever it is reached.
  *
  * **Each item is a `LessonCard`**, the Lessons list's own, so the owner agrees
  * or disagrees with it here as there.
  *
- * **An empty slot stays empty.** A written retro with no items draws nothing,
- * and a Job with no linked notes draws no notes section.
+ * **An empty slot stays empty.** A written retro with no items draws nothing.
  */
 export function RetroSheet({
   open,
-  job,
+  session,
   reading = false,
   failure,
   status,
   items,
-  notes,
   floor = false,
   onClose,
 }: RetroSheetProps) {
@@ -68,12 +62,12 @@ export function RetroSheet({
       floating
       floor={floor}
       title="Retro"
-      subtitle={job === undefined ? undefined : <span className="armada-retro__job">{job}</span>}
+      subtitle={session === undefined ? undefined : <span className="armada-retro__job">{session}</span>}
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
     >
-      <Body reading={reading} failure={failure} status={status} items={items} notes={notes} />
+      <Body reading={reading} failure={failure} status={status} items={items} />
     </Sheet>
   );
 }
@@ -83,8 +77,7 @@ function Body({
   failure,
   status,
   items,
-  notes,
-}: Pick<RetroSheetProps, "reading" | "failure" | "status" | "items" | "notes">) {
+}: Pick<RetroSheetProps, "reading" | "failure" | "status" | "items">) {
   if (failure !== undefined) {
     return (
       <Alert tone="escalated" title="The retro could not be read">
@@ -107,19 +100,6 @@ function Body({
             />
           ))}
         </ol>
-      )}
-      {notes.length === 0 ? null : (
-        <section className="armada-retro__notes" aria-label="Notes">
-          <h3 className="armada-retro__heading">Notes</h3>
-          <ul className="armada-retro__cites">
-            {notes.map((note) => (
-              <li key={note.id} className="armada-retro__note">
-                <span className="armada-retro__statement">{note.text}</span>
-                {note.when === undefined ? null : <span className="armada-retro__when">{note.when}</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
       )}
     </div>
   );

@@ -13,24 +13,15 @@
 //!
 //! **A file-level fault refuses the open.** A damaged database, a schema from a
 //! newer Armada, a file that is not an Armada store — none of them can be
-//! narrowed to one Job, and continuing means starting empty with work on disk
+//! narrowed to one row, and continuing means starting empty with work on disk
 //! that nobody is being told about. [`OpenError`] exists so that path ends at a
 //! caller who has to handle it.
 //!
-//! **A row-level fault refuses one Job.** [`RowError`] names a Job whose stored
-//! shape cannot be read back. It does not take the process down, and it is
-//! never dropped either: [`LoadAllError::SomeJobsUnreadable`] hands back the
-//! Jobs that loaded *and* the ones that did not, so a caller cannot end up with
-//! a short list and no error — the v1 bug that lost twenty-one Jobs.
+//! **A row-level fault refuses one row.** [`RowError`] names a column whose
+//! stored shape cannot be read back. It does not take the process down.
 
 use std::error::Error;
 use std::fmt;
-
-use core_model::{
-    IllegalDroneMove, IllegalStepTransition, IllegalTransition, JobId, JobStatus, StepId, StepState,
-};
-
-use crate::read::{Loaded, UnreadableRow};
 
 /// A fault that belongs to SQLite. The cause is carried rather than formatted,
 /// so the chain stays traversable up to the wire, where it is flattened once.
@@ -74,16 +65,15 @@ pub enum OpenError {
         path: String,
         finding: String,
     },
-    /// `PRAGMA foreign_key_check` found rows pointing at nothing — an event
-    /// whose Job is gone, a step with no Job. The log is the authority and a
-    /// dangling entry means part of it has already been lost.
+    /// `PRAGMA foreign_key_check` found rows pointing at nothing. A dangling
+    /// entry means part of the record has already been lost.
     DanglingReferences {
         path: String,
         rows: usize,
     },
     /// The file has tables and no `armada_meta`. Either it is not an Armada
     /// store, or it predates versioning; both are refused rather than migrated
-    /// into, because migrating into the wrong file writes Jobs into it.
+    /// into, because migrating into the wrong file writes into it.
     NotAnArmadaStore {
         path: String,
         tables: usize,
@@ -116,7 +106,7 @@ pub enum OpenError {
     },
 }
 
-/// A Job whose stored shape cannot be read back.
+/// A row whose stored shape cannot be read back.
 ///
 /// Each variant is a distinguishable kind of damage, because "the row is bad"
 /// is not an answer anybody can act on.
@@ -130,103 +120,11 @@ pub enum RowError {
         column: &'static str,
         value: String,
     },
-    /// One of the three `array<...>` columns is not the shape it was written
-    /// as.
+    /// A column is not the shape it was written as.
     MalformedColumn {
         table: &'static str,
         column: &'static str,
         detail: String,
-    },
-    /// `origin` is `sub_dispatched` and `dispatched_by` is null. The row claims
-    /// a parent step and does not name one, so the Job cannot be recreated
-    /// through the constructor that made it.
-    SubDispatchedWithoutOrigin {
-        job_id: JobId,
-    },
-    /// The first event's `status_from` is not the status the Job was created
-    /// at, or an event's `status_from` is not where the previous one left off.
-    /// An event is missing, or two are out of order.
-    EventDiscontinuity {
-        job_id: JobId,
-        seq: i64,
-        folded: JobStatus,
-        recorded: JobStatus,
-    },
-    /// The log records a move the machine does not admit. The history is not a
-    /// history this Armada could have produced.
-    IllegalRecordedTransition {
-        job_id: JobId,
-        seq: i64,
-        cause: IllegalTransition,
-    },
-    /// The event's reason is not one its destination stores. `escalated` with
-    /// no trigger, `killed` with one.
-    ReasonDoesNotFitStatus {
-        job_id: JobId,
-        seq: i64,
-        status: JobStatus,
-        reason_kind: String,
-    },
-    /// A step row does not leave the state the fold has that step in. The
-    /// counterpart of [`EventDiscontinuity`](Self::EventDiscontinuity) for the
-    /// inner machine — a step move is missing, or two are out of order.
-    ///
-    /// `folded` is `None` where the Job has no such step at all, which is a row
-    /// naming a step of some other Job's WorkflowDef.
-    StepEventDiscontinuity {
-        job_id: JobId,
-        seq: i64,
-        step_id: StepId,
-        folded: Option<StepState>,
-        recorded: StepState,
-    },
-    /// The log records a step arriving at a state no `StepTarget` names.
-    ///
-    /// **Every state a step machine declares is reached now**, so this is no
-    /// longer the ordinary answer for a whole state — `stopped` and `retrying`
-    /// got their targets with the retry budget, and `awaiting_human` got one
-    /// when a human gate stopped being a step that merely read `running`. What
-    /// is left is a `(from, state, reason)` triple no target spells: a row
-    /// written by a machine this build does not have, and folding it as
-    /// anything else would be the store lying rather than refusing.
-    StepStateNotReachable {
-        job_id: JobId,
-        seq: i64,
-        step_id: StepId,
-        state: StepState,
-    },
-    /// The log records a step move the inner machine does not admit.
-    IllegalRecordedStepTransition {
-        job_id: JobId,
-        seq: i64,
-        cause: IllegalStepTransition,
-    },
-    /// The log records a Drone arriving on a Job that already held one, or
-    /// leaving one that held none.
-    IllegalRecordedDroneMove {
-        job_id: JobId,
-        seq: i64,
-        cause: IllegalDroneMove,
-    },
-    /// A column the record offers no way to put back, holding a value.
-    ///
-    /// The log carries what a machine moved, so a column the rebuild cannot
-    /// reach is refused rather than dropped silently. `current_step_id` was here
-    /// until a step move became a row in the log, and `assigned_drone` until a
-    /// Drone's arrival did.
-    ColumnNotReconstructable {
-        job_id: JobId,
-        column: &'static str,
-        value: String,
-    },
-    /// A Job written before its workflow was frozen onto the row.
-    ///
-    /// Nothing in a pre-V7 store records which definition a Job followed, and a
-    /// step backfilled as declaring no Check would read as an ungated step
-    /// rather than as a gap. So it is named, and the Job is carried out of
-    /// `load_all_jobs` beside the ones that did load.
-    WorkflowNotFrozen {
-        job_id: JobId,
     },
 }
 
@@ -234,81 +132,18 @@ pub enum RowError {
 #[derive(Debug)]
 pub enum WriteError {
     Database(DatabaseFault),
-    /// A Job with this id is already stored. Creation is not an update, and
-    /// there is no method here that would make it one.
-    JobAlreadyExists {
-        job_id: JobId,
-    },
-    /// Two Jobs in one Manifest were given the same number. **Never reachable
-    /// from a live Fleet**, which allocates and inserts under one lock; it is
-    /// what the unique index says when something else wrote a number, and it
-    /// is a variant of its own because `INSERT OR IGNORE` reports the same
-    /// zero rows for this as for a Job that is already stored — and *job
-    /// 01ABC is already stored* is a false sentence to answer it with.
-    JobNumberTaken {
-        job_id: JobId,
-        number: u32,
-    },
-    /// A transition was recorded against a Job that was never inserted.
-    NoSuchJob {
-        job_id: JobId,
-    },
-    /// A transition was recorded against a Job that has moved since the
-    /// caller loaded it. Two callers loading the same Job and each computing
-    /// a legal move from that snapshot is the race this refuses — the loser's
-    /// write is rejected before its event is appended, rather than landing
-    /// and leaving the log unable to fold.
-    StatusChanged {
-        job_id: JobId,
-        expected: JobStatus,
-        found: JobStatus,
-    },
-    /// A step move was recorded against a `job_steps` row that is not there.
-    /// The rows are written at creation and never added to, so this is a move
-    /// against a step of some other Job.
-    NoSuchStep {
-        job_id: JobId,
-        step_id: StepId,
-    },
     /// A preference save named something outside `preferences`' closed set.
     /// Named no Job: a preference is Fleet-wide, `limits`' own reason.
     UnknownPreference {
         name: String,
     },
-    /// `record_answered` handed a move that is not a proposer's answer — the
-    /// Job it carries has frozen no workflow.
-    NotAnAnswer {
-        job_id: JobId,
-    },
-    /// `record_proposal_edit` found the Job no longer at `awaiting_approval`:
-    /// it was approved, or stopped, between the read and the write.
-    NotAtApproval {
-        job_id: JobId,
-    },
 }
 
-/// Why one Job would not load.
+/// Why a read did not come back.
 #[derive(Debug)]
-pub enum LoadJobError {
+pub enum ReadError {
     Database(DatabaseFault),
-    NoSuchJob { job_id: JobId },
     Unreadable(RowError),
-}
-
-/// Why the boot read did not come back whole.
-///
-/// **There is no variant that means "here is a shorter list".** A caller either
-/// gets every Job or gets an error carrying both halves.
-#[derive(Debug)]
-pub enum LoadAllError {
-    Database(DatabaseFault),
-    /// Some Jobs rebuilt and some did not. Both are here: the ones that loaded
-    /// so a caller need not throw away good work, and the ones that failed so
-    /// it cannot pretend they were never there.
-    SomeJobsUnreadable {
-        loaded: Loaded,
-        failed: Vec<UnreadableRow>,
-    },
 }
 
 macro_rules! display {
@@ -372,148 +207,15 @@ display!(RowError, |self, f| match self {
         f,
         "{table}.{column} is not the shape it was written as: {detail}"
     ),
-    RowError::SubDispatchedWithoutOrigin { job_id } => write!(
-        f,
-        "job {} is sub_dispatched and names no dispatching step",
-        job_id.as_str()
-    ),
-    RowError::EventDiscontinuity {
-        job_id,
-        seq,
-        folded,
-        recorded,
-    } => write!(
-        f,
-        "job {}: event {seq} leaves {} and the log had reached {}",
-        job_id.as_str(),
-        recorded.as_wire(),
-        folded.as_wire()
-    ),
-    RowError::IllegalRecordedTransition { job_id, seq, cause } =>
-        write!(f, "job {}: event {seq} records {cause}", job_id.as_str()),
-    RowError::ReasonDoesNotFitStatus {
-        job_id,
-        seq,
-        status,
-        reason_kind,
-    } => write!(
-        f,
-        "job {}: event {seq} arrives at {} carrying a `{reason_kind}` reason",
-        job_id.as_str(),
-        status.as_wire()
-    ),
-    RowError::StepEventDiscontinuity {
-        job_id,
-        seq,
-        step_id,
-        folded,
-        recorded,
-    } => write!(
-        f,
-        "job {}: event {seq} leaves step {} at {}, and the log had reached {}",
-        job_id.as_str(),
-        step_id.as_str(),
-        recorded.as_wire(),
-        match folded {
-            Some(state) => state.as_wire(),
-            None => "no such step",
-        }
-    ),
-    RowError::StepStateNotReachable {
-        job_id,
-        seq,
-        step_id,
-        state,
-    } => write!(
-        f,
-        "job {}: event {seq} puts step {} in `{}`, which nothing in this build reaches",
-        job_id.as_str(),
-        step_id.as_str(),
-        state.as_wire()
-    ),
-    RowError::IllegalRecordedStepTransition { job_id, seq, cause } =>
-        write!(f, "job {}: event {seq} records {cause}", job_id.as_str()),
-    RowError::IllegalRecordedDroneMove { job_id, seq, cause } => write!(
-        f,
-        "job {}: event {seq} records that {cause}",
-        job_id.as_str()
-    ),
-    RowError::ColumnNotReconstructable {
-        job_id,
-        column,
-        value,
-    } => write!(
-        f,
-        "job {} has {column} = `{value}`, and the record offers no way to set it",
-        job_id.as_str()
-    ),
-    RowError::WorkflowNotFrozen { job_id } => write!(
-        f,
-        "job {} was written before its workflow was frozen onto the row",
-        job_id.as_str()
-    ),
 });
 
 display!(WriteError, |self, f| match self {
     WriteError::Database(fault) => write!(f, "{fault}"),
-    WriteError::JobAlreadyExists { job_id } =>
-        write!(f, "job {} is already stored", job_id.as_str()),
-    WriteError::JobNumberTaken { job_id, number } => write!(
-        f,
-        "job {} was given number {number}, which another Job in its Manifest already has",
-        job_id.as_str()
-    ),
-    WriteError::NoSuchJob { job_id } => write!(f, "job {} was never inserted", job_id.as_str()),
-    WriteError::StatusChanged {
-        job_id,
-        expected,
-        found,
-    } => write!(
-        f,
-        "job {} was expected to be at {} and is at {}",
-        job_id.as_str(),
-        expected.as_wire(),
-        found.as_wire()
-    ),
-    WriteError::NoSuchStep { job_id, step_id } => write!(
-        f,
-        "job {} has no step {}",
-        job_id.as_str(),
-        step_id.as_str()
-    ),
     WriteError::UnknownPreference { name } =>
         write!(f, "`{name}` is not a preference this build reads"),
-    WriteError::NotAnAnswer { job_id } => write!(
-        f,
-        "job {} was handed to record_answered with no frozen workflow",
-        job_id.as_str()
-    ),
-    WriteError::NotAtApproval { job_id } => write!(
-        f,
-        "job {} is no longer awaiting approval, so its proposal was not edited",
-        job_id.as_str()
-    ),
 });
 
-display!(LoadJobError, |self, f| match self {
-    LoadJobError::Database(fault) => write!(f, "{fault}"),
-    LoadJobError::NoSuchJob { job_id } => write!(f, "no job {}", job_id.as_str()),
-    LoadJobError::Unreadable(cause) => write!(f, "{cause}"),
-});
-
-display!(UnreadableRow, |self, f| write!(f, "{}", self.why));
-
-display!(LoadAllError, |self, f| match self {
-    LoadAllError::Database(fault) => write!(f, "{fault}"),
-    LoadAllError::SomeJobsUnreadable { loaded, failed } => write!(
-        f,
-        "{} jobs rebuilt and {} did not: {}",
-        loaded.jobs.len(),
-        failed.len(),
-        failed
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join("; ")
-    ),
+display!(ReadError, |self, f| match self {
+    ReadError::Database(fault) => write!(f, "{fault}"),
+    ReadError::Unreadable(cause) => write!(f, "{cause}"),
 });

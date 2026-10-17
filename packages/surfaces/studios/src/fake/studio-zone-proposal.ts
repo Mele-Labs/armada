@@ -3,7 +3,7 @@
 // accept or reject" sat on a Note and hid its text. `walks/four-studio-fixes.ts` plays it.
 
 import type { Studio, StudioNode } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
 

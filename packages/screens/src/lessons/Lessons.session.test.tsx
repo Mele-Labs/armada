@@ -1,5 +1,5 @@
-// Start Session beside Create Job (`docs/concepts/retro.md`, *Where Bridge draws it*): on the list, on
-// a Job's retro sheet and in the guided review. A press asks Fleet to start the Session and opens it
+// Start Session (`docs/concepts/retro.md`, *Where Bridge draws it*): on the list, on
+// a Session's retro sheet and in the guided review. A press asks Fleet to start the Session and opens it
 // running, Fleet having sent the brief; a refusal is the card's alert, in Fleet's words, with
 // the buttons kept.
 //
@@ -7,9 +7,9 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { JobRetro, Lesson, Outcome } from "@armada/protocol";
+import type { Lesson, Outcome, Retro, RetroItem } from "@armada/protocol";
 
-import { JobRetroSheet, Lessons } from "./Lessons";
+import { Lessons, SessionRetroSheet } from "./Lessons";
 import type { LessonSessionRead } from "./session-wire";
 import { mount, unmount } from "../mounted";
 
@@ -17,8 +17,10 @@ afterEach(unmount);
 
 const AT = "2026-10-02T22:05:00.000Z";
 
+const SESSION = { id: "s-01K6Q3", title: "Retire two guides" };
+
 function lesson(over: Partial<Lesson> & Pick<Lesson, "id" | "statement" | "who">): Lesson {
-  return { job_id: "01K6JOB3", handle: "3-retire-guides", at: AT, evidence: [], state: "open", ...over };
+  return { handle: "s-01K6Q3", session: SESSION, at: AT, evidence: [], state: "open", ...over };
 }
 
 const ARMADA = lesson({
@@ -69,7 +71,7 @@ function opened(items: Lesson[], start: (id: string) => Promise<LessonSessionRea
   mount(
     <Lessons
       onReadLessons={async () => ({ ok: true, lessons: items })}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       onStartSession={startSession}
@@ -83,15 +85,15 @@ function opened(items: Lesson[], start: (id: string) => Promise<LessonSessionRea
 
 const buttonsOf = (title: RegExp) =>
   card(title)
-    .getByRole("button", { name: /^(Create Job|Start Session|Accept|Update Kit|Reject change)$/ })
+    .getByRole("button", { name: /^(Start Session|Accept|Update Kit|Reject change)$/ })
     .elements()
     .map((one) => one.textContent);
 
-test("Start Session sits between Create Job and Reject change on an Armada or Manifest item, and not on a Kit item", async () => {
+test("Start Session sits before Reject change on an Armada or Manifest item, and not on a Kit item", async () => {
   opened([ARMADA, KIT, MANIFEST]);
   await expect.element(card(/every Rust test/)).toBeVisible();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Create Job", "Start Session", "Reject change"]);
-  expect(buttonsOf(/every Rust test/)).toEqual(["Create Job", "Start Session", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Session", "Reject change"]);
+  expect(buttonsOf(/every Rust test/)).toEqual(["Start Session", "Reject change"]);
   expect(buttonsOf(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
 });
 
@@ -99,7 +101,7 @@ test("the page offers no Start Session where the host gave it no Session to open
   mount(
     <Lessons
       onReadLessons={async () => ({ ok: true, lessons: [ARMADA] })}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       repository={null}
@@ -122,28 +124,27 @@ test("pressing it starts the Session, opens it, and leaves the card as Session s
   expect(openSession).toHaveBeenLastCalledWith("s-01J8ZQ4M");
 });
 
-test("a refusal is the card's alert in Fleet's words, nothing opens, and all three buttons stay", async () => {
+test("a refusal is the card's alert in Fleet's words, nothing opens, and both buttons stay", async () => {
   const { openSession } = opened([ARMADA], async () => ({ ok: false, outcome: refusal }));
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect.element(page.getByText("The answer was not taken")).toBeVisible();
   await expect.element(page.getByText("This Fleet does not serve Armada.")).toBeVisible();
   expect(openSession).not.toHaveBeenCalled();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Create Job", "Start Session", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Session", "Reject change"]);
 });
 
-test("while the Session is being started the other two answers are held", async () => {
+test("while the Session is being started the other answer is held", async () => {
   let release: (read: LessonSessionRead) => void = () => {};
   opened([ARMADA], () => new Promise<LessonSessionRead>((done) => (release = done)));
   await page.getByRole("button", { name: "Start Session" }).click();
-  await expect.element(page.getByRole("button", { name: "Create Job" })).toBeDisabled();
   await expect.element(page.getByRole("button", { name: "Reject change" })).toBeDisabled();
   release(started("l-armada"));
   await expect.element(page.getByText("Session started", { exact: true })).toBeVisible();
 });
 
 test("an item Fleet lists as agreed by a Session reads Session started, and its link opens that Session", async () => {
-  const retro: JobRetro = {
-    job_id: "01K6JOB3",
+  const retro: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [
@@ -158,14 +159,14 @@ test("an item Fleet lists as agreed by a Session reads Session started, and its 
         evidence: [],
         state: "agreed",
         session_proposed: "s-01J8ZQ4M",
-      } as JobRetro["items"] extends (infer T)[] | undefined ? T : never,
+      } satisfies RetroItem,
     ],
   };
   const openSession = vi.fn();
   mount(
-    <JobRetroSheet
-      subject={{ kind: "job", id: "01K6JOB3" }}
-      job="Job 3"
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
@@ -176,23 +177,23 @@ test("an item Fleet lists as agreed by a Session reads Session started, and its 
   );
   const sheet = page.getByRole("dialog", { name: "Retro" });
   await expect.element(sheet.getByText("Session started", { exact: true })).toBeVisible();
-  expect(sheet.getByRole("button", { name: /Create Job|Start Session/ }).elements()).toHaveLength(0);
+  expect(sheet.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
   await sheet.getByRole("button", { name: "Open Session" }).click();
   expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M");
 });
 
 test("the retro sheet offers Start Session on an open Armada item and starts it", async () => {
-  const retro: JobRetro = {
-    job_id: "01K6JOB3",
+  const retro: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [{ id: "l-armada", who: "fleet", lands_in: "armada", statement: "s", title: "Open one", what: "w", fix: "f", evidence: [], state: "open" }],
   };
   const openSession = vi.fn();
   mount(
-    <JobRetroSheet
-      subject={{ kind: "job", id: "01K6JOB3" }}
-      job="Job 3"
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
@@ -212,7 +213,7 @@ test("in the review a started Session advances like any answer", async () => {
   mount(
     <Lessons
       onReadLessons={async () => ({ ok: true, lessons: [ARMADA, MANIFEST] })}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       onStartSession={startSession}

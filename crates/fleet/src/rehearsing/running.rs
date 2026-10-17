@@ -1,8 +1,8 @@
 //! The run itself, on its own task: the snapshot, a Check's prerequisites,
 //! the command, its output onto the run's own channel, and the record.
 //!
-//! **Output goes to `observe_run`'s channel and never to `/events`**, which
-//! carries only `run.finished`. Each pass over the log offers the whole lines
+//! **Output goes to the run's channel and never to `/events`**, which
+//! carries only `checkout_run.finished`. Each pass over the log offers the whole lines
 //! it found with their byte offsets; the log keeps every one of them.
 
 use std::io::Write;
@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use checks_runner::Writing;
-use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level, Timestamp};
+use core_model::Timestamp;
 use tokio::sync::watch;
 use verification::{Exit, NeverRan};
 
@@ -23,17 +23,15 @@ use crate::daemon::Fleet;
 
 /// Everything a run needs, decided before it was spawned.
 ///
-/// **Owner-blind from here down.** Which tree this is, whose ports it draws
-/// and where its record goes were all settled in [`Place`]; what follows runs
-/// one command in one directory and writes one record, the same way for a Job
-/// and for the main checkout.
+/// Which tree this is, whose ports it draws and where its record goes were all
+/// settled in [`Place`]; what follows runs one command in one directory and
+/// writes one record.
 pub(crate) struct Plan {
     pub(crate) place: Place,
     pub(crate) tree: Tree,
     pub(crate) entry: Entry,
     pub(crate) underway: Underway,
     pub(crate) dir: PathBuf,
-    pub(crate) worktree_version: bool,
     /// Where the run's output goes. Dropped when the run returns, which with
     /// [`Held`] going is what tells every viewer the run finished.
     pub(crate) feed: api::RunFeed,
@@ -62,8 +60,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The run, start to record. **Nothing here can fail the Job**: every
-    /// failure is a fact on the record.
+    /// The run, start to record. Every failure is a fact on the record.
     pub(crate) async fn rehearsed(
         &self,
         mut plan: Plan,
@@ -99,27 +96,10 @@ where
                 None,
             ),
         };
-        // **Never in the main checkout**: no Drone works in it, so there is
-        // nothing of anybody else's for the run's own change to be confused
-        // with.
-        let shared_with_drone = match plan.place.job.as_ref() {
-            None => false,
-            Some(job) => {
-                job.status() == JobStatus::Running
-                    || self
-                        .load(job.id())
-                        .await
-                        .is_ok_and(|job| job.status() == JobStatus::Running)
-            }
-        };
         let record = Record {
             id: plan.underway.id.clone(),
-            job_id: plan.place.job_id().map(ipc::JobId::from),
             name: plan.underway.name.clone(),
             command: plan.underway.command.clone(),
-            narrowed: plan.underway.narrowed,
-            worktree_version: plan.worktree_version,
-            frozen: plan.entry.frozen,
             required: outcome.required,
             started_at: plan.underway.started_at.clone(),
             ended_at: ipc::Instant::from(&ended),
@@ -134,15 +114,13 @@ where
             stopped: outcome.stopped,
             changed,
             changed_unreadable,
-            shared_with_drone,
             snapshot: reference,
             undone_at: None,
             log: records::relative_log(&plan.place.handle, &plan.underway.id),
             workspace: plan.underway.workspace.clone(),
             requester: plan.underway.requester.clone(),
         };
-        let kept = records::write(&plan.dir, &record);
-        self.noted_rehearsal(plan.place.job.as_ref(), &record, kept.err());
+        let _ = records::write(&plan.dir, &record);
         // Given back before anybody is told, so a caller that starts the next
         // run on `run.finished` is not refused as though this one were out.
         drop(held);
@@ -163,36 +141,27 @@ where
             }
         }
         let _ = done.send(Some(record.clone()));
-        // **One kind per owner, because the record is one shape per owner.** A
-        // reader folding `run.finished` by its `job_id` is never handed one
-        // that has none.
-        self.publish(match record.of_job() {
-            Some(finished) => ipc::Event::RunFinished(finished),
-            None => ipc::Event::CheckoutRunFinished(record.of_checkout()),
-        });
+        self.publish(ipc::Event::CheckoutRunFinished(record.of_checkout()));
     }
 
     /// A Check's prerequisites, in order, then the command — into one log.
     ///
-    /// **The Job's own claimed span, the same way the gate's Checks get it.**
-    /// `${port.NAME}` is resolved in each command before it runs and
-    /// `ARMADA_PORT_<NAME>` plus any declared `env` ride in the process's own
-    /// environment — see `crate::ports`. Both are empty where the Job's
-    /// Manifest declares no `ports:`. A workspace Verify's own file lays its
-    /// ports over the root's — `super::workspace::Within`.
+    /// **The main checkout's claimed span.** `${port.NAME}` is resolved in each
+    /// command before it runs and `ARMADA_PORT_<NAME>` plus any declared `env`
+    /// ride in the process's own environment — see `crate::ports`. Both are
+    /// empty where the Manifest declares no `ports:`. A workspace Verify's own
+    /// file lays its ports over the root's — `super::workspace::Within`.
     async fn ran(&self, plan: &Plan, log: &Path, stopped: watch::Receiver<bool>) -> Outcome {
         let budget = self.budget().duration();
         let dir = plan.tree.commands_in();
         let path = dir.as_path();
-        // The Job's own claimed span, or the main checkout's — `crate::ports`.
-        let (mut ports, mut env) = match (plan.place.job.as_ref(), plan.place.checkout.served()) {
-            (Some(job), _) => (self.port_map(job).await, self.port_env(job).await),
-            (None, Some(served)) => (
+        let (mut ports, mut env) = match plan.place.checkout.served() {
+            Some(served) => (
                 self.main_checkout_ports(served).await,
                 self.main_checkout_port_env(served).await,
             ),
             // No root Manifest, so no ports are declared to lease.
-            (None, None) => Default::default(),
+            None => Default::default(),
         };
         if let Some(within) = plan.tree.within.as_ref() {
             within.overlaid(&mut ports, &mut env);
@@ -255,60 +224,6 @@ where
             required,
         }
     }
-
-    /// Write the run into the Job's own log. **Fields, never an interpolated
-    /// message**, for `crate::asked_run`'s reason. A run with no Job has no log
-    /// of that kind to go in — `crate::servers::noted_server`'s own case.
-    fn noted_rehearsal(
-        &self,
-        job: Option<&Job>,
-        record: &Record,
-        not_kept: Option<std::io::Error>,
-    ) {
-        let Some(job) = job else {
-            return;
-        };
-        let level = match not_kept {
-            Some(_) => Level::Warn,
-            None => Level::Info,
-        };
-        let mut envelope = Envelope::new(
-            self.now(),
-            level,
-            Component::Fleet,
-            self.run().clone(),
-            "a person ran one Manifest entry in the Job's worktree",
-        )
-        .in_job(job.id().as_ulid().clone())
-        .with_field("name", FieldValue::Str(record.name.clone()))
-        .with_field("run", FieldValue::Str(record.id.clone()))
-        .with_field("changed", FieldValue::Int(record.changed.len() as i64))
-        .with_field("stopped", FieldValue::Bool(record.stopped));
-        if let Some(code) = record.exit_code {
-            envelope = envelope.with_field("exit_code", FieldValue::Int(i64::from(code)));
-        }
-        if let Some(why) = not_kept {
-            envelope = envelope.with_field("not_kept", FieldValue::Str(why.to_string()));
-        }
-        self.noted_in_the_log(job.id(), &envelope);
-    }
-
-    pub(crate) fn noted_undo(&self, job: Option<&Job>, record: &Record) {
-        let Some(job) = job else {
-            return;
-        };
-        let envelope = Envelope::new(
-            self.now(),
-            Level::Info,
-            Component::Fleet,
-            self.run().clone(),
-            "a person undid a run, putting back the files it changed",
-        )
-        .in_job(job.id().as_ulid().clone())
-        .with_field("run", FieldValue::Str(record.id.clone()))
-        .with_field("restored", FieldValue::Int(record.changed.len() as i64));
-        self.noted_in_the_log(job.id(), &envelope);
-    }
 }
 
 /// Offer what the log has grown by, a pass every [`api::FOLLOW`], until the
@@ -361,8 +276,6 @@ pub(super) fn wired(file: &adapter_traits::ChangedFile) -> ipc::ChangedFile {
     ipc::ChangedFile {
         path: file.path().to_string(),
         change: crate::wire::kind(file.change()),
-        outside_plan: false,
-        lines: None,
     }
 }
 

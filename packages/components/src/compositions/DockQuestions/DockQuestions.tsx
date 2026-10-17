@@ -8,8 +8,8 @@ import { useNow } from "../../clock";
 /**
  * Every question waiting on a person, from every repository, in Helm's dock (#935). A card each.
  *
- * **The card names where it came from before what it asks**: on All repositories two Jobs share a
- * number, so a question without its repository is one a person cannot place.
+ * **The card names where it came from before what it asks**: a question without its repository is
+ * one a person cannot place.
  *
  * **No primary.** A list of decisions each taking the accent would be the fourteen accent blocks
  * the Button contract forbids a list; every answer is a secondary, and what it commits to is its
@@ -22,7 +22,7 @@ export type DockQuestionsProps = {
 
 /** One answer a card offers. */
 export type DockAnswer = {
-  /** What the answer names on the wire — a Drone's own label, or `allow_for_job`, `agree`. */
+  /** What the answer names on the wire, such as `allow_once`. */
   id: string;
   /** The words on the control. */
   label: string;
@@ -31,22 +31,15 @@ export type DockAnswer = {
 };
 
 export type DockQuestion = {
-  /** Unique across the list: a Job can hold a question and a command at once. */
+  /** Unique across the list. */
   id: string;
   /** The picker's own label for the repository. */
   repository: string;
-  /** The Job's number, `12`. **Absent is a question with no job** — a helm call, which waits inside one tool call and queues nothing. */
-  job?: string;
-  /** What the Job is called. */
-  title?: string;
   /** The line over what was asked, naming the kind. */
   label: string;
-  /**
-   * What was asked. A node, so a command sits in mono inside its sentence, and
-   * so a Drone's own question arrives as `Prose` — the caller knows who wrote it.
-   */
+  /** What was asked. A node, so a command sits in mono inside its sentence. */
   asked: ReactNode;
-  /** A line under it — for a Judge refusal, what the difference does, as `Prose`. */
+  /** A line under it, such as the rule that would have to allow it. */
   detail?: ReactNode;
   /** How long it has waited, rendered, or how to render it at a time: the card then reads the clock where it draws it. */
   waiting?: string | ((now: number) => string | undefined);
@@ -60,7 +53,7 @@ export type DockQuestion = {
   note?: ReactNode;
   /** Why this card's last answer did not take. Present beside live answers, not only where they are off. */
   refusal?: ReactNode;
-  /** Point Helm at this card's repository and Job. The picker does not move. Absent draws it off. */
+  /** Point Helm at this card's repository. The picker does not move. Absent draws it off. */
   onDiscuss?: () => void;
 };
 
@@ -81,8 +74,6 @@ export function DockQuestions({ questions }: DockQuestionsProps) {
 
 function QuestionCard({
   repository,
-  job,
-  title,
   label,
   asked,
   detail,
@@ -94,7 +85,7 @@ function QuestionCard({
   refusal,
   onDiscuss,
 }: DockQuestion) {
-  const where = job === undefined ? `${repository}, helm` : `${repository}, job ${job}`;
+  const where = `${repository}, helm`;
   // Which of this card's own answers was pressed — `answering` alone says
   // Fleet has not answered, not which control sent it. Cleared once
   // `answering` drops, so a fresh question always starts unpressed. #1117.
@@ -111,7 +102,7 @@ function QuestionCard({
     <Card className="armada-dock-question" flat role="article" aria-label={`${label} — ${where}`}>
       <div className="armada-dock-question__where">
         <span className="armada-dock-question__place mono">
-          {repository} · {job === undefined ? "helm" : `job ${job}`}
+          {repository} · helm
         </span>
         {waiting === undefined ? null : typeof waiting === "string" ? (
           <span className="armada-dock-question__waiting mono">{waiting}</span>
@@ -119,7 +110,6 @@ function QuestionCard({
           <Waited of={waiting} />
         )}
       </div>
-      {title === undefined ? null : <p className="armada-dock-question__title">{title}</p>}
       <span className="armada-dock-question__label">{label}</span>
       <div className="armada-dock-question__asked">{asked}</div>
       {detail === undefined ? null : <div className="armada-dock-question__detail">{detail}</div>}

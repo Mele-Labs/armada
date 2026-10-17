@@ -53,14 +53,14 @@ async fn one_sentence_is_read_as_the_settings_a_person_then_confirms() {
         "7am on the owner's clock, held in UTC"
     );
     assert_eq!(proposed.spend_cap_micros, Some(30_000_000));
-    assert_eq!(proposed.job_cap, None);
+    assert_eq!(proposed.session_cap, None);
     assert_eq!(
         proposed.quoted.until.as_deref(),
         Some("until 7am"),
         "the start form quotes the words behind each setting"
     );
     assert_eq!(proposed.quoted.spend.as_deref(), Some("$30 max"));
-    assert_eq!(proposed.quoted.jobs, None, "the sentence named no count");
+    assert_eq!(proposed.quoted.sessions, None, "the sentence named no count");
     let asked = model.asked();
     assert_eq!(asked.len(), 1, "one call");
     assert!(asked[0].contains(SENTENCE) && asked[0].contains(LOCAL_NOW));
@@ -68,7 +68,7 @@ async fn one_sentence_is_read_as_the_settings_a_person_then_confirms() {
 
 #[test]
 fn a_reading_that_names_no_instruction_is_refused_rather_than_guessed() {
-    let answer = "at_once: 2\nuntil: none\nspend: none\njobs: none";
+    let answer = "at_once: 2\nuntil: none\nspend: none\nsessions: none";
     assert!(read_settings(answer, SENTENCE, &now()).is_err());
     assert!(read_settings("instruction: fix things\nat_once: lots", SENTENCE, &now()).is_err());
 }
@@ -102,7 +102,7 @@ fn settings_nothing_could_run_under_are_refused_at_start() {
 #[test]
 fn the_picker_is_offered_only_the_open_issues_nothing_holds() {
     let tracker = the_backlog();
-    // 15 has a Job on it; 11 was already picked.
+    // 15 has a Session on it; 11 was already picked.
     let taken: BTreeSet<String> = [url_of(15), url_of(11)].into_iter().collect();
 
     let offered: Vec<String> = candidates(&listed(&tracker), &taken)
@@ -215,7 +215,7 @@ fn the_first_cap_reached_stops_new_picks_and_says_which() {
     let caps = Caps {
         until: Some(Timestamp::from_rfc3339("2026-10-12T11:00:00.000Z")),
         spend_cap_micros: Some(30_000_000),
-        job_cap: Some(5),
+        session_cap: Some(5),
     };
     let under = Spent {
         micros: 29_999_999,
@@ -240,7 +240,7 @@ fn the_first_cap_reached_stops_new_picks_and_says_which() {
         micros: 0,
         started: 5,
     };
-    assert_eq!(caps.first_reached(&now(), &five), Some(Cap::Jobs));
+    assert_eq!(caps.first_reached(&now(), &five), Some(Cap::Sessions));
     assert_eq!(
         Caps::default().first_reached(&now(), &five),
         None,
@@ -253,23 +253,23 @@ fn the_first_cap_reached_stops_new_picks_and_says_which() {
 #[test]
 fn a_reached_cap_pauses_and_resume_waits_until_a_person_raises_it() {
     let three = Caps {
-        job_cap: Some(3),
+        session_cap: Some(3),
         ..Caps::default()
     };
     let spent = Spent {
         micros: 0,
         started: 3,
     };
-    assert_eq!(three.first_reached(&now(), &spent), Some(Cap::Jobs));
+    assert_eq!(three.first_reached(&now(), &spent), Some(Cap::Sessions));
     let paused = State::Running.paused().expect("the cap pauses it");
 
     assert_eq!(
         paused.resumed_under(&three, &now(), &spent),
-        Err(NotResumed::Capped(Cap::Jobs)),
+        Err(NotResumed::Capped(Cap::Sessions)),
         "resuming past the cap would pick once and pause again"
     );
     let four = Caps {
-        job_cap: Some(4),
+        session_cap: Some(4),
         ..Caps::default()
     };
     assert_eq!(

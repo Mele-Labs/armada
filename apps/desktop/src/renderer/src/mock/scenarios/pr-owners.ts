@@ -1,11 +1,11 @@
 // Pull requests with the owner registered to each, over two machines under one GitHub login. The
-// repository that registers (armada) has five open pull requests: a Session and a Job on this
-// machine, a Session and a Job on the MacBook Air, and one with no row. The repository that does
+// repository that registers (armada) has five open pull requests: two Sessions' on this
+// machine, two on the MacBook Air, and one with no row. The repository that does
 // not (pocket) has two, and no chip anywhere. Each serves its Manifest, which carries the switch.
 // The walks `pr-owners` and `pr-owners-opt-in` play it.
 
 import type { MergeLine, RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { manifesting } from "../manifest-fake";
 import type { Scenario } from "../moment";
@@ -31,7 +31,7 @@ function lines(): MergeLine[] {
       hub: {
         pull_requests: [
           pull(ARMADA, 2209, "Open pull requests in Armada", "claude/pr-panel-redesign"),
-          pull(ARMADA, 2212, "Tidy the verdict sheet", "chore/verdict-sheet", { job: { id: "01JVERDICT", title: "Tidy the verdict sheet" } }),
+          pull(ARMADA, 2212, "Tidy the verdict sheet", "chore/verdict-sheet"),
           pull(ARMADA, 2215, "Wire Cockpit holds", "feat/cockpit-holds", { ci: "running" }),
           pull(ARMADA, 2216, "Spike 031 notes", "docs/spike-031"),
           pull(ARMADA, 2218, "Keep the dispatch bar under Helm", "fix/dispatch-bar-under-helm"),
@@ -78,9 +78,9 @@ function build(): Scenario {
         ],
         rows: [
           { repository: "mele-labs/armada", number: 2209, owner: { kind: "session", id: "a3f9c21e", machine: HERE } },
-          { repository: "mele-labs/armada", number: 2212, owner: { kind: "job", id: "52c0b7e4", machine: HERE } },
+          { repository: "mele-labs/armada", number: 2212, owner: { kind: "session", id: "52c0b7e4", machine: HERE } },
           { repository: "mele-labs/armada", number: 2215, owner: { kind: "session", id: "9c74d82e", machine: AIR } },
-          { repository: "mele-labs/armada", number: 2216, owner: { kind: "job", id: "7be40d15", machine: AIR } },
+          { repository: "mele-labs/armada", number: 2216, owner: { kind: "session", id: "7be40d15", machine: AIR } },
         ],
       },
     },

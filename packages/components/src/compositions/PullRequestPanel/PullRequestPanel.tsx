@@ -47,7 +47,6 @@ export type PullRequestPanelProps = {
   floor?: boolean;
   /** The act pressed that Fleet has not answered yet. */
   pending?: PullRequestActsProps["pending"];
-  reviewed?: boolean;
   onAct: PullRequestActsProps["onAct"];
   /**
    * Tells the Session the panel was opened from that its checks failed. Absent where no Session
@@ -98,7 +97,6 @@ export function PullRequestPanel({
   place,
   floor = false,
   pending,
-  reviewed = false,
   onAct,
   onSendBack,
   sentBack = false,
@@ -160,7 +158,7 @@ export function PullRequestPanel({
           <RegisteredOwnerOf repository={repository} number={number} />
         </div>
         <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
-          <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} reviewed={reviewed} onAct={onAct} />
+          <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} onAct={onAct} />
           <span className="armada-pr-panel__open">
             <Tooltip label="Open in browser">
               <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={() => onOpenLink(address)}>

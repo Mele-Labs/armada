@@ -10,11 +10,9 @@ use ipc::{WireError, WireValue};
 const CANNOT_RUN_HERE: &str = "fleet.cannot_run_here";
 /// An Undo that would take somebody's work, or has nothing to put back.
 const CANNOT_UNDO: &str = "fleet.cannot_undo";
-/// A name nothing this Job can run declares.
+/// A name nothing this checkout can run declares.
 const NOT_DECLARED_HERE: &str = "fleet.not_declared_here";
-/// The worktree's own `armada.yml`, asked for, would not read.
-const WORKTREE_MANIFEST_UNREADABLE: &str = "fleet.worktree_manifest_unreadable";
-/// An id no run of this Job has.
+/// An id no run of this checkout has.
 const NO_SUCH_RUN: &str = "fleet.no_such_run";
 /// A workspace named by a path that leaves the repository.
 const WORKSPACE_OUTSIDE: &str = "fleet.workspace_outside_repository";
@@ -23,55 +21,20 @@ const WORKSPACE_MANIFEST_UNREADABLE: &str = "fleet.workspace_manifest_unreadable
 /// The worktree or the run's own directory would not read or write.
 const RUN_FAULT: &str = "fleet.run_fault";
 
-/// Whose tree a refusal is about, for the sentence it is written in.
-///
-/// **A word, not a branch.** Every refusal below is the same refusal for both
-/// owners; what changes is what a person is told they were refused *in*, and a
-/// message reading "this Job's worktree" to somebody who ran it in their own
-/// checkout is the one way this could mislead.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Whose {
-    Job,
-    Checkout,
-}
-
-impl Whose {
-    fn tree(self) -> &'static str {
-        match self {
-            Whose::Job => "this Job's worktree",
-            Whose::Checkout => "this checkout",
-        }
-    }
-
-    fn owner(self) -> &'static str {
-        match self {
-            Whose::Job => "this Job",
-            Whose::Checkout => "this checkout",
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Unrehearsable {
-    NoWorktree,
     AlreadyRunning {
         name: String,
-        whose: Whose,
     },
     NotDeclared {
         name: String,
         declared: Vec<String>,
-        whose: Whose,
     },
     IsAServer {
         name: String,
     },
-    WorktreeManifest {
-        why: String,
-    },
     NoSuchRun {
         id: String,
-        whose: Whose,
     },
     NotRunning {
         id: String,
@@ -122,8 +85,7 @@ impl Unrehearsable {
     pub(super) fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
         use Unrehearsable::*;
         match self {
-            NoWorktree
-            | AlreadyRunning { .. }
+            AlreadyRunning { .. }
             | NotRunning { .. }
             | StillRunning { .. }
             | VerifyUnderway => (CANNOT_RUN_HERE, Refusal::IllegalMove),
@@ -134,7 +96,6 @@ impl Unrehearsable {
             NotDeclared { .. } | IsAServer { .. } | NothingToVerify | NoManifest => {
                 (NOT_DECLARED_HERE, Refusal::Unacceptable)
             }
-            WorktreeManifest { .. } => (WORKTREE_MANIFEST_UNREADABLE, Refusal::Unacceptable),
             NoSuchRun { .. } => (NO_SUCH_RUN, Refusal::Unacceptable),
             NotKept { .. } | DiffUnreadable { .. } => {
                 (RUN_FAULT, Refusal::Fault)
@@ -164,24 +125,14 @@ impl fmt::Display for Unrehearsable {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Unrehearsable::*;
         match self {
-            NoWorktree => out.write_str(
-                "this Job's worktree is no longer on disk, so there is nowhere to run anything. \
-                 A clean or a reclaim took it",
-            ),
-            AlreadyRunning { name, whose } => write!(
+            AlreadyRunning { name } => write!(
                 out,
-                "`{name}` is already running in {}. Stop it or wait for it — two runs in one \
-                 tree fight over one build directory",
-                whose.tree()
+                "`{name}` is already running in this checkout. Stop it or wait for it — two \
+                 runs in one tree fight over one build directory"
             ),
-            NotDeclared {
-                name,
-                declared,
-                whose,
-            } => write!(
+            NotDeclared { name, declared } => write!(
                 out,
-                "`{name}` is not a Check or Command {} can run — it declares {}",
-                whose.owner(),
+                "`{name}` is not a Check or Command this checkout can run — it declares {}",
                 declared
                     .iter()
                     .map(|one| format!("`{one}`"))
@@ -194,13 +145,7 @@ impl fmt::Display for Unrehearsable {
                  started and held for its owner rather than run here: start_server, or \
                  start_studio_server from a Studio"
             ),
-            WorktreeManifest { why } => write!(
-                out,
-                "the worktree's own armada.yml could not be read, so its version cannot run: {why}"
-            ),
-            NoSuchRun { id, whose } => {
-                write!(out, "no run of {} is called `{id}`", whose.owner())
-            }
+            NoSuchRun { id } => write!(out, "no run of this checkout is called `{id}`"),
             NotRunning { id } => write!(
                 out,
                 "run `{id}` has already finished, so there is nothing to stop"

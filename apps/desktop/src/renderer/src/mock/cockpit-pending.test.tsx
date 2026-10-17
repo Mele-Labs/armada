@@ -1,8 +1,7 @@
 // An answer on its way to Fleet, through `App` on the `cockpit-pending` mock Fleet, which answers after a
 // wait and stops carrying what it answered a wait after that: the control pressed carries the loop and the
 // rest of the card is held, a refusal stops it, a call answered or dismissed does not come back while Fleet
-// still carries it, and a Job whose workflow is still being settled shows the cue on its row until the steps
-// land. The calls are opened from Incoming calls on the flight deck (#2301).
+// still carries it. The calls are opened from Incoming calls on the flight deck (#2301).
 
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -11,7 +10,6 @@ import { holdFor } from "../cockpit/deck/props";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { SLOW_FLEET } from "./cockpit-routes";
 import { entered, motion, mount, onScreen, unmountAfterEach } from "./testing";
-import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
@@ -152,10 +150,4 @@ test.skip("a call Fleet keeps carrying comes back after the hold, with nothing s
   // The hold lets go: the call is in the deck again, behind the one now in front, and nobody was told anything.
   await expect.element(page.getByRole("button", { name: /^Session question: Pin the store clock/ })).toBeVisible();
   expect(page.getByText(/already working on that/).query()).toBeNull();
-});
-
-// Skipped (#2301): this proved the tile in the classic grid, which is gone. The cue is still drawn by `Row` on the Jobs page; the
-// test is owed a port there before landing.
-test.skip("a Job whose workflow is still being settled holds the steps' place with the caret, and the steps replace it", () => {
-  void timePasses;
 });

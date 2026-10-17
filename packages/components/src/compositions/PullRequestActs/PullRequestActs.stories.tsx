@@ -3,7 +3,7 @@ import { expect, fn, userEvent } from "storybook/test";
 
 import { PullRequestActs } from "./PullRequestActs";
 
-/** What a person does to a pull request from Bridge: ready it, merge it, ask for auto-merge, or have it reviewed. */
+/** What a person does to a pull request from Bridge: ready it, merge it, or ask for auto-merge. */
 const meta: Meta<typeof PullRequestActs> = {
   title: "Compositions/Pull request acts",
   component: PullRequestActs,
@@ -44,15 +44,6 @@ export const AutoMergeUnderway: Story = {
   args: { state: "open", checks: "pending", pending: "auto_merge" },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Enable auto-merge" })).toHaveAttribute("aria-busy", "true");
-    await expect(canvas.getByRole("button", { name: "Review" })).toBeDisabled();
-  },
-};
-
-/** A Review Fleet accepted: the fact, and no second one. */
-export const ReviewDispatched: Story = {
-  args: { state: "open", checks: "pending", reviewed: true },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Review dispatched" })).toBeDisabled();
   },
 };
 
@@ -82,12 +73,11 @@ export const Passing: Story = {
   },
 };
 
-/** Red: nothing merges it, and Review is still there. */
+/** Red: nothing merges it. */
 export const Failing: Story = {
   args: { state: "open", checks: "failed" },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Merge" })).toBeNull();
-    await expect(canvas.getByRole("button", { name: "Review" })).toBeInTheDocument();
   },
 };
 

@@ -34,7 +34,7 @@ use std::time::Duration;
 
 use in_flight::Held;
 pub(crate) use in_flight::Rehearsals;
-pub use unrehearsable::{Unrehearsable, Whose};
+pub use unrehearsable::Unrehearsable;
 pub use verifying::verify_steps;
 #[cfg(test)]
 pub(crate) use workspace::claimant as workspace_claimant;

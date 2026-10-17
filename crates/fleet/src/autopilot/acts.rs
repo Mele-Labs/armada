@@ -196,14 +196,14 @@ where
                 at_once: read.at_once,
                 until: read.until.as_ref().map(ipc::Instant::from),
                 spend_cap_micros: read.spend_cap_micros,
-                job_cap: read.job_cap,
+                session_cap: read.session_cap,
             },
             quoted: AutopilotQuoted {
                 instruction: read.quoted.instruction,
                 at_once: read.quoted.at_once,
                 until: read.quoted.until,
                 spend_cap_micros: read.quoted.spend,
-                job_cap: read.quoted.jobs,
+                session_cap: read.quoted.sessions,
             },
         })
     }
@@ -239,7 +239,7 @@ where
                 .as_ref()
                 .map(|at| at.as_str().to_string()),
             spend_cap_micros: confirmed.caps().spend_cap_micros,
-            job_cap: confirmed.caps().job_cap,
+            session_cap: confirmed.caps().session_cap,
             state: State::Running.as_stored().to_string(),
             started_at: now.as_str().to_string(),
             ended_at: None,
@@ -418,6 +418,6 @@ where
 fn lifted_by(cap: super::bounds::Cap) -> &'static str {
     match cap {
         super::bounds::Cap::Until => "Move it later, then resume",
-        super::bounds::Cap::Spend | super::bounds::Cap::Jobs => "Raise it, then resume",
+        super::bounds::Cap::Spend | super::bounds::Cap::Sessions => "Raise it, then resume",
     }
 }

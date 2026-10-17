@@ -6,7 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { SessionRow } from "@armada/protocol";
 
 import { onBoard } from "./scenario";
@@ -27,7 +27,7 @@ const WRONG = "01WRONGAAAAAAAAAAAAAAAAAAA";
 const AT = "2026-10-15T13:31:00.000Z";
 
 function served(fleet: FakeSessionsFleet): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOB", handle: "52-the-retry-loop", title: "The retry loop", owner_manifest_id: "armada" })], { repositories: [ARMADA, STOREFRONT] });
+  const board = onBoard({ repositories: [ARMADA, STOREFRONT] });
   return fleet.scenario(board);
 }
 

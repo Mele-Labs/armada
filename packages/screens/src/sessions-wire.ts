@@ -2,11 +2,10 @@
 //
 // **One direction and no state**: the record, its thread and what the window holds beside them go
 // in, a `Session` comes out. The ledger is Fleet's generic attachment (`kind`, `target`, `state`,
-// `detail`), and what a screen draws is a slot beside its branch, a pull request with its Checks, a
-// Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
-// them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
+// `detail`), and what a screen draws is a slot beside its branch and a pull request with its Checks,
+// so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -22,7 +21,6 @@ import type {
   SessionAsk,
   SessionAttachment,
   SessionChecks,
-  SessionJobState,
   SessionPullRequestState,
   SessionRow,
   SessionTag,
@@ -31,8 +29,6 @@ import type {
 
 /** What the window holds beside a record, which Fleet does not carry. */
 export type Beside = {
-  /** The Board, which a Job row of the ledger reads its title, number, state and branch from. */
-  jobs: readonly JobSummary[];
   /** A picture a message carried, as an address the window can draw, where it has been read. */
   picture: (sessionId: string, fileId: string) => string | undefined;
   /** Sketches this window sent, which the wire holds only as the pictures they were rendered to. */
@@ -58,35 +54,6 @@ const NO_PICKS: ReadonlySet<ProposedField> = new Set();
 
 /** What other sessions call a session: `s-` and the first eight characters of its id. */
 export const addressOf = (id: string): string => `s-${id.slice(0, 8)}`;
-
-/** A Job's number, which Fleet carries only inside its handle: `12-the-drone-count-is-wrong`. */
-export function numberOf(job: Pick<JobSummary, "handle">): number {
-  const found = /^(\d+)-/.exec(job.handle);
-  return found === null ? 0 : Number(found[1]);
-}
-
-/** Where a Job stands, in the six words a Session's ledger has. */
-export function jobStateOf(status: string): SessionJobState {
-  switch (status) {
-    case "awaiting_review":
-    case "awaiting_repair":
-    case "awaiting_attestation":
-      return "review";
-    case "completed_success":
-      return "landed";
-    case "escalated":
-    case "completed_failed":
-      return "escalated";
-    case "piloted":
-      return "piloted";
-    case "killed":
-    case "rejected":
-    case "superseded":
-      return "superseded";
-    default:
-      return "running";
-  }
-}
 
 function checksOf(detail: Record<string, string>): SessionChecks {
   const failing = detail["failing"] ?? "";
@@ -202,7 +169,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  * pair here**: the branch takes the slot the session holds in the same repository, so opening either
  * opens the slot's panel. A row Fleet or this build has no screen for is left out rather than guessed at.
  */
-export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "jobs" | "sketches">): SessionAttachment[] {
+export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "sketches">): SessionAttachment[] {
   // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
   const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact" || one.kind === "background");
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
@@ -222,22 +189,6 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
       case "pr": {
         const pr = pullRequestOf(one);
         if (pr !== undefined) out.push(pr);
-        break;
-      }
-      case "job": {
-        const job = beside.jobs.find((row) => row.id === one.target);
-        // A Job Fleet has forgotten has no row to open, and nothing on the ledger names it any other way.
-        if (job === undefined) break;
-        out.push({
-          kind: "job",
-          id: job.id,
-          number: numberOf(job),
-          title: job.title,
-          state: jobStateOf(job.status),
-          branch: job.branch ?? "",
-          // A person's word closed it. Said apart from a Job that passed its gates.
-          ...(job.piloted?.exit === "attested" ? { attested: true as const } : {}),
-        });
         break;
       }
       case "studio":
@@ -655,4 +606,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.jobs === b.jobs && a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;

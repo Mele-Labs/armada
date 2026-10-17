@@ -1,7 +1,6 @@
 import { expect, test } from "vitest";
 import type {
   EpicRead,
-  JobSummary,
   ServerState,
   Studio,
   StudioNode,
@@ -33,7 +32,6 @@ const STUDIO: Studio = {
   nodes: [
     { id: "n1", kind: "note", said: "The legend is unreadable", position: { x: 0, y: 0 }, created_at: AT },
     { id: "n2", kind: "finding", asked: "Where do its colours come from?", state: "gathering", position: { x: 300, y: 0 }, created_at: AT },
-    { id: "n3", kind: "job", job_id: "j1", position: { x: 600, y: 0 }, created_at: AT },
     { id: "n4", kind: "run", run_id: "r1", position: { x: 0, y: 300 }, created_at: AT },
     { id: "n5", kind: "outline", body: "\nLegend, then width\nand more", position: { x: 300, y: 300 }, created_at: AT },
     { id: "n6", kind: "link", address: LONG_ADDRESS, said: "the owner's own report", position: { x: 600, y: 300 }, created_at: AT },
@@ -43,11 +41,9 @@ const STUDIO: Studio = {
     { id: "e1", from: "n1", to: "n2", kind: "produced", standing: "accepted", created_at: AT },
     { id: "e2", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT, added_by: "helm" },
     { id: "e3", from: "n1", to: "n5", kind: "blocks", standing: "accepted", created_at: AT },
-    { id: "e4", from: "n1", to: "n3", kind: "a_kind_from_a_newer_fleet", standing: "proposed", created_at: AT },
+    { id: "e4", from: "n1", to: "n4", kind: "a_kind_from_a_newer_fleet", standing: "proposed", created_at: AT },
   ],
 };
-
-const JOB = { id: "j1", status: "running", title: "Fix the legend", handle: "12-fix-the-legend" } as JobSummary;
 
 /** A run the Studio kept once retention swept it. `exit_code` absent is a run killed before it exited. */
 const KEPT: StudioRunKept = {
@@ -74,7 +70,7 @@ test("an untitled Studio is called one, and a named one by its name", () => {
 });
 
 test("a node draws where a person left it, titled from what it holds", () => {
-  const nodes = whiteboardNodes(STUDIO, [JOB]);
+  const nodes = whiteboardNodes(STUDIO);
   expect(nodes.map((one) => one.position)).toEqual(STUDIO.nodes.map((one) => one.position));
   expect(nodes[0]!.node).toEqual({ kind: "note", title: "The legend is unreadable" });
   // A scout asked about the code was handed no source, so the card says nothing about one.
@@ -84,58 +80,33 @@ test("a node draws where a person left it, titled from what it holds", () => {
     title: "Where do its colours come from?",
     facts: [],
   });
-  expect(nodes[4]!.node).toMatchObject({ kind: "outline", state: "draft", title: "Legend, then width" });
+  expect(nodes[3]!.node).toMatchObject({ kind: "outline", state: "draft", title: "Legend, then width" });
 });
 
 test("a Link is titled by the person's line, and by its address where nobody wrote one", () => {
-  const nodes = whiteboardNodes(STUDIO, []);
-  expect(nodes[5]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: "the owner's own report" });
+  const nodes = whiteboardNodes(STUDIO);
+  expect(nodes[4]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: "the owner's own report" });
   // A Link never stops being its address: with no line, the address is the
   // title, and the card says it once rather than twice — #1378.
-  expect(nodes[6]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: LONG_ADDRESS });
-  expect(nodeNamed(STUDIO, "n6", [])).toBe("Link the owner's own report");
-});
-
-test("a Job node takes its state off the Board, and says none where the Board has no such Job", () => {
-  expect(whiteboardNodes(STUDIO, [JOB])[2]!.node).toEqual({
-    kind: "job",
-    state: "running",
-    title: "Fix the legend",
-    facts: ["12-fix-the-legend"],
-  });
-  expect(whiteboardNodes(STUDIO, [])[2]!.node).toEqual({ kind: "job", title: "j1" });
-});
-
-test("a Job that replaced another says which, and says nothing where this window has no such Job", () => {
-  const replaced = { ...JOB, id: "j0", handle: "11-fix-the-legend" } as JobSummary;
-  const replacement = { ...JOB, redispatched_from: "j0" } as JobSummary;
-  const studio: Studio = { ...STUDIO, nodes: [STUDIO.nodes[2]!], edges: [] };
-  expect(whiteboardNodes(studio, [replaced, replacement])[0]!.node).toEqual({
-    kind: "job",
-    state: "running",
-    title: "Fix the legend",
-    facts: ["12-fix-the-legend", "carried on from 11-fix-the-legend"],
-  });
-  // An id drawn as a handle says less than silence, so a predecessor this
-  // window does not hold is not named at all — #1440.
-  expect(whiteboardNodes(studio, [replacement])[0]!.node).toMatchObject({ facts: ["12-fix-the-legend"] });
+  expect(nodes[5]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: LONG_ADDRESS });
+  expect(nodeNamed(STUDIO, "n6")).toBe("Link the owner's own report");
 });
 
 test("a Run the Studio has not kept says so, and keeps its id as a fact rather than a title", () => {
-  expect(whiteboardNodes(STUDIO, [])[3]!.node).toEqual({ kind: "run", title: "Not read yet", facts: ["r1"] });
+  expect(whiteboardNodes(STUDIO)[2]!.node).toEqual({ kind: "run", title: "Not read yet", facts: ["r1"] });
 });
 
 test("a kept Run reads as the run sheet reads it: the name, the command, the exit and how long", () => {
   const kept = { ...KEPT, exit_code: 1, duration_ms: 12300 };
-  expect(whiteboardNodes(ran(kept), [])[0]!.node).toEqual({
+  expect(whiteboardNodes(ran(kept))[0]!.node).toEqual({
     kind: "run",
     state: "failed",
     title: "typecheck",
     facts: ["pnpm typecheck", "exit 1 (expects 0)", "12.3s"],
   });
-  expect(whiteboardNodes(ran({ ...KEPT, exit_code: 0 }), [])[0]!.node).toMatchObject({ state: "passed" });
+  expect(whiteboardNodes(ran({ ...KEPT, exit_code: 0 }))[0]!.node).toMatchObject({ state: "passed" });
   // Killed before it exited: no exit line, and the state is what says it stopped.
-  expect(whiteboardNodes(ran({ ...KEPT, stopped: true }), [])[0]!.node).toEqual({
+  expect(whiteboardNodes(ran({ ...KEPT, stopped: true }))[0]!.node).toEqual({
     kind: "run",
     state: "stopped",
     title: "typecheck",
@@ -172,13 +143,13 @@ const NOW = Date.parse("2026-09-17T10:04:12Z");
 
 test("a server node reads off the live holder: starting, then serving with how long it has been up", () => {
   const starting = { ...SERVING, phase: "starting", serving_since: undefined };
-  expect(whiteboardNodes(holding(), [], undefined, { servers: [starting], now: NOW })[0]!.node).toEqual({
+  expect(whiteboardNodes(holding(), undefined, { servers: [starting], now: NOW })[0]!.node).toEqual({
     kind: "run",
     state: "starting",
     title: "storybook_dev",
     facts: ["pnpm storybook dev -p 41207"],
   });
-  expect(whiteboardNodes(holding(), [], undefined, { servers: [SERVING], now: NOW })[0]!.node).toEqual({
+  expect(whiteboardNodes(holding(), undefined, { servers: [SERVING], now: NOW })[0]!.node).toEqual({
     kind: "run",
     state: "serving",
     title: "storybook_dev",
@@ -187,7 +158,7 @@ test("a server node reads off the live holder: starting, then serving with how l
 });
 
 test("a server nobody is holding and that kept nothing says so rather than drawing its id", () => {
-  expect(whiteboardNodes(holding(), [], undefined, { servers: [], now: NOW })[0]!.node).toEqual({
+  expect(whiteboardNodes(holding(), undefined, { servers: [], now: NOW })[0]!.node).toEqual({
     kind: "run",
     title: "Not read yet",
     facts: ["sv1"],
@@ -199,14 +170,14 @@ test("a server that exited reads off what its node kept, as a failure with its c
   const node = holding({ kept });
   // **Exit zero and still failed.** Staying up is the whole of what a server is
   // for, so `expect_exit_code` decides nothing here — `stopped` does.
-  expect(whiteboardNodes(node, [], undefined, { servers: [], now: NOW })[0]!.node).toEqual({
+  expect(whiteboardNodes(node, undefined, { servers: [], now: NOW })[0]!.node).toEqual({
     kind: "run",
     state: "failed",
     title: "storybook_dev",
     facts: [SERVING.serve, "exit 0", "up 252.0s"],
   });
   expect(
-    whiteboardNodes(holding({ kept: { ...kept, stopped: true } }), [], undefined, { servers: [], now: NOW })[0]!.node,
+    whiteboardNodes(holding({ kept: { ...kept, stopped: true } }), undefined, { servers: [], now: NOW })[0]!.node,
   ).toMatchObject({ state: "stopped" });
 });
 
@@ -214,7 +185,7 @@ test("what a node kept wins over an instance that has exited, so a restart does 
   const kept = { ...KEPT, name: "storybook_dev", command: SERVING.serve, exit_code: 7, duration_ms: 1000 };
   const exited = { ...SERVING, phase: "exited", exit_code: 7, stopped: false };
   expect(
-    whiteboardNodes(holding({ kept }), [], undefined, { servers: [exited], now: NOW })[0]!.node,
+    whiteboardNodes(holding({ kept }), undefined, { servers: [exited], now: NOW })[0]!.node,
   ).toMatchObject({ state: "failed", facts: [SERVING.serve, "exit 7", "up 1.0s"] });
 });
 
@@ -224,7 +195,7 @@ test("edges keep their standing, and a kind this build does not know is left off
     { id: "e2", source: "n2", target: "n5", kind: "answers", proposed: true, proposer: "Helm proposes" },
     { id: "e3", source: "n1", target: "n5", kind: "blocks", proposed: false },
   ]);
-  expect(nodeNamed(STUDIO, "gone", [])).toBe("gone");
+  expect(nodeNamed(STUDIO, "gone")).toBe("gone");
 });
 
 // **An edge kept before `added_by` existed names nobody.** Naming nobody is
@@ -283,7 +254,7 @@ const many = (count: number): Studio => ({
 test("only a Note that kept a frame draws a plate, and the caller resolves what is on it", () => {
   const studio: Studio = { ...STUDIO, nodes: [noted("with", true), noted("without", false)], edges: [] };
   const drawn = framesDrawn(studio, null);
-  const nodes = whiteboardNodes(studio, [], (nodeId) => (drawn.has(nodeId) ? { src: `blob:${nodeId}` } : {}));
+  const nodes = whiteboardNodes(studio, (nodeId) => (drawn.has(nodeId) ? { src: `blob:${nodeId}` } : {}));
   expect(nodes[0]!.node).toMatchObject({ kind: "note", frame: { src: "blob:with" } });
   // A Note that kept none carries no `frame` at all, which is what draws no box.
   expect(nodes[1]!.node).not.toHaveProperty("frame");
@@ -318,7 +289,6 @@ test("a Link read in is titled by what the source calls itself, with a person's 
         },
       ],
     },
-    [],
   );
   // A Link nobody has read in is its address, because that is all it has.
   expect(read[0]!.node).toEqual({
@@ -326,7 +296,7 @@ test("a Link read in is titled by what the source calls itself, with a person's 
     address: "https://x/issues/1293",
     title: "https://x/issues/1293",
   });
-  // One that was read in reads as what it is, and keeps the address a Job
+  // One that was read in reads as what it is, and keeps the address it
   // comes from, drawn under the title by the card.
   expect(read[1]!.node).toEqual({
     kind: "link",
@@ -350,7 +320,6 @@ test("a Link read in is titled by what the source calls itself, with a person's 
         },
       ],
     },
-    [],
   );
   expect(both[0]!.node).toMatchObject({ title: "why I kept it" });
 });
@@ -373,7 +342,6 @@ test("a Finding says what it was handed beyond the checkout, and what was cut", 
         },
       ],
     },
-    [],
   );
   expect(read[0]!.node).toMatchObject({
     facts: ["Read this repository's Helm thread", "Read a page, 12,400 characters cut"],
@@ -383,7 +351,7 @@ test("a Finding says what it was handed beyond the checkout, and what was cut", 
 });
 
 test("an Epic says which of its issues it took, how many that left out and how many it kept", () => {
-  const epics = (read: StudioNode[]) => whiteboardNodes({ ...STUDIO, nodes: read }, []);
+  const epics = (read: StudioNode[]) => whiteboardNodes({ ...STUDIO, nodes: read });
   const epic = (id: string, read_in: EpicRead): StudioNode => ({
     id,
     kind: "epic",
@@ -441,7 +409,7 @@ test("a read-in draws one line to its Zone, and a Cluster's Notes draw none to i
 });
 
 test("a node in a frame names it, and a Zone is drawn with no words", () => {
-  const drawn = whiteboardNodes(ZONED, []);
+  const drawn = whiteboardNodes(ZONED);
   expect(drawn.find((node) => node.id === "note")?.within).toBe("cluster");
   expect(drawn.find((node) => node.id === "issue")?.within).toBeUndefined();
   expect(drawn.find((node) => node.id === "zone")?.node).toEqual({ kind: "zone", title: "" });

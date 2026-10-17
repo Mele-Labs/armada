@@ -6,13 +6,13 @@ import { page, userEvent } from "vitest/browser";
 
 import type { HelmContext } from "@armada/protocol";
 import { mount, unmount } from "@armada/screens/src/mounted";
-import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/repository";
 import { HelmDock } from "./HelmDock";
 import type { ThoughtCarry, ThoughtRouting } from "./thought-routing";
 
 afterEach(unmount);
 
-const CONTEXT: HelmContext = { screen: "board" };
+const CONTEXT: HelmContext = { screen: "overview" };
 
 const box = () => page.getByRole("textbox", { name: "Ask Helm" });
 
@@ -29,7 +29,6 @@ function Dock({
     <HelmDock
       helm={{ state: "pointed", manifestId: MANIFEST_ID }}
       repositories={[repository()]}
-      jobs={[]}
       live
       context={CONTEXT}
       onAsk={onAsk}

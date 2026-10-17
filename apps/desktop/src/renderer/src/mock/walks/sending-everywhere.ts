@@ -12,15 +12,15 @@ const thread = inside(helm, role("region", "Thread"));
 const sendingEverywhere = walk("sending-everywhere", [
   // The first message of a repository.
   { press: button("Helm"), say: "Helm's dock. This repository has no Helm Session yet, so there is no thread" },
-  { type: "why did #12 fail?", into: box, say: "The first message here" },
+  { type: "why did the store migration spike stop?", into: box, say: "The first message here" },
   { key: "Enter", on: box, say: "Sent. The box is clear" },
   { look: inside(thread, role("region", "Your message")), say: "The words are where the thread will be, as a Session's message looks" },
   { hover: inside(thread, role("img", "Sending")), say: "A turning mark says Sending, and the message fades and returns while Fleet has not taken it" },
   { later: inside(thread, role("img", "Sending")), say: "Fleet takes it. Helm's Session starts" },
-  { look: inside(thread, text(/stopped on step 4 of 6/)), say: "Helm's reply. The message has not moved and is there once" },
+  { look: inside(thread, text(/Store migration spike is idle/)), say: "Helm's reply. The message has not moved and is there once" },
 
   // A message Fleet refuses.
-  { type: "what stopped #12?", into: box, say: "A second message, which Fleet will refuse" },
+  { type: "what is it waiting on?", into: box, say: "A second message, which Fleet will refuse" },
   { key: "Enter", on: box, say: "Sent" },
   { look: inside(thread, role("img", "Sending")), say: "Sending, in the thread of Helm's Session this time" },
   { later: inside(thread, role("img", "Sending")), say: "Fleet does not take it" },

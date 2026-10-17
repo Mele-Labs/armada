@@ -4,7 +4,7 @@
 // `helm-rich-composer`. The issues and pull requests `#` offers are `mock/numbered.ts`.
 
 import type { MergeLine } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Scenario } from "../moment";
 import { helmFleetOn } from "../helm-carry";

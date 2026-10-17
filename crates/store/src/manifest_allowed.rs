@@ -8,7 +8,7 @@
 //! for one Job; this one answers for every Job this Fleet ever spawns against
 //! the same `armada.yml`, which is the whole point of "repository-wide."
 
-use core_model::{Actor, AllowedCommand, ManifestId, Reach, Timestamp};
+use core_model::{Actor, AllowedCommand, ManifestId, Timestamp};
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
@@ -60,34 +60,6 @@ impl Store {
         Ok(allowed)
     }
 
-    /// Write down that a person always-allowed this rule for the Manifest's
-    /// repository. **Idempotent**: a second allow of the same rule leaves the
-    /// first's `allowed_at` and `by` as they were, the way
-    /// [`crate::allowing::Store::allow_command`] does for a Job's own row.
-    pub fn allow_repository_command(
-        &mut self,
-        manifest_id: &ManifestId,
-        allowed: &AllowedCommand,
-    ) -> Result<(), WriteError> {
-        self.conn
-            .execute(
-                "INSERT INTO manifest_allowed_commands (manifest_id, run, allowed_at, \"by\") \
-                 VALUES (?1, ?2, ?3, ?4) \
-                 ON CONFLICT (manifest_id, run) DO NOTHING",
-                (
-                    manifest_id.as_str(),
-                    allowed.run.as_str(),
-                    allowed.allowed_at.as_str(),
-                    allowed.by.as_wire(),
-                ),
-            )
-            .map_err(fault(
-                "recording a command a person always-allowed for a repository",
-            ))
-            .map_err(WriteError::Database)?;
-        Ok(())
-    }
-
     /// Take back a person's always-allow of this rule for this Manifest.
     /// `true` where a row went, `false` where there was none. The text must
     /// match the allow exactly, since it is the key.
@@ -110,16 +82,13 @@ impl Store {
     }
 }
 
-/// One row. `reach` is not a column here — every row is
-/// [`Reach::Repository`], which is the whole reason this table exists apart
-/// from [`crate::allowing`]'s.
+/// One row.
 fn read_allowed(row: &rusqlite::Row<'_>) -> Result<AllowedCommand, RowError> {
     let text = |name: &'static str| -> Result<String, RowError> {
         row.get(name).map_err(column(TABLE, name))
     };
     Ok(AllowedCommand {
         run: text("run")?,
-        reach: Reach::Repository,
         allowed_at: Timestamp::from_rfc3339(text("allowed_at")?),
         by: enum_value(Actor::from_wire, TABLE, "by", &text("by")?)?,
     })

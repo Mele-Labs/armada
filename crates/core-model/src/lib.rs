@@ -1,5 +1,5 @@
-//! The vocabulary every other crate agrees on: the Job record, its states and
-//! transitions, the escalation triggers, the workflow definition, evidence.
+//! The vocabulary every other crate agrees on: the workflow definition, the
+//! Studio graph, Kit, the retro words, evidence.
 //!
 //! **What may not enter this crate: no runtime, no I/O, no vendor.**
 //! `core-model` is the one crate every other crate depends on, so a dependency
@@ -13,12 +13,6 @@
 //! crates are already logging is a rewrite of all five, and `actor` cannot be
 //! reconstructed afterwards at all.
 //!
-//! **The Job record and both halves of its machine** are here too, built from
-//! `domain/`, which is the authority on the outer one. The registry gives step
-//! states no edge table, so the inner machine declares its own edges and says
-//! on each why it is there — [`StepTarget`] carries the reasoning, and what M1
-//! cannot reach is unreachable because no value names it.
-//!
 //! **`no_std`, except under test.** The attribute is conditional only because
 //! the unit test harness needs `std` to link; every shipped build of this crate
 //! is `no_std` and depends on nothing.
@@ -27,11 +21,12 @@
 
 extern crate alloc;
 
-mod added_step;
+mod allowed;
+mod credentials;
 mod envelope;
-mod job;
 /// Kit's MCP servers and the two tiers that reach a Drone. `docs/concepts/kit.md`.
 mod kit;
+mod policy;
 /// Which door an act came through, and whom friction got in the way of.
 /// `docs/concepts/retro.md`.
 mod retro;
@@ -45,48 +40,16 @@ mod workflow;
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
 };
-pub use job::{
-    branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
-    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrModeTiers, ProposalEdit,
-};
-pub use job::collisions;
-pub use job::{
-    Decision, DroneQuestion, GivenAnswer, OfferedAnswer,
-};
-pub use job::{
-    handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AllowedCommand, Answered,
-    Area, Attachment, Attempt, AutoMerge, Became, BlankBranch, Branch, Breakage, BreakageClaim,
-    Bucket, BudgetHold, ChangedTest, Collision, Confidence, CriteriaOwed, CriterionSource,
-    DependencyDirection, DependencyEdge, Dismissal, DispatchOrigin, DroneAssigned, DroneMoved,
-    DronePresence, DroneStanding, Edge, EscalationTrigger, Facts, Finding, FixWaiter, FollowUp,
-    GateManifest, GateOutcome, Guard, IllegalDroneMove, IllegalStepTransition,
-    IllegalTransition, Job, JobEvent, JobNumber, JobReference, JobStatus, JobStep, LandedHold,
-    NewJob, NewProposal, NotRunDisposition, NotRunReason, Origin, Pause, PausedBy, PilotReason,
-    Proves, QueuedReason, Reach, Recourse, RedirectAlreadyWaiting, RedirectWaiting, Refusal,
-    Refusals, ResolvedPolicies, Resumption, ReviewGate, ReviewRecord, ScopeClaim, ScopeRevision,
-    ScopeRevisionOutcome, Side, Standing, StepEdge, StepEvent, StepEvidence, StepFrame,
-    StepLevelTrigger, StepSeed, StepState, StepTarget, StepTransitioned, StepVerdict, Stuck,
-    Subject, Target, TestChange, TestsInChange, TopLevelOrigin, TransitionReason, Transitioned,
-    TriggerKind, TriggerLevel, Untested, Urgency, ViewStep, WhenBlocked, WhenRefused,
-    WriteTargets, ADVANCING_STATUSES, CREDENTIAL_NAMES, EDGES, STEP_EDGES,
-};
-pub use job::{
-    Apart, Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove,
-    GroupRuns, GroupState, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    PlanTask, Shown, TaskCounts, TaskEdit, TaskId, TaskState, TaskTier, TaskUpdate, TierModels,
-    WorkPlan, WorkingWindow,
-};
+pub use allowed::AllowedCommand;
+pub use credentials::CREDENTIAL_NAMES;
+pub use policy::{AutoMerge, ReviewGate};
 pub use workflow::{
-    AGREED_RETRIES, ARTIFACT_EXISTS, ASSERTION_WEAKENED_QUESTION, AdvanceGate, BadPattern,
-    BlankModel, BlankTitle, CheckOutcome, Citation, CitedAt, ClearedFlag, ContextSource, Covers,
-    CriterionId, DIFF_NONEMPTY, DecidedBy, DeclarePlanAt, DeclaredPaths, DroneId,
-    EVERY_MANIFEST_CHECK, Effort, EvidenceRef, EvidenceScope, EvidenceType,
-    FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, FrozenWorkflow, GamingCheck,
-    GamingFlag, GamingPattern, GateVerdict, Given, Iteration, JobId, JudgeCheck, JudgeCriterion,
-    JudgeVerdict, Judgment, MANIFEST_CHECK, ManifestId, ModelName, NO_FINDINGS_QUESTION,
-    Narrowing, OnRefusal, PLAN_RECORDED, PathPattern, PrMode, Prerequisite, ProposalId,
-    RepoPath, ResolvedCheck, ResolvedStep, Runner, RunsAt, Spent, StepCheck, StepId, StepPhase,
-    StepTuning, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION, Title, WorkflowId,
+    ARTIFACT_EXISTS, AdvanceGate, BadPattern,
+    BlankModel, BlankTitle, CheckOutcome, Citation, ContextSource, Covers,
+    CriterionId, DIFF_NONEMPTY, DeclarePlanAt, DeclaredPaths, EVERY_MANIFEST_CHECK, Effort, EvidenceRef, EvidenceScope, EvidenceType,
+    FrozenWorkflow, GateVerdict, Given, JudgeCheck, JudgeCriterion,
+    JudgeVerdict, Judgment, MANIFEST_CHECK, ManifestId, ModelName, Narrowing, OnRefusal, PLAN_RECORDED, PathPattern, PrMode, Prerequisite, RepoPath, ResolvedCheck, ResolvedStep, Runner, RunsAt, StepCheck, StepId, StepPhase,
+    Title, WorkflowId,
     WorkflowSource, under,
 };
 pub use kit::{
@@ -103,9 +66,6 @@ pub use studio::{
     StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioGraph, StudioId, StudioName,
     StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, StudioPosition,
     StudioRelation, StudioRun, StudioRunKept, ToItself,
-};
-pub use added_step::{
-    behind, placeable, AddedKind, AddedStep, Behind, Fired, Kept, Misplaced, NotRun, Placed,
 };
 pub use trigger::{
     can_hold, FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,

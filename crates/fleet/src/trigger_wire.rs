@@ -4,8 +4,7 @@
 
 use config::{ResolvedTrigger, ResolvedTriggers};
 use core_model::{
-    FrozenTrigger, StepId, TriggerFiring, TriggerResolution, TriggerRuns, TriggerSource,
-    TriggerWhen,
+    StepId, TriggerResolution, TriggerRuns, TriggerSource, TriggerWhen,
 };
 
 fn file(path: &std::path::Path) -> String {
@@ -101,31 +100,4 @@ pub fn trigger_definition(
         definition: text.to_string(),
         overridden_by,
     })
-}
-
-/// A Job's Triggers: each firing, and each frozen Trigger no firing has reached
-/// as `pending`. A step run again fires again, so a frozen one can show twice.
-pub fn job_triggers(frozen: &[FrozenTrigger], firings: &[TriggerFiring]) -> Vec<ipc::JobTrigger> {
-    let mut out = Vec::new();
-    for one in frozen {
-        let mine = firings.iter().filter(|firing| {
-            firing.name == one.name
-                && firing.when == one.when
-                && firing.step == one.step
-                && firing.source == one.source
-        });
-        let before = out.len();
-        let drone = matches!(
-            one.resolution,
-            TriggerResolution::Skill { .. } | TriggerResolution::Drone { .. }
-        );
-        out.extend(mine.map(|firing| ipc::JobTrigger {
-            drone,
-            ..ipc::JobTrigger::from(firing)
-        }));
-        if out.len() == before {
-            out.push(ipc::JobTrigger::from(one));
-        }
-    }
-    out
 }

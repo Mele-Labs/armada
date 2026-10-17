@@ -67,8 +67,7 @@ with save_settings. Limits, sleep mode, mods and Kit servers have their own tool
 
 const WHERE_THEY_ARE: &str = "\
 Before what the person typed, one line says where they are in Bridge: the screen, the repository \
-picked, a Job chipped to the message box, the row the cursor is on. It names a Job by id and \
-nothing more. Call get_job for what is in it rather than assuming the line carries it.";
+picked, and the Studio and node open on the Studios screen. It names ids and nothing more.";
 
 const STUDIO: &str = "\
 On a Studio you may add a node that starts proposed, propose an edge and name an untitled Studio \

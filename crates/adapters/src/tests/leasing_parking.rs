@@ -226,7 +226,7 @@ fn a_dirty_slot_on_another_branch_commits_there() {
 fn a_park_refuses_a_slot_another_holds() {
     let repo = a_repository();
     let pool = pool(&repo, 1);
-    take(&pool, "theirs", &Holder::job("job-1"));
+    take(&pool, "theirs", &Holder::hosted("job-1"));
     assert!(matches!(
         pool.park(1, &here()),
         Err(ParkRefused::HeldByAnother(_))

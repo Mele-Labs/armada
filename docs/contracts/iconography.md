@@ -296,7 +296,7 @@ The common rail values borrow their glyph from the Job badge one level down.
 The roster of what may be lent is `[conventions.step_activity_borrowing]` in
 `packages/icons/icons/`; the per-value assignment is `verbs.step_state`
 in `crates/core-model/domain/enum-verbs.toml`; the values themselves are
-`crates/core-model/domain/step-states.toml`. This section is the reasoning.
+`crates/core-model/domain/step-states.toml (deleted)`. This section is the reasoning.
 
 The block below is what this document claims those three files say, and it
 is **transcribed rather than authoritative**: `cargo xtask verify-foundations`

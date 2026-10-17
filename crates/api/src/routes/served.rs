@@ -45,8 +45,7 @@ pub struct Route {
 ///
 /// An act's row spells its key in the last segment where it can: not
 /// `redispatch`, with no `redispatch_drone` to tell apart, nor Pulse's kills,
-/// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
-/// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
+/// on paths Bridge set first (`crate::processes`).
 pub const SERVED: &[Route] = &joined::<
     {
         ROUTES.len()
@@ -97,16 +96,6 @@ const fn joined<const N: usize>(tables: [&[Route]; 12]) -> [Route; N] {
 
 /// Every row no other table here holds.
 const ROUTES: &[Route] = &[
-    Route {
-        operation: "list_jobs",
-        method: "GET",
-        path: "/jobs",
-    },
-    Route {
-        operation: "get_job",
-        method: "GET",
-        path: "/jobs/:job_id",
-    },
     // The build Fleet runs on, beside `/capacity` and for its reason: it is
     // Fleet's, not a Job's. The change spells its act in the last segment the
     // way `/limits/save` does.
@@ -171,32 +160,6 @@ const ROUTES: &[Route] = &[
         operation: "answer_helm_call",
         method: "POST",
         path: "/helm/calls/answer",
-    },
-    // The path taken, under the Job that took it. `get_job_events` drops
-    // `get_` and `job_` for the reason `redispatch` drops `_job`: the segment
-    // before it already names the Job. It is not `/events`, which is the
-    // global stream and carries no history at all.
-    Route {
-        operation: "get_job_events",
-        method: "GET",
-        path: "/jobs/:job_id/events",
-    },
-    // What Fleet did to the Job, settled: the socket's backfill, answered once.
-    // **The one row whose last segment is not its key**, and the reason is the
-    // route next door. Elsewhere a log has two routes — `<noun>/output` for the
-    // reading and `<noun>/observe` for the stream — and here the stream took
-    // the bare noun before there was a reading to tell it from. So the noun
-    // stays where Bridge already calls it and the settled half names itself,
-    // rather than moving a route Bridge is drawing from.
-    Route {
-        operation: "get_job_log",
-        method: "GET",
-        path: "/jobs/:job_id/log/read",
-    },
-    Route {
-        operation: "get_diff",
-        method: "GET",
-        path: "/jobs/:job_id/diff",
     },
     // The ledger of agent sessions a person runs: the harness's intake, then the
     // two reads. `docs/concepts/session.md`.
@@ -440,93 +403,17 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/worktrees/slots/rescue",
     },
-    Route {
-        operation: "kill_job",
-        method: "POST",
-        path: "/jobs/:job_id/kill_job",
-    },
-    // Real deletion, and the only route on this table that is: every other
-    // command moves a Job further, and this removes the row.
-    Route {
-        operation: "forget_job",
-        method: "POST",
-        path: "/jobs/:job_id/forget_job",
-    },
-    // The other half of the row above, and its own route because that row says
-    // why: one call with two unrelated things to fail at is worse than two
-    // calls. This one takes the disk and leaves the record.
-    Route {
-        operation: "reclaim_worktree",
-        method: "POST",
-        path: "/jobs/:job_id/reclaim_worktree",
-    },
-    // The branch a reclaim keeps, deleted by a person against the tip they saw.
-    Route {
-        operation: "delete_branch",
-        method: "POST",
-        path: "/jobs/:job_id/delete_branch",
-    },
-    // What a person says went wrong, under the Job it is about, and every
-    // report filed, which is not under one — a report outlives the Job it
-    // names, so a listing reachable only through a Job would lose exactly the
-    // reports that most need reading.
-    Route {
-        operation: "file_report",
-        method: "POST",
-        path: "/jobs/:job_id/report",
-    },
-    Route {
-        operation: "list_reports",
-        method: "GET",
-        path: "/reports",
-    },
-    // The Job's own log, beside its Drone's transcript and not inside it. The
-    // path drops `observe_` and `_job` for the reason `redispatch` drops one:
-    // the segment before it already names the Job, and `observe` is taken by
-    // the socket next door. **A socket rather than a query** for that one's
-    // reason — what it answers is what has already been written followed by
-    // what is written next, which no request-response shape carries.
-    Route {
-        operation: "observe_job_log",
-        method: "GET",
-        path: "/jobs/:job_id/log",
-    },
-    // One checkout run's output — `observe_run`'s socket, one owner over.
+    // One checkout run's output — the run socket, one owner over.
     Route {
         operation: "observe_checkout_run",
         method: "GET",
         path: "/manifest/runs/:run_id/observe",
     },
-    // One server's output, as it prints — `observe_run`'s shape per instance.
+    // One server's output, as it prints — the run socket's shape per instance.
     Route {
         operation: "observe_server",
         method: "GET",
         path: "/servers/:server_id/observe",
-    },
-    // The four narrowings of `/jobs`, each its own route rather than a filter
-    // on the list: what counts as waiting on a person is a rule, and a rule
-    // stated by every caller is a rule nobody owns.
-    Route {
-        operation: "list_job_board",
-        method: "GET",
-        path: "/jobs/board",
-    },
-    Route {
-        operation: "list_reviews",
-        method: "GET",
-        path: "/jobs/reviews",
-    },
-    Route {
-        operation: "get_activity_feed",
-        method: "GET",
-        path: "/jobs/activity",
-    },
-    // Not under `/jobs`, because it is not a list of Jobs: two buckets, each
-    // holding a row about one.
-    Route {
-        operation: "list_alerts",
-        method: "GET",
-        path: "/alerts",
     },
     // Fleet's own three, beside `/capacity` and for its reason: none of them is
     // a fact about any Job. `/manifests/:manifest_id` is the member read under
@@ -537,19 +424,9 @@ const ROUTES: &[Route] = &[
         path: "/health",
     },
     Route {
-        operation: "get_usage",
-        method: "GET",
-        path: "/usage",
-    },
-    Route {
         operation: "get_manifest",
         method: "GET",
         path: "/manifests/:manifest_id",
-    },
-    Route {
-        operation: "get_manifest_spend",
-        method: "GET",
-        path: "/manifest/spend",
     },
     // What crossed the stream, counted. **Not `/events`**, which is the socket:
     // this is the read for a caller that cannot hold one, and `?since=` carries

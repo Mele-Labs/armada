@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId, StepId, WorkflowId};
+use crate::ids::{StepId, WorkflowId};
 
 /// The moment in a Job a Trigger runs at. `pr_opened` is the delivering step's
 /// entry.
@@ -169,11 +169,6 @@ pub struct SaveTrigger {
     /// **Required to replace a copy already in the scope.** Absent is `false`.
     #[serde(default)]
     pub overwrite: bool,
-    /// **Keep a Job's added step for every Job**: the addition this save came
-    /// from. Fleet writes the Trigger the definition says and records on the
-    /// addition where it was kept. Since 23.68; a Drone step too.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kept_from: Option<crate::added_steps::KeptFrom>,
 }
 
 /// What `save_trigger` wrote.
@@ -227,169 +222,6 @@ pub struct TriggerRemoved {
     pub waits_for_main: bool,
 }
 
-/// Where one of a Job's Triggers stands.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TriggerFiringState {
-    /// Frozen onto the Job and its moment has not come.
-    Pending,
-    Skipped,
-    Running,
-    Passed,
-    Failed,
-    /// A destructive Command, held for the owner, who answers Run (`rerun_trigger`) or Skip (`skip_trigger`).
-    AwaitingOwner,
-    /// Failed with `repair` on, and a repair Drone is working on a branch of
-    /// its own. Since 23.68.
-    Repairing,
-    /// The Command is running again, on the repair branch or on the Job's.
-    /// Since 23.68.
-    Rerunning,
-    /// The repair branch passes. **Held for the owner's choice**, which
-    /// `choose_trigger_fix` makes. Since 23.68.
-    FixReady,
-    /// Failed with `block` on, and **the Job waits on it**: `rerun_trigger` or
-    /// `skip_trigger` lets it go. Since 23.68.
-    Held,
-}
-
-/// Where the owner has a repair's held fix go.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TriggerFixChoice {
-    /// Merged onto the Job's branch and pushed, so it lands on the Job's open
-    /// pull request.
-    ThisBranch,
-    /// The repair branch opens a pull request of its own.
-    NewPr,
-}
-
-/// A pull request a repair opened.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TriggerPullRequest {
-    pub url: String,
-    /// Read off the end of `url`. Absent where it does not end in one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub number: Option<u32>,
-}
-
-/// What a failed Trigger's repair has come to. Present from the first repair
-/// Drone on. **Since 23.68.**
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TriggerRepair {
-    /// Which try this is, 1 or 2. A client draws no count from it: it is how a
-    /// second Drone is told from the first.
-    pub attempt: u32,
-    /// The branch the repair Drone writes on, cut from the Job's.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub branch: Option<String>,
-    /// The files the fix changes, repository-relative. Empty until the fix is
-    /// held.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub files: Vec<String>,
-    /// What the owner chose, once he has. A `this_branch` that had to wait for
-    /// the Job's Drone shows here with `state` still `fix_ready`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub choice: Option<TriggerFixChoice>,
-    /// For `new_pr`, once it is open.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pull_request: Option<TriggerPullRequest>,
-}
-
-/// `get_repair_diff`'s query string: which Trigger or added step's fix to read.
-/// **Exactly one** of the two is set, as `ChooseTriggerFix`'s.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RepairOf {
-    /// The Trigger's name. The latest firing of it that has a repair branch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<String>,
-    /// An added step's id.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub addition: Option<String>,
-}
-
-/// `choose_trigger_fix`'s body: which of a Job's Triggers or added steps holds
-/// a fix, and where it goes. **Exactly one** of `trigger` and `addition` is
-/// set, as `HoldAct`'s.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChooseTriggerFix {
-    /// The Trigger's name. The latest firing of it that holds a fix is the one.
-    /// Always sent before 23.72, and still the only name a Bridge before it
-    /// knows.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<String>,
-    /// An added step's id, where it is an added step whose fix waits. Since
-    /// 23.72.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub addition: Option<String>,
-    pub choice: TriggerFixChoice,
-}
-
-/// What `choose_trigger_fix` came to. **`state` is where the firing stands
-/// now**: `passed` for a placed fix, `failed` where the Command still fails on
-/// the Job's branch, and `fix_ready` where the choice is kept until the Job's
-/// Drone is done or a worktree slot is free.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TriggerFixChosen {
-    pub state: TriggerFiringState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pull_request: Option<TriggerPullRequest>,
-}
-
-/// One of a Job's Triggers: frozen at approval, and each firing of it. A step
-/// run again fires again, so one frozen Trigger can be several of these.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JobTrigger {
-    pub name: String,
-    pub when: TriggerMoment,
-    /// The step it fires on. For `pr_opened`, the delivering one.
-    pub step: StepId,
-    pub level: TriggerLevel,
-    pub state: TriggerFiringState,
-    /// Why, where `state` is `skipped`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub skipped: Option<TriggerSkip>,
-    /// Absent for a signal, a timeout and a program that never started, and
-    /// before it ends.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub exit_code: Option<i32>,
-    /// Absent while `pending`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub started_at: Option<Instant>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ended_at: Option<Instant>,
-    /// **The Job's log line for this firing**: the note in `get_job_log` whose
-    /// `at` is this and whose `trigger` field is `name`. Its `stdout` and
-    /// `stderr` fields are what the Command printed. Absent until the line is
-    /// written, which is when the firing ends.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub log_at: Option<Instant>,
-    /// Absent until a repair Drone has been put on it, and where `repair` is
-    /// off. Since 23.68.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub repair: Option<TriggerRepair>,
-    /// The Trigger blocks, so a failure holds the Job. Left out where it does
-    /// not. It is what tells `repairing` on a Trigger that holds the Job from
-    /// one that does not. Since 23.68.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub blocks: bool,
-    /// A side Drone runs it, because it names a skill, so it has a branch of
-    /// its own while it works and a fix to place when it commits. Left out for
-    /// a Command. Since 23.73.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub drone: bool,
-}
-
-/// `job.trigger_changed`: one of a Job's Triggers moved, carried whole so a
-/// client replaces its row without a read. **One message per state change**, and
-/// none where nobody is watching.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JobTriggerChanged {
-    pub job_id: JobId,
-    pub trigger: JobTrigger,
-    pub at: Instant,
-}
-
 impl From<core_model::TriggerWhen> for TriggerMoment {
     fn from(when: core_model::TriggerWhen) -> TriggerMoment {
         match when {
@@ -420,67 +252,6 @@ impl From<core_model::TriggerSource> for TriggerLevel {
     }
 }
 
-impl From<core_model::FixChoice> for TriggerFixChoice {
-    fn from(choice: core_model::FixChoice) -> TriggerFixChoice {
-        match choice {
-            core_model::FixChoice::ThisBranch => TriggerFixChoice::ThisBranch,
-            core_model::FixChoice::NewPr => TriggerFixChoice::NewPr,
-        }
-    }
-}
-
-impl From<TriggerFixChoice> for core_model::FixChoice {
-    fn from(choice: TriggerFixChoice) -> core_model::FixChoice {
-        match choice {
-            TriggerFixChoice::ThisBranch => core_model::FixChoice::ThisBranch,
-            TriggerFixChoice::NewPr => core_model::FixChoice::NewPr,
-        }
-    }
-}
-
-impl TriggerPullRequest {
-    /// A pull request's address as Fleet recorded it.
-    pub fn at(url: &str) -> TriggerPullRequest {
-        let number = url
-            .trim_end_matches('/')
-            .rsplit('/')
-            .next()
-            .and_then(|last| last.parse().ok());
-        TriggerPullRequest {
-            url: url.to_string(),
-            number,
-        }
-    }
-}
-
-impl From<&core_model::RepairRecord> for TriggerRepair {
-    fn from(record: &core_model::RepairRecord) -> TriggerRepair {
-        TriggerRepair {
-            attempt: record.tries,
-            branch: record.branch.clone(),
-            files: record.files.clone(),
-            choice: record.choice.map(TriggerFixChoice::from),
-            pull_request: record.pull_request.as_deref().map(TriggerPullRequest::at),
-        }
-    }
-}
-
-impl From<core_model::TriggerState> for TriggerFiringState {
-    fn from(state: core_model::TriggerState) -> TriggerFiringState {
-        match state {
-            core_model::TriggerState::Skipped => TriggerFiringState::Skipped,
-            core_model::TriggerState::Running => TriggerFiringState::Running,
-            core_model::TriggerState::Passed => TriggerFiringState::Passed,
-            core_model::TriggerState::Failed => TriggerFiringState::Failed,
-            core_model::TriggerState::AwaitingOwner => TriggerFiringState::AwaitingOwner,
-            core_model::TriggerState::Repairing => TriggerFiringState::Repairing,
-            core_model::TriggerState::Rerunning => TriggerFiringState::Rerunning,
-            core_model::TriggerState::FixReady => TriggerFiringState::FixReady,
-            core_model::TriggerState::Held => TriggerFiringState::Held,
-        }
-    }
-}
-
 impl From<&core_model::TriggerSkipped> for TriggerSkip {
     fn from(skipped: &core_model::TriggerSkipped) -> TriggerSkip {
         let (reason, name) = match skipped {
@@ -496,57 +267,6 @@ impl From<&core_model::TriggerSkipped> for TriggerSkip {
             reason,
             name: name.clone(),
             said: skipped.to_string(),
-        }
-    }
-}
-
-impl From<&core_model::TriggerFiring> for JobTrigger {
-    /// A firing as it stands. `log_at` is the instant the Job's log line for it
-    /// carries, which `fleet::triggering` stamps from the firing's own end.
-    fn from(firing: &core_model::TriggerFiring) -> JobTrigger {
-        let ended = firing.ended_at.as_ref();
-        JobTrigger {
-            name: firing.name.clone(),
-            when: firing.when.into(),
-            step: StepId::from(&firing.step),
-            level: firing.source.into(),
-            state: firing.state.into(),
-            skipped: firing.skipped.as_ref().map(TriggerSkip::from),
-            exit_code: firing.exit_code,
-            started_at: Some(Instant::from(&firing.started_at)),
-            ended_at: ended.map(Instant::from),
-            log_at: match firing.state {
-                core_model::TriggerState::Running => None,
-                _ => Some(Instant::from(ended.unwrap_or(&firing.started_at))),
-            },
-            repair: (firing.repair.tries > 0).then(|| TriggerRepair::from(&firing.repair)),
-            blocks: firing.on_failure.block,
-            drone: false,
-        }
-    }
-}
-
-impl From<&core_model::FrozenTrigger> for JobTrigger {
-    /// A frozen Trigger whose moment has not come.
-    fn from(frozen: &core_model::FrozenTrigger) -> JobTrigger {
-        JobTrigger {
-            name: frozen.name.clone(),
-            when: frozen.when.into(),
-            step: StepId::from(&frozen.step),
-            level: frozen.source.into(),
-            state: TriggerFiringState::Pending,
-            skipped: None,
-            exit_code: None,
-            started_at: None,
-            ended_at: None,
-            log_at: None,
-            repair: None,
-            blocks: frozen.on_failure.block,
-            drone: matches!(
-                frozen.resolution,
-                core_model::TriggerResolution::Skill { .. }
-                    | core_model::TriggerResolution::Drone { .. }
-            ),
         }
     }
 }

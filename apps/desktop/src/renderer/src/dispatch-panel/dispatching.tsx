@@ -15,7 +15,7 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind } from "@armada/components";
+import { forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind } from "@armada/components";
 import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 import { planPartsOf } from "@armada/screens/src/session-waits";
@@ -28,6 +28,9 @@ import type { SentView } from "./DispatchedStrip";
 import type { PanelProps, PanelReading } from "./DispatchPanel";
 import { chipOf, chosen as waitChosen, handled, retagged, type Hand } from "./waits";
 import { chipsFor, optionsFor, useReading } from "./reading";
+
+/** What the request field asks for. */
+const REQUEST_PLACEHOLDER = "Describe the work, or paste a link to a ticket.";
 
 const REQUEST = "dispatch:request";
 const TUNING = "dispatch:session-tuning";

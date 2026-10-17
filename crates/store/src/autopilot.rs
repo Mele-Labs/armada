@@ -17,12 +17,12 @@ pub struct KeptAutopilot {
     pub at_once: u32,
     pub until: Option<String>,
     pub spend_cap_micros: Option<u64>,
-    pub job_cap: Option<u32>,
+    pub session_cap: Option<u32>,
     /// `running`, `paused` or `stopped`.
     pub state: String,
     pub started_at: String,
     pub ended_at: Option<String>,
-    /// `until`, `spend` or `jobs`: the cap that stopped it. Absent where a person did, or nothing has.
+    /// `until`, `spend` or `sessions`: the cap that stopped it. Absent where a person did, or nothing has.
     pub capped_by: Option<String>,
 }
 
@@ -61,7 +61,7 @@ fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
         spend_cap_micros: row
             .get::<_, Option<i64>>(5)?
             .map(|micros| micros.max(0) as u64),
-        job_cap: row.get(6)?,
+        session_cap: row.get(6)?,
         state: row.get(7)?,
         started_at: row.get(8)?,
         ended_at: row.get(9)?,
@@ -136,7 +136,7 @@ impl Store {
                     kept.at_once,
                     kept.until,
                     kept.spend_cap_micros.map(|micros| micros as i64),
-                    kept.job_cap,
+                    kept.session_cap,
                     kept.state,
                     kept.started_at,
                     kept.ended_at,
@@ -180,7 +180,7 @@ impl Store {
                     kept.at_once,
                     kept.until,
                     kept.spend_cap_micros.map(|micros| micros as i64),
-                    kept.job_cap,
+                    kept.session_cap,
                 ],
             )
             .map(|changed| changed > 0)

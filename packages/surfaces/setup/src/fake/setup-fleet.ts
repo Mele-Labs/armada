@@ -18,7 +18,7 @@ import type {
 } from "@armada/protocol";
 import { onBoard } from "@armada/bridge-api";
 import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { landsIn, type LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 
@@ -251,7 +251,7 @@ export function settingUp<S extends SettingUpState, A extends SettingUpApi>(
 ): Scenario<S, A> {
   const { write = "took", clone = "took", rootSetUp = true, more = 0, sheet = { state: "none" } } = options;
   const repositories = options.repositories ?? [repository()];
-  const base = onBoard<S, A>(nothingYet, [], { repositories, picked: repositories[0]?.root ?? null });
+  const base = onBoard<S, A>(nothingYet, { repositories, picked: repositories[0]?.root ?? null });
   return {
     ...base,
     name: "setting-up",

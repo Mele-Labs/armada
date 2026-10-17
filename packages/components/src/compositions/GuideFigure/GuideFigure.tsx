@@ -1,8 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 
 import type { GuideFigureId } from "../../guides/guide";
-import { ADVANCE_GATE, JOB_STATUS, STEP_STATE } from "../../generated/vocabulary";
-import { JobMembers, type JobMemberJoin, type JobMemberRow } from "../JobMembers/JobMembers";
+import { ADVANCE_GATE, STEP_STATE } from "../../generated/vocabulary";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
 /**
@@ -26,9 +25,6 @@ export type GuideFigureProps = {
  * roles do not leak into the guide's step list.
  */
 const READING: Record<GuideFigureId, string> = {
-  "members-landing":
-    "Three pull requests landing in order, numbered one to three, each saying which link it " +
-    "carries to the one before it.",
   "group-order":
     "Two groups of a plan, one after the other. The first group's tasks are done and the group " +
     "has passed its checks; the second group and its tasks have not started.",
@@ -57,7 +53,7 @@ export function GuideFigure({ figure, scale }: GuideFigureProps) {
       {/* Hidden rather than trusted to `role="img"`: a real component brings
           its own list, its own headings and its own labels, and a guide's step
           list is read by role. Nothing in here is focusable. */}
-      <div className="armada-guide-figure__stage" aria-hidden="true">
+      <div className="armada-guide-figure__stage" aria-hidden="true" inert>
         <Drawing figure={figure} />
       </div>
     </div>
@@ -65,7 +61,6 @@ export function GuideFigure({ figure, scale }: GuideFigureProps) {
 }
 
 function Drawing({ figure }: { figure: GuideFigureId }) {
-  if (figure === "members-landing") return <MembersLanding />;
   if (figure === "group-order") return <GroupOrder />;
   return <WorkflowSteps />;
 }
@@ -184,73 +179,6 @@ function GroupOrder() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-/** One member's badge, off the registry the Board's own rows read. */
-function badge(status: string): JobMemberRow["state"] {
-  const rendering = JOB_STATUS[status];
-  if (rendering?.verb == null || rendering.icon == null || rendering.badgeStatus == null) {
-    return { as: "text", wire: status, missing: `No row in the registry for ${status}` };
-  }
-  return { as: "badge", status: rendering.badgeStatus, icon: rendering.icon, label: rendering.verb };
-}
-
-/**
- * Three members, as `JobMembers` draws them on a job: the number carrying the
- * order, and the line between two rows saying how they are related.
- *
- * Nothing here is a control. No member takes `onOpen`, `onDrop` or a branch,
- * so the real list renders no button and the figure holds no focus stop.
- *
- * **None of the three is running.** A running badge breathes on a loop, and a
- * loop says *still working* — `docs/contracts/design-system.md`.
- */
-const MEMBERS: readonly JobMemberRow[] = [
-  {
-    id: "m1",
-    ordinal: 1,
-    title: "Add the settings reader",
-    state: badge("completed_success"),
-    landed: true,
-  },
-  {
-    id: "m2",
-    ordinal: 2,
-    title: "Read the settings out of one place",
-    state: badge("awaiting_review"),
-    link: "stacked",
-  },
-  {
-    id: "m3",
-    ordinal: 3,
-    title: "Publish the settings package",
-    state: badge("queued"),
-    link: "published",
-  },
-];
-
-/**
- * The three joins, in the words the real screen uses. They are the figure's
- * subject: what a link *is*, rather than which one a member has.
- */
-const JOINS: readonly JobMemberJoin[] = [
-  { link: "stacked", said: "Member 2 branches off member 1, so it keeps working." },
-  { link: "published", said: "Member 3 waits on what member 2's merge publishes." },
-];
-
-/**
- * Several pull requests landing in order, which is guide 2's whole subject.
- *
- * **One list, not three.** The line joining one row to the next is drawn
- * between siblings, so three lists would be three runs of one. The stylesheet
- * stages each member by its place in that one list.
- */
-function MembersLanding() {
-  return (
-    <div className="armada-guide-figure__members">
-      <JobMembers bare members={MEMBERS} joins={JOINS} completeWhen="Every member has landed." />
     </div>
   );
 }

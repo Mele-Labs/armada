@@ -1,7 +1,7 @@
 // Two repositories served, on All. The title-bar-repository walk and test play it: the title row names the pick off the Cockpit.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -26,7 +26,7 @@ const records = () => [
 ];
 
 function build(): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA, STOREFRONT],
   });
   const served = new FakeSessionsFleet(records(), {}).scenario(board);

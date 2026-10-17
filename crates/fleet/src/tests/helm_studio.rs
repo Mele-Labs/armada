@@ -13,7 +13,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use api::{Conversations, Next, Queries, Studios, Subscription};
+use api::{Conversations, Next, Studios, Subscription};
 use axum::body::Body;
 use axum::http::Request;
 use axum::Router;
@@ -417,9 +417,6 @@ async fn what_helm_does_unasked_on_a_studio_is_proposed_and_starts_nothing() {
             "kept on the record"
         );
     }
-    let jobs = held.fleet.list_jobs(None).await.expect("listed");
-    assert!(jobs.jobs.is_empty(), "nothing unasked made a Job");
-
     let each = ["studio.changed", "studio.helm_acted"];
     assert_eq!(
         kinds(&mut watching).await,

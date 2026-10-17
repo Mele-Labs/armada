@@ -1,9 +1,9 @@
-// Notes left with the annotation layer, sent to a Session. A Board with one Job, over a Fleet that
+// Notes left with the annotation layer, sent to a Session. A Fleet that
 // serves two live Sessions, one of them from a terminal, and the layer on with two open notes.
 // The walk `annotate-to-session` plays it. The layer's own sink and Fleet are in `../annotating.ts`.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -17,7 +17,7 @@ const sessions = () => [
 ];
 
 function build(): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });
@@ -44,9 +44,7 @@ function build(): Scenario {
           if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
           return started;
         },
-        // A Job proposed from a note comes back with a handle, as Fleet answers one.
         stageAttachment: async (_bytes, filename) => ({ path: `/tmp/${filename}` }),
-        proposeFromRequest: async () => ({ ok: true, jobs: [{ id: "01JOBFROMNOTE", handle: "57-the-note-job", title: "The note job" }] }) as never,
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);

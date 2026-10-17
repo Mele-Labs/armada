@@ -4,27 +4,16 @@
 // timeline's last event for the replied and the done is a live turn, the case that used to read as
 // moving and then as stuck. The walk `session-standing` plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const NONE = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-
-function live(fixture: JobFixture, minutes: number, extra: Record<string, unknown> = {}): JobFixture {
-  const patch = { owner_manifest_id: OWNER, started_at: ago(minutes), ...extra };
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
-  return { ...fixture, job };
-}
-
-const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, { current_step_id: "tests" });
 
 const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
@@ -149,15 +138,15 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("session-standing", "Six Sessions each in the state Fleet read them to be in: replied twice, done, stuck, working and asking", [cache]);
+  const base = holding("session-standing", "Six Sessions each in the state Fleet read them to be in: replied twice, done, stuck, working and asking");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: [cache.job] },
+    state: { ...base.state, repository: null },
     later: [{}],
     draft: {
       events: EVENTS,
-      sessions: (control) => {
-        const store = sessionsStore([NONE, NONE], NONE, control, [], [terminal, replied, done, stuck, working, asking]);
+      sessions: () => {
+        const store = sessionsStore([terminal, replied, done, stuck, working, asking]);
         return {
           ...store,
           // He answers Retry cap in its terminal: its turn begins again, and Fleet reads it working and drops the reply.

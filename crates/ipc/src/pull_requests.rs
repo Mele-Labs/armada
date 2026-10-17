@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ManifestId;
 use crate::sessions::SessionId;
-use crate::JobId;
 
 /// Where a pull request stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,28 +78,6 @@ pub struct PullRequestState {
     /// Its description, as Markdown. Absent where the author wrote none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
-}
-
-/// What `review_pull_request` is asked. `POST /pull_requests/:repository/review`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReviewPullRequest {
-    /// The pull request's number, or its address.
-    pub pull_request: String,
-    /// The Session the press came from. **Absent is a press from anywhere
-    /// else**, and the Job then records no Session.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<SessionId>,
-}
-
-/// What `review_pull_request` made: a Code Review Job at the approval gate.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReviewDispatched {
-    pub job_id: JobId,
-    /// The pull request it reviews, as an address.
-    pub address: String,
-    /// The Session that asked, where one did.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<SessionId>,
 }
 
 /// Where the forge says a merge would stand against the base branch.

@@ -14,15 +14,15 @@ import type { CoreApi } from "./api/core";
 import type { StudiosApi } from "./api/studios";
 import type { ManifestApi } from "./api/manifest";
 import type { SetupApi } from "./api/setup";
-import type { AddedStepsApi } from "./api/added-steps";
 import type { TriggersApi } from "./api/triggers";
 import type { WorkflowsApi } from "./api/workflows";
 import type { HelmApi } from "./api/helm";
 import type { SettingsApi } from "./api/settings";
 import type { OverviewApi } from "./api/overview";
 import type { CleanupApi } from "./api/cleanup";
-import type { ReportsApi } from "./api/reports";
-import type { JobsApi } from "./api/jobs";
+import type { DispatchApi } from "./api/dispatch";
+import type { ChecksApi } from "./api/checks";
+import type { LessonsApi } from "./api/lessons";
 import type { SessionsApi } from "./api/sessions";
 import type { SleepApi } from "./api/sleep";
 import type { AccountsApi } from "./api/accounts";
@@ -38,12 +38,6 @@ import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
 import type { BridgeState } from "./bridge";
 
-/**
- * What `explain_command` came back as. **Protocol's, beside `CheckOutputRead`**, and
- * re-exported here because this is the surface the renderer reads.
- */
-export type { CommandExplainedRead } from "@armada/protocol";
-
 /** The whole preload surface, and therefore everything the renderer can reach. */
 export type BridgeApi = CoreApi<BridgeState> &
   StudiosApi &
@@ -51,13 +45,13 @@ export type BridgeApi = CoreApi<BridgeState> &
   SetupApi &
   WorkflowsApi &
   TriggersApi &
-  AddedStepsApi &
   HelmApi &
   SettingsApi &
   OverviewApi &
   CleanupApi &
-  ReportsApi &
-  JobsApi &
+  DispatchApi &
+  ChecksApi &
+  LessonsApi &
   SessionsApi &
   SleepApi &
   AccountsApi &

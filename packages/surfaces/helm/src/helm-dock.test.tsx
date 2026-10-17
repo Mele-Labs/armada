@@ -14,7 +14,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/repository";
 import { connected, mount, openHelm, unmountAfterEach } from "@armada/desktop/mock";
 import type { Scenario } from "@armada/desktop/mock";
 
@@ -29,10 +29,9 @@ function talking(): Scenario {
     name: "helm-idle",
     says: "Helm is pointed at a repository and idle",
     state: {
-      ...connected([], [workflow()], [repository()]),
+      ...connected([workflow()], [repository()]),
       helm: { state: "pointed", manifestId: MANIFEST_ID },
     },
-    reads: {},
     behaves: () => ({}),
   };
 }

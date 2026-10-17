@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 
 import type { SessionRecord } from "@armada/protocol";
-import { jobReadiness, sessionReadiness } from "./readiness";
+import { sessionReadiness } from "./readiness";
 
 const AT = "2026-10-12T10:00:00Z";
 const url = "http://localhost:5173/";
@@ -19,16 +19,9 @@ const record = (detail: Record<string, string>): SessionRecord =>
     waiting_for: [],
   }) as SessionRecord;
 
-it("reads a Session's window as ready unless Fleet marks it working, and a Job's off where the Job stands", () => {
+it("reads a Session's window as ready unless Fleet marks it working", () => {
   expect(sessionReadiness(record({}), url)).toBe("ready");
   expect(sessionReadiness(record({ working: "true" }), url)).toBe("working");
   expect(sessionReadiness(record({}), "http://localhost:6006/")).toBeUndefined();
   expect(sessionReadiness(undefined, url)).toBeUndefined();
-  expect(["awaiting_review", "awaiting_approval", "running", "queued", undefined].map(jobReadiness)).toEqual([
-    "ready",
-    "ready",
-    "working",
-    undefined,
-    undefined,
-  ]);
 });

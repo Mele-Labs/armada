@@ -14,16 +14,11 @@
 //! that raises them: the set is closed by collection, and a central list would
 //! put every code far from the failure it names.
 //!
-//! **Past 500 lines for that same reason, and staying one file.** Every code
-//! Fleet raises lives beside the arm that raises it — `#831`'s
-//! `PROPOSER_UNREADABLE` is the newest — and splitting this by, say, refusal
-//! kind would separate a code from the one-line comment saying why it is not
-//! its neighbour, which is the whole point of collecting them here.
 
-use adapter_traits::{AgentHarness, Delivery, NotMerged, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{RunId, WireError, WireValue};
-use store::{LoadJobError, ResolveJobError, WriteError};
+use store::WriteError;
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -32,140 +27,41 @@ use crate::daemon::Fleet;
 ///
 /// The set is closed by collection rather than by authorship — a central
 /// registry would put every code far from the failure it names.
-const NO_SUCH_JOB: &str = "fleet.no_such_job";
-/// A transition recorded against a Job that moved between the caller's load
-/// and its write. A 409 like the other status conflicts — the machine was
-/// asked and the row it was asked about is no longer the one it read. `#793`.
-const STATUS_CHANGED: &str = "fleet.status_changed";
-/// A Job another repository owns, named by a caller scoped to one. A 404.
-pub(crate) const JOB_ELSEWHERE: &str = "fleet.job_in_another_repository";
-const ILLEGAL_MOVE: &str = "fleet.illegal_move";
 const FAULT: &str = "fleet.fault";
-/// A Job whose repository this Fleet does not serve. A 422.
+/// A Manifest this Fleet does not serve. A 422.
 pub(crate) const NOT_SERVED: &str = "fleet.repository_not_served";
 /// A `save_preferences` naming something outside the five preferences it
 /// reads. A 422, refused by name — `name` rides on the field the message quotes.
 const UNKNOWN_PREFERENCE: &str = "fleet.unknown_preference";
-/// A proposal that decoded and names something that cannot produce a Drone.
+/// A request that decoded and names something that cannot work.
 const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
-/// A redispatch asked for on a Job that is not waiting for a person. A 409 like
-/// a refused move, and a code of its own because the machine was never asked.
-const NOT_REDISPATCHABLE: &str = "fleet.not_redispatchable";
-/// An act on a stopped step asked for on a Job that has no stopped step to act
-/// on, or one whose step stopped for a reason the act does not answer. A 409
-/// for [`NOT_UNDER_REVIEW`]'s reason — the machine was never asked, so a caller
-/// reading `ILLEGAL_MOVE` would go looking for an edge that is there.
-///
-/// **These reached a caller as 500s.** A resume on a Job that is not escalated
-/// is the caller asking for the wrong act, not Fleet breaking, and a 500 sends
-/// them to retry something that will fail identically for ever.
-const NOT_RESUMABLE: &str = "fleet.not_resumable";
-/// Main is not red, or a Job already has this red. A 409.
+/// Main is not red, or a Session already has this red. A 409.
 const MAIN_NOT_RED: &str = "fleet.main_not_red";
-/// A newer commit's CI is running on main, so a red is held and not handed to a Job. A 409.
+/// A newer commit's CI is running on main, so a red is held and not handed to a Session. A 409.
 const MAIN_CHECKS_RUNNING: &str = "fleet.main_checks_running";
 const MAIN_ALREADY_TAKEN: &str = "fleet.main_already_taken";
-/// Another machine's Job or a Session holds this red in the central store. A
-/// 409, and `take_over` is the answer to it.
+/// Another machine's Session holds this red in the central store. A 409, and
+/// `take_over` is the answer to it.
 const MAIN_TAKEN_ELSEWHERE: &str = "fleet.main_taken_elsewhere";
 /// The central store could not be asked or said no, so the red was not claimed
 /// and not taken. A 500: the store may answer on the next press.
 const MAIN_CLAIM_NOT_MADE: &str = "fleet.main_claim_not_made";
-/// An act asked of a Job whose Checks are running again on its worktree: a
-/// person's re-run, or a merge gating a moved base. A 409, and its own code
-/// because waiting is what a caller does next, not looking for another act.
-const CHECKS_RUNNING: &str = "fleet.checks_running";
-/// A forget asked for on a Job that has not reached a terminal status. A 409
-/// like the other status conflicts — the machine was never asked, only the
-/// row itself, and `kill_job` is the act on a Job still in flight.
-const NOT_FORGETTABLE: &str = "fleet.not_forgettable";
-/// A reclaim asked for on a Job that has not reached a terminal status. A 409
-/// beside [`NOT_FORGETTABLE`] and not the same code: the two acts refuse on the
-/// same predicate and a client telling a person which one to try next has to be
-/// able to tell them apart.
-const NOT_RECLAIMABLE: &str = "fleet.not_reclaimable";
-/// The repository a Job's worktree is in would not open. **A 500 and never a
-/// 200 with both halves absent** — a client reading "nothing to reclaim" would
-/// draw a Job whose disk is back when the disk is still there.
-const NOT_RECLAIMED: &str = "fleet.not_reclaimed";
-/// A `delete_branch` refused on the status, the checkout, the branch or its
-/// tip. A 409, one code: the sentence names which and what to do.
-const BRANCH_NOT_DELETABLE: &str = "fleet.branch_not_deletable";
-/// A `delete_branch` that was allowed and failed in git. A 500.
-const BRANCH_NOT_DELETED: &str = "fleet.branch_not_deleted";
-/// Nothing on this machine could say what is on a pull request. **A 500**, for
-/// [`MERGE_NO_TOOL`]'s reason: nothing about the request is wrong and asking
-/// again is reasonable. It is never an empty list — a pull request nobody has
-/// commented on and a forge nobody could reach are opposite answers.
-const REVIEW_UNREADABLE: &str = "fleet.review_unreadable";
-/// The comments a person picked would not write to a file in the Drone's
-/// worktree. **A 500**, for [`REVIEW_UNREADABLE`]'s reason: nothing about the
-/// request is wrong, and the worktree existed a moment ago — `surviving_worktree`
-/// already refused otherwise.
-const REMARKS_FILE_UNWRITABLE: &str = "fleet.remarks_file_unwritable";
 /// The three Manifest-file codes. Why each is its own is `save_manifest_file`'s row.
 const MANIFEST_UNREADABLE: &str = "fleet.manifest_unreadable";
 const MANIFEST_UNWRITABLE: &str = "fleet.manifest_unwritable";
 const MANIFEST_MOVED: &str = "fleet.manifest_moved_under_the_edit";
-/// A press that named no comment at all. **A 422**, like a blank note: the
-/// request decoded and names something that cannot work.
-const NO_REMARKS_CHOSEN: &str = "fleet.no_remarks_chosen";
-/// A press naming comments the pull request no longer has. A 409: the whole
-/// press is refused, and what a person does about it is read the pull request
-/// again and choose again.
-const REMARKS_GONE: &str = "fleet.remarks_gone";
-/// A press naming comments a Drone on this Job has already been handed. A 409
-/// beside [`NOTE_ALREADY_WAITING`] and its own code for that pair's reason: one
-/// is a note nothing has collected yet and this is one already delivered, and a
-/// client telling a person what to do next has to tell them apart.
-const REMARKS_ALREADY_TAKEN_UP: &str = "fleet.remarks_already_taken_up";
-/// A finding dismissed with no reason. A 422, like a blank note. #907.
-const NO_DISMISSAL_REASON: &str = "fleet.no_dismissal_reason";
-/// A finding dismissed that the Job's latest review did not raise. A 409. #907.
-const FINDING_NOT_IN_REVIEW: &str = "fleet.finding_not_in_review";
-/// A merge asked for on a Job whose record holds no pull request. A 409 like
-/// the status conflicts above: nothing was ever opened, so the act a person
-/// wants is an approval and the message says so.
-const NOTHING_TO_MERGE: &str = "fleet.nothing_to_merge";
-/// Re-run pressed on a Job with no open pull request. A 409. #905.
-const NOTHING_TO_RERUN: &str = "fleet.nothing_to_rerun";
-/// The forge would not start the failed runs again. A 409, carrying what it said. #905.
-const RERUN_REFUSED: &str = "fleet.rerun_refused";
-/// Investigate pressed where no check failed. A 409. #905.
-const NOTHING_TO_INVESTIGATE: &str = "fleet.nothing_to_investigate";
-/// A conflict resolution asked for on a workflow with no step before the one
-/// that delivers. `#663`.
-const NO_STEP_TO_REDO: &str = "fleet.no_step_to_redo";
 /// The base branch is protected. **Its own code, and the whole reason the
 /// refusal kinds are not one**: what answers this is an administrator or a
-/// rule, and nothing a person does to the Job changes it.
+/// rule, and nothing a person does to the pull request changes it.
 pub(crate) const MERGE_BRANCH_PROTECTED: &str = "fleet.merge_branch_protected";
 /// The branch and its base disagree. Its own code because the answer is on the
-/// branch — a `request_changes` that asks for a rebase, or a person resolving
-/// it — and never on the forge.
+/// branch and never on the forge.
 pub(crate) const MERGE_CONFLICTED: &str = "fleet.merge_conflicted";
 /// A check the **forge** requires has not passed. Its own code because the
-/// answer is to wait or to fix that check, and because a client reading
-/// `CHECK_DID_NOT_PASS` would go looking at Armada's own Checks, which all
-/// passed or the Job would not be at a gate.
+/// answer is to wait or to fix that check.
 pub(crate) const MERGE_CHECKS_NOT_PASSED: &str = "fleet.merge_checks_not_passed";
-/// The pull request is closed, gone, or was never there. Its own code because
-/// the Job is answerable and the pull request is not: what is left is an
-/// approval or a redispatch.
+/// The pull request is closed, gone, or was never there.
 pub(crate) const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
-/// `merge_by: push` found the base past the branch through every round of
-/// bringing it up and gating it again — `crate::pushing_onto_base`. Its own
-/// code because the answer is a quieter base, never the forge.
-pub(crate) const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
-/// `merge_by: push` brought the branch up to a moved base and its Checks went
-/// red on the merge. Its own code because the answer is the branch's, and
-/// apart from [`MERGE_CHECKS_NOT_PASSED`] because these are Armada's Checks.
-pub(crate) const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
-/// A need ahead of this Job's on the same file has not landed, so Fleet did not
-/// press the merge. Its own code because the answer is to wait, or for a person
-/// to give the need back (`armada need --release`); nothing about the Job or the
-/// forge is wrong. A 409, under `forge` and `push` alike. `#1059`.
-pub(crate) const MERGE_WAITING_BEHIND: &str = "fleet.merge_waiting_behind";
 /// Nothing on this machine could ask the forge. **A 500**, unlike the four
 /// above: nothing about the request is wrong and asking again is reasonable
 /// once whoever runs Fleet has signed in.
@@ -175,28 +71,6 @@ pub(crate) const MERGE_NO_TOOL: &str = "fleet.merge_no_tool";
 /// message — which is the honest answer where a guess would send a person to
 /// fix the wrong thing.
 pub(crate) const MERGE_REFUSED: &str = "fleet.merge_refused";
-/// A plain command outran Fleet's own bound on it. **A 500, and never a
-/// caller mistake** — asking again is reasonable, and the command that timed
-/// out may already have landed. `#712`.
-const COMMAND_TIMED_OUT: &str = "fleet.command_timed_out";
-/// A person's add or drop named a Job with no plan recorded, or a task — or
-/// an `after` — the plan does not hold. A 422: the request is well-formed and
-/// retrying it unchanged fails identically. `#897`.
-const NO_PLAN: &str = "fleet.no_plan";
-const NO_SUCH_TASK: &str = "fleet.no_such_task";
-/// A person's drop named a task already `done` or already `dropped`. A 409
-/// like the other status conflicts — the task was read, and what it read
-/// refuses this rather than the request's shape.
-const TASK_ALREADY_SETTLED: &str = "fleet.task_already_settled";
-/// Restart this task on a task that has not failed. A 409, for
-/// `TASK_ALREADY_SETTLED`'s reason. `#1656`.
-const TASK_NOT_FAILED: &str = "fleet.task_not_failed";
-/// A move of a task, or a group holding one, still in its group's run. A 409.
-/// `#1685`.
-const TASK_IN_FLIGHT: &str = "fleet.task_in_flight";
-/// A move named a group the plan does not hold. A 422, `NO_SUCH_TASK`'s
-/// reason. `#1685`.
-const NO_SUCH_GROUP: &str = "fleet.no_such_group";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -208,112 +82,19 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Which of the three refusals a failure is, decided from its type.
+    /// Which of the refusals a failure is, decided from its type.
     ///
     /// **`run_id` names this process**, not Fleet's-by-assumption: it is minted
     /// where the emitter is, which is here.
     pub(crate) fn refusal(&self, why: Adrift) -> Refusal {
         let said = why.to_string();
         match &why {
-            Adrift::Reading(LoadJobError::NoSuchJob { job_id })
-            | Adrift::Writing(WriteError::NoSuchJob { job_id }) => Refusal::NoSuchJob(
-                WireError::raised(NO_SUCH_JOB, said, self.run_id())
-                    .about_job(ipc::JobId::from(job_id)),
-            ),
-            // A preference save named something outside the closed set. Named
-            // no Job, `save_limits`' reason — the field is what says which name
-            // was refused, since `said` alone does not travel structured.
+            // A preference save named something outside the closed set. The
+            // field is what says which name was refused, since `said` alone
+            // does not travel structured.
             Adrift::Writing(WriteError::UnknownPreference { name }) => Refusal::Unacceptable(
                 WireError::raised(UNKNOWN_PREFERENCE, said, self.run_id())
                     .with_field("name", WireValue::Str(name.clone())),
-            ),
-            // Two acts raced the same Job from one loaded snapshot; the
-            // machine was asked and the status it was asked about had already
-            // moved. A 409, not the `FAULT` catch-all — a caller acting for a
-            // person answers this the way it answers any other status
-            // conflict, by reloading and deciding again. `#793`.
-            Adrift::Writing(WriteError::StatusChanged { job_id, .. }) => Refusal::IllegalMove(
-                WireError::raised(STATUS_CHANGED, said, self.run_id())
-                    .about_job(ipc::JobId::from(job_id)),
-            ),
-            // The same 404 one segment earlier, and with no Job on it: what the
-            // caller said resolved to nothing, so there is no id to name. A
-            // database that would not answer is the fault it always was.
-            Adrift::Unresolvable(ResolveJobError::Database(_)) => {
-                Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
-            }
-            Adrift::Unresolvable(ResolveJobError::ElsewhereOwned { .. }) => {
-                Refusal::NoSuchJob(WireError::raised(JOB_ELSEWHERE, said, self.run_id()))
-            }
-            Adrift::Unresolvable(_) => {
-                Refusal::NoSuchJob(WireError::raised(NO_SUCH_JOB, said, self.run_id()))
-            }
-            // The machine refused the move. The caller asked for something the
-            // edge table does not have — approving a Job already running,
-            // killing one already over — and 409 is the answer to that.
-            Adrift::IllegalMove(_) | Adrift::IllegalStepMove(_) => {
-                Refusal::IllegalMove(WireError::raised(ILLEGAL_MOVE, said, self.run_id()))
-            }
-            // The same conflict, from a request the machine never saw: the Job
-            // is somewhere a replacement would mean nothing.
-            // The Job is not at a human gate. A 409 like the conflicts above,
-            // and never a 500: the machine was never asked, so there is no edge
-            // for a caller to go looking for.
-            // A note over a note. Its own code since `restart_step` became the
-            // second act that writes one: a caller reading `NOT_UNDER_REVIEW`
-            // off a restart would go and look at the Job's status, and find
-            // nothing wrong with it. The message carries both sets of words.
-            // A forget on a Job that is not yet terminal. The machine was
-            // never asked — there is no move to refuse, only a row that is
-            // still live.
-            Adrift::NotForgettable { job, .. } => Refusal::IllegalMove(
-                WireError::raised(NOT_FORGETTABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // A reclaim on a Job that is not yet terminal. The same shape as
-            // the forget above and a code of its own, because the act a person
-            // is told to try instead is not the same one.
-            Adrift::NotReclaimable { job, .. }
-            | Adrift::SlotKept { job, .. }
-            | Adrift::WorktreeNotSaved { job, .. } => Refusal::IllegalMove(
-                WireError::raised(NOT_RECLAIMABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // A raise on a Job that is over — the same shape as the two above
-            // and the opposite half of their predicate. A code of its own for
-            // their reason: what a person does instead is a redispatch.
-            // The turn raise's half of the same refusal, on the same code:
-            // which act was asked for is the route the caller called.
-            // The repository would not open, so neither half was attempted.
-            // Fleet's own ground failed and nothing about the request is
-            // wrong, which is the 500 this variant is for.
-            Adrift::NotReclaimed { job, .. } => Refusal::Fault(
-                WireError::raised(NOT_RECLAIMED, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::BranchNotDeletable { job, .. } => Refusal::IllegalMove(
-                WireError::raised(BRANCH_NOT_DELETABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::BranchNotDeleted { job, .. } => Refusal::Fault(
-                WireError::raised(BRANCH_NOT_DELETED, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // What an act on a stopped step refuses with — plus a redirect
-            // asked for with no Drone, or a restart asked for with one still
-            // there or its worktree gone, the same two acts refusing the
-            // other's precondition. `NotTheJudges` is an
-            // override's; the rest are a gate re-run's.
-            Adrift::NoDroneToRedirect { job } => Refusal::IllegalMove(
-                WireError::raised(NOT_RESUMABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // Each says which in its own code, for a surface to tell apart.
-            // The two acts a re-run of the Checks refuses while it runs, and
-            // a pause with them.
-            Adrift::ChecksRunningAgain { job } => Refusal::IllegalMove(
-                WireError::raised(CHECKS_RUNNING, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
             ),
             Adrift::MainNotFixable { why, .. } => {
                 use crate::main_fix::MainNotFixable as Why;
@@ -322,160 +103,20 @@ where
                     Why::NotServed => Refusal::Unacceptable(raised(NOT_SERVED)),
                     Why::NotRed => Refusal::IllegalMove(raised(MAIN_NOT_RED)),
                     Why::ChecksRunning => Refusal::IllegalMove(raised(MAIN_CHECKS_RUNNING)),
-                    Why::Taken(store::TakenBy::Job(job)) => Refusal::IllegalMove(
-                        raised(MAIN_ALREADY_TAKEN).about_job(ipc::JobId::from(job)),
-                    ),
-                    Why::Taken(store::TakenBy::Session(_)) => {
-                        Refusal::IllegalMove(raised(MAIN_ALREADY_TAKEN))
-                    }
+                    Why::Taken(_) => Refusal::IllegalMove(raised(MAIN_ALREADY_TAKEN)),
                     Why::TakenElsewhere { .. } => Refusal::IllegalMove(raised(MAIN_TAKEN_ELSEWHERE)),
                     Why::ClaimNotMade(_) => Refusal::Fault(raised(MAIN_CLAIM_NOT_MADE)),
                 }
             }
-            // A panic in the press's own task. Nothing about the request was
-            // wrong and pressing again is reasonable, which is a fault's 500.
-            Adrift::PressAbandoned { job } => Refusal::Fault(
-                WireError::raised(FAULT, said, self.run_id()).about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::NotRedispatchable { job, .. }
-            | Adrift::NeverRan { job }
-            | Adrift::NotReplaceable { job }
-            | Adrift::WorkflowWithdrawn { job, .. } => Refusal::IllegalMove(
-                WireError::raised(NOT_REDISPATCHABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
             // The request is well-formed and the values in it cannot work. Not
             // a 500: retrying it will fail identically forever, and the message
             // names what to send instead.
-            // A cap that raises nothing and a ceiling Helm went past are both
-            // well-formed requests carrying a value that cannot work, and the
-            // message names the figure to send instead. **Not a 409**: neither
-            // is about where the Job stands, and a caller reading a conflict
-            // off one would go and look at a status with nothing wrong with it.
-            Adrift::NotServed { job, .. } => Refusal::Unacceptable(
-                WireError::raised(NOT_SERVED, said, self.run_id()).about_job(ipc::JobId::from(job)),
-            ),
-            // Spike 022, slice 4. **A frozen proposal is a 409**: the Job is
-            // past the one status at which it may be edited, which is where
-            // it stands and not what was asked. Every other refusal is about
-            // the body, a 422, with the reason in the message.
-            Adrift::BranchesUnread { .. } => {
-                Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
+            Adrift::NotServed { .. } => {
+                Refusal::Unacceptable(WireError::raised(NOT_SERVED, said, self.run_id()))
             }
-            // A person's add or drop, refused by the plan itself. `NoPlan` is
-            // its own code; the other two both name a task the plan does not
-            // hold, one field naming which.
-            Adrift::PlanRefused {
-                job,
-                why: core_model::PlanRefused::NoPlan,
-            } => Refusal::Unacceptable(
-                WireError::raised(NO_PLAN, said, self.run_id()).about_job(ipc::JobId::from(job)),
-            ),
-            // An edit to a task that is not open or failed (#1657): a 409 in
-            // the words the other acts on a task already use, the state saying
-            // which — one in its Drone's hands is in flight, one done or
-            // dropped is settled.
-            Adrift::PlanRefused {
-                job,
-                why: core_model::PlanRefused::NotEditable { named, state },
-            } => {
-                let code = match state {
-                    core_model::TaskState::Working | core_model::TaskState::HandedIn => {
-                        TASK_IN_FLIGHT
-                    }
-                    _ => TASK_ALREADY_SETTLED,
-                };
-                Refusal::IllegalMove(
-                    WireError::raised(code, said, self.run_id())
-                        .about_job(ipc::JobId::from(job))
-                        .with_field("task", WireValue::Str(named.to_string()))
-                        .with_field("state", WireValue::Str(state.as_wire().to_string())),
-                )
-            }
-            Adrift::PlanRefused {
-                job,
-                why: core_model::PlanRefused::NoSuchGroup { named },
-            } => Refusal::Unacceptable(
-                WireError::raised(NO_SUCH_GROUP, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("group", WireValue::Str(named.to_string())),
-            ),
-            // Unreachable from a person's act, which records no plan: a
-            // Drone's `record_plan` is refused by name in `fleet::work_plan`.
-            Adrift::PlanRefused {
-                job,
-                why: core_model::PlanRefused::GroupsOutOfOrder { named },
-            } => Refusal::Unacceptable(
-                WireError::raised(NO_SUCH_GROUP, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("group", WireValue::Str(named.to_string())),
-            ),
-            Adrift::PlanRefused {
-                job,
-                why:
-                    core_model::PlanRefused::NoSuchTask { named }
-                    | core_model::PlanRefused::NoSuchPlace { named }
-                    | core_model::PlanRefused::NotInGroup { named, .. }
-                    | core_model::PlanRefused::StaysDropped { named },
-            } => Refusal::Unacceptable(
-                WireError::raised(NO_SUCH_TASK, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("task", WireValue::Str(named.to_string())),
-            ),
-            // A drop naming a task the plan already settled. `StaysDropped`
-            // is folded into `NO_SUCH_TASK` above because it is unreachable
-            // from `add_task`/`drop_task`, which never ask to reopen one.
-            Adrift::TaskNotFailed { job, named, state } => Refusal::IllegalMove(
-                WireError::raised(TASK_NOT_FAILED, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("task", WireValue::Str(named.to_string()))
-                    .with_field("state", WireValue::Str(state.as_wire().to_string())),
-            ),
-            Adrift::TaskInFlight { job, named, state } => Refusal::IllegalMove(
-                WireError::raised(TASK_IN_FLIGHT, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("task", WireValue::Str(named.to_string()))
-                    .with_field("state", WireValue::Str(state.as_wire().to_string())),
-            ),
-            Adrift::Unnameable
-             | Adrift::NotFileable { .. } | Adrift::NoSuchManifest { .. } | Adrift::NoSuchCheckOutput { .. } | Adrift::NoSuchFrame { .. } | Adrift::NoSuchBrief { .. } | Adrift::NoSuchLandLog { .. } => {
+            Adrift::NoSuchManifest { .. } | Adrift::NoSuchLandLog { .. } => {
                 Refusal::Unacceptable(WireError::raised(UNACCEPTABLE, said, self.run_id()))
             }
-            // The request was read and declined, and it goes back on the field
-            // rather than being echoed in the message: what the person retypes
-            // or hands to `propose_job` is what they wrote, character for
-            // character. The Job it was dispatched as is escalated.
-            // The request came back on the same field, for the same reason —
-            // nothing a person typed was wrong and what they retype is what
-            // they wrote. `model` and `models` are what the arm above has no
-            // equivalent of: which name could not be run, and what could.
-            // A call that could not be made, which is not that refusal — 500,
-            // because nothing about the request is wrong and asking again is
-            // reasonable. It comes back on the same field either way.
-            // `NotProposable` falls to the catch-all below: a proposer that
-            // could not be configured is Fleet's own fault and carries no
-            // request to return.
-            // Somebody stopped it. **Told apart before the outage arm**, and
-            // still a `Fault` on the transport — 500 is what says no Job
-            // exists, and the code is what says whose doing that was.
-            // Asked twice and read both times; neither reply became a plan.
-            // Its own code for `PROPOSER_UNREADABLE`'s reason — this is not
-            // the outage the arm below answers, and the two replies that led
-            // here stay off the wire: `said` is `NotProposed`'s own message,
-            // which names what was wrong and never quotes what was said.
-            // `kept_at` is the one pointer to where they were written, so a
-            // person can still go and read them.
-            // The forge would not answer. A 500 and never an empty answer.
-            Adrift::ReviewUnreadable { job, pull_request } => Refusal::Fault(
-                WireError::raised(REVIEW_UNREADABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("pull_request", WireValue::Str(pull_request.clone())),
-            ),
-            // A press that picked nothing. A 422, like a blank note.
-            Adrift::NoRemarksChosen { job } => Refusal::Unacceptable(
-                WireError::raised(NO_REMARKS_CHOSEN, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
             // Fleet's own ground failing; a refused parse is `ManifestReading`.
             Adrift::ManifestUnreadable { .. } => {
                 Refusal::Fault(WireError::raised(MANIFEST_UNREADABLE, said, self.run_id()))
@@ -491,126 +132,10 @@ where
                     None => refused,
                 })
             }
-            // The comments a person picked would not write to disk. A 500,
-            // for `ReviewUnreadable`'s reason: nothing about the request is
-            // wrong.
-            Adrift::RemarksFileUnwritable { job, .. } => Refusal::Fault(
-                WireError::raised(REMARKS_FILE_UNWRITABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // **The handles come back on both of these**, for
-            // `NOTE_ALREADY_WAITING`'s reason: a refusal that named only a
-            // count would leave a person to work out which of the comments
-            // they picked was the problem.
-            Adrift::RemarksGone { job, gone } => Refusal::IllegalMove(
-                WireError::raised(REMARKS_GONE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("remarks", WireValue::Str(gone.join(", "))),
-            ),
-            Adrift::RemarksAlreadyTakenUp { job, already } => Refusal::IllegalMove(
-                WireError::raised(REMARKS_ALREADY_TAKEN_UP, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("remarks", WireValue::Str(already.join(", "))),
-            ),
-            Adrift::NoDismissalReason { job } => Refusal::Unacceptable(
-                WireError::raised(NO_DISMISSAL_REASON, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::FindingNotInReview { job, finding } => Refusal::IllegalMove(
-                WireError::raised(FINDING_NOT_IN_REVIEW, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("finding", WireValue::Str(finding.clone())),
-            ),
-            // Nothing was ever opened, so there is no forge answer to name.
-            Adrift::NothingToMerge { job } => Refusal::IllegalMove(
-                WireError::raised(NOTHING_TO_MERGE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::NothingToRerun { job } => Refusal::IllegalMove(
-                WireError::raised(NOTHING_TO_RERUN, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::RerunRefused { job, said: forge } => Refusal::IllegalMove(
-                WireError::raised(RERUN_REFUSED, said, self.run_id())
-                    .about_job(ipc::JobId::from(job))
-                    .with_field("forge", WireValue::Str(forge.clone())),
-            ),
-            Adrift::NothingToInvestigate { job } => Refusal::IllegalMove(
-                WireError::raised(NOTHING_TO_INVESTIGATE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::NoStepToRedo { job } => Refusal::IllegalMove(
-                WireError::raised(NO_STEP_TO_REDO, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            // **One code per kind, decided from the typed kind and never from
-            // the sentence.** This is the arm the decision "a refused merge
-            // says which of the reasons it was" lands on: `Adrift` carries one
-            // variant because no arm in this crate does anything different
-            // about them, and here is where they stop being one thing —
-            // because a client does.
-            //
-            // The six that are the person's to answer are 409s; the two that
-            // are this machine's are 500s, for `NOT_RECLAIMED`'s reason.
-            Adrift::NotMerged { job, why } => {
-                let job = ipc::JobId::from(job);
-                let raised = |code: &'static str| {
-                    WireError::raised(code, said.clone(), self.run_id())
-                        .about_job(job.clone())
-                        .with_field("refused", WireValue::Str(why.kind().to_string()))
-                };
-                match why {
-                    NotMerged::Protected { .. } => {
-                        Refusal::IllegalMove(raised(MERGE_BRANCH_PROTECTED))
-                    }
-                    NotMerged::Conflicted { .. } => Refusal::IllegalMove(raised(MERGE_CONFLICTED)),
-                    NotMerged::ChecksNotPassed { .. } => {
-                        Refusal::IllegalMove(raised(MERGE_CHECKS_NOT_PASSED))
-                    }
-                    NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
-                    NotMerged::BaseMoved { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
-                    NotMerged::GateFailed { .. } => Refusal::IllegalMove(raised(MERGE_GATE_FAILED)),
-                    NotMerged::WaitingBehind { .. } => {
-                        Refusal::IllegalMove(raised(MERGE_WAITING_BEHIND))
-                    }
-                    // Never reaches here: `crate::pushing_onto_base` runs the
-                    // Checks it asks for, and spends its rounds as a moved base.
-                    NotMerged::Unchecked { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
-                    NotMerged::NoTool { .. } => Refusal::Fault(raised(MERGE_NO_TOOL)),
-                    NotMerged::Refused { .. } => Refusal::Fault(raised(MERGE_REFUSED)),
-                }
+            Adrift::Reading(_) | Adrift::Writing(_) => {
+                Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
             }
-            // Fleet's own bound on a plain command, spent. The message already
-            // says whose limit it was; the wire code is a fault's rather than
-            // any of the other three, because nothing about the request was
-            // wrong and asking again is reasonable.
-            Adrift::CommandTimedOut { job, .. } => {
-                let raised = WireError::raised(COMMAND_TIMED_OUT, said, self.run_id());
-                Refusal::Fault(match job {
-                    Some(job) => raised.about_job(ipc::JobId::from(job)),
-                    None => raised,
-                })
-            }
-            // The one 404 on this seam that is not about a missing Job, and the
-            // code is what says so rather than the status.
-            _ => Refusal::Fault(WireError::raised(FAULT, said, self.run_id())),
         }
-    }
-
-    /// A worktree that would not be read, named against the Job it was for.
-    ///
-    /// **A 500 and never an empty diff.** A repository that will not open and a
-    /// Drone that changed nothing are opposite answers, and a reviewer handed
-    /// the second when the first happened would take work nobody read.
-    pub(crate) fn unreadable<E: std::error::Error + Send + Sync + 'static>(
-        &self,
-        job: &core_model::JobId,
-        cause: E,
-    ) -> Refusal {
-        self.refusal(Adrift::WorkUnreadable {
-            job: job.clone(),
-            cause: Box::new(cause),
-        })
     }
 
     /// This process's run id.

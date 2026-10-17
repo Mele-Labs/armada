@@ -1,6 +1,5 @@
-// What Helm's thread links, resolved against the shapes a real Fleet publishes: a Job's handle as
-// `handle_of` writes it, a Session's id and address as `sessions-wire` derives them, issues and pull requests as
-// `#` holds them, and a repository's merge line as `list_merge_lines` answers it.
+// What Helm's thread links, resolved against the shapes a real Fleet publishes: a Session's id and address as `sessions-wire` derives them,
+// issues and pull requests as `#` holds them, and a repository's merge line as `list_merge_lines` answers it.
 
 import { describe, expect, it } from "vitest";
 
@@ -9,12 +8,6 @@ import { branchOfPullRequest, scanRefs } from "./helm-refs";
 import type { RefWorld } from "./helm-refs";
 
 const WORLD: RefWorld = {
-  jobs: [
-    { id: "01JA0000000000000000000012", handle: "12-the-drone-count-is-wrong", title: "The drone count is wrong" },
-    // A title that is only punctuation, or names a credential, is carried by its number alone.
-    { id: "01JA0000000000000000000013", handle: "13", title: "Retry the charge" },
-    { id: "01JA0000000000000000000001", handle: "1-pin-the-clock", title: "Pin the clock" },
-  ],
   sessions: [
     { id: "01J9ZK7M3Q8T5V2X4Y6Z0A1B2C", title: "Sessions list views" },
     { id: "01J9ZM1P3Q8T5V2X4Y6Z0A1B2D" },
@@ -56,27 +49,6 @@ describe("a number", () => {
 
   it("is not read inside an address, a word or another reference", () => {
     expect(words("https://forge.invalid/pull/2219 and abc#2219 and &#2219; and ##2219")).toEqual([]);
-  });
-});
-
-describe("a Job", () => {
-  it("is linked by its number, its handle and its id", () => {
-    expect(words("Job 12 stopped, 12-the-drone-count-is-wrong says why, as does 01JA0000000000000000000012")).toEqual([
-      ["Job 12", "job", "01JA0000000000000000000012"],
-      ["12-the-drone-count-is-wrong", "job", "01JA0000000000000000000012"],
-      ["01JA0000000000000000000012", "job", "01JA0000000000000000000012"],
-    ]);
-  });
-
-  it("is linked by a handle that is only its number", () => {
-    expect(words("Job 13 and then 13")).toEqual([["Job 13", "job", "01JA0000000000000000000013"]]);
-  });
-
-  it("does not take Job 1 out of Job 12", () => {
-    expect(words("Job 12 and Job 1")).toEqual([
-      ["Job 12", "job", "01JA0000000000000000000012"],
-      ["Job 1", "job", "01JA0000000000000000000001"],
-    ]);
   });
 });
 

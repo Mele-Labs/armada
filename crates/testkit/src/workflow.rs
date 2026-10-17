@@ -72,10 +72,6 @@ pub struct Sketch<'a> {
     /// `evidence_scope`, which is the common shape and the one every fixture
     /// written before scopes existed has.
     pub scope: Option<Scoped<'a>>,
-    /// The second look the step declares. `None` is a step that asks whether
-    /// its evidence satisfies the criteria and never whether it was gamed,
-    /// which is every step written before the gaming check existed.
-    pub gaming: Option<Gaming<'a>>,
 }
 
 /// How patient one step is: how long its Drone may say nothing before Fleet
@@ -95,18 +91,6 @@ pub struct Patience<'a> {
     pub step: &'a str,
     pub quiet_after_seconds: Option<u32>,
     pub poke_limit: Option<u32>,
-}
-
-/// A step's `gaming_check`, as a fixture writes it.
-///
-/// **`flag_if` is written as the wire values a file carries**, not as the enum,
-/// so a fixture naming a pattern the parser does not know is refused here the
-/// way an `armada.yml` would be.
-#[derive(Debug, Clone, Copy)]
-pub struct Gaming<'a> {
-    /// `<step_id>.evidence`, or `None` for a check with no baseline.
-    pub baseline: Option<&'a str>,
-    pub flag_if: &'a [&'a str],
 }
 
 /// A step's `evidence_scope`, as a fixture writes it.
@@ -566,7 +550,7 @@ fn workflow_text(
                 }
             }
         }
-        if !step.judged_on.is_empty() || step.gaming.is_some() {
+        if !step.judged_on.is_empty() {
             text.push_str("    judge_checks:\n      -\n");
         }
         if !step.judged_on.is_empty() {
@@ -580,16 +564,6 @@ fn workflow_text(
                 text.push_str(&format!(
                     "          - criterion_id: {id}\n            question: \"{question}\"\n            on_refusal: refuse\n"
                 ));
-            }
-        }
-        if let Some(gaming) = step.gaming {
-            text.push_str("        gaming_check:\n");
-            if let Some(baseline) = gaming.baseline {
-                text.push_str(&format!("          baseline_ref: \"{baseline}\"\n"));
-            }
-            text.push_str("          flag_if:\n");
-            for pattern in gaming.flag_if {
-                text.push_str(&format!("            - {pattern}\n"));
             }
         }
         if step.gates.is_empty() {

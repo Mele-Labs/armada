@@ -1,4 +1,4 @@
-// The Lessons page and a Job's retro sheet, as the owner reads and answers them
+// The Lessons page and a Session's retro sheet, as the owner reads and answers them
 // (`docs/concepts/retro.md`): each item as words, a headline, what happened and
 // a fix, and Agree and Disagree under it.
 //
@@ -7,17 +7,19 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { JobRetro, Lesson, LessonAnswer, LessonState, RetroRead, RetroSubject } from "@armada/protocol";
+import type { Lesson, LessonAnswer, LessonState, Retro, RetroRead, RetroSubject } from "@armada/protocol";
 
-import { JobRetroSheet, Lessons } from "./Lessons";
+import { Lessons, SessionRetroSheet } from "./Lessons";
 import { mount, unmount } from "../mounted";
 
 afterEach(unmount);
 
 const AT = "2026-10-02T22:05:00.000Z";
 
+const SESSION = { id: "s-01K6Q3", title: "Retire two guides" };
+
 function lesson(over: Partial<Lesson> & Pick<Lesson, "id" | "statement" | "who">): Lesson {
-  return { job_id: "01K6JOB3", handle: "3-retire-guides", at: AT, evidence: [], state: "open", ...over };
+  return { handle: "s-01K6Q3", session: SESSION, at: AT, evidence: [], state: "open", ...over };
 }
 
 const ARMADA = lesson({
@@ -61,28 +63,32 @@ function opened(
   open: Lesson[],
   saved: Lesson[] = [],
   acts: Acts = {},
-  readRetro: (subject: RetroSubject) => Promise<RetroRead> = async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } }),
+  readRetro: (subject: RetroSubject) => Promise<RetroRead> = async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } }),
 ) {
   const read = vi.fn(async (state: LessonState | "open" | "accepted") => ({
     ok: true as const,
     lessons: state === "accepted" ? saved : open,
   }));
-  const agree = vi.fn(acts.agree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "agreed", job_proposed: "01K7JOB" }) })));
+  const agree = vi.fn(acts.agree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...KIT, id, state: "accepted" }) })));
   const disagree = vi.fn(acts.disagree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "discarded" }) })));
-  const opens = vi.fn();
-  const job = vi.fn();
+  const start = vi.fn(async (id: string) => ({
+    ok: true as const,
+    started: { lesson: lesson({ ...ARMADA, id, state: "agreed", session_proposed: "s-NEW" }), session_id: "s-NEW", brief: "b" },
+  }));
+  const openSession = vi.fn();
   mount(
     <Lessons
       onReadLessons={read}
       onReadRetro={readRetro}
       onAgreeLesson={agree}
       onDisagreeLesson={disagree}
-      onOpenJob={job}
+      onStartSession={start}
+      onOpenSession={openSession}
       repository={null}
       floor={false}
     />,
   );
-  return { read, agree, disagree, opens, job };
+  return { read, agree, disagree, start, open: openSession };
 }
 
 const card = (title: RegExp | string) => page.getByRole("listitem").filter({ hasText: title });
@@ -104,7 +110,7 @@ test("an item reads as words for whose way and where it lands, a headline, what 
   await expect.element(one.getByText(/two commits behind origin/)).toBeVisible();
   await expect.element(one.getByText("What would change", { exact: true })).toBeVisible();
   await expect.element(one.getByText(/Compare against origin\/main/)).toBeVisible();
-  expect(one.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements().map((b) => b.textContent)).toEqual(["Create Job", "Reject change"]);
+  expect(one.getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements().map((b) => b.textContent)).toEqual(["Start Session", "Reject change"]);
 });
 
 test("the three whose-ways and three places are each a word", async () => {
@@ -135,10 +141,10 @@ test("whose way and where the fix lands are one arrow, each end its own hue, wit
 test("each answer names what it does for its item's place", async () => {
   opened([ARMADA, KIT, MANIFEST]);
   await expect.element(card(/every Rust test/)).toBeVisible();
-  const buttons = (title: RegExp) => card(title).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements().map((b) => b.textContent);
-  expect(buttons(/blamed the Drone/)).toEqual(["Create Job", "Reject change"]);
+  const buttons = (title: RegExp) => card(title).getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements().map((b) => b.textContent);
+  expect(buttons(/blamed the Drone/)).toEqual(["Start Session", "Reject change"]);
   expect(buttons(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
-  expect(buttons(/every Rust test/)).toEqual(["Create Job", "Reject change"]);
+  expect(buttons(/every Rust test/)).toEqual(["Start Session", "Reject change"]);
 });
 
 test("each Agree names what it does for its item's place, and Disagree discards", async () => {
@@ -148,9 +154,9 @@ test("each Agree names what it does for its item's place, and Disagree discards"
     await card(title).getByRole("button", { name, exact: true }).hover();
     await expect.element(card(title).getByText(words, { exact: true })).toBeVisible();
   };
-  await tip(/blamed the Drone/, "Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board.");
+  await tip(/blamed the Drone/, "Start Session", "Starts a Session on this repository and sends it this request now. It begins work at once.");
   await tip(/grep to be allowed/, "Accept", "Saves it under Accepted.");
-  await tip(/every Rust test/, "Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board.");
+  await tip(/every Rust test/, "Start Session", "Starts a Session on this repository and sends it this request now. It begins work at once.");
   await tip(/every Rust test/, "Reject change", "Discards it.");
 });
 
@@ -160,24 +166,23 @@ test("an item written before the headline draws its statement as the body, with 
   await expect.element(one.getByText(/waited in the dock/)).toBeVisible();
   expect(one.getByRole("heading").elements()).toHaveLength(0);
   expect(one.getByText("What would change", { exact: true }).elements()).toHaveLength(0);
-  expect(one.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(one.getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements()).toHaveLength(0);
 });
 
-test("agreeing with an Armada item leaves a link to the Job it proposed, and the link opens it", async () => {
-  const { agree, job } = opened([ARMADA]);
-  await card(/blamed the Drone/).getByRole("button", { name: "Create Job", exact: true }).click();
-  expect(agree).toHaveBeenCalledWith("l-armada");
+test("starting a Session on an Armada item opens it, and leaves a link that opens it again", async () => {
+  const { start, open } = opened([ARMADA]);
+  await card(/blamed the Drone/).getByRole("button", { name: "Start Session", exact: true }).click();
+  expect(start).toHaveBeenCalledWith("l-armada");
   const one = card(/blamed the Drone/);
-  await expect.element(one.getByText("Agreed")).toBeVisible();
-  expect(one.getByRole("button", { name: "Create Job", exact: true }).elements()).toHaveLength(0);
-  await one.getByRole("button", { name: "Proposed Job" }).click();
-  expect(job).toHaveBeenCalledWith("01K7JOB");
+  await expect.element(one.getByText("Session started")).toBeVisible();
+  expect(open).toHaveBeenCalledWith("s-NEW");
+  expect(one.getByRole("button", { name: "Start Session", exact: true }).elements()).toHaveLength(0);
+  await one.getByRole("button", { name: "Open Session" }).click();
+  expect(open).toHaveBeenCalledTimes(2);
 });
 
 test("agreeing with a Kit item, and disagreeing with any, takes it off the list", async () => {
-  const { agree, disagree } = opened([KIT, MANIFEST], [], {
-    agree: async (id) => ({ ok: true, lesson: lesson({ ...KIT, id, state: "accepted" }) }),
-  });
+  const { agree, disagree } = opened([KIT, MANIFEST]);
   await card(/grep to be allowed/).getByRole("button", { name: "Accept", exact: true }).click();
   expect(agree).toHaveBeenCalledWith("l-kit");
   await expect.poll(() => card(/grep to be allowed/).elements()).toHaveLength(0);
@@ -201,7 +206,7 @@ const KIT_CHANGE = lesson({
 test("a Kit item that carries a change reads Update Kit with its own tooltip, and one without keeps Accept", async () => {
   opened([KIT_CHANGE, KIT]);
   const buttons = (title: RegExp) =>
-    card(title).getByRole("button", { name: /^(Create Job|Accept|Update Kit|Reject change)$/ }).elements().map((b) => b.textContent);
+    card(title).getByRole("button", { name: /^(Start Session|Accept|Update Kit|Reject change)$/ }).elements().map((b) => b.textContent);
   await expect.element(card(/refused grep on a check log/)).toBeVisible();
   expect(buttons(/refused grep on a check log/)).toEqual(["Update Kit", "Reject change"]);
   expect(buttons(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
@@ -259,10 +264,10 @@ test("Accepted reads Updated Kit and the command on an item that applied one, an
 });
 
 test("a refused answer says why, and the item stays with both answers", async () => {
-  opened([ARMADA], [], { agree: async () => ({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } }) });
-  await card(/blamed the Drone/).getByRole("button", { name: "Create Job", exact: true }).click();
+  opened([KIT], [], { agree: async () => ({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } }) });
+  await card(/grep to be allowed/).getByRole("button", { name: "Accept", exact: true }).click();
   await expect.element(page.getByText(/already in flight/)).toBeVisible();
-  expect(card(/blamed the Drone/).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(2);
+  expect(card(/grep to be allowed/).getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements()).toHaveLength(2);
 });
 
 test("Open and Accepted sit beside the places, and Accepted reads the saved items with no answers on them", async () => {
@@ -273,37 +278,16 @@ test("Open and Accepted sit beside the places, and Accepted reads the saved item
   await expect.element(card(/allowed once already/)).toBeVisible();
   expect(read).toHaveBeenLastCalledWith("accepted");
   expect(card(/blamed the Drone/).elements()).toHaveLength(0);
-  expect(card(/allowed once already/).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(card(/allowed once already/).getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements()).toHaveLength(0);
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.element(card(/blamed the Drone/)).toBeVisible();
   const tabs = page.getByRole("tab").elements().map((t) => t.textContent);
-  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "All", "Sessions", "Jobs", "Open", "Accepted"]);
+  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "Open", "Accepted"]);
 });
 
-test("Sessions and Jobs narrow the list to whose retro an item came from, and All is both", async () => {
-  const SESSION = lesson({
-    ...KIT,
-    id: "l-session",
-    job_id: "01SESSIONAAAAAAAAAAAAAAAAA",
-    handle: "s-01SESSION",
-    session: { id: "01SESSIONAAAAAAAAAAAAAAAAA", title: "Fix the flaky store test" },
-    title: "A reset waited on an answer",
-  });
-  opened([ARMADA, SESSION]);
-  await expect.element(card(/blamed the Drone/)).toBeVisible();
-  await expect.element(card(/reset waited/)).toBeVisible();
-  await page.getByRole("tab", { name: "Sessions", exact: true }).click();
-  await expect.element(card(/reset waited/)).toBeVisible();
-  expect(card(/blamed the Drone/).elements()).toHaveLength(0);
-  await page.getByRole("tab", { name: "Jobs", exact: true }).click();
-  await expect.element(card(/blamed the Drone/)).toBeVisible();
-  expect(card(/reset waited/).elements()).toHaveLength(0);
-});
-
-test("opening an item from an older Session retro reads that retro, and a Job's item reads its Job", async () => {
+test("opening an item from an older Session retro reads that retro, and an unnumbered item reads the newest", async () => {
   const session = { id: "s-01J8ZQ4M", title: "Fix the flaky store test" };
-  const of = (id: string, title: string) =>
-    lesson({ ...KIT, id, job_id: session.id, handle: session.id, session, title });
+  const of = (id: string, title: string) => lesson({ ...KIT, id, handle: session.id, session, title });
   const readRetro = vi.fn(async () => ({ ok: true as const, retro: RETRO }));
   opened([of("s-01J8ZQ4M-r2-1", "A newer pain"), of("s-01J8ZQ4M-r1-1", "An older pain"), ARMADA], [], {}, readRetro);
   await expect.element(card(/An older pain/)).toBeVisible();
@@ -311,8 +295,8 @@ test("opening an item from an older Session retro reads that retro, and a Job's 
   await expect.element(page.getByRole("dialog", { name: "Retro" })).toBeVisible();
   expect(readRetro).toHaveBeenLastCalledWith({ kind: "session", id: "s-01J8ZQ4M", n: 1 });
   await page.getByRole("dialog", { name: "Retro" }).getByRole("button", { name: "Close" }).click();
-  await card(/blamed the Drone/).getByRole("button", { name: /Job 3/ }).click();
-  await expect.poll(() => readRetro.mock.lastCall).toEqual([{ kind: "job", id: "01K6JOB3" }]);
+  await card(/blamed the Drone/).getByRole("button", { name: /Retire two guides/ }).click();
+  await expect.poll(() => readRetro.mock.lastCall).toEqual([{ kind: "session", id: "s-01K6Q3" }]);
 });
 
 test("an empty list draws nothing", async () => {
@@ -321,8 +305,8 @@ test("an empty list draws nothing", async () => {
   expect(page.getByRole("list", { name: "Retros" }).elements()).toHaveLength(0);
 });
 
-const RETRO: JobRetro = {
-  job_id: "01K6JOB3",
+const RETRO: Retro = {
+  session: SESSION,
   state: "written",
   items: [
     {
@@ -338,19 +322,23 @@ const RETRO: JobRetro = {
     },
   ],
   record: {
-    failed_checks: [{ cite: "check:1", name: "out_of_bounds", run: "gate", produced: "armada.yml changed" }],
+    failed_tools: [{ cite: "check:1", at: AT, tool: "gate", tried: "armada.yml changed" }],
   },
 };
 
 test("the retro sheet draws the same item, keeps its evidence behind a control, and answers the same way", async () => {
-  const agree = vi.fn(async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "agreed", job_proposed: "01K7JOB" }) }));
+  const start = vi.fn(async (id: string) => ({
+    ok: true as const,
+    started: { lesson: lesson({ ...ARMADA, id, state: "agreed", session_proposed: "s-NEW" }), session_id: "s-NEW", brief: "b" },
+  }));
   mount(
-    <JobRetroSheet
-      subject={{ kind: "job", id: "01K6JOB3" }}
-      job="Job 3"
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
       read={async () => ({ ok: true, retro: RETRO })}
-      onAgreeLesson={agree}
+      onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
       onDisagreeLesson={async () => ({ ok: true, lesson: lesson({ ...ARMADA, state: "discarded" }) })}
+      sessions={{ start, open: () => {} }}
       floor={false}
       onClose={() => {}}
     />,
@@ -364,34 +352,34 @@ test("the retro sheet draws the same item, keeps its evidence behind a control, 
   expect(sheet.getByText("armada.yml changed").elements()).toHaveLength(0);
   await sheet.getByRole("button", { name: "Evidence" }).click();
   await expect.element(sheet.getByText("armada.yml changed")).toBeVisible();
-  await sheet.getByRole("button", { name: "Create Job", exact: true }).click();
-  expect(agree).toHaveBeenCalledWith("l-armada");
-  await expect.element(sheet.getByText("Agreed")).toBeVisible();
+  await sheet.getByRole("button", { name: "Start Session", exact: true }).click();
+  expect(start).toHaveBeenCalledWith("l-armada");
+  await expect.element(sheet.getByText("Session started")).toBeVisible();
 });
 
 test("the retro sheet shows an answered item as it stands, and offers buttons only on an open one", async () => {
   const base = { who: "fleet" as const, lands_in: "armada" as const, evidence: [] };
-  const retro: JobRetro = {
-    job_id: "01K6JOB3",
+  const retro: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [
       { ...base, id: "a-open", statement: "Open one", title: "Open one", what: "w", fix: "f", state: "open" },
-      { ...base, id: "a-agreed", statement: "Agreed one", title: "Agreed one", what: "w", fix: "f", state: "agreed", job_proposed: "01K7JOB" },
+      { ...base, id: "a-agreed", statement: "Agreed one", title: "Agreed one", what: "w", fix: "f", state: "agreed", session_proposed: "s-NEW" },
       { ...base, id: "a-kit", lands_in: "kit" as const, statement: "Saved one", title: "Saved one", what: "w", fix: "f", state: "accepted" },
       { ...base, id: "a-no", statement: "Discarded one", title: "Discarded one", what: "w", fix: "f", state: "discarded" },
       { ...base, id: "a-old", statement: "Old one", title: "Old one", what: "w", fix: "f" },
     ],
   };
-  const job = vi.fn();
+  const open = vi.fn();
   mount(
-    <JobRetroSheet
-      subject={{ kind: "job", id: "01K6JOB3" }}
-      job="Job 3"
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
       onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
-      onOpenJob={job}
+      sessions={{ start: async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }), open }}
       floor={false}
       onClose={() => {}}
     />,
@@ -400,12 +388,12 @@ test("the retro sheet shows an answered item as it stands, and offers buttons on
   const one = (title: string) => sheet.getByRole("listitem").filter({ hasText: title });
   await expect.element(one("Open one")).toBeVisible();
   const answers = (title: string) =>
-    one(title).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements();
+    one(title).getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements();
   expect(answers("Open one")).toHaveLength(2);
   expect(answers("Agreed one")).toHaveLength(0);
-  expect(one("Agreed one").element().querySelector(".armada-lesson__settled")?.textContent).toMatch(/^Agreed/);
-  await one("Agreed one").getByRole("button", { name: "Proposed Job" }).click();
-  expect(job).toHaveBeenCalledWith("01K7JOB");
+  expect(one("Agreed one").element().querySelector(".armada-lesson__settled")?.textContent).toMatch(/^Session started/);
+  await one("Agreed one").getByRole("button", { name: "Open Session" }).click();
+  expect(open).toHaveBeenCalledWith("s-NEW");
   await expect.element(one("Saved one").getByText("Accepted", { exact: true })).toBeVisible();
   expect(answers("Saved one")).toHaveLength(0);
   // Discarded draws nothing, and an item with no state is read and left alone.
@@ -415,8 +403,8 @@ test("the retro sheet shows an answered item as it stands, and offers buttons on
 
 test("the retro sheet draws Update Kit on an open item with a change, and Updated Kit with its command once applied", async () => {
   const base = { who: "drone" as const, lands_in: "kit" as const, evidence: [] };
-  const retro: JobRetro = {
-    job_id: "01K6JOB3",
+  const retro: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [
@@ -425,9 +413,9 @@ test("the retro sheet draws Update Kit on an open item with a change, and Update
     ],
   };
   mount(
-    <JobRetroSheet
-      subject={{ kind: "job", id: "01K6JOB3" }}
-      job="Job 3"
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
       onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
@@ -443,13 +431,13 @@ test("the retro sheet draws Update Kit on an open item with a change, and Update
   await expect.element(one("Done Kit one").getByText("grep -n", { exact: true })).toBeVisible();
 });
 
-// Evidence on the Retros list: the rows a Job's retro holds, read once per Job.
+// Evidence on the Retros list: the rows a Session's retro holds, read once per retro.
 
-const HELD: JobRetro = {
-  job_id: "01K6JOB3",
+const HELD: Retro = {
+  session: SESSION,
   state: "written",
   record: {
-    failed_checks: [{ cite: "check:1", name: "out_of_bounds", run: "gate", produced: "armada.yml changed" }],
+    failed_tools: [{ cite: "check:1", at: AT, tool: "gate", tried: "armada.yml changed" }],
     refusals: [{ cite: "refusal:1", at: "2026-10-03T03:51:40.028Z", tool: "grep", tried: "grep on a check log", because: "not allowed" }],
   },
 };
@@ -467,14 +455,14 @@ test("list evidence: a list card offers Evidence and expands the rows it cites, 
   await one.getByRole("button", { name: "Evidence" }).click();
   await expect.element(one.getByText("armada.yml changed")).toBeVisible();
   expect(readRetro).toHaveBeenCalledTimes(1);
-  expect(readRetro).toHaveBeenCalledWith({ kind: "job", id: "01K6JOB3" });
+  expect(readRetro).toHaveBeenCalledWith({ kind: "session", id: "s-01K6Q3" });
   // A cite the record does not hold is left out.
   expect(one.element().querySelectorAll(".armada-retro__cite")).toHaveLength(1);
   // The answers stay as they were.
-  expect(one.getByRole("button", { name: /^(Create Job|Reject change)$/ }).elements()).toHaveLength(2);
+  expect(one.getByRole("button", { name: /^(Start Session|Reject change)$/ }).elements()).toHaveLength(2);
 });
 
-test("list evidence: two items of one Job make one read", async () => {
+test("list evidence: two items of one retro make one read", async () => {
   const readRetro = vi.fn(async () => ({ ok: true as const, retro: HELD }));
   opened([WITH_CHECK, WITH_REFUSAL], [], {}, readRetro);
   await card(/blamed the Drone/).getByRole("button", { name: "Evidence" }).click();
@@ -495,7 +483,7 @@ test("list evidence: a failed read shows the card's alert, leaves the card intac
   await expect.element(one.getByText("Retros could not be read")).toBeVisible();
   expect(card(/grep to be allowed/).getByText("Retros could not be read").elements()).toHaveLength(0);
   await expect.element(one.getByText(/two commits behind origin/)).toBeVisible();
-  expect(one.getByRole("button", { name: /^(Create Job|Reject change)$/ }).elements()).toHaveLength(2);
+  expect(one.getByRole("button", { name: /^(Start Session|Reject change)$/ }).elements()).toHaveLength(2);
   fail = false;
   await one.getByRole("button", { name: "Evidence" }).click();
   await expect.element(one.getByText("armada.yml changed")).toBeVisible();
@@ -505,12 +493,12 @@ test("list evidence: a failed read shows the card's alert, leaves the card intac
 test("list evidence: while the read is out Evidence is pending and the other buttons stay usable", async () => {
   let release: (read: RetroRead) => void = () => {};
   const readRetro = vi.fn(() => new Promise<RetroRead>((done) => (release = done)));
-  const { agree } = opened([WITH_CHECK], [], {}, readRetro);
+  const { start } = opened([WITH_CHECK], [], {}, readRetro);
   const one = card(/blamed the Drone/);
   await one.getByRole("button", { name: "Evidence" }).click();
   await expect.element(one.getByRole("button", { name: "Evidence" })).toHaveAttribute("data-pending", "true");
-  await one.getByRole("button", { name: "Create Job", exact: true }).click();
-  expect(agree).toHaveBeenCalled();
+  await one.getByRole("button", { name: "Start Session", exact: true }).click();
+  expect(start).toHaveBeenCalled();
   release({ ok: true, retro: HELD });
   await expect.element(one.getByText("armada.yml changed")).toBeVisible();
 });

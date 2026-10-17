@@ -12,7 +12,6 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use checks_runner::{Served, Writing};
-use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{Event, ServerPhase, ServerState};
 use tokio::sync::watch;
 use verification::{Exit, NeverRan};
@@ -103,7 +102,6 @@ where
             state.ended = Some(ended);
             state.stopped = end.stopped;
         });
-        self.noted_server(&state);
         self.publish(Event::ServerExited(state.clone()));
         // **Before the final state is sent**, so a Studio holding this server
         // has kept what it said by the time anything waiting on `Exited`
@@ -233,34 +231,6 @@ where
             state.serving_since = Some(since);
             self.publish(Event::ServerServing(state.clone()));
         });
-    }
-
-    /// Write a Job's server's end into the Job's own log. **Fields, never an
-    /// interpolated message**, for `crate::asked_run`'s reason. A server with no
-    /// Job has no log of that kind to go in.
-    fn noted_server(&self, state: &ServerState) {
-        let Some(job) = state.job_id.as_ref().map(|id| id.to_domain()) else {
-            return;
-        };
-        let level = match state.stopped {
-            true => Level::Info,
-            false => Level::Warn,
-        };
-        let mut envelope = Envelope::new(
-            self.now(),
-            level,
-            Component::Fleet,
-            self.run().clone(),
-            "a server Fleet held for the Job ended",
-        )
-        .in_job(job.as_ulid().clone())
-        .with_field("name", FieldValue::Str(state.name.clone()))
-        .with_field("server", FieldValue::Str(state.id.clone()))
-        .with_field("stopped", FieldValue::Bool(state.stopped));
-        if let Some(code) = state.exit_code {
-            envelope = envelope.with_field("exit_code", FieldValue::Int(i64::from(code)));
-        }
-        self.noted_in_the_log(&job, &envelope);
     }
 }
 

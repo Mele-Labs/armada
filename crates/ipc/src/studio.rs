@@ -15,7 +15,7 @@ use crate::capturing::{CaptureFrame, StudioCapture};
 use crate::enums::{
     StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeState, StudioRelation,
 };
-use crate::ids::{Instant, JobId, ManifestId, StudioEdgeId, StudioId, StudioNodeId};
+use crate::ids::{Instant, ManifestId, StudioEdgeId, StudioId, StudioNodeId};
 use crate::rehearsal::CheckoutRunUnderway;
 use crate::scouting::{ScoutCheckout, ScoutEnded, ScoutSource};
 use crate::servers::ServerState;
@@ -240,9 +240,6 @@ pub enum StudioNodeContent {
     IssueDraft {
         title: String,
         body: String,
-    },
-    Job {
-        job_id: JobId,
     },
 }
 
@@ -631,20 +628,6 @@ pub enum ContradictionSettled {
     ResolvedHere { answer: String },
 }
 
-/// `dispatch_studio_draft`: an Issue draft's text, through the Job proposer, to
-/// the ordinary dispatch gate.
-///
-/// **No field carries a workflow and none carries an issue.** The draft's text
-/// is the whole request, exactly as `propose_from_request` carries one, and
-/// every Job it becomes stands at `awaiting_approval` like any other.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DispatchStudioDraft {
-    pub node_id: StudioNodeId,
-    /// Where the first Job node is placed. A split's later Jobs are placed
-    /// below it, so a person sees all of them without moving anything.
-    pub position: StudioPosition,
-}
-
 /// `decide_studio_edge`: accept a proposed edge, or reject it, which removes it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecideStudioEdge {
@@ -923,9 +906,6 @@ impl From<&core_model::StudioNodeContent> for StudioNodeContent {
             C::Deferral { what } => StudioNodeContent::Deferral { what },
             C::Outline { body } => StudioNodeContent::Outline { body },
             C::IssueDraft { title, body } => StudioNodeContent::IssueDraft { title, body },
-            C::Job { job_id } => StudioNodeContent::Job {
-                job_id: JobId::from(&job_id),
-            },
         }
     }
 }
@@ -1055,9 +1035,6 @@ impl StudioNodeContent {
             StudioNodeContent::Deferral { what } => C::Deferral { what },
             StudioNodeContent::Outline { body } => C::Outline { body },
             StudioNodeContent::IssueDraft { title, body } => C::IssueDraft { title, body },
-            StudioNodeContent::Job { job_id } => C::Job {
-                job_id: job_id.to_domain(),
-            },
         }
     }
 }

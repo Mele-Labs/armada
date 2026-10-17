@@ -1,4 +1,4 @@
-// The Cockpit's merge line with two repositories served, each with open pull requests. On All it is dimmed until a Job, a
+// The Cockpit's merge line with two repositories served, each with open pull requests. On All it is dimmed until a
 // Session or a pull request is open, and then draws that one's repository; one repository picked draws its own. The walk
 // `merge-line-by-repository` plays it, over the `cockpit-list-by-repository` Sessions.
 
@@ -21,6 +21,6 @@ const lines: MergeLine[] = [
 export const s246MergeLineByRepository: Scenario = {
   ...s245CockpitListByRepository,
   name: "merge-line-by-repository",
-  says: "The Cockpit's merge line over two served repositories: dimmed on All with nothing open, then the open Job's or Session's own, then one picked",
+  says: "The Cockpit's merge line over two served repositories: dimmed on All with nothing open, then the open Session's own, then one picked",
   state: { ...s245CockpitListByRepository.state, mergeLines: { lines } },
 };

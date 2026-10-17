@@ -2183,10 +2183,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 name = "verification"
 version = "0.0.0"
 dependencies = [
- "adapter-traits",
- "config",
  "core-model",
- "testkit",
 ]
 
 [[package]]

@@ -21,7 +21,7 @@ impl Pool {
         if record.holder.said() != from {
             return Err(ParkRefused::HeldByAnother(record.holder.said()));
         }
-        record.holder = Holder::job(to);
+        record.holder = Holder::hosted(to);
         // A Job's record names no session: the holder already does.
         record.session = None;
         record.write(&path).map_err(ParkRefused::Vcs)?;

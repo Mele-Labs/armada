@@ -26,13 +26,11 @@
 import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  DockQuestions,
   isPressed,
   keyFor,
   TheShell,
   useAccount,
   useKeyBindings,
-  type DockQuestion,
   type FleetPanelProps,
   type TheShellProps,
 } from "@armada/components";
@@ -88,14 +86,11 @@ export type ShellProps = {
   repository?: TheShellProps["repository"];
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
-  /** Every question waiting on a person, from every repository, as the dock's cards. Oldest first. */
-  questions?: readonly DockQuestion[];
   /**
-   * How many Helm asks are waiting inside `helm` rather than in the block
-   * above it — #1519. The folded strip's count is every question waiting on a
-   * person, and an ask drawn down in the conversation is still one of them;
-   * without this the strip would say nothing was waiting while a reply sat
-   * held open.
+   * How many Helm asks are waiting inside `helm` — #1519. The folded strip's
+   * count is every question waiting on a person, and an ask drawn down in the
+   * conversation is still one of them; without this the strip would say nothing
+   * was waiting while a reply sat held open.
    */
   asking?: number;
   /** Helm's own conversation, under the questions — #944. Bridge builds it; the dock only mounts it. */
@@ -127,7 +122,6 @@ export function Shell({
   wordmark,
   repository,
   onSurface,
-  questions = [],
   asking = 0,
   helm,
   helmAction,
@@ -166,17 +160,12 @@ export function Shell({
         // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
         folded: narrow,
         binding: keyFor("helm"),
-        questions: questions.length + asking,
+        questions: asking,
         width: dockWidth,
         onResize: resizeDock,
         action: helmAction,
         children: (
           <>
-            {/* A Drone's question and a Judge's belong to a Job and have no
-                conversation to sit in, so the dock is the only surface they
-                have. A Helm ask has one, and is drawn at the end of it
-                instead — #1519. `asking` is how it still reaches the count. */}
-            {questions.length === 0 ? null : <DockQuestions questions={questions} />}
             {helm}
           </>
         ),

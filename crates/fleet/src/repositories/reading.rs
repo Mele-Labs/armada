@@ -31,11 +31,12 @@ pub(crate) struct Candidate {
     /// The Manifest id and the root directory's name, the words that mean it.
     pub names: Vec<String>,
     pub remote: Option<ForgeAddress>,
-    pub jobs: usize,
+    /// How many Sessions the repository has had, which breaks a tie.
+    pub sessions: usize,
 }
 
 impl Candidate {
-    pub(crate) fn of(manifest: &str, root: &str, jobs: usize) -> Candidate {
+    pub(crate) fn of(manifest: &str, root: &str, sessions: usize) -> Candidate {
         let root = PathBuf::from(root);
         let mut names = vec![manifest.to_string()];
         if let Some(directory) = root.file_name().and_then(|name| name.to_str()) {
@@ -48,7 +49,7 @@ impl Candidate {
             root,
             names,
             remote: None,
-            jobs,
+            sessions,
         }
     }
 }
@@ -91,7 +92,7 @@ pub(crate) fn read(words: &str, candidates: &[Candidate]) -> RequestRepository {
             std::cmp::Reverse(hits.linked[at]),
             std::cmp::Reverse(hits.named[at]),
             std::cmp::Reverse(hits.pathed[at]),
-            std::cmp::Reverse(candidates[at].jobs),
+            std::cmp::Reverse(candidates[at].sessions),
         )
     });
     RequestRepository {
@@ -207,17 +208,25 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `read_request_repository`: every served repository with a Manifest is a
-    /// candidate, since only those can take a Job.
+    /// candidate, since only those can take a Session.
     pub(crate) async fn request_repository(&self, words: String) -> RequestRepository {
-        let mut candidates: Vec<Candidate> = self
-            .repositories()
-            .served()
-            .iter()
-            .map(|one| {
-                let id = one.manifest().id().as_str();
-                Candidate::of(id, one.root(), self.names().owned_by(id).len())
-            })
-            .collect();
+        let mut candidates: Vec<Candidate> = {
+            let store = self.store().lock().await;
+            self.repositories()
+                .served()
+                .iter()
+                .map(|one| {
+                    let id = one.manifest().id().as_str();
+                    let sessions = store
+                        .find_sessions(&store::SessionSearch {
+                            manifest_id: Some(id),
+                            ..Default::default()
+                        })
+                        .map_or(0, |found| found.len());
+                    Candidate::of(id, one.root(), sessions)
+                })
+                .collect()
+        };
         tokio::task::spawn_blocking(move || {
             for one in &mut candidates {
                 one.remote = adapters::remote_of(&one.root);

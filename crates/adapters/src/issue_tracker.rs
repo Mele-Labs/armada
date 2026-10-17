@@ -1,15 +1,14 @@
-//! The tracker Fleet reads issues from and writes back on, for the one forge
-//! this workspace already assumes elsewhere. #91, `docs/concepts/tracker.md`.
+//! The tracker Fleet reads issues from, for the one forge this workspace
+//! already assumes elsewhere. #91, `docs/concepts/tracker.md`.
 //!
-//! **No parse**, `crate::main_ci`'s way: `--jq` reduces the listing to `@tsv`,
-//! and a write's only answer is whether it worked.
+//! **No parse**, `crate::main_ci`'s way: `--jq` reduces the listing to `@tsv`.
+//! **Nothing here writes.**
 
-use std::process::{Command, Output};
+use std::process::Output;
 
-use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, NotTracked, OpenIssue, ReadIssue, Tracker};
 
 use crate::delivery::{said, FORGE};
-use crate::issue_lookup::issue_reference;
 use crate::under_review::as_written;
 
 /// How many open issues one listing reads. A backlog past this is read newest
@@ -33,10 +32,6 @@ const READ_ISSUE: &str = "[(.number | tostring), (.title // \"\"), (.url // \"\"
 /// The field that says a pull request closes it. Newer than the rest of the
 /// listing, so a CLI that does not know it is asked again without it.
 const CLOSED_BY: &str = "closedByPullRequestsReferences";
-
-/// Made on first use, so a repository needs no setup before a Job writes back.
-const LABEL_COLOUR: &str = "ededed";
-const LABEL_SAYS: &str = "Set by Armada while a Job works this issue";
 
 pub struct IssueTracker;
 
@@ -89,73 +84,6 @@ impl Tracker for IssueTracker {
             .find_map(read_issue_of_line))
     }
 
-    fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
-        let doing = "commenting on the issue";
-        let url = addressed(issue, doing)?;
-        done(
-            forge(&["issue", "comment", url, "--body", text]),
-            doing,
-        )
-    }
-
-    fn relabel(
-        &self,
-        issue: &IssueAddress,
-        add: &[&str],
-        remove: &[&str],
-    ) -> Result<(), NotTracked> {
-        let doing = "moving the issue's labels";
-        let url = addressed(issue, doing)?;
-        let mut args = vec!["issue", "edit", url];
-        for label in add {
-            args.extend(["--add-label", label]);
-        }
-        for label in remove {
-            args.extend(["--remove-label", label]);
-        }
-        if args.len() == 3 {
-            return Ok(());
-        }
-        let first = forge(&args).map_err(|why| NotTracked::of(doing, why.to_string()))?;
-        if first.status.success() {
-            return Ok(());
-        }
-        // The usual first refusal: the repository has never had the label.
-        // Made here and asked once more; a second refusal is the answer.
-        let (owner, repo, _) = issue_reference(url).ok_or_else(|| NotTracked::of(doing, said(&first)))?;
-        let repository = format!("{owner}/{repo}");
-        for label in add {
-            let _ = forge(&[
-                "label",
-                "create",
-                label,
-                "--repo",
-                &repository,
-                "--color",
-                LABEL_COLOUR,
-                "--description",
-                LABEL_SAYS,
-            ]);
-        }
-        done(forge(&args), doing)
-    }
-
-    fn closing_line(&self, issue: &IssueAddress) -> Option<String> {
-        let (owner, repo, number) = issue_reference(issue.url())?;
-        Some(format!("Closes {owner}/{repo}#{number}"))
-    }
-}
-
-/// The issue's canonical address, refused where it is not one this forge
-/// names — so nothing that is not an issue's address reaches the CLI.
-fn addressed<'a>(issue: &'a IssueAddress, doing: &'static str) -> Result<&'a str, NotTracked> {
-    match issue_reference(issue.url()) {
-        Some(_) if !issue.url().starts_with('-') => Ok(issue.url()),
-        _ => Err(NotTracked::of(
-            doing,
-            format!("`{}` is not an issue's address", issue.url()),
-        )),
-    }
 }
 
 fn listed(in_repo: &str, with_links: bool) -> Result<Output, std::io::Error> {
@@ -176,22 +104,6 @@ fn listed(in_repo: &str, with_links: bool) -> Result<Output, std::io::Error> {
         .current_dir(in_repo)
         .env("GIT_TERMINAL_PROMPT", "0")
         .output()
-}
-
-/// A write by address: no repository directory is needed, so none is named.
-fn forge(args: &[&str]) -> Result<Output, std::io::Error> {
-    Command::new(FORGE)
-        .args(args)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
-}
-
-fn done(run: Result<Output, std::io::Error>, doing: &'static str) -> Result<(), NotTracked> {
-    let run = run.map_err(|why| NotTracked::of(doing, why.to_string()))?;
-    match run.status.success() {
-        true => Ok(()),
-        false => Err(NotTracked::of(doing, said(&run))),
-    }
 }
 
 /// One `@tsv` line of [`OPEN_ISSUES`]. A line with no number is not an issue.
@@ -307,21 +219,4 @@ mod tests {
         assert_eq!(issue_of_line(""), None);
     }
 
-    #[test]
-    fn the_closing_line_names_the_repository_so_it_closes_across_repositories() {
-        let issue = IssueAddress::at("r#9", "https://github.com/o/r/issues/9");
-        assert_eq!(
-            IssueTracker.closing_line(&issue).as_deref(),
-            Some("Closes o/r#9")
-        );
-        let not = IssueAddress::at("r#9", "https://example.com/elsewhere");
-        assert_eq!(IssueTracker.closing_line(&not), None);
-    }
-
-    #[test]
-    fn a_write_to_something_that_is_not_an_issue_is_refused_before_the_cli() {
-        let not = IssueAddress::at("x", "--repo=evil");
-        let refused = IssueTracker.comment(&not, "hello").expect_err("refused");
-        assert!(refused.said.contains("is not an issue's address"));
-    }
 }

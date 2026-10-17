@@ -1,60 +1,39 @@
 // Main going red on CI, three times, one moment at a time: what the owner sees and does. The hub's
-// head, its pull requests and the Job on the red are what Fleet serves as the line's `hub`, and a
-// Job's part in the red rides on its row as `fixes_main` (23.41, 23.42). The Jobs the work can go
-// back to are read off the Board's rows. `main-goes-red.ts` walks it.
+// head and its pull requests are what Fleet serves as the line's `hub`. `main-goes-red.ts` walks it.
 //
-//   1  The Job's own pull request merges and main goes red. That Job was watching its landing, so it
-//      takes the red itself and nobody is asked.
-//   2  A person merges a Job's pull request by hand, so nothing was watching it. The owner is asked,
-//      and sends the work back to that Job, listed first among the recent ones.
-//   3  A person's own pull request turns it red. The owner is asked and dispatches a new Job.
+//   1  A pull request merges and main goes red. Nobody holds it, and the owner is asked.
+//   2  A person merges a pull request by hand and main goes red. The owner is asked.
+//   3  A person's own pull request turns it red. The owner is asked and dispatches a new Session.
 //
-// Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
+// Each ends with the fix landing: main green.
 
 import type { HubPull, HubSession, MainRed, MainState } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { FixingElsewhere, FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
-import type { FixesMain } from "@armada/screens/src/main-red";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { completedSuccess, queued, review, running } from "@armada/screens/src/fixtures/build/index";
+import type { FixingElsewhere, FollowedLandLog, HubMerged, HubPullRequest, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
-import { asRow } from "./holding";
 import type { FleetHandle } from "./moment";
 
 const PULL = "https://git.example/armada/pull/";
 
-/** The Jobs on the Board, by the number each is drawn under. */
-export const CACHE = asRow(running(), 60, "cache", "Cache the manifest read between dispatches");
-export const DEBOUNCE = asRow(running(), 61, "debounce", "Debounce the Job Board's resize handler");
-const NOTIFY = asRow(completedSuccess(), 62, "notify", "Fold the two notification routes into one");
-const ZONE = asRow(review(), 63, "zone", "Name the zone a read-in lands in");
-const PAUSE = asRow(queued(), 64, "pause", "Store a pause marker on the Job");
-/** Dispatched by the owner in the third incident, so it is on no Board until then. */
-export const FIX = asRow(running(), 65, "fix-main", "Fix components_test on main");
-
-/** Every Job the story holds, for the scenario's reads. */
-export const FIXTURES: JobFixture[] = [CACHE, DEBOUNCE, NOTIFY, ZONE, PAUSE, FIX];
-
-const branchOf = (one: JobFixture) => `armada/${one.job.handle}`;
-
-/** A Job's row at a moment: its status, and its part in main's red where it has one. */
-function rowOf(one: JobFixture, status: string, fixes?: FixesMain): JobSummary {
-  const job = { ...one.job, status, branch: branchOf(one), ...(fixes === undefined ? {} : { fixes_main: fixes }) };
-  return job as JobSummary;
-}
+/** The branches of the pull requests in the story. */
+const CACHE = "armada/cache";
+const DEBOUNCE = "armada/debounce";
+const NOTIFY = "armada/notify";
+const ZONE = "armada/zone";
+const FIX = "armada/fix-main";
 
 /** The three reds: what failed, its test, and the pull request that merged it. */
 const FIRST: MainRed = {
   check: "screens_test",
   test: "manifest-read.test.ts > reads the file again once it changes",
-  merge: { number: 1812, url: `${PULL}1812`, branch: branchOf(CACHE) },
+  merge: { number: 1812, url: `${PULL}1812`, branch: CACHE },
 };
 const SECOND: MainRed = {
   check: "desktop_test",
   test: "resources-poll.test.ts > a reading that stops polls nothing",
-  merge: { number: 1816, url: `${PULL}1816`, branch: branchOf(DEBOUNCE) },
+  merge: { number: 1816, url: `${PULL}1816`, branch: DEBOUNCE },
 };
 const THIRD: MainRed = {
   check: "components_test",
@@ -69,14 +48,6 @@ const FOURTH: MainRed = {
   merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal" },
 };
 
-const fixing = (red: MainRed): FixesMain => ({
-  state: "fixing",
-  check: red.check,
-  ...(red.test === undefined ? {} : { test: red.test }),
-  merge: red.merge!.number,
-});
-const fixed = (red: MainRed, in_: number): FixesMain => ({ ...fixing(red), state: "fixed", fixed_in: in_ });
-
 const pull = (number: number, branch: string, ci: HubPull["ci"]): HubPull => ({
   number,
   url: `${PULL}${number}`,
@@ -88,117 +59,61 @@ type Moment = {
   main: MainState;
   /** The pull requests open now, by how each one's `ci` stands. */
   pulls: HubPull[];
-  jobs: JobSummary[];
 };
 
-/** The Jobs that are not part of the story, and the pull request of each. */
-const BYSTANDING = (zone: HubPull["ci"], pause: HubPull["ci"]): { pulls: HubPull[]; jobs: JobSummary[] } => ({
+/** The pull requests that are not part of the story. */
+const BYSTANDING = (zone: HubPull["ci"], pause: HubPull["ci"]): { pulls: HubPull[] } => ({
   pulls: [pull(1814, "studio/zone-proposal", zone), pull(1819, "fleet/pause-markers", pause)],
-  jobs: [rowOf(NOTIFY, "completed_success"), rowOf(ZONE, "awaiting_review"), rowOf(PAUSE, "queued")],
 });
 
 const PERSON = pull(1815, "nick/theme-tokens", "passed");
 
 /** Each moment of the story. The first is what a window opens on. */
 const MOMENTS: Moment[] = [
-  // 0  Green, with the Job's pull request about to merge.
+  // 0  Green, with two pull requests about to merge.
   {
     main: { state: "green" },
-    pulls: [
-      pull(1812, branchOf(CACHE), "passed"),
-      pull(1816, branchOf(DEBOUNCE), "passed"),
-      PERSON,
-      ...BYSTANDING("passed", "running").pulls,
-    ],
-    jobs: [rowOf(CACHE, "awaiting_review"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "running").jobs],
+    pulls: [pull(1812, CACHE, "passed"), pull(1816, DEBOUNCE, "passed"), PERSON, ...BYSTANDING("passed", "running").pulls],
   },
-  // 1  #1812 merged and main is red. The Job that merged it was watching, so it has the red already.
+  // 1  #1812 merged and main is red.
   {
     main: { state: "red", red: FIRST },
-    pulls: [
-      pull(1816, branchOf(DEBOUNCE), "waiting_on_main"),
-      { ...PERSON, ci: "waiting_on_main" },
-      ...BYSTANDING("waiting_on_main", "failed").pulls,
-    ],
-    jobs: [rowOf(CACHE, "running", fixing(FIRST)), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("waiting_on_main", "failed").jobs],
+    pulls: [pull(1816, DEBOUNCE, "waiting_on_main"), { ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
   },
-  // 2  Its fix landed in #1821: green, and the Job says it fixed it.
+  // 2  Its fix landed in #1821: green.
   {
     main: { state: "green" },
-    pulls: [pull(1816, branchOf(DEBOUNCE), "passed"), PERSON, ...BYSTANDING("passed", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
+    pulls: [pull(1816, DEBOUNCE, "passed"), PERSON, ...BYSTANDING("passed", "failed").pulls],
   },
-  // 3  A person merged the Job's pull request on the forge, so nothing was watching it.
+  // 3  A person merged #1816 on the forge, and main is red.
   {
     main: { state: "red", red: SECOND },
     pulls: [{ ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success"), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
-  // 4  The owner sent the work back to it, and it is running.
-  {
-    main: { state: "red", red: SECOND },
-    pulls: [{ ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "running", fixing(SECOND)), ...BYSTANDING("waiting_on_main", "failed").jobs],
-  },
-  // 5  #1822 landed.
+  // 4  #1822 landed.
   {
     main: { state: "green" },
     pulls: [PERSON, ...BYSTANDING("passed", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)), ...BYSTANDING("passed", "failed").jobs],
   },
-  // 6  A person's own pull request turned it red.
+  // 5  A person's own pull request turned it red.
   {
     main: { state: "red", red: THIRD },
     pulls: BYSTANDING("waiting_on_main", "failed").pulls,
-    jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
-  // 7  The owner dispatched a new Job, and it is running.
-  {
-    main: { state: "red", red: THIRD },
-    pulls: BYSTANDING("waiting_on_main", "failed").pulls,
-    jobs: [
-      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
-      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
-      rowOf(FIX, "running", fixing(THIRD)),
-      ...BYSTANDING("waiting_on_main", "failed").jobs,
-    ],
-  },
-  // 8  #1823 landed.
+  // 6  #1823 landed.
   {
     main: { state: "green" },
     pulls: BYSTANDING("passed", "failed").pulls,
-    jobs: [
-      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
-      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
-      rowOf(FIX, "completed_success", fixed(THIRD, 1823)),
-      ...BYSTANDING("passed", "failed").jobs,
-    ],
   },
-  // 9  The Job behind #1814 merged it and was watching. Its CI job maps to no Check, and no test could be read.
+  // 7  #1814 merged. Its CI job maps to no Check, and no test could be read.
   {
     main: { state: "red", red: FOURTH },
     pulls: [pull(1819, "fleet/pause-markers", "failed")],
-    jobs: [
-      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
-      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
-      rowOf(FIX, "completed_success", fixed(THIRD, 1823)),
-      rowOf(ZONE, "running", fixing(FOURTH)),
-      rowOf(NOTIFY, "completed_success"),
-      rowOf(PAUSE, "queued"),
-    ],
   },
-  // 10  #1824 landed.
+  // 8  #1824 landed.
   {
     main: { state: "green" },
     pulls: [pull(1819, "fleet/pause-markers", "failed")],
-    jobs: [
-      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
-      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
-      rowOf(FIX, "completed_success", fixed(THIRD, 1823)),
-      rowOf(ZONE, "completed_success", fixed(FOURTH, 1824)),
-      rowOf(NOTIFY, "completed_success"),
-      rowOf(PAUSE, "queued"),
-    ],
   },
 ];
 
@@ -284,26 +199,26 @@ function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, 
 /** What merged before the story and during it, in the order the moments land it. */
 const LANDINGS: Landing[] = [
   { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
-  { at: 0, number: 1803, branch: branchOf(NOTIFY), run: "passed" },
+  { at: 0, number: 1803, branch: NOTIFY, run: "passed" },
   { at: 0, number: 1808, branch: "fleet/pause-markers-read", run: "passed" },
-  { at: 1, number: 1812, branch: branchOf(CACHE), run: "failed", failed: "screens_test" },
-  { at: 2, number: 1821, branch: `${branchOf(CACHE)}-fix`, run: "passed" },
-  { at: 3, number: 1816, branch: branchOf(DEBOUNCE), run: "failed", failed: "desktop_test" },
-  { at: 5, number: 1822, branch: `${branchOf(DEBOUNCE)}-fix`, run: "passed" },
-  { at: 6, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
-  { at: 8, number: 1823, branch: branchOf(FIX), run: "passed" },
-  { at: 9, number: 1814, branch: "studio/zone-proposal", run: "failed", failed: "test-all" },
-  { at: 10, number: 1824, branch: `${branchOf(ZONE)}-fix`, run: "passed" },
+  { at: 1, number: 1812, branch: CACHE, run: "failed", failed: "screens_test" },
+  { at: 2, number: 1821, branch: `${CACHE}-fix`, run: "passed" },
+  { at: 3, number: 1816, branch: DEBOUNCE, run: "failed", failed: "desktop_test" },
+  { at: 4, number: 1822, branch: `${DEBOUNCE}-fix`, run: "passed" },
+  { at: 5, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
+  { at: 6, number: 1823, branch: FIX, run: "passed" },
+  { at: 7, number: 1814, branch: "studio/zone-proposal", run: "failed", failed: "test-all" },
+  { at: 8, number: 1824, branch: `${ZONE}-fix`, run: "passed" },
 ];
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */
 export function mainRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n), jobs: MOMENTS[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n) });
   return { first: at(0), later: MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
-// A Session's pull request turned main red. Fleet names the Session that owns the pull request, and
-// the send-back dialog lists Sessions beside Jobs. `main-red-session` walks it.
+// A Session's pull request turned main red. Fleet names the Session that owns the pull request.
+// `main-red-session` walks it.
 //
 //   0  The Session's pull request is open and green.
 //   1  It merged and main is red: the head names the Session, and the owner is asked.
@@ -322,7 +237,7 @@ const SESSION_RED: MainRed = {
 const longPull = (ci: HubPull["ci"]): HubPull => ({
   number: 2158,
   url: `${PULL}2158`,
-  branch: "armada/14-wire-the-cockpit-s-job-detail-panel-and-job-board",
+  branch: "armada/14-wire-the-cockpit-s-session-panel-and-session-view",
   ci,
 });
 
@@ -330,17 +245,14 @@ const SESSION_MOMENTS: Moment[] = [
   {
     main: { state: "green" },
     pulls: [pull(1830, SESSION_BRANCH, "passed"), longPull("passed"), ...BYSTANDING("passed", "running").pulls],
-    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "running").jobs],
   },
   {
     main: { state: "red", red: SESSION_RED },
     pulls: [longPull("waiting_on_main"), ...BYSTANDING("waiting_on_main", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   {
     main: { state: "green" },
     pulls: [longPull("passed"), ...BYSTANDING("passed", "failed").pulls],
-    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
   },
 ];
 
@@ -387,38 +299,33 @@ export const SESSION_REGISTRY: Session[] = [
 
 /** Five landed before and during: the culprit Session's among them, then its fix at the top. */
 const SESSION_LANDINGS: Landing[] = [
-  { at: 0, number: 1820, branch: branchOf(NOTIFY), run: "passed" },
+  { at: 0, number: 1820, branch: NOTIFY, run: "passed" },
   { at: 0, number: 1824, branch: "nick/ports-cleanup", run: "passed" },
   { at: 0, number: 1826, branch: "armada/session-3d90b1a2", run: "passed" },
-  { at: 0, number: 1828, branch: branchOf(CACHE), run: "passed" },
+  { at: 0, number: 1828, branch: CACHE, run: "passed" },
   { at: 1, number: 1830, branch: SESSION_BRANCH, run: "failed", failed: "screens_test" },
   { at: 2, number: 1831, branch: `${SESSION_BRANCH}-fix`, run: "passed" },
 ];
 
 /** The same story told when a Session's pull request is the one that turned main red. */
 export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, SESSION_LANDINGS) });
   return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
 /** The red a Session holds, as a wake leaves it. */
 export function sessionFixing(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_FIXING_MOMENTS, SESSION_LANDINGS), jobs: SESSION_FIXING_MOMENTS[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_FIXING_MOMENTS, SESSION_LANDINGS) });
   return { first: at(0), later: SESSION_FIXING_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
 // Main red, and the claim on it held on another machine. A person's pull request turned it red, so no
-// Job of ours was watching it. `red-held-elsewhere` walks it.
+// Session of ours was watching it. `red-held-elsewhere` walks it.
 //
-//   0  Another machine's Job has the red, claimed 12 minutes ago.
+//   0  Another machine's Session has the red, claimed 12 minutes ago.
 //   1  The red is held by a Session on another machine, claimed 3 hours ago: stale.
-//   2  The owner took it over, and a Job here is working on it.
+//   2  The owner took it over, and a Session here is working on it.
 //   3  Its fix landed: main is green.
-//   4  Red again, nobody holds it. The store cannot be reached when the owner dispatches.
-//   5  The press went through on the second try, and a Job here is working on it.
-//   6  Its fix landed: main is green.
-//   7  Red again, nobody holds it in the hub. Another machine claimed it a moment ago, so a Dispatch is refused.
-//   8  The hub has read that claim.
 
 const MINUTE = 60_000;
 const claimed = (minutes: number): string => new Date(Date.now() - minutes * MINUTE).toISOString();
@@ -426,39 +333,25 @@ const claimed = (minutes: number): string => new Date(Date.now() - minutes * MIN
 /** The moments, with each claim's age counted from when the story is built. */
 function elsewhereMoments(): Moment[] {
   const stranded = BYSTANDING("waiting_on_main", "failed");
-  const working = [rowOf(FIX, "running", fixing(THIRD)), ...stranded.jobs];
-  const held = (elsewhere: FixingElsewhere): Moment => ({ main: { state: "red", red: THIRD, elsewhere }, pulls: stranded.pulls, jobs: stranded.jobs });
+  const held = (elsewhere: FixingElsewhere): Moment => ({ main: { state: "red", red: THIRD, elsewhere }, pulls: stranded.pulls });
   return [
     held({ machine: "work-mac-mini", holder: { kind: "session", id: "7be40d15" }, since: claimed(12) }),
     held({ machine: "nick-mbp", holder: { kind: "session", id: "9c74d82e" }, since: claimed(3 * 60) }),
-    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: working },
-    {
-      main: { state: "green" },
-      pulls: BYSTANDING("passed", "failed").pulls,
-      jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
-    },
-    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
-    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: working },
-    {
-      main: { state: "green" },
-      pulls: BYSTANDING("passed", "failed").pulls,
-      jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
-    },
-    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
-    held({ machine: "work-mac-mini", holder: { kind: "session", id: "c41e90a7" }, since: claimed(2) }),
+    { main: { state: "red", red: THIRD, takenBySession: SESSION }, pulls: stranded.pulls },
+    { main: { state: "green" }, pulls: BYSTANDING("passed", "failed").pulls },
   ];
 }
 
 const ELSEWHERE_LANDINGS: Landing[] = [
   { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
   { at: 0, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
-  { at: 3, number: 1823, branch: branchOf(FIX), run: "passed" },
+  { at: 3, number: 1823, branch: FIX, run: "passed" },
 ];
 
 /** The same red, claimed on another machine and then taken over. */
 export function redHeldElsewhere(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
   const moments = elsewhereMoments();
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, moments, ELSEWHERE_LANDINGS), jobs: moments[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, moments, ELSEWHERE_LANDINGS) });
   return { first: at(0), later: moments.slice(1).map((_, n) => at(n + 1)) };
 }
 

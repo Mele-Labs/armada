@@ -92,7 +92,6 @@ pub(super) struct FakeSlots {
     /// Holders whose process has ended, so a slot they hold may be parked
     /// for the session that stood in it.
     gone: Mutex<std::collections::BTreeSet<String>>,
-    completed: Mutex<Vec<(u32, String)>>,
     rescued: Mutex<Vec<(u32, SlotRescue)>>,
     /// The branch each Job's lease was cut on, so a park can name it.
     branch_of: Mutex<BTreeMap<String, String>>,
@@ -284,14 +283,6 @@ impl FakeSlots {
         })
     }
 
-    pub(super) fn open(&self, pool: &SlotPool, job: &str) -> bool {
-        self.with(pool, |slots| {
-            slots
-                .iter()
-                .any(|slot| slot.leasable() || slot.held_by.as_deref() == Some(job))
-        })
-    }
-
     pub(super) fn standing(&self, pool: &SlotPool, slot: u32, job: &str) -> SlotStanding {
         self.with(pool, |slots| match slots.get(slot as usize - 1) {
             None | Some(Slot { made: false, .. }) => SlotStanding::Gone,
@@ -357,7 +348,7 @@ impl FakeSlots {
                         slot: number,
                         path: slot_path(&root, number),
                         held: match (&slot.held_by, slot.made, &slot.stranded) {
-                            (Some(job), _, _) => SlotHeld::Job(job.clone()),
+                            (Some(job), _, _) => SlotHeld::Hosted(job.clone()),
                             (None, true, Some((work, _))) => SlotHeld::Stranded(format!(
                                 "{} uncommitted",
                                 work.uncommitted.len()
@@ -373,12 +364,6 @@ impl FakeSlots {
                         warm: false,
                         behind: None,
                         closed: slot.closed,
-                        kept: slot
-                            .held_by
-                            .as_ref()
-                            .and(slot.stranded.as_ref())
-                            .map(|(work, _)| format!("{} uncommitted", work.uncommitted.len())),
-                        completed: false,
                         last_session: slot.last_session.clone(),
                         work: None,
                     }
@@ -483,15 +468,6 @@ impl FakeSlots {
         });
     }
 
-    /// Leave slot `slot` at `root` held by a Job that ended, which could not
-    /// give it back because it holds `work`.
-    pub(super) fn keep(&self, root: &str, slot: u32, job: &str, work: StrandedWork, diff: &str) {
-        self.strand(root, slot, work, diff);
-        self.at(root, slot, |slots| {
-            slots[slot as usize - 1].held_by = Some(job.to_string());
-        });
-    }
-
     fn stranded_in(
         &self,
         pool: &SlotPool,
@@ -579,13 +555,6 @@ impl FakeSlots {
 
     pub(super) fn released(&self) -> Vec<(u32, String)> {
         self.released.lock().expect("not poisoned").clone()
-    }
-
-    pub(super) fn completed(&self, slot: u32, job: &str) {
-        self.completed
-            .lock()
-            .expect("not poisoned")
-            .push((slot, job.to_string()));
     }
 }
 
@@ -700,39 +669,9 @@ impl FakeVcs {
         self.slots.strand_after(root, slot, session, work, diff);
     }
 
-    /// Leave slot `slot` at `root` held by `job`, which ended and could not
-    /// give the slot back because of `work`.
-    pub fn keep_slot(&self, root: &str, slot: u32, job: &str, work: StrandedWork, diff: &str) {
-        self.slots.keep(root, slot, job, work, diff);
-    }
-
     /// Every stranded slot rescued, and how, in order.
     pub fn rescued_slots(&self) -> Vec<(u32, SlotRescue)> {
         self.slots.rescued.lock().expect("not poisoned").clone()
-    }
-
-    /// Every slot marked as held by a Job that completed, in order.
-    pub fn completed_slots(&self) -> Vec<(u32, String)> {
-        self.slots.completed.lock().expect("not poisoned").clone()
-    }
-
-    /// A lease of an existing branch: the same scripted refusals, and a branch
-    /// nobody made is the real pool's `NoSuchBranch`.
-    pub(super) fn leased_existing(
-        &self,
-        pool: &SlotPool,
-        branch: &str,
-        job_id: &str,
-    ) -> Result<SlotLeased, FakeVcsError> {
-        if let Some(standing_in_for) = self.refuse_next.lock().expect("not poisoned").take() {
-            return Err(FakeVcsError::Refused { standing_in_for });
-        }
-        if !self.branches.lock().expect("not poisoned").contains(branch) {
-            return Err(FakeVcsError::NoSuchRef {
-                r#ref: branch.to_string(),
-            });
-        }
-        Ok(self.slots.lease_existing(pool, branch, job_id))
     }
 
     /// A lease, refused the ways `create_worktree` scripts: a machine that will

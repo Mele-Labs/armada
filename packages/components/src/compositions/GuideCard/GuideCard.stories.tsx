@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { GUIDE_ALWAYS_LOOKS, GUIDE_COMPLETION, GUIDE_MEMBER_LINK } from "../../guides";
+import { GUIDE_DRONE, GUIDE_MERGE_LINE, GUIDE_PLAN } from "../../guides";
 import { GuideCard } from "./GuideCard";
 
 const meta: Meta<typeof GuideCard> = {
   title: "Compositions/Guide card",
   component: GuideCard,
-  args: { guide: GUIDE_COMPLETION, onClose: fn() },
+  args: { guide: GUIDE_MERGE_LINE, onClose: fn() },
 };
 export default meta;
 
@@ -18,12 +18,12 @@ export const Asked: Story = {};
 
 /** Ten steps rather than eight. The list is the part that gives. */
 export const Longer: Story = {
-  args: { guide: GUIDE_ALWAYS_LOOKS },
+  args: { guide: GUIDE_DRONE },
 };
 
 /** A guide that carries a drawing, in the narrowest layer it is drawn in. */
 export const WithAFigure: Story = {
-  args: { guide: GUIDE_MEMBER_LINK },
+  args: { guide: GUIDE_PLAN },
 };
 
 /**
@@ -43,7 +43,7 @@ export const TheFirstOneEver: Story = {
   args: { invited: false, off: false, onOff: fn(), onReadAll: fn() },
   play: async ({ args }) => {
     const card = within(document.body).getByRole("dialog", {
-      name: `Guide ${GUIDE_COMPLETION.number}, ${GUIDE_COMPLETION.title}`,
+      name: `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
     });
     const control = within(card).getByRole("switch", {
       name: /Open a guide the first time I meet a piece/,
@@ -68,7 +68,7 @@ export const EverySubsequentCard: Story = {
   args: { onReadAll: fn() },
   play: async () => {
     const card = within(document.body).getByRole("dialog", {
-      name: `Guide ${GUIDE_COMPLETION.number}, ${GUIDE_COMPLETION.title}`,
+      name: `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
     });
     await expect(within(card).queryByRole("switch")).toBeNull();
   },

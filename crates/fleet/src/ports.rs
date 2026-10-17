@@ -1,5 +1,4 @@
-//! A span of ports per Job, claimed at worktree cut and released when the Job
-//! ends. `docs/concepts/fleet.md`, *Ports*.
+//! A span of ports per checkout, claimed on first need. `docs/concepts/fleet.md`, *Ports*.
 //!
 //! **What this module owns, and what it hands off.** Sizing a claim from a
 //! Manifest's declared ports, probing a candidate before it is handed out, and
@@ -14,10 +13,6 @@
 //! [`PortRange::of`] takes every one of its three numbers so a caller cannot
 //! build a range with a granule of zero and a division by it later.
 //!
-//! **Over 500 lines.** The main checkout's own claim — sized, probed and
-//! released the same way a Job's is — reuses `try_claim` rather than being a
-//! second copy of it beside a different Rust type; keeping the two together is
-//! what makes that reuse visible.
 
 use std::collections::BTreeMap;
 use std::net::{TcpListener, TcpStream};
@@ -26,7 +21,7 @@ use std::time::Duration;
 use config::Manifest;
 use store::{PortClaim, PortClaimant};
 
-/// The range a Job's port span is claimed from, and the unit its width rounds
+/// The range a checkout's port span is claimed from, and the unit its width rounds
 /// up to. `settings.port-range-base`, `settings.port-range-ceiling` and
 /// `settings.port-block-granule` in `crates/config/settings.toml`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -123,7 +118,7 @@ fn platform_ceiling() -> Option<u16> {
 
 /// A claim's width, sized from how many ports a Manifest declares and rounded
 /// up to the granule. **Zero stays zero** — a repository that declares no
-/// `ports:` claims nothing, rather than a Job everywhere else paying for a
+/// `ports:` claims nothing, rather than everything else paying for a
 /// granule's worth of ports it never names.
 pub fn rounded_width(declared: usize, granule: u16) -> u16 {
     if declared == 0 || granule == 0 {
@@ -282,7 +277,7 @@ pub fn resolve_ports(text: &str, ports: &BTreeMap<String, u16>) -> String {
 pub enum PortsRefused {
     /// Two ports in one Manifest declare the same `env`. Refused at claim
     /// time rather than at load, per `docs/concepts/manifest.md`, *Ports*: the
-    /// check is a Job's whole Manifest set, and a config-load check scoped to
+    /// check is a whole Manifest set, and a config-load check scoped to
     /// one file cannot see across the set that matters.
     CollidingEnv { name: String },
     /// Every candidate span in the range was either occupied or failed the
@@ -292,7 +287,7 @@ pub enum PortsRefused {
     /// the kernel might also assign.
     RangeExhausted { width: u16 },
     /// The store would not say what is occupied. Nothing was spawned.
-    Database(store::LoadAllError),
+    Database(store::ReadError),
     /// The claim itself would not write. Nothing was spawned.
     Write(store::WriteError),
 }
@@ -384,8 +379,6 @@ pub fn port_map(manifest: &Manifest, claim: &PortClaim) -> BTreeMap<String, u16>
 }
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::Job;
-
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -400,11 +393,9 @@ where
 {
 
     /// Claim a span for `claimant`, sized from the Manifest's `ports:` and
-    /// rounded to the granule. **The one place a span is picked** — a Job's
-    /// own claim and the main checkout's both go through this, so the two
-    /// never overlap: both read [`Store::every_port_claim`] before probing a
-    /// candidate, and the main checkout's own row (once it has one) is in
-    /// that read exactly like a Job's.
+    /// rounded to the granule. **The one place a span is picked**, so two
+    /// checkouts' spans never overlap: it reads [`Store::every_port_claim`]
+    /// before probing a candidate.
     ///
     /// [`Store::every_port_claim`]: store::Store::every_port_claim
     pub(crate) async fn try_claim(
@@ -443,59 +434,6 @@ where
         Ok(())
     }
 
-    /// This Job's declared port names, resolved to the numbers its claim
-    /// holds. Empty where it declared none, or claimed none.
-    ///
-    /// **The names the Job froze** — `crate::snapshotting` — because a name's
-    /// number is its offset in the sorted list, so a `ports:` edit after the
-    /// Job was created would otherwise renumber a port a server is bound to.
-    pub(crate) async fn port_map(&self, job: &Job) -> BTreeMap<String, u16> {
-        let Ok((froze, _)) = self.effective_manifest(job).await else {
-            return BTreeMap::new();
-        };
-        let claim = self
-            .store()
-            .lock()
-            .await
-            .port_span_for_job(job.id())
-            .ok()
-            .flatten();
-        match claim {
-            Some(claim) => port_map(&froze, &claim),
-            None => BTreeMap::new(),
-        }
-    }
-
-    /// Every variable this Job's claimed span sets: `ARMADA_PORT_<NAME>` and
-    /// any declared `env`, for every process Fleet spawns in the worktree.
-    pub(crate) async fn port_env(&self, job: &Job) -> Vec<(String, String)> {
-        let Ok((froze, _)) = self.effective_manifest(job).await else {
-            return Vec::new();
-        };
-        let names = match env_names(&froze) {
-            Ok(names) => names,
-            // Already refused at claim time, which is upstream of every spawn
-            // — a Job that reached one holds a valid claim or none at all.
-            Err(_) => return Vec::new(),
-        };
-        let ports = self.port_map(job).await;
-        env_vars(&names, &ports)
-    }
-
-    /// Release this Job's port span, if it holds one. **Best-effort**, the
-    /// same reading [`crate::footprint::Fleet::kept_footprint`] gives a
-    /// terminal Job's footprint: the move has already landed, and a Job that
-    /// ended is over whether or not its span could be released cleanly. A
-    /// claim a release missed is still reachable — `forget_job` takes it with
-    /// the rest of the record.
-    pub(crate) async fn released_ports(&self, job: &Job) {
-        let _ = self
-            .store()
-            .lock()
-            .await
-            .release_port_span(&PortClaimant::Job(job.id().clone()));
-    }
-
     /// The main checkout's own claimed span, resolved to a name-to-port map.
     /// The checkout at the repository's root — [`checkout_ports`] is the
     /// general shape, and what a server started on another checkout uses.
@@ -510,8 +448,7 @@ where
 
     /// One checkout's own claimed span, resolved to a name-to-port map.
     /// **Claimed on first need, and reused after that** — the proof run after
-    /// a merge draws from this, and so does a server started with no Job,
-    /// since neither has a worktree of its own to claim against.
+    /// a merge draws from this, and so does a server started on a checkout.
     ///
     /// **A span per checkout and not per repository.** Two checkouts of one
     /// repository each declare its `ports:`, and one span between them is the
@@ -528,7 +465,7 @@ where
         // First need: nothing to escalate and nobody to tell if this
         // refuses, for `checkout_port_env`'s own reason — a proof run
         // with an unresolved `${port.NAME}` is diagnosable from its own log,
-        // and there is no Job here to carry a `not_configurable`.
+        // and there is nobody here to carry a `not_configurable`.
         let _ = self
             .try_claim(PortClaimant::Checkout(path.to_string()), served.manifest())
             .await;
@@ -540,7 +477,7 @@ where
 
     /// Every variable the main checkout's claimed span sets:
     /// `ARMADA_PORT_<NAME>` and any declared `env`, for the proof run after a
-    /// merge and for a server started with no Job.
+    /// merge and for a server started on it.
     pub(crate) async fn main_checkout_port_env(
         &self,
         served: &crate::repositories::Served,
@@ -573,15 +510,12 @@ where
 
     /// Release every checkout's span, the main one's and any worktree's a
     /// server was held on. **Called once, at Fleet shutdown, after teardown**
-    /// — `docs/concepts/fleet.md`, *Servers*: unlike a Job's span, a
-    /// checkout's is held for as long as Fleet runs rather than per run, so
-    /// nothing releases it between one proof run and the next.
+    /// — `docs/concepts/fleet.md`, *Servers*: a checkout's span is held for as
+    /// long as Fleet runs rather than per run, so nothing releases it between
+    /// one proof run and the next.
     ///
-    /// **`pub`, and not `pub(crate)`** — every other release in this module
-    /// happens from inside a Fleet method that already holds the Job whose
-    /// span it is releasing; there is no such method for the main checkout,
-    /// so the composition root calls this directly once the turn loop has
-    /// drained. See `armada::serve`.
+    /// **`pub`, and not `pub(crate)`**: the composition root calls this
+    /// directly once the turn loop has drained. See `armada::serve`.
     pub async fn released_checkout_ports(&self) {
         for claim in self.checkout_claims().await {
             let _ = self.store().lock().await.release_port_span(&claim.claimant);

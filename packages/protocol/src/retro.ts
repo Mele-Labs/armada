@@ -1,26 +1,23 @@
-// A Job's retro and the Lessons listing, mirrored by hand from
-// `crates/ipc/src/retro.rs`. Since 23.12. `docs/concepts/retro.md`.
+// A Session's retro and the Lessons listing, mirrored by hand from
+// `crates/ipc/src/retro.rs`. `docs/concepts/retro.md`.
 
 import type { Outcome } from "./reads";
 
-/**
- * Whom one retro item got in the way of. `agent` is a Session's agent, where
- * a Job's retro says `drone`. **Mock only until Fleet writes a Session's retro.**
- */
+/** Whom one retro item got in the way of. */
 export type Whose = "drone" | "agent" | "owner" | "fleet";
 
 /**
  * Where the fix for one retro item lands: Armada itself, the Kit a person
- * brings, or the repository the Job worked on. Since 23.15.
+ * brings, or the repository the Session worked on. Since 23.15.
  */
 export type LandsIn = "armada" | "kit" | "manifest";
 
-/** Where a Job's retro stands. */
+/** Where a Session's retro stands. */
 export type RetroState = "pending" | "written" | "failed" | "skipped";
 
 /**
  * Where a retro item stands with the person. Every item starts `open`.
- * `agreed` has a Job proposed for it, `accepted` is a Kit item kept as it is,
+ * `agreed` has a Session started for it, `accepted` is a Kit item kept as it is,
  * and `discarded` was disagreed with and stays in the store. Since 23.26.
  */
 export type LessonState = "open" | "agreed" | "accepted" | "discarded";
@@ -36,15 +33,13 @@ export type LessonState = "open" | "agreed" | "accepted" | "discarded";
  * `statement` repeats `what`.
  *
  * Since 23.27 an item carries where it stands with the person, as a `Lesson`
- * does: `state`, and `job_proposed`, the Job `agree_lesson` proposed for it, a
- * Job id. `state` is absent only on an item whose row has no answer record.
+ * does: `state`, which is absent only on an item whose row has no answer record.
  */
 export type RetroItem = {
   id: string;
   /** Where the item stands, as on `Lesson`. Absent on an item kept before it was written. */
   state?: LessonState;
-  job_proposed?: string;
-  /** The Session `start_lesson_session` started for it. At most one of this and `job_proposed`. Since 23.77. */
+  /** The Session `start_lesson_session` started for it. Since 23.77. */
   session_proposed?: string;
   who: Whose;
   title?: string;
@@ -69,55 +64,19 @@ export type RetroItem = {
  */
 export type RetroChange = { kind: "allow_command"; command: string };
 
-/** A tool call the Drone was refused, with what it tried. */
+/** A tool call the agent was refused, or one that errored, with what it tried. */
 export type RecordRefusal = {
   cite: string;
   at: string;
-  step?: string;
   tool: string;
   tried?: string;
   because?: string;
 };
 
-/**
- * A file a failed Check names, set against what the Drone did. A fact read off
- * the transcript and never a verdict: `false` says no tool call of the Drone's
- * names the file, and `true` says one does, which may be a read. Since 23.26.
- */
-export type RecordPath = {
-  path: string;
-  named_in_drone_calls: boolean;
-};
-
-/** A Check that did not pass: the gate's run, or the Drone's own. */
-export type RecordCheck = {
-  cite: string;
-  at?: string;
-  step?: string;
-  attempt?: number;
-  name: string;
-  run: "gate" | "drone";
-  expected?: string;
-  produced?: string;
-  /** Each file a gate failure names. Absent where it names none. Since 23.26. */
-  paths?: RecordPath[];
-};
-
-/** A Judge criterion that was not met. */
-export type RecordNotMet = {
-  cite: string;
-  step: string;
-  attempt: number;
-  criterion: string;
-  expected?: string;
-  produced?: string;
-};
-
-/** Something a Drone said, under the step it said it on. */
+/** Something an agent or a person said. */
 export type RecordSaid = {
   cite: string;
   at?: string;
-  step?: string;
   said: string;
 };
 
@@ -135,87 +94,54 @@ export type RecordAct = {
 export type RecordAsked = {
   cite: string;
   asked_at: string;
-  step?: string;
   about: string;
   answered_at?: string;
   answer?: string;
   waited_ms?: number;
 };
 
-/** A stretch at an `awaiting_*` status. */
-export type RecordWaited = {
-  cite: string;
-  status: string;
-  from: string;
-  until?: string;
-  ms?: number;
-};
-
-/** Everything on a Job's record a retro is read from. An empty list is left out. */
+/**
+ * Everything on a Session's record a retro is read from. An empty list is left out.
+ * Its gate denials are `refusals` and its resumes and reattaches are `restarts`.
+ */
 export type RetroRecord = {
   refusals?: RecordRefusal[];
-  failed_checks?: RecordCheck[];
-  not_met?: RecordNotMet[];
-  not_done?: RecordSaid[];
-  said_after?: RecordSaid[];
   restarts?: RecordAct[];
-  asked?: RecordAsked[];
-  waited?: RecordWaited[];
-  acts?: RecordAct[];
   notes?: RecordSaid[];
-  /**
-   * A Session's record, beside the Job's rows. **Mock only until Fleet writes a Session's
-   * retro.** Its asks, the owner's messages that redirect or reject, tool results that
-   * errored (`tried` is the call, `because` the error), and each subagent's own trouble.
-   * Its gate denials are `refusals` and its resumes and reattaches are `restarts`.
-   */
+  /** The agent's asks. */
   asks?: RecordAsked[];
+  /** The owner's messages that redirect or reject. */
   corrections?: RecordSaid[];
+  /** Tool results that errored: `tried` is the call, `because` the error. */
   failed_tools?: RecordRefusal[];
+  /** Each subagent's own trouble. */
   subagents?: RecordSaid[];
 };
 
-/** The Session a retro or an item was written for. Mock only until Fleet writes one. */
+/** The Session a retro or an item was written for. */
 export type RetroSession = { id: string; title?: string };
 
-/**
- * Whose retro a read asks for. A Job's is read on `/jobs/:id/retro`; a Session's on
- * `/sessions/:id/retro?n=`, where `n` names an older retro and absent is the newest.
- */
-export type RetroSubject = { kind: "job"; id: string } | { kind: "session"; id: string; n?: number };
+/** Whose retro a read asks for: a Session's, on `/sessions/:id/retro?n=`, where `n` names an older retro and absent is the newest. */
+export type RetroSubject = { kind: "session"; id: string; n?: number };
 
-/** A note the owner left in Bridge while the Job's detail was open. */
-export type LinkedAnnotation = {
-  id: string;
-  at: string;
-  text: string;
-  screen?: string;
-  selector?: string;
-};
-
-/** `get_job_retro`: `GET /jobs/:job_id/retro`. */
-export type JobRetro = {
-  job_id: string;
+/** `get_session_retro`: `GET /sessions/:session_id/retro?n=`. */
+export type Retro = {
+  session: RetroSession;
   state: RetroState;
   at?: string;
   model?: string;
   why?: string;
   items?: RetroItem[];
   record: RetroRecord;
-  /** Present on a Session's retro, whose `job_id` then holds the Session's id. */
-  session?: RetroSession;
-  annotations?: LinkedAnnotation[];
 };
 
 /**
- * One retro item, with the Job it came from. `id`, `title`, `what`, `fix` and
+ * One retro item, with the Session it came from. `id`, `title`, `what`, `fix` and
  * `lands_in` are as on `RetroItem`. `state` is every item's, `open` at the
- * start, and `job_proposed` is the Job `agree_lesson` proposed for it, a Job id.
- * Since 23.26.
+ * start. Since 23.26.
  */
 export type Lesson = {
   id: string;
-  job_id: string;
   handle: string;
   at: string;
   who: Whose;
@@ -226,11 +152,9 @@ export type Lesson = {
   evidence: string[];
   lands_in?: LandsIn;
   state: LessonState;
-  job_proposed?: string;
   /** As on `RetroItem`. Since 23.77. */
   session_proposed?: string;
-  /** Present on an item of a Session's retro, whose `job_id` then holds the Session's id. */
-  session?: RetroSession;
+  session: RetroSession;
   /** As on `RetroItem`. Since 23.35. */
   change?: RetroChange;
   /** As on `RetroItem`. Since 23.35. */
@@ -245,8 +169,8 @@ export type Lesson = {
  *
  * The two acts answer one `Lesson`, as it now stands: `POST
  * /lessons/:lesson_id/agree` and `POST /lessons/:lesson_id/disagree`, no body.
- * Agreeing an item whose fix lands in `armada` or `manifest` proposes a Job at
- * the approval gate and sets `job_proposed`, and one landing in `kit` becomes
+ * Agreeing an item whose fix lands in `armada` or `manifest` starts a Session
+ * and sets `session_proposed`, and one landing in `kit` becomes
  * `accepted`. An item that is not `open` answers with the state it stands in.
  */
 export type Lessons = {
@@ -254,12 +178,11 @@ export type Lessons = {
 };
 
 /**
- * What one Job's retro came back as. `BriefRead`'s shape: answered to the
- * caller rather than published, because nothing on `/events` says a retro
- * moved — a surface reads it when it opens and again when the window regains
- * focus.
+ * What one Session's retro came back as. Answered to the caller rather than
+ * published, because nothing on `/events` says a retro moved — a surface reads
+ * it when it opens and again when the window regains focus.
  */
-export type RetroRead = { ok: true; retro: JobRetro } | { ok: false; outcome: Outcome };
+export type RetroRead = { ok: true; retro: Retro } | { ok: false; outcome: Outcome };
 
 /** What the Lessons listing came back as. `RetroRead`'s shape and reasons. */
 export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome: Outcome };
@@ -267,7 +190,7 @@ export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome
 /**
  * What `POST /lessons/:id/agree` and `POST /lessons/:id/disagree` came back as:
  * the item as it now stands, or the refusal. Agreeing an Armada or Manifest
- * item proposes a Job at the approval gate (`agreed`, `job_proposed` set);
+ * item starts a Session (`agreed`, `session_proposed` set);
  * agreeing a Kit item saves it (`accepted`); disagreeing discards it.
  */
 export type LessonAnswer = { ok: true; lesson: Lesson } | { ok: false; outcome: Outcome };

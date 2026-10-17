@@ -57,6 +57,9 @@ Each ends with the questions it found and did not answer.
   queue and on `main`, how `armada covers` chooses, how foundations is read
   against `main`, the names a ruleset will require, what is not in CI, and what
   is owed at the cutover
+- [`practices/subagents.md`](practices/subagents.md) — which subagent type a
+  session dispatches, from which of three places, and on which model: the mod's
+  portable fleet and Armada's own
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see

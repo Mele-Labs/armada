@@ -1,67 +1,68 @@
 // What a retro and the Lessons listing are drawn from — `retro.ts`.
 import { describe, expect, it } from "vitest";
 
-import type { JobRetro, Lesson } from "@armada/protocol";
+import type { Lesson, Retro } from "@armada/protocol";
 
 import { absoluteOf } from "../duration";
 import {
-  agreeTipOf,
   DISAGREE_TIP,
-  agreeLabelOf,
   itemsOf,
+  kitAgreeOf,
   lessonRowsOf,
-  lessonsSourceNamed,
   lessonsTabNamed,
-  notesOf,
+  retroKeyOf,
   retroNumberOf,
   retroSubjectOf,
   statusOf,
-  underSource,
   underTab,
   type LessonsTab,
 } from "./retro";
 
 const AT = "2026-10-02T21:12:00.000Z";
+const SESSION = { id: "01K6Q3AB", title: "Retire two guides" };
 
-const RETRO: JobRetro = {
-  job_id: "01K6Q3JOB3",
+const RETRO: Retro = {
+  session: SESSION,
   state: "written",
   items: [
-    { id: "r", who: "fleet", statement: "The gate failed out_of_bounds.", evidence: ["check:1", "check:9"] },
-    { id: "r", who: "owner", statement: "Helm acted with curl.", evidence: ["act:2", "waited:1", "asked:1"] },
-    { id: "r", who: "drone", statement: "It never saw its test pass.", evidence: ["said:1", "refusal:1", "not_met:1"] },
+    { id: "r", who: "fleet", statement: "The gate failed out_of_bounds.", evidence: ["refusal:1", "refusal:9"] },
+    { id: "r", who: "owner", statement: "Helm acted with curl.", evidence: ["restart:2", "ask:1"] },
+    { id: "r", who: "drone", statement: "It never saw its test pass.", evidence: ["note:1", "tool:1", "correction:1"] },
   ],
   record: {
-    failed_checks: [
-      { cite: "check:1", at: AT, step: "implement", name: "out_of_bounds", run: "gate", produced: "armada.yml changed" },
-    ],
-    acts: [{ cite: "act:2", at: AT, actor: "helm", via: "http", moved: "restart_step" }],
-    waited: [{ cite: "waited:1", status: "awaiting_human", from: AT, ms: 1_140_000 }],
-    asked: [{ cite: "asked:1", asked_at: AT, about: "Allow pnpm exec vitest?", answer: "Allow" }],
-    said_after: [{ cite: "said:1", step: "implement", said: "I never saw screens_test pass." }],
     refusals: [{ cite: "refusal:1", at: AT, tool: "Edit", tried: "armada.yml", because: "out of bounds" }],
-    not_met: [
-      { cite: "not_met:1", step: "plan", attempt: 1, criterion: "addresses_the_request", produced: "T4 adds docs" },
-    ],
+    restarts: [{ cite: "restart:2", at: AT, actor: "helm", via: "http", moved: "restart" }],
+    asks: [{ cite: "ask:1", asked_at: AT, about: "Allow pnpm exec vitest?", answer: "Allow" }],
+    notes: [{ cite: "note:1", at: AT, said: "I never saw screens_test pass." }],
+    failed_tools: [{ cite: "tool:1", at: AT, tool: "Bash", tried: "find /", because: "not permitted" }],
+    corrections: [{ cite: "correction:1", said: "Stop." }],
   },
-  annotations: [{ id: "n1", at: AT, text: "Why twice?" }],
 };
+
+const lesson = (over: Partial<Lesson> & Pick<Lesson, "id" | "statement">): Lesson => ({
+  state: "open",
+  handle: "01K6Q3AB",
+  session: SESSION,
+  at: AT,
+  who: "owner",
+  evidence: [],
+  ...over,
+});
 
 describe("a retro's items", () => {
   it("resolve each cite to the record row it names, and leave out one the record does not hold", () => {
     const [fleet, owner, drone] = itemsOf(RETRO);
     expect(fleet?.cites).toEqual([
-      { id: "check:1", name: "out_of_bounds", mono: true, detail: "armada.yml changed", when: absoluteOf(AT) },
+      { id: "refusal:1", name: "Edit", mono: true, detail: "armada.yml · out of bounds", when: absoluteOf(AT) },
     ]);
     expect(owner?.cites).toEqual([
-      { id: "act:2", name: "restart_step", mono: true, detail: "helm via http", when: absoluteOf(AT) },
-      { id: "waited:1", name: "awaiting_human", mono: true, detail: "19m 00s", when: absoluteOf(AT) },
-      { id: "asked:1", name: "Allow pnpm exec vitest?", detail: "Allow", when: absoluteOf(AT) },
+      { id: "restart:2", name: "restart", mono: true, detail: "helm via http", when: absoluteOf(AT) },
+      { id: "ask:1", name: "Allow pnpm exec vitest?", detail: "Allow", when: absoluteOf(AT) },
     ]);
     expect(drone?.cites).toEqual([
-      { id: "said:1", name: "implement", mono: true, detail: "I never saw screens_test pass." },
-      { id: "refusal:1", name: "Edit", mono: true, detail: "armada.yml · out of bounds", when: absoluteOf(AT) },
-      { id: "not_met:1", name: "addresses_the_request", mono: true, detail: "T4 adds docs" },
+      { id: "note:1", name: "I never saw screens_test pass.", when: absoluteOf(AT) },
+      { id: "tool:1", name: "Bash", mono: true, detail: "find / · not permitted", when: absoluteOf(AT) },
+      { id: "correction:1", name: "Stop." },
     ]);
   });
 
@@ -70,7 +71,7 @@ describe("a retro's items", () => {
   });
 
   it("are none where nothing was written", () => {
-    expect(itemsOf({ job_id: "j", state: "pending", record: {} })).toEqual([]);
+    expect(itemsOf({ session: SESSION, state: "pending", record: {} })).toEqual([]);
   });
 });
 
@@ -80,45 +81,40 @@ describe("where a retro stands", () => {
   });
 
   it("names the other three in bare words, with Fleet's reason where it gave one", () => {
-    expect(statusOf({ job_id: "j", state: "pending", record: {} })).toBe("Not written yet");
-    expect(statusOf({ job_id: "j", state: "failed", why: "the call timed out", record: {} })).toBe(
+    expect(statusOf({ session: SESSION, state: "pending", record: {} })).toBe("Not written yet");
+    expect(statusOf({ session: SESSION, state: "failed", why: "the call timed out", record: {} })).toBe(
       "Not written: the call timed out",
     );
-    expect(statusOf({ job_id: "j", state: "skipped", why: "no Drone ran on it", record: {} })).toBe(
-      "Skipped: no Drone ran on it",
+    expect(statusOf({ session: SESSION, state: "skipped", why: "nothing happened", record: {} })).toBe(
+      "Skipped: nothing happened",
     );
-    expect(statusOf({ job_id: "j", state: "skipped", record: {} })).toBe("Skipped");
+    expect(statusOf({ session: SESSION, state: "skipped", record: {} })).toBe("Skipped");
   });
 });
 
-it("draws the owner's notes linked to a retro, oldest first as Fleet sends them", () => {
-  expect(notesOf(RETRO)).toEqual([{ id: "n1", text: "Why twice?", when: absoluteOf(AT) }]);
-  expect(notesOf({ job_id: "j", state: "pending", record: {} })).toEqual([]);
-});
-
-it("lists each retro item against its Job by number, with the handle on hover", () => {
+it("lists each retro item against its Session, with the id on hover", () => {
   const lessons: Lesson[] = [
-    { id: "l-a", state: "open", job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "fleet", statement: "A", evidence: [] },
-    { id: "l-b", state: "open", job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "drone", statement: "B", evidence: [] },
+    lesson({ id: "l-a", statement: "A", who: "fleet" }),
+    lesson({ id: "l-b", statement: "B", who: "drone" }),
   ];
   expect(lessonRowsOf(lessons)).toEqual([
     {
       id: "l-a",
-      jobId: "01K6Q3JOB3",
+      sessionId: "01K6Q3AB",
       who: "fleet",
       statement: "A",
-      job: "Job 3",
-      jobExact: "3-retire-two-guides",
+      session: "Retire two guides · s-01K6Q3AB",
+      sessionExact: "01K6Q3AB",
       when: absoluteOf(AT),
       whenExact: AT,
     },
     {
       id: "l-b",
-      jobId: "01K6Q3JOB3",
+      sessionId: "01K6Q3AB",
       who: "drone",
       statement: "B",
-      job: "Job 3",
-      jobExact: "3-retire-two-guides",
+      session: "Retire two guides · s-01K6Q3AB",
+      sessionExact: "01K6Q3AB",
       when: absoluteOf(AT),
       whenExact: AT,
     },
@@ -126,8 +122,8 @@ it("lists each retro item against its Job by number, with the handle on hover", 
 });
 
 describe("where a retro item's fix lands", () => {
-  const landed: JobRetro = {
-    job_id: "j",
+  const landed: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [
@@ -142,19 +138,16 @@ describe("where a retro item's fix lands", () => {
   });
 
   it("rides each lesson row the same way", () => {
-    const lessons: Lesson[] = [
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "kit" },
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [] },
-    ];
+    const lessons = [lesson({ id: "l", statement: "A", lands_in: "kit" }), lesson({ id: "l", statement: "B" })];
     expect(lessonRowsOf(lessons).map((one) => one.landsIn)).toEqual(["kit", undefined]);
   });
 
   it("narrows the retro lessons to one place, and keeps a row with none under All alone", () => {
     const rows = lessonRowsOf([
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "armada" },
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [], lands_in: "kit" },
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "C", evidence: [], lands_in: "manifest" },
-      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "D", evidence: [] },
+      lesson({ id: "l", statement: "A", lands_in: "armada" }),
+      lesson({ id: "l", statement: "B", lands_in: "kit" }),
+      lesson({ id: "l", statement: "C", lands_in: "manifest" }),
+      lesson({ id: "l", statement: "D" }),
     ]);
     const said = (tab: LessonsTab) => underTab(rows, tab).map((one) => one.statement);
     expect(said("all")).toEqual(["A", "B", "C", "D"]);
@@ -171,8 +164,8 @@ describe("where a retro item's fix lands", () => {
 });
 
 describe("an item's title, what happened and fix", () => {
-  const written: JobRetro = {
-    job_id: "j",
+  const written: Retro = {
+    session: SESSION,
     state: "written",
     record: {},
     items: [
@@ -191,8 +184,8 @@ describe("an item's title, what happened and fix", () => {
 
   it("ride the Lessons row the same way, keyed by the item's own id", () => {
     const rows = lessonRowsOf([
-      { id: "l-new", state: "open", job_id: "j", handle: "3-x", at: AT, who: "fleet", statement: "S", title: "T", what: "W", fix: "F", evidence: [] },
-      { id: "l-old", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "Old", evidence: [] },
+      lesson({ id: "l-new", who: "fleet", statement: "S", title: "T", what: "W", fix: "F" }),
+      lesson({ id: "l-old", statement: "Old" }),
     ]);
     expect(rows.map((one) => one.id)).toEqual(["l-new", "l-old"]);
     expect(rows[0]).toMatchObject({ title: "T", what: "W", fix: "F" });
@@ -201,61 +194,32 @@ describe("an item's title, what happened and fix", () => {
 });
 
 describe("what Agree and Disagree say they do", () => {
-  it("names the place for each", () => {
-    const JOB_TIP = "Turn this into a Job that applies the change. It waits for your approval on the Board.";
-    expect(agreeLabelOf("armada")).toBe("Create Job");
-    expect(agreeLabelOf("manifest")).toBe("Create Job");
-    expect(agreeLabelOf("kit")).toBe("Accept");
-    expect(agreeTipOf("armada")).toBe(JOB_TIP);
-    expect(agreeTipOf("manifest")).toBe(JOB_TIP);
-    expect(agreeTipOf("kit")).toBe("Saves it under Accepted.");
+  it("reads Accept on a Kit item, and Update Kit on one that carries a change", () => {
+    expect(kitAgreeOf()).toEqual({ label: "Accept", tip: "Saves it under Accepted." });
+    expect(kitAgreeOf(false)).toEqual({ label: "Accept", tip: "Saves it under Accepted." });
+    expect(kitAgreeOf(true)).toEqual({
+      label: "Update Kit",
+      tip: "Adds this command to your Kit's allowed commands. You can remove it from the Kit page.",
+    });
     expect(DISAGREE_TIP).toBe("Discards it.");
-  });
-
-  it("reads Update Kit on a Kit item that carries a change, and Accept on one that does not", () => {
-    expect(agreeLabelOf("kit", true)).toBe("Update Kit");
-    expect(agreeTipOf("kit", true)).toBe(
-      "Adds this command to your Kit's allowed commands. You can remove it from the Kit page.",
-    );
-    expect(agreeLabelOf("kit", false)).toBe("Accept");
-    expect(agreeTipOf("kit", false)).toBe("Saves it under Accepted.");
-    // A change on any other place is not drawn: Fleet carries one on a Kit item alone.
-    expect(agreeLabelOf("armada", true)).toBe("Create Job");
-    expect(agreeLabelOf("manifest", true)).toBe("Create Job");
-  });
-
-  it("splits items by whether they came from a Session, and reads a remembered source back", () => {
-    const base = { state: "open" as const, job_id: "j", handle: "3-x", at: AT, who: "owner" as const, evidence: [] };
-    const items: Lesson[] = [
-      { ...base, id: "a", statement: "A" },
-      { ...base, id: "b", statement: "B", session: { id: "s", title: "T" } },
-    ];
-    const said = (source: "all" | "sessions" | "jobs") => underSource(items, source).map((one) => one.id);
-    expect(said("all")).toEqual(["a", "b"]);
-    expect(said("sessions")).toEqual(["b"]);
-    expect(said("jobs")).toEqual(["a"]);
-    expect(lessonsSourceNamed("jobs")).toBe("jobs");
-    expect(lessonsSourceNamed("x")).toBe("all");
-    expect(lessonsSourceNamed(null)).toBe("all");
   });
 });
 
 describe("which retro an item belongs to", () => {
-  it("reads the number after the last -r in a Session item's id, hyphens in the Session id and all", () => {
+  it("reads the number after the last -r in an item's id, hyphens in the Session id and all", () => {
     expect(retroNumberOf("s-01J8ZQ4M-r3-12")).toBe(3);
     expect(retroNumberOf("s-r7-abc-r2-1")).toBe(2);
     expect(retroNumberOf("s-01J8ZQ4M-r10-1")).toBe(10);
   });
 
-  it("has none for a Job's item, which is {ulid}-{ordinal}", () => {
+  it("has none for an id that does not follow the spelling", () => {
     expect(retroNumberOf("01K7LXYZ-2")).toBeUndefined();
     expect(retroNumberOf("01K7L")).toBeUndefined();
   });
 
-  it("subjects a Session's item with its number and a Job's item by its Job", () => {
-    const base = { job_id: "j", id: "x" };
-    expect(retroSubjectOf({ ...base, job_id: "s-01J8", id: "s-01J8-r2-1", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8", n: 2 });
-    expect(retroSubjectOf({ ...base, job_id: "s-01J8", id: "unnumbered", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8" });
-    expect(retroSubjectOf({ job_id: "01K6JOB", id: "01K7L-1" })).toEqual({ kind: "job", id: "01K6JOB" });
+  it("subjects an item with its number, and holds two retros of one Session apart", () => {
+    expect(retroSubjectOf({ id: "s-01J8-r2-1", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8", n: 2 });
+    expect(retroSubjectOf({ id: "unnumbered", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8" });
+    expect(retroKeyOf({ kind: "session", id: "s-01J8", n: 2 })).not.toBe(retroKeyOf({ kind: "session", id: "s-01J8", n: 3 }));
   });
 });

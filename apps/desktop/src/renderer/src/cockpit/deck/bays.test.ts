@@ -93,8 +93,8 @@ test("now is the pool's own reading, with the branch the slot is on and no ledge
 });
 
 test("a slot a Session takes after the deck is drawn gets its drone, and a released slot loses it", () => {
-  const drawn = [slot({ slot: 1, held: { state: "job", job_id: "j1" } }), slot({ slot: 4, held: { state: "free" } })];
-  // A slot an old Job holds draws no holder: only hosted Sessions hold a bay.
+  const drawn = [slot({ slot: 1, held: { state: "busy" } }), slot({ slot: 4, held: { state: "free" } })];
+  // A slot being taken or released draws no holder: only hosted Sessions hold a bay.
   expect([...holdersOf(drawn).keys()]).toEqual([]);
 
   // Slot 4 as `list_worktrees` returns it once the Session's first write has leased it.

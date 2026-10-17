@@ -1,7 +1,7 @@
 import { THOUGHT_KIND } from "../ThoughtCard/ThoughtCard";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 
-/** One compact line under the owner's words: where they went. Pressing it opens that Session or Job. */
+/** One compact line under the owner's words: where they went. Pressing it opens that Session. */
 export function SentTo({ target, onOpen }: { target: ThoughtTarget; onOpen: () => void }) {
   const { Glyph, said } = THOUGHT_KIND[target.kind];
   return (

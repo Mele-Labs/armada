@@ -11,7 +11,7 @@ import { createFleetTerritory, SETTLE_MS } from "./fleet-territory";
 const AREAS: RepositoryAreas = {
   repositories: [{ manifest_id: "armada", root: "/r/armada", head: "abc", areas: [{ dir: "crates", files: 3, kids: [{ name: "fleet", files: 2 }] }], omitted: 0 }],
 };
-const TOUCHES: SlotTouches = { repositories: [{ manifest_id: "armada", holders: [{ kind: "job", id: "j1", slot: 1, paths: ["crates/fleet/a.rs"], omitted: 0 }] }] };
+const TOUCHES: SlotTouches = { repositories: [{ manifest_id: "armada", holders: [{ kind: "session", id: "s1", slot: 1, paths: ["crates/fleet/a.rs"], omitted: 0 }] }] };
 const NONE_AREAS: RepositoryAreas = { repositories: [] };
 const NONE_TOUCHES: SlotTouches = { repositories: [] };
 
@@ -77,7 +77,7 @@ describe("the deck's areas and touches over Fleet", () => {
 
     expect(fleet.reads()).toBe(1);
     expect(fleet.source.get().areas("/r/armada")).toEqual([{ dir: "crates", kids: [["fleet", 2]] }]);
-    expect(fleet.source.get().touches.get("job:j1")).toEqual([{ path: "crates/fleet", w: 1 }]);
+    expect(fleet.source.get().touches.get("session:s1")).toEqual([{ path: "crates/fleet", w: 1 }]);
   });
 
   it("are empty where Fleet answers none, as a Fleet with no such route does", async () => {
@@ -119,7 +119,7 @@ describe("the deck's areas and touches over Fleet", () => {
     await fleet.fire();
 
     expect(fleet.reads()).toBe(2);
-    expect(fleet.source.get().touches.get("job:j1")).toBeDefined();
+    expect(fleet.source.get().touches.get("session:s1")).toBeDefined();
   });
 
   it("go on being read while an agent has changed something, and stop when none has", async () => {

@@ -17,8 +17,8 @@ const FILE = { id: "file-1", name: "Screenshot.png", media_type: "image/png" };
 
 describe("ask_helm", () => {
   it("asks with the words alone when nothing is carried, the fields left out and never null", () => {
-    const body: AskHelm = { text: "why did 12 stop", context: { screen: "board" } };
-    expect(JSON.stringify(body)).toBe('{"text":"why did 12 stop","context":{"screen":"board"}}');
+    const body: AskHelm = { text: "why did 12 stop", context: { screen: "overview" } };
+    expect(JSON.stringify(body)).toBe('{"text":"why did 12 stop","context":{"screen":"overview"}}');
   });
 
   it("names the model and effort for the message that starts the Session, and leaves Auto out", () => {

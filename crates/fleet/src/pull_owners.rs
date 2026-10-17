@@ -1,9 +1,7 @@
-//! Who owns a pull request: the Sessions the pool says work it, and the Jobs whose it is.
+//! Who owns a pull request: the Sessions the pool says work it.
 //! `docs/concepts/fleet.md`, *Telling the owner of a pull request*.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{JobId, Ulid};
-use store::{AttachmentState, HolderKind};
 
 use crate::daemon::Fleet;
 use crate::pull_requesting::PR;
@@ -13,14 +11,12 @@ use crate::slot_holders;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Owner {
     Session(String),
-    Job(JobId),
 }
 
 impl Owner {
     pub(crate) fn key(&self) -> String {
         match self {
             Owner::Session(id) => format!("session:{id}"),
-            Owner::Job(id) => format!("job:{}", id.as_str()),
         }
     }
 }
@@ -35,9 +31,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The pull requests someone holds that `listed` leaves out: a standing `pr` row of a Session
-    /// or a Job, or the pull request of a Job not yet settled. **What a forge's capped list
-    /// cannot be trusted to show**, read by number so their owners are still told.
+    /// The pull requests someone holds that `listed` leaves out: a standing `pr` row of a Session.
+    /// **What a forge's capped list cannot be trusted to show**, read by number so their owners
+    /// are still told.
     pub(crate) async fn held_beyond(&self, served: &Served, listed: &[u64]) -> Vec<u64> {
         let manifest = served.manifest().id().as_str().to_string();
         let store = self.store().lock().await;
@@ -47,15 +43,6 @@ where
             .into_iter()
             .filter_map(|row| row.target.parse().ok())
             .collect();
-        for unsettled in store.pull_requests_unsettled().unwrap_or_default() {
-            let ours = self
-                .served_by_id(&unsettled.job_id)
-                .is_ok_and(|it| it.root() == served.root());
-            let number = unsettled.url.rsplit_once("/pull/").and_then(|(_, n)| n.parse().ok());
-            if let (true, Some(number)) = (ours, number) {
-                held.push(number);
-            }
-        }
         held.retain(|number| !listed.contains(number));
         held.sort_unstable();
         held.dedup();
@@ -63,8 +50,8 @@ where
     }
 
     /// Who holds a pull request: the Sessions the pool confirms work its branch, else the one whose
-    /// `pr` row is oldest (`crate::slot_holders`), and the Jobs whose pull request or branch it
-    /// is. `spent` also takes a Session whose hold was used up by the merge.
+    /// `pr` row is oldest (`crate::slot_holders`). `spent` also takes a Session whose hold was
+    /// used up by the merge.
     pub(crate) async fn owners_of(
         &self,
         served: &Served,
@@ -74,46 +61,11 @@ where
     ) -> Vec<Owner> {
         let manifest = served.manifest().id().as_str().to_string();
         let store = self.store().lock().await;
-        let held = |kind: &str, target: &str| {
-            store
-                .attachments_at(kind, target, Some(&manifest))
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|row| {
-                    row.state == AttachmentState::Standing
-                        || (spent && row.state == AttachmentState::Spent)
-                })
-                .map(|row| (row.holder.kind, row.holder.id))
-                .collect::<Vec<_>>()
-        };
-        let mut holders = held(PR, &number.to_string());
-        if !holders.iter().any(|(kind, _)| *kind == HolderKind::Session) {
-            holders.extend(held("branch", branch));
-        }
         let mut owners = Vec::new();
-        let mut add = |owner: Owner| {
+        for id in slot_holders::sessions_on_pull(&store, &manifest, served.root(), number, branch, spent) {
+            let owner = Owner::Session(id);
             if !owners.contains(&owner) {
                 owners.push(owner);
-            }
-        };
-        for id in slot_holders::sessions_on_pull(&store, &manifest, served.root(), number, branch, spent) {
-            add(Owner::Session(id));
-        }
-        for (kind, id) in holders {
-            if kind == HolderKind::Job {
-                add(Owner::Job(JobId::carried(Ulid::carried(id))));
-            }
-        }
-        let mine = |job: &JobId| {
-            self.served_by_id(job)
-                .is_ok_and(|it| it.root() == served.root())
-        };
-        if let Some(job) = self.job_of_pull(&store, served, number) {
-            add(Owner::Job(job));
-        }
-        for job in store.jobs_on_branch(branch).unwrap_or_default() {
-            if mine(&job) {
-                add(Owner::Job(job));
             }
         }
         owners

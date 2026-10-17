@@ -11,15 +11,6 @@ use crate::reading::ManifestRefused;
 pub struct ManifestProposals {
     pub checkout: String,
     pub proposals: Vec<ManifestProposal>,
-    /// Stated at Setup and never written: no Job has run here to set them against.
-    pub caps: StatedCaps,
-}
-
-/// What a Job stops at on this machine when its Manifest says nothing.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StatedCaps {
-    pub cost_micros: u64,
-    pub turns: u64,
 }
 
 /// One workspace's proposal, as far as it has been iterated.

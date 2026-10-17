@@ -32,7 +32,7 @@ pub(super) fn standing(
     in_tree: impl Fn(u32) -> bool,
 ) -> Standing {
     match holder {
-        Some(Holder::Job(id)) if id == session => Standing::Ours,
+        Some(Holder::Hosted(id)) if id == session => Standing::Ours,
         Some(held) if held.alive() && held.pid().is_some_and(in_tree) => Standing::Ours,
         _ => Standing::Not,
     }
@@ -209,7 +209,7 @@ where
         let lease = hosting.lease_slot;
         tokio::task::spawn_blocking(move || {
             for reading in vcs.slot_pool(&pool) {
-                if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                if matches!(&reading.held, SlotHeld::Hosted(holder) if *holder == session)
                     || lease == Some(reading.slot)
                 {
                     branches.extend(reading.branch);
@@ -246,7 +246,7 @@ where
             tokio::task::spawn_blocking(move || {
                 let mut slots: Vec<u32> = own.into_iter().collect();
                 for reading in vcs.slot_pool(&pool) {
-                    if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                    if matches!(&reading.held, SlotHeld::Hosted(holder) if *holder == session)
                         && !slots.contains(&reading.slot)
                     {
                         slots.push(reading.slot);
@@ -290,7 +290,7 @@ where
                 vcs.slot_pool(&pool)
                     .into_iter()
                     .filter_map(|reading| match reading.held {
-                        SlotHeld::Job(holder) => Some((reading.slot, holder)),
+                        SlotHeld::Hosted(holder) => Some((reading.slot, holder)),
                         _ => None,
                     })
                     .collect()

@@ -6,20 +6,29 @@
 //!
 //! The tool set is [`REACHABLE`], emitted by `build.rs` from the inventory's
 //! own `agent_access` column. A list written by hand is how a tool gets added
-//! to the file and stays unreachable. [`DRAFTING`] is the `Drafts only` rows,
-//! offered to a Helm session alone for drafting a Job; [`HELM_ONLY`] is the
-//! `Helm only` rows, offered to a Helm session alone for everything else a
-//! person may ask it to do (`#1150`); [`COMMANDER_ONLY`] is the `Commander only`
-//! rows, offered to a Job's Commander alone (`#2166`). None of the three reaches
-//! a plain agent door session or a Drone.
-//!
-//! The Drone's endpoint is [`crate::mcp`] and is a different seam: its peer is
-//! a process Fleet spawned, and its eight tools are in no inventory.
+//! to the file and stays unreachable. [`HELM_ONLY`] is the `Helm only` rows,
+//! offered to a Helm session alone for everything a person may ask it to do
+//! (`#1150`). Neither reaches a plain agent door session.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use crate::codec::{encode, Unencodable};
-use crate::mcp::CallId;
+
+/// The JSON-RPC call id, carried back untouched.
+///
+/// Opaque on purpose: the spec allows a string or a number and a server that
+/// re-typed one would answer a call the client cannot match to its request.
+/// Nothing outside this module constructs one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallId(Value);
+
+impl CallId {
+    /// The id a message arrived with.
+    pub(crate) fn of(value: Value) -> CallId {
+        CallId(value)
+    }
+}
 
 /// One operation an agent may reach, as the inventory names it.
 pub struct Reachable {
@@ -32,9 +41,6 @@ include!(concat!(env!("OUT_DIR"), "/reachable.rs"));
 
 /// The name this server is registered under in an agent's MCP configuration.
 ///
-/// **Not [`crate::mcp::SERVER`].** A Drone's `armada` server is the Evidence
-/// tool set; this one is fleet control, and a shared name would let a Drone's
-/// configuration and an agent's be mistaken for each other.
 pub const SERVER: &str = "armada-fleet";
 
 /// The one tool on this door the CLI calls rather than the model:
@@ -48,8 +54,8 @@ pub const SERVER: &str = "armada-fleet";
 /// on this name.
 pub const ASKS_A_PERSON: &str = "ask_the_person";
 
-/// The MCP revision answered when a client names none. [`crate::mcp`]'s, for
-/// its reason: the methods have been identical across every revision.
+/// The MCP revision answered when a client names none: the methods have been
+/// identical across every revision.
 const ASSUMED_REVISION: &str = "2025-06-18";
 
 /// A method this server does not implement.
@@ -496,9 +502,7 @@ fn listed(shapes: &[Shape]) -> Vec<Value> {
 fn tool(shape: &Shape) -> Value {
     let described = REACHABLE
         .iter()
-        .chain(DRAFTING.iter())
         .chain(HELM_ONLY.iter())
-        .chain(COMMANDER_ONLY.iter())
         .find(|row| row.operation == shape.operation)
         .map(|row| row.description)
         .unwrap_or_default();

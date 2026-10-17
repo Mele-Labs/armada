@@ -90,17 +90,6 @@ impl Tracker for Refusing {
         Err(self.no("reading the issue"))
     }
 
-    fn comment(&self, _issue: &IssueAddress, _text: &str) -> Result<(), NotTracked> {
-        Err(self.no("commenting on the issue"))
-    }
-
-    fn relabel(&self, _: &IssueAddress, _: &[&str], _: &[&str]) -> Result<(), NotTracked> {
-        Err(self.no("moving the issue's labels"))
-    }
-
-    fn closing_line(&self, _issue: &IssueAddress) -> Option<String> {
-        None
-    }
 }
 
 /// With no tracker there is no link to read: a request is dispatched as written.

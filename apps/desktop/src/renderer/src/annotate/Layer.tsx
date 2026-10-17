@@ -36,7 +36,7 @@ import {
   type Metrics,
   type Viewport,
 } from "./place";
-import { sendToFleet, sendToSession, unsendable, type SessionTarget } from "./send";
+import { sendToSession, unsendable, type SessionTarget } from "./send";
 import { painted, withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
 import "./annotate.css";
@@ -89,12 +89,8 @@ function targetOf(target: EventTarget | null): Element | null {
   return target.closest("svg") ?? target;
 }
 
-/** What the layer asks of Fleet's seam: the Job send, the Session send, and the Sessions that are live. */
-export type LayerFleet = Pick<
-  BridgeApi,
-  "stageAttachment" | "proposeFromRequest" | "startSession" | "sendSessionMessage"
-> &
-  StateSource;
+/** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
+export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage"> & StateSource;
 
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
@@ -404,42 +400,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     }
   }
 
-  /** One note to Fleet. Written back with its Job only once Fleet took it. */
-  async function send(note: Annotation): Promise<boolean> {
-    // Null where the note's element is not on this screen, so a note with no kept picture is never shot at the wrong one.
-    const box = frames[note.id] ?? null;
-    if (fleet === undefined) return false;
-    try {
-      const answer = await sendToFleet(note, box, shooter, fleet, new Date());
-      if (!answer.ok) {
-        tell(answer.saying);
-        return false;
-      }
-      const next = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
-      await sink.save(next);
-      setNotes((was) => was.map((n) => (n.id === note.id ? next : n)));
-      return true;
-    } catch (cause) {
-      fail("Sending", cause);
-      return false;
-    }
-  }
-
-  async function sendOne(note: Annotation): Promise<void> {
-    setSending(note.id);
-    await send(note);
-    setSending(null);
-  }
-
-  /** Every open, unsent note on this screen, one Job each, stopping at the first Fleet refuses. "Here" is this screen, not which notes have a picture. */
-  async function sendHere(): Promise<void> {
-    setSending("here");
-    for (const note of notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null)) {
-      if (!(await send(note))) break;
-    }
-    setSending(null);
-  }
-
   /** These notes as one message: to a Session started for them, or to `target`. `key` names the send that is out. */
   async function sendToSessionAs(key: string, list: readonly Annotation[], target: SessionTarget | null): Promise<boolean> {
     if (fleet === undefined || list.length === 0) return false;
@@ -495,20 +455,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     setSelected(new Set());
     setDeletingSelection(false);
     anchorRef.current = null;
-  }
-
-  /** One Job per selected note, stopping at the first Fleet refuses, as the bar's Dispatch job does. */
-  async function dispatchSelection(list: readonly Annotation[]): Promise<void> {
-    setSending("selection");
-    let all = true;
-    for (const note of list) {
-      if (!(await send(note))) {
-        all = false;
-        break;
-      }
-    }
-    setSending(null);
-    if (all) clearSelection();
   }
 
   async function sessionSelection(list: readonly Annotation[], target: SessionTarget | null): Promise<void> {
@@ -573,7 +519,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const leftOut = [chosenSent > 0 ? `${chosenSent} already sent` : null, chosenDone > 0 ? `${chosenDone} done` : null].filter((part) => part !== null);
   const allChosen = listed.length > 0 && chosen.length === listed.length;
   const busy = sending !== null || acting;
-  const dispatchSays = cannotSend ?? "Send each note as a Job";
 
   return (
     <div ref={layerRef} className="armada-annotate" data-armada-annotate="" onKeyDown={keyed}>
@@ -644,9 +589,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.sent !== undefined && (
             <p className="armada-annotate__meta">
-              {"jobId" in openNote.sent
-                ? `Sent to Fleet as ${openNote.sent.handle}, waiting on approval on the Board`
-                : `Sent to Session ${openNote.sent.title}`}
+              Sent to Session {openNote.sent.title}
             </p>
           )}
           {openNote.sent === undefined && cannotSend !== null && <p className="armada-annotate__meta">{cannotSend}</p>}
@@ -654,11 +597,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           <div className="armada-annotate__actions">
             {openNote.sent === undefined && openNote.status === "open" && (
               <>
-                <Tooltip label={cannotSend ?? "Send this note as a Job"} asChild>
-                  <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(openNote)}>
-                    {sending === openNote.id ? "Sending…" : "Dispatch job"}
-                  </Button>
-                </Tooltip>
                 {cannotSend === null && (
                   <SplitButton
                     size="sm"
@@ -706,11 +644,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                   <div className="armada-annotate__actions">
                     {chosenSendable.length > 0 && (
                       <>
-                        <Tooltip label={chosenShotless > 0 ? `${dispatchSays}. ${noShot(chosenShotless, chosenSendable.length)}` : dispatchSays} asChild>
-                          <Button variant="secondary" size="sm" disabled={cannotSend !== null || busy} onClick={() => void dispatchSelection(chosenSendable)}>
-                            {sending === "selection" ? "Sending…" : "Dispatch job"}
-                          </Button>
-                        </Tooltip>
                         {cannotSend === null && (
                           <SplitButton
                             size="sm"
@@ -803,11 +736,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                         </Checkbox>
                         {dispatchable && (
                           <>
-                            <Tooltip label={shotless ? `${cannotSend ?? "Send this note as a Job"}. ${NO_SHOT}` : (cannotSend ?? "Send this note as a Job")} asChild>
-                              <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(note)}>
-                                {sending === note.id ? "Sending…" : "Dispatch job"}
-                              </Button>
-                            </Tooltip>
                             {cannotSend === null && (
                               <SplitButton
                                 size="sm"
@@ -844,7 +772,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
 
       <div ref={barRef} className="armada-annotate__bar" role="status">
         <span>Annotating</span>
-        <Tooltip label="A note on the whole window, with the page, the open Job or Session and Doctor's read" shortcut="⌥⌘S" asChild>
+        <Tooltip label="A note on the whole window, with the page, the open Session and Doctor's read" shortcut="⌥⌘S" asChild>
           <Button variant="secondary" size="sm" onClick={() => void shootWindow()}>
             Screenshot window
           </Button>
@@ -860,9 +788,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
         )}
         {cannotSend === null && sendableHere > 0 && (
           <>
-            <Button variant="secondary" size="sm" disabled={sending !== null} onClick={() => void sendHere()}>
-              {sending === "here" ? "Sending…" : "Dispatch job"}
-            </Button>
             <SplitButton
               size="sm"
               menuLabel="Send to a Session"
@@ -955,7 +880,7 @@ function Source({ note }: { note: Annotation }) {
   return <p className="armada-annotate__meta">{`${note.source.file}:${note.source.line}`}</p>;
 }
 
-/** `JobRowStacked ← ActiveJobsList ← Board`, then the selector, for the person checking what was picked. */
+/** `SessionRow ← SessionList ← Sessions`, then the selector, for the person checking what was picked. */
 function chain(note: Annotation): string {
   if (note.scope === "window") return `Whole window · ${note.screen ?? "no screen marked"}`;
   const names = [note.component, ...note.owners].filter((n): n is string => n !== null).slice(0, 4);

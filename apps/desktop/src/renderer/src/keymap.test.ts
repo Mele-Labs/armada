@@ -63,22 +63,13 @@ describe("reading the registry's spellings", () => {
     }
   });
 
-  it("lets the deck's built mission switch stand beside observe's, each where it listens", () => {
-    const view = ACTIONS.find((one) => one.id === "deck_view")!;
-    const observe = ACTIONS.find((one) => one.id === "observe")!;
-    expect(view.unbuilt).toBeNull();
-    expect(view.shortcut).toBe(observe.shortcut);
-    expect(conflictsOf("deck_view", defaultSlotsOf("deck_view")[0]!)).toEqual([]);
-    expect(conflictsOf("observe", defaultSlotsOf("observe")[0]!).map((one) => one.id)).not.toContain("deck_view");
-  });
-
-  it("lets the deck's built `t` stand beside attest's, each where it listens, and neither is the other's conflict", () => {
+  it("lets the deck's `t` stand beside a call's reply key, each where it listens, and neither is the other's conflict", () => {
     const timeline = ACTIONS.find((one) => one.id === "deck_timeline")!;
-    const attest = ACTIONS.find((one) => one.id === "attest")!;
+    const reply = ACTIONS.find((one) => one.id === "call_reply")!;
     expect(timeline.unbuilt).toBeNull();
-    expect(timeline.shortcut).toBe(attest.shortcut);
+    expect(timeline.shortcut).toBe(reply.shortcut);
     expect(conflictsOf("deck_timeline", defaultSlotsOf("deck_timeline")[0]!)).toEqual([]);
-    expect(conflictsOf("attest", defaultSlotsOf("attest")[0]!).map((one) => one.id)).not.toContain("deck_timeline");
+    expect(conflictsOf("call_reply", defaultSlotsOf("call_reply")[0]!).map((one) => one.id)).not.toContain("deck_timeline");
   });
 });
 
@@ -89,8 +80,6 @@ describe("a press, as the shipped keys answer it", () => {
     expect(isPressed("command_palette", press("k"))).toBe(false);
     expect(isPressed("refresh", press("r", { meta: true, shift: true }))).toBe(true);
     expect(isPressed("refresh", press("r", { meta: true }))).toBe(false);
-    expect(isPressed("raise_cost_cap", press("B", { shift: true }))).toBe(true);
-    expect(isPressed("report_job", press("B", { shift: true }))).toBe(false);
     expect(isPressed("capture_note", press("ç", { meta: true, alt: true, code: "KeyC" }))).toBe(true);
     expect(isPressed("key_sheet", press("?", { shift: true }))).toBe(true);
     expect(pressedSlot("history", press("]", { meta: true }))).toBe(1);
@@ -109,10 +98,10 @@ describe("a press, as the shipped keys answer it", () => {
 
 describe("a key a person rebound", () => {
   it("answers the new key, not the old one, and draws it", () => {
-    rebind("kill", [parseSlots("q")[0]!]);
-    expect(isPressed("kill", press("q"))).toBe(true);
-    expect(isPressed("kill", press("x"))).toBe(false);
-    expect(keyFor("kill")).toBe("q");
+    rebind("call_later", [parseSlots("q")[0]!]);
+    expect(isPressed("call_later", press("q"))).toBe(true);
+    expect(isPressed("call_later", press("l"))).toBe(false);
+    expect(keyFor("call_later")).toBe("q");
   });
 
   it("moves one key of a pair and leaves the other", () => {
@@ -132,26 +121,27 @@ describe("a key a person rebound", () => {
   });
 
   it("unbinds a key, and binding the shipped key back takes the change away", () => {
-    rebind("kill", [{ kind: "chord", chord: null }]);
-    expect(isPressed("kill", press("x"))).toBe(false);
-    expect(keyFor("kill")).toBe("");
-    rebind("kill", parseSlots("x"));
+    rebind("call_later", [{ kind: "chord", chord: null }]);
+    expect(isPressed("call_later", press("l"))).toBe(false);
+    expect(keyFor("call_later")).toBe("");
+    rebind("call_later", parseSlots("l"));
     expect(serializeKeyBindings({})).toBe("");
-    expect(keyFor("kill")).toBe("x");
+    expect(keyFor("call_later")).toBe("l");
   });
 
   it("names the act it now shares a key with", () => {
-    rebind("kill", parseSlots("c"));
-    expect(conflictsOf("kill", slotsOf("kill")[0]!).map((one) => one.id)).toEqual(["copy_debug_info"]);
-    // `o` opens a row on a list and the output on a Job: never the same screen, so never a conflict.
-    expect(conflictsOf("open_output", slotsOf("open_output")[0]!)).toEqual([]);
+    rebind("call_later", parseSlots("d"));
+    expect(conflictsOf("call_later", slotsOf("call_later")[0]!).map((one) => one.id)).toEqual(["call_dismiss"]);
+    // `t` is a call's reply and the deck's timeline,
+    // never in front at once, so never a conflict.
+    expect(conflictsOf("deck_timeline", slotsOf("deck_timeline")[0]!)).toEqual([]);
   });
 
   it("hands every change to the saver as the text Fleet keeps, and empty once all are reset", () => {
     const saved: string[] = [];
     setKeyBindingSaver((text) => saved.push(text));
-    rebind("kill", parseSlots("q"));
-    expect(parseKeyBindings(saved[0]!)).toEqual({ kill: ["q"] });
+    rebind("call_later", parseSlots("q"));
+    expect(parseKeyBindings(saved[0]!)).toEqual({ call_later: ["q"] });
     resetAllBindings();
     expect(saved[1]).toBe("");
   });
@@ -159,10 +149,10 @@ describe("a key a person rebound", () => {
 
 describe("the text Fleet keeps", () => {
   it("reads only the shape Fleet accepts, and none of a wrong one", () => {
-    expect(parseKeyBindings('{"version":1,"bindings":{"kill":["q"]}}')).toEqual({ kill: ["q"] });
+    expect(parseKeyBindings('{"version":1,"bindings":{"call_later":["q"]}}')).toEqual({ call_later: ["q"] });
     expect(parseKeyBindings("")).toEqual({});
     expect(parseKeyBindings("{")).toEqual({});
-    expect(parseKeyBindings('{"version":2,"bindings":{"kill":["q"]}}')).toEqual({});
-    expect(parseKeyBindings('{"version":1,"bindings":{"kill":"q","open":["p"]}}')).toEqual({});
+    expect(parseKeyBindings('{"version":2,"bindings":{"call_later":["q"]}}')).toEqual({});
+    expect(parseKeyBindings('{"version":1,"bindings":{"call_later":"q","open":["p"]}}')).toEqual({});
   });
 });

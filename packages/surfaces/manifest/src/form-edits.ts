@@ -1,6 +1,5 @@
 // The Manifest surface's forms as edits — Journey 9's *Editing*. What a
-// declared file draws as, what a draft sends, what keeps Save back, and where a
-// cap sits below what this repository's past Jobs cost. No React.
+// declared file draws as, what a draft sends, and what keeps Save back. No React.
 //
 // **A draft is text as typed**, and an edit is sent only for a key whose value
 // moved, so an untouched form sends nothing and changes no byte.
@@ -19,11 +18,8 @@ import type {
   LinkDraft,
   ManifestDeclared,
   ManifestEdit,
-  ManifestSpend,
   NarrowingDraft,
 } from "@armada/protocol";
-
-import { money } from "@armada/screens/src/facts";
 
 const MICROS = 1_000_000;
 /** Both caps are `u32` in the file. */
@@ -293,30 +289,6 @@ export function problemsOf(draft: ManifestFormDraft): Record<string, string> {
     problems["budget.turns"] = "A turn cap is a whole number of turns, zero or more.";
   }
   return problems;
-}
-
-/**
- * Where a cap in the draft is below what one of this repository's past Jobs
- * cost. **The costliest Job, not a total** — a cap is set per Job, so one below
- * it is one a Job like it stops at.
- */
-export function budgetWarningsOf(draft: ManifestFormDraft, spend: ManifestSpend | null): string[] {
-  if (spend === null || spend.jobs === 0) return [];
-  const jobs = spend.jobs === 1 ? "past Job" : `${spend.jobs} past Jobs`;
-  const warnings: string[] = [];
-  const cost = microsOf(draft.costCap);
-  if (cost !== null && cost < spend.most_cost_micros) {
-    warnings.push(
-      `The costliest of this repository's ${jobs} cost ${money(spend.most_cost_micros)}, more than this cap. A Job like it would stop before it finished.`,
-    );
-  }
-  const turns = wholeOf(draft.turnCap);
-  if (turns !== null && turns < spend.most_turns) {
-    warnings.push(
-      `The longest of this repository's ${jobs} took ${spend.most_turns} turns, more than this cap. A Job like it would stop before it finished.`,
-    );
-  }
-  return warnings;
 }
 
 function checkOf(row: ManifestFormCheck): CheckDraft {

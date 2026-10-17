@@ -7,14 +7,13 @@
 //! reading takes forge calls to rebuild, so it is kept; but only the newest
 //! commit's reading is, because an older commit's red is not what main is.
 //!
-//! **The culprit Job and Session are plain text and no foreign key.** A Job
-//! `armada clean` forgets leaves its name here, and the row says what was true
-//! when it was read.
+//! **The culprit Session is plain text and no foreign key.** The row says what
+//! was true when it was read.
 
-use core_model::{JobId, Timestamp, Ulid};
+use core_model::Timestamp;
 use rusqlite::OptionalExtension;
 
-use crate::error::{fault, LoadJobError, RowError, WriteError};
+use crate::error::{fault, ReadError, RowError, WriteError};
 use crate::open::Store;
 
 /// Version 114 — main's CI, one row per repository, and the failed jobs of a
@@ -98,10 +97,8 @@ pub struct MainMerge {
     pub number: u64,
     pub url: Option<String>,
     pub branch: Option<String>,
-    /// The Fleet Job whose pull request that is, where one is.
-    pub job: Option<JobId>,
     /// The id of the Session that held the pull request, or else its branch,
-    /// where no Job owns it.
+    /// where no Session owns it.
     pub session: Option<String>,
 }
 
@@ -168,12 +165,12 @@ impl Store {
         let merge = main.merge.as_ref();
         tx.execute(
             "INSERT INTO main_ci (repository, base, commit_sha, state, read_at, red_at, \
-             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running, merge_session) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
+             merge_number, merge_url, merge_branch, unfinished, red_commit, decided_commit, newer_running, merge_session) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) \
              ON CONFLICT (repository) DO UPDATE SET base = ?2, commit_sha = ?3, state = ?4, \
              read_at = ?5, red_at = ?6, merge_number = ?7, merge_url = ?8, merge_branch = ?9, \
-             merge_job = ?10, unfinished = ?11, red_commit = ?12, decided_commit = ?13, newer_running = ?14, \
-             merge_session = ?15",
+             unfinished = ?10, red_commit = ?11, decided_commit = ?12, newer_running = ?13, \
+             merge_session = ?14",
             (
                 &main.repository,
                 &main.base,
@@ -184,9 +181,6 @@ impl Store {
                 merge.map(|merge| merge.number as i64),
                 merge.and_then(|merge| merge.url.clone()),
                 merge.and_then(|merge| merge.branch.clone()),
-                merge
-                    .and_then(|merge| merge.job.as_ref())
-                    .map(|job| job.as_str().to_string()),
                 main.unfinished,
                 &main.red_commit,
                 &main.decided_commit,
@@ -216,13 +210,13 @@ impl Store {
 
     /// What was last kept for a repository, or `None` where Fleet has never
     /// read its main.
-    pub fn main_ci(&self, repository: &str) -> Result<Option<MainCi>, LoadJobError> {
+    pub fn main_ci(&self, repository: &str) -> Result<Option<MainCi>, ReadError> {
         let reading = fault("reading main's CI");
         let head = self
             .conn
             .query_row(
                 "SELECT base, commit_sha, state, read_at, red_at, merge_number, merge_url, \
-                 merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running, merge_session FROM main_ci WHERE repository = ?1",
+                 merge_branch, unfinished, red_commit, decided_commit, newer_running, merge_session FROM main_ci WHERE repository = ?1",
                 (repository,),
                 |row| {
                     Ok((
@@ -234,12 +228,11 @@ impl Store {
                         row.get::<_, Option<i64>>(5)?,
                         row.get::<_, Option<String>>(6)?,
                         row.get::<_, Option<String>>(7)?,
-                        row.get::<_, Option<String>>(8)?,
-                        row.get::<_, u32>(9)?,
+                        row.get::<_, u32>(8)?,
+                        row.get::<_, Option<String>>(9)?,
                         row.get::<_, Option<String>>(10)?,
-                        row.get::<_, Option<String>>(11)?,
-                        row.get::<_, u32>(12)?,
-                        row.get::<_, Option<String>>(13)?,
+                        row.get::<_, u32>(11)?,
+                        row.get::<_, Option<String>>(12)?,
                     ))
                 },
             )
@@ -255,7 +248,6 @@ impl Store {
             number,
             url,
             branch,
-            job,
             unfinished,
             red_commit,
             decided_commit,
@@ -315,36 +307,12 @@ impl Store {
                 number: number as u64,
                 url,
                 branch,
-                job: job.map(|job| JobId::carried(Ulid::carried(job))),
                 session,
             }),
         }))
     }
-
-    /// The Jobs whose pull request has this number, newest first. **The number
-    /// alone cannot name a repository**, so a caller that serves more than one
-    /// keeps only the Jobs that belong to the repository it is asking about.
-    pub fn jobs_with_pull_request_number(&self, number: u64) -> Result<Vec<JobId>, LoadJobError> {
-        let reading = fault("finding the Job of a pull request");
-        let mut asking = self
-            .conn
-            .prepare(
-                "SELECT job_id FROM jobs WHERE delivery_pull_request LIKE ?1 \
-                 ORDER BY job_id DESC",
-            )
-            .map_err(reading)
-            .map_err(database)?;
-        let rows = asking
-            .query_map((format!("%/pull/{number}"),), |row| {
-                Ok(JobId::carried(Ulid::carried(row.get::<_, String>(0)?)))
-            })
-            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
-            .map_err(fault("finding the Job of a pull request"))
-            .map_err(database)?;
-        Ok(rows)
-    }
 }
 
-fn database(cause: crate::error::DatabaseFault) -> LoadJobError {
-    LoadJobError::Unreadable(RowError::Database(cause))
+fn database(cause: crate::error::DatabaseFault) -> ReadError {
+    ReadError::Unreadable(RowError::Database(cause))
 }

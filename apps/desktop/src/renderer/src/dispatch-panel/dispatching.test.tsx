@@ -3,7 +3,7 @@
 
 import { forgetAllKept } from "@armada/components";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -17,7 +17,7 @@ import { DispatchingProvider, useDispatch, useDispatching, type Dispatching } fr
 const counts = { window: 0, outside: 0 };
 let held: Dispatching | undefined;
 let mounted: { root: Root; host: HTMLElement } | undefined;
-const state = connected([], [], []);
+const state = connected([], []);
 const readRequestRepository = vi.fn(async (_words: string) => ({ manifest_id: null, likely: [] }));
 
 /** A part of the window outside the sheet that reads the dispatching, as the Deck and the Merge line do. */

@@ -47,10 +47,10 @@ export type SlotTouches = { repositories: TouchesInRepository[] };
 
 export type TouchesInRepository = { manifest_id: string; holders: HolderTouches[] };
 
-/** What one Job or hosted Session has changed in its slot since the slot met the base branch. */
+/** What one hosted Session has changed in its slot since the slot met the base branch. */
 export type HolderTouches = {
-  kind: "job" | "session";
-  /** The Job's or the Session's id. */
+  kind: "session";
+  /** The Session's id. */
   id: string;
   slot: number;
   /** Repository-relative and sorted: committed, edited, deleted or not tracked yet. At most 200. */

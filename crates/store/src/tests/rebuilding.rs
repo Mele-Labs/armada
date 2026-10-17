@@ -17,7 +17,7 @@ use rusqlite::Connection;
 
 use super::migrate::recorded_version;
 use crate::migrations::{MIGRATIONS, SCHEMA_VERSION_KEY};
-use crate::tests::{created_at, job_id, TempDir};
+use crate::tests::{at, TempDir};
 use crate::{PortClaim, PortClaimant, Store, KNOWN_SCHEMA_VERSION};
 
 /// A file at version 49 — the schema before Fleet's own listener became a
@@ -59,9 +59,8 @@ fn version_forty_nine(dir: &TempDir, job: &str) {
     .expect("the main checkout's span, claimed before the rebuild");
 }
 
-/// **The rebuild carries every row across**, at the same base and the same
-/// width, and the claimant each row named is still the claimant it reads back
-/// as.
+/// **The rebuild carries every row across**, including the Job's, which stays
+/// in the table and is not read.
 #[test]
 fn a_store_at_version_forty_nine_keeps_every_claim_through_the_rebuild() {
     let dir = TempDir::new();
@@ -74,17 +73,15 @@ fn a_store_at_version_forty_nine_keeps_every_claim_through_the_rebuild() {
         "migrated all the way, not stopped at 49"
     );
 
-    let job = job_id("01PORTREBUILD00000000001");
-    let carried = store
-        .port_span_for_job(&job)
-        .expect("the read succeeds")
-        .expect("the Job's claim survived the rebuild");
-    assert_eq!((carried.base, carried.width), (41_000, 8));
-    // V57 then releases the main checkout's claim, which named no repository.
+    // The Job's claim carried across with its `job_id`, and nothing reads it. V57
+    // then releases the main checkout's claim, which named no repository.
+    let carried: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM port_claims WHERE job_id IS NOT NULL", [], |row| row.get(0))
+        .expect("counts");
+    assert_eq!(carried, 1, "the Job's claim survived the rebuild");
     let every = store.every_port_claim().expect("read");
-    assert!(every
-        .iter()
-        .all(|claim| !matches!(claim.claimant, PortClaimant::Checkout(_))));
+    assert!(every.is_empty(), "a claim a Job held is not read: {every:?}");
 
     // And the third claimant the rebuild exists for, which the old `CHECK`
     // could not have held.
@@ -93,8 +90,8 @@ fn a_store_at_version_forty_nine_keeps_every_claim_through_the_rebuild() {
             claimant: PortClaimant::FleetListener,
             base: 41_016,
             width: 1,
-            claimed_at: created_at(),
+            claimed_at: at("2026-08-26T09:00:00.000Z"),
         })
         .expect("Fleet's own listener can claim once the rebuild has run");
-    assert_eq!(store.every_port_claim().expect("read").len(), 2);
+    assert_eq!(store.every_port_claim().expect("read").len(), 1);
 }

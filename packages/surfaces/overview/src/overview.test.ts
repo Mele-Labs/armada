@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Connection, FleetHealth } from "@armada/protocol";
 import { connectedTo, PROTOCOL_ID } from "@armada/protocol";
-import { doctorReading, dronesReading, fleetReading } from "./overview";
+import { doctorReading, fleetReading } from "./overview";
 
 const NOW = Date.parse("2026-09-13T12:00:00Z");
 const FLEET = { protocolId: PROTOCOL_ID, pid: 4242, port: 7878, startedAt: "2026-09-13T11:00:00Z" };
@@ -47,19 +47,5 @@ describe("the Doctor tile", () => {
 
   it("stands in until it is read", () => {
     expect(doctorReading({ state: "reading" }).value).toBeUndefined();
-  });
-});
-
-describe("the Drones tile", () => {
-  it("names the hold only while something is queued", () => {
-    const full = { bound: 2, occupied: 2, held_by: "memory" };
-    expect(dronesReading(CONNECTED, full, 1)).toMatchObject({ value: "2 of 2", detail: "waiting on memory" });
-    expect(dronesReading(CONNECTED, full, 0)).toMatchObject({ detail: "None free" });
-    expect(dronesReading(CONNECTED, { bound: 4, occupied: 1 }, 0)).toMatchObject({ detail: "3 free" });
-  });
-
-  it("stands in while connected and unread, and says not read otherwise", () => {
-    expect(dronesReading(CONNECTED, null, 0).value).toBeUndefined();
-    expect(dronesReading({ state: "reading" }, null, 0).value).toBe("Not read");
   });
 });
