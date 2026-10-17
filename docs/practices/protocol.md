@@ -3611,7 +3611,7 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `start_another_session` (`POST /sessions/start_another`) | `StartAnotherSession`: `manifest_id`, `title`, `message`. Answers `SessionHeld`: `session_id`, `title`, `fork` | `agent_access` Yes. The Session is created and listed at once with **no process and no turn**. 422 `fleet.agent_start_unplaced` where the connection places no hosted Session, 422 `fleet.agent_start_empty` for a blank `title` or `message` |
+| `start_another_session` (`POST /sessions/start_another`) | `StartAnotherSession`: `manifest_id`, `title`, `message`, `group?` (a plan group; see *A Session follows the Sessions its plan was handed to*). Answers `SessionHeld`: `session_id`, `title`, `fork` | `agent_access` Yes. The Session is created and listed at once with **no process and no turn**. 422 `fleet.agent_start_unplaced` where the connection places no hosted Session, 422 `fleet.agent_start_empty` for a blank `title` or `message` |
 | `fork_this_session` (`POST /sessions/fork_this`) | `ForkThisSession`: `title`, `message`, `at?`. Answers `SessionHeld` with `fork` true | `agent_access` Yes. **Of the caller's own conversation only**: the caller is placed by its connection and no id is read. `at` is a thread row id as `fork.at` is; left out, Fleet takes the caller's latest message of its own that the transcript holds. 422 `fleet.fork_point_unwritten` as for `fork.at`; nothing is written |
 | `SessionRow.started` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`: `id`, `title`), `fork` | Written in the **caller's** thread. Bridge draws it as the press that opens `session` |
 | `Attachment.kind` `unsent` | `target` is the first message's words, `standing` until the person's ordinary send, then `spent` | On the new Session. Bridge reads it as the text to put in the box once. Ending the Session gives it back. Kinds are open text, so no type changes |
@@ -4248,6 +4248,31 @@ Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `docs/pra
 
 **Additive.** Every new field is optional and left out when empty. The IDs differ, so a Bridge and a Fleet that differ are refused regardless.
 
+## The Reviews tab: agent runs and review tools
+
+Since 16 Oct 2026. `docs/concepts/pull-review.md`, *Agent runs*. **Additive only**: five operations, new DTOs in `ipc::review_runs`, one event, one optional field on a row, and a setting. Bridge's half is `packages/protocol/src/review-runs.ts` and `events.ts`, written by hand like the rest. There is no number to take: the protocol ID moves with the wire files, and `armada need --status` showed nothing standing on these paths.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `start_review_run` (`POST /review_runs/:repository`) | Bridge writes, Fleet answers | `StartReviewRun` (`number`, `kind` `tool`, `explanation` or `ask`, `name`, `again`) answers `ReviewRun`. **Answers at once**: a kept result as it stands, the run already going, or a new one `queued`. 422 `fleet.review_unknown_tool`, 422 `fleet.review_blank`, 500 `fleet.review_pull_request_unreadable`. `Bridge only` |
+| `get_review_runs` (`GET /review_runs/:repository/:number`) | Bridge reads | `ReviewRuns`: every run kept or going for the pull request, one for each kind, name and head it ran on, newest first. `Bridge only` |
+| `list_review_tools` (`GET /review_tools/:repository`) | Bridge reads | `ReviewTools`: `tools[]` of `ReviewTool` (`id`, `kind`, `name`, `prompt`, `source`, `replaces?`) and `left_out[]` (`file`, `source`, `said`), left out when empty. `Bridge only` |
+| `save_review_tool` (`POST /review_tools/:repository`) | Bridge writes, Fleet checks | `SaveReviewTool` (`scope` `kit` or `repository`, `kind`, `name`, `prompt`, `overwrite`) answers `ReviewTools` read again. 422 `fleet.review_tool_blank`, `fleet.review_tool_not_a_name`, `fleet.review_tool_exists`; 500 `fleet.review_tool_unwritable`. `Helm only` for an agent |
+| `review_run.changed` | Fleet publishes, Bridge reads | `{ kind, run }`: the run whole, **nested under `run`** because the run has a `kind` of its own that a flattened event would overwrite. Not replayed |
+| `ReviewRun` | Fleet writes, Bridge reads | `manifest_id`, `number`, `kind`, `name`, `head` (the whole commit it ran on), `state` (`queued`, `running`, `done`, `failed`), `started_at`, and when set `finished_at`, `failed` (Fleet's reason), `result` and `cost_micros` |
+| `ReviewResult` | Fleet writes, Bridge reads | Tagged by `shape`: `themes`, `impact`, `steps`, `reason`, `text` or `findings`. A place is `ReviewPlace` (`path`, `side`, `start`, `end`) and a step's source is `description` or `doc` with a `path` |
+| `PullReviewRow.holder?` | Fleet writes, Bridge reads | `PullReviewHolder` (`id`, `title`): the Session of the person's that holds the pull request, from the pull request owners. Left out when none does, and never a Job |
+
+**An answer is validated before it is kept**, and one that is not valid is a `failed` run with `failed` set and no `result`. Fleet checks that every place names a file the pull request changes, that a range starts at line 1 or later and does not end before it starts, that a step's doc exists in the checkout at the head, and that a link is http or https.
+
+**A kept run is keyed by repository, pull request, head, kind and name** (`review_runs` in the store, migration `20261016T1700Z-review_runs.kept.sql`, a new table and nothing altered). A reader marks a run out of date when it holds a head newer than the run's `head`. `name` is a definition's id, or for `ask` the question's words lower cased and single spaced.
+
+**One setting.** `models.review` (Model section, `live`, no environment variable) ships as the Session model.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet that differ are refused regardless, and the lifeboat serves. Nothing here touches the four `/v0/` routes.
+
+**The event stream: neither better nor worse.** A run adds three small events, `queued`, `running` and `done` or `failed`, on the one bounded drop-oldest broadcast every event shares. No text is streamed and no queue is added, so a run costs three events however long its answer. The message `review_run.changed` carries is not replayed, which is why a Bridge that missed some, or reconnected, reads `get_review_runs` again when it opens a pull request and on Refresh, and never believes the events alone are complete. The unmeasured risk above is unchanged: nobody has a number for how many events a real fleet produces against a minimised Bridge.
+
 ## A Session's running Check: its log live, and a stop
 
 Since 16 Oct 2026. `docs/concepts/session.md`. **Additive only**: one value on `SessionCheckAct` (`chunk`), one optional field on `SessionCheckAnswer` (`stop`), `SessionCheckStop`, `SessionCheckOutputMessage` and its opening, and three operations, `observe_session_check` (`GET /sessions/checks/:run/observe`, a WebSocket), `stop_session_check` and `force_stop_session_check` (`POST /sessions/checks/:run/stop` and `/force_stop`), all `agent_access` `No`. Fleet and Bridge both carry them; Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
@@ -4273,6 +4298,47 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a g
 | `ReachFolders`, `reachFoldersOf`, `REACH_FOLDERS_KEY`, the fields above | Bridge reads | `packages/protocol/src/reach-folders.ts`, `helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
 **Additive.** Three variants on each of two enums, one new enum (`ReachesTo`), four optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the settled states as words it has none for. A Bridge before `reaches_to` draws the card with no read or write word. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
+
+## A Session follows the Sessions its plan was handed to
+
+`docs/concepts/session.md`, *Linked Sessions*. **Additive throughout**; the protocol ID moves with the wire files, and nothing is bumped.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `StartAnotherSession.group` | The id of a group of the caller's recorded plan. Absent is the start of 23.80 | Fleet titles the Session with the group's title, in the caller's repository whatever `manifest_id` says, and holds the group's tasks word for word, the caller's handoff and `message` as its first message. 422 `fleet.group_unknown`, 409 `fleet.group_handed` |
+| `hand_to_session` (`POST /sessions/hand_to_session`) | `HandToSession`: `session_id`, `group`. Answers `SessionHeld` | `agent_access` No: Bridge's. The same start with the first message **sent**, since the press is the person's |
+| `Attachment.detail.group` on `started_by` and `started_to` | The group's id | No field is added: the existing `detail` map carries it on both ledgers, so Bridge reads a Session's group off its own record |
+| `SessionRow.linked` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`), `event` (`needs`, `done` or `merged`) | Written in the **parent's** thread where it happened, and the parent's agent is sent a message in the same moment. Bridge draws it as the press that opens `session` |
+
+**Every Session with a `started_by` row is followed, grouped or not**, which is also the rule for nesting it under its parent in Work. **Each notice is told once**: `done` and `merged` are kept in the store (`session_linked_told`, an additive migration), so a restart tells nothing again. `needs` is a move from not needing to needing as the loop saw it, so a Session already needing when Fleet starts is not told.
+
+**The event stream is neither better nor worse.** One `session.row` and one message to a Session's process for each notice, and a notice is rare beside a turn's rows. The unbounded sink and the missing resync message are untouched.
+
+## A full pool asks the person: `slot_choice`
+
+Since 16 Oct 2026. `docs/concepts/session.md`, *A full pool asks the person*. **Additive only**: one value on `WaitingSource`, no operation, no event kind and no route. The protocol ID moves with the files below, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `WaitingSource` `slot_choice` | Fleet writes, Bridge reads | Derived on every read, never kept. Id `slot-choice`, text `Every slot is in use`, `act` `{kind: "answer", target: "slot-choice"}`, `options` exactly `Wait for a slot` (choice 0) and `Add a slot` (choice 1), labels only. Present while the session is in the line for a slot and nobody has chosen |
+| `answer_waiting` | Bridge sends, Fleet takes | `choice` 0 or 1 on that item. **No message goes to the agent**: it was told to end its turn when it was queued, and is moved into its slot when one is granted. Words or a mode without a `choice` are a 422 `fleet.session_waiting_empty` |
+| `dismiss_waiting` | | Refused 422 `fleet.session_waiting_empty` for a `slot_choice` item: it is answered |
+
+**The same call from a command.** `ask_for_slot` (`POST /sessions/slot_wanted`, `agent_access` `No`) is `armada worktree lease` run by a hosted Session telling Fleet every slot is held. Body `AskForSlot`: `act` (`ask`, repeated about once a second, or `done`) and `session_id`, read by the command from `ARMADA_SESSION`. Answers `SlotAsked`: `standing` (`asking`, `waiting`, `added` or `unasked`). Bridge never sends it, and `packages/protocol/src/sessions.ts` carries both types so the wire reads whole. It raises the same `slot-choice` item, and one item where the Session is also in the line: **one call, never two**. Fleet forgets a command it has not heard from for ten seconds. *Add a slot* for a command with no line makes a slot and holds it for that command until `done` or thirty seconds; for a Session in the line, the slot goes to the Session and the command keeps waiting. A command with no `ARMADA_SESSION`, or no Fleet, does not call it. `armada need` has nothing to order here either.
+
+**Skew.** A Bridge before this meets `slot_choice` as a source it does not know. The IDs differ, so the two are refused regardless. The event stream is untouched beyond the `session.row` and `session.changed` the item already rides on.
+
+## A sketch wireframes a screen: the `screen` node
+
+Since 16 Oct 2026. `docs/concepts/sketch-pane.md`, *Screens*, and `docs/concepts/session.md`, *Drawing a sketch*. **Additive only**: one node kind and one node field in the scene `show_sketch` carries, no operation, no event kind and no route. The protocol ID moves with the files below, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| Scene node `kind` `screen` and field `screen` (`show_sketch`, `POST /sessions/sketch`) | Session writes, Fleet checks | A layout tree of rows, columns, grids and wireframe parts. `crates/ipc/src/sketch/screen.rs`, the same rules as `screen.ts`; a tree on any other kind, or a screen with none, is refused |
+| Fleet's check | Fleet refuses | 422 naming the part by its path in the tree, what it holds and what is allowed. Nesting is bounded |
+| `Attachment.detail.scene` on the `sketch` artifact | Fleet writes, Bridge reads | Unchanged in shape: the scene is JSON text, so Bridge's `parseScene` reads the new kind with no DTO to mirror |
+
+**Skew.** A Bridge before this draws a scene holding a screen as an empty frame, because `parseScene` refuses a kind it does not know. The IDs differ, so the two are refused regardless. The scene stays under the sketch byte cap: a desktop screen of the 16 Oct layout measured 2560 bytes.
 
 ## Open questions
 

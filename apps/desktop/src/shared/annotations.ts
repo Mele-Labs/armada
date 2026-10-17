@@ -306,10 +306,30 @@ export function requestOf(note: Annotation): string {
   return lines.join("\n");
 }
 
-/** A whole-window note's request: what the person said, the page, and the state Bridge held. */
-function windowRequestOf(note: Annotation): string {
-  const lines = [note.text, "", "This is feedback on the state of Bridge's whole window, left with the annotation layer. The screenshot is the window."];
-  lines.push(`- Screen: ${note.screen ?? "none marked"}`);
+/** What a whole-window note records of the window. A failure sent to a Session records the same, so both write it with `windowLines`. */
+export type WindowFacts = Pick<Annotation, "screen" | "layer" | "location" | "scenario" | "window" | "context" | "openJobId">;
+
+/** A Session as a context records it. */
+export function sessionFacts(session: { id: string; title?: string; state: string; harness: string; cwd: string; end_reason?: string }): NonNullable<AppContext["session"]> {
+  return {
+    id: session.id,
+    ...(session.title === undefined ? {} : { title: session.title }),
+    state: session.state,
+    harness: session.harness,
+    cwd: session.cwd,
+    ...(session.end_reason === undefined ? {} : { endReason: session.end_reason }),
+  };
+}
+
+/** The line stating an open Session, labelled by whose it is. */
+export function sessionLine(label: string, session: NonNullable<AppContext["session"]>): string {
+  const facts = [`state ${session.state}`, `harness ${session.harness}`, `cwd ${session.cwd}`, session.endReason === undefined ? null : `ended: ${session.endReason}`];
+  return `- ${label}: ${session.title === undefined ? "" : `"${session.title}" `}(${session.id}) — ${facts.filter((f) => f !== null).join(", ")}`;
+}
+
+/** The page and the state Bridge held, as labelled lines. */
+export function windowLines(note: WindowFacts): string[] {
+  const lines = [`- Screen: ${note.screen ?? "none marked"}`];
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   lines.push(`- Location: ${note.location}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
@@ -321,13 +341,16 @@ function windowRequestOf(note: Annotation): string {
       const facts = [`status ${job.status}`, job.reason === undefined ? null : `reason ${job.reason}`, job.step === undefined ? null : `step ${job.step}`, job.drone === undefined ? null : `Drone ${job.drone}`, `workflow ${job.workflow}`];
       lines.push(`- Job open: ${job.handle} "${job.title}" (${job.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
     } else if (note.openJobId !== undefined) lines.push(`- Job open: ${note.openJobId}`);
-    if (session !== undefined) {
-      const facts = [`state ${session.state}`, `harness ${session.harness}`, `cwd ${session.cwd}`, session.endReason === undefined ? null : `ended: ${session.endReason}`];
-      lines.push(`- Session open: ${session.title === undefined ? "" : `"${session.title}" `}(${session.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
-    }
+    if (session !== undefined) lines.push(sessionLine("Session open", session));
     lines.push(`- Connection to Fleet: ${context.connection}`, `- Doctor: ${doctor.summary}`);
     for (const row of doctor.rows) lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);
   }
-  lines.push(`- Note file: .armada/annotations/${note.id}.json`);
+  return lines;
+}
+
+/** A whole-window note's request: what the person said, the page, and the state Bridge held. */
+function windowRequestOf(note: Annotation): string {
+  const lines = [note.text, "", "This is feedback on the state of Bridge's whole window, left with the annotation layer. The screenshot is the window."];
+  lines.push(...windowLines(note), `- Note file: .armada/annotations/${note.id}.json`);
   return lines.join("\n");
 }

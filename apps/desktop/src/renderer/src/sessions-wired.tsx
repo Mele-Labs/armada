@@ -20,7 +20,7 @@ import type { ProposedField, SessionHoldsReleased, SessionRunMessage, SettingsLi
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { askToTell, NOT_REACHABLE } from "./tell";
+import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
 import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
@@ -225,10 +225,10 @@ export class WiredStore {
     this.listeners.forEach((listener) => listener());
   }
 
-  /** A refused act on one Session is a toast, as a failed annotation send is. A terminal that is not listening says what to run. */
-  private tell(outcome: Parameters<typeof refusalWords>[0]): void {
+  /** A refused act on one Session is a toast, as a failed annotation send is. A terminal that is not listening says what to run. `act` is what was sent, for a Session started from the toast. */
+  private tell(outcome: Parameters<typeof refusalWords>[0], act?: RefusedAct): void {
     const unreachable = !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.terminal_session_unreachable";
-    askToTell(unreachable ? NOT_REACHABLE : (moveRefusalWords(outcome) ?? refusalWords(outcome)));
+    askToTell(unreachable ? NOT_REACHABLE : (moveRefusalWords(outcome) ?? refusalWords(outcome)), act);
   }
 
   private tagged(id: string, tags: readonly SessionTag[]): void {
@@ -340,6 +340,15 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: a group of the plan goes to a Session of its own, which Fleet starts and briefs. Resolves to it once the window holds it; a refusal is a toast. */
+  private async handing(id: string, group: string): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.handToSession(id, group);
+    if (!done.ok) return void this.tell(done.outcome);
+    await this.held(done.value.session_id);
+    return done.value.session_id;
+  }
+
   /** One call: the Session ends and starts again in another repository. Resolves to the new one once the window holds it; a refusal is a toast. */
   private async moving(id: string, manifestId: string): Promise<string | undefined> {
     this.say(undefined);
@@ -419,10 +428,10 @@ export class WiredStore {
     return done.ok;
   }
 
-  private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<void> {
+  private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>, sent?: RefusedAct): Promise<void> {
     this.say(undefined);
     const done = await act;
-    if (!done.ok) this.tell(done.outcome);
+    if (!done.ok) this.tell(done.outcome, sent);
   }
 
   private readonly lookup = (id: string): Session | undefined => this.mapped.find((one) => one.id === id);
@@ -518,6 +527,7 @@ export class WiredStore {
     dropQueued: (id) => this.changeQueued((ideas) => ideas.filter((one) => one.id !== id)),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
+    handOff: (id, group) => this.handing(id, group),
     forkAt: (id, at) => this.forkingAt(id, at),
     move: (id, manifestId) => this.moving(id, manifestId),
     retro: (id) => this.retroing(id),
@@ -627,20 +637,24 @@ export class WiredStore {
     get commands() {
       return store.commandsRead();
     },
-    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) =>
-      this.plain(this.api.answerWaiting({ session_id: id, item_id: itemId, ...given })),
+    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) => {
+      const request = { session_id: id, item_id: itemId, ...given };
+      return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
+    },
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => {
-      const call = this.lookup(id)?.asked?.call;
+      const asked = this.lookup(id)?.asked;
+      const call = asked?.call;
       if (call === undefined) return;
-      void this.plain(
-        this.api.answerSessionAsk({
-          session_id: id,
-          call,
-          answer: answer ?? "allow_once",
-          ...(answers === undefined ? {} : { answers }),
-          ...(folder === undefined ? {} : { folder }),
-        }),
-      );
+      const request = {
+        session_id: id,
+        call,
+        answer: answer ?? "allow_once",
+        ...(answers === undefined ? {} : { answers }),
+        ...(folder === undefined ? {} : { folder }),
+      };
+      // What the card put to him, so a refusal can be read against it.
+      const card = { ask: asked?.command, ask_reaches: asked?.reaches, ask_reaches_to: asked?.reachesTo, ask_offers: asked?.offers?.join(",") };
+      void this.plain(this.api.answerSessionAsk(request), { act: "answer_session_ask", request, card });
     },
     };
   }

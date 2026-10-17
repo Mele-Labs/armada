@@ -197,6 +197,10 @@ pub struct Fleet<H, V, W> {
     /// The repositories whose checkout of main is running a Drone's one test,
     /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
+    /// The agent runs about pull requests that are going right now, by key. Never written down:
+    /// a row the store says is going that is not here died with the process that held it
+    /// (`crate::review_runs`).
+    review_going: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
     /// The Jobs a Commander's repair Drone is on. Never written down — `crate::job_repair`.
     repairing: crate::repair_hold::Underway,

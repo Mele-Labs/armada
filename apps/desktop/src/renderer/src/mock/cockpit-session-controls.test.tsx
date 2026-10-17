@@ -10,7 +10,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const pane = () => page.getByRole("region", { name: "Session: Pin the store clock" });
 // Activity names each event on its dot.

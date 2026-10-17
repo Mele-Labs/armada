@@ -7,7 +7,7 @@
 //! `refuse`, or forcing every criterion to refuse even one that defaults to
 //! asking — which is exactly the three-way shape `WhenBlocked` already uses.
 
-use crate::job::judge::OnRefusal;
+use crate::workflow::OnRefusal;
 
 /// How this Job meets a Judge criterion that refuses.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

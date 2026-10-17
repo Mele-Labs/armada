@@ -23,7 +23,9 @@ import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
 import type { Hosts } from "../../session-view/SessionWorkspace";
+import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { restoreThread } from "../../session-view/place";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
 import { useBayHistory } from "./bay-history";
@@ -37,8 +39,8 @@ import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
 function BackAct() {
   const autopilot = useDeck((deck) => deck.sel?.kind === "autopilot");
-  const fromBay = useDeck((deck) => deck.from !== undefined);
-  const back = fromBay ? "Back to the bay" : "Back";
+  const from = useDeck((deck) => deck.from?.kind);
+  const back = from === "session" ? "Back to the Session" : from !== undefined ? "Back to the bay" : "Back";
   return (
     <Tooltip label={back} shortcut="Esc">
       <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (autopilot ? leaveAutopilot() : goBack())}>
@@ -207,8 +209,8 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
 
 /**
  * A Session on the stage is the panel the Sessions window draws: its head with the state, the context figure and the rename, its
- * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own acts
- * (Open the page, Stop) lead the head's menu, Back is the head's far right item, and the pull request is the ledger's, not the head's.
+ * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own act
+ * (Stop) leads the head's menu, Back is the head's far right item, and the pull request is the ledger's, not the head's.
  * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
  * and Needs you band.
  */
@@ -217,10 +219,14 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   const draft = useSessionsDraft();
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
   useViewing(session?.id);
+  // Back from a Session it follows finds the thread where he left it.
+  useEffect(() => {
+    if (session?.id !== undefined) restoreThread(session.id);
+  }, [session?.id]);
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
   return (
-    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`}>
+    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
       <SessionView
         session={session}
         goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id, run) => (props.onOpenCheck === undefined ? props.onOpenSession(id) : props.onOpenCheck(id, run)) }}
@@ -235,7 +241,6 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
           ledger,
           ...(hosts === undefined ? {} : { hosts }),
           acts: [
-            { id: "open", label: "Open the Session page", icon: ExternalLink, run: () => acts.open(subject) },
             ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
           ],
           back: <BackAct />,

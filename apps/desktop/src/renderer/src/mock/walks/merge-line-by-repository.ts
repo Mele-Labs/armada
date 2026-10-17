@@ -3,7 +3,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const queue = region("Merge queue");
 
 const mergeLineByRepository = walk("merge-line-by-repository", [

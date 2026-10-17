@@ -7,7 +7,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BellRing, Box, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
-import { Button, Tabs, Tooltip } from "@armada/components";
+import { Button, Inspect, InspectCard, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { JobSummary, TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
@@ -302,17 +302,21 @@ function Track({ lane, now, press }: { lane: Lane; now: number; press: (event: F
         .filter((event) => now - Date.parse(event.at) <= WINDOW)
         .map((event) => {
           const said = `${event.says}${event.detail === undefined ? "" : `: ${event.detail}`}, ${ageOf(event.at, now)} ago`;
+          const mark = KIND_MARK[event.kind];
           const tip = (
-            <span className="armada-tl__tip">
-              <span>{event.says}</span>
-              {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
-              <span className="armada-tl__detail">{clock(event.at)}</span>
-            </span>
+            <InspectCard
+              kind={{ Glyph: GLYPH[event.subject.kind], label: KIND[event.subject.kind] }}
+              where={clock(event.at)}
+              title={titleOf(event.subject)}
+              state={{ Glyph: mark?.icon ?? Clock, said: event.says, tone: TONE[event.tone] }}
+              facts={[...(event.detail === undefined ? [] : [{ label: "Detail", value: event.detail, mono: true }]), { label: "Ago", value: ageOf(event.at, now), mono: true }]}
+              keys={[{ key: "Enter", verb: "Open" }]}
+            />
           );
           return (
-            <Tooltip key={event.id} label={tip} card asChild>
+            <Inspect key={event.id} card={tip} name={said} pin={false}>
               <button type="button" className="armada-tl__pip" data-shape={shapeOf(event)} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} aria-label={said} style={{ ...toneOf(event.tone), left: `${at(Date.parse(event.at))}%` }} onClick={() => press(event)} />
-            </Tooltip>
+            </Inspect>
           );
         })}
     </div>

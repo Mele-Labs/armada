@@ -6,8 +6,8 @@ import { ArrowLeft, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
 import { Button, PrMark, Tooltip } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { changesOf } from "./changes";
-import { SOURCE_MARK, TOOL_MARK } from "./marks";
+import { changesOf, isFile, ownerOf, placeOfFinding } from "./changes";
+import { RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NothingFound } from "./nothing-found";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -21,6 +21,9 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
   const running = run?.state === "running";
   const stale = run?.state === "done" && run.head !== pr.head;
   const mine = work.findings.filter((one) => one.tool === tool.id && !one.dismissed);
+  const all = changesOf(pr, work);
+  const owners = new Set(mine.map((one) => ownerOf(all, one.at.path, placeOfFinding(one))?.id));
+  const quiet = (one: { id: string }) => !owners.has(one.id);
   const mark = TOOL_MARK[tool.mark];
   const source = SOURCE_MARK[tool.source];
   return (
@@ -54,17 +57,16 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
             <PrMark Glyph={LoaderCircle} said="Running" tone="running" />
           </span>
         </p>
+      ) : run?.state === "failed" ? (
+        <RunFailed said={run.said} />
       ) : mine.length === 0 ? (
-        <NothingFound mark={tool.mark} changes={changesOf(pr, work).length} />
+        <NothingFound mark={tool.mark} changes={all.length} />
       ) : (
         <div className="pr-results__themes">
-          {isExplained(work) ? (
-            pr.explanation.themes.map((theme, at) => (
-              <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
-            ))
-          ) : (
-            <BareChanges pr={pr} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
-          )}
+          {isExplained(work)
+            ? pr.explanation.themes.map((theme, at) => <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={quiet} />)
+            : null}
+          <BareChanges pr={pr} mode="result" tool={tool.id} send={send} quiet={(one) => !isFile(one) || quiet(one)} />
         </div>
       )}
     </div>

@@ -12,7 +12,8 @@
 use alloc::string::String;
 
 use crate::envelope::Timestamp;
-use crate::job::{FrozenWorkflow, Job, JobStatus, StepId, StepState};
+use crate::job::{Job, JobStatus, StepState};
+use crate::workflow::{FrozenWorkflow, StepId};
 use crate::trigger::{can_hold, OnTriggerFailure, RepairRecord, TriggerState, TriggerWhen};
 
 /// What an added step runs.

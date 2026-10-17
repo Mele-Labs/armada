@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
 import { shipOf, type Ship, type Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, needingOf, listOf, moveCursor, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly, withoutOpenSession } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, needingOf, listOf, moveCursor, setJobView, setScope, setView, toggleChecks, toggleNeeds, toggleOnly, withoutOpenSession } from "./store";
 
 const kept = new Map<string, string>();
 
@@ -149,4 +149,74 @@ test("the open Session's own calls are cards in its thread and leave Incoming ca
   expect(keys(undefined)).toEqual(["session:s1:q1", "session:s2:q1", "main:/r"]);
   // Only an open Session takes its calls: a Job open on the stage leaves every call where it was.
   expect(keys({ kind: "job", key: "session:s1" })).toHaveLength(3);
+});
+
+// ---- Scope and search ----------------------------------------------------------------------------------
+
+const past = (id: string, how: "quiet" | "ended", at: number, older = false): Subject => ({ ...subject("session", id), past: how, at, ...(older ? { older: true } : {}) }) as Subject;
+const scoped = (): Ship =>
+  ({
+    subjects: [subject("job", "live-job"), subject("session", "live"), past("quiet-new", "quiet", 300), past("ended-old", "ended", 100), past("ended-new", "ended", 200), past("ended-ancient", "ended", 1, true)],
+    running: new Set(),
+    mains: [],
+    prs: [],
+    calls: [],
+  }) as unknown as Ship;
+const scope = (which: "active" | "quiet" | "ended" | "all", rest: { found?: ReadonlyMap<string, unknown>; open?: string } = {}) => listOf(scoped(), { ...deckNow(), scope: which, ...rest }).map((one) => one.id);
+
+test("Active lists the live Jobs and Sessions and no past one", () => {
+  expect(scope("active")).not.toContain("quiet-new");
+  expect(scope("active").sort()).toEqual(["live", "live-job"]);
+});
+
+test("Quiet and Ended list their own Sessions, newest first, and an ended one past the week is left off", () => {
+  expect(scope("quiet")).toEqual(["quiet-new"]);
+  expect(scope("ended")).toEqual(["ended-new", "ended-old"]);
+});
+
+test("All lists the live ones and then every past one, newest first", () => {
+  const all = scope("all");
+  expect(all.slice(0, 2).sort()).toEqual(["live", "live-job"]);
+  expect(all.slice(2)).toEqual(["quiet-new", "ended-new", "ended-old"]);
+});
+
+test("a search narrows the list to what it found, and it is the only way to a Session past the week", () => {
+  const found = new Map([["session:ended-ancient", {}], ["session:live", {}]]);
+  expect(scope("active", { found })).toEqual(["live"]);
+  expect(scope("ended", { found })).toEqual(["ended-ancient"]);
+  expect(scope("all", { found }).sort()).toEqual(["ended-ancient", "live"]);
+});
+
+test("the Session open on the stage stays in the list, whatever the scope", () => {
+  expect(scope("ended", { open: "session:quiet-new" })).toEqual(["ended-new", "ended-old", "quiet-new"]);
+  expect(scope("active", { open: "session:ended-old" })).toContain("ended-old");
+});
+
+test("the scope is remembered across a new window, and choosing one starts the list from its first page", () => {
+  setScope("ended");
+  forgetDeck();
+  expect(deckNow().scope).toBe("ended");
+  expect(deckNow().limit).toBe(50);
+});
+
+test("a narrowed scope or a search keeps main's events off the feed and the stage", () => {
+  const listed = listOf(scoped(), { ...deckNow(), scope: "ended" });
+  expect(keepOf(listed, { ...deckNow(), scope: "ended" })({ kind: "main" })).toBe(false);
+  expect(keepOf(listed, { ...deckNow(), query: "x" })({ kind: "main" })).toBe(false);
+  expect(keepOf(listed, { ...deckNow(), scope: "active", query: " " })({ kind: "main" })).toBe(true);
+});
+
+// ---- Linked Sessions, in Work --------------------------------------------------------------------------
+
+test("a Session started from another stands right under its parent, whether or not it was handed a plan group", () => {
+  const child = (id: string, linked: Subject["linked"]): Subject => ({ ...subject("session", id), linked });
+  const all = [subject("session", "p"), subject("job", "j"), child("grouped", { parent: "session:p", group: "Names" }), child("plain", { parent: "session:p" })];
+  const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key)).toEqual(["session:p", "session:grouped", "session:plain", "job:j"]);
+});
+
+test("a linked Session whose parent is not listed stands in the list where it would", () => {
+  const orphan: Subject = { ...subject("session", "c"), linked: { parent: "session:gone" } };
+  const listed = listOf({ subjects: [subject("job", "j"), orphan], running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key).sort()).toEqual(["job:j", "session:c"]);
 });

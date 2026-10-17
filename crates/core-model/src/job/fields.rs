@@ -6,7 +6,7 @@
 //! practice names first, a type definition apart from the logic over it.
 //!
 //! The ids and the string newtypes a record names things with moved to
-//! [`ids`](crate::job::ids), along the heading this doc comment drew for
+//! [`ids`](crate::workflow::ids), along the heading this doc comment drew for
 //! them. What is left here is the vocabulary itself: each closed enum beside
 //! the `as_wire`/`from_wire` pair that maps its variants.
 
@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::envelope::Timestamp;
-use crate::job::ids::{CriterionId, JobId, ManifestId, RepoPath, StepId};
+use crate::workflow::{CriterionId, JobId, ManifestId, RepoPath, StepId};
 
 /// Where a Job came from. A denormalised label written from `dispatched_by` at creation — where
 /// the two disagree, `dispatched_by` wins. That rule is structural here: [`Origin::SubDispatched`]

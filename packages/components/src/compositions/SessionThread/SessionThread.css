@@ -65,14 +65,17 @@
 }
 
 /* **A pixel of scroll is a pixel of height.** The region slides down the length of its own body as the thread is scrolled up through the last
-   body's height of its range, and is whole again when he is at the end. */
+   body's height of its range, and is whole again when he is at the end. Longhands, not `animation`: the build's lightningcss folds a
+   following `animation-timeline` into the shorthand, which Chromium refuses, and the region never moved (`src/main/scroll-timelines.test.ts`). */
 @keyframes armada-session-calls-shrink {
   from { transform: translateY(var(--calls-body)); }
   to { transform: translateY(0); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .armada-session-thread__calls:not([data-open]) {
-    animation: armada-session-calls-shrink linear both;
+    animation-name: armada-session-calls-shrink;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
     animation-timeline: --thread-scroll;
     animation-range: calc(100% - var(--calls-body)) 100%;
   }

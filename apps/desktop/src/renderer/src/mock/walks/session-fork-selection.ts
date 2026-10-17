@@ -11,7 +11,7 @@ const SAID = "When the second rolls over between the two reads, the values diffe
 
 function steps(narrow: boolean): Step[] {
   const { message, thread, opened, row } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const from = role("group", "Forked from Fix the flaky store test");
   return [
     { press: inside(sessions, button("Fix the flaky store test")), say: "A live Session opens" },

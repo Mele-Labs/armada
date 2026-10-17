@@ -11,8 +11,10 @@ import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
+import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_TITLE } from "./screens";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
+import type { WorktreesHeld } from "@armada/protocol";
 import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -44,6 +46,9 @@ export const SKETCHER = "s14";
 
 /** The Session that draws how data moves through Fleet: a hub of boxes, converging labelled arrows, a long body. */
 export const HUBBER = "s15";
+
+/** The Session that draws screens: a desktop window, a web app in a browser frame, and two phone screens joined by an arrow. */
+export const WIRER = "s16";
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -187,6 +192,8 @@ export type BoardControl = {
   setStatus: (jobId: string, status: string) => void;
   /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
   add: (rows: readonly unknown[]) => void;
+  /** The worktree pool, for a Session that takes a bay: read as Fleet holds it, and written back where the window is reading it. */
+  pool?: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld) => void };
 };
 
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
@@ -683,6 +690,14 @@ export function sessionsStore(
         after(900, () => {
           showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
           addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
+          finishOf(id, "14:52");
+        });
+      } else if (id === WIRER) {
+        after(900, () => {
+          showSketch(id, OPEN_TITLE, OPEN_SCENE);
+          showSketch(id, MEMBERS_TITLE, MEMBERS_SCENE);
+          showSketch(id, FLOW_TITLE, FLOW_SCENE);
+          addTo(id, [said("Session screen, team settings and sign in flow.")]);
           finishOf(id, "14:52");
         });
       } else if (id === MINE && !started) {

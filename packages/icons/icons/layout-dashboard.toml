@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "Added 2026-09-13 with Overview, Bridge's first surface (#921). The only Navigation glyph built from a grid of panes rather than a single bounded shape, which is what keeps it clear of clipboard-list (an upright board), hard-drive (a horizontal vessel), and the outline-with-something-inside family — message-square, bell, stethoscope, file-cog."
+
+  [[icons.layout-dashboard.usage]]
+    means = "A home or dashboard tab on a screen a sketch draws"
+    group = "Sketch screens"
+    size = "16px"
+    status = "Proposed"
+    notes = "Added with the `screen` node for `show_sketch`. A wireframe often has a Home item, and `house` is reserved against a home screen, so the landing page takes the glyph that already means one: panes on a grid."

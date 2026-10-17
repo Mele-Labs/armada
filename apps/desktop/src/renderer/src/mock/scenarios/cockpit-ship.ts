@@ -138,6 +138,29 @@ const working: Session = {
     tool("w1-t3", "14:17:02", "Grep crates/store -e pause_marker"),
   ],
   attachments: [],
+  context: { tokens: 612_000, window: 1_000_000 },
+  contextBreakdown: {
+    categories: [
+      { name: "System prompt", tokens: 3_100, kind: "used" },
+      { name: "System tools", tokens: 12_400, kind: "used" },
+      { name: "MCP tools", tokens: 8_200, kind: "used" },
+      { name: "Memory files", tokens: 4_600, kind: "used" },
+      { name: "Messages", tokens: 583_700, kind: "used" },
+      { name: "Free space", tokens: 238_000, kind: "free" },
+      { name: "Autocompact buffer", tokens: 150_000, kind: "buffer" },
+    ],
+    memoryFiles: [
+      { path: "NOTES.md", tokens: 2_100 },
+      { path: "apps/NOTES.md", tokens: 700 },
+    ],
+    mcpTools: [
+      { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },
+      { name: "query", server: "gitnexus", tokens: 1_500 },
+    ],
+    totalTokens: 612_000,
+    maxTokens: 1_000_000,
+    autocompactThreshold: 850_000,
+  },
 };
 
 /** Its turn is running and has said nothing for 25 minutes. In the pocket repository. */
@@ -521,7 +544,7 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
     later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, SESSIONS), events: EVENTS, clashes: CLASHES, areas: mockAreas },
+    draft: { calls: CALLS, now: NOWS, sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

@@ -6,7 +6,7 @@
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const places = role("navigation", "Places");
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 const controls = region("Flight controls");
 const incoming = region("Incoming calls");
 const stage = (name: string | RegExp) => region(name);

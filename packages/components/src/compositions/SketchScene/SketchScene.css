@@ -148,6 +148,34 @@
   font-weight: var(--weight-heading);
 }
 
+/* A screen is a sheet of its own on the ground: no frame of the node's, its title above it, and the ring on the sheet. */
+.armada-scene-node[data-kind="screen"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: none;
+  background: none;
+  overflow: visible;
+}
+
+.armada-scene-node[data-kind="screen"][data-current],
+.armada-scene-node[data-kind="screen"][data-asked] {
+  outline: none;
+}
+
+.armada-scene-node[data-kind="screen"][data-current] > .armada-screen,
+.armada-scene-node[data-kind="screen"][data-asked] > .armada-screen {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-node__caption {
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+}
+
 /* A wireframe part: drawn as a block, never as a control. */
 .armada-scene-node[data-kind="wire"] {
   --hue: var(--border-strong);

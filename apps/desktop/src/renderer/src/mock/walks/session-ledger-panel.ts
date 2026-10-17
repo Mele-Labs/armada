@@ -8,7 +8,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
   const { ledger, opened, row, close } = kit(false);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const panel = (title: string) => dialog(title);
   return [
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that wrote a file, looked at a screenshot and published a page" },

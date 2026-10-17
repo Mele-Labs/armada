@@ -62,6 +62,9 @@ struct State {
     free: BTreeSet<usize>,
     /// The directory the lease records are in, once it is watched.
     leases: Option<PathBuf>,
+    /// Every event delivered, so a test can wait for the file system to go quiet.
+    #[cfg(test)]
+    events: u64,
 }
 
 #[derive(Default)]
@@ -173,6 +176,10 @@ impl Shared {
 
     fn heard(&self, event: notify::Result<Event>) {
         let mut state = self.state();
+        #[cfg(test)]
+        {
+            state.events += 1;
+        }
         let mut touched = false;
         match event {
             Err(_) => {
@@ -512,6 +519,13 @@ pub(crate) fn unwatched(root: &Path) {
 pub(crate) fn last_status_asked(root: &Path) -> Vec<usize> {
     let all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
     all.get(&canonical(root)).map(|watch| watch.status_asked.clone()).unwrap_or_default()
+}
+
+/// How many events `root`'s pool has been delivered, ignored ones included.
+#[cfg(test)]
+pub(crate) fn events_heard(root: &Path) -> u64 {
+    let all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
+    all.get(&canonical(root)).map_or(0, |watch| watch.shared.state().events)
 }
 
 /// What the file system has told `root`'s pool since it was last read: whether

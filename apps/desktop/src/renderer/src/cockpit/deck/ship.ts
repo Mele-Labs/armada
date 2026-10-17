@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo } from "react";
 import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
-import { sessionGlyphOf } from "@armada/components";
+import { sessionGlyphOf, since } from "@armada/components";
 import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ofPicked } from "@armada/screens";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -75,8 +75,19 @@ export type Subject = {
   repliable: boolean;
   /** Its pull request can be merged now. */
   mergeable: boolean;
-  /** Minutes since it last said anything, where it is a Session. */
+  /** Minutes since it last said anything, where it is a Session. A past one says it in days, hours or minutes. */
   since?: string;
+  /**
+   * A Session that ended, or that Fleet cannot reach. It is a row of the list under Quiet, Ended or All, and nothing else of the
+   * deck's: it flies no drone, raises no call and holds no bay.
+   */
+  past?: "quiet" | "ended";
+  /** An ended Session last seen before the list's week: the list leaves it off until a search finds it. */
+  older?: true;
+  /** When it last took a turn, in ms, for the order a past list reads in. */
+  at?: number;
+  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent. */
+  linked?: { parent: string; group?: string };
 };
 
 export type Main = {
@@ -252,7 +263,32 @@ export function shipOf(input: Inputs): Ship {
   }
 
   for (const session of sessions) {
-    if (session.dead !== undefined || session.helm === true) continue;
+    if (session.helm === true) continue;
+    if (session.dead !== undefined) {
+      const root = rootOf(session.manifestId);
+      const at = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
+      subjects.push({
+        key: `session:${session.id}`,
+        kind: "session",
+        id: session.id,
+        title: session.title ?? session.id,
+        root,
+        repo: nameOfRoot(root),
+        ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
+        mark: sessionMark(session),
+        phase: "done",
+        needs: false,
+        alarm: false,
+        peek: peekOfSession(session),
+        stoppable: false,
+        repliable: false,
+        mergeable: false,
+        past: session.dead,
+        ...(session.older === true ? { older: true as const } : {}),
+        ...(at === undefined || Number.isNaN(at) ? {} : { at, since: since(session.lastTurnAt!, now) ?? "" }),
+      });
+      continue;
+    }
     const mark = sessionMark(session);
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
     const pr = prOf({ kind: "session", id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
@@ -264,6 +300,8 @@ export function shipOf(input: Inputs): Ship {
     const slot = slots.find((one) => one.held.state === "hosted_session" && one.held.session_id === session.id)?.slot ?? attachmentsOf(session, "branch")[0]?.slot;
     const root = rootOf(session.manifestId);
     const call = callOf((item) => sessionIdOf(item.key) === session.id);
+    const handed = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "started_by" }> => one.kind === "started_by");
+    const parent = handed === undefined ? undefined : sessions.find((one) => one.id === handed.id);
     subjects.push({
       key: `session:${session.id}`,
       kind: "session",
@@ -284,6 +322,7 @@ export function shipOf(input: Inputs): Ship {
       repliable: true,
       mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
       ...(ageOf(session.lastTurnAt, now) === undefined ? {} : { since: ageOf(session.lastTurnAt, now)! }),
+      ...(handed === undefined || parent === undefined ? {} : { linked: { parent: `session:${parent.id}`, ...(handed.group === undefined ? {} : { group: parent.work?.plan?.groups.find((one) => one.id === handed.group)?.title ?? handed.group }) } }),
     });
   }
 

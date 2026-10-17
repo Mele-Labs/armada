@@ -108,7 +108,7 @@ button.armada-session-frame__title-text:focus-visible {
 
 /* The context window as a tank: a mono pill of the live tokens and the percent, filled from its leading edge to the
    percent in the tone of how full it is, with a crisp edge at the level and a dotted line at the autocompact threshold.
-   With a breakdown it is a button and opens a `StopCard`, hung under it from its trailing edge, so the card opens
+   With a breakdown it is a button and opens an inspect card, hung under it from its trailing edge, so the card opens
    leftward inside the panel: the tank sits near the head's trailing edge and the frame clips what runs past it. */
 .armada-session-frame__context {
   flex: none;
@@ -148,13 +148,6 @@ button.armada-session-frame__context:focus-visible {
   --tone: var(--status-completed-failed);
 }
 
-.armada-session-frame__context-card {
-  position: absolute;
-  z-index: var(--z-tooltip);
-  top: 100%;
-  inset-inline-end: 0;
-}
-
 /* A Session that is big or old: a quiet mark, and a card of two acts hung under it from its trailing edge as the context card is. */
 .armada-session-frame__fresh-host {
   --tone: var(--fg-muted);
@@ -191,13 +184,6 @@ button.armada-session-frame__fresh[data-busy] svg {
   }
 }
 
-.armada-session-frame__fresh-card {
-  position: absolute;
-  z-index: var(--z-tooltip);
-  top: 100%;
-  inset-inline-end: 0;
-}
-
 .armada-session-frame__fresh-acts {
   display: flex;
   gap: var(--space-2);
@@ -205,10 +191,6 @@ button.armada-session-frame__fresh[data-busy] svg {
 }
 
 /* One term column for the categories and both lists, so the figures stand in a line. */
-
-.armada-session-frame__context-card .armada-stop-card__facts {
-  grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr);
-}
 
 /* The window as one row. The categories in it step down from the card's tone; the room left is a well and
    the autocompact buffer is the edge's own shade. */

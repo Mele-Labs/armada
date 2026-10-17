@@ -11,7 +11,7 @@ const files = inside(notice, role("list", /^Conflicting files with/));
 
 const folded = walk("clash-notice-fold", [
   toSessions,
-  { press: inside(region("Sessions"), button(/Checkout card sync/)), say: "The Session, in a clash with main" },
+  { press: inside(region("Work", { exact: true }), button(/Checkout card sync/)), say: "The Session, in a clash with main" },
   { look: inside(notice, bar), say: "One bar, folded to a line with who it clashes with" },
   { press: inside(notice, bar), say: "Open, the files that conflict" },
   { look: files, say: "Three files, and a chip for the rest" },

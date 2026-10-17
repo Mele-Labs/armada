@@ -1,13 +1,15 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
+import { Inspect, InspectCard, type InspectKey } from "../../primitives/Inspect/Inspect";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
+import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedSession";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -30,7 +32,7 @@ import { QuestionDeck } from "../SessionThread/QuestionDeck";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -47,37 +49,17 @@ export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "d
  */
 export type SessionLedgerCard = {
   title: string;
+  /** The item's id, as the card's head says it: `#2301`, a Job's number. */
+  where?: string;
+  /** Its state, where the host names the glyph; else a fact labelled State is drawn as the state band. */
+  state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
   /** `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes. */
   facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
 };
 
-export type LedgerPullRequest = { merged: boolean; checks: "passed" | "running" | "failed"; checksSaid: string };
+import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
 
-const PR_CHECKS = { passed: CircleCheck, running: LoaderCircle, failed: CircleX } as const;
-
-/** A pull request's state as one bare mark: merged or open, in its hue, its tooltip naming it. */
-export function PullRequestStateMark({ merged }: { merged: boolean }) {
-  const said = merged ? "Merged" : "Open";
-  return (
-    <Tooltip label={said}>
-      <span className="armada-pr-state" data-state={merged ? "merged" : "open"} role="img" aria-label={said}>
-        {merged ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
-      </span>
-    </Tooltip>
-  );
-}
-
-/** A pull request's Checks as one bare mark, the PR card's: spinning while they run. */
-export function PullRequestChecksMark({ checks, said }: { checks: LedgerPullRequest["checks"]; said: string }) {
-  const Glyph = PR_CHECKS[checks];
-  return (
-    <Tooltip label={said}>
-      <span className="armada-pr-card__check" data-checks={checks} role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
+export { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest };
 
 export type LedgerEntry = {
   key: string;
@@ -95,6 +77,8 @@ export type LedgerEntry = {
   artifact?: ArtifactForm;
   /** Which of the two a `background` row is, and so its glyph and what its tooltip names. */
   background?: BackgroundForm;
+  /** A `linked` row: a Session this one follows, drawn as a press that opens it. */
+  linked?: LinkedSessionProps;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
   /** Came with a Job a person piloted: handed over, not leased. */
@@ -158,6 +142,7 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
+  { kind: "linked", label: "Linked", Glyph: Link },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "job", label: "Jobs", Glyph: Box },
@@ -469,7 +454,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
           );
           return (
             <li key={row.key} className="armada-session-ledger__run" aria-label={row.name} data-removable={row.onRemove !== undefined || undefined}>
-              {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+              {row.card === undefined ? block : <Inspect card={<LedgerPreview card={row.card} kind={row.kind} keys={[]} />} name={row.card.title} side="beside" pin={false}>{block}</Inspect>}
               {removal(row)}
               {reasoning(row)}
             </li>
@@ -492,6 +477,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               />
               {removal(row)}
               {reasoning(row)}
+            </li>
+          );
+        }
+        if (kind === "linked" && row.linked !== undefined) {
+          return (
+            <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+              <LinkedSession {...row.linked} />
             </li>
           );
         }
@@ -581,9 +573,9 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             {row.card === undefined ? (
               opener
             ) : (
-              <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>
+              <Inspect card={<LedgerPreview card={row.card} kind={row.kind} />} name={row.card.title} side="beside" pin={false}>
                 {opener}
-              </Tooltip>
+              </Inspect>
             )}
             {removal(row)}
             {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
@@ -636,20 +628,54 @@ function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<L
   );
 }
 
-/** A row's preview: its title, then one fact a line, each labelled. Spans, because it is drawn inside the row's press. */
-export function LedgerPreview({ card }: { card: SessionLedgerCard }) {
+const KIND: Record<LedgerKind, { Glyph: LucideIcon; label: string }> = {
+  waiting: { Glyph: BellRing, label: "Waiting" },
+  slot: { Glyph: KeyRound, label: "Slot" },
+  branch: { Glyph: GitBranch, label: "Branch" },
+  pull_request: { Glyph: GitPullRequest, label: "Pull request" },
+  job: { Glyph: Box, label: "Job" },
+  studio: { Glyph: Presentation, label: "Studio" },
+  sketch: { Glyph: PencilRuler, label: "Sketch" },
+  subagent: { Glyph: Split, label: "Subagent" },
+  background: { Glyph: SquareTerminal, label: "Background" },
+  artifact: { Glyph: Files, label: "Artifact" },
+  fork: { Glyph: MoveRight, label: "Fork" },
+  start: { Glyph: CornerUpRight, label: "Started" },
+  linked: { Glyph: Link, label: "Linked" },
+};
+
+/** The status token a card's tone draws in: the same ones a row's mark takes. */
+const TONE_COLOR: Record<SessionLedgerTone, string> = {
+  pending: "var(--status-awaiting-review)",
+  passed: "var(--status-completed-success)",
+  failed: "var(--status-completed-failed)",
+  running: "var(--status-running)",
+  piloted: "var(--status-running)",
+  escalated: "var(--status-escalated)",
+  done: "var(--fg-muted)",
+  stopped: "var(--fg-muted)",
+};
+
+/** What a row's card keys say: a row's press opens it. */
+const OPENS: readonly InspectKey[] = [{ key: "Enter", verb: "Open" }];
+
+/** A row's preview as the inspect card: its kind, its name, its state, then one fact a line. */
+export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedgerCard; kind: LedgerKind; keys?: readonly InspectKey[] }) {
+  const held = card.state ?? (() => {
+    const one = card.facts.find((fact) => fact.label === "State");
+    return one === undefined ? undefined : { said: one.value, ...(one.tone === undefined ? {} : { tone: one.tone }) };
+  })();
+  const Glyph = card.state?.Glyph ?? (held?.tone === undefined ? undefined : MARK[held.tone]);
   return (
-    <span className="armada-ledger-card">
-      <span className="armada-ledger-card__title">{card.title}</span>
-      {card.facts.map((fact) => (
-        <span key={fact.label} className="armada-ledger-card__fact" data-tone={fact.tone}>
-          <span className="armada-ledger-card__label">{fact.label}</span>
-          <span className="armada-ledger-card__value" data-mono={fact.mono || undefined}>
-            {fact.value}
-          </span>
-        </span>
-      ))}
-    </span>
+    <InspectCard
+      kind={KIND[kind]}
+      {...(card.where === undefined ? {} : { where: card.where })}
+      title={card.title}
+      {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
+      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: fact.value, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
+      keys={keys}
+      width="wide"
+    />
   );
 }
 

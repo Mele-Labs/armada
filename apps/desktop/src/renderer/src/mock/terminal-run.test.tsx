@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { s256SessionRunInTerminal } from "./scenarios/session-run-in-terminal";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -19,8 +19,7 @@ const thread = () => page.getByRole("region", { name: "Thread" });
 async function open() {
   mount(s256SessionRunInTerminal);
   await onScreen();
-  await page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Sessions" }).click();
-  await page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Deploy the store/ }).click();
+  await toSession(/Deploy the store/);
   await expect.element(thread()).toBeVisible();
 }
 

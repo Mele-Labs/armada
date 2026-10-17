@@ -247,15 +247,18 @@
 }
 
 /* A limit's tone: neutral, then the tokens' own status hues from 80% and 95%. The arc and the card's figure take it. */
-.armada-title-bar__usage [data-level] {
+.armada-title-bar__usage [data-level],
+.armada-title-bar__usage-limit[data-level] {
   --tone: var(--fg-muted);
 }
 
-.armada-title-bar__usage [data-level="warning"] {
+.armada-title-bar__usage [data-level="warning"],
+.armada-title-bar__usage-limit[data-level="warning"] {
   --tone: var(--status-awaiting-review);
 }
 
-.armada-title-bar__usage [data-level="danger"] {
+.armada-title-bar__usage [data-level="danger"],
+.armada-title-bar__usage-limit[data-level="danger"] {
   --tone: var(--status-completed-failed);
 }
 
@@ -266,24 +269,8 @@
   color: var(--status-awaiting-review);
 }
 
-/* The one card, under the ring with right edges aligned: each limit a section, its name and figure on one line and
- * its facts under them. The surface is `StopCard`'s. */
-.armada-title-bar__usage-card {
-  position: absolute;
-  z-index: var(--z-tooltip);
-  top: 100%;
-  inset-inline-end: 0;
-  display: flex;
-  flex-direction: column;
-  width: calc(var(--space-12) * 6);
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-xs);
-}
-
+/* The one card's limits: each a section, its name and figure on one line and its facts under them. The surface is
+ * the inspect card's, which is drawn in the body, so the level's tone is read off the section itself. */
 .armada-title-bar__usage-limit {
   display: flex;
   flex-direction: column;
@@ -331,6 +318,8 @@
 
 .armada-title-bar__usage-facts dd {
   margin: 0;
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
   color: var(--fg-default);
   overflow-wrap: anywhere;
 }

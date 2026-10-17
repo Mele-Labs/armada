@@ -30,6 +30,7 @@ use crate::mods::ModList;
 use crate::proposing::ProposalInFlight;
 use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
+use crate::review_runs::ReviewRun;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
@@ -220,6 +221,10 @@ pub enum Event {
     // The default model's step down after any change to it, whole. `docs/concepts/machine.md`, *Quota*.
     #[serde(rename = "model_downshift.changed")]
     ModelDownshiftChanged(ModelDownshiftState),
+    // A run of an agent about one pull request moved: queued, running, done or failed, whole.
+    // `docs/concepts/pull-review.md`, *Agent runs*.
+    #[serde(rename = "review_run.changed")]
+    ReviewRunChanged { run: ReviewRun },
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),

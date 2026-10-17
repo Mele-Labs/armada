@@ -79,6 +79,7 @@ mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
+pub mod linked_watching;
 pub mod rail_watching;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
@@ -256,6 +257,8 @@ pub mod overruling;
 mod pausing;
 mod limit_hold;
 mod session_limit;
+/// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
+mod session_proposer;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
@@ -307,6 +310,10 @@ mod pull_registry;
 /// Since 23.83.
 mod pull_request_panel;
 mod pull_review_lists;
+/// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
+mod review_runs;
+/// The review tools and explanations a repository has, and writing one.
+mod review_tools;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
@@ -398,6 +405,7 @@ mod session_running;
 mod sessioning;
 mod window_sign_in;
 mod slot_holders;
+mod slot_reclaiming;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
 pub mod showing;

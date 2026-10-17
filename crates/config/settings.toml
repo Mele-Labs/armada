@@ -538,6 +538,23 @@ No environment variable.
 **The value lives in settings.json under `models.session`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.review-model]
+name = "Review model"
+scope = "Machine"
+default = "opus"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Ships as the Session model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Sessions leaves it where it was, and a machine that wants reviews cheaper says so here.
+
+Live: a run started after a change takes it. A run reads, never writes: it goes through the same read-only client as the Judge. Its spend is recorded on the run and shown beside it. No environment variable.
+
+**The value lives in settings.json under `models.review`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.model-selection-heuristic-parameters]
 name = "Model-selection heuristic parameters"
 scope = "Manifest only"
@@ -649,7 +666,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "armada"
 notes = """
-`setup.worktrees` in the root `armada.yml`: how many permanent, warm worktrees the repository keeps under `.armada/slots/` and leases out through `armada worktree lease`. **The pool is the cap**: with every slot held, a lease waits rather than cutting another tree. Read at each lease, so a change applies to the next one; lowering it leaves the slots above the new number on disk, unleased.
+`setup.worktrees` in the root `armada.yml`: how many permanent, warm worktrees the repository keeps under `.armada/slots/` and leases out through `armada worktree lease`. **The pool is the size Fleet starts from, not a hard cap**: with every slot held, a lease waits rather than cutting another tree, and a hosted session that finds none is asked by Fleet whether it waits for a slot or has one added, which grows the pool by one. Read at each lease, so a change applies to the next one; lowering it leaves the slots above the new number on disk, unleased.
 
 **Agents only, so far.** Fleet's Jobs still cut their own worktree under `.armada/worktrees/`, and do not count against the pool. `docs/concepts/fleet.md`, *Worktree slots*.
 """

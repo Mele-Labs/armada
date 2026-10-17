@@ -28,7 +28,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 
 use crate::envelope::{Actor, FieldValue, Timestamp};
-use crate::job::ids::{DroneId, JobId, StepId};
+use crate::workflow::{DroneId, JobId, StepId};
 use crate::job::record::Job;
 use crate::job::status::JobStatus;
 

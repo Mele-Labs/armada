@@ -42,3 +42,39 @@ export function geometryOf(scene: Scene): ExportGeometry {
 
 /** Token values as a theme holds them. `--ease` is in because an animation naming a token that is not there does not run. */
 export const TOKENS = { "--bg-sunken": "#0b0f13", "--fg-default": "#e6edf3", "--status-running": "#3b82f6", "--duration-pulse": "600ms", "--ease": "ease", "--edge-focus": "#58a6ff", "--space-2": "8px", "--edge-active": "2px" };
+
+/** A sign in screen with steps inside it, an arrow to a box, and a step of its own on the box. */
+export const SCREENS: Scene = parseScene({
+  nodes: [
+    {
+      id: "login",
+      kind: "screen",
+      x: 0,
+      y: 0,
+      w: 420,
+      h: 320,
+      title: "Sign in",
+      screen: {
+        type: "window",
+        chrome: "desktop",
+        title: "Tally",
+        children: [
+          {
+            type: "column",
+            gap: "md",
+            pad: "md",
+            size: "fill",
+            children: [
+              { type: "text", style: "heading", text: "Welcome back" },
+              { type: "field", label: "Email", placeholder: "you@example.com" },
+              { type: "button", id: "submit", text: "Sign in", variant: "primary", icon: "check", step: 1 },
+            ],
+          },
+          { type: "modal", title: "Forgot it?", step: 2, children: [{ type: "text", text: "We sent a link" }] },
+        ],
+      },
+    },
+    { id: "home", kind: "box", x: 600, y: 0, w: 240, h: 100, title: "Home", body: "Opens after sign in", step: 3 },
+  ],
+  edges: [{ id: "go", from: "login", to: "home", label: "Sign in", step: 3 }],
+})!;
