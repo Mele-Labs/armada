@@ -19,7 +19,7 @@ use std::error::Error;
 use std::fmt;
 
 use adapter_traits::{
-    DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused, Toolbelt,
+    DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused,
     Worktree,
 };
 use ipc::SessionMode;
@@ -312,7 +312,6 @@ impl HeadlessAgent {
                 .unwrap_or(Model::named("default").map_err(HostedRefused::Unassembled)?),
             Prompt::assembled("carried on stdin").map_err(HostedRefused::Unassembled)?,
             hosted.door.clone(),
-            Toolbelt::evidence_only(),
             hosted
                 .environment
                 .clone()

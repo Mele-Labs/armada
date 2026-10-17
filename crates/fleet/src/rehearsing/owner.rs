@@ -1,24 +1,18 @@
-//! Whose tree a run is in: one Job's worktree, or the main checkout.
+//! Whose tree a run is in: the main checkout.
 //!
-//! **One run at a time is per owner, not per repository.** A Job's run and the
-//! checkout's are in different trees and share no build directory, so neither
-//! locks the other out; two runs in one tree do, which is what [`Owner`] keys
+//! **One run at a time is per owner**: two runs in one tree fight over one
+//! build directory, which is what [`Owner`] keys
 //! [`Rehearsals`](super::in_flight::Rehearsals) on.
 //!
-//! **The checkout's runs are kept under `main`.** A Job handle always begins
-//! with the Job's own number — `crates/core-model/src/job/handle.rs` emits
-//! `{number}` or `{number}-{slug}` and nothing else — so no Job can ever be
-//! called `main`, and the two cannot collide under `.armada/runs/`. It is the
-//! name `crate::servers` already keeps the main checkout's servers under.
+//! **The checkout's runs are kept under `main`**, the name `crate::servers`
+//! already keeps the main checkout's servers under.
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Job, JobId};
 use ipc::WireError;
 
-use super::unrehearsable::Whose;
 use super::workspace::Within;
 use crate::daemon::Fleet;
 use crate::repositories::{Repository, Served};
@@ -91,12 +85,9 @@ impl Tree {
 /// An owner resolved: what a run of its needs that the owner alone decides.
 pub(crate) struct Place {
     pub(crate) owner: Owner,
-    /// The Job, where one owns this. `None` is the main checkout.
-    pub(crate) job: Option<Job>,
     /// The directory under `.armada/runs/` this owner's runs are kept in.
     pub(crate) handle: String,
-    /// The checkout of the repository the tree is in. A Job's always has its
-    /// Manifest, because a Job is only made from one.
+    /// The checkout of the repository the tree is in.
     pub(crate) checkout: Checkout,
 }
 
@@ -106,22 +97,8 @@ impl Place {
         let checkout = checkout.into();
         Place {
             owner: Owner::Checkout(checkout.root().to_string()),
-            job: None,
             handle: String::from(CHECKOUT_HANDLE),
             checkout,
-        }
-    }
-
-    /// The Job's id, where a Job owns this — what a refusal is said about.
-    pub(crate) fn job_id(&self) -> Option<&JobId> {
-        self.job.as_ref().map(Job::id)
-    }
-
-    /// Which owner a refusal from here is written about.
-    pub(crate) fn whose(&self) -> Whose {
-        match self.job {
-            Some(_) => Whose::Job,
-            None => Whose::Checkout,
         }
     }
 }
@@ -136,36 +113,20 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The tree this owner's runs happen in, or `None` where a Job's worktree
-    /// is no longer on disk. **The main checkout is always there**: it is the
-    /// repository Fleet is running on, and Fleet answering at all is the
-    /// proof.
-    pub(crate) fn tree_at(&self, place: &Place) -> Option<Tree> {
-        let Some(job) = place.job.as_ref() else {
-            return Some(Tree {
-                path: PathBuf::from(place.checkout.root()),
-                within: None,
-            });
-        };
-        let served = place.checkout.served()?;
-        let spec = self.tree_spec(served, job)?;
-        let path = PathBuf::from(spec.worktree_path());
-        path.is_dir().then(|| Tree {
-            path,
+    /// The tree this owner's runs happen in. **The main checkout is always
+    /// there**: it is the repository Fleet is running on, and Fleet answering
+    /// at all is the proof.
+    pub(crate) fn tree_at(&self, place: &Place) -> Tree {
+        Tree {
+            path: PathBuf::from(place.checkout.root()),
             within: None,
-        })
+        }
     }
 
-    /// The Manifest this owner's entries are read from, and whether the Job
-    /// froze it. **The main checkout froze nothing** and reads the Manifest
-    /// Fleet holds — `crate::servers::hold_server`'s own split. `None` where the
-    /// checkout's root has no Manifest.
-    pub(crate) async fn manifest_at(&self, place: &Place) -> Option<(config::Manifest, bool)> {
-        let served = place.checkout.served()?;
-        Some(match place.job.as_ref() {
-            Some(job) => self.effective_manifest_in(served, job).await,
-            None => (served.manifest().clone(), false),
-        })
+    /// The Manifest this owner's entries are read from: the one Fleet holds.
+    /// `None` where the checkout's root has no Manifest.
+    pub(crate) fn manifest_at<'a>(&self, place: &'a Place) -> Option<&'a config::Manifest> {
+        Some(place.checkout.served()?.manifest())
     }
 
     /// The checkout a route names, by `?manifest_id=` or by `?repository=` root,

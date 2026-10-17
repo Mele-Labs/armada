@@ -2,18 +2,15 @@
 // (a Session has one `call` on its subject, so only one of its calls is that key), one with a single question, and Helm's
 // own Session, which the deck's list does not draw. The claims are in `cockpit-call-owner.test.tsx`.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-
-const cache = asRow(featureRunning(), 91, "cache", "Cache the manifest read between dispatches");
 
 const asking = (id: string, title: string, items: Session["waitingFor"]): Session => ({
   id,
@@ -37,13 +34,11 @@ const helm: Session = {
 };
 
 function build(): Scenario {
-  const board = [{ ...cache, job: { ...cache.job, owner_manifest_id: OWNER, started_at: ago(17) } }];
-  const base = holding("cockpit-call-owner", "The flight deck with a Session that asks two questions and Helm's own Session asking one", board);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("cockpit-call-owner", "The flight deck with a Session that asks two questions and Helm's own Session asking one");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
-    draft: { sessions: (control) => sessionsStore([none, none], none, control, [], [two, helm]) },
+    state: { ...base.state, repository: null },
+    draft: { sessions: () => sessionsStore([two, helm]) },
   };
 }
 

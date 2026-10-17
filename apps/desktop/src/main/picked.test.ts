@@ -14,12 +14,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { RepositorySummary } from "@armada/protocol";
 import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReader } from "./checkout-runs";
-import { JobCommands, type Board } from "./command";
+import { Commands, type Board } from "./command";
 import { ManifestFileCommands } from "./editing";
 import { servedRoot } from "./annotations";
 import { Picked, repositoryToStart, startOn } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
-import { composingOf, holdingsOf, manifestReadingOf } from "./request";
+import { holdingsOf, manifestReadingOf } from "./request";
 import { ServerCommands } from "./servers";
 import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
@@ -99,15 +99,15 @@ describe("the pick", () => {
     expect(picked.manifest("/manifest/start_verify")).toBe("/manifest/start_verify?manifest_id=scratch");
   });
 
-  it("names a repository by root rather than the pick, for a caller New job's ask has given one", () => {
+  it("names a repository by root rather than the pick, for a caller that has been given one", () => {
     const picked = new Picked();
     picked.hold([FIRST, SET_UP, NOT_SET_UP]);
     // The pick stays on All throughout: `manifestOf` never reads it.
     expect(picked.picked).toBeNull();
-    expect(picked.manifestOf("/jobs/from_request", SET_UP.root)).toBe("/jobs/from_request?manifest_id=store-01");
+    expect(picked.manifestOf("/sessions/start", SET_UP.root)).toBe("/sessions/start?manifest_id=store-01");
     expect(picked.picked).toBeNull();
-    expect(picked.manifestOf("/jobs/from_request", NOT_SET_UP.root)).toBeNull();
-    expect(picked.manifestOf("/jobs/from_request", "/nowhere")).toBeNull();
+    expect(picked.manifestOf("/sessions/start", NOT_SET_UP.root)).toBeNull();
+    expect(picked.manifestOf("/sessions/start", "/nowhere")).toBeNull();
   });
 
   it("reads only the picked repository's `manifest.reread`", () => {
@@ -131,7 +131,7 @@ async function recording(into: string[]): Promise<number> {
     request.resume();
     request.on("end", () => {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ id: "run-1", steps: [], paths: [], jobs: [], repositories: [] }));
+      response.end(JSON.stringify({ id: "run-1", steps: [], paths: [], repositories: [] }));
     });
   });
   server.on("upgrade", (request, socket) => {
@@ -145,17 +145,7 @@ async function recording(into: string[]): Promise<number> {
 }
 
 function boardOn(port: number, picked: Picked): Board {
-  return {
-    port: () => port,
-    picked,
-    fold: () => {},
-    forget: () => {},
-    reread: async () => {},
-    refresh: () => {},
-    publish: () => {},
-    watchProposal: () => {},
-    proposalOut: () => null,
-  };
+  return { port: () => port, picked, publish: () => {} };
 }
 
 /** Every per-repository call in `src/main`, sent once. */
@@ -165,8 +155,6 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await editing.readFile();
   await editing.saveFile({ read: "", text: "" });
   await editing.edit({ read: "", edits: [] });
-  await editing.readSpend();
-  await editing.readChecks();
   await editing.setup.readScan();
   await editing.setup.readProposals();
   await editing.setup.edit({ dir: ".", edit: { edit: "id", id: "x" } });
@@ -194,9 +182,8 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await triggers.definition({ identity: { when: "step_passes", name: "tidy" } });
   await triggers.save({ manifestId: null, body: { scope: "machine", definition: "name: tidy\n" } });
   await triggers.remove({ manifestId: null, body: { scope: "machine", when: "step_passes", name: "tidy" } });
-  const commands = new JobCommands(boardOn(port, picked));
+  const commands = new Commands(boardOn(port, picked));
   await commands.searchFiles("src");
-  await commands.proposeFromRequest("Fix the parser", []);
   await holdingsOf(port, { workflows: [], manifests: [], models: null }, picked);
   await manifestReadingOf(port, picked);
 }
@@ -206,10 +193,8 @@ const FLEETWIDE = new Set(["/workflows", "/manifests", "/models"]);
 
 /** What `everyCall` reaches, by path alone — one entry per call. */
 const EVERY_ROUTE = [
-  "/jobs/from_request",
   "/manifest/allowed_commands",
   "/manifest/allowed_commands/remove",
-  "/manifest/checks",
   "/manifest/drift",
   "/manifest/edit",
   "/manifest/file",
@@ -221,7 +206,6 @@ const EVERY_ROUTE = [
   "/manifest/runs/run-1/observe",
   "/manifest/runs/run-1/output",
   "/manifest/save_file",
-  "/manifest/spend",
   "/manifest/start_run",
   "/manifest/start_verify",
   "/manifest/stop_run",
@@ -300,67 +284,11 @@ describe("every per-repository call", () => {
     const socket = new CheckoutRunSocket(() => {}, picked);
     socket.open(port, "run-1");
     socket.close();
-    // The Checks page reads across every repository on All, bare, as Fleet answers it.
-    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual(["/manifest/checks"]);
-  });
-
-  it("names New job's answered repository for `left_out` and `manifest/reading`, with the pick on All", async () => {
-    const asked: string[] = [];
-    const port = await recording(asked);
-    const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
-    expect(picked.picked).toBeNull();
-
-    await holdingsOf(port, { workflows: [], manifests: [], models: null }, picked, SET_UP.root);
-    await manifestReadingOf(port, picked, SET_UP.root);
-
-    expect(picked.picked).toBeNull();
-    const scoped = asked.filter((url) => !FLEETWIDE.has(url));
-    expect(scoped.sort()).toEqual(["/manifest/reading?manifest_id=store-01", "/workflows/left_out?manifest_id=store-01"]);
-  });
-
-  it("reads the answered repository's `leftOut`, on All, without narrowing the pick", async () => {
-    const server = createServer((request, response) => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        request.url?.startsWith("/workflows/left_out")
-          ? JSON.stringify([{ source: "armada", file: "bug.yml", said: "no checks configured" }])
-          : "null",
-      );
-    });
-    listening = server;
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
-    const port = (server.address() as AddressInfo).port;
-    const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
-    expect(picked.picked).toBeNull();
-
-    const read = await composingOf(port, picked, SET_UP.root);
-
-    // The content came back — this is the repository's own catalogue, not the pick's.
-    expect(read).toEqual({
-      ok: true,
-      leftOut: [{ source: "armada", file: "bug.yml", said: "no checks configured" }],
-      reading: null,
-    });
-    // Reading for one repository never moved the pick — the Board stays on All.
-    expect(picked.picked).toBeNull();
-  });
-
-  it("refuses `composingOf` as not set up for a repository with no Manifest", async () => {
-    const asked: string[] = [];
-    const port = await recording(asked);
-    const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
-
-    const read = await composingOf(port, picked, NOT_SET_UP.root);
-
-    expect(read).toEqual({ ok: false, outcome: { ok: false, why: "not_set_up" } });
+    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual([]);
   });
 
   it("is built through the pick wherever `src/main` spells a per-repository route", () => {
-    const routes = /["`](\/manifest\/|\/repository\/|\/workflows\/left_out|\/triggers|\/servers\/start|\/jobs\/from_request)/;
+    const routes = /["`](\/manifest\/|\/repository\/|\/workflows\/left_out|\/triggers|\/servers\/start)/;
     const dir = __dirname;
     const unnamed = readdirSync(dir)
       .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts") && file !== "picked.ts")

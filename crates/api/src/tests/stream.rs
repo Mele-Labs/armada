@@ -44,20 +44,19 @@ async fn a_connection_opens_with_a_resync_and_then_carries_events() {
     };
     assert_eq!(resync.protocol_id, ProtocolId::current());
     assert_eq!(resync.cursor.position(), 0);
-    assert!(resync.jobs.jobs.is_empty());
 
     // Published only now: the resync having arrived is what says the socket is
     // subscribed, so this cannot race the subscription.
-    let cursor = events.publish(a_transition("queued", "running"));
+    let cursor = events.publish(an_event());
 
     let StreamMessage::Event(delivered) = read(&mut socket).await else {
         panic!("an event follows the resync");
     };
     assert_eq!(delivered.cursor, cursor);
-    let ipc::Event::JobStateChanged(moved) = delivered.event else {
-        panic!("a move, not a creation");
+    let ipc::Event::StudioDeleted(gone) = delivered.event else {
+        panic!("a deletion, not a change");
     };
-    assert_eq!(moved.to.as_wire(), "running");
+    assert_eq!(gone.id.as_str(), "01STUDIO");
 }
 
 /// A client that cannot keep up loses the oldest events and is **told**, then
@@ -75,7 +74,7 @@ async fn a_client_that_cannot_keep_up_is_told_and_resynced() {
         panic!("the first message is the resync");
     };
     for _ in 0..24 {
-        events.publish(a_transition("queued", "running"));
+        events.publish(an_event());
     }
 
     let mut told = None;
@@ -98,39 +97,11 @@ async fn a_client_that_cannot_keep_up_is_told_and_resynced() {
     );
 }
 
-/// A daemon that cannot answer closes the socket rather than sending half a
-/// picture. There is no error message on this stream.
-#[tokio::test]
-async fn a_daemon_that_cannot_answer_closes_the_socket() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    *daemon.mute.lock().expect("not poisoned") = true;
-    let app = router(Served::by(daemon, run_id(), events));
-    let mut socket = connected(app, "/events", 8192).await;
-
-    let ended = tokio::time::timeout(Duration::from_secs(5), socket.next())
-        .await
-        .expect("the socket resolves");
-    let closed = match ended {
-        None => true,
-        Some(Ok(Message::Close(_))) => true,
-        Some(Err(_)) => true,
-        other => panic!("the socket sent something instead of closing: {other:?}"),
-    };
-    assert!(closed);
-}
-
-fn a_transition(from: &str, to: &str) -> ipc::Event {
-    let json = format!(
-        r#"{{"message":"event","cursor":0,"event":{{"kind":"job.state_changed",
-            "job_id":"01JOB0","from":"{from}","to":"{to}","actor":"fleet",
-            "at":"2026-08-26T09:00:00.000Z"}}}}"#
-    );
-    let message: StreamMessage = ipc::decode("stream message", json.as_bytes()).expect("a message");
-    match message {
-        StreamMessage::Event(delivered) => delivered.event,
-        _ => panic!("an event"),
-    }
+fn an_event() -> ipc::Event {
+    ipc::Event::StudioDeleted(ipc::StudioDeleted {
+        id: ipc::StudioId::carried("01STUDIO"),
+        manifest_id: ipc::ManifestId::carried("01MF"),
+    })
 }
 
 /// A tap is told every event, from any clone of the stream, in the order they were published — and
@@ -144,9 +115,9 @@ fn a_tap_hears_every_event_from_every_clone_even_past_the_backlog() {
 
     let other = events.clone();
     for _ in 0..5 {
-        other.publish(a_transition("queued", "running"));
+        other.publish(an_event());
     }
-    events.publish(a_transition("running", "killed"));
+    events.publish(an_event());
 
     assert_eq!(heard.lock().expect("not poisoned").len(), 6, "a backlog of two lost none");
 }
@@ -158,12 +129,11 @@ fn a_tally_wider_than_its_window_says_how_much_it_could_not_count() {
     let events = Broadcaster::new();
     let from = events.cursor();
     for _ in 0..crate::TALLIED + 10 {
-        events.publish(a_transition("queued", "running"));
+        events.publish(an_event());
     }
     let tally = events.tallied(from);
     let window = crate::TALLIED as u64;
-    assert_eq!(tally.count("job.state_changed"), window);
-    assert_eq!(tally.count_for("01JOB0", "job.state_changed"), window);
+    assert_eq!(tally.count("studio.deleted"), window);
     let line = tally.to_string();
     assert!(line.contains("published 4106 events"), "{line}");
     assert!(
@@ -172,18 +142,18 @@ fn a_tally_wider_than_its_window_says_how_much_it_could_not_count() {
     );
 }
 
-/// One row for the stream and one per Job, so a Job's rate reads off its own.
+/// One line for the stream.
 #[test]
-fn a_tally_reads_as_one_line_for_the_stream_and_one_per_job() {
+fn a_tally_reads_as_one_line_for_the_stream() {
     let events = Broadcaster::new();
     let from = events.cursor();
-    events.publish(a_transition("queued", "running"));
-    events.publish(a_transition("running", "awaiting_review"));
+    events.publish(an_event());
+    events.publish(an_event());
     let tally = events.tallied(from);
     assert_eq!(
         tally.to_string(),
         format!(
-            "published 2 events (BACKLOG {}): job.state_changed 2\n  01JOB0: 2 — job.state_changed 2",
+            "published 2 events (BACKLOG {}): studio.deleted 2",
             crate::BACKLOG
         )
     );

@@ -1,10 +1,10 @@
-//! What a Job's lease on a pool slot is asked with and answers.
+//! What a hosted session's lease on a pool slot is asked with and answers.
 //!
-//! **A Job's lease is held by its id, never a process.** Fleet restarts often,
-//! and a lease held for a pid would make every Job's slot read as abandoned
-//! after one. A slot a Job holds is never taken back for a dead holder; it is
-//! given back when the Job ends, or when a person clears a completed one, by
-//! the pool's own rules.
+//! **A hosted session's lease is held by its id, never a process.** Fleet
+//! restarts often, and a lease held for a pid would make every hosted
+//! session's slot read as abandoned after one. A slot a hosted session holds is
+//! never taken back for a dead holder; it is given back when the session ends,
+//! by the pool's own rules.
 //! `docs/concepts/fleet.md`, *Worktree slots*.
 
 use alloc::format;
@@ -130,12 +130,6 @@ pub struct SlotReading {
     /// A person closed it: never leased until reopened. A holder keeps it
     /// until its lease ends.
     pub closed: bool,
-    /// Why a Job's release was refused, for a slot a Job still holds after it
-    /// ended. Its work is in the slot, so a person rescues it like a stranded
-    /// one.
-    pub kept: Option<String>,
-    /// The Job holding it completed, and holds it until a person clears it.
-    pub completed: bool,
     /// For a stranded slot, the Session whose process tree held it last, where
     /// Fleet saw that while the process lived.
     pub last_session: Option<String>,
@@ -148,7 +142,7 @@ pub struct SlotReading {
 /// Which reading of a slot's work its holder asks for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorkShown {
-    /// A stranded slot, or a Job's whose release was refused.
+    /// A stranded slot.
     Stranded,
     /// An agent session's, read for the files a release commits.
     Session,
@@ -156,18 +150,16 @@ pub enum WorkShown {
 
 impl SlotReading {
     /// This reading with the work of the slots that show any, `read` asked
-    /// only for those: a stranded slot, a Job's slot whose release was
-    /// refused, and a session's slot where it has uncommitted files. A read
+    /// only for those: a stranded slot, and a session's slot where it has
+    /// uncommitted files. A read
     /// that fails shows none. **One rule for the real pool and the fake.**
     pub fn with_work(
         self,
         read: impl FnOnce(WorkShown) -> Option<StrandedWork>,
     ) -> SlotReading {
-        let work = match (&self.held, &self.kept) {
-            (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
-                read(WorkShown::Stranded)
-            }
-            (SlotHeld::Session(_), _) => {
+        let work = match &self.held {
+            SlotHeld::Stranded(_) => read(WorkShown::Stranded),
+            SlotHeld::Session(_) => {
                 read(WorkShown::Session).filter(|work| !work.uncommitted.is_empty())
             }
             _ => None,
@@ -187,15 +179,15 @@ pub enum SlotHeld {
     /// A take or a release is under way on it.
     Busy,
     Free,
-    /// One of Fleet's Jobs, by id.
-    Job(String),
+    /// Held by Fleet under an id of its own: a hosted Session, by its id.
+    Hosted(String),
     /// A process, named for a person: `zsh (pid 4120)`.
     Session(String),
     /// Its holder is gone and it holds work, said in a phrase.
     Stranded(String),
 }
 
-/// Why a Job's slot was not given back, in a sentence. The slot stays held.
+/// Why a hosted holder's slot was not given back, in a sentence. The slot stays held.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotKept(pub String);
 

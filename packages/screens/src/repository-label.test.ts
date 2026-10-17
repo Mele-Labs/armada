@@ -1,10 +1,9 @@
-// What a repository is called in the picker — #886 — and on a Board row on All repositories.
+// What a repository is called in the picker — #886.
 
 import { describe, expect, it } from "vitest";
 
-import type { JobSummary, RepositorySummary } from "@armada/protocol";
+import type { RepositorySummary } from "@armada/protocol";
 import { manifestLabel, repositoryLabel } from "@armada/shell/src/repository-label";
-import { BOARD_COLUMNS, columnsFor, REPOSITORY_COLUMN, repositoryOf, TASKS_COLUMN } from "./board";
 
 /** A ULID, because `ManifestId` is one — the id is never the label. */
 const MINTED = "01M1CNPKTV0018H2M1CXDNBK06";
@@ -43,36 +42,11 @@ describe("the picker's label", () => {
     expect(repositoryLabel(every[2]!, every)).toBe("/Volumes/code/api");
   });
 
-  it("names a Job's repository by the label of the Manifest it carries, and a bare id where that Manifest is gone", () => {
+  it("names a repository by the label of the Manifest it carries, and a bare id where that Manifest is gone", () => {
     const every = [setUp("armada", "/Users/user/armada")];
     expect(manifestLabel(MINTED, every)).toBe("armada");
     // The record keeps its last known name and the wire does not carry one for a
     // Manifest nobody serves, so the id is the only honest thing left to draw.
     expect(manifestLabel("01M1GONE00000000000000000000", every)).toBe("01M1GONE00000000000000000000");
-  });
-});
-
-describe("a Board row's repository", () => {
-  const STOREFRONT = "01M1STOREFRONT00000000000000";
-  const job = { owner_manifest_id: STOREFRONT } as JobSummary;
-  const two = [setUp("armada", "/Users/user/armada"), setUp("storefront", "/Users/user/storefront", STOREFRONT)];
-
-  it("is named, with its column, on All where Fleet serves more than one", () => {
-    expect(repositoryOf(job, two, true)).toBe("storefront");
-    expect(columnsFor([], two, true)).toEqual([...BOARD_COLUMNS, REPOSITORY_COLUMN]);
-    for (const served of [null, [], two.slice(1)]) {
-      expect(repositoryOf(job, served, true)).toBeUndefined();
-      expect(columnsFor([], served, true)).toEqual(BOARD_COLUMNS);
-    }
-  });
-
-  it("is not named with one repository picked, however many are served", () => {
-    expect(repositoryOf(job, two, false)).toBeUndefined();
-    expect(columnsFor([], two, false)).toEqual(BOARD_COLUMNS);
-  });
-
-  it("comes before Tasks, so a row without a plan leaves only the trailing cell blank", () => {
-    const planned = { tasks: { done: 1, working: 0, open: 1, dropped: 0 } } as JobSummary;
-    expect(columnsFor([planned, job], two, true)).toEqual([...BOARD_COLUMNS, REPOSITORY_COLUMN, TASKS_COLUMN]);
   });
 });

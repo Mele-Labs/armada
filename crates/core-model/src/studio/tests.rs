@@ -25,8 +25,8 @@ fn at() -> Timestamp {
 fn every_set_reads_back_from_its_own_spelling() {
     assert_eq!(
         StudioNodeKind::ALL.len(),
-        17,
-        "the registry's seventeen kinds"
+        16,
+        "the registry's sixteen kinds"
     );
     for kind in StudioNodeKind::ALL {
         assert_eq!(StudioNodeKind::from_wire(kind.as_wire()), Some(*kind));
@@ -60,13 +60,12 @@ fn no_relation_is_the_studios_own_produced_edge() {
     }
 }
 
-/// **A Run or a Job reads its state off what it references**, so neither
-/// holds one here; a Finding reads back without one only once its scout
+/// **A Run reads its state off what it references**, so it holds none here; a Finding reads back without one only once its scout
 /// ended, which its content has to say.
 #[test]
 fn a_state_is_held_only_by_a_kind_that_has_it() {
     assert!(StudioNodeKind::Run.admits(None));
-    assert!(!StudioNodeKind::Job.admits(Some(StudioNodeState::Draft)));
+    assert!(!StudioNodeKind::Run.admits(Some(StudioNodeState::Draft)));
     assert!(StudioNodeKind::Finding.admits(None));
     assert!(!StudioNodeKind::Outline.admits(None));
     assert!(StudioNodeKind::Contradiction.admits(Some(StudioNodeState::ResolvedHere)));

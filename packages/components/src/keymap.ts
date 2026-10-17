@@ -144,7 +144,6 @@ const SLASHED = new Set(ACTIONS.filter((one) => one.shortcut.includes(" / ")).ma
 export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>> = {
   history: ["Back", "Forward"],
   move_focus: ["Down", "Up", "Down", "Up"],
-  move_in_plan: ["Up", "Down"],
 };
 
 // ---- What this person has changed ------------------------------------------------------------
@@ -376,9 +375,6 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // list's `r` reviews a Job, and a pull request in it has none.
   list: ["board", "dashboard", "deck"],
   "list and detail": ["board", "detail", "dashboard"],
-  detail: ["detail"],
-  "dispatch card": ["detail"],
-  "piloted job": ["detail"],
   "open studio": ["studio"],
   // `w` and `?` are the Dashboard's and the deck reads them too.
   dashboard: ["dashboard", "deck"],
@@ -434,7 +430,6 @@ export type KeymapGroup = { readonly title: string; readonly scopes: readonly Ac
 export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Anywhere", scopes: ["anywhere"] },
   { title: "Lists", scopes: ["list", "list and detail"] },
-  { title: "A Job", scopes: ["detail", "dispatch card", "piloted job"] },
   { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
   { title: "Reviews", scopes: ["review"] },

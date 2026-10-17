@@ -18,7 +18,7 @@ afterEach(unmount);
 const AT = "2026-10-02T22:05:00.000Z";
 
 function lesson(over: Partial<Lesson> & Pick<Lesson, "id" | "statement" | "who">): Lesson {
-  return { job_id: "01K6JOB3", handle: "3-retire-guides", at: AT, evidence: [], state: "open", ...over };
+  return { handle: "s-01K6Q3", session: { id: "s-01K6Q3", title: "Retire two guides" }, at: AT, evidence: [], state: "open", ...over };
 }
 
 const ARMADA = lesson({
@@ -30,7 +30,7 @@ const ARMADA = lesson({
   what: "It compared the step against a local main two commits behind origin.",
   fix: "Compare against origin/main.",
 });
-const TWIN = lesson({ ...ARMADA, id: "l-twin", job_id: "01K6JOB2", handle: "2-fix-gate", title: "A stale main blamed the Drone" });
+const TWIN = lesson({ ...ARMADA, id: "l-twin", handle: "s-02FIXGATE", session: { id: "s-02FIXGATE", title: "Fix the gate" }, title: "A stale main blamed the Drone" });
 const KIT = lesson({
   id: "l-kit",
   who: "drone",
@@ -55,7 +55,7 @@ const STALE = lesson({ id: "l-stale", who: "owner", lands_in: "manifest", statem
 const review = (over: Partial<LessonReview> = {}): LessonReview => ({
   model: "sonnet",
   entries: [
-    { lesson_id: "l-armada", merged_ids: ["l-twin"], reason: "Armada's own fault cost two Jobs a rerun." },
+    { lesson_id: "l-armada", merged_ids: ["l-twin"], reason: "Armada's own fault cost two Sessions a rerun." },
     { lesson_id: "l-kit", merged_ids: [], reason: "One command unblocks every Drone." },
     { lesson_id: "l-manifest", merged_ids: [], reason: "It wastes seven minutes a docs edit." },
   ],
@@ -75,22 +75,28 @@ type Wiring = {
 function opened(wiring: Wiring = {}, lessons: Lesson[] = all) {
   const read = vi.fn(async () => ({ ok: true as const, lessons }));
   const reviewLessons = vi.fn(wiring.reviewed ?? (async () => ({ ok: true as const, review: review() })));
-  const askLesson = vi.fn(wiring.asked ?? (async () => ({ ok: true as const, answer: { answer: "Two Jobs, by the gate's runs." } })));
-  const agree = vi.fn(wiring.agree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "agreed", job_proposed: "01K7JOB" }) })));
+  const askLesson = vi.fn(wiring.asked ?? (async () => ({ ok: true as const, answer: { answer: "Two Sessions, by the gate's runs." } })));
+  const agree = vi.fn(wiring.agree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...KIT, id, state: "accepted" }) })));
+  const startSession = vi.fn(async (id: string) => ({
+    ok: true as const,
+    started: { lesson: lesson({ ...ARMADA, id, state: "agreed" as const, session_proposed: "s-NEW" }), session_id: "s-NEW", brief: "b" },
+  }));
   const disagree = vi.fn(wiring.disagree ?? (async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "discarded" }) })));
   mount(
     <Lessons
       onReadLessons={read}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={async () => ({ ok: true, retro: { session: { id: "s-01K6Q3" }, state: "pending", record: {} } })}
       onAgreeLesson={agree}
       onDisagreeLesson={disagree}
+      onStartSession={startSession}
+      onOpenSession={() => {}}
       onReviewLessons={reviewLessons}
       onAskLesson={askLesson}
       repository={null}
       floor={false}
     />,
   );
-  return { read, reviewLessons, askLesson, agree, disagree };
+  return { read, reviewLessons, askLesson, agree, disagree, startSession };
 }
 
 const start = async () => {
@@ -113,19 +119,19 @@ test("one card at a time, with the model's reason and the list's own answers", a
   opened();
   await start();
   await expect.element(page.getByText("Why this one")).toBeVisible();
-  await expect.element(page.getByText("Armada's own fault cost two Jobs a rerun.")).toBeVisible();
+  await expect.element(page.getByText("Armada's own fault cost two Sessions a rerun.")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "The gate blamed the Drone for Fleet's own mistake" })).toBeVisible();
   // Only the first card is drawn.
   expect(page.getByRole("heading", { name: /grep/ }).elements()).toHaveLength(0);
-  await expect.element(page.getByRole("button", { name: "Create Job" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Start Session" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Reject change" })).toBeVisible();
 });
 
 test("an answer is the list's answer, and the review moves on to the next card", async () => {
-  const { agree } = opened();
+  const { startSession } = opened();
   await start();
-  await page.getByRole("button", { name: "Create Job" }).click();
-  expect(agree).toHaveBeenCalledWith("l-armada");
+  await page.getByRole("button", { name: "Start Session" }).click();
+  expect(startSession).toHaveBeenCalledWith("l-armada");
   await expect.element(page.getByText("2 of 3")).toBeVisible();
   // The Kit item carries a change, so its words are the list's: Update Kit.
   await expect.element(page.getByRole("button", { name: "Update Kit" })).toBeVisible();
@@ -182,7 +188,7 @@ test("answering every card ends on Nothing left to review, and the way back to t
 test("a card that stands for duplicates says so, and the duplicates are named on request", async () => {
   opened();
   await start();
-  const seen = page.getByRole("button", { name: "Also seen in 1 other Job" });
+  const seen = page.getByRole("button", { name: "Also seen in 1 other Session" });
   await expect.element(seen).toHaveAttribute("aria-expanded", "false");
   await seen.click();
   await expect.element(page.getByText("A stale main blamed the Drone")).toBeVisible();
@@ -223,10 +229,10 @@ test("a question goes to Fleet with the thread so far and its answer is drawn un
   const { askLesson } = opened();
   await start();
   const field = page.getByRole("textbox", { name: "Ask about this item" });
-  await field.fill("Which Jobs did this cost?");
+  await field.fill("Which Sessions did this cost?");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect.element(page.getByText("Two Jobs, by the gate's runs.")).toBeVisible();
-  expect(askLesson).toHaveBeenCalledWith("l-armada", "Which Jobs did this cost?", []);
+  await expect.element(page.getByText("Two Sessions, by the gate's runs.")).toBeVisible();
+  expect(askLesson).toHaveBeenCalledWith("l-armada", "Which Sessions did this cost?", []);
   await field.fill("And the cost in time?");
   await page.getByRole("button", { name: "Send" }).click();
   await vi.waitFor(() => expect(askLesson).toHaveBeenCalledTimes(2));
@@ -234,8 +240,8 @@ test("a question goes to Fleet with the thread so far and its answer is drawn un
     "l-armada",
     "And the cost in time?",
     [
-      { role: "person", text: "Which Jobs did this cost?" },
-      { role: "fleet", text: "Two Jobs, by the gate's runs." },
+      { role: "person", text: "Which Sessions did this cost?" },
+      { role: "fleet", text: "Two Sessions, by the gate's runs." },
     ],
   ]);
 });
@@ -243,16 +249,16 @@ test("a question goes to Fleet with the thread so far and its answer is drawn un
 test("a thread and a half-typed question survive moving to another card and back", async () => {
   opened();
   await start();
-  await page.getByRole("textbox", { name: "Ask about this item" }).fill("Which Jobs?");
+  await page.getByRole("textbox", { name: "Ask about this item" }).fill("Which Sessions?");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect.element(page.getByText("Two Jobs, by the gate's runs.")).toBeVisible();
+  await expect.element(page.getByText("Two Sessions, by the gate's runs.")).toBeVisible();
   await page.getByRole("textbox", { name: "Ask about this item" }).fill("half a thought");
   await page.getByRole("button", { name: "Skip" }).click();
   await expect.element(page.getByText("2 of 3")).toBeVisible();
-  expect(page.getByText("Two Jobs, by the gate's runs.").elements()).toHaveLength(0);
+  expect(page.getByText("Two Sessions, by the gate's runs.").elements()).toHaveLength(0);
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect.element(page.getByText("Which Jobs?")).toBeVisible();
-  await expect.element(page.getByText("Two Jobs, by the gate's runs.")).toBeVisible();
+  await expect.element(page.getByText("Which Sessions?")).toBeVisible();
+  await expect.element(page.getByText("Two Sessions, by the gate's runs.")).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Ask about this item" })).toHaveValue("half a thought");
 });
 
@@ -359,7 +365,7 @@ test("the page offers no Review where the host gave it no review", async () => {
   mount(
     <Lessons
       onReadLessons={async () => ({ ok: true, lessons: [ARMADA] })}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={async () => ({ ok: true, retro: { session: { id: "s-01K6Q3" }, state: "pending", record: {} } })}
       onAgreeLesson={async () => ({ ok: false, outcome: refused })}
       onDisagreeLesson={async () => ({ ok: false, outcome: refused })}
       repository={null}

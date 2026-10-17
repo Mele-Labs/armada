@@ -20,14 +20,6 @@ pub(super) fn judge() -> Vec<(Words, verification::Piece)> {
         ),
         (keys::PROMPT_JUDGE_RISK, verification::pieces::JUDGE_RISK),
         (
-            keys::PROMPT_JUDGE_REQUEST,
-            verification::pieces::JUDGE_REQUEST,
-        ),
-        (
-            keys::PROMPT_JUDGE_REQUEST_DONE_WHEN,
-            verification::pieces::JUDGE_REQUEST_DONE_WHEN,
-        ),
-        (
             keys::PROMPT_JUDGE_READABLE,
             verification::pieces::JUDGE_READABLE,
         ),
@@ -42,120 +34,6 @@ pub(super) fn judge() -> Vec<(Words, verification::Piece)> {
         (
             keys::PROMPT_JUDGE_STANDING_CUT,
             verification::pieces::JUDGE_STANDING_CUT,
-        ),
-        (
-            keys::PROMPT_JUDGE_CHECKS_RAN,
-            verification::pieces::JUDGE_CHECKS_RAN,
-        ),
-        (
-            keys::PROMPT_JUDGE_PRINTED,
-            verification::pieces::JUDGE_PRINTED,
-        ),
-        (
-            keys::PROMPT_JUDGE_PRINTED_TAIL,
-            verification::pieces::JUDGE_PRINTED_TAIL,
-        ),
-        (
-            keys::PROMPT_JUDGE_DELIVERABLE,
-            verification::pieces::JUDGE_DELIVERABLE,
-        ),
-        (keys::PROMPT_JUDGE_PLAN, verification::pieces::JUDGE_PLAN),
-        (
-            keys::PROMPT_JUDGE_SUMMARY_AFTER,
-            verification::pieces::JUDGE_SUMMARY_AFTER,
-        ),
-        (
-            keys::PROMPT_JUDGE_SUMMARY,
-            verification::pieces::JUDGE_SUMMARY,
-        ),
-        (
-            keys::PROMPT_JUDGE_ALSO_CHANGED,
-            verification::pieces::JUDGE_ALSO_CHANGED,
-        ),
-        (keys::PROMPT_JUDGE_DIFF, verification::pieces::JUDGE_DIFF),
-        (
-            keys::PROMPT_JUDGE_REFERENCES,
-            verification::pieces::JUDGE_REFERENCES,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_OPENING,
-            verification::pieces::JUDGE_GAMING_OPENING,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_BASELINE,
-            verification::pieces::JUDGE_GAMING_BASELINE,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_NO_BASELINE,
-            verification::pieces::JUDGE_GAMING_NO_BASELINE,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_HOW_TO_READ,
-            verification::pieces::JUDGE_GAMING_HOW_TO_READ,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_DIFF,
-            verification::pieces::JUDGE_GAMING_DIFF,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_QUESTION,
-            verification::pieces::JUDGE_GAMING_QUESTION,
-        ),
-        (
-            keys::PROMPT_JUDGE_GAMING_ANSWER,
-            verification::pieces::JUDGE_GAMING_ANSWER,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_ASSERTION_WEAKENED,
-            verification::pieces::JUDGE_PATTERN_ASSERTION_WEAKENED,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_TEST_SCOPE_NARROWED,
-            verification::pieces::JUDGE_PATTERN_TEST_SCOPE_NARROWED,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_TAUTOLOGICAL_TEST,
-            verification::pieces::JUDGE_PATTERN_TAUTOLOGICAL_TEST,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_NO_FINDINGS,
-            verification::pieces::JUDGE_PATTERN_NO_FINDINGS,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_FINDINGS_NOT_TIED,
-            verification::pieces::JUDGE_PATTERN_FINDINGS_NOT_TIED,
-        ),
-        (
-            keys::PROMPT_JUDGE_PATTERN_FINDINGS_GENERIC,
-            verification::pieces::JUDGE_PATTERN_FINDINGS_GENERIC,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_OPENING,
-            verification::pieces::JUDGE_SECOND_OPENING,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_QUESTION,
-            verification::pieces::JUDGE_SECOND_QUESTION,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_CITED,
-            verification::pieces::JUDGE_SECOND_CITED,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_AT_LINE,
-            verification::pieces::JUDGE_SECOND_AT_LINE,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_REMOVED_LINE,
-            verification::pieces::JUDGE_SECOND_REMOVED_LINE,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_HOW_TO_WEIGH,
-            verification::pieces::JUDGE_SECOND_HOW_TO_WEIGH,
-        ),
-        (
-            keys::PROMPT_JUDGE_SECOND_ANSWER,
-            verification::pieces::JUDGE_SECOND_ANSWER,
         ),
     ]
 }

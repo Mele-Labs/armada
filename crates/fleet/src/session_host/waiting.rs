@@ -36,7 +36,6 @@ use ipc::{
 };
 use store::{KeptSession, KeptWaiting, Store};
 
-use crate::answer_mode::{mode_line, of_waiting};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::UNSENT_ITEM;
@@ -45,8 +44,10 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 
-/// The last line of a message answering an agent item: it need not say the item again.
-pub(crate) const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
+/// The last line of a message answering an agent item: it need not say the item again. It says the
+/// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
+/// stated the item again. Bridge leaves the line off the person's row, so keep it in step there.
+pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
 
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
@@ -668,7 +669,7 @@ where
             ),
             None => None,
         };
-        let line = said.mode.map(|mode| mode_line(of_waiting(mode)));
+        let line = said.mode.map(mode_line);
         // A pick with words says both: the words go with the pick, never in place of it.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
@@ -938,4 +939,12 @@ fn reply(item: &str, answer: Option<&str>, line: Option<&str>) -> String {
         text.push_str(line);
     }
     text
+}
+
+/// The line that tells the agent to settle an item itself.
+fn mode_line(mode: ipc::WaitingMode) -> &'static str {
+    match mode {
+        ipc::WaitingMode::Best => "Decide this yourself. Think it through and go with the best option.",
+        ipc::WaitingMode::Quick => "Just get it done. Take the reasonable path, finish the work and land it. Skip the formalities.",
+    }
 }

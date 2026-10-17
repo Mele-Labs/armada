@@ -8,11 +8,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use core_model::{Envelope, JobId, Timestamp};
-
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-
-use crate::daemon::Fleet;
+use core_model::Timestamp;
 
 /// How often the forge is asked about one pull request.
 ///
@@ -85,21 +81,4 @@ pub(crate) struct Sweep {
 pub(crate) struct ForgeVisit {
     pub(crate) read_at: Option<Timestamp>,
     pub(crate) quiet_since: Option<Timestamp>,
-}
-
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    /// A line in the Job's own log. **A log line that will not write does not
-    /// stop anything.**
-    pub(crate) fn logged(&self, job: &JobId, envelope: Envelope) {
-        self.noted_in_the_log(job, &envelope);
-    }
 }

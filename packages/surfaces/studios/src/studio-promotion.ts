@@ -18,9 +18,6 @@ const WRITABLE_UP = ["note", "cluster", "contradiction", "outline"] as const;
  */
 const KEEPS_AN_ADDRESS = ["link", "issue", "pull_request", "epic"] as const;
 
-/** The three an address on a forge makes. A Link is one nothing recognised. */
-const ON_A_FORGE = ["issue", "pull_request", "epic"] as const;
-
 const isOneOf = (kinds: readonly string[], node: StudioNode) => kinds.includes(node.kind);
 
 /** Whether the node carries an address of its own — a Link, an Issue, a Pull request or an Epic. */
@@ -40,11 +37,6 @@ export type StudioActs = {
   edit: boolean;
   /** One node with an address: the line beside it is a person's to change. #1378. */
   editLink: boolean;
-  /**
-   * One Issue draft, or one Issue, Pull request or Epic: its text or its
-   * address goes through the Job proposer — #1379, #1394.
-   */
-  dispatch: boolean;
   /** One Contradiction that has not ended yet. */
   settle: boolean;
   /** One node with an address. Fleet decides whether it is a source; this only offers. */
@@ -58,7 +50,6 @@ const NOTHING: StudioActs = {
   defer: false,
   edit: false,
   editLink: false,
-  dispatch: false,
   settle: false,
   readIn: false,
 };
@@ -90,7 +81,6 @@ export function actsOn(studio: Studio, selected: readonly string[]): StudioActs 
     defer: !ended,
     edit: one.kind === "issue_draft",
     editLink: keepsAnAddress(one),
-    dispatch: dispatchedAs(one) !== null,
     settle: one.kind === "contradiction" && !ended,
     // **Offered on every node with an address**, because which addresses are
     // sources is `crates/adapters`' to know and a rule copied here would drift
@@ -146,7 +136,7 @@ export function saidBy(node: StudioNode): string {
 
 /**
  * The draft a write-up opens with: the node's own words, for a person to edit. **A first draft and
- * not a summary** — nothing here shortens what was captured, because what is dispatched has to be
+ * not a summary** — nothing here shortens what was captured, because what is filed has to be
  * what the person read.
  */
 export function aWriteUp(studio: Studio, node: StudioNode): { title: string; body: string } {
@@ -158,24 +148,4 @@ export function aWriteUp(studio: Studio, node: StudioNode): { title: string; bod
     .filter((words) => words !== "");
   const body = from.length === 0 ? said : `${said}\n\n${from.map((words) => `- ${words}`).join("\n")}\n`;
   return { title: firstLine(said), body };
-}
-
-/**
- * What dispatching this node sends, and `null` on one that dispatches nothing.
- *
- * **An Issue draft sends its own words; an Issue, a Pull request and an Epic
- * send their address** — the draft's title, a blank line, its body, which is
- * `crates/core-model`'s own shape; and for the other three the address alone,
- * because what it names is already filed and the Job proposer takes such a
- * link as a request (#1379, #1394).
- *
- * **Read off the kind, and a Link dispatches nothing**: a Link is an address
- * no adapter recognised — a board, a page, a session — so there is nothing
- * filed to dispatch against. Which workflow each of the three runs under is
- * the proposer's answer off each definition's `for_requests` line, not this
- * file's.
- */
-export function dispatchedAs(node: StudioNode): string | null {
-  if (node.kind === "issue_draft") return `${node.title}\n\n${node.body}`;
-  return isOneOf(ON_A_FORGE, node) && "address" in node ? node.address : null;
 }

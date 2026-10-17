@@ -4,7 +4,7 @@
 import { deckRow, region } from "./walk";
 import type { Step } from "./walk";
 
-/** The Cockpit's list of Jobs and Sessions: a keystroke has somewhere on the deck to land. */
+/** The Cockpit's list of Sessions: a keystroke has somewhere on the deck to land. */
 export const dashboard = region("Work", { exact: true });
 
 /**

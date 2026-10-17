@@ -3,28 +3,17 @@
 // Needs you with its call; and one has two items its agent stated, each of which he can remove with a
 // reason, the agent then told in its thread. The walk `needs-me-replied-and-delete` plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import { DONE_AT, DONE_ITEM, REPLIED_AT, REPLIED_ITEM } from "../needs-me-ids";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const NONE = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-
-function live(fixture: JobFixture, minutes: number, extra: Record<string, unknown> = {}): JobFixture {
-  const patch = { owner_manifest_id: OWNER, started_at: ago(minutes), ...extra };
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
-  return { ...fixture, job };
-}
-
-const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, { current_step_id: "tests" });
 
 const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
@@ -107,14 +96,14 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("needs-me-replied-and-delete", "A reply under Idle with an unread mark, a done under Needs you, and a Session with two items its agent stated", [cache]);
+  const base = holding("needs-me-replied-and-delete", "A reply under Idle with an unread mark, a done under Needs you, and a Session with two items its agent stated");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: [cache.job] },
+    state: { ...base.state, repository: null },
     later: [{}],
     draft: {
       events: EVENTS,
-      sessions: (control) => sessionsStore([NONE, NONE], NONE, control, [], [replied, done, asking, idle]),
+      sessions: () => sessionsStore([replied, done, asking, idle]),
     },
   };
 }

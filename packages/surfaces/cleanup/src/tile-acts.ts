@@ -6,42 +6,18 @@
 
 import { useState } from "react";
 import type { TileRow } from "@armada/components";
-import type {
-  ChangeSlotPool,
-  JobSummary,
-  Outcome,
-  RescueAct,
-  RescueSlot,
-  SlotAct,
-  SlotRescued,
-  WorktreeHeld,
-  WorktreeSlot,
-} from "@armada/protocol";
+import type { ChangeSlotPool, Outcome, RescueAct, RescueSlot, SlotAct, SlotRescued } from "@armada/protocol";
 
 import { said } from "@armada/screens/src/copy";
-import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting } from "@armada/screens/src/held";
 import { releaseRefusal } from "@armada/screens/src/releasing";
-import { canPause, canResume, pauseRefusal, pausedSaid } from "@armada/screens/src/pausing";
 import type { RescueOutcome } from "./slot-rescue";
 
 export type TileActsIn = {
-  /** The board's Jobs, read for the handle that names a worktree outside the pool. */
-  jobs?: readonly JobSummary[];
   now: number;
   /** Change one repository's pool. Absent draws the pool with no acts. */
   onChange?: ((manifestId: string, change: ChangeSlotPool) => Promise<Outcome>) | undefined;
   /** Rescue a stranded slot of one repository's pool. Absent draws none of its acts. */
   onRescue?: ((manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>) | undefined;
-  /** Give one worktree back. One id at a time: each is independent, and its receipt is its press's. */
-  onReclaim?: ((jobId: string) => Promise<Outcome>) | undefined;
-  /** Delete one worktree's branch at the tip the person confirmed; Fleet refuses where it has moved. */
-  onDeleteBranch?: ((jobId: string, tip: string) => Promise<Outcome>) | undefined;
-  /** Delete one Job's record. There is no undo, so it is sent only from its confirm. */
-  onForget?: ((jobId: string) => Promise<Outcome>) | undefined;
-  /** Pause one Job that holds a bay. Sent only from its confirm. */
-  onPause?: ((jobId: string) => Promise<Outcome>) | undefined;
-  /** Resume one paused Job. */
-  onResume?: ((jobId: string) => Promise<Outcome>) | undefined;
   onCopied?: ((value: string) => void) | undefined;
 };
 
@@ -78,18 +54,13 @@ function receipt(act: RescueAct, got: SlotRescued): string | undefined {
 /** A bay's key, or a repository's add tile's where `slot` is absent. */
 export const keyOf = (manifestId: string, slot?: number) => `${manifestId}/${slot ?? "add"}`;
 
-/** A worktree outside the pool is keyed by its Job. */
-export const outsideKey = (jobId: string) => `held/${jobId}`;
-
-export function useTileActs({ jobs = [], now, onChange, onRescue, onReclaim, onDeleteBranch, onForget, onPause, onResume, onCopied }: TileActsIn) {
+export function useTileActs({ onChange, onRescue }: TileActsIn) {
   /** What Fleet refused, by tile. */
   const [refused, setRefused] = useState<Record<string, string>>({});
   /** The Session whose work a release was refused for, by tile: its panel offers to open it. */
   const [workingSession, setWorkingSession] = useState<Record<string, string>>({});
   /** What a Scrap or a Stash did, by tile, until the next act on it. */
   const [receipts, setReceipts] = useState<Record<string, string>>({});
-  /** What a Clear or a Delete branch did, a fact to a line, by tile. */
-  const [gaveBack, setGaveBack] = useState<Record<string, string[]>>({});
   /** Tiles with an act out, so a second press is not sent. */
   const [acting, setActing] = useState<ReadonlySet<string>>(new Set());
 
@@ -100,7 +71,6 @@ export function useTileActs({ jobs = [], now, onChange, onRescue, onReclaim, onD
     setRefused(({ [key]: _, ...rest }) => rest);
     setReceipts(({ [key]: _, ...rest }) => rest);
     setWorkingSession(({ [key]: _, ...rest }) => rest);
-    setGaveBack(({ [key]: _, ...rest }) => rest);
     await task();
     setActing((was) => {
       const next = new Set(was);
@@ -149,77 +119,18 @@ export function useTileActs({ jobs = [], now, onChange, onRescue, onReclaim, onD
     });
   }
 
-  /** Pause or Resume the Job on the tile at `key`: the refusal in git's words, said in its panel. */
-  async function pausing(key: string, jobId: string, act: "pause_job" | "resume_job"): Promise<void> {
-    const task = act === "pause_job" ? onPause : onResume;
-    if (task === undefined) return;
-    await run(key, async () => {
-      const outcome = await task(jobId);
-      if (!outcome.ok) setRefused((was) => ({ ...was, [key]: pauseRefusal(act, outcome) ?? refusal(act === "pause_job" ? "Not paused" : "Not resumed", outcome) }));
-    });
-  }
-
-  /** Clear, Delete branch or Forget Job on the tile at `key`: what it did, or why not. */
-  async function reclaim(key: string, jobId: string, what: "clear" | "branch" | "forget", pooled: boolean, tip?: string): Promise<void> {
-    await run(key, async () => {
-      if (what === "clear" && onReclaim !== undefined) {
-        const outcome = await onReclaim(jobId);
-        if (!outcome.ok) return refuse(key, pooled ? "Slot not released" : "Worktree not removed", outcome);
-        if (outcome.reclaimed !== undefined) {
-          setGaveBack((was) => ({ ...was, [key]: reclaimedSaid(outcome.reclaimed!, pooled) }));
-        }
-      } else if (what === "branch" && onDeleteBranch !== undefined && tip !== undefined) {
-        const outcome = await onDeleteBranch(jobId, tip);
-        if (!outcome.ok) return refuse(key, "Branch not deleted", outcome);
-        if (outcome.branchDeleted !== undefined) {
-          setGaveBack((was) => ({ ...was, [key]: branchDeletedSaid(outcome.branchDeleted!) }));
-        }
-      } else if (what === "forget" && onForget !== undefined) {
-        const outcome = await onForget(jobId);
-        if (!outcome.ok) refuse(key, "Record not deleted", outcome);
-      }
-    });
-  }
-
-  /** What a tile adds to its bay or its worktree: the figures, the acts the Job's reading offers, what happened. */
-  const worked = (key: string, held: WorktreeHeld | undefined, slot?: WorktreeSlot): Partial<TileRow> => {
-    const summary = held === undefined ? undefined : jobs.find((one) => one.id === held.job_id);
-    const job = summary?.handle;
-    const named = held === undefined ? undefined : namedByHandle(held, jobs);
-    const mark = summary === undefined ? undefined : pausedSaid(summary, now);
-    // Pause where the Job holds the bay this tile is; Resume wherever it is paused.
-    const holds = slot?.held.state === "job" && slot.held.kept === undefined;
-    const pause = onPause !== undefined && holds && summary !== undefined && canPause(summary, { slot: true });
-    const resume = onResume !== undefined && summary !== undefined && canResume(summary);
-    const sat = held === undefined ? null : sitting(held.last_moved_at, now);
-    return {
-      ...(named === undefined ? {} : { held: named, offered: { ...offeredActs(named), pause, resume }, cost: costOf(named) }),
-      ...(mark === undefined ? {} : { paused: mark }),
-      ...(sat === null ? {} : { sat }),
-      ...(job === undefined ? {} : { job }),
-      ...(refused[key] === undefined ? {} : { refused: refused[key] }),
-      ...(workingSession[key] === undefined ? {} : { openSession: workingSession[key] }),
-      ...(receipts[key] === undefined ? {} : { said: receipts[key] }),
-      ...(gaveBack[key] === undefined ? {} : { receipt: gaveBack[key] }),
-      ...(acting.has(key) ? { acting: true } : {}),
-    };
-  };
+  /** What a tile adds to its bay: what happened. */
+  const worked = (key: string): Partial<TileRow> => ({
+    ...(refused[key] === undefined ? {} : { refused: refused[key] }),
+    ...(workingSession[key] === undefined ? {} : { openSession: workingSession[key] }),
+    ...(receipts[key] === undefined ? {} : { said: receipts[key] }),
+    ...(acting.has(key) ? { acting: true } : {}),
+  });
 
   const acts = (manifestId: string) => ({
     ...(onChange === undefined ? {} : { onAct: (one: SlotAct, slot?: number) => void act(manifestId, one, slot) }),
     ...(onChange === undefined ? {} : { onRelease: (slot: number, holder: string) => void release(manifestId, slot, holder) }),
     ...(onRescue === undefined ? {} : { onRescue: (one: RescueAct, slot: number) => void rescue(manifestId, one, slot) }),
   });
-  const reclaims = (key: (jobId: string) => string, pooled: (jobId: string) => boolean) => ({
-    ...(onReclaim === undefined ? {} : { onClear: (jobId: string) => void reclaim(key(jobId), jobId, "clear", pooled(jobId)) }),
-    ...(onDeleteBranch === undefined
-      ? {}
-      : { onDeleteBranch: (jobId: string, tip: string) => void reclaim(key(jobId), jobId, "branch", pooled(jobId), tip) }),
-    ...(onForget === undefined ? {} : { onForget: (jobId: string) => void reclaim(key(jobId), jobId, "forget", pooled(jobId)) }),
-    ...(onPause === undefined ? {} : { onPause: (jobId: string) => void pausing(key(jobId), jobId, "pause_job") }),
-    ...(onResume === undefined ? {} : { onResume: (jobId: string) => void pausing(key(jobId), jobId, "resume_job") }),
-    ...(onCopied === undefined ? {} : { onCopied }),
-  });
-
-  return { worked, acts, reclaims, acting, refused };
+  return { worked, acts, acting, refused };
 }

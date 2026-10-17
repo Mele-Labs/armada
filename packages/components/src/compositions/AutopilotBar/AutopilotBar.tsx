@@ -16,7 +16,7 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 export type AutopilotCap = { label: string; value: string; fill: number; reached: boolean };
 
 /** The four settings as the start form holds them, each a field's text. */
-export type AutopilotFields = { atOnce: string; until: string; spend: string; jobs: string };
+export type AutopilotFields = { atOnce: string; until: string; spend: string; sessions: string };
 
 /** What Fleet read the sentence as: the fields, and the person's own words each was read from, where it said any. */
 export type AutopilotReading = { fields: AutopilotFields; quoted: Readonly<Partial<Record<keyof AutopilotFields, string>>> };
@@ -30,7 +30,7 @@ export type AutopilotBarProps = {
   state: "off" | "running" | "paused";
   /** The person's sentence, while it runs. */
   instruction?: string | undefined;
-  /** Which cap paused it, where one did: `Job cap reached`. The state says it, and Resume waits for it to be raised. */
+  /** Which cap paused it, where one did: `Session cap reached`. The state says it, and Resume waits for it to be raised. */
   capped?: string | undefined;
   /** Why its last pass picked nothing, in Fleet's words. */
   fault?: string | undefined;
@@ -60,7 +60,7 @@ export type AutopilotBarProps = {
   onSave: (fields: AutopilotFields) => void;
 };
 
-const STATE: Record<AutopilotBarProps["state"], string> = { off: "Off", running: "Running", paused: "Paused · started Jobs finish" };
+const STATE: Record<AutopilotBarProps["state"], string> = { off: "Off", running: "Running", paused: "Paused · started Sessions finish" };
 
 /** The state as the bar says it: a cap that paused it is named in place of what Pause means. */
 const stateOf = (state: AutopilotBarProps["state"], capped: string | undefined) => (state === "paused" && capped !== undefined ? `Paused · ${capped}` : STATE[state]);
@@ -69,7 +69,7 @@ const FIELDS: readonly (readonly [keyof AutopilotFields, string, string])[] = [
   ["atOnce", "At once", "1"],
   ["until", "Until", "no time set"],
   ["spend", "Spend, in dollars", "no cap"],
-  ["jobs", "Jobs", "no cap"],
+  ["sessions", "Sessions", "no cap"],
 ];
 
 function Caps({ caps }: { caps: readonly AutopilotCap[] }) {

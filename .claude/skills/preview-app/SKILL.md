@@ -55,6 +55,13 @@ the seed hits the same error in `armada check test`; clean it there too (8 Oct).
 `armada worktree lease --existing <branch>`. Confirmed 8 Oct 2026: one dry run
 and a read of `scripts/preview` to find why a branch was missing.
 
+**A branch that merges but does not build is dropped by the refresh itself.**
+When `--restart` fails with compiler errors, the branches that changed the files
+they name are left out (`skipped (does not build: <files>)` in the table) and the
+restart runs once more. Say which in the question; the work is not lost, it is
+not in this preview. With no merged branch behind the errors it fails as before.
+A failure Bridge shows now starts with the compiler's first error and its file.
+
 **A branch that conflicts with another in-flight branch is skipped.** To preview
 both, merge the other into a preview-only copy of yours, and open the pull
 request from the clean commit instead. Confirmed 8 Oct 2026 (#2025).

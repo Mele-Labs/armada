@@ -1,11 +1,11 @@
-// A Session's retro, for the Retros page: the same items a Job's has, from a Session's own
-// record. The pains are the ones the owner met on 7 Oct 2026. Their words are stand-ins for
-// what the retro call would write; nothing here is served by Fleet yet.
+// A Session's retro, for the Retros page, from the Session's own record. The pains are the ones
+// the owner met on 7 Oct 2026. Their words are stand-ins for what the retro call would write;
+// nothing here is served by Fleet yet.
 
-import type { JobRetro, Lesson, RetroItem, RetroSession } from "@armada/protocol";
+import type { Lesson, Retro, RetroItem, RetroSession } from "@armada/protocol";
 
 /** The Session's retro as the Retro press writes it, and its items as the listing would hold them, all open. */
-export function sessionRetro(session: RetroSession, at: string, n = 1): { retro: JobRetro; lessons: Lesson[] } {
+export function sessionRetro(session: RetroSession, at: string, n = 1): { retro: Retro; lessons: Lesson[] } {
   const t = (minutesBefore: number): string => new Date(Date.parse(at) - minutesBefore * 60_000).toISOString();
   const items: RetroItem[] = [
     {
@@ -64,8 +64,7 @@ export function sessionRetro(session: RetroSession, at: string, n = 1): { retro:
       state: "open",
     },
   ];
-  const retro: JobRetro = {
-    job_id: session.id,
+  const retro: Retro = {
     session,
     state: "written",
     at,
@@ -87,13 +86,13 @@ export function sessionRetro(session: RetroSession, at: string, n = 1): { retro:
       ],
       corrections: [{ cite: "correction:1", at: t(21), said: "Co-Authored-By: the agent <agent@example.com>" }],
       restarts: [{ cite: "restart:1", at: t(9), actor: "fleet", moved: "restarted", said: "Session resumed after Fleet came back" }],
-      subagents: [{ cite: "subagent:1", at: t(9), step: "code-review", said: "Stopped at 3m10s when Fleet restarted, no report" }],
+      subagents: [{ cite: "subagent:1", at: t(9), said: "code-review: Stopped at 3m10s when Fleet restarted, no report" }],
       notes: [
         { cite: "note:1", at: t(2), said: "find / -name pnpm hit the privacy prompts before I tried the project folder." },
         { cite: "note:2", at: t(2), said: "I ran open on the walk before I saw show_window." },
       ],
     },
   };
-  const lessons: Lesson[] = items.map((item) => ({ job_id: session.id, handle: session.id, session, at, ...item, state: "open" }));
+  const lessons: Lesson[] = items.map((item) => ({ handle: session.id, session, at, ...item, state: "open" }));
   return { retro, lessons };
 }

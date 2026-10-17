@@ -17,27 +17,20 @@
 
 | | |
 |---|---|
-| `armada serve [<path>]` | The daemon. Binds a loopback port, publishes a runtime file, serves the API and turns Jobs until it is signalled |
-| `armada check <name>` | Runs one Check the repository's `armada.yml` declares, and first any Command its `requires` names, exactly as the gate does |
-| `armada run <name>` | Runs one Command it declares. Checks gate advancement; Commands do not |
-| `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading a Job's gate uses. Needs nothing running |
-| `armada clean [--all] [--force]` | **Destructive.** Gives this repository's worktrees, branches and Jobs back, keeping any branch whose work is not merged, and naming each worktree slot a Job still holds. `--force` deletes unmerged branches too, and gives back a completed or kept Job's slot where it is clean and landed. `docs/practices/running-locally.md`, *Clearing up* |
+| `armada serve [<path>]` | The daemon. Binds a loopback port, publishes a runtime file, serves the API and hosts Sessions until it is signalled |
+| `armada check <name>` | Runs one Check the repository's `armada.yml` declares, and first any Command its `requires` names, exactly as the merge line does |
+| `armada run <name>` | Runs one Command it declares. The merge line runs Checks; it does not run Commands |
+| `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading the merge line uses. Needs nothing running |
+| `armada clean [--all] [--force]` | **Destructive.** Gives this repository's worktrees and branches back, keeping any branch whose work is not merged, and naming each worktree slot still held. `--force` deletes unmerged branches too, and gives back a slot where it is clean and landed. `docs/practices/running-locally.md`, *Clearing up* |
 | `armada worktree lease <branch>` | Leases a warm worktree from the repository's pool, waiting while every slot is held; `release` gives it back once clean and landed, `--status` lists who holds each. `docs/practices/running-locally.md`, *Leasing a worktree* |
 
 What holds today, and how each is known:
 
 | Claim | Evidence |
 |---|---|
-| A Job runs end to end — worktree, agent, Checks, commit, rebase, push, pull request | Several have. One document here was written that way |
-| A Judge can refuse a step whose Checks all passed | It reads the step's work against the step's criteria |
-| Evidence that guts a Check is caught — a deleted test, an added skip, a resolved-through config | The common patterns, mechanically, with no model call |
-| A step editing outside what it declared is caught | The same way |
-| An agent that loops without converging is stopped | Told to report first, then stopped |
+| A Session runs end to end — slot, agent, Checks, commit, push, pull request | Several have |
 | The machinery is proved | The acceptance test, hermetic — no process, no repository, no network |
 | The merge is proved | A real agent fixed a real defect here, and the commit is in the history |
-
-**Any refusal stops the Job at the step it happened on**, so you redirect that
-step or restart it rather than starting over.
 
 [Running it locally](#running-it-locally) is how to start. Watch the
 [milestones](https://github.com/users/NickMele/projects/3/views/11) for what is next.
@@ -48,31 +41,31 @@ You can run several coding agents at once today. What you cannot do is stop
 watching them.
 
 Armada is a macOS application that dispatches coding agents against git
-repositories and **verifies their work before advancing them**. An agent does
-not decide it is finished: it submits evidence through a tool Armada gave it,
-Armada runs the repository's own checks against the result, and only then does
-the work move on. Saying "done" in prose does nothing.
+repositories and **checks their work before it lands**. An agent does not
+decide its work is ready: Fleet reads progress from what it observes, and the
+repository's own Checks run against the result before a branch merges. Saying
+"done" in prose does nothing.
 
 It exists because delegating work to something that reports on itself means
 reading everything anyway, which costs more than doing the work yourself.
 
 **Three rules it is built around:**
 
-- **An agent cannot mark its own work complete.** Evidence goes through a tool,
-  a mechanical check decides, and a Judge can refuse a step whose checks passed.
-- **An agent cannot reach the network.** Every Job works in its own git worktree
-  on its own branch, in an environment built from nothing that carries no
-  credential. Armada pushes on its behalf once the checks pass, and opens a
-  pull request for a person to merge.
-- **An agent inherits no MCP server.** Without that rule a spawned agent comes
+- **An agent's account of its work is a signal, not the record.** A plan is the
+  agent's statement. Fleet reads what was done from what it observes, the
+  merge line reruns the Checks before a branch lands, and a Judge reads the work
+  against the plan when a person asks.
+- **Every Session writes in a worktree slot of its own**, leased from the
+  repository's pool, on its own branch. Merges take turns on the merge line.
+- **A Scout inherits no MCP server.** Without that rule a spawned agent comes
   up holding every server the operator has connected — measured at seven
   servers, ninety-five tools, personal accounts — which is the defect that made
   the first attempt unusable.
 
 **This is not a sandbox.** An agent can still run a shell, because a tool
-allowlist is a permission list and not a toolset. What bounds it is the worktree
-and the empty environment; real confinement means containers, and that is a
-different system. `docs/scope.md` carries the reasoning.
+allowlist is a permission list and not a toolset. What bounds a Session is the
+slot it writes in and its permission gate; real confinement means containers,
+and that is a different system. `docs/scope.md` carries the reasoning.
 
 ## How it is put together
 
@@ -80,7 +73,7 @@ Two processes that ship as a pair and version together.
 
 | | | |
 |---|---|---|
-| **Fleet** | Rust daemon | Owns Jobs, spawns and supervises agents, runs checks, writes the record. Runs detached — quitting the app does not kill work in flight |
+| **Fleet** | Rust daemon | Owns Sessions, hosts and supervises agents, runs checks, writes the record. Runs detached — quitting the app does not kill work in flight |
 | **Bridge** | Electron app | The only way in. Holds one connection to Fleet and never talks to an agent directly |
 
 They meet at exactly one seam: a versioned protocol over HTTP and a WebSocket.
@@ -209,7 +202,7 @@ Bridge reads that file to find where to connect.
 
 **[`docs/practices/running-locally.md`](docs/practices/running-locally.md) is
 the rest** — what a healthy start prints, what Fleet refuses before it binds a
-port, how the two halves handle a protocol mismatch, what a finished Job leaves behind,
+port, how the two halves handle a protocol mismatch,
 and what `armada clean` will and will not delete.
 
 ## Roadmap

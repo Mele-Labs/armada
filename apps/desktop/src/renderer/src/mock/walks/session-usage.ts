@@ -1,8 +1,8 @@
 // How full a Session's context window is, and how much of the plan is used. The context is a bare
 // figure in each Session's header, beside its acts, the live tokens and the percent, opening a card of what fills the window. The 5-hour and weekly limits are one ring in the
 // title bar, the 5-hour limit outside and the week inside, opening one card of both on hover or focus, kept by a press and closed by Esc or a press outside. Normal below 80%, amber from 80%, red from 95%.
-// A Session or a Job held for the plan limit wears a battery-low mark with when it resumes, on its row and, for
-// a Session, in its header. Over the `session-usage` scenario.
+// A Session held for the plan limit wears a battery-low mark with when it resumes, on its row and in its
+// header. Over the `session-usage` scenario.
 
 import { dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
@@ -36,7 +36,7 @@ const usage = walk("session-usage", [
   { look: limits, say: "Amber from 80%, red from 95%" },
   { hover: limits, say: "The figures in the card take the same tones" },
   toSessions,
-  { look: inside(sessions, limitMark), say: "A Job or a Session held for the limit wears this on its row" },
+  { look: inside(sessions, limitMark), say: "A Session held for the limit wears this on its row" },
   { hover: inside(sessions, limitMark), say: "Hover for when it resumes" },
   { press: inside(sessions, role("button", /Invoice PDF layout/)), say: "Invoice PDF layout" },
   { look: inside(region("Session s-01CTXLIM"), limitMark), say: "The same mark in its header" },

@@ -6,7 +6,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/repository";
 
 import { CHOSEN, entered, mount, mountTwo, settingUp, toPlace, unmountAfterEach } from "@armada/desktop/mock";
 import type { SettingUp } from "@armada/desktop/mock";

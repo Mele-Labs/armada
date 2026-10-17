@@ -1,23 +1,27 @@
-// Job retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page
-// lists what got in the way across Jobs, newest first, each item as words, a
-// headline, what happened, a fix and two answers. A Job label opens its retro.
-// Agree proposes a Job or saves a Kit item; Disagree discards.
+// Session retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page lists what got in the
+// way across Sessions, newest first, each item as words, a headline, what happened, a fix and its
+// answers. A Session label opens its retro. Start Session agrees with an Armada item (see
+// `retro-start-session.test.tsx`), Accept saves a Kit item, and Reject change discards.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { entered, mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-// Core and Jobs only: the surface's own members, and the scenario answers the rest.
-const SLICES = { slices: ["core", "jobs"] } as const;
-// The Kit page is Manifest's.
-const WITH_KIT = { slices: ["core", "jobs", "manifest"] } as const;
+beforeEach(() => localStorage.removeItem("armada.bridge.lessons-tab"));
 
-const STALE_MAIN = /blamed the Drone for Fleet's own mistake/;
-const GREP = /had to wait for grep to be allowed/;
-const DOCS = /A docs edit ran every Rust test/;
+// Core and Lessons only: the surface's own members, and the scenario answers the rest.
+const SLICES = { slices: ["core", "lessons"] } as const;
+// The Kit page is Manifest's.
+const WITH_KIT = { slices: ["core", "lessons", "manifest"] } as const;
+
+const RESET = /A reset waited 40 minutes for an answer/;
+const COMMIT = /A commit message was read as a redirect/;
+const WALKS = /Walks opened in your browser/;
+const GREP = /grep had to be allowed on a check log/;
+const SESSION = "Retire guides 8 and 20, add validation that";
 
 const card = (title: RegExp) => page.getByRole("listitem").filter({ hasText: title });
 
@@ -31,17 +35,17 @@ async function lessons(): Promise<() => string[]> {
 /** The tabs that narrow the list, not the title bar's places or the System strip. */
 const lessonTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Manifest", exact: true }) });
 
-test("Retros is a page under System, and lists every Job's items newest first", async () => {
+test("Retros is a page under System, and lists every Session's items newest first", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
 
   const titles = await lessons();
   // The places bar marks where the window is.
   await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Retros" })).toHaveAttribute("aria-selected", "true");
-  const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent);
-  // Job 3's four items, then Job 2's one: Fleet's order, newest retro first.
-  expect(from).toEqual([...Array<string>(4).fill("Job 3"), "Job 2"]);
-  expect(titles()).toHaveLength(5);
+  const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent?.split(" · ")[0]);
+  // The newer Session's five items, then the older one's: Fleet's order, newest retro first.
+  expect(from).toEqual([...Array<string>(5).fill(SESSION), "Pin the Bridge store clock"]);
+  expect(titles()).toHaveLength(6);
 });
 
 test("an item says whose way and where in words, and an old item has its statement alone", async () => {
@@ -49,34 +53,33 @@ test("an item says whose way and where in words, and an old item has its stateme
   await onScreen();
   await lessons();
 
-  const one = card(STALE_MAIN);
+  const one = card(RESET);
   const words = [...one.element().querySelectorAll(".armada-lesson__word")].map((word) => word.textContent);
-  expect(words).toEqual(["Fleet", "Armada"]);
+  expect(words).toEqual(["Agent", "Armada"]);
   await expect.element(one.getByRole("heading")).toBeVisible();
-  await expect.element(one.getByText(/Compare against origin\/main/)).toBeVisible();
+  await expect.element(one.getByText(/Tell you when an ask has waited ten minutes/)).toBeVisible();
   // The marks stay, named by their tooltips.
   expect(one.getByRole("img").elements().map((mark) => mark.getAttribute("aria-label"))).toEqual([
-    "Fleet",
+    "Agent",
     "Lands in Armada",
   ]);
   const old = card(/waited in the dock/);
   expect(old.getByRole("heading").elements()).toHaveLength(0);
-  expect(old.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(old.getByRole("button", { name: /^(Start Session|Accept|Reject change)$/ }).elements()).toHaveLength(0);
 });
 
-test("a Job label opens its retro, each item with the record rows it cites behind Evidence, and the owner's notes", async () => {
+test("a Session label opens its retro, each item with the record rows it cites behind Evidence", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
   await lessons();
 
-  await card(STALE_MAIN).getByRole("button", { name: "Job 3" }).click();
+  await card(RESET).getByRole("button", { name: new RegExp(`^${SESSION}`) }).click();
   const sheet = page.getByRole("dialog", { name: "Retro" });
   await entered(sheet);
-  await expect.element(sheet.getByText("Job 3")).toBeVisible();
-  expect(sheet.getByText(/4e1c2a9 on main/).elements()).toHaveLength(0);
-  await sheet.getByRole("listitem").filter({ hasText: STALE_MAIN }).getByRole("button", { name: "Evidence" }).click();
-  await expect.element(sheet.getByText(/4e1c2a9 on main/)).toBeVisible();
-  await expect.element(sheet.getByRole("region", { name: "Notes" })).toBeVisible();
+  await expect.element(sheet.getByText(new RegExp(`^${SESSION}`))).toBeVisible();
+  expect(sheet.getByText(/Allow git reset --hard origin\/main\?/).elements()).toHaveLength(0);
+  await sheet.getByRole("listitem").filter({ hasText: RESET }).getByRole("button", { name: "Evidence" }).click();
+  await expect.element(sheet.getByText(/Allow git reset --hard origin\/main\?/)).toBeVisible();
 });
 
 test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
@@ -87,15 +90,15 @@ test("the retro lessons tabs narrow the list to where each fix lands, with All f
   const tabs = lessonTabs().getByRole("tab").elements();
   expect(tabs.map((one) => one.textContent)).toEqual(["All", "Armada", "Kit", "Manifest"]);
   expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
-  expect(titles()).toHaveLength(5);
+  expect(titles()).toHaveLength(6);
 
   await lessonTabs().getByRole("tab", { name: "Kit", exact: true }).click();
-  await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
+  await expect.poll(() => titles()).toEqual(["Walks opened in your browser"]);
   await lessonTabs().getByRole("tab", { name: "Manifest", exact: true }).click();
-  await expect.poll(() => titles()).toEqual(["A docs edit ran every Rust test"]);
+  await expect.poll(() => titles()).toEqual([]);
   await lessonTabs().getByRole("tab", { name: "Armada", exact: true }).click();
-  // Job 2's item predates where a fix lands, so it is under All alone.
-  await expect.poll(() => titles()).toHaveLength(2);
+  // The older item predates where a fix lands, so it is under All alone.
+  await expect.poll(() => titles()).toHaveLength(4);
 });
 
 test("the retro lessons tab is remembered for the viewer", async () => {
@@ -110,37 +113,33 @@ test("the retro lessons tab is remembered for the viewer", async () => {
   expect(localStorage.getItem("armada.bridge.lessons-tab")).toBe("manifest");
 });
 
-test("Agree on an Armada item proposes a Job, Agree on a Kit item saves it under Accepted, and Disagree discards", async () => {
+test("Accept on a Kit item saves it under Accepted, and Reject change on an Armada item discards it", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
   const titles = await lessons();
 
-  await card(STALE_MAIN).getByRole("button", { name: "Create Job", exact: true }).click();
-  await expect.element(card(STALE_MAIN).getByText("Agreed")).toBeVisible();
-
-  await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
-  // A Kit item that updated Kit stays, reading Updated Kit, until the list is read again.
-  await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
-  await card(DOCS).getByRole("button", { name: "Reject change", exact: true }).click();
-  await expect.poll(() => titles().some((one) => /Rust test/.test(one))).toBe(false);
+  // An Armada item is agreed by starting a Session, so it has no Accept.
+  expect(card(COMMIT).getByRole("button", { name: "Accept", exact: true }).elements()).toHaveLength(0);
+  await card(WALKS).getByRole("button", { name: "Accept", exact: true }).click();
+  await expect.poll(() => titles().some((one) => WALKS.test(one))).toBe(false);
+  await card(COMMIT).getByRole("button", { name: "Reject change", exact: true }).click();
+  await expect.poll(() => titles().some((one) => COMMIT.test(one))).toBe(false);
 
   await page.getByRole("tab", { name: "Accepted", exact: true }).click();
-  await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
-  expect(card(GREP).getByRole("button", { name: /^(Create Job|Accept|Update Kit|Reject change)$/ }).elements()).toHaveLength(0);
-  // What Fleet applied is read back with the saved item.
-  await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
-  await expect.element(card(GREP).getByText("grep", { exact: true })).toBeVisible();
-  // Read again, the agreed item is no longer open either: two items are left.
+  await expect.poll(() => titles()).toEqual(["Walks opened in your browser"]);
+  expect(card(WALKS).getByRole("button", { name: /^(Start Session|Accept|Update Kit|Reject change)$/ }).elements()).toHaveLength(0);
+  // Read again, the saved item is no longer open either: four items are left.
   await page.getByRole("tab", { name: "Open", exact: true }).click();
-  await expect.poll(() => titles()).toHaveLength(2);
+  await expect.poll(() => titles()).toHaveLength(4);
 });
 
 test("Update Kit puts the command on the Kit page's allowlist as a retro item's, and Remove takes it off", async () => {
-  mount("retro/lessons", WITH_KIT);
+  mount("retro/kit-command", WITH_KIT);
   await onScreen();
   await lessons();
 
   await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
+  // A Kit item that updated Kit stays, reading Updated Kit, until the list is read again.
   await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
 
   await toSystemPage("Kit");

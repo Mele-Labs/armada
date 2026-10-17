@@ -9,7 +9,7 @@
 
 import WebSocket from "ws";
 
-import type { FollowedLog, OutputMessage, SessionCheckOutputMessage } from "@armada/protocol";
+import type { FollowedLog, SessionCheckOutputMessage } from "@armada/protocol";
 import { HOST } from "./runtime-file";
 
 /**
@@ -19,13 +19,12 @@ import { HOST } from "./runtime-file";
 const HELD = 2_000;
 
 /**
- * A Session's run is kept as `session.<session>.<run>.log`, and is followed by its run id on a route of its own;
- * a Job's Check is followed under the Job.
+ * A Session's run is kept as `session.<session>.<run>.log`, and is followed by its run id on a route
+ * of its own. Anything else names no run Fleet serves.
  */
-function followPath(jobId: string, kept: string): string {
+function followPath(kept: string): string | null {
   const run = /^session\..+\.(\d+)\.log/.exec(kept)?.[1];
-  if (run !== undefined) return `/sessions/checks/${run}/observe`;
-  return `/jobs/${encodeURIComponent(jobId)}/checks/${encodeURIComponent(kept)}/observe`;
+  return run === undefined ? null : `/sessions/checks/${run}/observe`;
 }
 
 /** One running Check's log connection. */
@@ -66,9 +65,13 @@ export class FollowSocket {
       this.set({ state: "failed", jobId, kept, detail: "Fleet is not connected." });
       return;
     }
+    const path = followPath(kept);
+    if (path === null) {
+      this.set({ state: "failed", jobId, kept, detail: "Fleet serves no log under that name." });
+      return;
+    }
     this.set({ state: "opening", jobId, kept });
 
-    const path = followPath(jobId, kept);
     const socket = new WebSocket(`ws://${HOST}:${port}${path}`);
     this.socket = socket;
     socket.on("message", (data: WebSocket.RawData) => this.arrived(jobId, kept, String(data)));
@@ -94,9 +97,9 @@ export class FollowSocket {
   }
 
   private arrived(jobId: string, kept: string, text: string): void {
-    let message: OutputMessage | SessionCheckOutputMessage;
+    let message: SessionCheckOutputMessage;
     try {
-      message = JSON.parse(text) as OutputMessage | SessionCheckOutputMessage;
+      message = JSON.parse(text) as SessionCheckOutputMessage;
     } catch {
       this.broke(jobId, kept, "Fleet sent a message this Bridge could not read.");
       return;
@@ -109,8 +112,8 @@ export class FollowSocket {
         kept,
         name: message.name,
         // A Session's run has one attempt and no file path on the wire.
-        attempt: "attempt" in message ? message.attempt : 1,
-        path: "path" in message ? message.path : `session-check/${message.run}`,
+        attempt: 1,
+        path: `session-check/${message.run}`,
         fromLine: message.skipped + 1,
         lines: [],
       });

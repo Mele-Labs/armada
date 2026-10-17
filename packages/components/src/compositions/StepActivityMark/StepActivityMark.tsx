@@ -1,5 +1,5 @@
 import { Check, CircleDashed, CircleDot, Eye, Flag, Power, RotateCw, X, type LucideIcon } from "lucide-react";
-import { JOB_STATUS, STEP_STATE } from "../../generated/vocabulary";
+import { STEP_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -78,14 +78,11 @@ const GLYPH: Record<StepActivity, LucideIcon> = {
 export const STEP_ACTIVITY_CARRIES_A_SURFACE: readonly StepActivity[] = ["stopped", "failed"];
 
 /**
- * The two activity values `job_steps.state` does not carry, and the Job status
- * each borrows its word from. Same borrowing the glyphs above make, for the
- * same reason: a refusal lands in `last_verdict` and `killed` is the Job's
- * status showing through, so neither has a step verb to read — and writing one
- * here would mint a vocabulary the registry never agreed to.
+ * The two activity values `job_steps.state` does not carry, and their words. A refusal lands in
+ * `last_verdict` and `killed` is a stop showing through, so neither has a step verb to read.
  */
-const BORROWS_FROM_JOB: Partial<Record<StepActivity, string>> = {
-  failed: "completed_failed",
+const OWN_WORD: Partial<Record<StepActivity, string>> = {
+  failed: "failed",
   killed: "killed",
 };
 
@@ -99,9 +96,7 @@ const BORROWS_FROM_JOB: Partial<Record<StepActivity, string>> = {
  * default — a caller draws nothing rather than inventing one.
  */
 export function stepActivitySaid(activity: StepActivity): string | undefined {
-  const borrowed = BORROWS_FROM_JOB[activity];
-  const rendering = borrowed === undefined ? STEP_STATE[activity] : JOB_STATUS[borrowed];
-  return rendering?.verb ?? undefined;
+  return OWN_WORD[activity] ?? STEP_STATE[activity]?.verb ?? undefined;
 }
 
 /** Step marks are 12px at strokeWidth 2 — an exact half of lucide's 24 grid. */

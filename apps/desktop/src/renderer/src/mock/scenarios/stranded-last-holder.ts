@@ -1,17 +1,14 @@
 // Cleanup's pool with three stranded slots that name who held them last. Slot 5: a Session still open,
-// told once at 10:42. Slot 6: a Session closed, its Scout's Finding already read. Slot 7: a Job ended,
+// told once at 10:42. Slot 6: a Session closed, its Scout's Finding already read. Slot 7: a Session closed,
 // its Finding read. Slot 4 is a stranded slot whose holder Fleet never recorded and draws nothing.
 // The walk `aStrandedSlotsLastHolder` plays it.
 
 import type { SlotFinding, WorktreeSlot } from "@armada/protocol";
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import { slotsHeld } from "@armada/screens/src/fixtures/slots";
-import { running } from "@armada/screens/src/fixtures/build/index";
 
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, hosted } from "../sessions-fleet";
-
-const job = asRow(running(), 74, "debounce", "Debounce the Job Board");
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -44,7 +41,7 @@ const stranded = (n: number, rest: Partial<WorktreeSlot> & Pick<WorktreeSlot, "h
 });
 
 function pool() {
-  const base = slotsHeld(job.job, Date.now());
+  const base = slotsHeld(Date.now());
   const slots = (base.slots ?? []).map((one) => {
     if (one.slot === 5) {
       return stranded(5, {
@@ -83,7 +80,7 @@ function pool() {
           uncommitted: one.stranded?.uncommitted ?? [],
           commits: one.stranded?.commits ?? [],
           unpushed: one.stranded?.unpushed ?? 0,
-          last_holder: { kind: "job" as const, id: "01JOBLEASERECORD", title: "Write the lease record", open: false },
+          last_holder: { kind: "session" as const, id: "01SESSIONCLOSEDLEASE00000", title: "Write the lease record", open: false },
         },
         rescue: finding({ verdict: "scraps", items: ["Notes on the lease record, nothing to finish"] }),
       };
@@ -97,6 +94,6 @@ const sessions = () => [
   hosted(OPEN, { title: "Pull Request Panel Design" }),
 ];
 
-const board = holding("cleanup/last-holder", "The worktree pool on Cleanup, stranded slots that name who held them last", [job]);
+const board = holding("cleanup/last-holder", "The worktree pool on Cleanup, stranded slots that name who held them last");
 
 export const strandedLastHolder: Scenario = { ...new FakeSessionsFleet(sessions()).scenario(board), held: pool() };

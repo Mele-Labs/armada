@@ -3,7 +3,7 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { openSessionIn } from "../open-session";
 import { s237SetupWithASession } from "./scenarios/setup-with-a-session";

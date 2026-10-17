@@ -34,7 +34,7 @@ export function ByHandActs({ root, number, ci }: { root: string; number: number;
  * The pull request waiting for a person, where the merge line holds one: what the Manifest form draws under Save, and the panel
  * its number opens. The panel goes when the pull request does.
  */
-export function useMergeByHand(state: Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed" | "jobs">, onOpenLink: (address: string) => void) {
+export function useMergeByHand(state: Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">, onOpenLink: (address: string) => void) {
   const view = viewsOf(state).find((one) => one.hub?.pulls.some((pull) => pull.mergeByHand === true));
   const pull = view?.hub?.pulls.find((one) => one.mergeByHand === true);
   const row = state.mergeLines?.lines.find((line) => line.root === view?.root)?.hub?.pull_requests?.find((one) => one.number === pull?.number);

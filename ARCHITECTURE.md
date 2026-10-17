@@ -27,14 +27,14 @@ flowchart LR
         F --- S
     end
 
-    F -->|spawns| D1["Drone<br/>own worktree"]
-    F -->|spawns| D2["Drone<br/>own worktree"]
-    D1 -.->|"evidence, via a tool"| F
-    D2 -.->|"evidence, via a tool"| F
+    F -->|hosts| D1["Session<br/>own slot"]
+    F -->|hosts| D2["Session<br/>own slot"]
+    D1 -.->|"tool calls, via the door"| F
+    D2 -.->|"tool calls, via the door"| F
 ```
 
-Bridge is the only way in, and it holds one connection — **it never talks to a
-Drone.** A Drone never talks to anything except the tools Fleet handed it.
+Bridge is the only way in, and it holds one connection — **it never talks to an
+agent.** A Session's agent talks to Fleet through the tools Fleet handed it.
 
 The seam between Bridge and Fleet is the only place Rust stops and TypeScript
 starts. Every other boundary in this repository is a function call or a file.
@@ -104,25 +104,23 @@ has already chosen the implementation's runtime for it.
 `adapters` is the only crate permitted to know whose API it is talking to. A
 vendor's name anywhere else is the boundary having leaked, and the gate says so.
 
-## How a step advances
+## How work lands
 
 The rule the whole system exists for: **an agent does not decide it is
 finished.**
 
 ```mermaid
 flowchart LR
-    W["Drone<br/>works"] --> E["submits evidence<br/>through a tool"]
-    E --> C{"the repo's<br/>own Check"}
-    C -->|passes| A["step advances"]
-    C -->|fails| R["retry, up to a cap"]
-    R --> W
-    R -->|"cap reached"| X["Job fails.<br/>worktree kept"]
+    W["Session<br/>works in its slot"] --> P["opens a<br/>pull request"]
+    P --> Q["merge line<br/>takes its turn"]
+    Q --> C{"the repo's<br/>own Checks"}
+    C -->|pass| L["lands on main"]
+    C -->|fail| W
 ```
 
-Saying "done" in prose does nothing — the evidence goes through a tool Armada
-gave the Drone, a mechanical check runs in that Job's worktree, and Fleet reads
-the exit code. A Drone cannot push, because the version-control seam it is
-handed has no push method: the call does not exist, rather than being refused.
+Saying "done" in prose does nothing. Fleet reads progress from what it
+observes, and a branch whose base moved is merged with it and reruns the Checks
+the combination hits before it lands (`docs/capabilities/merge-line.md`).
 
 ## Rules that hold everywhere
 

@@ -1,28 +1,22 @@
 //! The domain registries and the enums hold the same set.
 //!
-//! `crates/core-model/domain/` is the authority on where a Job can be and why
-//! it stopped; `core-model` holds the enums. **The registry key is the wire
-//! value**, so the two compare by set lookup with no mapping in between — on
-//! wire spellings, never on Rust identifiers. It is `from_wire` this protects:
-//! a key with no variant is a stored row that reads back as `None`, a variant
-//! with no key is a value written to the column the registry never sanctioned.
+//! `crates/core-model/domain/` is the authority on how a variant reads and
+//! what a workflow declares; `core-model` holds the enums. **The registry key
+//! is the wire value**, so the two compare by set lookup with no mapping in
+//! between — on wire spellings, never on Rust identifiers. It is `from_wire`
+//! this protects: a key with no variant is a stored row that reads back as
+//! `None`, a variant with no key is a value written to the column the registry
+//! never sanctioned.
 //!
 //! **It runs both ways**, unlike [`crate::rules_protocol`], where an operation
 //! with no route is not yet built rather than wrong. Nothing here is staged:
 //! `domain/README.md` requires a key and its variant in the same change, so
 //! either half of a mismatch is a live defect — one breaks reading, the other
-//! writing. **`in_code` cannot soften that**: all thirty-one rows of the three
-//! registries say `in_code = "Not yet"`, so reading it as licence for a missing
-//! variant would licence every absence at once. It is provenance.
+//! writing.
 //!
 //! **No `toml` crate**, for the reason [`crate::rules_icons`] has none: the
 //! gate keeps no dependencies. This reads table headers only, and skips `"""`
 //! blocks so a bracket inside a `notes` string is not mistaken for one.
-//!
-//! [`edges`] is the same comparison over `domain/job-transitions.toml`, whose
-//! rows are `from`/`to` pairs rather than keys; split out for size only.
-//! [`reachability`] is the one comparison here that is not a set against a set:
-//! it reads what a row *says about* a state rather than which states exist.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -40,18 +34,6 @@ struct EnumSource {
 
 const ENUMS: &[EnumSource] = &[
     EnumSource {
-        name: "JobStatus",
-        path: "crates/core-model/src/job/status.rs",
-    },
-    EnumSource {
-        name: "StepState",
-        path: "crates/core-model/src/job/status.rs",
-    },
-    EnumSource {
-        name: "EscalationTrigger",
-        path: "crates/core-model/src/job/escalation.rs",
-    },
-    EnumSource {
         name: "CheckOutcome",
         path: "crates/core-model/src/workflow/check.rs",
     },
@@ -60,52 +42,12 @@ const ENUMS: &[EnumSource] = &[
         path: "crates/core-model/src/workflow/judge.rs",
     },
     EnumSource {
-        name: "QueuedReason",
-        path: "crates/core-model/src/job/fields.rs",
-    },
-    EnumSource {
-        name: "AdmissionHold",
-        path: "crates/core-model/src/job/fields.rs",
-    },
-    EnumSource {
-        name: "BudgetHold",
-        path: "crates/core-model/src/job/fields.rs",
-    },
-    EnumSource {
-        name: "Resumption",
-        path: "crates/core-model/src/job/fields.rs",
-    },
-    EnumSource {
-        name: "Origin",
-        path: "crates/core-model/src/job/fields.rs",
-    },
-    EnumSource {
-        name: "Guard",
-        path: "crates/core-model/src/job/guard.rs",
-    },
-    EnumSource {
-        name: "GamingPattern",
-        path: "crates/core-model/src/workflow/gaming.rs",
-    },
-    EnumSource {
         name: "AdvanceGate",
         path: "crates/core-model/src/workflow/declared.rs",
     },
     EnumSource {
         name: "EvidenceType",
         path: "crates/core-model/src/workflow/declared.rs",
-    },
-    EnumSource {
-        name: "TaskState",
-        path: "crates/core-model/src/job/work_plan.rs",
-    },
-    EnumSource {
-        name: "GroupState",
-        path: "crates/core-model/src/job/plan_group.rs",
-    },
-    EnumSource {
-        name: "DronePresence",
-        path: "crates/core-model/src/job/drone.rs",
     },
 ];
 
@@ -122,39 +64,9 @@ struct Pairing {
 
 const PAIRINGS: &[Pairing] = &[
     Pairing {
-        registry: "job-statuses.toml",
-        prefix: "statuses.",
-        enum_name: "JobStatus",
-    },
-    Pairing {
-        registry: "step-states.toml",
-        prefix: "states.",
-        enum_name: "StepState",
-    },
-    Pairing {
-        registry: "escalation-triggers.toml",
-        prefix: "triggers.",
-        enum_name: "EscalationTrigger",
-    },
-    Pairing {
         registry: "check-outcomes.toml",
         prefix: "outcomes.",
         enum_name: "CheckOutcome",
-    },
-    Pairing {
-        registry: "transition-guards.toml",
-        prefix: "guards.",
-        enum_name: "Guard",
-    },
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.job_status.",
-        enum_name: "JobStatus",
-    },
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.escalation_reason.",
-        enum_name: "EscalationTrigger",
     },
     Pairing {
         registry: "enum-verbs.toml",
@@ -166,67 +78,6 @@ const PAIRINGS: &[Pairing] = &[
         prefix: "verbs.criterion_verdict_judge.",
         enum_name: "JudgeVerdict",
     },
-    // `queued_reason` has no registry file of its own: the set is written on
-    // `job-statuses.toml`'s `queued` row as prose, and the verbs are the only
-    // place it is spelled key by key. `none` is not among them — it is the
-    // absence of a reason, which the enum carries as `Option`.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.queued_reason.",
-        enum_name: "QueuedReason",
-    },
-    // The finer half of `waiting_on_resources`, and it has no registry file of
-    // its own either: the set is what `fleet::admitting::Room` can answer, and
-    // the verbs are the only place it is spelled key by key.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.admission_hold.",
-        enum_name: "AdmissionHold",
-    },
-    // The finer half of `over_budget`, and no registry file of its own: the set
-    // is the two ceilings `crates/config/settings.toml` gives rows to, and the
-    // verbs are the only place it is spelled key by key.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.budget_hold.",
-        enum_name: "BudgetHold",
-    },
-    // The other axis over `queued`, and it has no registry file of its own
-    // either: the set is the shape `readmitting::Owed` partitions the inner
-    // machine into, and the verbs are the only place it is spelled key by key.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.resumption.",
-        enum_name: "Resumption",
-    },
-    // Where a Job came from, and it has no registry file of its own either:
-    // `job-fields.toml` names the five on the `origin` row as prose, and the
-    // verbs are the only place they are spelled key by key. The Board draws
-    // this on every row, so an unpaired sixth value is a blank cell.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.origin.",
-        enum_name: "Origin",
-    },
-    // Which shape of gaming one flag found, and it has no registry file of its
-    // own either: the set is what a workflow's `flag_if` may name, and the
-    // verbs are the only place it is spelled key by key. Job detail draws one
-    // of these words per flag, so an unpaired tenth value is the wire spelling
-    // printed at a person — which is how the vocabulary came to be registered.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.gaming_pattern.",
-        enum_name: "GamingPattern",
-    },
-    // The inner half of the two-level machine. `step-states.toml` is paired
-    // above and this is the second half of the same set — a state present
-    // there and absent here is a rail row rendering its own wire spelling,
-    // which is what these four rows were added to end.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.step_state.",
-        enum_name: "StepState",
-    },
     // What it takes to advance past a step, and it has no registry file of its
     // own: `workflowdef-fields.toml` names the schema's four forms as prose,
     // three of which reach an enum at all. The rail draws one of these words on
@@ -237,34 +88,11 @@ const PAIRINGS: &[Pairing] = &[
         enum_name: "AdvanceGate",
     },
     // What a step produces as its work product, and it has no registry file of
-    // its own: `job-fields.toml`'s `evidence_type` row names the six as prose.
+    // its own.
     Pairing {
         registry: "enum-verbs.toml",
         prefix: "verbs.evidence_type.",
         enum_name: "EvidenceType",
-    },
-    // Where one task of a plan stands. No registry file of its own: the set is
-    // the planner's and Fleet's, and the verbs are where it is spelled key by
-    // key. A state unpaired here is a Plan row with no mark.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.task_state.",
-        enum_name: "TaskState",
-    },
-    // Where one group of a plan is, since Fleet runs groups (spike 022, slice
-    // 2). No registry file of its own, `task_state`'s reason.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.group_state.",
-        enum_name: "GroupState",
-    },
-    // Whether a Drone arrived on a step or left it. No registry file of its own
-    // either — `assigned_drone` is a pointer with no states, so the verbs are
-    // the only place the two moments are spelled key by key.
-    Pairing {
-        registry: "enum-verbs.toml",
-        prefix: "verbs.drone_presence.",
-        enum_name: "DronePresence",
     },
 ];
 
@@ -273,24 +101,18 @@ const PAIRINGS: &[Pairing] = &[
 /// No count in the sentence, because the set grows and a number in a comment
 /// does not.
 ///
-/// Checked because a typo in an outer key — `job_statuses` for `job_status` —
+/// Checked because a typo in an outer key — `check_outcomes` for `check_outcome` —
 /// does not fail the pairing above, it empties it. A comparison that silently
 /// has nothing to compare is the failure this whole rule exists to end.
 ///
 /// **Being on this list is not being paired**, and the registry's own header
-/// says which are which. `change_kind`, `movement_kind` and `silence` cannot be
-/// paired as things stand: their enums are `crates/ipc`'s and carry a serde
-/// derive instead of the `ALL` and `as_wire` pair [`read_enum`] reads.
+/// says which are which. `change_kind` cannot be paired as things stand: its
+/// enum is `crates/ipc`'s and carries a serde derive instead of the `ALL` and
+/// `as_wire` pair [`read_enum`] reads.
 /// `auto_merge` cannot either: `core_model::AutoMerge` spells through `as_written`.
 /// Nor `land_state`: `ipc::LandState` carries a serde derive.
 const VOCABULARIES: &[&str] = &[
-    "job_status",
     "queued_reason",
-    "admission_hold",
-    "budget_hold",
-    "resumption",
-    "escalation_reason",
-    "step_verdict",
     "step_state",
     "task_state",
     "group_state",
@@ -300,21 +122,11 @@ const VOCABULARIES: &[&str] = &[
     "check_outcome",
     "criterion_verdict_check",
     "criterion_verdict_judge",
-    "criterion_verdict_attested",
-    "gaming_pattern",
     "evidence_type",
     "change_kind",
-    "movement_kind",
-    "drone_presence",
-    "silence",
-    "origin",
 ];
 
 /// Every enum's `variant -> wire` map, read from the source that declares it.
-///
-/// Shared with [`edges`], which compares the transition registry against
-/// spellings rather than against identifiers for the reason this module's
-/// header gives.
 fn wire_spellings(
     root: &Path,
     report: &mut Report,
@@ -600,10 +412,6 @@ fn tables(text: &str) -> Vec<(String, usize)> {
     }
     found
 }
-
-pub mod declared;
-pub mod edges;
-pub mod reachability;
 
 #[cfg(test)]
 mod tests;

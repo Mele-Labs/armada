@@ -4,12 +4,13 @@
 use adapter_traits::SlotHeld;
 
 use super::session_host::{rig_placing, Rig};
+use crate::leasing::Reading;
 use crate::session_host::following::pid_in;
 use crate::tests::peer::Placing;
 
 /// The bay `slot` of the first served repository, as it crosses the wire.
 async fn on_the_wire(rig: &Rig, slot: u32) -> ipc::SlotHolding {
-    let slots = rig.fleet.pool_slots().await.expect("the pool is read");
+    let slots = rig.fleet.pool_slots(Reading::Live).await;
     let one = slots
         .iter()
         .find(|one| one.reading.slot == slot)
@@ -33,14 +34,17 @@ async fn a_lease_in_a_hosted_sessions_id_is_served_as_that_session_with_its_titl
 }
 
 #[tokio::test]
-async fn a_lease_in_an_id_nothing_knows_stays_a_job() {
+async fn a_lease_in_an_id_nothing_knows_is_served_as_a_session_with_no_title() {
     let rig = rig_placing(None);
     rig.fleet.vcs().hold_slot(&rig.root, 2, "01UNKNOWN");
 
-    assert!(matches!(
+    assert_eq!(
         on_the_wire(&rig, 2).await,
-        ipc::SlotHolding::Job { .. }
-    ));
+        ipc::SlotHolding::HostedSession {
+            session_id: String::from("01UNKNOWN"),
+            session_title: None,
+        }
+    );
 }
 
 #[tokio::test]
@@ -102,7 +106,7 @@ fn the_pid_is_read_out_of_the_way_the_pool_names_a_process() {
 async fn a_process_holder_carries_the_session_it_began_from_on_the_wire() {
     use crate::session_host::following::SlotSession;
     let rig = rig_placing(None);
-    let slots = rig.fleet.pool_slots().await.expect("the pool is read");
+    let slots = rig.fleet.pool_slots(Reading::Live).await;
     let mut one = slots.into_iter().next().expect("a slot");
     one.reading.held = SlotHeld::Session(String::from("node (pid 2838)"));
     one.session = Some(SlotSession {

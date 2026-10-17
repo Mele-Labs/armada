@@ -1,14 +1,12 @@
 //! Watching one running Check's log: a reader Fleet implements, and the socket
 //! that follows it.
 //!
-//! **`crate::journal`'s shape, one file over.** The runner appends a Check's
-//! output to a file as it arrives, and this reads that file the way the Job's
-//! log is read: what is already there, then what is appended, [`FOLLOW`]
+//! The runner appends a Check's output to a file as it arrives, and this reads
+//! that file: what is already there, then what is appended, [`FOLLOW`]
 //! behind. A request-response read of a growing file would need Bridge to ask
 //! again on a timer, and Bridge does not poll.
 //!
-//! **Nothing on this stream can be missed**, for the journal's reason: the
-//! cursor is a byte offset into the file, so a viewer that stalls reads the gap
+//! **Nothing on this stream can be missed**: the cursor is a byte offset into the file, so a viewer that stalls reads the gap
 //! on its next pass. There is no queue between the runner and the socket.
 //!
 //! **`api` does not open the file.** [`Follow`] is stated here and implemented
@@ -23,12 +21,17 @@ use ipc::{
 };
 use serde::Serialize;
 
-use crate::journal::FOLLOW;
+/// How often the reader looks for lines written since its last pass.
+///
+/// **A bound on latency, not on volume.** What is read each pass is whatever
+/// was appended, however much that is, so a burst arrives in one pass rather
+/// than being metered out.
+pub const FOLLOW: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// One running Check's log, read. **Implemented in Fleet.**
 ///
-/// Blocking, for [`Journal`](crate::Journal)'s reason: each method is a file
-/// read or a lock, and the socket calls them off the runtime's workers.
+/// Blocking: each method is a file read or a lock, and the socket calls them
+/// off the runtime's workers.
 pub trait Follow: Send + Sync + 'static {
     /// Everything written after `from`, and where the next pass starts.
     ///
@@ -61,26 +64,10 @@ pub struct Followed {
     pub unreadable: bool,
 }
 
-/// A running Check's log, resolved: whose it is, and the reader for it.
-///
-/// **What the daemon answers before the socket opens**, for `observe_job`'s
-/// reason: a name that resolves to nothing is a refusal the caller reads at the
-/// moment it asked rather than a socket that opens and says nothing.
-#[derive(Clone)]
-pub struct LiveOutput {
-    /// The Check whose log this is.
-    pub name: String,
-    /// Which run of the step is writing it.
-    pub attempt: u32,
-    /// Where it is being written, relative to the repository root.
-    pub path: String,
-    pub follow: Arc<dyn Follow>,
-}
-
 /// One merge line Check's log, resolved: whose it is, and the reader for it.
 ///
-/// **[`LiveOutput`]'s shape for a Check no Job owns**, answered before the
-/// socket opens for the same reason. A finished Check's log is served too, on
+/// **Answered before the socket opens**, so a name that resolves to nothing is a
+/// refusal the caller reads at the moment it asked. A finished Check's log is served too, on
 /// the same socket: it opens, sends what the file holds and ends `finished`,
 /// so one reader draws a Check that is running and one that has ended.
 #[derive(Clone)]
@@ -95,7 +82,7 @@ pub struct LandOutput {
 
 /// One Session run's log, resolved: which run it is, and the reader for it.
 ///
-/// **[`LandOutput`]'s shape for a run no Job owns.** A run that has ended is served too: it opens,
+/// A run that has ended is served too: it opens,
 /// sends what the log holds and closes `finished`.
 #[derive(Clone)]
 pub struct SessionCheckLive {

@@ -67,9 +67,9 @@ test("a read that failed is a question, and the words go to Helm", async () => {
   reading(app, { ok: false, outcome: { ok: false, why: "not_connected" } });
   await openHelm();
 
-  await say("why did Job 12 fail?");
+  await say("why did the store migration spike stop?");
   await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1));
-  expect(asked.mock.calls[0]?.[0]).toBe("why did Job 12 fail?");
+  expect(asked.mock.calls[0]?.[0]).toBe("why did the store migration spike stop?");
   expect(helm().getByRole("group", { name: "Send to", exact: true }).query()).toBeNull();
 });
 
@@ -84,10 +84,9 @@ test("a read that was rejected is a question too", async () => {
   expect(asked.mock.calls[0]?.[0]).toBe("the merge line page should group PRs by repository");
 });
 
-test("a thought nothing is about offers a new Session or Job and sends nothing", async () => {
+test("a thought nothing is about offers a new Session and sends nothing", async () => {
   const app = mount("route-a-thought");
   const delivered = vi.spyOn(app.api, "sendSessionMessage");
-  const redirected = vi.spyOn(app.api, "redirectDrone");
   const recorded = vi.spyOn(app.api, "recordThoughtSent");
   reading(app, thought());
   await openHelm();
@@ -95,6 +94,5 @@ test("a thought nothing is about offers a new Session or Job and sends nothing",
   await say("the merge line page should group PRs by repository");
   await expect.element(helm().getByRole("group", { name: "Start new", exact: true })).toBeVisible();
   expect(delivered).not.toHaveBeenCalled();
-  expect(redirected).not.toHaveBeenCalled();
   expect(recorded).not.toHaveBeenCalled();
 });

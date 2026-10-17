@@ -27,25 +27,20 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use crate::amending::edit_manifest;
-use crate::attention::{get_activity_feed, list_alerts, list_job_board, list_reviews};
-use crate::commands::{
-    catch_up_checkout, change_slot_pool, checkout_to_pull_request, delete_branch, file_report,
-    forget_job, kill_job, reclaim_worktree, rescue_slot,
-};
+use crate::commands::{catch_up_checkout, change_slot_pool, checkout_to_pull_request, rescue_slot};
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, get_helm_session,
     list_helm_calls, read_thought, record_thought_sent, start_helm_fresh, tell_session,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
-use crate::fleetwide::{get_events_since, get_health, get_manifest, get_manifest_spend, get_usage};
+use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{change_fleet_build, get_fleet_build};
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::queries::{
-    get_diff, get_job, get_job_events, get_job_log, get_manifest_drift, get_manifest_reading,
-    list_jobs, list_manifests, list_models, list_reports, list_workflows, list_worktrees,
-    search_files,
+    get_manifest_drift, get_manifest_reading, list_manifests, list_models, list_workflows,
+    list_worktrees, search_files,
 };
 use crate::rehearsing::{
     get_checkout_run_diff, get_checkout_run_output, get_checkout_run_sheet, list_checkout_runs,
@@ -60,7 +55,7 @@ use crate::served::Served;
 use crate::bay_history::get_slot_history;
 use crate::timeline::get_fleet_timeline;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
-use crate::sockets::{events, job_log, observe_land_check};
+use crate::sockets::{events, observe_land_check};
 use crate::studios::{
     add_studio_node, ask_scout, capture_studio_note, create_studio, decide_studio_edge,
     defer_on_studio, delete_studio, edit_studio_draft, edit_studio_link,
@@ -110,7 +105,6 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
 /// The HTTP surface and the Drone's endpoint: every route but the door.
 fn surface<D: Daemon>(served: Served<D>) -> Router {
     Router::new()
-        .route("/jobs", get(list_jobs::<D>))
         .route("/workflows", get(list_workflows::<D>))
         .route(
             "/workflows/definition",
@@ -424,16 +418,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
         .route("/accounts/set_repository_profile", post(crate::accounting::set_repository_profile::<D>))
         .route("/health", get(get_health::<D>))
-        .route("/usage", get(get_usage::<D>))
-        .route("/alerts", get(list_alerts::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))
         .route("/events/since", get(get_events_since::<D>))
-        .route("/jobs/board", get(list_job_board::<D>))
-        .route("/jobs/reviews", get(list_reviews::<D>))
-        .route("/jobs/activity", get(get_activity_feed::<D>))
         .route("/manifest/reading", get(get_manifest_reading::<D>))
         .route("/manifest/drift", get(get_manifest_drift::<D>))
-        .route("/manifest/spend", get(get_manifest_spend::<D>))
         .route(
             "/repository/scan",
             get(crate::queries::get_repository_scan::<D>),
@@ -454,10 +442,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/manifest/save_file", post(save_manifest_file::<D>))
         .route("/manifest/edit", post(edit_manifest::<D>))
         .route("/manifest/files", get(search_files::<D>))
-        .route(
-            "/manifest/branches",
-            get(crate::queries::list_branches::<D>),
-        )
         .route(
             "/manifest/allowed_commands",
             get(get_repository_allowed_commands::<D>),
@@ -485,12 +469,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/kit/allowed_commands/remove",
             post(crate::kit::remove_kit_allowed_command::<D>),
         )
-        .route("/jobs/:job_id", get(get_job::<D>))
-        .route("/jobs/:job_id/events", get(get_job_events::<D>))
-        .route(
-            "/jobs/:job_id/retro",
-            get(crate::retros::get_job_retro::<D>),
-        )
         .route(
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
@@ -509,7 +487,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/lessons/:lesson_id/disagree",
             post(crate::retros::disagree_lesson::<D>),
         )
-        .route("/jobs/:job_id/diff", get(get_diff::<D>))
         .route("/manifest/run_sheet", get(get_checkout_run_sheet::<D>))
         .route("/manifest/runs", get(list_checkout_runs::<D>))
         .route(
@@ -532,20 +509,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/servers/start", post(start_server::<D>))
         .route("/servers/stop", post(stop_server::<D>))
         .route("/servers/:server_id/observe", get(observe_server::<D>))
-        .route("/jobs/:job_id/kill_job", post(kill_job::<D>))
-        .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
-        .route(
-            "/jobs/:job_id/reclaim_worktree",
-            post(reclaim_worktree::<D>),
-        )
-        .route("/jobs/:job_id/delete_branch", post(delete_branch::<D>))
-        .route("/jobs/:job_id/report", post(file_report::<D>))
-        .route("/reports", get(list_reports::<D>))
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
         .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
-        .route("/jobs/:job_id/log", get(job_log::<D>))
-        .route("/jobs/:job_id/log/read", get(get_job_log::<D>))
         .route("/helm/session", get(get_helm_session::<D>))
         .route("/helm/ask", post(ask_helm::<D>))
         .route("/helm/debug", get(get_helm_debug_info::<D>))

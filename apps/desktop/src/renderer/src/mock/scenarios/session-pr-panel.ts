@@ -3,7 +3,7 @@
 // `pullRequestPanelNarrow` play it; the page each serves for the tabs is `../session-pr-pages.ts`.
 
 import type { MergeLine } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -30,7 +30,7 @@ function line(): MergeLine {
     sent_back: [],
     hub: {
       pull_requests: [
-        pull(2201, "Commander repair onto the Job's branch", "commander/repair-onto-job", 1, "mergeable"),
+        pull(2201, "Repair the failing check", "fix/repair-the-check", 1, "mergeable"),
         pull(2204, "Keep the dispatch bar under Helm", "fix/dispatch-bar-under-helm", 2, "awaiting_checks"),
         pull(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", 3, "queued"),
         pull(2211, "Settings: per-repo merge method", "feat/merge-method", 4, "queued"),

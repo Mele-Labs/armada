@@ -1,29 +1,15 @@
 // Write clashes on the Dashboard and the Sessions page. Fleet tells two live agents in one repository
 // whose changes really conflict, and one agent against a main that moved; both rows carry a mark.
-// Here: two Sessions on one file, a Job and a Session on two, a Session against main, and two Sessions
-// that edit one file with no conflict, which are not marked. The walk `write-clash-mark` plays it.
+// Here: two Sessions on one file, two Sessions on two, a Session against main, and two Sessions
+// that edit one file with no conflict, which are not marked.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { WriteClash } from "@armada/protocol";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-
-/** A Job on the picked repository, not yet cleared, so it stays on the Dashboard. */
-function kept(fixture: JobFixture): JobFixture {
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, owner_manifest_id: OWNER };
-  return { ...fixture, job };
-}
-
-const cap = kept(asRow(featureRunning(), 83, "dash-cap", "Cap the retry backoff"));
-const pin = kept(asRow(featureRunning(), 81, "dash-pin", "Pin the store clock"));
-
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const quiet = { state: "idle" } as const;
@@ -86,29 +72,37 @@ const SESSIONS: Session[] = [
     rows: [tool("f0", "Edit docs/CHANGELOG.md"), message("f1", "agent", "Added the 0.9 entry at the top.")],
     attachments: [],
   },
+  {
+    id: "s47",
+    title: "Cap the retry backoff",
+    turn: { state: "working" },
+    lastTurn: "14:03",
+    lastTurnAt: ago(4),
+    rows: [tool("g0", "Edit crates/fleet/src/retry.rs"), tool("g1", "Edit crates/fleet/src/backoff.rs"), message("g2", "agent", "The backoff is capped.")],
+    attachments: [],
+  },
 ];
 
 /** The labels are what a row calls the holder, so a tooltip names it the way the list does. */
-const holder = (kind: "job" | "session", id: string, label: string) => ({ kind, id, label });
+const holder = (kind: "session", id: string, label: string) => ({ kind, id, label });
 const MAIN = { kind: "main", id: "main", label: "main" } as const;
 
 const CLASHES: readonly WriteClash[] = [
   { one: holder("session", "s41", "Migration notes"), other: holder("session", "s42", "Release script"), paths: ["crates/store/src/clock.rs"], since: ago(6) },
-  { one: holder("job", cap.job.id, "Cap the retry backoff"), other: holder("session", "s43", "Retry tuning"), paths: ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"], since: ago(4) },
+  { one: holder("session", "s47", "Cap the retry backoff"), other: holder("session", "s43", "Retry tuning"), paths: ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"], since: ago(4) },
   { one: holder("session", "s44", "Lint sweep"), other: MAIN, paths: ["crates/store/src/open.rs"], since: ago(9) },
   // A second clash for Migration notes: its row keeps one mark, and the card names both.
   { one: holder("session", "s41", "Migration notes"), other: holder("session", "s43", "Retry tuning"), paths: ["crates/fleet/src/retry.rs"], since: ago(3) },
 ];
 
 function build(): Scenario {
-  const base = holding("write-clash-mark", "Write clashes: the mark on both rows of a pair, on the Dashboard, the Sessions list and the open Job or Session", [pin, cap]);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("write-clash-mark", "Write clashes: the mark on both rows of a pair, on the Dashboard, the Sessions list and the open Session");
   return {
     ...base,
     state: { ...base.state, repository: repository().root },
     draft: {
       clashes: CLASHES,
-      sessions: (board) => sessionsStore([none, none], none, board, [], SESSIONS),
+      sessions: () => sessionsStore(SESSIONS),
     },
   };
 }

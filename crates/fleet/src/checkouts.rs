@@ -87,7 +87,7 @@ impl Checkout {
         let a_jobs = jobs_worktrees(served.root()).is_some_and(|parent| here.starts_with(parent))
             || matches!(
                 adapters::leasing::holder_of(&here),
-                Some(adapters::leasing::Holder::Job(_))
+                Some(adapters::leasing::Holder::Hosted(_))
             );
         if a_jobs {
             return Err(NotACheckout::AJobs {

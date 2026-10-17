@@ -26,7 +26,7 @@ pub trait Issues: Send + Sync + 'static {
 
     /// `get_issue` — one issue by reference (`#214` or `214` on a forge, `ABC-123` on Jira),
     /// closed ones included, read from the tracker each time.
-    /// [`Refusal::NoSuchJob`] where there is none or the number is a pull request's,
+    /// [`Refusal::NotFound`] where there is none or the number is a pull request's,
     /// [`Refusal::Fault`] where the tracker would not answer.
     fn get_issue(
         &self,

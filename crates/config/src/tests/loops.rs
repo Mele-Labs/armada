@@ -364,10 +364,6 @@ fn the_loop_reaches_the_resolved_step_a_job_freezes() {
     assert_eq!(present.iteration_cap(), 5);
 
     let draft = &resolved.steps()[0];
-    assert!(
-        !draft.closes_a_loop(),
-        "the step the loop returns to closes none of its own"
-    );
     assert_eq!(
         draft.iteration_cap(),
         0,
@@ -401,6 +397,5 @@ fn a_route_with_no_cap_freezes_with_the_default_cap() {
     let resolved = ResolvedWorkflow::resolve(&def, &manifest).expect("no step names a check");
 
     let present = &resolved.steps()[1];
-    assert!(present.closes_a_loop());
     assert_eq!(present.iteration_cap(), crate::DEFAULT_ITERATION_CAP);
 }

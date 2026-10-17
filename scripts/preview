@@ -10,6 +10,14 @@
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #
+# **A merge that does not build is left out and the restart run once more.**
+# Git merges branches cut before something was deleted without a word, and
+# `cargo install` then fails on code no branch of its own would have. When
+# `--restart` fails with compiler errors, the branches that changed the files
+# they name are dropped (`skipped (does not build: <files>)`), the rest merged
+# again, and `scripts/restart` run a second time. Nothing in that touches a file
+# the errors name, or a second failure, is reported as it is.
+#
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, and `ARMADA_PREVIEW_RESTART` the
 # restart script `--restart` runs.
@@ -20,6 +28,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 
@@ -208,7 +217,10 @@ def prepare(root, wt, base):
     git(wt, "clean", "-xdffq", *[a for k in KEEP for a in ("-e", k)])
 
 
-def merge_pass(root, only, skip):
+def merge_pass(root, only, skip, dropped=None):
+    """Merge once; returns the worktree, the base and the table's rows.
+    `dropped` is {branch: files}: branches a build showed do not compile."""
+    dropped = dropped or {}
     wt = os.path.join(root, ".armada", "preview")
     git(root, "fetch", "--quiet", "origin", check=False)
     base = base_of(root)
@@ -218,6 +230,9 @@ def merge_pass(root, only, skip):
     taken = {v: "main" for v in migrations_in(wt, "HEAD")}
     rows = []
     for branch in branches:
+        if branch in dropped:
+            rows.append((branch, "skipped (does not build: " + ", ".join(dropped[branch]) + ")", ""))
+            continue
         # A branch that merged main can have several merge bases; one alone misses main's migrations.
         before = {v for mb in out(wt, "merge-base", "--all", "HEAD", branch).split() for v in migrations_in(wt, mb)}
         added = [v for v in migrations_in(wt, branch) if v not in before]
@@ -253,7 +268,7 @@ def merge_pass(root, only, skip):
         f.write(text)
     sys.stdout.write(text)
     sys.stdout.flush()
-    return wt
+    return wt, base, rows
 
 
 def render(base, base_sha, head, rows, notes, warnings):
@@ -278,14 +293,80 @@ def signature(root, only, skip):
             tuple((b, out(root, "rev-parse", f"refs/heads/{b}")) for b in branches))
 
 
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+# rustc places an error with `--> path:line:col`, under a header that says error or warning.
+RUSTC_AT = re.compile(r"^\s*--> (.+?):\d+:\d+\s*$")
+DIAGNOSTIC = re.compile(r"^(warning|error)\b")
+# tsc says `path.ts(12,5)`; vite and esbuild say `path.ts:12:5`.
+SCRIPT_AT = re.compile(r"([^\s()'\"]+\.(?:[cm]?[jt]sx?|vue|css))(?:\(\d+,\d+\)|:\d+:\d+)")
+
+
+def error_paths(output, wt):
+    """The repo-relative files the compiler errors in `output` name."""
+    prefixes = tuple(p + "/" for p in {wt, os.path.realpath(wt)})
+    kind, found = None, []
+    for line in ANSI.sub("", output).splitlines():
+        if m := DIAGNOSTIC.match(line):
+            kind = m.group(1)
+        if (m := RUSTC_AT.match(line)):
+            if kind == "error":
+                found.append(m.group(1))
+        else:
+            found += SCRIPT_AT.findall(line)
+    paths = []
+    for path in found:
+        for prefix in prefixes:
+            path = path.removeprefix(prefix)
+        path = path.removeprefix("./")
+        if path and not path.startswith(("/", "..")) and path not in paths:
+            paths.append(path)
+    return paths
+
+
+def does_not_build(root, base, rows, output, wt):
+    """{branch: files} for the merged branches that changed a file the compiler errors name,
+    whole or by its tail."""
+    named = error_paths(output, wt)
+    culprits = {}
+    for branch, what, _ in rows:
+        if what != "merged":
+            continue
+        touched = set(out(root, "diff", "--name-only", f"{base}...{branch}").splitlines())
+        # pnpm, tsc and vite print paths relative to the package (`src/App.tsx` for
+        # `apps/desktop/src/App.tsx`), so a path no branch file equals is matched by its tail.
+        files = []
+        for path in named:
+            files += [path] if path in touched else sorted(f for f in touched if f.endswith("/" + path))
+        if files:
+            culprits[branch] = files
+    return culprits
+
+
 def restart(root, wt, dry_run, adopt):
+    """Run the restart script with its output flowing on as it always did, and
+    return its exit code with all it said, for the errors to be read from."""
     script = os.environ.get("ARMADA_PREVIEW_RESTART") or os.path.join(root, "scripts", "restart")
     command = [script, "--from", wt] + (["--dry-run"] if dry_run else []) + (["--adopt"] if adopt else [])
     print("running " + " ".join(command), flush=True)
-    code = subprocess.run(command).returncode
+    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    said = []
+
+    def copy(pipe, stream):
+        for line in iter(pipe.readline, b""):
+            said.append(line)
+            stream.buffer.write(line)
+            stream.buffer.flush()
+
+    copiers = [threading.Thread(target=copy, args=(child.stdout, sys.stdout)),
+               threading.Thread(target=copy, args=(child.stderr, sys.stderr))]
+    for t in copiers:
+        t.start()
+    code = child.wait()
+    for t in copiers:
+        t.join()
     print(f"scripts/restart {'would have' if dry_run else 'has'} built from {wt} and "
           f"serves the repository at {root}" if code == 0 else f"preview: restart exited {code}")
-    return code
+    return code, b"".join(said).decode("utf-8", "replace")
 
 
 def main():
@@ -309,7 +390,7 @@ def main():
     only, skip = names(args.only), names(args.skip)
     root = repo_root()
 
-    wt = merge_pass(root, only, skip)
+    wt, base, rows = merge_pass(root, only, skip)
     if args.watch is not None:
         seen = signature(root, only, skip)
         try:
@@ -318,12 +399,19 @@ def main():
                 now = signature(root, only, skip)
                 if now != seen:
                     print(f"\n{time.strftime('%H:%M:%S')} something moved, merging again", flush=True)
-                    wt = merge_pass(root, only, skip)
+                    wt = merge_pass(root, only, skip)[0]
                     seen = signature(root, only, skip)
         except KeyboardInterrupt:
             return 0
     if args.restart:
-        return restart(root, wt, args.dry_run, args.adopt)
+        code, output = restart(root, wt, args.dry_run, args.adopt)
+        dropped = does_not_build(root, base, rows, output, wt) if code != 0 else {}
+        if dropped:
+            print("\n".join(f"{b} does not build ({', '.join(f)}); merging again without it"
+                            for b, f in dropped.items()), flush=True)
+            wt, base, rows = merge_pass(root, only, skip, dropped)
+            code = restart(root, wt, args.dry_run, args.adopt)[0]
+        return code
     return 0
 
 

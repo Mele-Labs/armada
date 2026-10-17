@@ -76,7 +76,7 @@ describe("asking Helm", () => {
     const fleet = await serving([], bodies);
     const { helm } = connected(fleet.port);
 
-    const context: HelmContext = { screen: "job_detail", chip: "01JOB0000000000000000000A" };
+    const context: HelmContext = { screen: "manifest", picked: "armada" };
     expect(await helm.askHelm("what is this stuck on?", context)).toEqual({ ok: true });
     expect(await helm.askHelm("and this one?")).toEqual({ ok: true });
 

@@ -9,39 +9,16 @@
 #
 # Tables nest one level: `[verbs.<enum>.<variant>]`. The inner table key is the
 # wire value, so a rule can compare a set here against the Rust enum without a
-# mapping in between, and the outer key names which enum that is. A flat map
-# could not — `evidence_suspect` is a variant of two enums at once, on two
-# different axes, and it is the one collision the nesting exists to hold.
+# mapping in between, and the outer key names which enum that is.
 #
 # The enums, which `xtask`'s `VOCABULARIES` holds the same list of:
-#   job_status                 - where a Job is. Keys match job-statuses.toml
-#   queued_reason              - why a queued Job has not started
-#   admission_hold             - which one thing is holding the next Drone
-#                                back. The finer half of
-#                                `queued_reason.waiting_on_resources`, read
-#                                fleet-wide rather than per Job
-#   budget_hold                - which of a Job's two ceilings is holding it.
-#                                The finer half of `queued_reason.over_budget`,
-#                                and per Job where `admission_hold` is
-#                                fleet-wide
-#   resumption                 - which act a person took to put a `queued` Job
-#                                back in the queue. Absent on a Job that was
-#                                approved and has never run
-#   escalation_reason          - why a Job stopped and asked. Keys match
-#                                escalation-triggers.toml
-#   step_verdict               - the outcome of one workflow step
-#   step_state                 - where one step of the frozen WorkflowDef is.
-#                                Keys match step-states.toml, and it is the
-#                                inner half of the two-level machine
-#                                `job_status` is the outer half of
-#   task_state                 - where one task of a Job's plan stands.
-#                                Promoted from the draft's words at protocol
-#                                22.0, `handed_in` and `failed` with it
-#   group_state                - where one group of a Job's plan is. No
-#                                registry file of its own; paired against
-#                                `core_model::GroupState` since protocol 23.4,
-#                                when Fleet started running groups. Its glyphs
-#                                are the step's borrowed one level further
+#   queued_reason              - why a branch is waiting. Only
+#                                `blocked_by_dependency` is read, by the merge
+#                                line
+#   step_state                 - where one step of a workflow is on the rail
+#   task_state                 - where one task of a Session's plan stands
+#   group_state                - where one group of a Session's plan is. Its
+#                                glyphs are the step's borrowed one level further
 #                                down, which
 #                                `[conventions.step_activity_borrowing]` in
 #                                `packages/icons/icons/` sanctions
@@ -60,202 +37,37 @@
 #                                check-outcomes.toml
 #   criterion_verdict_check    - one criterion, as a mechanical Check saw it
 #   criterion_verdict_judge    - one criterion, as the Judge saw it
-#   criterion_verdict_attested - one criterion, as a person attested it
-#   gaming_pattern             - which shape of evidence gaming one flag found.
-#                                No registry file of its own either: the set is
-#                                what a workflow's `flag_if` may name, and
-#                                whether it is fixed at all is open
 #   evidence_type              - what one step produces as its work product. No
-#                                registry file of its own: the values in use
-#                                are named as prose on job-fields.toml's
-#                                `evidence_type` row
-#   change_kind                - what happened to one file in a Drone's
-#                                worktree, as of one reading
-#   movement_kind              - what one row of a Job's log says moved: the
-#                                Job's own machine, one step of it, or a Drone
-#   drone_presence             - whether a Drone arrived on a step or left it.
-#                                Presence, not a machine — `assigned_drone` is
-#                                a pointer that is set or null
-#   silence                    - why the transcript socket closed, told apart
-#                                from a transport close, which carries its own
-#                                words
-#   origin                     - where a Job came from. Keys match the `origin`
-#                                row of job-fields.toml, which has no registry
-#                                file of its own
+#                                registry file of its own
+#   change_kind                - what happened to one file in a worktree, as of
+#                                one reading
 #
 # **Several of these have no `PAIRINGS` entry in `xtask/src/rules_enums.rs`, so
-# the set is declared here and compared against nothing.** `step_verdict` and
-# the two unpaired criterion verdicts were already in that position;
-# `change_kind`, `movement_kind` and `silence` join them because the enums are
-# `crates/ipc`'s and carry a serde derive rather than the `ALL` and `as_wire`
-# pair the rule reads. `auto_merge` joins them because `core_model::AutoMerge`
-# spells its words through `as_written`, not `as_wire`. `advance_gate`,
-# `evidence_type`, `step_state`, `task_state` and `drone_presence` are paired.
+# the set is declared here and compared against nothing.** `change_kind` joins
+# them because the enum is `crates/ipc`'s and carries a serde derive rather than
+# the `ALL` and `as_wire` pair the rule reads. `auto_merge` joins them because
+# `core_model::AutoMerge` spells its words through `as_written`, not `as_wire`.
 #
 # Fields:
 #   verb         - what a person reads. Never the enum name
 #   icon         - the lucide glyph, keyed to packages/icons/icons/
 #   status_token - the CSS custom property, defined in packages/tokens/src
 #   vocabulary   - the enum this variant belongs to, as the source names it.
-#                  Redundant against the outer table key and carried anyway,
-#                  for the reason `transitions_in` is: declared intent checked
-#                  against what was wired
+#                  Redundant against the outer table key and carried anyway:
+#                  declared intent checked against what was wired
 #   in_code      - whether an implementation exists, as the source recorded it.
 #                  Provenance, not fact: it describes v1, which is deleted, so
 #                  every "In code" here is false as a claim about this
 #                  workspace
 #   notes        - the reasoning the row carried
-#   hint         - the sentence a status bar tooltip reads for the variant,
-#                  where the verb alone gives no reasoning. Carried only by
-#                  `admission_hold`'s three rows, `budget_hold`'s two and
-#                  `auto_merge`'s three today, where it is the consequence line
-#                  drawn under the selected value; every other table
-#                  leaves it unset and the generator emits `null`. Never a
-#                  measured figure — `FleetCapacity` carries no headroom
-#                  number over the wire at all (`crates/ipc/src/capacity.rs`),
-#                  so the sentence names what is short and claims no percentage
-#   headline     - `gaming_pattern` only, and required on every row there: what
-#                  happened and that it was judged to weaken the work, in the
-#                  past tense, as the lead and the card a flag holds a step
-#                  with say it. The owner's own model, 2 Oct 2026: *An
-#                  assertion was removed, which was judged to weaken the test
-#                  coverage*
-#   verb_and_icon_from
-#                - names the enum a variant borrows both from, where it has
-#                  neither of its own. Carried by no row today — see below
+#   hint         - the sentence a tooltip reads for the variant, where the verb
+#                  alone gives no reasoning. Carried only by `auto_merge`'s
+#                  three rows today, where it is the consequence line drawn
+#                  under the selected value; every other table leaves it unset
+#                  and the generator emits `null`
 #
 # An empty `verb`, `icon` or `status_token` is a gap, not a default. The build
 # fails where a variant lacks one; the gaps are carried so they are countable.
-#
-# `verb_and_icon_from` is how a deliberate blank would say so, and no row
-# carries it. `escalated` was its worked example until 2026-09-03, when that row
-# took a verb and a glyph of its own: a surface served a Job's status and no
-# reason had nothing to draw, so *renders its reason* was not a rule every
-# surface could obey. The reason still replaces both where one is set, which is
-# `queued`'s construction and needs no field to declare it.
-#
-# **The field is declared here and read by nothing.**
-# `apps/desktop/codegen/vocabulary.mjs` reads `verb`, `icon` and `status_token`
-# and no fourth key, so a row carrying it today would be ignored rather than
-# honoured, and its blanks would still count as gaps. Kept because the shape it
-# names is a real one; whoever needs it implements it in the same change.
-#
-# `origin` is the one vocabulary that renders as text rather than as a badge,
-# so its rows carry neither glyph nor token by decision and each says so. A
-# chip is a status, and where a Job came from is not one —
-# `docs/concepts/job-board.md` settled that, and it is also why those verbs are
-# capitalised where a badge word is not: the row draws the string as written.
-#
-# One verb carries a slot. `sub_dispatched` reads `Sub-dispatched by
-# job_2d90bb`, and the parent's id is part of what a person reads rather than a
-# decoration around a word — so the form lives here whole, spelled `{field}`
-# for the Job field it is filled from. `step_verdict.pass` carries a form of an
-# older shape and names no field.
-
-[verbs.job_status.awaiting_approval]
-verb = "needs approval"
-icon = "user-check"
-status_token = "--status-awaiting-approval"
-vocabulary = "Job status"
-in_code = ""
-notes = "Carried over from needs_approval when the approval axis became a status. The verb did not move to awaiting approval for symmetry with `awaiting_review`, which read awaiting review until 4 Oct 2026: the badge means a person must act, not that time is passing, and needs is the word that says so."
-
-[verbs.job_status.awaiting_attestation]
-verb = "needs attestation"
-icon = "stamp"
-status_token = "--status-awaiting-attestation"
-vocabulary = "Job status"
-in_code = ""
-notes = "Reads as the act the person owes, and as "needs" beside approval, repair and review (owner, 4 Oct 2026). Grounded once the third verification source was named Attestation — the status and the source use the same word because they are the same thing at two moments, one waiting for it and one recording it."
-
-[verbs.job_status.awaiting_repair]
-verb = "needs repair"
-icon = "wrench"
-status_token = "--status-awaiting-repair"
-vocabulary = "Job status"
-in_code = ""
-notes = "**`needs` for `awaiting_approval`'s reason, and the enum name keeps `awaiting_` for a different one.** The badge means a person must act rather than that time is passing, which is the word that row settled; the key belongs to the family whose axis is *waited on, by a person*, and the two questions have different answers here exactly as they do there. What needs repair is the work, not the Job — the Job is unfinished, which is the reading `failed` was getting wrong. `needs fixing` was refused as the register a person uses about a machine that is broken, and the Drone is not; `stalled` is a Drone gone silent and `stopped` is the step-level word. `wrench` is minted in `packages/icons/icons/` rather than borrowed, and its own row carries what was refused."
-
-[verbs.job_status.awaiting_review]
-verb = "needs review"
-icon = "eye"
-status_token = "--status-awaiting-review"
-vocabulary = "Job status"
-in_code = ""
-notes = "Read `awaiting review` until 4 Oct 2026, when the owner asked for `needs review` on seeing it beside a Judge question waiting for him: the badge means a person must act, which is the reading `awaiting_approval` and `awaiting_repair` already settled on. Only the display word moved; the wire status keeps its spelling."
-
-[verbs.job_status.completed_failed]
-verb = "failed"
-icon = "x"
-status_token = "--status-completed-failed"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.completed_success]
-verb = "done"
-icon = "check"
-status_token = "--status-completed-success"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.escalated]
-verb = "needs you"
-icon = "megaphone"
-status_token = "--status-escalated"
-vocabulary = "Job status"
-in_code = ""
-notes = "**The reason still replaces both where one is set, and this is what stands where none does.** The row read \"renders its reason, never its own name\" and carried nothing, which is not a rule every surface can obey: `packages/protocol/src/holding.ts` serves the held-worktrees list a Job's `status` and no escalation reason at all, so the badge slot drew empty and a person could not tell an escalated Job from a finished one. #400. This is `queued`'s construction one status over rather than an amendment to the contract — its own verb and glyph for the no-reason case, handed over the moment a reason arrives — and `packages/screens/src/reading.ts` already composes it that way, `reason?.verb ?? base.verb`, so nothing carrying a reason draws this word. `needs you` is the token's own definition: `packages/tokens/src/status.css` and `docs/contracts/design-system.md` both gloss `--status-escalated` as *needs you, urgent*. It joins `needs approval` and `needs repair`, on the word `awaiting_approval` settled — the badge means a person must act, not that time is passing. **The objection, recorded rather than hidden.** The Board has a tab called `Needs you` holding five statuses, and giving one of the five the tab's word risks implying the other four do not. Accepted on two grounds: the tab's membership is computed from `who_is_acting` in `job-statuses.toml` and never from a verb — `packages/screens/src/board.ts` — so the word cannot leak into the set; and `needs` is already the group's word rather than this row's, two of the other four saying it. What this row takes is the bare form with no object, which is exactly the case it draws in — where no reason is set there is nothing to name, and naming nothing is why the slot was blank. It is not the hand-typed `Needs you` of #294: that one was written into job detail and displaced every escalation reason's own verb, and this comes from the registry and stands only where a reason does not. `megaphone` is minted in `packages/icons/icons/` rather than borrowed from the reason set — a reason's glyph says what the Job stopped on, and this says that it stopped — and its own row carries what was refused."
-
-[verbs.job_status.killed]
-verb = "killed"
-icon = "power"
-status_token = "--status-killed"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.piloted]
-verb = "piloted"
-icon = "terminal"
-status_token = "--status-piloted"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.proposing]
-verb = "proposing"
-icon = "scan-line"
-status_token = "--status-running"
-vocabulary = "Job status"
-in_code = ""
-notes = "**The word the wire already uses**, and the one `docs/concepts/job.md` and `docs/concepts/job-proposer.md` had already written down against `#1159` — `ProposalInFlight` is what a client watches this interval through, and a second word for one interval is what the registry exists to stop. Present participle because the thing is happening while a person reads the badge, which is `running`'s own form; *needs proposing* was refused because the `needs` family means a person must act (`awaiting_approval`'s ruling) and nobody is being asked for anything here, and *reading* was refused because it says nothing about what is being read and collides with a person reading the Board. **The token is `running`'s, aliased rather than minted**, which is `queued` taking `--status-not-started` one row down: `packages/tokens/src/status.css` says status hue is never chosen, and the hue this needs is *active, in flight* — the money is being spent while the row sits here. Grey would say dormant, which is what a person correctly scans past, and amber would say a person is on it. No new value was introduced and no token file was edited. **`scan-line`, minted in `packages/icons/icons/` rather than borrowed**, on the owner's decision of 30 Sep 2026: every other Job status carries a glyph, and shipping the only bare row on the Board is what settled it — `wrench`'s row already draws that line between a Job status, where hue is a single channel, and an escalation reason, where this repository sanctions a verb drawn alone. Four corner brackets with a rule across is a machine passing over something a person handed it, and it is the only outline in the badge set that is not a closed shape, which is what keeps it clear of `circle-dot` on the hue the two share. Its own row carries what was refused.
-
-[verbs.job_status.queued]
-verb = "queued"
-icon = "clock"
-status_token = "--status-not-started"
-vocabulary = "Job status"
-in_code = ""
-notes = "Carried over from pre_approved. Where a reason is set, the reason's verb and glyph replace these."
-
-[verbs.job_status.rejected]
-verb = "rejected"
-icon = "ban"
-status_token = "--status-rejected"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.running]
-verb = "running"
-icon = "circle-dot"
-status_token = "--status-running"
-vocabulary = "Job status"
-in_code = ""
-
-[verbs.job_status.superseded]
-verb = "superseded"
-icon = "archive"
-status_token = "--status-superseded"
-vocabulary = "Job status"
-in_code = ""
 
 [verbs.step_state.advanced]
 verb = "advanced"
@@ -417,367 +229,12 @@ vocabulary = "Group state"
 in_code = ""
 notes = "The group's work reached the branch. `check` and the success hue, shared with `passed` — see that row."
 
-[verbs.queued_reason.paused]
-verb = "paused"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Queued reason"
-in_code = ""
-notes = "A person paused the Job, which killed its Drone and gave its worktree slot back; the work is parked on its branch and nothing starts it until they resume. It reads before every other reason, `frozen` included, because the marker is the Job's own and lifting a freeze would not start it. Derived from the stored pause marker. A Job paused at a gate keeps that gate's status and never reads this: it is `awaiting_review` and a paused chip. No glyph yet: `pause` is Freeze dispatch's, and which one this takes is Bridge's slice."
-
-[verbs.queued_reason.awaiting_answer]
-verb = "waiting on your answer"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Queued reason"
-in_code = ""
-notes = "Its Drone asked a person something and stood down, giving its place back; the branch and worktree stay, and when the person answers a fresh Drone resumes from the answer and the branch. Derived from the question stored on the Job. It reads after `paused`, because a pause is the Job's own act on top of the question, and before `frozen`, because the question is the Job's own and only that person's answer clears it. The row also says `asking`, which is what puts it under Needs you. No glyph: the call card is what answers it. The owner's decision of 11 Oct 2026, #2094."
-
-[verbs.queued_reason.frozen]
-verb = "frozen"
-icon = "pause"
-status_token = "--status-not-started"
-vocabulary = "Queued reason"
-in_code = ""
-notes = "A Manifest gating the Job says `freeze: true`, so Fleet starts nothing on it: not a Job that has never run, and not the next step of one that has. It reads before every other reason because only a person lifts it, and while it holds nothing else would start the Job either. Which Manifest it is rides beside the label as `frozen_by`. `pause` is packages/icons/icons/'s Freeze dispatch glyph, so the row matches the button that put it here."
-
 [verbs.queued_reason.blocked_by_dependency]
 verb = "blocked"
 icon = "link"
 status_token = "--status-not-started"
 vocabulary = "Queued reason"
 in_code = ""
-
-[verbs.queued_reason.over_budget]
-verb = "over budget"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Queued reason"
-in_code = ""
-notes = "An approved Job whose Drones have already spent more than `settings.budget-cost-cap-per-job` or turned more than `settings.budget-turn-cap-per-job` allows. It reads before `waiting on resources` when both are true, because headroom frees on its own and a spent budget does not — a Job told it is waiting for the machine would be waiting for something that is not coming. Which of the two it was rides beside this label as `budget_hold`, the way `admission_hold` qualifies `waiting on resources`. It was the figures on the detail alone until Sept 2026, on the reading that the distinction was the operator's; that failed, because it asks a person to know there are two ceilings before they can see which one caught them, and only one of the two had an act behind it. No glyph: nothing in the registry depicts money, and it stays owed beside the escalation reasons that have none."
-
-[verbs.queued_reason.waiting_on_resources]
-verb = "waiting on resources"
-icon = "cpu"
-status_token = "--status-not-started"
-vocabulary = "Queued reason"
-in_code = ""
-notes = "A pre-approved Job out of headroom reads waiting on resources rather than falling through unrendered, which is what the old two-axis field did."
-
-[verbs.admission_hold.concurrency_bound]
-verb = "waiting on a free drone"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Admission hold"
-in_code = ""
-notes = "The specific form of waiting on resources, so it is spelled the same way and reads as the same axis. A place is held for as long as a Job holds a Drone, which is not the same as the Job running — an escalated Job keeps its Drone alive and idle so a redirect costs no respawn. No glyph: the status bar carries none, and the queued_reason glyph cpu is reserved to that vocabulary."
-hint = "Every drone slot the fleet allows is already in use. This starts once one finishes or is redispatched."
-
-[verbs.admission_hold.memory]
-verb = "waiting on memory"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Admission hold"
-in_code = ""
-notes = "The reading over-reads — ps summed said 64% where darwin said 26% — so this is the backstop rather than the signal that ordinarily fires. The verb says what is short and claims no figure."
-hint = "Fleet did not find enough spare memory to start another drone."
-
-[verbs.admission_hold.disk]
-verb = "waiting on disk"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Admission hold"
-in_code = ""
-notes = "The one of the two machine reasons that has actually run out: 31 Aug 2026, a volume filled during a parallel agent run and three agents died at zero bytes free holding uncommitted work. Named first by short_of for that reason."
-hint = "Fleet did not find enough free disk space to start another drone."
-
-[verbs.budget_hold.cost_cap]
-verb = "over the cost cap"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Budget hold"
-in_code = ""
-notes = "The specific form of over budget, spelled as the same axis so it reads as one. Cost cap and never budget: the lexicon gives budget to Machine, the whole installation, and this is one job. No glyph, for over_budget's reason — nothing in the registry depicts money."
-hint = "This job's drones have spent what it was allowed. Raising its cost cap lets the next one start."
-
-[verbs.budget_hold.turn_cap]
-verb = "over the turn cap"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Budget hold"
-in_code = ""
-notes = "The row that made this vocabulary worth having. It folded into over budget with no way to tell it from the dollars and no act to clear it, and job 01M22TYSAE0023MADDP5ZQEYGW stranded at 393 turns against 300 having passed every check. The hint names both remedies because the reading is genuinely ambiguous — a job going in circles and a job held out of its cheap last step are the same number. No glyph: arrow-up-to-line is the escalation reason loop_cap, a ceiling that stopped something, which is what this is about clearing."
-hint = "This job's drones have taken every turn it was allowed. Raise its turn cap to finish, or redispatch it if it was going in circles."
-
-[verbs.resumption.reviewed]
-verb = "reviewed"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Resumption"
-in_code = ""
-notes = "One word for both acts at a human advance gate, because both are a person answering and the job goes again either way. Approved would be false of request_changes, and the row's own control already says Review — an action keeps its name through the flow. No glyph: this renders as a suffix on the row's headline, which is where a recurrence count already goes, and a headline carries no glyphs."
-
-[verbs.resumption.restarted]
-verb = "restarted"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Resumption"
-in_code = ""
-notes = "Restart the step produces restarted, which is the verb table's rule applied literally."
-
-[verbs.resumption.overruled]
-verb = "overruled"
-icon = ""
-status_token = "--status-not-started"
-vocabulary = "Resumption"
-in_code = ""
-notes = "The word the repository already uses for this act — Overrule on the surface, `Overruled` on the wire, `overruling` in Fleet. Overridden would be a fourth spelling of one thing."
-
-[verbs.escalation_reason.ask_unanswered]
-verb = "the ask went unanswered"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "No glyph. Iconography names an icon for every escalation reason it lists, and this trigger is not among them. Sibling to `drone_killed` and `run_ended` in `escalation-triggers.toml`'s reasoning, so it ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `drone_killed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted`, `run_ended`, `scope_refused` and `would_not_start`."
-
-[verbs.escalation_reason.blocked_by_policy]
-verb = "blocked by policy"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-notes = "Names the thing to change rather than what went wrong, because nothing went wrong with the work — the Drone was refused something it needed. The payload carries the refused commands and their inputs, since the fix is a configuration change and the reader needs to know which line to edit. No glyph."
-
-[verbs.escalation_reason.check_timeout]
-verb = "a check timed out"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-notes = "No glyph. The shield-* family is reserved to gates and checks, so the natural candidate sits there."
-
-[verbs.escalation_reason.dependency_failed]
-verb = "an upstream failed"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "Filed as a trigger Aug 2026 with neither a verb nor a glyph, and unreachable until `crates/fleet/src/coupling.rs` began raising it. The verb names what happened to the Job this one waited on rather than anything this Job did, because it did nothing — which is the whole of what a person needs to read here. The article follows `a check timed out`. No glyph: the `shield-*` family is reserved to gates and Checks, so the natural candidate is not this row's to take, and the glyph stays owed beside `blocked_by_policy` and `check_timeout`."
-
-[verbs.escalation_reason.drone_gone]
-verb = "the Drone was already gone"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**Not \"by hand\", which is `drone_killed`'s whole verb and is not true here.** That row reads by a person who has just ended a live process; this one is a person restarting a step whose Drone had already left on its own, or been lost to a Fleet restart, before anybody pressed anything — the restart is what stops the step, over a Drone that was gone before the press. `run_ended`'s sibling in the sense `drone_killed` is: both name what became of the step rather than why the Job stopped, and `stalled` is what the Job's own escalation reason keeps regardless of which of the three later took the step. No glyph, for `drone_killed`'s reason — nothing in `packages/icons/icons/` claims a person restarting a step nobody is on, and the glyph is filed open as `[drone-gone-glyph]` on `docs/contracts/iconography.md` rather than borrowed. It ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `drone_killed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted`, `run_ended`, `scope_refused`, `unheard` and `would_not_start`."
-
-[verbs.escalation_reason.drone_killed]
-verb = "the Drone was ended by hand"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**\"By hand\" is the whole verb, not padding.** `interrupted` renders as `interrupted` and draws `unplug`, a connection lost; this is a person pulling the plug on purpose, from a step they mean to run again. Drop the last two words and the two badges say the same thing about opposite events, and a reader is sent looking for a dead Drone that somebody ended deliberately. Not `stalled`, which is what a person usually killed the Drone *for* and which the Job's own escalation reason keeps. The passive follows `the worktree was unusable` and `the Drone would not start`; the actor is not named because the badge is read by the person who acted. No glyph: `unplug` is `interrupted`'s and the distinction against it is the point, `octagon-alert` is reserved to `stalled`, and `user-check` is the only human silhouette in the badge set and is `awaiting_approval`'s in the Job state group. Nothing in `packages/icons/icons/` claims a person ending something on purpose, so the glyph is filed open as `[drone-killed-glyph]` on `docs/contracts/iconography.md` rather than borrowed, and it ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted` and `would_not_start`."
-
-[verbs.escalation_reason.evidence_suspect]
-verb = "evidence disputed"
-icon = "file-question-mark"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "Judge goes in the source field, which keeps attribution out of the headline. Avoid \"Judge rejected the evidence\" — rejected is already a Job status."
-
-[verbs.escalation_reason.evidence_too_large]
-verb = "evidence too large"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-notes = "No glyph. The file-* family is reserved to evidence, so the natural candidate sits there."
-
-[verbs.escalation_reason.fan_out]
-verb = "hit the sub-dispatch cap"
-icon = "split"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "One of two verbs not guessable back to its enum name, which is why the raw enum sits in the detail view header."
-
-[verbs.escalation_reason.gate_failure]
-verb = "stopped at the gate"
-icon = "circle-x"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-notes = "Read `failed a check` on `shield-x` until the Judge existed, then `refused by the judge` while `Ruling::Refused` was the only thing that produced it. It is not: `crates/fleet/src/dispatch.rs` raises it from `Ruling::Failed` too — a mechanical Check that failed with its retries spent, which the Judge never saw. A person reading `refused by the judge` on a step whose `judge` row says `not reached` goes looking for a verdict that does not exist, and that was measured on a real Job. The verb names the gate rather than which tier of it, because one trigger carries both and the step's own rows say which tier stopped it. The `meaning` was always right: \"honestly did not pass\" is a refusal rather than gaming, which is `evidence_suspect`."
-in_code = "In code"
-
-[verbs.escalation_reason.gate_undecided]
-verb = "the Judge did not answer"
-icon = "circle-minus"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "The verb says the Judge did not answer rather than that the work failed, which is the whole distinction the trigger carries: `stopped at the gate` is `gate_failure`'s and says the opposite about the same step: that one ran and answered. What could not be read is on the Job's log as `artifact`, and the badge does not try to hold it. `circle-minus`, registered for this trigger on 2026-08-31 and wired here. The shield-* family is reserved to gates and Checks, so the natural candidate sat there — `packages/icons/icons/` took the circle-* name back into the Judge family instead, where this is a third outcome beside met and not_met: the Judge could not read the artifact at all, which is neither verdict rendered badly. Drawn in `--fg-subtle` rather than either verdict hue, because the criterion went unjudged rather than judged. `in_code` is empty because there is no source value to carry: the row was authored here."
-
-[verbs.escalation_reason.hatch_unbidden]
-verb = "stalled"
-icon = "octagon-alert"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-notes = "Takes no verb of its own, and shares stalled's badge for the reason silent does. A Drone that reached for the escape hatch unbidden has said it has nothing left to try: the Job stops and waits for a person, which is what a stall does. What differs is the payload — the Drone's own narrative, which is why the reason is worth reading — and a badge of its own would say the Job behaves differently when it does not."
-
-[verbs.escalation_reason.interrupted]
-verb = "interrupted"
-icon = "unplug"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "A process that was there and is not, which is what `unplug`'s gap draws. **Nobody chose it** — a person who ends a Drone deliberately reads `the Drone was ended by hand` on the step, and this word would send them hunting for the failure they had just caused."
-
-[verbs.escalation_reason.loop_cap]
-verb = "hit the iteration cap"
-icon = "arrow-up-to-line"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-
-[verbs.escalation_reason.no_report]
-verb = "went quiet"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**It means the Drone said nothing back, never that the Drone did nothing.** `stalled`, `silent` and `hatch_unbidden` all draw the verb `stalled`, and `escalation-triggers.toml` gives that word to a Drone that produced nothing at all; the Drone this was minted for was producing plenty and answered none of it. A reader who collapses the two has erased the trigger, and this note is where the distinction is kept from eroding. Lowercase and in the plain past, the pattern `churning`, `interrupted` and `stopped at the gate` already use. Not `churning`, which is `thrashing`'s: that is the finding this one followed, and drawing them alike is the confusion the split exists to end. No glyph, and not for want of looking — `octagon-alert` is reserved to `stalled` and is the loudest shape in the set, `refresh-cw` is `churning`'s, `bell` is escalations-as-interrupt and its own note keeps it clear of `octagon-alert`, and `message-square` is Navigation's under a note banning metaphor outside proper nouns. Nothing in `packages/icons/icons/` claims the right thing, so the glyph is filed open as `[no-report-glyph]` on `docs/contracts/iconography.md` rather than borrowed. It draws a verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `evidence_too_large`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted` and `would_not_start`."
-
-[verbs.escalation_reason.no_workflow_fits]
-verb = "no workflow fits"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "The same words `fleet.no_workflow_fits` refuses with at the route, so the badge on the escalated Job and the notice at the press say one thing. It names the request's problem and nobody's fault, which is what tells a person to rephrase rather than to look at the machine — `proposer_failed` beside it is the other answer, and the two must never read alike. No glyph: nothing in `packages/icons/icons/` claims a request nothing fits, and it draws its verb alone like the other escalation reasons that owe one."
-
-[verbs.escalation_reason.no_worktree]
-verb = "the worktree was unusable"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "The verb names the state all four paths leave behind rather than the one that happened — no worktree created, attachments that would not copy, one reclaimed while the Job was queued, a branch that would not come up to its base. `git could not make one` would be wrong on two of the four and `the worktree is missing` wrong on three, and naming the actor is `gate_failure`'s exact mistake. **It deliberately does not say `not prepared`**: `not_prepared` sits next to it and means a command the Manifest names failed *inside* a good checkout, so the two were given a noun each — this one keeps `worktree`, that one moved to `required command` — because shipped as drafted a reader would have had two badges saying the same English about two different people's problems. No glyph: the shield-* family is reserved to gates and Checks and this is neither, and `folder-git-2` labels a value in a detail view rather than a state. It joins the six escalation reasons that already owe one."
-
-[verbs.escalation_reason.not_configurable]
-verb = "the Drone could not be configured"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "Both paths in — a brief that would not render and a spawn config that was refused — are values somebody wrote failing to resolve, and `configured` is the word for that. It pairs with `would_not_start` and reads in the order the code runs: configure, then start. A person seeing this looks at `armada.yml` or the model roster; a person seeing `the Drone would not start` looks at the machine. No glyph, for `no_worktree`'s reasons — `settings` and `sliders-horizontal` label a surface rather than a state."
-
-[verbs.escalation_reason.not_prepared]
-verb = "a required command did not succeed"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "Re-verbed 2026-08-31, from `the worktree was not prepared`. `no_worktree` was minted the same day and the two verbs would have been a near-homograph for two different people's problems — the disk's and the Manifest's — which is the confusion the mint existed to remove. This row gave up the noun because its identity is the command and not the tree: `setup.requires` is what a person edits, and `a required command did not succeed` is the first clause of the trigger's own meaning. The badge no longer repeats `NotPrepared`'s log line word for word, and does not need to: the line beneath names the command, the exit and what it printed, and the badge names who owns it. The verb names the state every path into this trigger leaves behind rather than the one that happened to occur, which is `gate_failure`'s lesson taken before it had to be learned twice: a `setup.requires` command can exit non-zero, be signalled, run past its budget, or not be on the path at all, and a verb saying `the install failed` would be wrong on three of the four and wrong about the command on any repository whose setup is not an install. It is the same sentence `NotPrepared` opens with in the Job's log, where the command and the exit are, so the badge and the line beneath it are one claim. It says nothing failed a check, because nothing was checked — no step had been entered when this fired. No glyph: the shield-* family is reserved to gates and Checks and this is neither, and `folder` and `folder-git-2` are the Git and config family labelling a value in a detail view rather than a state. It stays owed beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `evidence_too_large` and `resource_exhausted`."
-
-[verbs.escalation_reason.proposer_failed]
-verb = "the proposer could not answer"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**The call's problem, never the request's**: `no_workflow_fits` is the word that sends a person to rewrite, and this one has to read as nothing they typed being wrong. `could not answer` covers every arm it folds — a call that never got through, an answer unreadable twice, a model this machine does not run, a Fleet restart — without claiming which; the Job's log says that. Not `the proposer failed`, which reads as a verdict on the request. No glyph, for `no_workflow_fits`' reason."
-
-[verbs.escalation_reason.resource_exhausted]
-verb = "ran out of resources"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "Not yet"
-notes = "No glyph. Iconography names an icon for every escalation reason it lists, and this trigger is not among them."
-
-[verbs.escalation_reason.run_ended]
-verb = "the Drone's run ended"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**The possessive is the whole verb.** `drone_killed` renders as `the Drone was ended by hand` and this is its sibling: there a person took the process away, here the Drone said its own run was over and Fleet took the process away on that word. Both are passive and neither names the actor, because what a person reads off a step badge is what became of the step. Not `stalled`, which is what the *Job* is held for and which the Job's own escalation reason keeps — one Job carries both, the step saying what happened to it and the Job saying what it happened for. No glyph, and no new open question: `[drone-killed-glyph]` on `docs/contracts/iconography.md` is already this exact question, and every candidate it refused is refused here for the same reason — `unplug` is `interrupted`'s and the distinction against a process that merely died is the point, `octagon-alert` is reserved to `stalled` by its own note, and `user-check` is a human silhouette on a row where no person acted. It ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `drone_killed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted` and `would_not_start`."
-
-[verbs.escalation_reason.scope_refused]
-verb = "the scope request was refused"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**Passive, and the Judge is not in it**, which is `evidence_suspect`'s rule: attribution goes in the source field and never in the headline. Not `blocked by policy`, which is the badge this trigger is being split away from — that one names a configuration to edit and this one names a request that was read and turned down, and a reader who cannot tell them apart on the word goes and edits a Manifest. Not `stopped at the gate`, which is `gate_failure`'s and says work was weighed; nothing was. The article and the plain past follow `a check timed out` and `an upstream failed`. No glyph, and not for want of looking: `ban` is `rejected`'s and is a person declining a whole Job, `circle-x` is `gate_failure`'s, `circle-minus` is `gate_undecided`'s and means the Judge could not decide where here it did, `octagon-alert` is reserved to `stalled`, and the shield-* family is reserved to gates and Checks, which this is neither. Nothing in `packages/icons/icons/` claims a request a machine read and would not grant, so the glyph is filed open as `[scope-refused-glyph]` on `docs/contracts/iconography.md` rather than borrowed — `[no-report-glyph]` is an absence of a reply and `[drone-killed-glyph]` is a person having already acted, and neither is this. It ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `drone_killed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted`, `run_ended` and `would_not_start`."
-
-[verbs.escalation_reason.silent]
-verb = "stalled"
-icon = "octagon-alert"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "Takes no verb of its own. A sub-kind of stalled: the difference is entirely in the suggested action on the payload, rephrase and redispatch rather than plain redispatch. A badge distinguishing them would imply the Job behaves differently, and it does not."
-
-[verbs.escalation_reason.stalled]
-verb = "stalled"
-icon = "octagon-alert"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-
-[verbs.escalation_reason.thrashing]
-verb = "churning"
-icon = "refresh-cw"
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "The enum name is OS jargon. What has to survive is busy-but-going-nowhere against silent, and stalled already owns silent. It stopped covering the step told to report that never answered: that is `no_report`, drawn `went quiet`, and a Drone still writing when it was cut is not going nowhere."
-
-[verbs.escalation_reason.unheard]
-verb = "nothing is reading this Drone"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "**Present tense, and it is the one row in this vocabulary that earns it.** Every other escalation reason names something that is over — `went quiet`, `the Drone's run ended`, `a required command did not succeed` — and this one names a condition still true while a person reads it: the Drone is working at that moment and nobody is on the other end of it. The past tense would say the trouble had passed, and it has not. **Not `stalled`, which is the badge this is being split away from** — that word is a Drone that stopped producing anything, and this Drone is producing plenty into a pipe with no reader, so a person who reads `stalled` here redispatches and ends a Drone that was finishing its step. Not `went quiet` for the same reason from the other side: `no_report` is a Drone that could hear an instruction and did not answer, and this one was never sent anything. The subject is the Drone and the verb is about the reading, which is what puts the fault where it is; `Fleet cannot hear it` was refused because naming the actor is `gate_failure`'s mistake and `no_worktree`'s note repeats it, and `out of contact` was refused because it reads as a Drone that has gone. No glyph, and not for want of looking: `unplug` is `interrupted`'s and its own row calls the visible gap *connection lost*, which is the exact false claim here — the connection to the Drone is gone and the Drone is not; `octagon-alert` is reserved to `stalled` by its own note, which is the collapse being fixed; `eye` is reserved to Review and nothing else may use it; `megaphone` is `job_status.escalated`'s and its row bans an escalation reason outright; `bell` is Alerts'. Nothing in `packages/icons/icons/` claims a thing that is alive and cannot be read, and the three glyph questions already open reach past it — `[no-report-glyph]` is an absence of a reply, `[drone-killed-glyph]` is a person having already acted, `[scope-refused-glyph]` is a machine declining a request. So the glyph is filed open as `[unheard-glyph]` on `docs/contracts/iconography.md` rather than borrowed, and it ships drawing its verb alone beside `blocked_by_policy`, `check_timeout`, `dependency_failed`, `drone_killed`, `evidence_too_large`, `no_report`, `no_worktree`, `not_configurable`, `not_prepared`, `resource_exhausted`, `run_ended`, `scope_refused` and `would_not_start`."
-
-[verbs.escalation_reason.trigger_held]
-verb = "a Trigger holds it"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = ""
-notes = "Present tense, `unheard`'s rule: the hold is still true while it is read. The Trigger's own name rides beside it on the row. No glyph here: the canvas draws the hold at the node it fired at with a glyph of its own, and this row is the word alone beside `blocked_by_policy` and the rest."
-
-[verbs.escalation_reason.would_not_start]
-verb = "the Drone would not start"
-icon = ""
-status_token = "--status-escalated"
-vocabulary = "Escalation reason"
-in_code = "In code"
-notes = "Says the one thing a reader has to know before anything else: no process ran, so there is no transcript to go through. That is the whole distance from `interrupted`, whose verb sent people to look for one. `would not` rather than `could not` because both paths are a refusal the machine gave back — a disk that would not hold the transcript, a harness that would not launch — and because `could not start` reads as a diagnosis nobody has made yet. No glyph, for `no_worktree`'s reasons; `unplug` is `interrupted`'s and lending it here would put the same picture on the two states this work exists to separate."
-
-[verbs.step_verdict.evidence_suspect]
-verb = "evidence disputed"
-icon = ""
-status_token = ""
-vocabulary = "Step verdict"
-in_code = ""
-notes = "Same words as the escalation reason of this name, on a different axis — the step verdict, not why the Job stopped."
-
-[verbs.step_verdict.pass]
-verb = "Step N of M verified"
-icon = ""
-status_token = ""
-vocabulary = "Step verdict"
-in_code = ""
-notes = "Names the step rather than the Judge, so attribution stays out of the headline and the reader learns where they are in the workflow. Avoid \"Judge passed\", which breaks both rules at once."
 
 [verbs.criterion_verdict_check.failed]
 verb = "failed"
@@ -815,22 +272,6 @@ icon = "circle-x"
 status_token = ""
 vocabulary = "Criterion verdict — Judge"
 in_code = ""
-
-[verbs.criterion_verdict_attested.confirmed]
-verb = "confirmed"
-icon = ""
-status_token = ""
-vocabulary = "Criterion verdict — attested"
-in_code = ""
-notes = "Affirmative, where the Judge's vocabulary is not. A person may grant; the Judge may only decline to refuse. No glyph — the three verdict families are reserved to the other two sources."
-
-[verbs.criterion_verdict_attested.withheld]
-verb = "withheld"
-icon = ""
-status_token = ""
-vocabulary = "Criterion verdict — attested"
-in_code = ""
-notes = "A person looked and would not put their name to it. Not failed, which is an exit code, and not refused, which is the Judge's veto. No glyph, for the reason confirmed has none."
 
 [verbs.check_outcome.passed]
 verb = "passed"
@@ -878,87 +319,6 @@ status_token = "--status-not-started"
 vocabulary = "Check outcome"
 in_code = "In code"
 notes = "Its own glyph, and that is the whole point of the row. Reusing never_ran's shield-minus would draw a Check nobody asked to run identically to a Check whose command is missing, and one of those is a failure. The verb is \"skipped\" (owner, 7 Oct 2026), changed from \"not run\", which a Check still waiting to run also reads as. The token is not-started for never_ran's reason — nothing measured, so neither green nor red is true."
-
-[verbs.gaming_pattern.assertion_weakened]
-verb = "an assertion now asserts less"
-headline = "An assertion was removed or loosened, which was judged to weaken the test coverage"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "Neither glyph nor token, and that is the vocabulary's decision rather than this row's. A flag is not a status: the Job is escalated with `evidence_suspect` on it, and that badge already carries the hue and the mark, so nine more silhouettes would draw one claim nine times over. `flag` is the obvious candidate and cannot be lent — packages/icons/icons/ reserves it to a stopped step and says nothing else in Armada may use it. The verb says what happened to the assertion rather than naming the pattern, because the reader is looking at the cited line beside it."
-
-[verbs.gaming_pattern.test_scope_narrowed]
-verb = "the tests cover less than they did"
-headline = "The tests were changed to cover less of the code, which was judged to weaken the test coverage"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "Both halves are a comparison, because that is what the check makes: the yardstick is the baseline step's evidence and not a reading of the tests on their own. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.tautological_test]
-verb = "a test that passes whatever the code does"
-headline = "A test was written so it passes whatever the code does, which was judged to make it check nothing"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "The enum's word is the one a reader is least likely to know, so the verb spells out what tautological means here instead of shortening it. It also holds the line against `assertion_weakened`: this is a test that cannot fail, not an assertion that asks for less. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.test_skipped]
-verb = "a test that ran is now skipped"
-headline = "A test that used to run was marked to skip, which was judged to weaken the test coverage"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "`is now skipped` rather than `was skipped`, which reads as the runner having passed over it. The change added the marker, and that a test used to run is the whole finding — one skipped before this change is not flagged. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.test_deleted]
-verb = "a test file was removed whole"
-headline = "A whole test file was deleted, which was judged to weaken the test coverage"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "`whole` is load-bearing and says exactly what the scan answers — a `deleted file mode` line on a path that reads as a test. A test taken out from inside a file is not this, and a verb without the word would claim it was. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.check_config_edited]
-verb = "the change edits what a Check runs through"
-headline = "A file a Check runs through was edited, which was judged to let the Check run less than it did"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "Names what the file does rather than the file, which is already in the citation beside it. This is the pattern that honours a frozen `run:` string exactly while narrowing what it runs, so the verb reads as an edit and not as a failure — a legitimate edit lands here too, and the row has to be readable by the person who made one. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.no_findings_on_substantial_diff]
-verb = "a review that found nothing in a substantial change"
-headline = "The review found nothing in a large change, which was judged to mean it did not read the change"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "The one pattern whose finding is an absence, which is also why it is the one that can never carry a file or a line: there is no place in a diff where nothing was said. `substantial` stays one word rather than becoming a threshold, because there is no measured threshold to make it into. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.findings_not_tied_to_changed_lines]
-verb = "findings that name nothing this change touched"
-headline = "The review named nothing this change touched, which was judged to mean it did not read the change"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "A claim about the findings and never about whoever wrote them, which is the same restraint every escalation reason keeps. Neither glyph nor token, for `assertion_weakened`'s reason."
-
-[verbs.gaming_pattern.findings_generic]
-verb = "findings that would fit any change"
-headline = "The review's findings would fit any change, which was judged to mean they did not come from reading this one"
-icon = ""
-status_token = ""
-vocabulary = "Gaming pattern"
-in_code = ""
-notes = "The question's own test, kept as the verb: would these read the same written about a different diff. `generic` is the enum's word and tells a reader nothing on its own. Neither glyph nor token, for `assertion_weakened`'s reason."
 
 [verbs.advance_gate.auto]
 verb = "the checks decide"
@@ -1154,142 +514,6 @@ status_token = ""
 vocabulary = "Change kind"
 in_code = ""
 notes = "The one change kind whose enum name states the wrong thing. `unreadable` reads as a property the file has, and what happened is that one path's reading failed while the rest did not — the file is in the diff and it is not an absence of change. The verb says which reading failed rather than claiming nothing happened, and it is past tense because the next reading may well succeed. Neither glyph nor token, for `added`'s reason."
-
-[verbs.movement_kind.status]
-verb = "status"
-icon = ""
-status_token = ""
-vocabulary = "Movement kind"
-in_code = ""
-notes = "What the transition history's kind column says moved. All three keep the wire's own word, and the rows exist to sanction that rather than to change it: the words are already plain English, and the component drawing them says outright that a word chosen there would be a second vocabulary. Neither glyph nor token, and the token is refused rather than owed — `docs/contracts/design-system.md` permits hue below Job level only where `packages/tokens/src/status.css` declares it, that file declares no history row, and twelve statuses hued down a list would read as twelve verdicts. `in_code` is empty because the row was authored here."
-
-[verbs.movement_kind.step]
-verb = "step"
-icon = ""
-status_token = ""
-vocabulary = "Movement kind"
-in_code = ""
-notes = "One step moved and the Job did not, which is the distinction the column carries. Neither glyph nor token, for `status`'s reason."
-
-[verbs.movement_kind.drone]
-verb = "drone"
-icon = ""
-status_token = ""
-vocabulary = "Movement kind"
-in_code = ""
-notes = "A Drone arrived on a step or left it, and neither machine moved. Lowercase because it is countable, which is the casing rule the lexicon states for job, drone and workspace. Neither glyph nor token, for `status`'s reason."
-
-[verbs.drone_presence.drone_spawned]
-verb = "a drone started"
-icon = ""
-status_token = ""
-vocabulary = "Drone presence"
-in_code = ""
-notes = "Presence, not state: `assigned_drone` is a pointer that is set or null, so the two rows are the two moments that change it. `started` rather than `spawned`, which is the process word and not the one a person uses. The article carries the fact that a Job may have had more than one — a restart, a redispatch or a step boundary each give it another — and the row beside it names which. Neither glyph nor token, for `movement_kind.status`'s reason: this draws in the same history rows, which are neutral all the way down. `in_code` is empty because the row was authored here."
-
-[verbs.drone_presence.drone_exited]
-verb = "a drone left"
-icon = ""
-status_token = ""
-vocabulary = "Drone presence"
-in_code = ""
-notes = "The state the pointer is in afterwards rather than the way it got there, which is `no_worktree`'s rule taken before it had to be learned twice — a Drone is gone however it went, and `finished`, `was killed` and `crashed` would each be wrong on two of the three. The liveness clock is suspended by the same moment. Neither glyph nor token, for `drone_spawned`'s reason."
-
-[verbs.silence.drone_ended]
-verb = "the drone that was writing has finished"
-icon = ""
-status_token = ""
-vocabulary = "Silence"
-in_code = ""
-notes = "Why the transcript socket closed, said in the observe pane where a person is watching a Drone work. It is a clause rather than a badge word because the surface is a note under the pane and not a chip, so it reads the way `origin`'s rows do — drawn close to as written. No full stop: the sentence around it is the surface's. The history is complete, which is the fact this variant carries and `nothing_writing` does not. Neither glyph nor token: a note is not a badge, and nothing has gone wrong. `in_code` is empty because the row was authored here."
-
-[verbs.silence.nothing_writing]
-verb = "no drone is writing this transcript"
-icon = ""
-status_token = ""
-vocabulary = "Silence"
-in_code = ""
-notes = "Present tense, where `drone_ended` is past, and the tenses are the distinction: one is a Drone that finished and one is a Job nothing was writing when the socket opened. A Job may not have been dispatched, or its Drone may have gone with the Fleet that spawned it, and the row claims neither — `the job has not been dispatched` would be wrong on the second. Neither glyph nor token, for `drone_ended`'s reason."
-
-[verbs.origin.auto_detected]
-verb = "Found by Fleet"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "Says who acted. `Auto-detected` was settings vocabulary naming a mode the lexicon does not have, and this sentence replaced it on the drawing. Capitalised where a badge word is not, because the row draws the string as written — plain sans in `--fg-muted`, never a chip. No glyph and no token for that same reason, and `in_code` is empty because the row was authored here."
-
-[verbs.origin.manual]
-verb = "Dispatched by you"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "`Manual` named a mode. This names the person who acted, which is the whole of what a row has to say about a Job you dispatched yourself. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.helm_drafted]
-verb = "Drafted in Helm"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "Drafted rather than dispatched, because a Job Helm proposed still takes your approval like any other. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.workflow_triggered]
-verb = "Workflow-triggered"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "Unchanged when the other three were re-worded, because it already named an act. The Job that named it is over, so it is the one origin written from `subject` rather than from `dispatched_by`. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.sub_dispatched]
-verb = "Sub-dispatched by {dispatched_by.job_id}"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "The registry carries the form rather than the word. The row reads `Sub-dispatched by job_2d90bb`, and the parent's id is the fact that says why that row is read-only — the approval already happened at its parent, so no control on it offers a decision. Composing the sentence in Bridge from a word plus the field would put `Sub-dispatched by` in a second place nothing checks, which is what this file exists to prevent. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.drone_drafted]
-verb = "Drafted by a Drone"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "A working Drone reported a test broken on main, Fleet ran that test against main and it failed, and the Drone drafted the fix. Drafted rather than dispatched, for `helm_drafted`'s reason: it still takes your approval. No slot for which Job reported it — `dispatched_by` would mark the fix as already approved and `subject` is neither sequencing nor provenance — so the breakage the fix claims says that on Job detail. #999. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.studio_dispatched]
-verb = "From a Studio, by you"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "**Two clauses, because one column answers two questions.** Where the Job came from is the reading a person is after, so it leads; who pressed is the reading `manual` carried and it cannot be dropped, so it continues the same sentence rather than taking a second field nothing else on the row has. A Studio takes two values and not one for that reason — the alternative was a variant meaning *a Studio* and a second place saying *you*, which is a composition in Bridge the registry exists to prevent, exactly as `sub_dispatched`'s notes argue. **Both clauses are short because the column is fixed.** The first spelling was `From a Studio, dispatched by you`, and at 2000px with the Helm dock open it ellipsised away the second clause — which is the only thing separating this row from `studio_helm_drafted`'s, so the two origins read alike exactly where they differ. 21 characters against the 28 `sub_dispatched` already carries. **No slot**: which Studio is not on the Job, and the `produced` edge that names it is read on Job detail, where a control can reach it. Neither glyph nor token, for `auto_detected`'s reason. #1362."
-
-[verbs.origin.studio_helm_drafted]
-verb = "From a Studio, via Helm"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "`studio_dispatched`'s sibling, and the pair is read side by side on one board — so it is spelled to the same length for the same reason, and the two differ only in their second clause. **It says `via Helm` and not `drafted in Helm`**, which drops `helm_drafted`'s own word for what is still owed: a Job Helm wrote up and dispatched on your ask takes your approval, and this verb no longer says so. That reading is on Job detail and in the Job's own state, which is where a person acts on it; the row says who sent it, not what it is waiting for. Neither glyph nor token, for `auto_detected`'s reason. #1362."
-
-[verbs.origin.session_dispatched]
-verb = "From a Session, by you"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "A person pressed Review on a pull request a Session holds, and Fleet drafted a Code Review Job naming the workflow itself, so the proposer's reading is not in it. **Where from, and who pressed**, as `studio_dispatched` carries both clauses and for the same reason. *Which* Session is not on the Job: the `job` row that Session holds on the session ledger says it, read back with `who_owns`, and goes when the Session's rows are cleared without the Job losing what it says about itself. Neither glyph nor token, for `auto_detected`'s reason."
-
-[verbs.origin.autopilot_picked]
-verb = "Picked by Autopilot"
-icon = ""
-status_token = ""
-vocabulary = "Origin"
-in_code = ""
-notes = "A repository's Autopilot picked the issue, was sure of it, and started the Job with no approval: the one origin whose Job skips the dispatch gate, the owner's call of 11 Oct 2026 (`.claude/decisions/2026-10-11-autopilots-clear-picks-start-unasked.md`). *Which* Autopilot is not on the Job: the pick's row names it, read back through `get_autopilot`, as `session_dispatched` leaves which Session to the ledger. A pick it was unsure of and a person then dispatched is `manual`, since a person chose it at the gate. Neither glyph nor token, for `auto_detected`'s reason. #2092."
 
 [verbs.land_state.waiting]
 verb = "waiting"

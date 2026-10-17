@@ -41,7 +41,6 @@ mod rules_stylesheets;
 mod rules_surfaces;
 mod rules_tests;
 mod rules_tokens;
-mod rules_toolbelt;
 mod rules_transcripts;
 mod rules_unsafe;
 mod rules_var_names;
@@ -150,11 +149,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_protocol::nulls::no_optional_field_is_sent_as_null,
     rules_errors::one_code_names_one_failure,
     rules_enums::every_registry_key_is_a_variant,
-    rules_enums::edges::the_registry_and_the_edge_table_hold_the_same_edges,
-    rules_enums::reachability::every_status_declares_the_step_states_it_holds,
-    rules_enums::declared::every_status_row_names_the_edges_it_carries,
     rules_studio::the_kinds_are_one_set_everywhere,
-    rules_toolbelt::the_roster_and_the_allowlist_hold_the_same_set,
     rules_vocabulary::the_generated_vocabulary_says_what_the_registries_say,
     rules_vocabulary::readers::every_generated_vocabulary_has_a_reader,
 ];

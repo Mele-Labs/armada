@@ -23,12 +23,12 @@ was a generalisation from reading one of them.
 
 Run the thing. Read the code the report names. **What the owner saw is
 evidence; what the code does is the finding.** He reports symptoms — a truncated
-label, a screen that will not load, a Drone that sits still — and the symptom
+label, a screen that will not load, a Session that sits still — and the symptom
 almost never names its own cause.
 
-Where a symptom has more than one plausible cause, **isolate before writing.** A
-Drone that says `Not logged in` was not a credential problem: the Keychain read
-fine under the Drone's exact environment, and the cause was one missing
+Where a symptom has more than one plausible cause, **isolate before writing.** An
+agent that says `Not logged in` was not a credential problem: the Keychain read
+fine under the agent's exact environment, and the cause was one missing
 variable, found by bisecting the environment rather than by reasoning about it.
 
 Where you genuinely cannot reproduce, say so in the report in those words. An
@@ -114,16 +114,10 @@ paragraph of yours built on it inherits that interest without the evidence.
 He uses Armada as its end user, so a fix to Fleet or Bridge reaches him through
 `scripts/preview --restart --adopt` as soon as it is committed and green, and
 the pull request follows without a question (`work-issue` step 6,
-`preview-app`). A Job the bug stranded is picked up again on the adopted Fleet
-through its own recourse, rather than left to wait on a merge. The preview takes
+`preview-app`). The preview takes
 only a branch a slot holds, which is why the dispatch above leases one: a branch
 in a cut tree never reaches it. Missed 6 Oct 2026: a `diff_nonempty` fix went
 into a cut tree and the owner was told his stuck Job would wait for the merge.
-
-**Name only an act the Job's `recourse` line lists** (`scripts/job <id>`). That
-line is what Bridge draws. Confirmed 7 Oct 2026: the owner was sent to press
-Override on a Job at `awaiting_repair`, which `overruling.rs` refused twice over,
-and came back with a screenshot of the two buttons he actually had.
 
 ## What not to do
 

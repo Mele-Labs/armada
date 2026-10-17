@@ -2,7 +2,7 @@
 // `release_session_holds` does for the rows named: each is given back, a slot with the branch it has checked out. The claims are in
 // `walks/session-ledger-release-row.ts`.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { HeldRow, HoldsReleased, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { connected } from "../moment";
@@ -35,15 +35,13 @@ function rowOf(one: SessionAttachment): HeldRow | undefined {
 }
 
 function build(): Scenario {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   return {
     name: "session-ledger-release-row",
     says: "The flight deck with one working Session whose ledger holds a slot, a branch and a pull request",
-    state: { ...connected([], [], [repository()]), repository: null },
-    reads: {},
+    state: { ...connected([], [repository()]), repository: null },
     draft: {
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [HOLDER]);
+      sessions: () => {
+        const store = sessionsStore([HOLDER]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
         return {

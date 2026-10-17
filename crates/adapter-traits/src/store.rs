@@ -68,11 +68,11 @@ hash_key!(
     OwnerKey
 );
 
-/// What kind of thing holds a claim or owns a pull request.
+/// What kind of thing holds a claim or owns a pull request. A Session; the store once also
+/// took a Job's, and a row it holds for one is refused when read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HolderKind {
     Session,
-    Job,
 }
 
 impl HolderKind {
@@ -80,14 +80,12 @@ impl HolderKind {
     pub fn as_wire(self) -> &'static str {
         match self {
             HolderKind::Session => "session",
-            HolderKind::Job => "job",
         }
     }
 
     pub fn from_wire(word: &str) -> Option<HolderKind> {
         match word {
             "session" => Some(HolderKind::Session),
-            "job" => Some(HolderKind::Job),
             _ => None,
         }
     }
@@ -99,7 +97,7 @@ impl HolderKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Holder {
     pub kind: HolderKind,
-    /// The Session's or Job's short id.
+    /// The Session's short id.
     pub id: String,
     /// The host's name, or `machine.name` where two hosts share one.
     pub machine: String,
@@ -220,10 +218,10 @@ mod tests {
     #[test]
     fn a_holder_gets_a_machine_name_that_fits_and_an_id_that_does_too() {
         let long = format!("{}\u{7}", "m".repeat(80));
-        let holder = Holder::new(HolderKind::Job, "j-2041", &long, 5).expect("a holder");
+        let holder = Holder::new(HolderKind::Session, "j-2041", &long, 5).expect("a holder");
         assert_eq!(holder.machine, "m".repeat(64));
         for bad in ["", "j 1", "j/1", &"j".repeat(65)] {
-            assert!(Holder::new(HolderKind::Job, bad, "mac", 5).is_none(), "{bad:?}");
+            assert!(Holder::new(HolderKind::Session, bad, "mac", 5).is_none(), "{bad:?}");
         }
         assert!(Holder::new(HolderKind::Session, "s1", "mac", -1).is_none());
     }

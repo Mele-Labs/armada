@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { Box, Laptop, Monitor, SquareTerminal } from "lucide-react";
+import { Laptop, Monitor, SquareTerminal } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -11,7 +11,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * title is drawn only where this machine's own ledger knows it.
  */
 export type RegisteredOwnerRow = {
-  kind: "session" | "job";
+  kind: "session";
   /** The short id, as the machine that claimed it names it. */
   id: string;
   machine: { name: string; here: boolean };
@@ -47,7 +47,6 @@ export function repositoryOfAddress(address: string): string | undefined {
 
 const KIND = {
   session: { Glyph: SquareTerminal, said: "Session" },
-  job: { Glyph: Box, said: "Job" },
 } as const;
 
 /**

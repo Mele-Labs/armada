@@ -416,16 +416,9 @@ directly — is in `crates/ipc/operations/`.
 **`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing. `agent_access` is `Helm only`, and the row in `crates/ipc/operations/` carries the rest.
 
 **An operation the inventory names and nothing serves fails the gate**, with
-an allowance that carries a written reason per operation. Four commands and
-four events are in it today, each with its argument in `xtask`'s protocol
-rule, which prints them on every run.
-
-**`pause_job` is not built, and the act it would have backed was retired
-2026-09-03** — see `docs/concepts/drone.md`. It carried no Intervention Ladder
-rung, so Helm never reached it directly.
-
-Pausing a Job is `park_job` and `resume_job`, a different act: the Job is kept
-and its slot goes back. The name `pause_job` stays retired for the hold above.
+an allowance that carries a written reason per operation. One command is in it
+today, `restart_fleet`, with its argument in `xtask`'s protocol rule, which
+prints it on every run.
 
 **`enter_pilot` is deliberately not a call.** Rung 3 is a human at a
 keyboard, so it is a UI mode switch rather than an API operation.

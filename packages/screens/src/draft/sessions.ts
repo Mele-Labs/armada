@@ -44,19 +44,6 @@ export type SessionAttachment =
       /** In the base branch's merge queue now, which is more than asking for it. */
       queued?: true;
     }
-  /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
-  | {
-      kind: "job";
-      id: string;
-      number: number;
-      title: string;
-      state: SessionJobState;
-      branch: string;
-      /** Absent where the Job's own slot is not known: Fleet holds it on the Job, not on the Session. */
-      slot?: number;
-      /** Closed by a person's word and not by its gates. */
-      attested?: true;
-    }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
@@ -230,16 +217,13 @@ export type SentFile = {
 export type SessionPullRequestState = "draft" | "open" | "merged";
 
 /** What a person can do to a pull request without leaving Bridge. */
-export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
+export type PullRequestAct = "ready" | "merge" | "auto_merge";
 
 /**
  * `failed` is the required check red. `red` on the other two names a check that is red and not required:
  * on `pending` while the run goes on, on `passed` after the required checks passed.
  */
 export type SessionChecks = { state: "pending"; red?: string } | { state: "passed"; red?: string } | { state: "failed"; failing: string };
-
-/** `piloted` is a Job the person is working in this Session, its Drone stopped. */
-export type SessionJobState = "running" | "review" | "landed" | "escalated" | "piloted" | "superseded";
 
 export type SessionAttachmentKind = SessionAttachment["kind"];
 
@@ -272,7 +256,7 @@ export type SessionRow =
       stableKey?: string;
     }
   /**
-   * Words typed in Helm's box that went to a Session or a Job and never to Helm. Only Helm's own Session
+   * Words typed in Helm's box that went to a Session and never to Helm. Only Helm's own Session
    * has these: Fleet keeps the row beside the ones the agent wrote, in the thread where it was sent.
    */
   | {
@@ -280,7 +264,7 @@ export type SessionRow =
       at: string;
       kind: "sent";
       text: string;
-      /** The Session or Job the words went to, and the repository it is of as the picker names it. */
+      /** The Session the words went to, and the repository it is of as the picker names it. */
       target: ThoughtTarget & { repository: string };
       files?: readonly SentFile[];
       sketches?: readonly { id: string; title: string }[];
@@ -333,7 +317,7 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
-/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `job`, `need`) and its target. */
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `need`) and its target. */
 export type HeldRow = {
   kind: string;
   target: string;
@@ -614,8 +598,6 @@ export type SessionsDraft = {
    * moved. Absent where nothing serves it, and the repository is not drawn as a control.
    */
   move?: (id: string, manifestId: string) => Promise<string | undefined>;
-  /** One of the three ways out of a pilot. A refusal is said in `said`. */
-  exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
    * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
@@ -665,7 +647,7 @@ export type SessionsDraft = {
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /**
-   * Gives back the slots, branches, pull requests, Jobs and needs a Session holds, or hands them to the live Session
+   * Gives back the slots, branches, pull requests and needs a Session holds, or hands them to the live Session
    * `to` of the same repository: the `rows` ticked, by the ledger's kind and target, or every one where absent. A
    * running turn is stopped first where a slot is among them, and the Session stays live. Resolves to what moved and
    * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
@@ -723,7 +705,7 @@ export type SessionsDraft = {
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /**
-   * An act on one of a Session's pull requests. `review` dispatches a Job on the code review workflow against it.
+   * An act on one of a Session's pull requests. `review` starts a Session on the code review workflow against it.
    * **Settles when the act and the re-read after it are done**, with whether it was accepted, so the sheet can
    * draw the press as underway until then. A refusal is `said`, not thrown.
    */
@@ -799,8 +781,7 @@ export type SessionsDraft = {
 export type ChipRef =
   | { kind: "branch"; name: string }
   | { kind: "pull_request"; number: number }
-  | { kind: "slot"; slot: number }
-  | { kind: "job"; id: string };
+  | { kind: "slot"; slot: number };
 
 /** Whether a Session has leased anything yet. A blank one has no slot and no branch. */
 export function isBlank(session: Session): boolean {
@@ -843,18 +824,12 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "branch":
       return (
         (attachment.kind === "branch" && attachment.name === ref.name) ||
-        (attachment.kind === "job" && attachment.branch === ref.name) ||
         (attachment.kind === "pull_request" && attachment.branch === ref.name)
       );
     case "pull_request":
       return attachment.kind === "pull_request" && attachment.number === ref.number;
     case "slot":
-      return (
-        (attachment.kind === "slot" && attachment.slot === ref.slot) ||
-        (attachment.kind === "job" && attachment.slot === ref.slot)
-      );
-    case "job":
-      return attachment.kind === "job" && attachment.id === ref.id;
+      return attachment.kind === "slot" && attachment.slot === ref.slot;
   }
 }
 
@@ -870,28 +845,27 @@ export type SessionHit = { session: Session; matched: SessionAttachment | "title
 const NUMBER = /^\d+$/;
 
 /**
- * The Sessions a query finds, by PR number, branch, Job id, slot or title.
+ * The Sessions a query finds, by PR number, branch, slot or title.
  *
  * **`#1843` is a pull request and nothing else**, as a leading `#` is everywhere
- * in Armada. `slot 3` and `job 52` say their kind; a bare number is any of the
- * three, a PR by prefix of its number.
+ * in Armada. `slot 3` and `pr 52` say their kind; a bare number is either, a PR by prefix of its number.
  */
 export function sessionsMatching(sessions: readonly Session[], query: string): SessionHit[] {
   const said = query.trim().toLowerCase();
   if (said === "") return sessions.map((session) => ({ session, matched: "id" }));
   const hash = said.startsWith("#");
-  const kinded = /^(slot|job|pr)\s*#?\s*(\S+)$/.exec(said);
+  const kinded = /^(slot|pr)\s*#?\s*(\S+)$/.exec(said);
   const word = hash ? said.slice(1) : kinded !== null ? kinded[2]! : said;
   const only: SessionAttachmentKind | undefined = hash
     ? "pull_request"
     : kinded === null
       ? undefined
-      : ({ slot: "slot", job: "job", pr: "pull_request" } as const)[kinded[1] as "slot" | "job" | "pr"];
+      : ({ slot: "slot", pr: "pull_request" } as const)[kinded[1] as "slot" | "pr"];
 
   const hits: SessionHit[] = [];
   for (const session of sessions) {
     const attached = session.attachments.find((one) => {
-      if (only !== undefined && one.kind !== only && !(only === "slot" && one.kind === "job")) return false;
+      if (only !== undefined && one.kind !== only) return false;
       switch (one.kind) {
         case "pull_request":
           return String(one.number).startsWith(word.replace(/^#/, ""));
@@ -899,10 +873,6 @@ export function sessionsMatching(sessions: readonly Session[], query: string): S
           return only === undefined && one.name.toLowerCase().includes(word);
         case "slot":
           return NUMBER.test(word) && one.slot === Number(word);
-        case "job":
-          return only === "slot"
-            ? NUMBER.test(word) && one.slot === Number(word)
-            : (only === undefined || only === "job") && (one.id === word || one.branch.toLowerCase().includes(word));
         default:
           return false;
       }

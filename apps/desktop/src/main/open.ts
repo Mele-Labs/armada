@@ -1,107 +1,21 @@
-// Hand one of a Job's artifacts to the OS.
+// Hand settings.json to the editor a person named, or to the OS.
 //
-// The one place in Bridge that reaches outside the app at all, and it does so
-// on a path **it built** — the renderer names a Job id and one of three words,
-// and nothing it sends is concatenated into what `shell.openPath` receives. A
-// string arriving from a click handler and going to the shell would make every
-// capability the CSP and the sandbox hold back reachable through one row.
+// The one place in Bridge that reaches outside the app with a path, and it does so on a path **it
+// was given by Fleet** — the renderer sends none, and nothing it sends is concatenated into what
+// `shell.openPath` receives.
 //
-// **The three per-step records are the exception, and they are checked rather
-// than derived.** A Check's output, a brief — the Judge's, and the gaming
-// check's beside it — and a step's deliverable are keyed by things only Fleet
-// holds, so `get_job` carries each as a path. The property above survives as
-// set membership: `named` collects every path the detail main is holding names
-// for that Job, and a string that is not one of them is refused before
-// anything is joined to it. So the renderer still cannot reach a file Fleet
-// did not put on the wire — it can only ask for one that is already on this
-// screen. A Drone's transcript joins the set on the same rule, off the second
-// read that names one: the open Job's resources reading, `logs`.
-//
-// Fleet is not involved. Nothing here is a Job act, which is why it is beside
-// `command.ts` rather than in it: those are POSTs to routes under a Job, and
-// this touches the filesystem and stops.
-//
-// **Which editor it lands in is `editor.ts`'s question, not this file's.** That
-// module owns the precedence and the argv-only rule that keeps a configured
-// string away from a shell; this one owns the path and the answer.
+// **Which editor it lands in is `editor.ts`'s question, not this file's.** That module owns the
+// precedence and the argv-only rule that keeps a configured string away from a shell; this one owns
+// the path and the answer.
 
 import { shell } from "electron";
-import { stat, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 
 import type { BridgeState } from "../shared/bridge";
 import type { SettingsFileOpened } from "../shared/api/settings";
-import { artifactPath, isKept, recordsOf, repoOf } from "@armada/protocol";
-import type { Artifact, Opened } from "@armada/protocol";
 import { chooseEditor, startEditor, whereIs } from "./editor";
 import type { Editor } from "./editor";
-import type { JobSummary } from "@armada/protocol";
 import { textSetting } from "./settings";
-import { openTerminal } from "./terminal";
-
-/**
- * The Job by that id, from what main last published.
- *
- * The board first, then the open Job: a Job can be on screen without being in
- * `jobs` — the board is what Fleet last listed and `watched` is what a person
- * has open, and the second is the one being clicked.
- */
-function jobOf(state: BridgeState, jobId: string): JobSummary | undefined {
-  const row = state.jobs.find((job) => job.id === jobId);
-  if (row !== undefined) return row;
-  const watched = state.watched;
-  return watched.state === "read" && watched.jobId === jobId ? watched.detail.job : undefined;
-}
-
-/**
- * Every `records_root`-relative path this Job's detail names, as one set.
- *
- * **Read off `watched` alone, and that is the whole of the rule.** `jobs` is
- * the Board's summaries and carries no step, so a Job that is not the one open
- * names no record — which is right, because the only surface that draws these
- * rows is the open Job's. A Job re-read between the draw and the click answers
- * from the new reading, so a record a re-run replaced stops being reachable at
- * the moment it stops being on screen.
- *
- * **Reachability is therefore keyed on the row, exactly as the row is.** The
- * files outlive the rows — `armada clean` forgets a Job and leaves its briefs
- * and deliverables under `records_root` — and nothing here tries to reach one
- * whose row is gone. A cleaned Job has no screen either, so no path is
- * named-and-unreachable; what a person keeps is a directory they can open by
- * hand. Retention over all four artifact kinds is `#69`.
- */
-function named(state: BridgeState, jobId: string): ReadonlySet<string> {
-  const watched = state.watched;
-  if (watched.state !== "read" || watched.jobId !== jobId) return new Set();
-  const paths = watched.detail.steps.flatMap((step) => [
-    ...step.check_runs.map((run) => run.output_path),
-    // A Check's live log, while the gate runs it. The same rule one field over:
-    // Fleet put the path on the wire, so it is on this screen to be opened.
-    ...(step.checking?.checks ?? []).map((check) => check.output_path),
-    ...step.judged.map((judged) => judged.brief_path),
-    // A gaming flag's brief is a fourth path on the same rule and not a fourth
-    // kind of thing: it is kept under `.armada/briefs/` beside the criteria
-    // briefs from the same step, and it opens as `brief`. Left out of this set
-    // the control on a stopped step draws and opens nothing.
-    ...step.flagged.map((flag) => flag.brief_path),
-    ...(step.deliverables ?? []).map((kept) => kept.path),
-  ]);
-  return new Set([...paths.filter((path): path is string => path !== undefined), ...transcripts(state, jobId)]);
-}
-
-/**
- * Every Drone transcript Fleet listed for this Job in the reading main holds,
- * by its `records_root`-relative path.
- *
- * **The same rule off a second read.** `get_job` names no transcript, and
- * `JobResources.logs` names each one Pulse draws a row for; the reading is the
- * open Job's, so a transcript is reachable exactly while its row is on screen.
- * Transcripts only: a brief is reachable by what the Job names, above.
- */
-function transcripts(state: BridgeState, jobId: string): string[] {
-  const holding = state.resources;
-  if (holding.state !== "read" || holding.jobId !== jobId) return [];
-  return (holding.resources.logs ?? []).filter((log) => log.kind === "transcript").map((log) => log.path);
-}
 
 /**
  * Why a named editor could not be used, in the voice the row will read it in.
@@ -125,52 +39,6 @@ function noEditor(editor: Editor): string {
 }
 
 /**
- * Open one artifact of one Job, in the editor a person named or in Finder.
- *
- * **Existence is checked before the OS is asked**, because `shell.openPath`
- * answers a reclaimed worktree and a missing handler with the same shape of
- * string, and those are two different sentences for a person: one says the
- * directory is gone, the other says nothing here opens `.jsonl`.
- *
- * The editor is resolved here rather than passed in: the renderer names a Job
- * id and one of three words, and it supplies no editor for the same reason it
- * supplies no path. See `editor.ts` for the precedence.
- *
- * `shell.openPath` rather than `showItemInFolder`: the ask was to land in an
- * editor, and revealing a file in Finder is a different act with a different
- * next step. What the OS does with a directory is the OS's to decide.
- */
-export async function openArtifact(
-  state: BridgeState,
-  jobId: string,
-  what: Artifact,
-): Promise<Opened> {
-  const job = jobOf(state, jobId);
-  if (job === undefined) return { ok: false, why: "unknown_job" };
-
-  const manifest = state.holds.manifests.find((manifest) => manifest.id === job.owner_manifest_id);
-  const repo = repoOf(manifest);
-  const records = recordsOf(manifest);
-  if (repo === null || records === null) return { ok: false, why: "no_repository" };
-
-  const path = artifactPath(what, repo, records, job.id, job.assigned_drone);
-  // Membership before the filesystem, and before the path is spoken to anything
-  // outside this process. `not_there` would be the wrong answer here: it says
-  // Fleet named a file and the file is gone, and this says nothing named it.
-  if (isKept(what) && !named(state, jobId).has(what.kept)) {
-    return { ok: false, why: "not_named", path };
-  }
-  try {
-    await stat(path);
-  } catch {
-    return { ok: false, why: "not_there", path };
-  }
-
-  const opened = await inEditor(state, path);
-  return opened === null ? { ok: true } : { ok: false, why: "refused", path, detail: opened };
-}
-
-/**
  * Open a path in the editor `editor.command` names, then `$VISUAL` or `$EDITOR`, then whatever the
  * OS opens it with. `null` is success; a string is why not, in the row's voice.
  */
@@ -187,27 +55,6 @@ async function inEditor(state: BridgeState, path: string): Promise<string | null
   // carried through rather than replaced with a sentence Bridge made up.
   const refused = await shell.openPath(path);
   return refused === "" ? null : refused;
-}
-
-/**
- * Open a Job's worktree in the terminal `terminal.app` names. **The renderer names the Job and
- * nothing else**, `openArtifact`'s rule: the directory is derived here, and checked to exist first.
- */
-export async function openInTerminal(state: BridgeState, jobId: string): Promise<Opened> {
-  const job = jobOf(state, jobId);
-  if (job === undefined) return { ok: false, why: "unknown_job" };
-  const manifest = state.holds.manifests.find((manifest) => manifest.id === job.owner_manifest_id);
-  const repo = repoOf(manifest);
-  const records = recordsOf(manifest);
-  if (repo === null || records === null) return { ok: false, why: "no_repository" };
-  const path = artifactPath("worktree", repo, records, job.id, job.assigned_drone);
-  try {
-    await stat(path);
-  } catch {
-    return { ok: false, why: "not_there", path };
-  }
-  const launch = await openTerminal(textSetting(state.settings, "terminal.app"), textSetting(state.settings, "terminal.command"), path, process.env);
-  return launch.ok ? { ok: true } : { ok: false, why: "refused", path, detail: launch.detail };
 }
 
 /**

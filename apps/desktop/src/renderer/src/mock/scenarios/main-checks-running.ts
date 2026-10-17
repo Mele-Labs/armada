@@ -11,7 +11,7 @@
 //   5  #1856 merged and its run is going: held again, now naming #1856.
 //   6  The run finished red on the same job as #1855's. The red band is back, with its buttons.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { HubMerged, MainStanding, MergeLine, MergeLineHub } from "@armada/protocol";
 
 import { holding } from "../holding";
@@ -100,9 +100,7 @@ function at(root: string, n: number) {
 
 function checksRunning(): Scenario {
   const root = repository().root;
-  const base = holding("main-checks-running", "Main red, held while a newer merge's checks run, then green and red again", [], {
-    alsoServed: [repository()],
-  });
+  const base = holding("main-checks-running", "Main red, held while a newer merge's checks run, then green and red again");
   return { ...base, state: { ...base.state, ...at(root, 0) }, later: MOMENTS.slice(1).map((_, n) => at(root, n + 1)), behaves: writingMainsLogs };
 }
 

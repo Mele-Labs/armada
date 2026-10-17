@@ -42,9 +42,9 @@ const NOTES: Record<string, () => Annotation[]> = {
     note("20261007-135100-cccc", "The ledger header wraps under the title", "#session-ledger-head", "header", "LedgerHead", "packages/surfaces/sessions/src/LedgerHead.tsx", { x: 900, y: 40, width: 400, height: 60 }, "Sessions"),
     note("20261007-135230-dddd", "The thread jumps when a message lands", "#session-thread", "div", "Thread", "packages/surfaces/sessions/src/Thread.tsx", { x: 300, y: 100, width: 600, height: 500 }, "Sessions", { status: "done" }),
     note("20261007-135400-eeee", "The repository path is cut off", "#settings-repo", "input", "RepositoryField", "packages/surfaces/settings/src/RepositoryField.tsx", { x: 300, y: 200, width: 500, height: 40 }, "Settings", {
-      sent: { jobId: "01JOBSENTEARLIER", handle: "49-the-repo-field", at: AT },
+      sent: { sessionId: "01SESSIONSENTEARLIER", title: "Repository field", at: AT },
     }),
-    note("20261007-135500-ffff", "The window title is blank before the first Job", "#title", "h1", "TitleBar", "packages/shell/src/TitleBar.tsx", { x: 0, y: 0, width: 400, height: 30 }, null),
+    note("20261007-135500-ffff", "The window title is blank before the first Session", "#title", "h1", "TitleBar", "packages/shell/src/TitleBar.tsx", { x: 0, y: 0, width: 400, height: 30 }, null),
   ],
 };
 

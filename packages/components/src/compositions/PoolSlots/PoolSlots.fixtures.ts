@@ -3,26 +3,12 @@
 // that split the stories by what they prove.
 
 import { within } from "storybook/test";
-import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
+import type { WorktreeSlot } from "@armada/protocol";
 
 const AT = "/Users/user/armada/.armada/slots";
 
 export function slot(n: number, rest: Partial<WorktreeSlot> & Pick<WorktreeSlot, "held">): WorktreeSlot {
   return { manifest_id: "armada", slot: n, path: `${AT}/slot-${n}`, base: "main", warm: false, ...rest };
-}
-
-export function held(over: Partial<WorktreeHeld> = {}): WorktreeHeld {
-  return {
-    job_id: "01JOB0001",
-    job_title: "Port the settings selectors",
-    status: "completed_success",
-    last_moved_at: "2026-08-30T09:14:00Z",
-    path: "/Users/user/armada/.armada/worktrees/01JOB0001",
-    branch: "armada/01JOB0001",
-    held: [],
-    on_disk: true,
-    ...over,
-  };
 }
 
 export const STRANDED: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {

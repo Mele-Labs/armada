@@ -29,7 +29,6 @@
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::time::Duration;
 
 use crate::Worktree;
 
@@ -103,19 +102,6 @@ impl Prompt {
     }
 }
 
-/// Whether a server Armada did not inject can appear in the Drone's session.
-///
-/// **One variant, and there is no second one to write.** v1 spawned without the
-/// strict flag and its Drone inherited a 103-tool toolbelt including the
-/// operator's personal accounts. That is not a check that was skipped; it is a
-/// flag that was never passed, so the fix is a value with no other setting
-/// rather than a boolean somebody could pass `false`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AmbientServers {
-    /// Nothing but what [`McpConfig`] names is reachable.
-    Excluded,
-}
-
 /// The MCP configuration file Fleet wrote for one Drone.
 ///
 /// Non-optional on [`DroneSpawnConfig`], because the Evidence tool is the only
@@ -150,156 +136,6 @@ impl McpConfig {
 
     pub fn path(&self) -> &str {
         &self.path
-    }
-
-    /// What happens to every server this file does not name.
-    ///
-    /// An implementation matching on this has one arm to write, and writing it
-    /// is what puts the strict flag on the argument list.
-    pub fn ambient_servers(&self) -> AmbientServers {
-        AmbientServers::Excluded
-    }
-}
-
-/// How a Drone is answered when it reaches for something it was not granted.
-///
-/// **One variant: Armada always answers.** Refusing at once or holding the
-/// question for a person is the Job's setting, read by Fleet, not a second
-/// variant here. A detached Drone has no terminal to be asked at, and leaving
-/// the mode off inherits the operator's, measured as `auto`.
-///
-/// **It fails closed, measured.** A permission tool that errors, or a server
-/// that cannot be reached, leaves the call unrun.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Prompting {
-    /// Every call outside the toolbelt is put to Armada's permission tool,
-    /// and its answer is whether the call runs.
-    Fleet,
-}
-
-/// How long the harness waits on Armada's answer to one permission question.
-///
-/// **Fleet holds a question for less than this**, so an unanswered one ends in
-/// Fleet's refusal, which says why, rather than in a call abandoned unrun.
-///
-/// **Five minutes, because that is what HTTP allows.** Over Armada's transport
-/// the agent CLI ends a tool call after 300 seconds without a reply whatever
-/// its tool timeout says, and raising that exposed a further limit near 360
-/// — `docs/spikes/015-can-a-person-answer-a-blocked-command.md`. The tool
-/// timeout is still set to this, because its own default ends the call at 60.
-pub const PERMISSION_WAIT: Duration = Duration::from_secs(5 * 60);
-
-/// One thing a Drone may do, named for the capability rather than for the tool.
-///
-/// **The vendor's spelling for each of these is `adapters`' business.** A Drone
-/// does not link Rust, so the type that withholds a capability from it is this
-/// enum and the argument list rendered from it — not a handle with methods
-/// missing.
-///
-/// **There is no variant that can express a push, a pull request or a merge**,
-/// and that is the Drone-facing version-control boundary: not a method absent
-/// from a struct, but a capability with no spelling in the type that grants
-/// capabilities. The second half is [`Environment`], which carries no
-/// credential, so a shell that reached a push would have nothing to push with.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Grant {
-    /// Read any file inside the worktree.
-    ReadTheWorktree,
-    /// Run the git verbs that cannot change a repository: `status`, `diff`,
-    /// `log`, `show`, `rev-parse`, `blame`, `branch --list`, `describe`.
-    ///
-    /// **In every toolbelt, granted the same way as [`Grant::ReadTheWorktree`]
-    /// rather than read off anyone's own settings file.** `git diff` is a read
-    /// a person asks the repository without a second thought; a Drone denied
-    /// it goes to the permission tool for a question the Job's own setting may
-    /// hold rather than answer, and is told to stop asking the repository
-    /// questions a person would ask. Nothing here can move a branch, write a
-    /// ref or reach a remote — the push refusal in `adapters` is unrelated and
-    /// still the only place a push is spoken at all.
-    ReadTheRepository,
-    /// Create and change files inside the worktree.
-    ChangeTheWorktree,
-    /// Run one command the Manifest declared, spelled as its `run` string.
-    ///
-    /// The string comes from a `commands.<name>.run` in an `armada.yml` that a
-    /// person committed, never from a Drone.
-    RunADeclaredCommand(String),
-    /// Run one command a person allowed for this Job, spelled as it was asked.
-    ///
-    /// **Rendered as a declared command is, push refusal included** — a person
-    /// answering a question is not reviewing a Manifest.
-    RunAnAllowedCommand(String),
-    /// Record the Job's plan: `record_plan`. **Granted only on the step whose
-    /// product is a plan**, so a later step cannot replace the plan it works from.
-    RecordThePlan,
-    /// Keep the plan current: `add_task` and `update_task`. Granted on the
-    /// steps that follow the plan, and nowhere else.
-    WorkThePlan,
-    /// Repair the worktree itself. **Granted only to a repair Drone**, never
-    /// off a step, and each [`Repair`] is the whole of what that repair needs.
-    RepairTheWorktree(Repair),
-}
-
-/// One repair of a worktree or its environment, and the commands it grants.
-///
-/// **Closed, and each variant names its commands in `adapters`.** The only
-/// variant carrying a command is the one the repository itself declared as its
-/// bootstrap. None commits, moves a branch, resets or reaches a remote: Fleet
-/// commits, and nothing here can push.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Repair {
-    /// Stage or remove the paths a merge left unmerged: `git add`, `git rm`
-    /// and `git restore`, in the worktree.
-    TheIndex,
-    /// Run the repository's declared bootstrap command again, with whatever
-    /// flag it takes to force a reinstall. The string is the Manifest's `run`.
-    TheInstall(String),
-}
-
-/// What a Drone may call.
-///
-/// **The Evidence tool is in every toolbelt and there is no constructor that
-/// omits it.** It is not in the [`Grant`] list either, because a list is
-/// something a caller can build empty.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Toolbelt {
-    granted: Vec<Grant>,
-    /// Paths the Drone may not edit, whatever it was granted. #1673.
-    held_off: Vec<String>,
-}
-
-impl Toolbelt {
-    /// The Evidence tool, and nothing else. Where every toolbelt starts.
-    pub fn evidence_only() -> Toolbelt {
-        Toolbelt {
-            granted: Vec::new(),
-            held_off: Vec::new(),
-        }
-    }
-
-    /// One path, relative to the worktree, the Drone may not edit: a file, or
-    /// a directory and everything under it. **Additive only**, as a grant is,
-    /// so nothing can take a hold back off a toolbelt once it is on.
-    pub fn holding_off(mut self, path: &str) -> Toolbelt {
-        self.held_off.push(path.to_string());
-        self
-    }
-
-    /// Every held-off path, in the order held.
-    pub fn held_off(&self) -> &[String] {
-        &self.held_off
-    }
-
-    /// One more capability. Additive only — there is no way to take one away,
-    /// and nothing to take away the Evidence tool from.
-    pub fn and(mut self, grant: Grant) -> Toolbelt {
-        self.granted.push(grant);
-        self
-    }
-
-    /// Everything granted beyond the Evidence tool, in the order granted.
-    pub fn granted(&self) -> &[Grant] {
-        &self.granted
     }
 }
 
@@ -394,7 +230,6 @@ pub struct DroneSpawnConfig {
     model: Model,
     prompt: Prompt,
     mcp: McpConfig,
-    toolbelt: Toolbelt,
     environment: Environment,
 }
 
@@ -405,15 +240,13 @@ impl DroneSpawnConfig {
         model: Model,
         prompt: Prompt,
         mcp: McpConfig,
-        toolbelt: Toolbelt,
-        environment: Environment,
+            environment: Environment,
     ) -> DroneSpawnConfig {
         DroneSpawnConfig {
             worktree: worktree.clone(),
             model,
             prompt,
             mcp,
-            toolbelt,
             environment,
         }
     }
@@ -436,17 +269,8 @@ impl DroneSpawnConfig {
         &self.mcp
     }
 
-    pub fn toolbelt(&self) -> &Toolbelt {
-        &self.toolbelt
-    }
-
     pub fn environment(&self) -> &Environment {
         &self.environment
-    }
-
-    /// Who answers when the Drone reaches past its toolbelt. Armada does.
-    pub fn prompting(&self) -> Prompting {
-        Prompting::Fleet
     }
 }
 
@@ -527,15 +351,6 @@ impl Launch {
     pub fn unattended(mut self) -> Launch {
         self.environment = self.environment.unattended();
         self
-    }
-
-    /// The harness's name for its permission wait, set to [`PERMISSION_WAIT`]
-    /// in milliseconds. **The one variable a harness adds, and not a value it
-    /// chooses**; a name the config already holds is refused, not overwritten.
-    pub fn waiting_on_permission(mut self, variable: &str) -> Result<Launch, SpawnConfigRefused> {
-        let millis = PERMISSION_WAIT.as_millis().to_string();
-        self.environment = self.environment.and(variable, &millis)?;
-        Ok(self)
     }
 
     pub fn program(&self) -> &str {

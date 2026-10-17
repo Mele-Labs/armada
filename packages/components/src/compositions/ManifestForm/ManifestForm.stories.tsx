@@ -75,7 +75,6 @@ const BASE = {
   autoMergeWords: ["never", "checks-pass", "always"],
   reviewGateWords: ["human_always", "auto_if_judge_passes"],
   problems: {},
-  budgetWarnings: [],
   changed: false,
   onSave: noop,
   onDiscard: noop,
@@ -112,19 +111,6 @@ export const Refused: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("checks.bridge_test.requires")).toBeVisible();
-  },
-};
-
-/** A cap below what the costliest past Job here cost. A warning, never a refusal. */
-export const BelowAPastJob: Story = {
-  name: "Below a past Job",
-  args: {
-    ...BASE,
-    draft: { ...DRAFT, costCap: "5" },
-    changed: true,
-    budgetWarnings: [
-      "The costliest of this repository's 41 past Jobs cost ~$7.12, more than this cap. A Job like it would stop before it finished.",
-    ],
   },
 };
 

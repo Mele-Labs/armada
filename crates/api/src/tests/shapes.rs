@@ -1,8 +1,7 @@
 //! The shapes the fake answers with, fixed and built out of `ipc` alone.
 //!
 //! Split from [`fake`](super::fake) at the 900-line refusal, along the seam
-//! that module's header already names: it holds Jobs in a `Vec` and moves them
-//! on request, and these are the values it hands back when it does.
+//! that module's header already names: these are the values it hands back.
 //!
 //! **This half carries the claim.** Every shape below is constructed without
 //! `core-model` and every spelling goes through `from_wire`, so a shape a test
@@ -10,26 +9,16 @@
 //! against the registry is one a client can check against the same registry.
 //!
 //! Nothing here reads the record and nothing here refuses. A value that had to
-//! know which Job was asked for, or whether there was one, belongs on the other
-//! side of the seam — which is what keeps these readable as the answer alone.
+//! know what was asked for, or whether there was one, belongs on the other side
+//! of the seam — which is what keeps these readable as the answer alone.
 
 use ipc::{
-    Actor, Alert, AlertList, FleetHealth,
-    FleetUsage, HelmActionAuthority, Instant, JobDetail, JobDiff, JobHistory, JobId, JobStatus,
-    JobSummary, ManifestConfig, ManifestId, ManifestSummary, ModelChoices,
-    Movement, Origin, Overspending, Probe, ReclaimedBranch, ReclaimedWorktree,
-    Recorded, RunId, StatusMoved, StepId, Unprobed, Urgency, Work, WorkflowId,
-    WorkflowSummary, WorktreeReclaimed,
+    FleetHealth, HelmActionAuthority, ManifestConfig, ManifestId, ManifestSummary,
+    ModelChoices, Probe, RunId, StepId, Unprobed, WorkflowId, WorkflowSummary,
 };
 
 mod scanning;
 pub use scanning::{manifest_drift, repository_scan};
-
-/// A spelling the registry has. Panics in a test rather than returning an
-/// `Option` nobody would handle.
-pub fn status(spelling: &str) -> JobStatus {
-    JobStatus::from_wire(spelling).expect("a status the registry has")
-}
 
 pub fn run_id() -> RunId {
     RunId::carried("01RUN")
@@ -69,95 +58,6 @@ pub const THE_FRAME: &str = "implement.1/job-detail-refused.png";
 
 
 
-
-
-/// One step of the rail, declared and not yet run.
-///
-/// **Built out of `ipc` and nothing else**, which is this module's whole claim: a gate and a judge
-/// declaration a Bridge can construct are a gate and a judge declaration a Bridge can read.
-fn step_rail(
-    step_id: &str,
-    ordinal: u32,
-    gate: &str,
-    judge_checks: Vec<ipc::DeclaredJudge>,
-) -> ipc::StepDetail {
-    ipc::StepDetail {
-        step_id: StepId::carried(step_id),
-        label: step_id.to_string(),
-        ordinal,
-        state: ipc::StepState::from_wire("not_started").expect("a step state the registry has"),
-        checks: Some(Vec::new()),
-        check_runs: Vec::new(),
-        judge_checks: Some(judge_checks),
-        advance_gate: Some(ipc::AdvanceGate::from_wire(gate).expect("a gate the registry has")),
-        delivers: Some(false),
-        drone_per_task: false,
-        phase: Some(ipc::StepPhase::Work),
-        about: None,
-        may_dispatch_jobs: false,
-        held_for_handoff: Vec::new(),
-        pass: None,
-        sent_back: None,
-        verdict_routing_target: None,
-        last_verdict: None,
-        overridden: false,
-        judged: Vec::new(),
-        flagged: Vec::new(),
-        deliverables: Vec::new(),
-        frames: Vec::new(),
-        attempts: Vec::new(),
-        verdicts: Vec::new(),
-        judging: None,
-        checking: None,
-        asked_run: None,
-        asked_runs: Vec::new(),
-        entered_at: Instant::carried("2026-08-26T09:00:00.000Z"),
-        updated_at: Instant::carried("2026-08-26T09:00:00.000Z"),
-    }
-}
-
-/// A Job parked at any status the registry has, without a transition to get it
-/// there. What a fake is for: the transport is the thing under test.
-pub fn job_at(id: &str, spelling: &str) -> JobSummary {
-    JobSummary {
-        id: JobId::carried(id),
-        handle: String::from("1-a-job"),
-        title: format!("a Job called {id}"),
-        status: status(spelling),
-        created_at: Instant::carried("2026-01-01T00:00:00.000Z"),
-        started_at: None,
-        ended_at: None,
-        branch: Some(format!("armada/{id}")),
-        reason: None,
-        queued_reason: None,
-        budget_hold: None,
-        frozen_by: Vec::new(),
-        resumption: None,
-        workflow_id: WorkflowId::carried("01WF"),
-        owner_manifest_id: ManifestId::carried("01MF"),
-        origin: Origin::from_wire("manual").expect("an origin"),
-        urgency: Urgency::from_wire("normal").expect("an urgency"),
-        atomic: false,
-        model: "a-model".to_string(),
-        current_step_id: None,
-        assigned_drone: None,
-        redispatched_from: None,
-        dispatched_by: None,
-        dispatched_pass: None,
-        waits_on: Vec::new(),
-        asking: false,
-        landed: None,
-        merged_at: None,
-        reclaimed_at: None,
-        tasks: None,
-        paused: None,
-        fixes_main: None,
-        piloted: None,
-        alert: None,
-        bays: Vec::new(),
-        last_told_at: None,
-    }
-}
 
 
 /// Fleet on `main`, three commits behind `origin/main`, nothing restarting.
@@ -260,196 +160,6 @@ pub fn manifest_declared() -> ipc::ManifestDeclared {
     }
 }
 
-/// One Job, with nothing the fake does not hold — except a step rail, which it
-/// holds because the rail is the shape a client draws a Job from.
-///
-/// **Two steps, and they are the pair the rail turns on**: one the Judge gates,
-/// one a person does. Every other list is empty and every other option absent,
-/// because that daemon holds `JobSummary` and nothing beneath it, and the real
-/// values are asserted against a real Fleet in `fleet`'s own suite.
-pub fn detail(job: JobSummary) -> JobDetail {
-    JobDetail {
-        workflow_source: "repository".to_string(),
-        spend: None,
-        delivery: None,
-        job,
-        created_at: Instant::carried("2026-08-26T09:00:00.000Z"),
-        branch: None,
-        steps: vec![
-            step_rail(
-                "implement",
-                0,
-                "auto_if_judge_passes",
-                vec![ipc::DeclaredJudge {
-                    criteria: 2,
-                    panel_size: Some(3),
-                    gaming_check: true,
-                    gaming_patterns: Vec::new(),
-                }],
-            ),
-            step_rail("handoff", 1, "human_always", Vec::new()),
-        ],
-        acceptance_criteria: Vec::new(),
-        facts: None,
-        write_targets: None,
-        subject: None,
-        dependencies: Vec::new(),
-        // Absent, like every other option here: this daemon reads no store
-        // and a footprint is a store's answer.
-        footprint: None,
-        // Absent for the same reason, one layer further in: an outstanding
-        // redirect is read from a working slot, and this daemon holds none.
-        redirecting: None,
-        // Absent for the redirect's reason exactly: an unanswered question
-        // lives on a working slot, and this daemon holds none.
-        asking: None,
-        // Absent for the question's reason: a command waiting on a person is
-        // held on a working slot too, and so is the setting a Fleet reads.
-        command_waiting: None,
-        judge_question: None,
-        when_refused: None,
-        when_blocked: None,
-        // Absent for the setting's reason: a person's allows and model choice
-        // are a Fleet's store, and this daemon holds none.
-        allowed_commands: Vec::new(),
-        repository_allowed_commands: Vec::new(),
-        model_override: None,
-        review_model_override: None,
-        commander_model_override: None,
-        commander_effort_override: None,
-        commander_card: None,
-        tiers: ipc::TierModels::default(),
-        drone_cap: None,
-        landing: None,
-        pr_mode_default: None,
-        policy_overrides: None,
-        approved_at: None,
-        review_step: None,
-        // Absent again: a waiting note is a column on `jobs`, and this
-        // daemon's Jobs are wire summaries rather than records.
-        redirect_waiting: None,
-        // Absent, not empty: no other Job's record is held, so nothing looked.
-        write_scope_overlaps: None,
-        breakages: Vec::new(),
-        // Absent for the same reason again: a classification is read from
-        // a slot, a filesystem and a store, and this daemon has none of the
-        // three.
-        stuck: None,
-        // Absent for the same reason: whether a press could run is read off a
-        // worktree and a Manifest, and this daemon has neither.
-        show_again: None,
-        // Absent for the same reason again: the review is composed and kept
-        // beside a store's own record, and this daemon holds no store.
-        review: None,
-        work_plan: None,
-        confidence: None,
-        // Filled by the caller, which is the only thing holding the other
-        // Jobs: a replacement is found by reading every Job's own
-        // `redispatched_from`, never written twice.
-        replaced_by: None,
-        // The fake keeps no Studio, so no Job it serves came off one.
-        from_studio: None,
-        // And the other end of that one column, for the same reason.
-        replaces: None,
-        // The fake records no plan, so no pass has a line.
-        wave_rounds: Vec::new(),
-        // The fake keeps no walk notes.
-        walk_notes: Vec::new(),
-        triggers: Vec::new(),
-        additions: Vec::new(),
-        // The fake reads no transcript and no board, so it finds nothing wrong
-        // and nothing waited on.
-        issues: Vec::new(),
-        waiting: Vec::new(),
-        created_via: None,
-    }
-}
-
-/// The one move the fake records: the Job reaching the status it is at.
-///
-/// **Not a fold and not a machine.** `fake`'s header comment holds for this too
-/// — it asserts nothing about either machine, and what it answers is the shape
-/// rather than a real history.
-pub fn history(job_id: JobId, at: JobStatus) -> JobHistory {
-    JobHistory {
-        job_id,
-        moves: vec![Recorded {
-            group: None,
-            group_attempt: None,
-            via: None,
-            seq: 1,
-            status: status("awaiting_approval"),
-            moved: Movement::Status(StatusMoved {
-                to: at,
-                reason: None,
-            }),
-            actor: Actor::from_wire("human").expect("an actor the envelope has"),
-            at: Instant::carried("2026-08-26T09:00:00.000Z"),
-        }],
-    }
-}
-
-
-
-/// A reading with a patch in it. **Present because there is something in it** —
-/// the absent case is a Job with no worktree, and the fake has no worktrees to
-/// be absent.
-pub fn diff(job_id: JobId) -> JobDiff {
-    JobDiff {
-        job_id,
-        work: Some(Work {
-            measured_from: Some(String::from("main")),
-            measured_whole: true,
-            files: vec![ipc::ChangedFile {
-                path: "crates/store/src/read.rs".to_string(),
-                change: ipc::ChangeKind::Modified,
-                outside_plan: false,
-                lines: None,
-            }],
-            plan_declared: false,
-            patch: Some(
-                "--- a/crates/store/src/read.rs\n+++ b/crates/store/src/read.rs\n".to_string(),
-            ),
-        }),
-    }
-}
-
-
-
-/// One Job's disk, given back. **The checkout goes and the branch is kept**,
-/// which is the shape a caller most needs to be able to read: `UnmergedWork`
-/// on this seam is always `Keep`, so a branch nothing has merged surviving its
-/// own worktree is the ordinary answer and not the exceptional one.
-///
-/// The fake has no repository, so this asserts nothing about git. What it
-/// carries is the two halves disagreeing, which is what the transport has to
-/// be able to say.
-pub fn reclaimed(job_id: JobId) -> WorktreeReclaimed {
-    let branch = format!("armada/{}", job_id.as_str());
-    WorktreeReclaimed {
-        job_id,
-        worktree: ReclaimedWorktree {
-            path: format!(".armada/worktrees/{branch}"),
-            removed: true,
-            why: None,
-        },
-        branch: ReclaimedBranch {
-            branch,
-            deleted: false,
-            tip: Some("0f1e2d3c4b5a69788796a5b4c3d2e1f001234567".to_string()),
-            why: Some("main cannot reach 3 of its commits".to_string()),
-            base: Some("main".to_string()),
-            unmerged_commits: Some(3),
-        },
-        saved: None,
-    }
-}
-
-
-
-
-
-
 /// The one workflow the fake holds. A list, because the operation is one.
 pub fn workflows() -> Vec<WorkflowSummary> {
     vec![WorkflowSummary {
@@ -464,7 +174,7 @@ pub fn workflows() -> Vec<WorkflowSummary> {
             file: "/kit/workflows/a-workflow.json".to_string(),
         }],
         steps: vec![
-            // Gated, and ungated. The pair is the distinction [`detail`]'s rail
+            // Gated, and ungated. The pair is the distinction a preview's rail
             // turns on, so the fake carries both rather than one — and the
             // second is the step that stops for a person, which a preview drew
             // as a step with nothing on it.
@@ -484,8 +194,6 @@ pub fn workflows() -> Vec<WorkflowSummary> {
                 judge_checks: vec![ipc::DeclaredJudge {
                     criteria: 2,
                     panel_size: None,
-                    gaming_check: false,
-                    gaming_patterns: Vec::new(),
                 }],
                 advance_gate: ipc::AdvanceGate::from_wire("auto_if_judge_passes")
                     .expect("a gate the registry has"),
@@ -495,8 +203,6 @@ pub fn workflows() -> Vec<WorkflowSummary> {
                 iteration_cap: None,
                 phase: ipc::StepPhase::Work,
                 about: None,
-                may_dispatch_jobs: false,
-                drone_per_task: true,
             },
             ipc::WorkflowStep {
                 step_id: StepId::carried("handoff"),
@@ -511,8 +217,6 @@ pub fn workflows() -> Vec<WorkflowSummary> {
                 iteration_cap: None,
                 phase: ipc::StepPhase::Delivery,
                 about: None,
-                may_dispatch_jobs: false,
-                drone_per_task: false,
             },
         ],
         manifest_id: ManifestId::carried("01MF"),
@@ -646,30 +350,6 @@ pub fn models() -> ModelChoices {
     }
 }
 
-/// One blocked Job and one resting at a gate, which is the whole of what
-/// `list_alerts` has to keep apart.
-pub fn alerts() -> AlertList {
-    AlertList {
-        blocked: vec![Alert {
-            job_id: JobId::carried("01JOB1"),
-            handle: "1-a-job".to_string(),
-            status: "escalated".to_string(),
-            why: Some("drone_stopped_reporting".to_string()),
-            since: Some(Instant::carried("2026-09-11T09:00:00Z")),
-        }],
-        waiting: vec![Alert {
-            job_id: JobId::carried("01JOB2"),
-            handle: "2-another-job".to_string(),
-            status: "awaiting_review".to_string(),
-            why: None,
-            since: Some(Instant::carried("2026-09-11T09:30:00Z")),
-        }],
-    }
-}
-
-
-
-
 /// One probe and the half of the answer a surface must not drop: what nobody
 /// asked.
 pub fn health() -> FleetHealth {
@@ -685,23 +365,6 @@ pub fn health() -> FleetHealth {
         }],
         helm_action_authority: HelmActionAuthority::Acting,
         workflows_left_out: true,
-    }
-}
-
-/// A fleet that has spent something and is holding one Job over a ceiling.
-pub fn usage() -> FleetUsage {
-    FleetUsage {
-        cost_micros: 63_000,
-        turns: 18,
-        drones: 3,
-        unpriced: 1,
-        jobs: 2,
-        over_budget: vec![Overspending {
-            handle: "1-a-job".to_string(),
-            ceiling: "turns".to_string(),
-            spent: 393,
-            allowed: 300,
-        }],
     }
 }
 

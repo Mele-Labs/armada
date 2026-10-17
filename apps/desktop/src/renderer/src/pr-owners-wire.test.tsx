@@ -95,12 +95,12 @@ test("owners are read off every line's pull requests by repository and number", 
 
 test("a registry the window already holds answers for what the wire does not", () => {
   const mock: PrOwnerRegistry = {
-    ownerOf: (_, number) => (number === 32 ? { kind: "job", id: "mock-job", machine: { name: "mock-mac", here: false } } : undefined),
+    ownerOf: (_, number) => (number === 32 ? { kind: "session", id: "mock-session", machine: { name: "mock-mac", here: false } } : undefined),
     registering: true,
     setRegistering: () => undefined,
   };
   const host = window(linesOf(pull(30, A_SESSION)), undefined, (inner) => <PrOwnerRegistryProvider value={mock}>{inner}</PrOwnerRegistryProvider>);
   expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-a1b2, mac-a");
-  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Job mock-job, mock-mac");
+  expect(chipOn(host, 32)?.getAttribute("aria-label")).toBe("Session mock-session, mock-mac");
   expect(chipOn(host, 31)).toBeNull();
 });

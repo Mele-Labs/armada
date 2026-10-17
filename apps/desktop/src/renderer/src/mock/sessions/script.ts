@@ -59,9 +59,6 @@ export const HUBBER = "s15";
 /** The Session that draws screens: a desktop window, a web app in a browser frame, and two phone screens joined by an arrow. */
 export const WIRER = "s16";
 
-/** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
-export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
-
 const idle = { state: "idle" } as const;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -193,12 +190,8 @@ const walkTakes = (): Variation[] =>
     return { name, url: url.toString() };
   });
 
-/** What the mock Fleet lets a Session do to the Board: move a Job to another status, on the row and on its detail. */
-export type BoardControl = {
-  setStatus: (jobId: string, status: string) => void;
-  /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
-  add: (rows: readonly unknown[]) => void;
-  /** The worktree pool, for a Session that takes a bay: read as Fleet holds it, and written back where the window is reading it. */
+/** What the mock Fleet lets a Session do to a bay: the worktree pool, read as Fleet holds it and written back where the window is reading it. */
+export type BayControl = {
   pool?: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld) => void };
 };
 
@@ -226,11 +219,6 @@ const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
 const RUN_DEFAULT = ["done"];
 
 export function sessionsStore(
-  jobs: readonly [DispatchedJob, DispatchedJob],
-  review: DispatchedJob,
-  board: BoardControl,
-  /** The Board rows the dispatching moment adds. */
-  dispatchedRows: readonly unknown[] = [],
   /** Sessions open beside the usual ones. */
   more: readonly Session[] = [],
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
@@ -248,7 +236,7 @@ export function sessionsStore(
   let made = 0;
   let queued: readonly QueuedIdea[] = [];
   let queuing = 0;
-  /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
+  /** How many times a Session has been asked, to know which of its turns is next. */
   const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
@@ -356,22 +344,16 @@ export function sessionsStore(
     finish("14:09");
   };
 
-  const dispatching = () => {
-    board.add(dispatchedRows);
-    const [first, second] = jobs;
+  const researching = () => {
     add(
       [
-        tool(`dispatch_job: ${first.title}`),
-        tool(`dispatch_job: ${second.title}`),
         tool("subagent: Read the CI history of store_flaky"),
         tool("subagent: Find other tests that read the wall clock"),
         tool("studio: Flaky store shapes"),
         tool("publish_sketch: CI history of store_flaky"),
-        said("Two Jobs dispatched and two subagents reading."),
+        said("Two subagents reading."),
       ],
       [
-        { kind: "job", ...first, state: "running" },
-        { kind: "job", ...second, state: "running" },
         { kind: "subagent", id: "a1", task: "Read the CI history of store_flaky", state: "running" },
         { kind: "subagent", id: "a2", task: "Find other tests that read the wall clock", state: "running" },
         { kind: "studio", id: "st2", title: "Flaky store shapes" },
@@ -430,7 +412,7 @@ export function sessionsStore(
     });
   };
 
-  const turns = [dispatching, opening, woken];
+  const turns = [researching, opening, woken];
 
   const store: SessionsStore = {
     get: () => now,
@@ -494,36 +476,6 @@ export function sessionsStore(
     dropQueued(id) {
       queued = queued.filter((one) => one.id !== id);
       set([...now]);
-    },
-    exit(jobId, how) {
-      const holder = now.find((one) => one.attachments.some((a) => a.kind === "job" && a.id === jobId && a.state === "piloted"));
-      if (holder === undefined) return;
-      const id = holder.id;
-      const settle = (state: "review" | "landed" | "superseded", status: string, said_: string, extra: Record<string, unknown> = {}) => {
-        board.setStatus(jobId, status);
-        edit(id, (one) => ({
-          ...one,
-          attachments: one.attachments
-            .map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state, ...extra } : a)),
-          rows: [...one.rows, row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "agent" }, text: said_ }))],
-          turn: idle,
-          lastTurn: "14:41",
-        }));
-      };
-      if (how === "submit") {
-        board.setStatus(jobId, "running");
-        edit(id, (one) => ({
-          ...one,
-          rows: [...one.rows, tool(`submit_for_verification ${(holder.attachments.find((a) => a.kind === "job") as { number: number }).number}`)],
-          attachments: one.attachments.map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state: "running" as const } : a)),
-          turn: { state: "working" },
-        }));
-        after(1500, () => settle("review", "awaiting_review", "The step's Checks and Judge passed on the worktree. The slot is back with the Job."));
-      } else if (how === "attest") {
-        settle("landed", "completed_success", "Recorded as done by your word. The Job's gates did not run.", { attested: true });
-      } else {
-        settle("superseded", "superseded", "Closed as superseded. The Job record says the work landed outside it.");
-      }
     },
     startWhen(id, when, part) {
       const waiting = now.find((one) => one.id === id);
@@ -672,8 +624,6 @@ export function sessionsStore(
         ...one,
         attachments: [
           ...one.attachments.map(change),
-          // Review is a Job on the code review workflow, and the Session holds it as it holds any it dispatched.
-          ...(what === "review" ? [{ kind: "job", ...review, title: `Code review of #${number}`, state: "running" } as const] : []),
         ],
       }));
       return true;

@@ -1,8 +1,7 @@
 // Answering a retro item: agree, disagree, or start a Session on it.
 //
-// Beside `command.ts` rather than inside it, `reporting.ts`'s reason: the subject is an item and
-// not a Job, so none of this is `act`'s shape — what comes back is the item, and a second answer on
-// one while the first is out is refused here rather than sent.
+// Beside `command.ts` rather than inside it: the subject is an item, and what comes back is the
+// item. A second answer on one while the first is out is refused here rather than sent.
 //
 // It holds no connection. The `Board` it is handed is what an act needs.
 
@@ -12,7 +11,7 @@ import { ask } from "./request";
 // Type-only, and therefore not a cycle at runtime: `Board` is declared where the acts are.
 import type { Board } from "./command";
 
-/** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
+/** Retro items with an answer in flight, by item id. */
 export class Lessoning {
   private readonly board: Board;
   private readonly answering = new Set<string>();
@@ -24,9 +23,8 @@ export class Lessoning {
   /**
    * Agree with one retro item by starting a Session on its repository (`start_lesson_session`).
    * **Fleet sends the brief as the Session's first message**, so the Session is running when this
-   * answers: the item, the Session's id and the brief sent. The Board is
-   * not read again, since a Session is no Board row. Shares `answer`'s one-press guard, so a
-   * Session and a Job cannot both be started from one item.
+   * answers: the item, the Session's id and the brief sent. Shares `answer`'s one-press guard, so an
+   * item cannot be agreed with and started on at once.
    */
   async startSession(lessonId: string): Promise<LessonSessionRead> {
     if (this.answering.has(lessonId)) {
@@ -45,9 +43,8 @@ export class Lessoning {
   }
 
   /**
-   * Agree or disagree with one retro item. Fleet proposes a Job at the approval gate for an Armada or
-   * Manifest item and saves a Kit item; the item comes back as it now stands. **The board is read
-   * again on an agree**, because a proposed Job is a row nobody had.
+   * Agree or disagree with one retro item. Fleet starts a Session for an Armada or
+   * Manifest item and saves a Kit item; the item comes back as it now stands.
    */
   async answer(lessonId: string, answer: "agree" | "disagree"): Promise<LessonAnswer> {
     if (this.answering.has(lessonId)) {
@@ -59,7 +56,6 @@ export class Lessoning {
     try {
       const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/${answer}`);
       if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
-      if (answer === "agree") await this.board.reread(port);
       return { ok: true, lesson: sent.body as Lesson };
     } finally {
       this.answering.delete(lessonId);

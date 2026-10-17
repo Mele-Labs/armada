@@ -8,7 +8,6 @@ import { openTile, slot, tile } from "./PoolSlots.fixtures";
 const meta: Meta<typeof PoolSlots> = {
   title: "Compositions/Pool slots",
   component: PoolSlots,
-  args: { onOpenJob: fn() },
 };
 export default meta;
 
@@ -17,7 +16,7 @@ type Story = StoryObj<typeof PoolSlots>;
 const ROWS: TileRow[] = [
   {
     slot: slot(1, {
-      held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" },
+      held: { state: "hosted_session", session_id: "01SESS", session_title: "Fix the reader" },
       branch: "armada/12-fix-the-reader",
       warm: true,
       behind: 0,
@@ -49,14 +48,14 @@ const ROWS: TileRow[] = [
 
 /**
  * Every state a slot can be in, a bay each. **A held bay is a filled card and
- * its Job a link that opens it**; a free bay is an open dashed outline holding
+ * its Session named on it**; a free bay is an open dashed outline holding
  * only its name, its state and its warmth; a stranded bay is hatched and says
  * why; a slot not made is a ghost with no warmth. A bare figure is named.
  */
 export const EveryState: Story = {
   name: "Every state",
   args: { rows: ROWS },
-  play: async ({ args, canvas, userEvent }) => {
+  play: async ({ canvas }) => {
     const bays = within(canvas.getByRole("list", { name: "Worktree slots" })).getAllByRole("listitem");
     await expect(bays).toHaveLength(ROWS.length);
     const bay = (n: number) => canvas.getByRole("listitem", { name: `slot-${n}` });
@@ -65,11 +64,10 @@ export const EveryState: Story = {
     await expect(held.getByRole("img", { name: "Held" })).toBeInTheDocument();
     await expect(held.getByLabelText("Held for 2 hours")).toBeInTheDocument();
     await expect(held.getByLabelText("0 commits behind main")).toBeInTheDocument();
-    await userEvent.click(held.getByRole("button", { name: "Fix the reader" }));
-    await expect(args.onOpenJob).toHaveBeenCalledWith("01JOB");
+    await expect(held.getByText("Fix the reader")).toBeInTheDocument();
 
     await expect(within(bay(2)).getByText("zsh (pid 4120)")).toBeInTheDocument();
-    // Its name is the tile's one button, and a session has no Job to open.
+    // Its name is the tile's one button.
     await expect(within(bay(2)).getAllByRole("button")).toHaveLength(1);
 
     const free = within(bay(3));
@@ -124,7 +122,7 @@ export const Figures: Story = {
 const CLOSED: TileRow[] = [
   {
     slot: slot(1, {
-      held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" },
+      held: { state: "hosted_session", session_id: "01SESS", session_title: "Fix the reader" },
       branch: "armada/12-fix-the-reader",
       warm: true,
       behind: 0,
@@ -150,7 +148,7 @@ export const Closed: Story = {
 
     await expect(bay(1).getByRole("img", { name: "Held" })).toBeInTheDocument();
     await expect(bay(1).getByRole("img", { name: "Closed" })).toBeInTheDocument();
-    await expect(bay(1).getByRole("button", { name: "Fix the reader" })).toBeInTheDocument();
+    await expect(bay(1).getByText("Fix the reader")).toBeInTheDocument();
 
     await expect(bay(2).getByRole("img", { name: "Closed" })).toBeInTheDocument();
     await expect(bay(2).queryByRole("img", { name: "Free" })).toBeNull();

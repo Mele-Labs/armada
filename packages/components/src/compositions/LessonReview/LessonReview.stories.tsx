@@ -43,11 +43,9 @@ const card = (
         fix: "Compare against origin/main, where the branch is cut from.",
       }}
       answers={{
-        agreeLabel: "Create Job",
-        agreeTip: "Turn this into a Job that applies the change. It waits for your approval on the Board.",
         disagreeTip: "Discards it.",
-        onAgree: fn(),
         onDisagree: fn(),
+        startSession: { tip: "Starts a Session on this repository and sends it this request now. It begins work at once.", onStart: fn() },
       }}
     />
   </ul>
@@ -56,7 +54,7 @@ const card = (
 const base: LessonReviewStepProps = {
   at: 3,
   of: 12,
-  reason: "Armada's own fault cost two Jobs a rerun.",
+  reason: "Armada's own fault cost two Sessions a rerun.",
   onSkip: fn(),
   onBack: fn(),
   children: card,
@@ -68,7 +66,7 @@ export const First: Story = {
   args: { ...base, at: 1, onBack: undefined },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("1 of 12")).toBeVisible();
-    await expect(canvas.getByText("Armada's own fault cost two Jobs a rerun.")).toBeVisible();
+    await expect(canvas.getByText("Armada's own fault cost two Sessions a rerun.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Back" })).toBeDisabled();
   },
 };
@@ -78,13 +76,13 @@ export const Merged: Story = {
   args: {
     ...base,
     merged: [
-      { id: "a", label: "Job 2", title: "The gate measured from local main" },
-      { id: "b", label: "Job 4", title: "A stale main blamed the Drone" },
+      { id: "a", label: "Session 2", title: "The gate measured from local main" },
+      { id: "b", label: "Session 4", title: "A stale main blamed the Drone" },
     ],
     duplicates: { checked: false, onChange: fn() },
   },
   play: async ({ canvas, args }) => {
-    const seen = canvas.getByRole("button", { name: "Also seen in 2 other Jobs" });
+    const seen = canvas.getByRole("button", { name: "Also seen in 2 other Sessions" });
     await expect(seen).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(seen);
     await expect(canvas.getByText("The gate measured from local main")).toBeVisible();
@@ -101,8 +99,8 @@ export const Thread: Story = {
     ...base,
     thread: {
       turns: [
-        { role: "person", text: "Which Jobs did this cost?" },
-        { role: "fleet", text: "Job 3 and Job 2, by the gate's two runs in the record." },
+        { role: "person", text: "Which Sessions did this cost?" },
+        { role: "fleet", text: "Session 3 and Session 2, by the gate's two runs in the record." },
       ],
       draft: "",
       onDraft: fn(),
@@ -110,8 +108,8 @@ export const Thread: Story = {
     },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Which Jobs did this cost?")).toBeVisible();
-    await expect(canvas.getByText(/Job 3 and Job 2/)).toBeVisible();
+    await expect(canvas.getByText("Which Sessions did this cost?")).toBeVisible();
+    await expect(canvas.getByText(/Session 3 and Session 2/)).toBeVisible();
   },
 };
 

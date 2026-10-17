@@ -3,7 +3,7 @@
 // `session-fresh` plays it.
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -76,7 +76,7 @@ function fleet(): FakeSessionsFleet {
 }
 
 function build(): Scenario {
-  const board = onBoard([job("running", { id: "01JOBFRESH", handle: "61-the-invoice-totals", title: "The invoice totals", branch: "fix/invoice-totals", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

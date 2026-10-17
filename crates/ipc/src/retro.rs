@@ -1,24 +1,22 @@
-//! A Job's retro: what got in the way while it ran, and the record it was read
-//! from. `get_job_retro` answers one Job's and `list_lessons` every item across
-//! Jobs, newest first. Since 23.12. `docs/concepts/retro.md`.
+//! A Session's retro: what got in the way while it ran, and the record it was
+//! read from. `get_session_retro` answers one Session's and `list_lessons`
+//! every item across Sessions, newest first. `docs/concepts/retro.md`.
 //!
 //! **The record is assembled on every read and never stored.** Each row is a
-//! fact already on the Job's record, so a read made after the Job ended says
-//! what it says, and the retro's items cite the rows by [`cite`] rather than
-//! repeating them.
-//!
-//! [`cite`]: RecordRefusal::cite
+//! fact already on the Session's thread, so a read made later says what it
+//! says, and the retro's items cite the rows by `cite` rather than repeating
+//! them.
 
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::enums::{Actor, LandsIn, LessonState, Via, Whose};
-use crate::ids::{Instant, JobId, StepId};
+use crate::ids::Instant;
 
-/// `get_job_retro`.
+/// `get_session_retro`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JobRetro {
-    pub job_id: JobId,
+pub struct Retro {
+    pub session: RetroSession,
     pub state: RetroState,
     /// When the retro was kept. Absent while it is `pending`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,16 +28,10 @@ pub struct JobRetro {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub why: Option<String>,
     /// What got in the way, in the order the model wrote it. Empty on a
-    /// written retro is a Job nothing got in the way of.
+    /// written retro is a Session nothing got in the way of.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<RetroItem>,
     pub record: RetroRecord,
-    /// Present on a Session's retro, whose `job_id` then holds the Session's id.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session: Option<RetroSession>,
-    /// Notes the owner left in Bridge while this Job's detail was open.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub annotations: Vec<LinkedAnnotation>,
 }
 
 /// The Session a retro or an item was written for.
@@ -50,17 +42,16 @@ pub struct RetroSession {
     pub title: Option<String>,
 }
 
-/// Where a Job's retro stands.
+/// Where a Session's retro stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RetroState {
-    /// The Job has not ended, or it has and the retro is not written yet.
+    /// The retro is not written yet.
     Pending,
     Written,
     /// The call failed or its answer would not read. Not tried again.
     Failed,
-    /// None is owed: the Job ended before Fleet wrote retros, or no Drone ever
-    /// ran on it.
+    /// None is owed: nothing happened on the Session since the last retro.
     Skipped,
 }
 
@@ -71,9 +62,8 @@ pub enum RetroState {
 /// a reader that predates the three still has a sentence to draw.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroItem {
-    /// Names this item in `agree_lesson` and `disagree_lesson`. Stable: it is
-    /// the Job's id and the item's place in its retro, and a retro is written
-    /// once. Since 23.26.
+    /// Names this item in `start_lesson_session` and `disagree_lesson`. Stable:
+    /// it is the Session's id, the retro's number and the item's place in it.
     pub id: String,
     /// Whose way it got in.
     pub who: Whose,
@@ -99,10 +89,7 @@ pub struct RetroItem {
     /// item whose row has no answer record**, read as before. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<LessonState>,
-    /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_proposed: Option<JobId>,
-    /// The Session started for it. At most one with `job_proposed`. Since 23.77.
+    /// The Session started for it. Since 23.77.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_proposed: Option<String>,
     /// What Accept would change in Kit, as on [`Lesson`]. Since 23.35.
@@ -127,7 +114,7 @@ pub struct RetroItem {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum RetroChange {
-    /// Allow this command, in every Job on this machine, in Kit's allowlist.
+    /// Allow this command, in every Session on this machine, in Kit's allowlist.
     AllowCommand { command: String },
 }
 
@@ -234,18 +221,17 @@ fn readable<'de, D: Deserializer<'de>>(input: D) -> Result<Vec<RetroAnswered>, D
         .collect())
 }
 
-/// `list_lessons`: retro items across Jobs, newest retro first.
+/// `list_lessons`: retro items across Sessions, newest retro first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lessons {
     pub lessons: Vec<Lesson>,
 }
 
-/// One retro item, with the Job it came from.
+/// One retro item, with the Session it came from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lesson {
     /// `RetroItem::id`. Since 23.26.
     pub id: String,
-    pub job_id: JobId,
     pub handle: String,
     /// When the retro this item is in was written.
     pub at: Instant,
@@ -258,8 +244,8 @@ pub struct Lesson {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fix: Option<String>,
     pub statement: String,
-    /// `cite` values on the Job's own retro record: `get_job_retro` resolves
-    /// them.
+    /// `cite` values on the Session's own retro record: `get_session_retro`
+    /// resolves them.
     pub evidence: Vec<String>,
     /// Where its fix lands. Absent on an item kept before 23.15, which
     /// `?lands_in=` never matches.
@@ -267,18 +253,11 @@ pub struct Lesson {
     pub lands_in: Option<LandsIn>,
     /// Where it stands with the person. Every item starts `open`. Since 23.26.
     pub state: LessonState,
-    /// The Job proposed for it, once `agree_lesson` has proposed one. Since
-    /// 23.26.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_proposed: Option<JobId>,
-    /// The Session `start_lesson_session` started for it, state `agreed`. At
-    /// most one with `job_proposed`. Since 23.77.
+    /// The Session `start_lesson_session` started for it, state `agreed`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_proposed: Option<String>,
-    /// Present on an item of a Session's retro, whose `job_id` then holds the
-    /// Session's id and `handle` its address.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session: Option<RetroSession>,
+    /// The Session whose retro the item is in; `handle` is its address.
+    pub session: RetroSession,
     /// What Accept would change in Kit. **Only on a `kit` item whose change
     /// Fleet copied off a refusal in the record**; absent on every other, and
     /// on one kept before 23.35. Since 23.35.
@@ -292,39 +271,20 @@ pub struct Lesson {
     pub applied: Option<RetroChange>,
 }
 
-/// Everything on a Job's record a retro is read from. Every row carries a
+/// Everything on a Session's thread a retro is read from. Every row carries a
 /// `cite`, `refusal:1` and the like, unique within the record.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroRecord {
+    /// The gate's denials of a tool call.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refusals: Vec<RecordRefusal>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failed_checks: Vec<RecordCheck>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub not_met: Vec<RecordNotMet>,
-    /// What each step's submission said it had not done.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub not_done: Vec<RecordSaid>,
-    /// What a Drone said in prose right after each submission, and the last
-    /// thing each one said: where a Drone tells a person what it could not get
-    /// to, which no field of a submission asked it.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub said_after: Vec<RecordSaid>,
+    /// Resumes and reattaches.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub restarts: Vec<RecordAct>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub asked: Vec<RecordAsked>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub waited: Vec<RecordWaited>,
-    /// Every move a person or an agent made, with the door it came through.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub acts: Vec<RecordAct>,
-    /// What a Drone said got in its way, on submitting.
+    /// What the Session said got in its way.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<RecordSaid>,
-    /// A Session's rows, beside the Job's. Its asks and how long each waited.
-    /// Its gate denials are `refusals` and its resumes and reattaches are
-    /// `restarts`.
+    /// Its asks and how long each waited.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asks: Vec<RecordAsked>,
     /// The owner's messages to the Session, unfiltered.
@@ -338,13 +298,11 @@ pub struct RetroRecord {
     pub subagents: Vec<RecordSaid>,
 }
 
-/// A tool call the Drone was refused, with what it tried.
+/// A tool call that was refused or errored, with what it tried.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordRefusal {
     pub cite: String,
     pub at: Instant,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step: Option<StepId>,
     pub tool: String,
     /// The argument, off the call the refusal answered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -353,82 +311,25 @@ pub struct RecordRefusal {
     pub because: Option<String>,
 }
 
-/// Which run a failed Check was in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CheckRunBy {
-    /// The gate's run, which decides.
-    Gate,
-    /// The Drone's own `run_checks`, which decides nothing.
-    Drone,
-}
-
-/// A Check that did not pass.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordCheck {
-    pub cite: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub at: Option<Instant>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step: Option<StepId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attempt: Option<u32>,
-    pub name: String,
-    pub run: CheckRunBy,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub produced: Option<String>,
-    /// Each file the gate's failure names, and whether the step's Drones
-    /// named it in a tool call of their own. Since 23.26, on a gate failure
-    /// that names a file.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub paths: Vec<RecordPath>,
-}
-
-/// A file a failed Check names, set against what the Drone did. **A fact read
-/// off the transcript, and never a verdict**: `false` says no tool call of the
-/// Drone's names the file, and `true` says one does, which may be a read.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordPath {
-    pub path: String,
-    pub named_in_drone_calls: bool,
-}
-
-/// A Judge criterion that was not met.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordNotMet {
-    pub cite: String,
-    pub step: StepId,
-    pub attempt: u32,
-    pub criterion: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub produced: Option<String>,
-}
-
-/// Something a Drone said, under the step it said it on.
+/// Something said, with when.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordSaid {
     pub cite: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<Instant>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step: Option<StepId>,
     pub said: String,
 }
 
-/// A move somebody other than Fleet made, or a restart of either kind.
+/// A restart of the Session's process.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordAct {
     pub cite: String,
     pub at: Instant,
     pub actor: Actor,
-    /// The door it came through. Absent on a move older than 23.12.
+    /// The door it came through.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub via: Option<Via>,
-    /// What moved, in a few words: `status queued`, `step plan running`.
+    /// What moved, in a few words.
     pub moved: String,
     /// What the person said, where they said something with it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -440,9 +341,7 @@ pub struct RecordAct {
 pub struct RecordAsked {
     pub cite: String,
     pub asked_at: Instant,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step: Option<StepId>,
-    /// What was asked: Fleet's own line, and what it was about.
+    /// What was asked, and what it was about.
     pub about: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answered_at: Option<Instant>,
@@ -451,49 +350,4 @@ pub struct RecordAsked {
     /// From the ask to the answer. Absent where none came.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waited_ms: Option<u64>,
-}
-
-/// A stretch the Job spent at an `awaiting_*` status.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordWaited {
-    pub cite: String,
-    pub status: crate::enums::JobStatus,
-    pub from: Instant,
-    /// Absent where the Job is still there.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub until: Option<Instant>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ms: Option<u64>,
-}
-
-/// A note the owner left in Bridge with this Job's detail open.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LinkedAnnotation {
-    pub id: String,
-    pub at: Instant,
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub screen: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selector: Option<String>,
-}
-
-/// One file under `.armada/annotations/`, as Bridge writes it. **Read, never
-/// written, here**, and only the fields a retro uses; the file carries more.
-///
-/// `open_job_id` is the Job whose detail was open when the note was left.
-/// Bridge does not write it yet, and a note without it is linked to no Job:
-/// nothing here guesses one from a time window.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AnnotationFile {
-    pub id: String,
-    pub text: String,
-    pub created_at: String,
-    #[serde(default)]
-    pub screen: Option<String>,
-    #[serde(default)]
-    pub selector: Option<String>,
-    #[serde(default)]
-    pub open_job_id: Option<String>,
 }

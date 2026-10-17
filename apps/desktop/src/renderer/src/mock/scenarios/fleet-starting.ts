@@ -20,5 +20,4 @@ export const s080FleetStarting: Scenario = {
       },
     },
   },
-  reads: {},
 };

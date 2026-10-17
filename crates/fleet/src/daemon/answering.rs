@@ -1,28 +1,13 @@
-//! What Fleet answers when it is asked: the boot read and the reads every surface makes after it.
-//!
-//! **A read never quietly shortens.** [`Fleet::every_job`] answers with the rows that would not
-//! load beside the ones that did: a caller handed a short list with nothing in the signature
-//! saying so cannot tell it from a complete one.
+//! What Fleet does when it starts: the boot read, and the cleanup a crashed Fleet leaves.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Job, JobId, TransitionReason};
-use store::{LoadAllError, LoadJobError, Loaded, Moved};
 
 use super::Fleet;
 use crate::adrift::Adrift;
-use crate::transcript::Rekeyed;
 
 /// What the boot read found, and what the reconciliation did about it.
 #[derive(Debug, Default)]
 pub struct Reconciled {
-    /// Rows whose cached status disagreed with the log and were corrected.
-    pub repaired: usize,
-    /// Rows that would not rebuild at all. **Never dropped** — carried out so a caller cannot end
-    /// up holding a short list with nothing saying so.
-    pub unreadable: Vec<String>,
-    /// What was moved out from under a ULID and under the handle beside it —
-    /// `crate::transcript::migrating`. Zeroes on every boot after the first.
-    pub rekeyed: Rekeyed,
     /// Links on a Studio whose address an adapter recognised, written back as the Issue, Pull
     /// request or Epic they name. Nought on every boot after the one that converted them.
     pub recognised: usize,
@@ -58,128 +43,27 @@ where
         // Before any Studio is read: the Links this build reads as an Issue, a Pull request or an
         // Epic. `crate::recognising`.
         let recognised = self.links_recognised().await;
-        let (loaded, unreadable) = self.every_job().await?;
-        // Before anything else reads a path: every Job's name. See [`mod@crate::naming`].
-        self.names().learn_all(&loaded.jobs);
-        let mut reconciled = Reconciled {
-            repaired: loaded.repaired.len(),
-            unreadable,
-            recognised,
-            ..Reconciled::default()
-        };
         for served in self.repositories().served() {
-            self.reconciled_in_part(&served, &loaded.jobs, &mut reconciled)
-                .await;
+            self.reconciled_in_part(&served).await;
         }
-        Ok(reconciled)
+        Ok(Reconciled { recognised })
     }
 
-    /// The same cleanup for one repository added after Fleet started: the servers it left and the
-    /// Jobs the store already holds for it.
+    /// The same cleanup for one repository added after Fleet started: the servers it left.
     pub(crate) async fn reconciled_in(
         &self,
         served: &crate::repositories::Served,
     ) -> Result<Reconciled, Adrift> {
         self.reaped_left_servers(served.records_root()).await;
-        let (loaded, _) = self.every_job().await?;
-        self.names().learn_all(&loaded.jobs);
-        let mut reconciled = Reconciled::default();
-        self.reconciled_in_part(served, &loaded.jobs, &mut reconciled)
-            .await;
-        Ok(reconciled)
+        self.reconciled_in_part(served).await;
+        Ok(Reconciled::default())
     }
 
-    /// One repository's Jobs, out of every Job the boot read found.
-    async fn reconciled_in_part(
-        &self,
-        served: &crate::repositories::Served,
-        every: &[Job],
-        reconciled: &mut Reconciled,
-    ) {
-        let jobs: Vec<Job> = every
-            .iter()
-            .filter(|job| served.owns(job.owner_manifest_id().as_str()))
-            .cloned()
-            .collect();
-        // Once, the clone's needs into the ledger. `crate::needing`, `crate::ledgering`.
-        self.needs_converted(served, &jobs).await;
-        let rekeyed = crate::transcript::rekeyed(served.records_root(), &jobs).await;
-        reconciled.rekeyed.logs += rekeyed.logs;
-        reconciled.rekeyed.transcripts += rekeyed.transcripts;
-        reconciled.rekeyed.refused.extend(rekeyed.refused);
+    /// One repository's cleanup.
+    async fn reconciled_in_part(&self, served: &crate::repositories::Served) {
         // A slot still held by a session that ended: parked now, before anything looks for a
         // free one.
         self.freed_from_ended_sessions(served).await;
-    }
-
-    /// Every Job, **and every row that would not load**.
-    ///
-    /// The store refuses to hand back a short list; this refuses to complete
-    /// one. Both halves come out together and the caller decides.
-    pub async fn every_job(&self) -> Result<(Loaded, Vec<String>), Adrift> {
-        match self.store.lock().await.load_all_jobs() {
-            Ok(loaded) => Ok((loaded, Vec::new())),
-            Err(LoadAllError::SomeJobsUnreadable { loaded, failed }) => Ok((
-                loaded,
-                failed.iter().map(|refusal| refusal.to_string()).collect(),
-            )),
-            Err(fault) => Err(Adrift::BootRead(fault)),
-        }
-    }
-
-    /// One Job, folded from its events. The status column is not read.
-    ///
-    /// **Every read takes the Job's name**, which is what keeps
-    /// [`mod@crate::naming`] total for a Job created by a Fleet that has since
-    /// been restarted with an older store.
-    pub async fn load(&self, job_id: &JobId) -> Result<Job, Adrift> {
-        let job = self
-            .store
-            .lock()
-            .await
-            .load_job(job_id)
-            .map_err(Adrift::Reading)?;
-        self.learn_the_name(&job);
-        Ok(job)
-    }
-
-    /// The qualifying reason the Job's last transition stored, where it stored
-    /// one. Read from the log, because the `jobs` row does not carry it and
-    /// only a caller holding the log can supply it.
-    pub async fn last_reason(&self, job_id: &JobId) -> Result<Option<TransitionReason>, Adrift> {
-        let events = self
-            .store
-            .lock()
-            .await
-            .events_for(job_id)
-            .map_err(|cause| Adrift::Reading(LoadJobError::Unreadable(cause)))?;
-        Ok(events.iter().rev().find_map(|event| match event.moved() {
-            Moved::Job { reason, .. } => Some(reason.clone()),
-            Moved::Step { .. } | Moved::Drone { .. } => None,
-        }))
-    }
-
-    /// The instant this Job first reached `running` — [`JobSummary`](ipc::JobSummary)'s
-    /// `started_at`. Absent until the Job's first Drone starts, and unmoved by
-    /// a later return to `awaiting_approval` or `queued`: `crate::wire::job_started_at`
-    /// keeps only the first arrival.
-    pub async fn job_started_at(
-        &self,
-        job_id: &JobId,
-    ) -> Result<Option<core_model::Timestamp>, Adrift> {
-        let store = self.store.lock().await;
-        crate::wire::job_started_at(&store, job_id).map_err(Adrift::Reading)
-    }
-
-    /// The instant this Job arrived at a terminal status —
-    /// [`JobSummary`](ipc::JobSummary)'s `ended_at`. Absent until the Job is
-    /// over. Overview 28 (#1092).
-    pub async fn job_ended_at(
-        &self,
-        job_id: &JobId,
-    ) -> Result<Option<core_model::Timestamp>, Adrift> {
-        let store = self.store.lock().await;
-        crate::wire::job_ended_at(&store, job_id).map_err(Adrift::Reading)
     }
 
     /// The stream Fleet publishes transitions on. Cloned for the listener.

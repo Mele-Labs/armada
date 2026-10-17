@@ -3,7 +3,7 @@
 
 import type { RequestRepository } from "@armada/protocol";
 
-import type { RequestRepositoryRead } from "../shared/api/jobs";
+import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { Board } from "./command";
 import { ask } from "./request";
 

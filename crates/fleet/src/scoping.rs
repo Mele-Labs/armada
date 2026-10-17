@@ -1,9 +1,9 @@
-//! What a caller scoped to one repository is listed: the Drones, worktrees and
-//! servers of the Jobs its Manifest owns. Absent a Manifest, every one. `#987`.
+//! What a caller scoped to one repository is listed: the slots and servers its
+//! Manifest owns. Absent a Manifest, every one. `#987`.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{JobId, ManifestId, ServerList, WorktreesHeld};
+use ipc::{ManifestId, ServerList, WorktreesHeld};
 
 use crate::daemon::Fleet;
 
@@ -28,25 +28,14 @@ where
         }
     }
 
-    fn owns(&self, within: Option<&ManifestId>, job: &JobId) -> bool {
-        within.is_none_or(|named| {
-            self.names().owner_of(&job.to_domain()).as_deref() == Some(named.as_str())
-        })
-    }
-
     pub(crate) fn servers_within(&self, within: Option<ManifestId>) -> Result<ServerList, Refusal> {
         let within = self.scoped(within)?;
         let mut listed = self.server_list();
-        listed
-            .servers
-            .retain(|server| match (&within, &server.manifest_id) {
-                (None, _) => true,
-                (Some(named), Some(owner)) => owner == named,
-                (Some(_), None) => server
-                    .job_id
-                    .as_ref()
-                    .is_some_and(|job| self.owns(within.as_ref(), job)),
-            });
+        listed.servers.retain(|server| match (&within, &server.manifest_id) {
+            (None, _) => true,
+            (Some(named), Some(owner)) => owner == named,
+            (Some(_), None) => false,
+        });
         Ok(listed)
     }
 
@@ -56,25 +45,11 @@ where
         within: Option<ManifestId>,
     ) -> Result<WorktreesHeld, Refusal> {
         let within = self.scoped(within)?;
-        held.worktrees
-            .retain(|one| self.owns(within.as_ref(), &one.job_id));
         held.slots.retain(|one| {
             within
                 .as_ref()
                 .is_none_or(|named| *named == one.manifest_id)
         });
         Ok(held)
-    }
-
-    /// Every Job a served Manifest owns, by id.
-    pub(crate) fn jobs_owned_by(&self, manifest_id: ManifestId) -> Result<Vec<JobId>, Refusal> {
-        let within = self.scoped(Some(manifest_id))?;
-        let named = within.as_ref().map(ManifestId::as_str).unwrap_or_default();
-        Ok(self
-            .names()
-            .owned_by(named)
-            .iter()
-            .map(JobId::from)
-            .collect())
     }
 }

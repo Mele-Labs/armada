@@ -1,14 +1,13 @@
-//! A Job's retro and the Lessons listing. Since 23.12. `docs/concepts/retro.md`.
+//! A Session's retro and the Lessons listing. `docs/concepts/retro.md`.
 //!
 //! **A seventh surface, for [`Studios`](super::Studios)' reason.** Both reads
-//! are about what a Job's record says once it is over, and neither is a fact
-//! `get_job` or the Board reads. The two acts on an item came with 23.26.
+//! are about what a Session's thread says once it is over.
 
 use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonSessionStarted,
+    AskLessonAnswer, Retro, LandsIn, Lesson, LessonAsk, LessonReview, LessonSessionStarted,
     LessonState,
     Lessons, ManifestId,
 };
@@ -16,21 +15,15 @@ use ipc::{
 use crate::daemon::Refusal;
 
 pub trait Retros: Send + Sync + 'static {
-    /// `get_job_retro`. [`Refusal::NoSuchJob`] where no Job is `job_id`; a Job
-    /// that has not ended answers `pending`, with its record as it stands.
-    fn get_job_retro(
-        &self,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
 
     /// `get_session_retro`: retro number `retro` of a Session, or its newest, `pending` with its
-    /// record so far where it has none. [`Refusal::NoSuchJob`] where no
+    /// record so far where it has none. [`Refusal::NotFound`] where no
     /// Session is `session_id`.
     fn get_session_retro(
         &self,
         session_id: String,
         retro: Option<i64>,
-    ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
+    ) -> impl Future<Output = Result<Retro, Refusal>> + Send;
 
     /// `write_session_retro`: write one now, covering what happened since the
     /// last, and answer when it is written. [`Refusal::IllegalMove`] while one
@@ -39,12 +32,12 @@ pub trait Retros: Send + Sync + 'static {
     fn write_session_retro(
         self: Arc<Self>,
         session_id: String,
-    ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
+    ) -> impl Future<Output = Result<Retro, Refusal>> + Send;
 
     /// `list_lessons` — up to `most` items in `state`, newest retro first, and
     /// `state` absent is `open`.
     /// `manifest_id` absent is every repository served, and `lands_in` absent
-    /// is every place a fix lands, an item kept before 23.15 included.
+    /// is every place a fix lands.
     fn list_lessons(
         &self,
         manifest_id: Option<ManifestId>,
@@ -54,9 +47,9 @@ pub trait Retros: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Lessons, Refusal>> + Send;
 
 
-    /// `start_lesson_session`. `agree_lesson`'s sibling: agreeing by starting a
-    /// hosted Session on the item's repository, and its first message sent
-    /// at once, so the Session runs. The same rules as `agree_lesson`; a `kit` item is
+    /// `start_lesson_session`: agreeing by starting a hosted Session on the
+    /// item's repository, and its first message sent at once, so the Session
+    /// runs. A `kit` item is
     /// [`Refusal::Unacceptable`]. An item already answered answers with the
     /// Session started for it, and an answered item with none is
     /// [`Refusal::IllegalMove`]. A send that is refused leaves the item agreed
@@ -81,7 +74,7 @@ pub trait Retros: Send + Sync + 'static {
     ) -> impl Future<Output = Result<LessonReview, Refusal>> + Send;
 
     /// `ask_lesson`: one model call about one item, answered from its record.
-    /// [`Refusal::NoSuchJob`] where no item has the id; [`Refusal::Unacceptable`]
+    /// [`Refusal::NotFound`] where no item has the id; [`Refusal::Unacceptable`]
     /// for an empty or over-long question or history.
     fn ask_lesson(
         &self,

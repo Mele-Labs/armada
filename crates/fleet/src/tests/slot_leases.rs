@@ -29,7 +29,7 @@ pub(crate) fn lease_record(root: &str, slot: u32, branch: &str, by: By<'_>) -> S
     let pid = std::process::id();
     let process = || match Holder::of(pid).expect("this process is running") {
         Holder::Process { pid, started } => format!("{pid} {started}"),
-        Holder::Job(id) => format!("job {id}"),
+        Holder::Hosted(id) => format!("job {id}"),
     };
     let record = match by {
         By::Nobody => format!("branch {branch}\nholder {}\nsince 1\n", process()),

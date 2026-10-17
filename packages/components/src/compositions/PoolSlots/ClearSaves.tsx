@@ -3,14 +3,13 @@ import { FilePenLine, Folder, GitBranch } from "lucide-react";
 import { Line, Mono } from "./ConfirmLine";
 
 /**
- * What Clear does to a worktree holding uncommitted files: commits them to the
- * Job's branch as a WIP commit, frees the worktree, and keeps the branch.
+ * What releasing a worktree holding uncommitted files does: commits them to the
+ * branch as a WIP commit, frees the worktree, and keeps the branch.
  * **Nothing is lost and nothing is pushed**, so there is no figure and no tip:
  * the branch moves when the commit is made.
  *
  * A bay is released to the pool; a worktree outside it is removed, which is
- * safe only because the files are committed first. Shared by the Cleanup grid
- * and the Job's own Clear, so both say the same thing.
+ * safe only because the files are committed first.
  */
 export function ClearSaves({
   branch,

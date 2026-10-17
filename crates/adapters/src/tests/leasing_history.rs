@@ -46,7 +46,7 @@ fn a_lease_and_its_release_are_each_written() {
 fn a_jobs_lease_is_named_by_its_id() {
     let repo = TempRepo::with_a_commit();
     let pool = Pool::at(repo.root(), 1, "main", Vec::new());
-    let job = Holder::job("job-1");
+    let job = Holder::hosted("job-1");
     let slot = took(&pool, "job-1-work", &job);
     pool.release_held(1, &job).expect("given back");
 
@@ -67,10 +67,10 @@ fn a_lease_taken_from_a_gone_holder_releases_it_first() {
     let text = std::fs::read_to_string(&record).unwrap();
     std::fs::write(&record, text.replace(&started, "a start no process has")).unwrap();
 
-    took(&pool, "next", &Holder::job("job-2"));
+    took(&pool, "next", &Holder::hosted("job-2"));
 
     let turns = turns_of(&slot, 0);
-    let seen: Vec<(bool, bool)> = turns.iter().map(|turn| (turn.leased, matches!(turn.holder, Holder::Job(_)))).collect();
+    let seen: Vec<(bool, bool)> = turns.iter().map(|turn| (turn.leased, matches!(turn.holder, Holder::Hosted(_)))).collect();
     assert_eq!(seen, [(true, false), (false, false), (true, true)], "{turns:?}");
 }
 
@@ -86,7 +86,7 @@ fn what_is_older_than_thirty_days_is_cut() {
     assert_eq!(turns_of(&slot, 0).len(), 1);
     assert!(turns_of(&slot, 1_728_000_000_000).is_empty());
 
-    took(&pool, "fresh", &Holder::job("job-3"));
+    took(&pool, "fresh", &Holder::hosted("job-3"));
 
     let turns = turns_of(&slot, 0);
     assert_eq!(turns.len(), 1, "the old line is gone: {turns:?}");

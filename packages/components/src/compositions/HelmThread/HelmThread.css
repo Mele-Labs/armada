@@ -1,7 +1,7 @@
 /* Helm's own conversation — two voices, `ActivityLog`'s well one subject over.
 
    **No indigo in here.** The dock's frame, chip and Send are Helm's
-   (TheShell.css, HelmComposer.css); a Job, a badge or an approval card quoted
+   (TheShell.css, HelmComposer.css); a badge quoted
    in the thread keeps its own tokens, because --helm sits between --accent
    and --status-rejected and must never read beside a Job (design-system.md,
    Tokens → Helm). */
@@ -87,39 +87,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   white-space: pre-wrap;
-}
-
-/* `#1041`. One `ask_person_to_approve` call, drawn within the reply that made
-   it — its own well, a well of its own beside the message it answers. */
-.armada-helm-approval-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  border: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-}
-
-.armada-helm-approval-card__job {
-  margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  color: var(--fg-default);
-  font-weight: var(--weight-body);
-}
-
-.armada-helm-approval-card__actions {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.armada-helm-approval-card__state {
-  margin: 0;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
 }
 
 .armada-helm-thread__meta {

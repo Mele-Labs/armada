@@ -124,7 +124,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         studios={state.studios}
         studio={state.studio}
         open={open}
-        jobs={state.jobs}
         live={live}
         selectedNode={selectedNode}
         onSelectNode={onSelectNode}

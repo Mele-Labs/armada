@@ -3,15 +3,13 @@
 // until its pull request opens, then ends; the forge shows the pull request open, queued and merged. The Session's `build` is the wire's
 // own (`SessionBuild`), one for each moment, set on its record as Fleet would. #2301.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { HubMerged, HubPullRequest, MainStanding, MergeLines, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { workingAPlan } from "@armada/screens/src/fixtures/build/index";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
 import { FEATURED, SUBAGENTS, SWARM, buildAt, subagentsBuild, swarmBuild } from "../battlefield-story";
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore, type SessionsStore } from "../sessions/script";
 
@@ -20,21 +18,6 @@ const FORGE = "https://git.example/armada/pull/";
 const BRANCH = "armada/dock-panel";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const PR = 2310;
-
-/** The Job's plan: two tasks done, one handed in, one being worked, one open. Its page draws them as the structure on its route. */
-const PLAN = (() => {
-  const task = (id: string, title: string, state: "done" | "handed_in" | "working" | "open") => ({ id, title, state });
-  return [task("T1", "Read the manifest once", "done"), task("T2", "Key the cache by digest", "done"), task("T3", "Drop the cache on edit", "handed_in"), task("T4", "Warm it at start", "working"), task("T5", "Test the cold read", "open")];
-})();
-
-const cache: JobFixture = (() => {
-  const base = asRow(workingAPlan(), 91, "cache", "Cache the manifest read");
-  const count = (state: (typeof PLAN)[number]["state"]) => PLAN.filter((one) => one.state === state).length;
-  const job = { ...base.job, owner_manifest_id: ARMADA, started_at: ago(17), current_step_id: "fix", branch: "armada/91-cache", tasks: { done: count("done"), handed_in: count("handed_in"), working: count("working"), open: count("open"), dropped: 0 } };
-  if (base.watched.state !== "read" || base.watched.detail.work_plan === undefined) return { ...base, job };
-  const detail = { ...base.watched.detail, job: { ...base.watched.detail.job, ...job }, work_plan: { ...base.watched.detail.work_plan, tasks: PLAN } };
-  return { ...base, job, watched: { ...base.watched, detail } };
-})();
 
 const tool = (id: string, at: string, text: string) => ({ id, at, kind: "tool", text }) as const;
 const ask = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
@@ -93,9 +76,8 @@ const swarm: Session = {
 /** The turn ends when the pull request opens: the Session waits on its Checks. */
 const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurn: "14:52", lastTurnAt: new Date().toISOString() };
 
-function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, control, [], [dock, clock, crew, swarm]);
+function sessions(): SessionsStore {
+  const store = sessionsStore([dock, clock, crew, swarm]);
   const own = new Set([dock.id, clock.id, crew.id, swarm.id]);
   let moment = 0;
   let from: readonly Session[] | undefined;
@@ -136,11 +118,9 @@ const bay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlo
 
 function pool(): WorktreesHeld {
   return {
-    worktrees: [],
     slots: [
       bay(1, { state: "hosted_session", session_id: dock.id, session_title: dock.title! }, { branch: BRANCH, since: ago(720) }),
       bay(2, { state: "hosted_session", session_id: clock.id, session_title: clock.title! }, { branch: "fix/pin-store-clock", since: ago(40) }),
-      bay(3, { state: "job", job_id: cache.job.id, job_title: cache.job.title }, { branch: "armada/91-cache", since: ago(17) }),
       bay(4, { state: "hosted_session", session_id: crew.id, session_title: crew.title! }, { branch: "armada/ring-workers", since: ago(15) }),
       bay(5, { state: "hosted_session", session_id: swarm.id, session_title: swarm.title! }, { branch: "armada/cockpit-panels", since: ago(12) }),
     ],
@@ -180,11 +160,10 @@ function placed(): TimelineEvent[] {
 }
 
 function build(): Scenario {
-  const base = holding("battlefield-progress", "One repository's battlefield with a Session building a dock panel over twelve hours, as a ring", [cache]);
-  const jobs = [cache.job];
+  const base = holding("battlefield-progress", "One repository's battlefield with a Session building a dock panel over twelve hours, as a ring");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs, mergeLines: lines(0) },
+    state: { ...base.state, repository: null, mergeLines: lines(0) },
     held: pool(),
     // Moments 1 to 8: the Session's turn ends and its pull request opens at the fifth, is queued at the sixth and merges at the seventh. The ninth and tenth draw other Sessions' subagents.
     later: Array.from({ length: 10 }, (_, i) => ({ mergeLines: lines(i + 1) })),

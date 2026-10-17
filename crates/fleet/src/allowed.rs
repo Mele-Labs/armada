@@ -4,9 +4,6 @@
 //! asked it; what stays is the list a person built while it did — a repository's own in the
 //! store, and Kit's in `crate::kit_allowlist` — which `get_repository_allowed_commands` and
 //! the two `remove_*_allowed_command` acts still read and edit.
-//!
-//! [`covers`] is how a line is matched against a command, and it never lets a chained command
-//! ride on an allow.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -22,8 +19,6 @@ const NOT_PERMITTED_IN_REPOSITORY: &str = "fleet.not_permitted_in_repository";
 /// Why a change to the list of allowed commands was not taken.
 #[derive(Debug)]
 pub enum NotPermitted {
-    /// The allow would not write down.
-    NotRecorded { cause: String },
     /// Nothing a person allowed is spelled this way.
     NothingAllowed { run: String },
     /// The list would not write down.
@@ -33,9 +28,6 @@ pub enum NotPermitted {
 impl core::fmt::Display for NotPermitted {
     fn fmt(&self, out: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            NotPermitted::NotRecorded { cause } => {
-                write!(out, "the allow could not be written down: {cause}")
-            }
             NotPermitted::NothingAllowed { run } => write!(
                 out,
                 "`{run}` is not a command a person allowed, so there is nothing to take back"
@@ -45,25 +37,6 @@ impl core::fmt::Display for NotPermitted {
             }
         }
     }
-}
-
-/// Whether allowing `run` allows `command`: the command itself, or it with more plain arguments,
-/// which is the prefix the harness renders a grant as.
-///
-/// **Nothing that chains another command is covered.** An allow of `npm publish` must not become
-/// an allow of `npm publish && curl …`, so arguments carrying a shell operator make a different
-/// command.
-pub fn covers(run: &str, command: &str) -> bool {
-    let (run, command) = (run.trim(), command.trim());
-    if run.is_empty() {
-        return false;
-    }
-    if command == run {
-        return true;
-    }
-    command
-        .strip_prefix(run)
-        .is_some_and(|rest| rest.starts_with(char::is_whitespace) && !chains(rest))
 }
 
 pub(crate) fn chains(arguments: &str) -> bool {

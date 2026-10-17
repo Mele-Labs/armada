@@ -62,12 +62,6 @@ export type FleetSocketWiring = {
   timing?: { graceMs: number; bootMs: number };
   /** A connection state to settle, this instant. */
   settle: (connection: Connection) => void;
-  /**
-   * A fresh socket is open, before anything has arrived on it — the instant
-   * the next resync is this socket's first, which is what tells Fleet coming
-   * back from a plain gap in a stream that never stopped.
-   */
-  opened: () => void;
   /** A message arrived on the open socket, unparsed. */
   arrived: (text: string, fleet: BridgeStateFleet) => void;
 };
@@ -183,9 +177,6 @@ export class FleetSocket {
   private open(port: number, fleet: BridgeStateFleet): void {
     const socket = new WebSocket(`ws://${HOST}:${port}/events`);
     this.socket = socket;
-    // The next resync to arrive is this socket's first, so it is Fleet coming
-    // back rather than a gap in a stream that never stopped.
-    this.wiring.opened();
 
     // **A refusal never reaches this.** Fleet binds its port before it writes
     // the runtime file and serves only after `reconcile`, so in between the

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use core_model::Timestamp;
 use ipc::{
     Instant, RecordAct, RecordAsked, RecordRefusal, RecordSaid, RetroRecord, SessionAskState,
-    SessionRow, SessionVoice, StepId,
+    SessionRow, SessionVoice,
 };
 use serde::Deserialize;
 
@@ -85,7 +85,6 @@ pub(crate) fn assembled(from: &SessionSources<'_>) -> RetroRecord {
             .map(|(at, said)| RecordSaid {
                 cite: cite("note", 0),
                 at: Some(Instant::carried(at)),
-                step: None,
                 said: cut(said, SAID * 3),
             })
             .into_iter()
@@ -125,7 +124,6 @@ fn asks(from: &SessionSources<'_>) -> Vec<RecordAsked> {
         out.push(RecordAsked {
             cite: cite("ask", out.len()),
             asked_at: ask.asked_at.clone(),
-            step: None,
             about,
             answered_at: answer.map(|_| at.clone()),
             answer: answer.map(str::to_string),
@@ -151,7 +149,6 @@ fn corrections(from: &SessionSources<'_>) -> Vec<RecordSaid> {
         .map(|(at, text)| RecordSaid {
             cite: String::new(),
             at: Some(at.clone()),
-            step: None,
             said: cut(text, SAID),
         })
         .collect();
@@ -181,7 +178,7 @@ fn restarts(from: &SessionSources<'_>) -> Vec<RecordAct> {
 
 fn subagents(from: &SessionSources<'_>) -> Vec<RecordSaid> {
     let mut out = Vec::new();
-    for (agent, lines) in from.subagents {
+    for (_agent, lines) in from.subagents {
         let (refused, failed) = tool_trouble(lines, from);
         for row in refused.into_iter().chain(failed) {
             if out.len() >= MOST_SUBAGENT_ROWS {
@@ -191,7 +188,6 @@ fn subagents(from: &SessionSources<'_>) -> Vec<RecordSaid> {
             out.push(RecordSaid {
                 cite: cite("subagent", out.len()),
                 at: Some(row.at),
-                step: Some(StepId::carried(agent.clone())),
                 said: format!(
                     "{}{tried}: {}",
                     row.tool,
@@ -338,7 +334,6 @@ fn tool_trouble(
                     let row = RecordRefusal {
                         cite: String::new(),
                         at: Instant::carried(read.timestamp.clone()),
-                        step: None,
                         tool,
                         tried: Some(tried).filter(|tried| !tried.is_empty()),
                         because: Some(cut(because.trim(), SAID)).filter(|said| !said.is_empty()),

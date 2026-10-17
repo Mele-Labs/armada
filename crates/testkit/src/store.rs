@@ -145,7 +145,7 @@ mod tests {
     use adapter_traits::HolderKind;
 
     fn holder(machine: &str) -> Holder {
-        Holder { kind: HolderKind::Job, id: "j1".into(), machine: machine.into(), since: 100 }
+        Holder { kind: HolderKind::Session, id: "j1".into(), machine: machine.into(), since: 100 }
     }
 
     fn repository() -> RepositoryKey {

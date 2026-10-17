@@ -4,11 +4,8 @@ import { titleWithoutReference } from "../SessionComposer/InlineTag";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 import { placeTagsIn, SentWith } from "../SessionThread/SessionThread";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
-import { ApprovalCard } from "./ApprovalCard";
-import type { HelmApprovalCard } from "./ApprovalCard";
 import { SentTo } from "./SentTo";
 
-export type { HelmApprovalCard, HelmApprovalCardState } from "./ApprovalCard";
 
 /**
  * Helm's own conversation, under the dock's questions — #944.
@@ -30,9 +27,7 @@ export type HelmThreadRow = {
   mono?: boolean;
   /** A trailing caption — the reply's own cost, `$0.02 · 3 turns`. */
   meta?: ReactNode;
-  /** An approval Helm asked for, placed within this reply. */
-  cards?: HelmApprovalCard[];
-  /** Where these words went instead of to Helm: the Session or Job, pressed to open it. */
+  /** Where these words went instead of to Helm: the Session, pressed to open it. */
   sent?: { target: ThoughtTarget; onOpen: () => void };
   /** What the person sent with the words: pictures and files, sketches, and the issues, pull requests and Sessions tagged in them. */
   files?: readonly { id: string; name: string; src?: string }[];
@@ -95,9 +90,6 @@ export function HelmThread({
                     : <Prose text={row.message} />
                   : row.message}
               </div>
-              {row.cards === undefined
-                ? null
-                : row.cards.map((card) => <ApprovalCard key={card.id} {...card} />)}
               <SentWith row={row} tags={loose} />
               {row.sent === undefined ? null : <SentTo {...row.sent} />}
               {row.meta === undefined ? null : <p className="armada-helm-thread__meta">{row.meta}</p>}

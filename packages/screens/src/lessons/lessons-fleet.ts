@@ -1,64 +1,44 @@
 // What the mock Fleet does with an answer to a retro item, so a walk can agree
 // with one item, disagree with another and read the saved ones. The rule is
-// `docs/concepts/retro.md`: an Armada or Manifest item proposes a Job at the
-// approval gate, a Kit item is saved (and its command added to Kit's allowlist, where
+// `docs/concepts/retro.md`: an Armada or Manifest item starts a Session, a Kit item is saved (and its command added to Kit's allowlist, where
 // it carries one), a disagreed item is discarded.
 
-import type { JobSummary, Lesson, LessonAnswer, LessonState } from "@armada/protocol";
+import type { Lesson, LessonAnswer, LessonState } from "@armada/protocol";
 
 import type { AskLessonRead, LessonAsk, LessonReview, LessonReviewRead } from "./review-wire";
 import type { LessonSessionRead } from "./session-wire";
-
-/** The Job an agreed Armada or Manifest item proposes, at the approval gate. */
-function proposedFor(lesson: Lesson, jobs: readonly JobSummary[], at: string): JobSummary {
-  const ordinal = jobs.length + 1;
-  return {
-    id: `01M2E0PROPOSED${String(ordinal).padStart(2, "0")}FROMRETRO`,
-    handle: `${ordinal}-${(lesson.title ?? lesson.statement).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`,
-    title: lesson.fix ?? lesson.title ?? lesson.statement,
-    status: "awaiting_approval",
-    workflow_id: "",
-    owner_manifest_id: jobs[0]?.owner_manifest_id ?? "",
-    origin: "manual",
-    urgency: "normal",
-    atomic: false,
-    model: "sonnet",
-    created_at: at,
-  };
-}
 
 /** The listing as `GET /lessons?state=` answers it. */
 export function listed(lessons: readonly Lesson[], state: "open" | "accepted"): Lesson[] {
   return lessons.filter((one) => one.state === state);
 }
 
-/** One answer taken: the list after it, the item as it now stands, and the Job it proposed, if any. */
+/** One answer taken: the list after it, and the item as it now stands. */
 export function answered(
   lessons: readonly Lesson[],
   id: string,
   answer: "agree" | "disagree",
-  jobs: readonly JobSummary[],
-  at: string,
-): { lessons: Lesson[]; answer: LessonAnswer; job?: JobSummary } {
+): { lessons: Lesson[]; answer: LessonAnswer } {
   const was = lessons.find((one) => one.id === id);
   // No such item: refused as Fleet refuses one it does not hold.
   if (was === undefined) {
     return { lessons: [...lessons], answer: { ok: false, outcome: { ok: false, why: "not_connected" } } };
   }
-  const state: LessonState = answer === "disagree" ? "discarded" : was.lands_in === "kit" ? "accepted" : "agreed";
-  const job = state === "agreed" ? proposedFor(was, jobs, at) : undefined;
+  // Only a Kit item has an agree of its own: any other is agreed by starting a Session.
+  if (answer === "agree" && was.lands_in !== "kit") {
+    return { lessons: [...lessons], answer: { ok: false, outcome: { ok: false, why: "not_connected" } } };
+  }
+  const state: LessonState = answer === "disagree" ? "discarded" : "accepted";
   // Accepting a Kit item that carries a change applies it, and the item keeps what was applied.
   const applied = state === "accepted" ? was.change : undefined;
   const now: Lesson = {
     ...was,
     state,
-    ...(job === undefined ? {} : { job_proposed: job.id }),
     ...(applied === undefined ? {} : { applied }),
   };
   return {
     lessons: lessons.map((one) => (one.id === id ? now : one)),
     answer: { ok: true, lesson: now },
-    ...(job === undefined ? {} : { job }),
   };
 }
 
@@ -126,7 +106,7 @@ export function reviewed(lessons: readonly Lesson[]): LessonReviewRead {
       entries.push({
         lesson_id: one.id,
         merged_ids: [],
-        reason: one.lands_in === "armada" ? "Armada's own fault cost a Job." : "It names a change you can make today.",
+        reason: one.lands_in === "armada" ? "Armada's own fault cost a Session." : "It names a change you can make today.",
       });
     }
   }

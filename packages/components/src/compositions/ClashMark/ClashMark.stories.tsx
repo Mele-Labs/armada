@@ -27,15 +27,15 @@ const SESSION: ClashHolderRef = { kind: "session", id: "s1", label: "Retry tunin
 const MAIN: ClashHolderRef = { kind: "main", id: "main", label: "main" };
 const PATHS = ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"];
 
-function holding(open: Clashing["open"], other: ClashHolderRef, job = "j1"): Clashing {
-  return { open, of: (kind, id) => (kind === "job" && id === job ? [{ with: other, paths: PATHS }] : []) };
+function holding(open: Clashing["open"], other: ClashHolderRef, holder = "j1"): Clashing {
+  return { open, of: (kind, id) => (kind === "session" && id === holder ? [{ with: other, paths: PATHS }] : []) };
 }
 
 const opened = fn();
 
 /** The mark is named for the other holder and the paths, and a press opens that holder. */
 export const AgainstAnotherAgent: Story = {
-  args: { kind: "job", id: "j1" },
+  args: { kind: "session", id: "j1" },
   decorators: [
     (Story) => (
       <ClashesProvider value={holding(opened, SESSION)}>
@@ -54,7 +54,7 @@ export const AgainstAnotherAgent: Story = {
 
 /** Main is not something to open, so the mark is a picture and nothing answers a press. */
 export const AgainstMain: Story = {
-  args: { kind: "job", id: "j1" },
+  args: { kind: "session", id: "j1" },
   decorators: [
     (Story) => (
       <ClashesProvider value={holding(opened, MAIN)}>
@@ -73,7 +73,7 @@ export const AgainstMain: Story = {
 
 /** A holder in no clash draws nothing, and so does a window that was given none. */
 export const InNoClash: Story = {
-  args: { kind: "job", id: "j2" },
+  args: { kind: "session", id: "j2" },
   decorators: [
     (Story) => (
       <ClashesProvider value={holding(opened, SESSION)}>
@@ -87,11 +87,11 @@ export const InNoClash: Story = {
   },
 };
 
-/** In an open Job or Session the clashes are one bar: folded, the other holders on a line; opened, a row for each with its files. */
-export const InAnOpenJob: Story = {
+/** In an open Session the clashes are one bar: folded, the other holders on a line; opened, a row for each with its files. */
+export const InAnOpenSession: Story = {
   render: () => (
     <ClashesProvider value={holding(opened, SESSION, "j-open")}>
-      <ClashNotice kind="job" id="j-open" />
+      <ClashNotice kind="session" id="j-open" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -104,14 +104,14 @@ export const InAnOpenJob: Story = {
   },
 };
 
-// Each notice has a Job of its own: a bar he opened stays open for its owner, so stories that shared one would start as the last left it.
+// Each notice has a Session of its own: a bar he opened stays open for its owner, so stories that shared one would start as the last left it.
 const MANY = Array.from({ length: 37 }, (_, i) => `crates/store/src/migrations/${String(i + 1).padStart(4, "0")}_clock.rs`);
 
 /** A long list shows three files and one chip for the rest; the chip opens them all and then folds them back. */
 export const WithManyFiles: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-many" ? [{ with: MAIN, paths: MANY }] : []) }}>
-      <ClashNotice kind="job" id="j-many" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "session" && id === "j-many" ? [{ with: MAIN, paths: MANY }] : []) }}>
+      <ClashNotice kind="session" id="j-many" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -132,7 +132,7 @@ export const WithManyFiles: Story = {
     await expect(fewer).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(fewer);
     await expect(canvas.getAllByRole("listitem")).toHaveLength(5);
-    // A bar he opened stays open for that Job, so the story folds it back.
+    // A bar he opened stays open for that Session, so the story folds it back.
     await userEvent.click(header);
     await expect(header).toHaveAttribute("aria-expanded", "false");
   },
@@ -142,7 +142,7 @@ export const WithManyFiles: Story = {
 export const Collapsed: Story = {
   render: () => (
     <ClashesProvider value={holding(opened, SESSION, "j-collapsed")}>
-      <ClashNotice kind="job" id="j-collapsed" />
+      <ClashNotice kind="session" id="j-collapsed" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -166,8 +166,8 @@ export const Collapsed: Story = {
 /** Two clashes are one bar, folded to a line saying how many others; opened, a row for each. */
 export const WithTwoClashes: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-two" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
-      <ClashNotice kind="job" id="j-two" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "session" && id === "j-two" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
+      <ClashNotice kind="session" id="j-two" />
     </ClashesProvider>
   ),
   play: async ({ canvas, userEvent }) => {
@@ -187,8 +187,8 @@ export const WithTwoClashes: Story = {
 /** Four files are drawn whole, with no chip. */
 export const WithFourFiles: Story = {
   render: () => (
-    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-four" ? [{ with: MAIN, paths: MANY.slice(0, 4) }] : []) }}>
-      <ClashNotice kind="job" id="j-four" />
+    <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "session" && id === "j-four" ? [{ with: MAIN, paths: MANY.slice(0, 4) }] : []) }}>
+      <ClashNotice kind="session" id="j-four" />
     </ClashesProvider>
   ),
   play: async ({ canvas }) => {

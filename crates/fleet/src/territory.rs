@@ -25,6 +25,10 @@ use crate::daemon::Fleet;
 /// How many directories a repository is listed with, counting each top directory and each inside one.
 const MOST_AREAS: usize = 40;
 
+/// How many file names a directory is listed with. Every read at an active head sends them all, so
+/// this keeps this repository's answer near 64 KB; the directory's `files` stays exact past it.
+const MOST_NAMES: usize = 100;
+
 /// How many paths a holder is listed with.
 const MOST_PATHS: usize = 200;
 
@@ -48,6 +52,11 @@ pub(crate) struct Territory {
 }
 
 impl Territory {
+    /// How many times git was asked for a tree. A read at a kept head is not one.
+    #[cfg(test)]
+    pub(crate) fn tree_reads(&self) -> u64 {
+        self.tree_reads.load(Ordering::Relaxed)
+    }
 
     /// How many slots git was asked about.
     #[cfg(test)]
@@ -65,13 +74,22 @@ pub(crate) fn capped(mut directories: Vec<Directory>) -> (Vec<RepositoryArea>, u
     let mut tops: Vec<RepositoryArea> = Vec::new();
     for directory in directories.into_iter().take(MOST_AREAS) {
         match directory.path.split_once('/') {
-            None => tops.push(RepositoryArea { dir: directory.path, files: directory.files, kids: Vec::new() }),
+            None => tops.push(RepositoryArea {
+                dir: directory.path,
+                files: directory.files,
+                kids: Vec::new(),
+                names: directory.names,
+            }),
             Some((top, name)) => {
                 if let Some(area) = tops.iter_mut().find(|area| area.dir == top) {
-                    area.kids.push(AreaKid { name: name.to_string(), files: directory.files });
+                    area.kids.push(AreaKid { name: name.to_string(), files: directory.files, names: directory.names });
                 }
             }
         }
+    }
+    // A top with kids leaves naming to them, so no file is named twice.
+    for area in tops.iter_mut().filter(|area| !area.kids.is_empty()) {
+        area.names.clear();
     }
     (tops, omitted)
 }
@@ -113,7 +131,7 @@ where
         Ok(RepositoryAreas { repositories })
     }
 
-    /// What each Job or hosted Session holding a slot has changed in it. The slots and their holders
+    /// What each hosted Session holding a slot has changed in it. The slots and their holders
     /// are `list_worktrees`' answer, so this adds no pool read of its own.
     pub(crate) async fn slot_touches(&self) -> Result<SlotTouches, Refusal> {
         if let Some(kept) = self.territory().kept() {
@@ -129,9 +147,6 @@ where
             .iter()
             .filter_map(|slot| {
                 let (kind, id) = match &slot.held {
-                    SlotHolding::Job { job_id, kept: None, completed: false, .. } => {
-                        (SlotHolderKind::Job, job_id.as_str().to_string())
-                    }
                     SlotHolding::HostedSession { session_id, .. } => (SlotHolderKind::Session, session_id.clone()),
                     _ => return None,
                 };
@@ -176,7 +191,7 @@ impl Territory {
             }
         }
         self.tree_reads.fetch_add(1, Ordering::Relaxed);
-        let (areas, omitted) = capped(git::directories_at(root, &head).ok()?);
+        let (areas, omitted) = capped(git::directories_at(root, &head, MOST_NAMES).ok()?);
         self.trees
             .lock()
             .expect("not poisoned")

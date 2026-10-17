@@ -69,24 +69,23 @@ export type Offered = {
 };
 
 /** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
-export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; target: string; name: string; said: string };
+export type Held = { kind: "slot" | "branch" | "pr" | "need"; target: string; name: string; said: string };
 
 /** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
 export function heldOfAttachment(one: SessionAttachment): Held | undefined {
   if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: "Slot" };
   if (one.kind === "branch") return { kind: "branch", target: one.name, name: one.name, said: "Branch" };
   if (one.kind === "pull_request" && one.state !== "merged") return { kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" };
-  if (one.kind === "job") return { kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" };
   return undefined;
 }
 
 /** A row's key across what Bridge sends and what Fleet answers. */
 export const heldKey = (one: { kind: string; target: string }) => `${one.kind}:${one.target}`;
 
-/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, Jobs, needs. */
+/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, needs. */
 export function heldOf(session: Session): Held[] {
   const held: Held[] = [];
-  for (const kind of ["slot", "branch", "pull_request", "job"] as const) {
+  for (const kind of ["slot", "branch", "pull_request"] as const) {
     for (const one of session.attachments) {
       const row = one.kind === kind ? heldOfAttachment(one) : undefined;
       if (row !== undefined) held.push(row);
@@ -102,10 +101,6 @@ export function nameOfHeldRow(session: Session, row: { kind: string; target: str
   if (row.kind === "pr") {
     const pr = session.attachments.find((one) => one.kind === "pull_request" && String(one.number) === row.target);
     return pr?.kind === "pull_request" ? `#${pr.number} ${pr.title}`.trim() : `#${row.target}`;
-  }
-  if (row.kind === "job") {
-    const job = session.attachments.find((one) => one.kind === "job" && one.id === row.target);
-    return job?.kind === "job" ? `#${job.number} ${job.title}` : row.target;
   }
   return row.target;
 }

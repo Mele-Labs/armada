@@ -1,6 +1,6 @@
 // A note on the whole window: the owner reporting the state of the app rather than one thing on it.
-// Taken from the bar or with ⌥⌘S, its picture is the window, and it carries the page, the open Job
-// or Session and Doctor's read, so an agent can debug the state without the owner there to ask.
+// Taken from the bar or with ⌥⌘S, its picture is the window, and it carries the page, the open
+// Session and Doctor's read, so an agent can debug the state without the owner there to ask.
 
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -31,10 +31,9 @@ function capturing(capture: Sink["capture"] = async () => PNG) {
   return { sink, notes, shots };
 }
 
-const JOB = "01M22TYSAE0023MADDP5ZQEYGW";
 const SESSION = "01HOSTEDAAAAAAAA";
 
-/** A Fleet with one Job, one live Session, and a Doctor read with SQLite warning. */
+/** A Fleet with one live Session, and a Doctor read with SQLite warning. */
 function fleetWith(): LayerFleet {
   const state = {
     connection: { state: "connected", fleet: { protocolId: "23.62", pid: 4242, port: 7421, startedAt: "Mon Oct 12 09:00:00 2026" }, cursor: 0 },
@@ -42,12 +41,9 @@ function fleetWith(): LayerFleet {
       state: "read",
       health: { probes: [{ module: "SQLite", outcome: "warn", detail: "3 rows will not load" }], not_probed: [], helm_action_authority: "read_only" },
     },
-    jobs: [{ id: JOB, handle: "12-the-drone-count-is-wrong", title: "The Drone count is wrong", status: "escalated", reason: { named: "gate_failed" }, current_step_id: "verify", assigned_drone: "d-3", workflow_id: "default" }],
     sessions: { state: "read", sessions: [{ id: SESSION, title: "Fix the flaky store test", state: "live", harness: "agent", cwd: "/repo", origin: "bridge" }] },
   };
   return {
-    stageAttachment: vi.fn(async () => ({ path: "/tmp/x.png" })),
-    proposeFromRequest: vi.fn(async () => ({ ok: true, jobs: [{ id: "01JOB", handle: "9-the-note" }] }) as never),
     startSession: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     sendSessionMessage: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
     state: vi.fn(async () => state as never),
@@ -177,7 +173,7 @@ test("a whole-window note draws no pin, and is counted on the screen it was left
   await say("Whole thing");
   await expect.element(page.getByRole("status").getByText("1 open, 0 done")).toBeVisible();
   expect(document.querySelector(".armada-annotate__pin")).toBeNull();
-  await expect.element(page.getByRole("status").getByRole("button", { name: "Dispatch job" })).toBeVisible();
+  await expect.element(page.getByRole("status").getByRole("button", { name: "Start session" })).toBeVisible();
 });
 
 test("⌥⌘S does nothing while the layer is off, and never throws away a note half written", async () => {

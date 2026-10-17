@@ -50,7 +50,6 @@ import type {
 import { captureOn, type OpenCaptureWindow } from "@armada/screens/src/capturing";
 import type {
   CheckoutRunSheetRead,
-  JobSummary,
   Outcome,
   ServerState,
   SketchToKeep,
@@ -175,8 +174,6 @@ export type StudiosProps = {
   studio: StudioRead;
   /** `null` is the list. */
   open: OpenStudio | null;
-  /** The Board's rows, which a Job node reads its state and title off. */
-  jobs: readonly JobSummary[];
   /** A live connection. Nothing is sent without one. */
   live: boolean;
   /** The node selected on the whiteboard, for the acts on it and for Helm. */
@@ -224,12 +221,8 @@ export type StudiosProps = {
   onDecideEdge: (edgeId: string, accepted: boolean) => Promise<Outcome>;
   /** The picture one Note kept, as bytes. The screen mints the `blob:` and revokes it — #1352. */
   onReadFrame: ReadStudioFrame;
-  /** One rung of promotion — cluster, outline, defer, write up, edit, settle, dispatch. */
+  /** One rung of promotion — cluster, outline, defer, write up, edit, settle, read in. */
   onPromote: (promotion: StudioPromotion) => Promise<Outcome>;
-  /**
-   * Read one Job whole — #1379. The Studio stays open underneath it. Absent draws no Open Job.
-   */
-  onOpenJob?: (jobId: string) => void;
   /**
    * Hand one node's own address to the system browser — #1406. **A Studio and a
    * node, never an address**: main reads it off the record it published, so no
@@ -505,7 +498,7 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
  * draws this when the read is one.
  */
 function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
-  const { graph: studio, open, jobs, live, selectedNode, onSelectNode, onContinue } = props;
+  const { graph: studio, open, live, selectedNode, onSelectNode, onContinue } = props;
   const [refused, setRefused] = useState<string | null>(null);
   /** Whether the confirmation for deleting what is picked is up — #1411. */
   const [clearing, setClearing] = useState(false);
@@ -579,10 +572,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       ? props.servers.find((one) => one.id === selected.run_id && one.phase !== "exited")
       : undefined;
   const starts = studioStarts(props.runSheet);
-  // **The row, not the node, is what opens.** A Job node holds a reference and
-  // no status, so a Job the Board no longer carries is one there is nothing to
-  // read — and the node draws its id, which is what says so.
-  const openable = selected?.kind === "job" ? jobs.find((job) => job.id === selected.job_id) : undefined;
 
   // A refusal says Fleet's own why, as other surfaces' do: `said` leaves a refused one blank.
   function answered(outcome: Outcome): void {
@@ -696,8 +685,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
    * Bridge's own acts on what is picked — no rung, and nothing Fleet holds.
    * **Acts on the node rather than presses on its card**: the board is a drag
    * surface, and a control inside a node is a press fighting a drag. Opening an
-   * address, a picture or a Job is reading, so a read-only Studio offers all
-   * three.
+   * address or a picture is reading, so a read-only Studio offers both.
    */
   const own: (StudioPickedAct & { press: () => void })[] = [
     ...(selected !== undefined && keepsAnAddress(selected)
@@ -716,9 +704,6 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
-    ...(openable === undefined || props.onOpenJob === undefined
-      ? []
-      : [{ id: "job", label: "Open Job", press: () => props.onOpenJob?.(openable.id) }]),
     // **A server's links and its Stop are acts on the node**, for the reason
     // every act here is: the board is a drag surface, and a button inside a card
     // is a press fighting a drag — #1345, and `StudioNode`'s own rule.
@@ -823,10 +808,10 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       <div className="armada-studio__board">
         <StudioWhiteboard
           key={studio.id}
-          nodes={whiteboardNodes(studio, jobs, frameOf, board)}
+          nodes={whiteboardNodes(studio, frameOf, board)}
           edges={whiteboardEdges(studio)}
           // The node the surface was opened at, where it was opened at one —
-          // a Job's own node, reached from its detail (#1362). Applied once,
+          // reached from outside the Studio (#1362). Applied once,
           // so every pick after it is the person's.
           pick={selectedNode}
           readOnly={!editable}

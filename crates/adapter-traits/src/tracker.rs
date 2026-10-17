@@ -1,18 +1,19 @@
-//! The issue tracker a repository keeps: what is open there, and the three
-//! things Fleet writes back on an issue a Job came from. #91.
+//! The issue tracker a repository keeps: what is open there, and one issue by
+//! its reference. **Read only**: Fleet never comments on, labels or edits an
+//! issue on the owner's behalf.
 //!
 //! **Its own trait, not more of [`Delivery`](crate::Delivery) or
 //! [`LinkLookup`](crate::LinkLookup).** Delivery publishes a Job's branch and is
 //! held as Fleet's version-control type; a tracker need not be the forge the
-//! branch goes to. LinkLookup renders calls and runs none, which a listing and
-//! a write cannot keep to. `docs/concepts/tracker.md`.
+//! branch goes to. LinkLookup renders calls and runs none, which a listing
+//! cannot keep to. `docs/concepts/tracker.md`.
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::{FromOutside, IssueAddress, LinkLookup};
+use crate::{FromOutside, LinkLookup};
 
 /// One open issue, as the tracker listed it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,14 +65,13 @@ impl NotTracked {
     }
 }
 
-/// Reading a repository's open issues, and writing back on one.
+/// Reading a repository's open issues.
 ///
-/// **No method closes an issue or edits its text.** Fleet comments and moves
-/// its own labels; an issue closes when the pull request that names it merges
-/// (`closing_line`), which is the forge's act and a person's merge.
+/// **No method writes.** Nothing comments on an issue, moves its labels, edits
+/// its text or puts a closing line on a pull request; `the_tracker_trait_has_no_write_method`
+/// in `adapters` holds the trait to it.
 ///
-/// Every method is the operator's credentials, as with `Delivery`: Fleet runs
-/// these, and no Drone holds a type that implements this.
+/// Every method is the operator's credentials, as with `Delivery`.
 pub trait Tracker {
     /// Every open issue in the repository checked out at `in_repo`, newest
     /// edit first. Pull requests are not issues here.
@@ -84,30 +84,6 @@ pub trait Tracker {
     /// [`open_issues`](Tracker::open_issues).
     fn read_issue(&self, in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked>;
 
-    /// Post `text` on the issue as a comment.
-    fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked>;
-
-    /// Add `add` and take off `remove`, in one write. **Only these labels are
-    /// touched**: a label somebody else put on the issue stays. A label the
-    /// repository does not have yet is made.
-    fn relabel(
-        &self,
-        issue: &IssueAddress,
-        add: &[&str],
-        remove: &[&str],
-    ) -> Result<(), NotTracked>;
-
-    /// The line a pull request body carries so that merging it closes the
-    /// issue, in this tracker's own syntax. `None` where it cannot say one.
-    fn closing_line(&self, issue: &IssueAddress) -> Option<String>;
-
-    /// What the pull request's **title** carries so that this tracker links the
-    /// two, for a tracker that reads the title and not the body. `None` where
-    /// the body's [`closing_line`](Tracker::closing_line) is the whole of it,
-    /// which is every tracker but the ones that say otherwise.
-    fn title_mark(&self, _issue: &IssueAddress) -> Option<String> {
-        None
-    }
 }
 
 /// Which tracker a repository's Manifest chose: the provider where it named

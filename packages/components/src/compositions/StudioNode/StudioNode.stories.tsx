@@ -2,13 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { expect } from "storybook/test";
 
-import { JOB_STATUS } from "../../generated/vocabulary";
 import { StudioAddNode } from "../StudioAddNode/StudioAddNode";
 import { StudioNode, StudioNodeDraft } from "./StudioNode";
 
 /**
  * One story per kind on `docs/concepts/studio.md`, each drawing every state the
- * page gives that kind. Run and Job are the only ones in colour.
+ * page gives that kind. Run is the only one in colour.
  */
 const meta: Meta<typeof StudioNode> = {
   title: "Compositions/Studio node",
@@ -41,7 +40,7 @@ function Row({ children }: { children: ReactNode }) {
   );
 }
 
-/** Running, passed, failed and stopped, each in its `--run-*` hue, which aliases a Job colour. */
+/** Running, passed, failed and stopped, each in its `--run-*` hue, which aliases a status colour. */
 export const Run: Story = {
   render: () => (
     <Row>
@@ -56,7 +55,7 @@ export const Run: Story = {
     const busy = canvas.getByText("pnpm test").closest("[aria-busy]");
     await expect(busy).not.toBeNull();
     await expect(canvas.getByText("cargo xtask verify-foundations").closest("[aria-busy]")).toBeNull();
-    // A run reads as a run, never with a Job's verb.
+    // A run reads as a run.
     for (const words of ["running", "passed", "failed", "stopped"]) {
       await expect(canvas.getByText(words)).toBeVisible();
     }
@@ -375,42 +374,14 @@ export const IssueDraft: Story = {
   },
 };
 
-/** Every Job status the registry carries, each read from it rather than retyped. */
-export const Job: Story = {
-  render: () => (
-    <Row>
-      {Object.keys(JOB_STATUS).map((status) => (
-        <StudioNode key={status} kind="job" state={status} title="Run colours on the run sheet" facts={["j-1277"]} />
-      ))}
-    </Row>
-  ),
-  play: async ({ canvas }) => {
-    for (const rendering of Object.values(JOB_STATUS)) {
-      if (rendering?.verb) await expect(canvas.getAllByText(rendering.verb).length).toBeGreaterThan(0);
-    }
-    const running = JOB_STATUS.running?.verb ?? "running";
-    await expect(canvas.getByText(running).closest("[aria-busy]")).not.toBeNull();
-    await expect(canvas.getAllByText("Job").filter((kind) => kind.closest("[aria-busy]"))).toHaveLength(1);
-  },
-};
-
-/** A status the registry has no verb for renders its wire spelling and says so. */
-export const JobInAStatusWithNoVerb: Story = {
-  args: { kind: "job", state: "paused_for_lunch", title: "A status Bridge has not heard of" },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByTitle("No verb in the registry for paused_for_lunch")).toBeVisible();
-  },
-};
-
 /**
- * A Run and a Job not read yet. A Studio holds a reference and never the state, so until the run
- * or the Job is read the card says no state rather than a guessed one, and nothing pulses.
+ * A Run not read yet. A Studio holds a reference and never the state, so until the run is read the
+ * card says no state rather than a guessed one, and nothing pulses.
  */
-export const RunAndJobNotRead: Story = {
+export const RunNotRead: Story = {
   render: () => (
     <Row>
       <StudioNode kind="run" title="01RUN00000000000000000000A" />
-      <StudioNode kind="job" title="01JOB00000000000000000000B" />
     </Row>
   ),
 };

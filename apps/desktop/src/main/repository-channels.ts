@@ -2,9 +2,8 @@
 // locating a repository, its always-allows and Kit. Out of `index.ts` for the gate's length.
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
-import type { ChooseTriggerFix, EditManifest, HoldAct, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
-import type { AddingStep, EditingStep, ReadingRepairDiff, RemovingStep } from "../shared/added-steps";
 import type { SavingWorkflow } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 
@@ -31,8 +30,6 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.editManifest, (event, body: EditManifest) =>
     connection()?.editingFor(windowIdOf(event)).edit(body),
   );
-  ipc.handle(CHANNELS.readManifestSpend, (event) => connection()?.editingFor(windowIdOf(event)).readSpend());
-  ipc.handle(CHANNELS.readManifestChecks, (event) => connection()?.editingFor(windowIdOf(event)).readChecks());
   ipc.handle(CHANNELS.readRepositoryScan, (event) => connection()?.editingFor(windowIdOf(event)).setup.readScan());
   ipc.handle(CHANNELS.readManifestProposals, (event) =>
     connection()?.editingFor(windowIdOf(event)).setup.readProposals(),
@@ -105,7 +102,6 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   );
   // Triggers: the list, one definition, a save and a removal.
   ipc.handle(CHANNELS.readTriggers, (event) => connection()?.triggersFor(windowIdOf(event)).list());
-  ipc.handle(CHANNELS.readAlerts, (event) => connection()?.triggersFor(windowIdOf(event)).alerts());
   ipc.handle(CHANNELS.readTrigger, (event, reading: ReadingTrigger) =>
     connection()?.triggersFor(windowIdOf(event)).definition(reading),
   );
@@ -115,18 +111,4 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.removeTrigger, (event, removing: RemovingTrigger) =>
     connection()?.triggersFor(windowIdOf(event)).remove(removing),
   );
-  ipc.handle(CHANNELS.chooseTriggerFix, (event, jobId: string, body: ChooseTriggerFix) =>
-    connection()?.triggersFor(windowIdOf(event)).chooseFix(jobId, body),
-  );
-  ipc.handle(CHANNELS.rerunTrigger, (event, jobId: string, body: HoldAct) =>
-    connection()?.triggersFor(windowIdOf(event)).rerun(jobId, body),
-  );
-  ipc.handle(CHANNELS.skipTrigger, (event, jobId: string, body: HoldAct) =>
-    connection()?.triggersFor(windowIdOf(event)).skip(jobId, body),
-  );
-  // Steps added to one Job: keyed by the Job, so neither goes through the pick.
-  ipc.handle(CHANNELS.addJobStep, (_event, adding: AddingStep) => connection()?.addedSteps.add(adding));
-  ipc.handle(CHANNELS.removeJobStep, (_event, removing: RemovingStep) => connection()?.addedSteps.remove(removing));
-  ipc.handle(CHANNELS.editJobStep, (_event, editing: EditingStep) => connection()?.addedSteps.edit(editing));
-  ipc.handle(CHANNELS.readRepairDiff, (_event, reading: ReadingRepairDiff) => connection()?.addedSteps.repairDiff(reading));
 }

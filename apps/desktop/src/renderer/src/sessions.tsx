@@ -15,7 +15,6 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
-  PilotAct,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -39,7 +38,6 @@ import type {
   ProseTerminalValue,
   ChipOwnershipValue,
   FreshStart,
-  PilotValue,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
@@ -136,7 +134,6 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
 }
@@ -160,10 +157,9 @@ async function startFreshFrom(draft: SessionsDraft, session: Session, text: stri
   return fresh;
 }
 
-/** Who owns each chip, for every chip in the window, and the exits of a piloted Job. */
+/** Who owns each chip, for every chip in the window. */
 export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: string) => void; children: ReactNode }) {
   const sessions = useSessions();
-  const draft = useSessionsDraft();
   const value = useMemo<ChipOwnershipValue>(
     () => ({
       ownerOf: (chip: OwnerChipRef) => {
@@ -174,25 +170,7 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
     }),
     [sessions, onOpen],
   );
-  /** Whether the last act Fleet refused was an exit, so its refusal is said under the exits and nowhere else. */
-  const [exited, setExited] = useState(false);
-  const said = useSessionsSaid();
-  const pilot = useMemo<PilotValue | null>(() => {
-    if (draft?.exit === undefined) return null;
-    const { exit } = draft;
-    return {
-      exit: (jobId, way) => {
-        setExited(true);
-        exit(jobId, way);
-      },
-      said: exited ? said : undefined,
-    };
-  }, [draft, exited, said]);
-  return (
-    <ChipOwnership.Provider value={value}>
-      <PilotAct.Provider value={pilot}>{children}</PilotAct.Provider>
-    </ChipOwnership.Provider>
-  );
+  return <ChipOwnership.Provider value={value}>{children}</ChipOwnership.Provider>;
 }
 
 /** What Fleet refused the last act on a Session, in the words it gave. */
@@ -362,15 +340,9 @@ export function ReadingSheet({
 }) {
   const floor = useAtFloor();
   const [pressed, setPressed] = useState<{ number: number; act: PullRequestAct } | undefined>(undefined);
-  // A Review Fleet accepted, kept for the Session and pull request it was asked of.
-  const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
   const press = (number: number, act: PullRequestAct) => {
     setPressed({ number, act });
-    void onAct(number, act)
-      .then((accepted) => {
-        if (accepted && act === "review") setReviewed((was) => new Set(was).add(`${sessionId}#${number}`));
-      })
-      .finally(() => setPressed(undefined));
+    void onAct(number, act).finally(() => setPressed(undefined));
   };
   const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
   const subagent = one?.kind === "subagent" ? one : undefined;
@@ -384,7 +356,6 @@ export function ReadingSheet({
         lines={lines}
         floor={floor}
         pending={pressed?.number === one.number ? pressed.act : undefined}
-        reviewed={reviewed.has(`${sessionId}#${one.number}`)}
         sentBack={sentBack(one)}
         onAct={(act) => press(one.number, act)}
         onSendBack={() => sendBack(one)}
@@ -581,8 +552,7 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  // A Job a Session once held is not drawn: a Session shows nothing about Jobs.
-  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "job" }> => one.kind !== "job" && (one.kind !== "slot" || !carried.has(one.slot)));
+  const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {

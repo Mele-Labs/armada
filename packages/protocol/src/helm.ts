@@ -55,10 +55,6 @@ export type HelmContext = {
   screen: HelmScreen;
   /** The repository the rail has picked. Absent for All repositories. */
   picked?: string;
-  /** The Job chipped above Helm's message box — present only while the chip stands. */
-  chip?: string;
-  /** The row the cursor is on, in the Board or in Overview. Neither always has one. */
-  cursor?: string;
   /** The Studio open on the Studios surface. Absent on its list, where `screen` is still `studio`. Since 14.7, #1287. */
   studio?: string;
   /** The node selected on that Studio's whiteboard. Only with `studio`. Since 14.7. */
@@ -68,7 +64,6 @@ export type HelmContext = {
 /** Which screen is showing. `App.tsx` is the one place that decides between them. */
 export type HelmScreen =
   | "overview"
-  | "board"
   | "manifest"
   | "cleanup"
   | "studio"
@@ -81,8 +76,7 @@ export type HelmScreen =
    */
   | "settings"
   /** The Workflow creator. Since 23.34. */
-  | "workflows"
-  | "job_detail";
+  | "workflows";
 
 /** What a person said, as Fleet took it, and what it carried. */
 export type HelmAsked = {

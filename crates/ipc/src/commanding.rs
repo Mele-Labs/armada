@@ -1,247 +1,22 @@
-//! A command a Drone reached for and was not given, and what a person answers.
-//!
-//! **Two paths, one set of answers.** A Job set to [`WhenBlocked::AskMe`]
-//! holds its Drone inside the permission call and a person answers while
-//! it waits. A Job at [`WhenBlocked::RefuseAndHold`] refuses the call at
-//! once, stops at `blocked_by_policy`, and a person answers the
-//! [`Refusal`](crate::Refusal) row instead. `answer_command` takes both,
-//! and the call id says which.
-//!
-//! **Neither enum wraps a `core-model` value.** Unlike [`crate::enums`],
-//! and for [`Settled`](crate::Settled)'s reason: these are this seam's
-//! own closed sets with no registry behind them, so the spelling is
-//! declared here once. Bridge matches on both to choose which controls to
-//! draw, so a new value in either is a major bump —
-//! [`WhenBlocked::AllowAll`] was one, and is why the protocol is at 11.
+//! The commands a person always-allowed for a repository: the rows Fleet keeps
+//! and the request that takes one back.
 
 use serde::{Deserialize, Serialize};
 
 use crate::enums::Actor;
-use crate::ids::{DroneId, Instant, StepId};
+use crate::ids::Instant;
 
-/// What a Job does when its Drone reaches for a command it was not given.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WhenBlocked {
-    /// Refuse the call and stop the Job at `blocked_by_policy`, for a person to
-    /// answer later. Asks nobody at the time — a person only sees the refused
-    /// row once they go looking.
-    RefuseAndHold,
-    /// Hold the Drone inside the call and ask a person now. **Where every Job
-    /// starts**, so nothing runs ungranted without a person also being asked.
-    /// The step stays `running` while it waits, and an allow lets it carry on
-    /// in the same session.
-    AskMe,
-    /// Run every command the Drone reaches for without asking. **Except two**,
-    /// which still stop for a person: one `armada.yml` declares destructive, and
-    /// one the harness cannot grant — a push. **Since 11.0.**
-    AllowAll,
-}
-
-/// What a person may answer about one refused command.
-///
-/// **Offered, never assumed.** Each place a person answers carries the subset
-/// Fleet will take for that command, and an answer outside it is a 409 — so a
-/// command nobody may allow here is offered nothing, and says why.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CommandAnswer {
-    /// Run it, and let this Job run it again without asking. Recorded on the
-    /// Job and nowhere else.
-    AllowForJob,
-    /// Everything [`AllowForJob`](CommandAnswer::AllowForJob) does, and the
-    /// command written into `armada.yml` under `commands` as its own commit on
-    /// the Job's branch — so it reaches every Job after this one once the
-    /// branch lands.
-    AlwaysAllow,
-    /// Do not run it. The Drone is told, and goes on without it.
-    Reject,
-}
-
-/// One command a Drone is waiting on a person to allow or reject, right now.
-///
-/// # It is not a status, and neither registry is touched
-///
-/// [`QuestionInFlight`](crate::QuestionInFlight)'s argument exactly: the Job is
-/// `running` and its step is `running` while the Drone waits, and the wait ends
-/// without either moving. So this rides beside the state rather than being one.
-///
-/// # Only under [`WhenBlocked::AskMe`]
-///
-/// Under [`WhenBlocked::RefuseAndHold`] the call is refused the moment it
-/// arrives and nothing waits; what a person answers then is a
-/// [`Refusal`](crate::Refusal) on a stopped Job. **`asked_at` crosses once and
-/// every surface subtracts for itself**, as a question's does.
-///
-/// # The whole argument stays in the file
-///
-/// [`Refusal`](crate::Refusal)'s rule, for its reason: `detail` is one line,
-/// `truncated` and `length` say so, and Fleet reads the rest by `call` when it
-/// explains the command — which matters more here, because what a person is
-/// being asked to allow is the whole command and not its first line.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommandInFlight {
-    /// The harness's id for the call. **What an answer names**, and what makes
-    /// an answer from a window left open across it a refusal rather than a
-    /// coincidence.
-    pub call: String,
-    /// Which step's Drone is waiting. A Job runs one step at a time.
-    pub step_id: StepId,
-    /// Which Drone asked. **A step can run several at once** (a Drone per
-    /// task), so `step_id` alone cannot say whose panel to open. Absent where
-    /// Fleet could not identify the asker — never guessed — and from a Fleet
-    /// older than the field. **Since 23.32.**
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub drone_id: Option<DroneId>,
-    /// When the harness asked, by Fleet's clock.
-    pub asked_at: Instant,
-    /// The tool reached for, in the harness's own spelling — a string for
-    /// [`Refusal::tool`](crate::Refusal::tool)'s reason.
-    pub tool: String,
-    /// The command, or the argument, bounded to one line. **Empty is a tool
-    /// whose argument this vocabulary has no name for**, never an invented one.
-    pub detail: String,
-    /// Whether [`detail`](CommandInFlight::detail) is less than what was sent.
-    pub truncated: bool,
-    /// How many characters the argument had before anything was cut. `None`
-    /// where Fleet could not measure it, which a surface says rather than
-    /// inventing a size.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub length: Option<usize>,
-    /// What a person may answer, in the order a surface draws them. An answer
-    /// that is not here is refused.
-    pub offers: Vec<CommandAnswer>,
-    /// Candidate Always-allow rules for this command, shortest first — the
-    /// leading cuts of it, stopping short of anything that chains. Empty where
-    /// [`offers`](CommandInFlight::offers) does not carry
-    /// [`CommandAnswer::AlwaysAllow`]. **Since 13.4.**
-    #[serde(default)]
-    pub rules: Vec<String>,
-    /// The rule pre-selected for a person, always one of
-    /// [`rules`](CommandInFlight::rules) where it is `Some`. **Since 13.4.**
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub suggested_rule: Option<String>,
-}
-
-/// A person's answer to one refused command. The request half of
-/// `answer_command`.
-///
-/// **One body for both paths**, because the call id already says which: a call
-/// a Drone is waiting on right now is answered in place, and a refused row on a
-/// Job stopped at `blocked_by_policy` restarts the step. A second route would
-/// be a surface deciding which path a command is on, which Fleet already knows.
-///
-/// **It carries prose on a reject, since 11.5.** It did not until then, on
-/// [`ChosenAnswer`](crate::ChosenAnswer)'s reason, with `redirect_drone` named
-/// as where words go. What falsified that is the shape of the moment: a person
-/// looking at a command they are about to refuse has the reason in mind right
-/// then, and telling them to reject first and redirect second is two acts
-/// across two boxes for one thought. The owner asked for it on 12 Sep 2026,
-/// having just rejected a command and wanted to say why.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AnswerCommand {
-    /// [`CommandInFlight::call`], or [`Refusal::call`](crate::Refusal::call).
-    /// An id naming nothing waiting or refused on the Job is a 409.
-    pub call: String,
-    /// One of that command's offers. Anything else is a 409.
-    pub answer: CommandAnswer,
-    /// Why, in the person's own words, carried to the Drone inside the
-    /// refusal. **Only a reject reads it** — an allow needs no reason and a
-    /// Drone told why it was allowed learns nothing it can act on. Absent is
-    /// the bare refusal, which is what every Fleet before 11.5 sent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
-    /// The rule a person picked off [`CommandInFlight::rules`] or
-    /// [`Refusal::rules`](crate::Refusal::rules). **Only Always allow reads
-    /// it** — naming one on any other answer would ask Fleet to declare a rule
-    /// on a command that was never always-allowed. A name outside that
-    /// command's own candidates is a 409. Absent is the whole command, which
-    /// is what every Fleet before 13.4 always declared. **Since 13.4.**
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rule: Option<String>,
-    /// Where an Always allow is kept. **Only Always allow reads it.** Absent is
-    /// the repository, which is what every Fleet before 23.35 kept it in. Since
-    /// 23.35.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope: Option<AlwaysAllowScope>,
-    /// How the Drone is told to carry on, beside the answer.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mode: Option<crate::AnswerMode>,
-}
-
-/// Where an [`CommandAnswer::AlwaysAllow`] is kept.
-///
-/// **A field of the answer and not a fourth [`CommandAnswer`]**, which Bridge
-/// matches on: a value added there is a major bump, and this one is read by
-/// Fleet alone, so a Bridge that never sends it is answered as it always was.
-/// Which scopes are offered is not on the wire: every Fleet at 23.35 or later
-/// takes both, and a Bridge that sends `kit` to an older Fleet is refused at
-/// the handshake, which is the direction that survives.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AlwaysAllowScope {
-    /// Every Job against this Manifest. What Always allow has meant since
-    /// `#836`.
-    Repository,
-    /// Every Job on this machine, in Kit's allowlist, `~/.armada`. **Matched by
-    /// the same rule as a repository's, and withheld by the same three:** a
-    /// command a Manifest declares destructive, one it runs a Check for, and
-    /// one the harness cannot grant stay refused whatever Kit lists.
-    Kit,
-}
-
-/// The request half of `set_when_blocked`. **A live setting on one Job**: the
-/// next permission question reads it, and no Drone is respawned for it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SetWhenBlocked {
-    pub when_blocked: WhenBlocked,
-}
-
-/// How far a person's allow reaches.
-///
-/// **The seam's own set, like the two above**, and for their reason: Bridge
-/// matches on it to say which of the two rows an allow lives in.
-/// `core_model::Reach` is the domain's and is mapped here rather than
-/// wrapped, as [`WhenBlocked`] is in Fleet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Reach {
-    /// This Job only — [`CommandAnswer::AllowForJob`].
-    Job,
-    /// Every Job against this Manifest —
-    /// [`CommandAnswer::AlwaysAllow`]. **Since `#836`, kept by Fleet itself,
-    /// per Manifest, and never written into `armada.yml`.** A row at this
-    /// reach in `JobDetail::allowed_commands` is one a Fleet before `#836`
-    /// wrote into `armada.yml` and this Job's own row together; a row in
-    /// [`crate::JobDetail::repository_allowed_commands`] is the current shape.
-    Repository,
-}
-
-impl From<core_model::Reach> for Reach {
-    fn from(reach: core_model::Reach) -> Reach {
-        match reach {
-            core_model::Reach::Job => Reach::Job,
-            core_model::Reach::Repository => Reach::Repository,
-        }
-    }
-}
-
-/// One command a person allowed — a row of
-/// [`JobDetail::allowed_commands`](crate::JobDetail::allowed_commands) or of
-/// [`JobDetail::repository_allowed_commands`](crate::JobDetail::repository_allowed_commands),
-/// and of [`RepositoryAllowedCommands`], which is the same row read apart from
-/// any one Job.
+/// One command a person always-allowed for a repository.
 ///
 /// **Every field of the record crosses**, which is a decision rather than a
 /// default: `run` is text a person already read in full before allowing it, and
 /// nothing else on the record is private to Fleet.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AllowedCommandRow {
-    /// The command, as the person allowed it. **What `remove_allowed_command`
-    /// or `remove_repository_allowed_command` names**, so it crosses whole and
+    /// The command, as the person allowed it. **What
+    /// `remove_repository_allowed_command` names**, so it crosses whole and
     /// never cut to one line.
     pub run: String,
-    pub reach: Reach,
     /// When it was allowed, by Fleet's clock.
     pub allowed_at: Instant,
     pub by: Actor,
@@ -251,7 +26,6 @@ impl From<&core_model::AllowedCommand> for AllowedCommandRow {
     fn from(allowed: &core_model::AllowedCommand) -> AllowedCommandRow {
         AllowedCommandRow {
             run: allowed.run.clone(),
-            reach: allowed.reach.into(),
             allowed_at: (&allowed.allowed_at).into(),
             by: allowed.by.into(),
         }
@@ -263,73 +37,18 @@ impl From<&core_model::AllowedCommand> for AllowedCommandRow {
 /// `#836`.**
 ///
 /// **A named wrapper rather than a bare list**, matching every other
-/// `list_*` answer on this seam — [`ReportList`](crate::ReportList) is the
-/// precedent.
+/// `list_*` answer on this seam.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepositoryAllowedCommands {
     pub commands: Vec<AllowedCommandRow>,
 }
 
-/// The request half of `set_model`. **A live setting on one Job**, like
-/// [`SetWhenBlocked`]: the next step's spawn reads it, and the step running now
-/// keeps its model.
-///
-/// **`null` is the clear, and it is sent rather than implied.** `None` crosses
-/// as `"model":null` and each later step goes back to the model its workflow
-/// gives it. A body with no `model` key is refused, never read as a clear: a
-/// Bridge that dropped the field would otherwise throw away a person's choice
-/// and answer 200.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SetModel {
-    /// A name [`ModelChoices::models`](crate::ModelChoices::models) offers, or
-    /// `None`. A name it does not offer is a 409.
-    #[serde(deserialize_with = "stated")]
-    pub model: Option<String>,
-}
-
-/// The request half of `set_commander_model`: the model and the effort one
-/// Job's Commander runs on, over the machine's. **Both keys must be present**,
-/// `SetModel`'s rule: a Bridge that dropped one would otherwise throw away a
-/// person's choice and answer 200.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SetCommanderModel {
-    /// A name [`ModelChoices::models`](crate::ModelChoices::models) offers, or
-    /// `None` to leave the model to the machine. A name it does not offer is a 409.
-    #[serde(deserialize_with = "stated")]
-    pub model: Option<String>,
-    /// An effort the setting spells (`harness default`, `low`, `medium`,
-    /// `high`), or `None` to leave it to the machine.
-    #[serde(deserialize_with = "stated")]
-    pub effort: Option<String>,
-}
-
-/// The request half of `remove_allowed_command`. **This Job's own row only**:
-/// the next reach for the command is answered by the Job's [`WhenBlocked`]
-/// again, and a rule always-allowed for the repository is a different row,
-/// [`RemoveRepositoryAllowedCommand`]'s.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RemoveAllowedCommand {
-    /// [`AllowedCommandRow::run`], exactly. A command this Job holds no allow
-    /// for is a 409.
-    pub run: String,
-}
-
 /// The request half of `remove_repository_allowed_command`. **Since `#836`.**
 ///
-/// Not scoped to a Job: it names a rule kept for the Manifest, and every Job
-/// against it stops being granted the rule from the next spawn on. A rule
-/// this Manifest holds no allow for is a 409.
+/// It names a rule kept for the Manifest. A rule this Manifest holds no allow
+/// for is a 409.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoveRepositoryAllowedCommand {
     /// [`AllowedCommandRow::run`], exactly.
     pub run: String,
-}
-
-/// An `Option` whose key must be present. `deserialize_with` turns off serde's
-/// rule that a missing `Option` is `None`, which is the whole point.
-fn stated<'de, D>(input: D) -> Result<Option<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Option::<String>::deserialize(input)
 }

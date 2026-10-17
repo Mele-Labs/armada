@@ -6,15 +6,16 @@
 // these files exist to repair. They share a shape — `Failure notice` — the way
 // six Job states share one row shape, and `notice.ts` is that shape.
 //
-// **Twelve codes, each with a class and a builder, and they divide by failure
+// **Thirteen codes, each with a class and a builder, and they divide by failure
 // rather than by part.** Three lists of twelve would put a code in one file and
 // the argument for its class in another. What each builder knows is the seam
 // instead:
 //
 // | File | What it is handed | The failures |
 // | --- | --- | --- |
-// | `reading.ts` | state Fleet published, read every render | the connection, a row the store refused |
+// | `reading.ts` | state Fleet published, read every render | the connection |
 // | `commands.ts` | the answer to something somebody pressed | a refusal, a command Fleet did not answer, a route not built yet |
+// | `build.ts` | the build report Fleet read | a restart that did not take |
 // | `thrown.ts` | an exception raised in this process | a render that threw, a throw no boundary saw |
 //
 // **Bridge mints a code for each of its own faults, and each is declared beside
@@ -31,3 +32,4 @@ export type { Failure, FailureFacts } from "./notice";
 export * from "./reading";
 export * from "./commands";
 export * from "./thrown";
+export * from "./build";

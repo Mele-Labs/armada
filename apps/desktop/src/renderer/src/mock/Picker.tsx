@@ -85,7 +85,7 @@ function words(name: string): string {
 
 /**
  * Every walk, as a row: **the list is how one is played from a window that
- * cannot type an address**, which is Bridge's own window on a Job's mock —
+ * cannot type an address**, which is Bridge's own window on a mock —
  * `docs/practices/capture-window.md` gives it no address field.
  */
 const WALK_ROWS = [...EVERY_WALK].map(([name, one]) => ({

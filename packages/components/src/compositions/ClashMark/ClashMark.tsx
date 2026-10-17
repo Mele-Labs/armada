@@ -1,6 +1,6 @@
 import { createContext, useContext, useId, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { ChevronDown, ChevronRight, SquareTerminal, Swords, Workflow } from "lucide-react";
+import { ChevronDown, ChevronRight, SquareTerminal, Swords } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PathChip } from "../PathChip/PathChip";
@@ -19,14 +19,14 @@ import { PathChip } from "../PathChip/PathChip";
  * The rows ask for their own marks (`ClashMark kind id`), so a list does not
  * carry clashes through its props: the host provides what is known once.
  */
-export type ClashHolderRef = { kind: "job" | "session" | "main"; id: string; label: string };
+export type ClashHolderRef = { kind: "session" | "main"; id: string; label: string };
 
 /** One clash as a holder sees it: who it is with, and where the changes collide. */
 export type ClashView = { with: ClashHolderRef; paths: readonly string[] };
 
 export type Clashing = {
-  of: (kind: "job" | "session", id: string) => readonly ClashView[];
-  /** Opens the other holder: its Job, or its Session. */
+  of: (kind: "session", id: string) => readonly ClashView[];
+  /** Opens the other holder: its Session. */
   open: (holder: ClashHolderRef) => void;
 };
 
@@ -38,8 +38,8 @@ export function ClashesProvider({ value, children }: { value: Clashing; children
 
 const NONE: readonly ClashView[] = [];
 
-/** The clashes a Job or a Session is in. Empty where nothing provides them. */
-export function useClashesOf(kind: "job" | "session", id: string | undefined): readonly ClashView[] {
+/** The clashes a Session is in. Empty where nothing provides them. */
+export function useClashesOf(kind: "session", id: string | undefined): readonly ClashView[] {
   const held = useContext(Held);
   return held === undefined || id === undefined ? NONE : held.of(kind, id);
 }
@@ -58,7 +58,7 @@ export const clashSaid = (clash: ClashView): string => `Conflicts with ${clash.w
  * the other holder. In several the card names each with its paths, and a press is the row's own: the open
  * Session's bar links every holder.
  */
-export function ClashMark({ kind, id, size = 12 }: { kind: "job" | "session"; id: string | undefined; size?: 12 | 16 }) {
+export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string | undefined; size?: 12 | 16 }) {
   const held = useContext(Held);
   const clashes = useClashesOf(kind, id);
   if (clashes.length === 0) return null;
@@ -117,15 +117,15 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "job" | "session"; id
 /** Paths drawn while a long list is folded. A list of one more than this is drawn whole: "1 more" saves nothing. */
 const SHOWN = 3;
 
-/** The Jobs and Sessions whose bar he opened, by owner. One bar to an owner, so a clash arriving does not change it. */
+/** The Sessions whose bar he opened, by owner. One bar to an owner, so a clash arriving does not change it. */
 const opened = new Set<string>();
 
 /**
- * The clashes in an open Job or Session, as one bar however many there are. Folded it is a line: the other holders as chips,
+ * The clashes in an open Session, as one bar however many there are. Folded it is a line: the other holders as chips,
  * each linked and named in a tooltip. Opened it lists each clash as a row: the other holder and the paths that conflict.
  * A long list of paths folds to its first few and one chip to open the rest. Nothing where there is none.
  */
-export function ClashNotice({ kind, id }: { kind: "job" | "session"; id: string | undefined }) {
+export function ClashNotice({ kind, id }: { kind: "session"; id: string | undefined }) {
   const clashes = useClashesOf(kind, id);
   if (clashes.length === 0) return null;
   return (
@@ -137,7 +137,6 @@ export function ClashNotice({ kind, id }: { kind: "job" | "session"; id: string 
 
 function Holder({ clash }: { clash: ClashView }) {
   const held = useContext(Held);
-  const Glyph = clash.with.kind === "job" ? Workflow : SquareTerminal;
   return clash.with.kind === "main" ? (
     <Tooltip label={clashSaid(clash)}>
       <span className="armada-clash-notice__with" data-main>
@@ -148,7 +147,7 @@ function Holder({ clash }: { clash: ClashView }) {
     // Beside the toggle and not in it: a press opens the holder and leaves the bar as it is.
     <Tooltip label={clashSaid(clash)}>
       <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
-        <Glyph size={14} strokeWidth={2} aria-hidden="true" />
+        <SquareTerminal size={14} strokeWidth={2} aria-hidden="true" />
         {clash.with.label}
       </button>
     </Tooltip>

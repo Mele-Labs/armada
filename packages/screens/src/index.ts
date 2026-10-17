@@ -10,17 +10,10 @@
 // used to be a `window.armada` call written inline, which is precisely what
 // held these files inside the app.
 
-export * from "./Report";
-export * from "./Reports";
-export * from "./Row";
-export * from "./landed-words";
-export * from "./Taken";
-export * from "./freeze";
 // A repository's Studios, and one open on its whiteboard. #1287.
 export * from "./studio";
 export * from "./studio-frames";
 export * from "./studio-reads";
-export * from "./title";
 export * from "./board";
 // The merge line `armada land` keeps, as Fleet serves it. Since 22.1.
 export * from "./merge-line";
@@ -34,20 +27,15 @@ export * from "./refusal-words";
 export * from "./outstanding";
 export * from "./duration";
 export * from "./facts";
-export * from "./frozen";
 export * from "./held";
 export * from "./keys";
 export * from "./manifest-kit";
 export * from "./verify";
 export * from "./opening";
-export * from "./origin";
-export * from "./reading";
 export * from "./drawn-patch";
-export * from "./waiting";
 export * from "./open-studio";
 // Setup and Locate are `@armada/setup`; their reads stay here, since main, the wire types and Manifest read them.
 export type * from "./setup-reads";
 export * from "./locate-reads";
 // Overview's reads stay here, since Settings and the wire types read them; the surface is `@armada/overview`.
 export type * from "./overview-reads";
-export * from "./pausing";

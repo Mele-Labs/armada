@@ -1,21 +1,19 @@
 // Where the walk window's three views sit, and which panel it has. Pure, so it is read without a window.
 // `docs/practices/capture-window.md`, *The panel beside the page*.
 
-/** Where a note made in the window lands: the Run's Studio, the Job whose server it walks, or the Session that showed the page. */
+/** Where a note made in the window lands: the Run's Studio, or the Session that showed the page. */
 export type LandsOn =
   | { studio: { id: string; name: string | null } }
-  | { job: { id: string; handle: string } }
   | { session: { id: string; title: string } };
 
-/** What the panel beside the page holds: the Session or the Job that opened the window. */
-export type PanelSubject = { kind: "session" | "job"; id: string };
+/** What the panel beside the page holds: the Session that opened the window. */
+export type PanelSubject = { kind: "session"; id: string };
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-/** A Session's window holds its Session and a Job's its Job. **A Studio's has none**: it is read on Bridge's window. */
+/** A Session's window holds its Session. **A Studio's has none**: it is read on Bridge's window. */
 export function panelFor(landsOn: LandsOn): PanelSubject | null {
   if ("session" in landsOn) return { kind: "session", id: landsOn.session.id };
-  if ("job" in landsOn) return { kind: "job", id: landsOn.job.id };
   return null;
 }
 

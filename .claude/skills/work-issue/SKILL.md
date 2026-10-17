@@ -1,15 +1,14 @@
 ---
 name: work-issue
-description: How to work one GitHub issue the way a Job works a workflow — worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
+description: How to work one GitHub issue — worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
 ---
 
 # Working one issue
 
-**This is the `bug` workflow, run by hand.** Armada dispatches a Drone into its
-own worktree, gates each step, and holds the work at `awaiting_review` before it
-lands. When Fleet is not the one dispatching, that shape still applies up to the
-hold, and this skill is it. Here green work is previewed, adopted and goes up as
-a pull request without waiting (step 6).
+**This is the `bug` workflow, run by hand.** A Session works in its own leased
+slot, runs `armada check` when it needs to, and goes up as a pull request. Here
+green work is previewed, adopted and goes up as a pull request without waiting
+(step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
 close it. **This skill owns where the work happens and how it lands** — the two
@@ -20,16 +19,16 @@ things that skill does not say, and the two that went wrong.
 On 2026-08-28 ten issues were worked in one working tree on `main`. At the end
 none of it could be committed per issue: `gate.rs` carried two, `work_product.rs`
 carried two, `routes.rs` carried three, and splitting by hunk would have produced
-commits that did not compile. A Job-proposer change that had been sitting
+commits that did not compile. A proposer change that had been sitting
 uncommitted since before the session was swept into somebody else's commit by a
 single `git add crates/fleet`.
 
 **Nothing was lost and the tests were green.** The cost was entirely in the
 history — which is to say, entirely in what the next person can reconstruct.
 
-A Drone never has this problem, because Fleet decides where it works and it
-works on one thing. The rule is not "be careful"; it is that the isolation is
-not the agent's to arrange.
+A Session in a leased slot never has this problem, because Fleet decides where it
+works and it works on one thing. The rule is not "be careful"; it is that the
+isolation is not the agent's to arrange.
 
 ## The loop
 
@@ -44,7 +43,7 @@ prints. A slot keeps the last lease's `target/`, so the first build is
 incremental, and the pool is the machine's cap — a lease waits while every slot
 is held. It fetches and cuts the branch from the base itself.
 `agent-worktrees` has the rest. `.armada/worktrees/` is Fleet's and is never
-touched by hand — a Drone is working in there.
+touched by hand.
 
 **Only where `armada` does not know the verb** — the installed binary predates
 it, and `scripts/restart` is the fix — fall back to `EnterWorktree`, under
@@ -331,8 +330,10 @@ and green in the agent's report.
 **Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a
 merge or a conflict, a doc or registry edit, a fix whose cause the brief already
 names. Design, visual work and anything that crosses the seam stays on the
-default model. The owner asked for this on 2 Oct 2026, for the same reason as
-the rule above.
+default model, passed by name when the type pins `sonnet`. A lookup, or a run
+whose only job is to report what failed, goes to `model: "haiku"`. The owner
+asked for this on 2 Oct 2026, for the same reason as the rule above;
+`docs/practices/subagents.md` has which type takes what.
 
 **An agent that stalls takes its uncommitted work with it.** Confirmed 17 Sep
 2026: two `bridge-engineer` agents in a row, each briefed to move the Board's
@@ -346,7 +347,7 @@ the work inline rather than dispatching a third.
 
 **The merge is the moment.** A branch that is in `main` has a worktree holding
 nothing `main` does not, and nothing reclaims it on its own — `armada clean`
-gives back a *Job's* worktrees, not an *agent's*.
+gives back Fleet's worktrees, not an *agent's*.
 
 A leased slot is released, never removed — it refuses while anything in it is
 uncommitted or unlanded, so it checks for you:
@@ -375,11 +376,3 @@ is the check that catches it.
 `agent-worktrees` has the rest: what to keep, how to sweep safely when it has
 already got away, and why sharing one build directory between worktrees was tried
 and is not the answer.
-
-## What this skill does not do
-
-**It does not replace dispatching a Job.** When Fleet can run the work, run the
-work — hand-landing what a Job should have done hides every gap in the fleet, and
-that is how a milestone gets marked complete while nothing can reach it. Use this
-when Fleet cannot: for changes to Fleet itself, when a Drone has failed at
-something twice, or when the owner says to.

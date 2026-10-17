@@ -54,7 +54,7 @@ async fn a_number_the_tracker_does_not_have_is_a_404() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, Arc::new(FakeTracker::empty()));
     match fleet.get_issue(manifest(&fleet), "7".to_string()).await {
-        Err(Refusal::NoSuchJob(error)) => assert_eq!(error.code, "fleet.no_such_issue"),
+        Err(Refusal::NotFound(error)) => assert_eq!(error.code, "fleet.no_such_issue"),
         other => panic!("not found, not {other:?}"),
     }
 }

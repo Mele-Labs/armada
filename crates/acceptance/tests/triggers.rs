@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use config::{Manifest, TriggerCatalogue, TriggerWritten};
 use core_model::{
-    PrMode, StepId,
+    StepId,
     TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerWhen, Ulid,
     WorkflowId,
 };
@@ -154,46 +154,8 @@ fn an_undeclared_command_is_skipped_and_a_malformed_file_is_left_out() {
 
 // ------------------------------------------------------ the draft default
 
-fn workflow_with(
-    delivering: &str,
-    supporting: &str,
-    manifest: &Manifest,
-) -> core_model::FrozenWorkflow {
-    let text = format!(
-        "version: 1\nworkflow_id: drafted\nname: drafted\nsteps:\n  \
-         - id: implement\n    label: Implement\n    evidence: {{submitted: {{type: diff}}}}\n    \
-         delivers: false\n    advance_gate: auto\n{supporting}  \
-         - id: land\n    label: Land\n    evidence: {{submitted: {{type: diff}}}}\n    \
-         delivers: true\n    advance_gate: auto\n{delivering}"
-    );
-    let def = config::WorkflowDef::parse(
-        Path::new("drafted.yml"),
-        &text,
-        &config::Roster::offering_nothing(),
-    )
-    .unwrap_or_else(|refused| panic!("the workflow did not load: {refused}"));
-    config::ResolvedWorkflow::resolve(&def, manifest)
-        .expect("the workflow resolves")
-        .frozen()
-        .clone()
-}
-
-fn manifest_saying(pr_mode: Option<&str>) -> Manifest {
-    let line = pr_mode
-        .map(|mode| format!("pr_mode: {mode}\n"))
-        .unwrap_or_default();
-    Manifest::parse(
-        Path::new("armada.yml"),
-        &format!("version: 1\nid: armada\n{line}"),
-    )
-    .expect("the Manifest is well formed")
-}
-
-
-
 #[test]
-fn draft_pr_is_the_delivering_steps_to_carry_and_is_refused_anywhere_else() {
-    let manifest = manifest_saying(None);
+fn draft_pr_is_refused_on_a_step_that_delivers_nothing() {
     let wrongly = "version: 1\nworkflow_id: drafted\nname: drafted\nsteps:\n  \
                    - id: implement\n    label: Implement\n    evidence: {submitted: {type: diff}}\n    \
                    delivers: false\n    advance_gate: auto\n    draft_pr: true\n";
@@ -207,17 +169,4 @@ fn draft_pr_is_the_delivering_steps_to_carry_and_is_refused_anywhere_else() {
         refused.to_string().contains("steps[0].draft_pr"),
         "the refusal names the key: {refused}"
     );
-    // On the delivering step it loads, and what it says is carried.
-    let carried = workflow_with("    draft_pr: true\n", "", &manifest);
-    assert_eq!(
-        carried.delivering_step().and_then(|step| step.draft_pr()),
-        Some(PrMode::Draft)
-    );
 }
-
-
-
-
-
-
-

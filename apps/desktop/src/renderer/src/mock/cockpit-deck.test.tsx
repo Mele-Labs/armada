@@ -180,6 +180,6 @@ test("Esc, and a press on the list or the map away from a row or a drone, let th
 
   onRow();
   await expect.poll(cursored).toBe(1);
-  document.querySelector<HTMLElement>(".bf-plane")!.click();
+  document.querySelector<HTMLElement>(".bf-pixi")!.click();
   await expect.poll(cursored).toBe(0);
 });

@@ -265,7 +265,7 @@ What it settled for the next surface:
 - **Jobs left as a package.** The Jobs package moved its screens, fixtures and drafts
   out to `packages/screens/src/` first, and was deleted with the Job page, the Job Board and the
   Epic canvas once Sessions took the Cockpit. What outlived it: `JobsApi` and its state in
-  `apps/desktop/src/shared/api/jobs.ts`, `mock/jobs-fleet.ts` answering it, and
+  `apps/desktop/src/shared/api/jobs.ts (deleted)`, `mock/jobs-fleet.ts` answering it, and
   `mock/slices/jobs.ts`, each there because Fleet still serves Jobs. **A scenario row stays in
   desktop**: `scenarios/` is read as a glob (`list-files.md`) and each row is built with
   `holding`. **A fleet that answers another slice stays**: `workflows-fleet` answers
@@ -388,13 +388,12 @@ The lifeboat is deliberately minimal and Bridge-side code should not try to
 make it richer — its entire value is being the one path guaranteed to still
 work when the rest of the protocol has changed underneath it.
 
-**Coming back is a whole screen or it is a bug.** A resync carries the Board and
-nothing under the open Job, so what a person had open is Bridge's to read back —
-and reading back some of it is worse than reading back none, because the region
-left out is usually the one drawing the failure. Every per-Job read is
-classified in one place, `apps/desktop/src/main/screen.ts`, and a read added
-to a Job's screen belongs on that list. The rule and the two
-occasions a resync arrives on are in `docs/practices/protocol.md`.
+**Coming back is a whole screen or it is a bug.** A resync carries the ID and
+the cursor and nothing under the open Session, so what a person had open is
+Bridge's to read back — and reading back some of it is worse than reading back
+none, because the region left out is usually the one drawing the failure. The
+rule and the two occasions a resync arrives on are in
+`docs/practices/protocol.md`.
 
 **A surface that says what to press has a gap behind it.** Copy telling somebody
 to refresh is the honest thing to write while a region cannot repair itself, and

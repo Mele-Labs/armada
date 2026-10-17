@@ -1,18 +1,12 @@
-//! What a Job record calls things: the ids that name records, and the string
-//! newtypes that name a step, a criterion, a path, a model — and the Job
-//! itself.
-//!
-//! Split from [`fields`](crate::job::fields) along the heading that module's
-//! own doc comment already drew. What is here names something; what is left
-//! there is the field vocabulary — closed enums and their wire mappings, which
-//! stay beside the variants they map.
+//! What a workflow calls things: the ids that name records, and the string
+//! newtypes that name a step, a criterion, a path, a model.
 //!
 //! # Ids are newtypes over the log envelope's `Ulid`
 //!
-//! Not aliases. `redispatched_from` takes a [`JobId`] and cannot be handed a
-//! [`ManifestId`], which costs one wrapper and removes a whole class of call.
-//! The inner [`Ulid`] is the envelope's, so an id put on a log line is the same
-//! value the record holds rather than a parallel vocabulary.
+//! Not aliases. A [`ManifestId`] cannot be handed where another id is wanted,
+//! which costs one wrapper and removes a whole class of call. The inner
+//! [`Ulid`] is the envelope's, so an id put on a log line is the same value
+//! the record holds rather than a parallel vocabulary.
 
 use core::fmt;
 
@@ -49,35 +43,8 @@ macro_rules! id_newtype {
 pub(crate) use id_newtype;
 
 id_newtype! {
-    /// The `jobs` row's own key, and the `job_id` half of `job_steps`'
-    /// composite key.
-    ///
-    /// **`job-fields.toml` has no row for it.** It is carried because
-    /// `(job_id, step_id)` presupposes it and every other reference on the
-    /// record points at one.
-    JobId
-}
-id_newtype! {
-    /// The Drone working a Job. Presence, not state.
-    DroneId
-}
-id_newtype! {
     /// A Manifest — the project a Job belongs to, or one that gates it.
     ManifestId
-}
-id_newtype! {
-    /// The reading a Job was minted by, where a proposer read one request.
-    ///
-    /// **The only thing that says two Jobs are the same request.** A proposal
-    /// that splits writes no edge between the Jobs it mints — they may run in
-    /// any order, so there is nothing to sequence — and before this the split
-    /// survived only in two titles. A request naming a bug and an addition
-    /// became two Jobs on 9 Sep 2026, the first landed both, and nothing on the
-    /// record could have told the second that its work was already in its base.
-    ///
-    /// Null on a Job nobody proposed: `manual` origin, and a redispatch, which
-    /// carries [`JobId`] instead and is a different question.
-    ProposalId
 }
 id_newtype! {
     /// The WorkflowDef a Job follows. Not `task_type`: `task` is a banned

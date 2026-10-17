@@ -38,35 +38,23 @@ export const Serving: Story = {
 };
 
 /**
- * A Job's server, opened from its run sheet to be walked: no Studio, so the bar
+ * A server opened to be walked: no Studio, so the bar
  * says what it is and offers no Capture — a Note would have nowhere to land.
  */
 export const Walking: Story = {
   args: { run: "mock", address: "http://localhost:41311", studio: null },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Walking a Job's server")).toBeVisible();
+    await expect(canvas.getByText("Walking a server")).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Capture" })).toBeNull();
     await expect(canvas.getByRole("button", { name: "Reload" })).toBeEnabled();
   },
 };
 
-/**
- * A Job's server, walked: notes go to the Job, and wait there until it is sent
- * back. ⌥⌘A arms it as well as the registry's binding.
- */
-export const WalkingAJob: Story = {
-  args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas" },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText("Notes go to 44-try-a-stacked-run-beside-the-canvas")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Capture" })).toBeEnabled();
-  },
-};
-
-/** The Job's handle opens the Job in Bridge where the window offers it. */
-export const WalkingAJobLinked: Story = {
-  args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas", onOpenOwner: fn() },
+/** The Session's title opens the Session in Bridge where the window offers it. */
+export const WalkingASessionLinked: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null, session: "Findings page", onOpenOwner: fn() },
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "44-try-a-stacked-run-beside-the-canvas" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Findings page" }));
     await expect(args.onOpenOwner).toHaveBeenCalledOnce();
   },
 };
@@ -153,7 +141,7 @@ export const QuestionFolded: Story = {
 };
 
 /**
- * A Session's page, its thread drawn beside it. The bar names the Session as it would a Job, and one
+ * A Session's page, its thread drawn beside it. The bar names the Session, and one
  * press folds the panel away so the page has the window — `capture-window.md`, *The panel beside the page*.
  */
 export const WalkingASession: Story = {
@@ -169,22 +157,6 @@ export const WalkingASession: Story = {
     await expect(canvas.getByText("Notes go to Findings page")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Hide Session" }));
     await expect(args.panel?.onToggle).toHaveBeenCalledWith(false);
-  },
-};
-
-/** A Job's server, its panel folded away. The press names the kind, so it says what comes back. */
-export const JobPanelFolded: Story = {
-  args: {
-    run: "mock",
-    address: "http://localhost:41311",
-    studio: null,
-    job: "44-try-a-stacked-run-beside-the-canvas",
-    panel: { kind: "job", open: false, onToggle: fn() },
-  },
-  play: async ({ args, canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "Hide Job" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Show Job" }));
-    await expect(args.panel?.onToggle).toHaveBeenCalledWith(true);
   },
 };
 

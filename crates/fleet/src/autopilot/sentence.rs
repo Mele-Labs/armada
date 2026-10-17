@@ -43,8 +43,8 @@ next time that clock reads it. none where the sentence names no time>
     until_from: <the words, or none>
     spend: <the most to spend in total, in dollars, a number. none where it names no amount>
     spend_from: <the words, or none>
-    jobs: <the most issues to start in total, a number. none where it names no count>
-    jobs_from: <the words, or none>";
+    sessions: <the most issues to start in total, a number. none where it names no count>
+    sessions_from: <the words, or none>";
 
 /// The settings one sentence was read as, for a person to confirm or change.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -54,7 +54,7 @@ pub struct ProposedSettings {
     /// In UTC, whatever offset the answer wrote it with.
     pub until: Option<Timestamp>,
     pub spend_cap_micros: Option<u64>,
-    pub job_cap: Option<u32>,
+    pub session_cap: Option<u32>,
     /// The words of the sentence each setting was read from.
     pub quoted: Quoted,
 }
@@ -68,7 +68,7 @@ pub struct Quoted {
     pub at_once: Option<String>,
     pub until: Option<String>,
     pub spend: Option<String>,
-    pub jobs: Option<String>,
+    pub sessions: Option<String>,
 }
 
 /// Why no settings came back. The person types them instead.
@@ -158,7 +158,7 @@ pub fn read_settings(
             Some(micros_of(said).ok_or_else(|| unreadable(format!("`{said}` is not an amount")))?)
         }
     };
-    let job_cap = match line(answer, "jobs").as_deref() {
+    let session_cap = match line(answer, "sessions").as_deref() {
         None | Some("none") => None,
         Some(said) => Some(
             said.parse::<u32>()
@@ -172,13 +172,13 @@ pub fn read_settings(
         at_once,
         until,
         spend_cap_micros,
-        job_cap,
+        session_cap,
         quoted: Quoted {
             instruction: from("instruction_from"),
             at_once: from("at_once_from"),
             until: from("until_from"),
             spend: from("spend_from"),
-            jobs: from("jobs_from"),
+            sessions: from("sessions_from"),
         },
     })
 }
@@ -301,8 +301,8 @@ mod tests {
                       until_from: until 7am\n\
                       spend: 30\n\
                       spend_from: `$30 max`\n\
-                      jobs: none\n\
-                      jobs_from: none";
+                      sessions: none\n\
+                      sessions_from: none";
 
         let read = read_settings(answer, SENTENCE, &now()).expect("read");
 
@@ -315,7 +315,7 @@ mod tests {
                 at_once: Some("two at a time".to_string()),
                 until: Some("until 7am".to_string()),
                 spend: Some("$30 max".to_string()),
-                jobs: None,
+                sessions: None,
             }
         );
         assert_eq!(read.at_once, 2);
@@ -323,12 +323,12 @@ mod tests {
 
     #[test]
     fn a_quote_the_answer_leaves_out_is_none_and_the_reading_still_stands() {
-        let answer = "instruction: fix the flakes\nat_once: 1\nuntil: none\nspend: none\njobs: 3";
+        let answer = "instruction: fix the flakes\nat_once: 1\nuntil: none\nspend: none\nsessions: 3";
 
         let read = read_settings(answer, "fix the flakes, three of them", &now()).expect("read");
 
         assert_eq!(read.quoted, Quoted::default(), "no `_from` line, no quote");
-        assert_eq!(read.job_cap, Some(3));
+        assert_eq!(read.session_cap, Some(3));
     }
 
     #[test]
@@ -337,7 +337,7 @@ mod tests {
                       instruction_from: Fix   THE flakes\n\
                       at_once: 1\n\
                       at_once_from: one at a time\n\
-                      until: none\nspend: none\njobs: none";
+                      until: none\nspend: none\nsessions: none";
 
         let read = read_settings(answer, "fix the flakes", &now()).expect("read");
 

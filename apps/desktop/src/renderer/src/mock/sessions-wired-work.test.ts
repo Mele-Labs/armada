@@ -44,7 +44,6 @@ function held(sessions: SessionRecord[] = [record()], settings: unknown = null) 
   const state = {
     sessions: { state: "read", sessions },
     sessionThreads: {},
-    jobs: [],
     holds: { workflows: [FEATURE], manifests: [], models: null, repositories: [] },
     repository: null,
     helm: { state: "none" },

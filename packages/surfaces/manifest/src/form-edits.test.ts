@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { ManifestDeclared } from "@armada/protocol";
 
-import { budgetWarningsOf, draftOf, editsOf, problemsOf } from "./form-edits";
+import { draftOf, editsOf, problemsOf } from "./form-edits";
 
 const DECLARED: ManifestDeclared = {
   checks: [
@@ -244,28 +244,5 @@ describe("what keeps Save back", () => {
       "checks.clippy.run",
       "ports.web.container",
     ]);
-  });
-});
-
-describe("the budget warning", () => {
-  const SPEND = { jobs: 41, most_cost_micros: 7_120_000, most_turns: 212 };
-
-  it("says where a cap is below the costliest past Job, and names what it cost", () => {
-    const draft = { ...draftOf(DECLARED), costCap: "5", turnCap: "300" };
-    const warnings = budgetWarningsOf(draft, SPEND);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain("41 past Jobs");
-    expect(warnings[0]).toContain("$7.12");
-  });
-
-  it("says nothing at or above it, for an empty cap, or where no Job has run", () => {
-    expect(budgetWarningsOf({ ...draftOf(DECLARED), costCap: "7.12", turnCap: "212" }, SPEND)).toEqual([]);
-    expect(budgetWarningsOf({ ...draftOf(DECLARED), costCap: "", turnCap: "" }, SPEND)).toEqual([]);
-    expect(budgetWarningsOf({ ...draftOf(DECLARED), costCap: "1" }, { ...SPEND, jobs: 0 })).toEqual([]);
-  });
-
-  it("warns on turns apart from money", () => {
-    const warnings = budgetWarningsOf({ ...draftOf(DECLARED), costCap: "", turnCap: "100" }, SPEND);
-    expect(warnings).toEqual([expect.stringContaining("took 212 turns")]);
   });
 });

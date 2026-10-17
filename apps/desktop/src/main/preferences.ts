@@ -17,7 +17,7 @@ import type { Board } from "./command";
 
 /**
  * One save at a time, out. **A flag rather than a set**, `Limits`' reason:
- * there is no Job to key it on, and the panel sending this is one control.
+ * there is nothing to key it on, and the panel sending this is one control.
  */
 export class Preferring {
   private readonly board: Board;

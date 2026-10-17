@@ -6,7 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
@@ -19,10 +19,9 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 
 const ID = "01SESSIONAAAAAAAAAAAAAAAAA";
 
-/** A Board with one Job on it, over a Fleet that serves these sessions. */
+/** The base repository, over a Fleet that serves these sessions. */
 function served(fleet: FakeSessionsFleet): Scenario {
-  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
-  return fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root }));
+  return fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
 }
 
 const work = () => page.getByRole("region", { name: "Work", exact: true });
@@ -244,7 +243,6 @@ test("Sessions wired: a chip on Cleanup's tile names the session that holds its 
           held: { state: "session", holder: "Session s-01SESSIO" },
         },
       ],
-      worktrees: [],
     },
   });
   await onScreen();

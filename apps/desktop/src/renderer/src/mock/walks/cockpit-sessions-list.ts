@@ -17,7 +17,7 @@ export const cockpitSessionsList = walk("cockpit-sessions-list", [
   { look: deckRow("Trim the retry loop 49"), say: "Fifty rows are drawn at first, and this is the last of them" },
   { look: deckRow("Draft the release notes 63"), say: "Fifty more are drawn each time the end of the list comes into view. j and k walk past a page and draw what they need" },
   { key: "/", on: list, say: "/ opens the same menu from anywhere on the Cockpit outside a text box, with the caret in the search" },
-  { type: "1702", into: search, say: "The search finds a Session by its title, id, pull request, branch, slot or Job. An ended Session older than a week is listed only by a search. The band carries the words" },
+  { type: "1702", into: search, say: "The search finds a Session by its title, id, pull request, branch or slot. An ended Session older than a week is listed only by a search. The band carries the words" },
   { key: "Enter", on: search, say: "Enter closes the menu and goes to the first row, and ↑ from the first row opens it again. The row says what matched in the place of its age" },
   { press: deckRow("Backfill the audit log"), say: "An ended Session opens on the stage like a live one: its thread and its Ledger, with no box to answer in" },
   { press: role("button", "More"), say: "Fork and Retro are behind the three dots, as they were on the page" },

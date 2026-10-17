@@ -85,9 +85,6 @@ pub struct DeclaredCheck {
 pub struct DeclaredJudge {
     /// How many narrow yes/no questions this entry asks of the step's
     /// evidence. **The questions themselves do not cross.**
-    ///
-    /// Zero on an entry that only looks for gaming — which fires the Judge and
-    /// gates nothing.
     pub criteria: u32,
     /// How many independent judges answer each criterion, folded by unanimity.
     ///
@@ -96,21 +93,6 @@ pub struct DeclaredJudge {
     /// restating a default that is already the domain's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panel_size: Option<u32>,
-    /// Whether a second look rides along, asking whether the evidence was
-    /// gamed rather than whether it satisfies the step.
-    ///
-    /// **It does not gate.** A step whose only declaration is this one still
-    /// advances on its mechanical tier, and what the look found arrives as
-    /// [`Flagged`](crate::Flagged).
-    pub gaming_check: bool,
-    /// Which patterns that look watches for, spelled as `flag_if` spells them
-    /// and in its order. Since 13.50.
-    ///
-    /// **Absent where the entry declares no gaming check**, this crate's rule
-    /// for an empty list. It is what lets a reader list every pattern a step
-    /// was watched for, `not seen` included, beside the ones that were flagged.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub gaming_patterns: Vec<String>,
 }
 
 impl DeclaredJudge {
@@ -118,20 +100,18 @@ impl DeclaredJudge {
     /// declares them.
     ///
     /// **An inert entry does not cross.** The domain spells a disabled judge
-    /// check and an absent one identically — an entry with no criterion and no
-    /// pattern — so passing one through would lengthen the list without a Judge
-    /// ever being called.
+    /// check and an absent one identically — an entry with no criterion — so
+    /// passing one through would lengthen the list without a Judge ever being
+    /// called.
     ///
     /// One function rather than the same filter at each call site: the running
-    /// Job's rail and the proposal-time preview are the same declaration read
+    /// Session's rail and the proposal-time preview are the same declaration read
     /// at two moments, and two spellings of "this fires" agree only until one
     /// of them changes.
     pub fn firing(checks: &[core_model::JudgeCheck]) -> Vec<DeclaredJudge> {
         checks
             .iter()
-            .filter(|check| {
-                check.fires() || check.gaming().is_some_and(core_model::GamingCheck::fires)
-            })
+            .filter(|check| check.fires())
             .map(DeclaredJudge::from)
             .collect()
     }
@@ -143,17 +123,6 @@ impl From<&core_model::JudgeCheck> for DeclaredJudge {
             criteria: check.criteria().len() as u32,
             // Never `Some(1)`: the field's whole meaning is "more than one".
             panel_size: Some(check.panel_size()).filter(|size| *size > 1),
-            gaming_check: check.gaming().is_some_and(core_model::GamingCheck::fires),
-            gaming_patterns: check
-                .gaming()
-                .map(|gaming| {
-                    gaming
-                        .flag_if()
-                        .iter()
-                        .map(|pattern| pattern.as_wire().to_string())
-                        .collect()
-                })
-                .unwrap_or_default(),
         }
     }
 }
@@ -198,14 +167,6 @@ pub struct CheckRun {
         rename = "reused_from_dry_run"
     )]
     pub reused_from_asked_run: Option<crate::ids::Instant>,
-    /// The group whose gate it ran at, `G1` and on. **Absent on a Check run at
-    /// a step's own gate**, which held back no group, and never "unknown".
-    /// Since 23.4. `#1652`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group: Option<String>,
-    /// Which run of that group, from one. Present exactly where `group` is.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_attempt: Option<u32>,
     /// Who asked for this run. **Never absent**: a row from before 23.40 reads
     /// as `outside`. `StepDetail` stamps `gate` on every row it carries. Since 23.40.
     #[serde(default)]
@@ -229,8 +190,6 @@ impl CheckRun {
             produced: check.produced.clone(),
             output_path: check.output_path.clone(),
             reused_from_asked_run: check.reused_from_asked_run.as_ref().map(Into::into),
-            group: None,
-            group_attempt: None,
             requester: crate::Requester::default(),
         }
     }
@@ -238,24 +197,6 @@ impl CheckRun {
     /// The same run, said to be asked for by `requester`.
     pub fn requested_by(self, requester: crate::Requester) -> CheckRun {
         CheckRun { requester, ..self }
-    }
-
-    /// The same run, stamped with the group and the run of it whose gate it
-    /// ran at.
-    pub fn at_group(self, group: core_model::GroupId, run: u32) -> CheckRun {
-        CheckRun {
-            group: Some(group.to_string()),
-            group_attempt: Some(run),
-            ..self
-        }
-    }
-
-    /// [`at_group`](Self::at_group) where a record names one.
-    pub fn at(self, group: Option<(core_model::GroupId, u32)>) -> CheckRun {
-        match group {
-            Some((group, run)) => self.at_group(group, run),
-            None => self,
-        }
     }
 }
 

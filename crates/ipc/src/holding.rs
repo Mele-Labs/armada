@@ -1,33 +1,16 @@
-//! What Fleet is holding disk for, and the test each one did not pass. The
-//! wire form of `crates/fleet/src/holding.rs`, which is the definition.
+//! The slots of a repository's worktree pool, who holds each, and what a person
+//! can do with one that is stranded.
 //!
-//! **Nothing here says how large a worktree is.** Bytes are not the decision —
-//! which commits go, whether anything else has them, and which uncommitted
-//! files exist nowhere but that checkout is — and a size beside those would be
-//! the figure read first and meaning least.
-//!
-//! **A piloted worktree is not among `worktrees`**, so there is no variant
-//! below to render by mistake. `#367`, and Fleet drops it through
-//! `Holding::offerable` rather than trusting a client with a flag. Its pool
-//! slot is still in `slots`, as held by its Job: a held slot offers no reclaim,
-//! only `change_slot_pool`'s close, which leaves its holder be.
+//! The wire form of `crates/fleet/src/leasing.rs` and `rescuing.rs`.
 
 use serde::{Deserialize, Serialize};
 
-use crate::enums::JobStatus;
-use crate::ids::{Instant, JobId, ManifestId};
+use crate::ids::{Instant, ManifestId};
 
-/// Every worktree Fleet is holding disk for, ordered by Job id.
-///
-/// **Complete, including the ones the sweep will take on its own.** A list
-/// filtered to the held ones would be a list the sweep is about to change, and
-/// a person who came looking for a worktree that is not on it would have no way
-/// to tell "already gone" from "Fleet has it and will not say".
+/// Every slot of each served repository's pool, as `armada worktree --status`
+/// reads it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorktreesHeld {
-    pub worktrees: Vec<WorktreeHeld>,
-    /// Every slot of each served repository's pool, as `armada worktree
-    /// --status` reads it. Since 23.16.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slots: Vec<WorktreeSlot>,
 }
@@ -59,8 +42,7 @@ pub struct WorktreeSlot {
     #[serde(default)]
     pub closed: bool,
     /// What a slot holds that a Scrap would lose. Present where `held` is
-    /// `stranded`, and where it is a Job's with `kept`. Since 23.29. Since
-    /// 23.37 also where an agent session holds it and its checkout has
+    /// `stranded`, and where an agent session holds it and its checkout has
     /// uncommitted files, as `uncommitted` alone: what a `release` commits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stranded: Option<SlotStranded>,
@@ -79,7 +61,7 @@ pub struct SlotStranded {
     pub commits: Vec<SlotCommit>,
     /// Of those, how many are on neither the remote nor the base.
     pub unpushed: u32,
-    /// Who held the slot last, where Fleet can say: a Session or a Job.
+    /// Who held the slot last, where Fleet can say.
     /// Absent where the record names none, as for a terminal Fleet does not
     /// host.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -90,17 +72,17 @@ pub struct SlotStranded {
     pub told: Option<Instant>,
 }
 
-/// The Session or Job a stranded slot was last held for.
+/// The Session a stranded slot was last held for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SlotLastHolder {
     pub kind: SlotHolderKind,
-    /// The Session's id, or the Job's.
+    /// The Session's id.
     pub id: String,
     /// Its title, where the ledger or the store still has it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    /// A Session still live, or a Job not yet ended. Fleet tells only an open
-    /// Session; a holder that is not open is gone, and a rescue Scout reads
+    /// A Session still live. Fleet tells only an open Session; a holder that
+    /// is not open is gone, and a rescue Scout reads
     /// the slot without a press.
     pub open: bool,
 }
@@ -110,7 +92,6 @@ pub struct SlotLastHolder {
 #[serde(rename_all = "snake_case")]
 pub enum SlotHolderKind {
     Session,
-    Job,
 }
 
 /// One commit on a stranded slot's branch.
@@ -211,7 +192,7 @@ pub enum RescueAct {
     Scrap,
     /// Commit the uncommitted work, push the branch and free the slot.
     Stash,
-    /// Stash, then propose a Job that continues from the branch. Since 23.30.
+    /// Stash, then start a Session that continues from the branch.
     PickUp,
 }
 
@@ -272,6 +253,16 @@ pub struct SlotPoolChanged {
     pub released: Option<SlotReleased>,
 }
 
+/// What was committed to a slot's branch so that freeing the slot loses
+/// nothing. Nothing is pushed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReclaimedSaved {
+    /// The WIP commit, on the slot's branch.
+    pub commit: String,
+    /// The files it took, as git names them.
+    pub files: Vec<String>,
+}
+
 /// The branch a released slot's work is on, and what was committed to it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SlotReleased {
@@ -279,11 +270,10 @@ pub struct SlotReleased {
     /// The WIP commit and its files. Absent where the slot held nothing
     /// uncommitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub saved: Option<crate::ReclaimedSaved>,
+    pub saved: Option<ReclaimedSaved>,
 }
 
-/// Who holds a slot, or why nothing can. Tagged on `state`; widening it is a
-/// major bump, for `HeldReason`'s reason.
+/// Who holds a slot, or why nothing can. Tagged on `state`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum SlotHolding {
@@ -295,24 +285,6 @@ pub enum SlotHolding {
     /// A take or a release is under way.
     Busy,
     Free,
-    /// One of Fleet's Jobs. The title is absent where the store no longer
-    /// has the Job.
-    Job {
-        job_id: JobId,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        job_title: Option<String>,
-        /// Where the Job ended, for a Job that has. Since 23.29.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        job_status: Option<JobStatus>,
-        /// Why the Job's release was refused after it ended: its work is in
-        /// the slot, which it still holds. Since 23.29.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        kept: Option<String>,
-        /// The Job completed and holds the slot until a person clears it.
-        /// Since 23.29.
-        #[serde(default)]
-        completed: bool,
-    },
     /// A process outside Fleet, as `ps` names it: `zsh (pid 4120)`.
     Session {
         holder: String,
@@ -325,8 +297,7 @@ pub enum SlotHolding {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_title: Option<String>,
     },
-    /// A Session Fleet hosts, holding the slot under its own id. Not a Job,
-    /// and nothing a Job's acts apply to.
+    /// A Session Fleet hosts, holding the slot under its own id.
     HostedSession {
         session_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -336,99 +307,4 @@ pub enum SlotHolding {
     Stranded {
         why: String,
     },
-}
-
-/// One Job's worktree, and every test it failed.
-///
-/// The Job is named as a person reads it — the title and where it got to —
-/// because the id alone is a ULID and the decision is about work somebody
-/// remembers doing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorktreeHeld {
-    pub job_id: JobId,
-    pub job_title: String,
-    pub status: JobStatus,
-    /// When Armada last moved anything on this Job.
-    ///
-    /// **Not when the files in the checkout were last written**, and nothing
-    /// on this seam can be: the dirty reading is `git status --porcelain`,
-    /// which answers names and not times. It is a floor — a checkout whose Job
-    /// stopped four days ago has been sitting at least that long — and it is
-    /// carried because *twenty minutes* and *four days* are different decisions
-    /// on the one reason where reclaiming destroys something.
-    pub last_moved_at: Instant,
-    /// The checkout on disk. **What a person goes and looks at**, and the one
-    /// value here that is worth copying.
-    pub path: String,
-    /// Whether the checkout is still there. False exactly when
-    /// `adapters::standing` reads it absent. Since 13.32.
-    pub on_disk: bool,
-    /// The branch the Job derived. Named even where it is already gone: it is
-    /// what the commits are recoverable from.
-    pub branch: String,
-    /// **Empty is the whole of the safety claim.** Fleet's own sweep takes
-    /// exactly the empty ones, so a row with nothing here is a row nobody has
-    /// to decide about.
-    pub held: Vec<HeldReason>,
-}
-
-impl WorktreeHeld {
-    /// Whether Fleet will give this one back without being asked.
-    pub fn provably_safe(&self) -> bool {
-        self.held.is_empty()
-    }
-}
-
-/// One test a worktree did not pass.
-///
-/// **Tagged on `why`, and each arm carries what its own decision needs.** The
-/// count of commits without the branch they are on, or a claim of uncommitted
-/// work without the filenames, is a row that asks somebody to guess.
-///
-/// **Not a `wire_enum`, because there is no registry for it.** `enums`'s rule
-/// is a `core-model` key spelled through `as_wire`, and `reclaimed` already
-/// argued the exception for this kind of value: the set is a reading of git and
-/// of Fleet's scheduler, not a state the Job machine can be in.
-///
-/// **Widening it is a major bump.** Bridge branches on `why` to pick which
-/// facts to show, which is `docs/practices/protocol.md`'s row for a variant the
-/// other side matches on — `FleetCapacity.held_by`'s caveat does not reach it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "why", rename_all = "snake_case")]
-pub enum HeldReason {
-    /// The Job is still moving, so it may still need its worktree. **Nothing
-    /// may reclaim this one** — `reclaim_worktree` refuses a status that is not
-    /// terminal, and a surface that offered it would be offering a 409.
-    NotTerminal { status: JobStatus },
-    /// The branch holds commits the base cannot reach.
-    ///
-    /// **Reclaiming does not destroy them.** There is no force on this seam, so
-    /// the checkout goes and the branch stays exactly where it is — which is
-    /// what makes this the reason a person can act on most freely, and why the
-    /// tip travels: it is what the work is reachable from afterwards.
-    Unmerged {
-        base: String,
-        commits: u32,
-        tip: String,
-    },
-    /// Nothing could say what the branch would be merged into, so nothing can
-    /// say whether it holds a copy of anything. Kept, for the same reason an
-    /// unmerged branch is kept: the cost of guessing wrong is a lost commit.
-    BaseUnanswered { detail: String },
-    /// Files written and committed nowhere.
-    ///
-    /// **The one reason where reclaiming destroys something.** Uncommitted work
-    /// leaves a branch level with its base, so every merged-ness reading says
-    /// the checkout is disposable — and no branch carries these, so removing
-    /// the directory is the end of them. Named file by file for that reason.
-    Uncommitted { files: Vec<String> },
-    /// Somebody locked the checkout, which is a person saying not yet. The
-    /// reclaim leaves a locked worktree alone and says so.
-    Locked { reason: String },
-    /// A Job that depends on this one has not finished, so it may still need
-    /// what this one wrote.
-    DependedOn { by: Vec<JobId> },
-    /// git would not say what is in the checkout. **Unanswered and clean must
-    /// never read alike**, because only one of them can be taken back.
-    Unreadable { detail: String },
 }

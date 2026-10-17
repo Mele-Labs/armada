@@ -11,7 +11,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::hosted_sessions::{SentFile, SessionTag, SessionThread, SessionUpload};
-use crate::ids::{Instant, JobId, ManifestId, StudioId, StudioNodeId};
+use crate::ids::{Instant, ManifestId, StudioId, StudioNodeId};
 
 /// `POST /helm/ask` — what a person says to Helm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,24 +41,15 @@ pub struct AskHelm {
     pub effort: Option<String>,
 }
 
-/// Where the person is in Bridge, as one ask carries it — `#1075`'s three
-/// decisions. A snapshot of the moment the message was sent, not a
-/// subscription: the picker, the chip and the cursor may all have moved by
-/// the time the next message goes.
+/// Where the person is in Bridge, as one ask carries it. A snapshot of the
+/// moment the message was sent, not a subscription: the picker may have moved
+/// by the time the next message goes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmContext {
     pub screen: HelmScreen,
     /// The repository the rail has picked. Absent for All repositories.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picked: Option<ManifestId>,
-    /// The Job chipped above Helm's message box — present only while the
-    /// chip stands, gone the moment its `×` is pressed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub chip: Option<JobId>,
-    /// The row the cursor is on, in the Board or in Overview. Neither always
-    /// has one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<JobId>,
     /// The Studio open on the Studios surface — absent on its list, where
     /// `screen` is still [`HelmScreen::Studio`]. Since 14.7, `#1287`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -74,7 +65,6 @@ pub struct HelmContext {
 #[serde(rename_all = "snake_case")]
 pub enum HelmScreen {
     Overview,
-    Board,
     Manifest,
     Cleanup,
     /// The Studios surface: a repository's list, or one Studio open. Since 14.7.
@@ -87,7 +77,6 @@ pub enum HelmScreen {
     Settings,
     /// The Workflow creator: the definitions Fleet holds, one open for editing. Since 23.34.
     Workflows,
-    JobDetail,
 }
 
 /// A message with something in it. **Blank does not decode**, so an empty

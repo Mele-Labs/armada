@@ -1,8 +1,7 @@
 // What Fleet's last read of `armada.yml` came to. `crates/ipc/src/reading.rs`.
 //
-// **The one shape here about the fleet and not about a Job**, beside
-// `FleetCapacity`. Every other read on this seam answers about a Job, a step or
-// a Drone; a Manifest reload belongs to none of them, which is why the only
+// **The one shape here about the fleet and not about a Session**. A Manifest reload
+// belongs to none of the others, which is why the only
 // place it used to be said was the daemon's console — a terminal window a
 // person running Bridge does not have open.
 //

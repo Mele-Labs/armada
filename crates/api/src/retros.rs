@@ -1,4 +1,4 @@
-//! `get_job_retro`, `list_lessons`, and the two acts on a Lesson. Since 23.12;
+//! `list_lessons`, and the two acts on a Lesson. Since 23.12;
 //! the acts and `?state=` since 23.26. `docs/concepts/retro.md`.
 
 use axum::body::Bytes;
@@ -8,8 +8,7 @@ use axum::response::Response;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Queries, Retros};
-use crate::reference::Resolved;
+use crate::daemon::Retros;
 use crate::served::Served;
 
 /// How many items `list_lessons` answers where `?most=` is absent.
@@ -35,18 +34,6 @@ pub(crate) struct Listing {
 #[derive(Deserialize)]
 pub(crate) struct NamedLesson {
     lesson_id: String,
-}
-
-/// What got in the way while one Job ran. Any Job, ended or not: one still
-/// running answers `pending` with its record so far.
-pub(crate) async fn get_job_retro<D: Queries + Retros>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_job_retro(job.id()).await {
-        Ok(retro) => answer(StatusCode::OK, &retro, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
 }
 
 /// The session a retro route names.

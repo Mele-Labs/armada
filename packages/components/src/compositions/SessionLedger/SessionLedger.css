@@ -1,7 +1,7 @@
 /* A Session's ledger: a sunken column of sections, each an eyebrow over rows.
    A section is drawn only once it holds a row; a ledger with nothing in it
    draws its small picture alone. A row that has just arrived steps down from
-   the running tint, as a Job row's recent tint does. Every row is one press,
+   the running tint. Every row is one press,
    with a pointer and a hover. */
 
 .armada-session-ledger {
@@ -177,14 +177,9 @@ path.armada-session-ledger__picture-later {
   border-radius: 0;
 }
 
-/* A row that carries its own acts, as a piloted Job's three exits, wraps them under it. */
+/* A row that carries its own acts wraps them under it. */
 .armada-session-ledger__row {
   flex-wrap: wrap;
-}
-
-.armada-session-ledger__row > .armada-pilot-exits {
-  flex-basis: 100%;
-  padding: 0 var(--space-3) var(--space-2);
 }
 
 /* A section's head: its eyebrow, and where there is one the Open | All toggle at the far end. */

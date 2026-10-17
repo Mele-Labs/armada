@@ -3,13 +3,13 @@
 // pull request ready, a step each time the walk lets time pass or he presses an act. The Session's `work` is draft data
 // (`packages/screens/src/draft/sessions.ts`); nothing here reaches Fleet. The walk `oneSessionView` plays it, in two takes.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent, WriteClash, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { PlanChanges, Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { linesOf } from "../../session-view/plan-marks";
 import { mockAreas } from "../cockpit-areas";
-import { asRow, holding, servedFrom } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { arrow, box, scene } from "../scenes";
 import { sessionsStore } from "../sessions/script";
@@ -17,9 +17,8 @@ import type { SessionsStore } from "../sessions/script";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const board = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
-const OWNER = board.manifests[0]!.id;
-const ROOT = servedFrom(board.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 const MINE = "one-view-1";
 const QUIET = "one-view-2";
@@ -382,9 +381,8 @@ const QUESTIONS = [
 
 // ---- The store -------------------------------------------------------------------------------------------
 
-function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, control, [], [dispatched, quiet, busy, big, live]);
+function sessions(): SessionsStore {
+  const base = sessionsStore([dispatched, quiet, busy, big, live]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   revision.on = false;
@@ -707,7 +705,6 @@ const bay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlo
 
 function pool(): WorktreesHeld {
   return {
-    worktrees: [],
     slots: [
       bay(1, { state: "hosted_session", session_id: BUSY, session_title: busy.title! }, { branch: "armada/audit-rotation", since: ago(35) }),
       bay(2, { state: "hosted_session", session_id: QUIET, session_title: quiet.title! }, { branch: "fix/migration-names", since: ago(90) }),
@@ -737,11 +734,10 @@ const CLASHES: readonly WriteClash[] = [
 ];
 
 function build(): Scenario {
-  const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
-  const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, concerns, proposal", rows);
+  const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, concerns, proposal");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
+    state: { ...base.state, repository: null },
     held: pool(),
     draft: { sessions, clashes: CLASHES, events: EVENTS, areas: () => mockAreas("/armada") },
   };

@@ -61,16 +61,7 @@
           "model": "sonnet",
           "panel_size": 2,
           "prompt_key": "review_engages_with_the_diff",
-          "question": "Do these findings engage with what this diff actually does, citing specific changes - or are they generic observations that would apply to any diff?",
-          "gaming_check": {
-            "enabled": true,
-            "baseline_ref": "read.evidence",
-            "flag_if": [
-              "no_findings_on_substantial_diff",
-              "findings_not_tied_to_changed_lines",
-              "findings_generic"
-            ]
-          }
+          "question": "Do these findings engage with what this diff actually does, citing specific changes - or are they generic observations that would apply to any diff?"
         }
       ],
       "evidence_scope": {
@@ -81,8 +72,7 @@
         ],
         "max_context_size": 60
       },
-      "advance_gate": "auto_if_judge_passes",
-      "on_gaming_flag": "escalate:evidence_suspect"
+      "advance_gate": "auto_if_judge_passes"
     },
     {
       "id": "deliver",

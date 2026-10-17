@@ -50,7 +50,7 @@ fn a_closed_slot_is_never_leased_until_it_is_opened() {
 
     assert_eq!(took(&pool, "one"), Some(2), "the open slot is taken");
     assert_eq!(took(&pool, "two"), None, "the closed slot is not");
-    assert!(!pool.open_for(&Holder::job("waiting")), "nor would a Job's");
+    assert!(!pool.open_for(&Holder::hosted("waiting")), "nor would a Job's");
 
     pool.open(1).expect("slot-1 opens");
     assert_eq!(took(&pool, "two"), Some(1));

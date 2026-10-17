@@ -1,30 +1,30 @@
 # Judge
 
-**What it is:** The semantic tier of evidence verification — veto-only, blind to the Drone, fires on mechanical triggers only. Judges whether evidence satisfies step intent, never whether something happened. Model is a per-step dial, cheap by default and stronger where the step earns it.
+**What it is:** The semantic tier of verification — a stateless cheap-model call about a Session's work, veto-only, blind to the agent's transcript and run on the owner's press. Judges whether the work satisfies the request and the plan, never whether something happened. Model is a dial, cheap by default.
 
 ---
 
 **Kind:** Policy.
 
-Formalizes the Judge — the semantic tier of evidence verification. The Judge is referenced on nearly every concept document, and this document is the home of its constitutional rules.
+Formalizes the Judge — the semantic tier of verification. The Judge is referenced on nearly every concept document, and this document is the home of its constitutional rules.
 
 ## What it is
 
-The Judge is a stateless, cheap-model call that [Fleet](fleet.md) makes **after** a Mechanical Check has already passed. It answers one question the mechanical tier structurally cannot: not *did something happen*, but *was it the right thing*.
+The Judge is a stateless, cheap-model call that [Fleet](fleet.md) makes about a Session's work. It answers one question the mechanical tier structurally cannot: not *did something happen*, but *was it the right thing*.
 
-It is not an actor. It has no session, no memory between calls, no tool that writes, and no ability to transition anything. Fleet dispatches it, reads its verdict, and writes the result.
+It is not an actor. It has no session, no memory between calls, no tool that writes, and no ability to transition anything. Fleet makes the call, reads what it says, and writes the result.
 
-**It may read the repository, and only the repository.** Decided 2 Oct 2026: every call can read the repository's own checkout, read-only, for a few turns, so it learns what the repository requires of a change the way a Drone does — from CLAUDE.md, the docs and the skills. A Judge that could read only its brief refused a plan task fixing the docs a change made wrong as *scope expansion*, while the Drone had planned it because the repository asked for it. The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused, since every Job's worktree and record is under it. It starts in the checkout Fleet serves and never a Job's worktree, so a Drone cannot rewrite what its Judge reads. The turn cap is the `judge-read-turns` setting. What it costs is latency and money on every call, accepted when it was decided.
+**It may read the repository, and only the repository.** Decided 2 Oct 2026: a call can read the repository's own checkout, read-only, for a few turns, so it learns what the repository requires of a change the way an agent does — from CLAUDE.md, the docs and the skills. A Judge that could read only its brief refused a plan task fixing the docs a change made wrong as *scope expansion*, while the agent had planned it because the repository asked for it. The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused. It starts in the checkout Fleet serves and never a Session's worktree, so an agent cannot rewrite what its Judge reads. The turn cap is the `judge-read-turns` setting. What it costs is latency and money on every call, accepted when it was decided.
 
 | The Judge is | The Judge is not |
 | --- | --- |
-| A single model call with a narrow question, which may read the repository first | A session, a reviewer agent, or a Drone |
+| A single model call with a narrow question, which may read the repository first | A session, a reviewer agent, or an agent that acts |
 | The second of two verification tiers | A replacement for human review |
 | A veto | A vote, a score, or an approval |
-| Triggered by mechanical signals | A scheduled or polling detector |
+| Run when a person asks | A scheduled or polling detector |
 | Called Judge, always | The auditor, the reviewer, or AI review |
 
-**"Auditor" is retired vocabulary.** See `../contracts/design-system.md` lexicon. The Judge is not a [Drone](drone.md).
+**"Auditor" is retired vocabulary.** See `../contracts/design-system.md` lexicon.
 
 ## Why it exists
 
@@ -35,140 +35,54 @@ The core principle from [Workflow](workflow.md): self-report is a signal, not a 
 | Mechanical Check | Did something happen — diff, exit code, artifact | Free, deterministic | Intent — a weakened assertion still exits 0 |
 | Human review | Was it the right thing | Your attention | Volume — it does not scale to a queue |
 
-Evidence gaming is the failure mode a Mechanical Check passes **by design**. Human attention spent on routine steps is unavailable for the calls that need it.
+Evidence gaming is the failure mode a Mechanical Check passes **by design**. Human attention spent on routine work is unavailable for the calls that need it.
 
 The Judge occupies the middle: machine cost, semantic reach. Measured in v1 at roughly 4k input / 300 output tokens per judgment — under a cent on Haiku.
 
-**Rejected: spawning a full child Job and Drone for review.** That gives the reviewer a session, tools and the ability to act, all of which are liabilities in a verifier, at many times the cost.
+**Rejected: spawning a full agent session for review.** That gives the reviewer a session, tools and the ability to act, all of which are liabilities in a verifier, at many times the cost.
 
 ## Constitutional constraints
 
-**Loosen any one of these and the Judge becomes a second opinion drawn from the same failure distribution as the Drone it is checking.**
+**Loosen any one of these and the Judge becomes a second opinion drawn from the same failure distribution as the agent it is checking.**
 
-**1. Veto-only, never a vote.** The Judge runs only after the mechanical check holds, and may only refuse; it can never grant advancement the mechanical tier did not already earn.
-Why: there is no such thing as a Judge pass — only a mechanical pass the Judge declined to refuse, and a model that can grant is a model that can be talked into granting.
+**1. Veto-only, never a vote.** The Judge may only refuse; it can never grant anything.
+Why: there is no such thing as a Judge pass — only work the Judge raised nothing against, and a model that can grant is a model that can be talked into granting.
 
-**2. Blind to the Drone, and shown the request.** The Judge never sees the Drone's transcript or self-report, and receives only the original task text, the diff, the deterministic facts, and what the repository requires of every change where its Manifest names a file — [Manifest](manifest.md), *What every change here carries*.
-Why: a verifier that reads the defendant's testimony is not independent, so the Drone's own account is removed as a contamination source — and a verifier that cannot see what was asked for can only check whether a document agrees with itself, which passes a well-written answer to the wrong question.
-Enforced at prompt assembly — `../contracts/agent-prompt.md` section 7. Both halves are the signature of `verification::Brief::about`: it has no `submission` parameter and no `transcript` parameter, and its `request` parameter is not optional. The request is the Job's title, its facts and its `acceptance_criteria`, read off the Job row through a constructor that takes nothing else.
-
-**The deterministic facts are every declared Check, what it answered, and what it printed.** A skipped Check names the paths it covers, because a Judge told only that one was skipped cannot tell a Check that covered nothing relevant from one that should have run and did not — opposite facts rendering as the same three words. A Check that ran carries the tail of its output, bounded at a couple of thousand characters per Check; the number is a judgement with no calibration behind it. Only a passed or a skipped Check is reachable here, since the mechanical tier stops the step before any Judge is called. All of it is pre-loaded from what the gate already recorded, so nothing about it is fetched and a verdict stays reproducible from the call.
-
-> The criteria arrive as **the whole Job's** bar and are labelled so. No Judge criterion names which acceptance criterion it tests: the `source_ref` in the sketch below is refused at parse, and the join is not built. Until it is, a criterion cannot be written against one of them by name.
+**2. Blind to the agent, and shown the request.** The Judge never sees the agent's transcript or self-report, and receives only the original request the person dispatched with, the plan, the diff against the base, and what the repository requires of every change where its Manifest names a file — [Manifest](manifest.md), *What every change here carries*.
+Why: a verifier that reads the defendant's testimony is not independent, so the agent's own account is removed as a contamination source — and a verifier that cannot see what was asked for can only check whether a document agrees with itself, which passes a well-written answer to the wrong question.
+Enforced at prompt assembly — `../contracts/agent-prompt.md` section 7. `verification::Work` has no field for a transcript, and the request is not optional.
 
 **3. Narrow question.** Every question is yes/no, never "review this".
 Why: open-ended prompts produce agreeable prose, and a narrow question has a wrong answer.
 
 **4. A refusal must cite.** A refusal names the specific evidence it is refusing on.
-Why: that citation is the artifact the Drone retries against and the human reads — no separate summary exists, so an uncited refusal is unactionable for both audiences.
+Why: that citation is the artifact the agent hears and the person reads — no separate summary exists, so an uncited refusal is unactionable for both audiences.
 
 **And the citation is checked against what the call was shown.** A refusal that puts words in quotation marks is claiming those words appear in the material above it; where they appear in none of it, the call failed and no verdict was reached — same shape as an answer in prose or an empty one, never a refusal and never a pass. Why: a citation is what makes a refusal persuasive, so an invented one is not a stricter reading but an unfalsifiable one, and a criterion of the form *does this do anything the scope note did not describe* is only as good as the Judge's reading of the note. The check is containment over the brief and costs no second call; it is deliberately blind to quotations under four words, which are terms rather than claims about wording.
 
-**5. Unanimity, not majority.** A `panel_size` above 1 runs independent judges against identical inputs, none seeing the others' verdicts, and **any single refusal fails the step**.
-Why: majority voting would let the Judge grant by consensus, breaking rule 1, so a panel stays a stricter veto rather than a vote.
-
-**Agreement decides who answers a refusal, never whether there is one.** A step one member refused is refused; what a panel's agreement changes is whether a person is needed to say so. See *When the Judges agree*, below.
-
-**6. Cold by default.** The Judge fires on mechanical triggers only, never on a schedule, and on a well-behaved Drone it never runs at all.
-Why: a detector that polls is the wrong design — the Judge costs money, and a free mechanical signal decides when it is worth spending.
+**5. Cold by default.** The Judge runs on a person's press, never on a schedule.
+Why: a detector that polls is the wrong design — the Judge costs money, and a person's press decides when it is worth spending.
 
 > How a v1 path citation resolves — and why it currently needs a commit hash — is on `../contracts/design-system.md`, Typography of reference.
 
-## Where it fires
-
-| Trigger | What is asked | Gates advancement? |
-| --- | --- | --- |
-| Step evidence gate | Does this evidence satisfy the step's criteria | Yes — a refusal is a gate failure, standard retry flow |
-| Gaming check | Baseline comparison against an earlier step's evidence, and a second reading of anything it flags | No — a flag a second reading agrees with routes as its own `evidence_suspect` escalation |
-| Declared plan drift | Did live edits fall outside the declared `context_paths` | No — tags the step for a mandatory Judge look |
-| Thrashing ceiling | Converging, justified drift, or thrashing? | No — force-interrupts with a report-now directive |
-| Final review | What this diff does, and what a human should look at closely | No — `gates_advancement: false`, advisory only |
-| Gate-definition change | Did an edit to a Check definition weaken the gate it defines | No — makes the attempt visible without blocking |
-| Scope request | Do the paths a Drone asked for belong to the step it was given | No — a refusal escalates, and nothing advances either way |
-
-Per row:
-
-- **Step evidence gate** runs only after the mechanical check has passed.
-- **Gaming check** names its baseline with `baseline_ref`. `flag_if` names the patterns that make work look green while gutting it, and not all of them reach the Judge. A pattern the patch text itself settles — a test file removed whole, a skip marker added to a test that used to run, a change to the configuration a Check's command resolves through — costs no call, because paying a model for an answer `git diff` already gives is money for nothing. The rest need the change understood before they can be answered — an assertion that now asserts less, tests still running but covering less than they did, a test that would pass whatever the code under it did — and each of those is one narrow Judge question. The config-edit pattern was added because editing `package.json` `scripts.test` honours a frozen `run:` string exactly while narrowing the gate, and a diff catches that without needing the change understood. [Workflow](workflow.md) carries the set and the same split.
-- **Gaming check routes as `evidence_suspect`, not gate-failure.** Why: resubmission under the same instructions likely reproduces the same gaming.
-- **A flag stops a step only once a second reading agrees with it.** Each judged pattern is one first look on the step's own model, allowed no reasoning. A flag it raises goes to a second call on a stronger model, shown the same baseline and diff plus the flag and the question it answered, and allowed to reason before it answers. Where that call agrees, or cannot be read, or fails, the flag stands and the step stops. Where it disagrees and says why, the step advances and the flag is kept as cleared, with that reason — the record of how often the first look is wrong. Why only on a flag: raising every first look to the stronger model would cost on every step, and a second reading costs only where it can change the outcome. Both calls keep this contract — the repository's checkout to read and nothing else — and neither is shown what the Drone said about its work. A pattern the diff decides is a fact about the patch and is not read again.
-- **A comment is never an assertion.** A test-content flag whose cited line is a comment is not raised, decided mechanically off the located line after the answer and at no cost. The test-content questions say so too, and ask whether the earlier step's evidence called for the change.
-- **Declared plan drift** does not fail the step, because legitimate investigation sometimes moves the work. It measures the step's own declaration and never the Job's `write_targets` — of the two lists called a Job's scope, the declaration is the one that meets a diff. [Change a Job's scope](../journeys/change-a-jobs-scope.md) holds the pair.
-- **Thrashing ceiling** fires when turn count or wall-clock exceeded the step norm. A Drone that goes quiet after the report-now directive has its step stopped, and the step's stated reason is a `forced_report` row naming the report that never came. A Drone still writing inside its declared plan is not stopped for it.
-- **Final review** pre-digests the diff for the human and never replaces them.
-- **Gate-definition change** covers an edit to a Check definition in `armada.yml`. The spawn-time freeze already protects this Job's gate; the look exists to make the attempt visible and to let a legitimate edit flag rather than block.
-- **Scope request** is the one look about a plan rather than about work, and the one a Drone asks for. It is shown the step, the request the Job answers, the Job's `write_targets`, the paths asked for and the Drone's reason — **and not the diff**, which would be the thrashing question. It is the one look that reads the Job's list rather than the step's declaration, and a Job whose list is null cannot reach it at all. It answers consistency with the step and never desirability. A Judge call ends nothing, so the Drone keeps its session while it is out; a refusal escalates and a person is met by the exception rather than by every request. [Change a Job's scope](../journeys/change-a-jobs-scope.md).
-
-### Whether a step is judged at all is a setting
-
-**Not yet built.** A step's gate is one value today — `auto`, `auto_if_judge_passes`, `human_always`, or a rule the repository decides — so asking for a Judge without Checks, or for a person alone, means editing the workflow file. It becomes three settings a step carries independently: Checks, Judge, and you. [Workflow](workflow.md) holds the schema and what each combination means.
-
-**The step evidence gate is the row that setting governs**, and nothing else in the table above. The gaming check, the drift look and the thrashing ceiling are Fleet's own and run whatever is set — the `gate` module (deleted since). A step with nothing ticked is still read for work that went outside the plan.
-
-Every trigger is mechanical, and a scope request is no exception — the trigger is a tool call rather than a schedule. The Judge never fires on a timer, on a healthy Drone with nothing asked of it, or on its own initiative.
-
 ## A Session's judge
 
-Since 16 Oct 2026. A Session is not a Job and has no step to gate, but the same call reads its work. **The same call, the same answer format and the same reading**: a brief laid in labelled parts so a citation says where it landed, an answer quoting words not in the brief discarded, a refusal that must say what was expected, produced and what follows (`verification::Brief::about_work`).
+Since 16 Oct 2026. A Session has no step to gate, and the Judge's call reads its work. **A brief laid in labelled parts so a citation says where it landed, an answer quoting words not in the brief discarded, a refusal that must say what was expected, produced and what follows** (`verification::Brief::about_work`).
 
-**What it is shown is `Work`'s fields and nothing else**: the request the person dispatched with, the plan, the repository's standing rules and the diff against the base, cut at 120,000 characters with a note saying so. There is no parameter for the transcript, so it cannot read the agent's account of its own work, as a Job's Judge cannot. It reads no checkout.
+**What it is shown is `Work`'s fields and nothing else**: the request the person dispatched with, the plan, the repository's standing rules and the diff against the base, cut at 120,000 characters with a note saying so. There is no parameter for the transcript, so it cannot read the agent's account of its own work. It reads no checkout.
 
-**One call for each question.** A step's `judge_checks` give the questions at a boundary, and the tile adds a standing one, whether the diff carries out the plan and stays inside the request. A panel size and a gaming check are ignored here. What it raises is a concern the person sends or dismisses (`session.md`, *The judges*); it gates nothing. This is the Judge rows of *Where it fires* with **no gate**, like the final review.
+**One call for each question.** A step's `judge_checks` give the questions at a boundary, and the tile adds a standing one, whether the diff carries out the plan and stays inside the request. A panel size and a gaming check are ignored here. What it raises is a concern the person sends or dismisses (`session.md`, *The judges*); it gates nothing.
+
+**No judge runs at a step boundary.** The tile runs one when the person presses it. How a judge reads the work is reworked before any runs on its own again.
 
 ## Multi-criterion judging
-
-Supersedes the single-`question` shape.
 
 One narrow question per step forces every acceptance condition into a single yes/no, which either makes the question broad (violating rule 3) or silently drops conditions. A refusal also loses resolution: "the fix does not address the root cause" cannot say *which* of four requirements went unmet.
 
 **`judge_check.criteria[]` replaces `question`.** Each criterion is dispatched as its own narrow yes/no call.
 Why: this preserves rule 3 rather than bending it — the question gets narrower, not broader.
 
-**A step passes only if no criterion draws a refusal.** Same unanimity semantics as `panel_size`, on a different axis. Two axes, one rule.
-
-**`Job.acceptance_criteria[]` is new and frozen at Job creation.** Each criterion carries a source — `ticket`, `helm_drafted` or `human`.
-Why: it is the load-bearing half of the change — without it the Judge grades against a list it invented, which is unfalsifiable and quietly puts self-report back in the trust path.
-
-**A criterion may be appended at an approved widening, never edited, reordered or removed.** Why: appending is safe because citations use frozen positions. It is the person's act at the gate and the only route by which criteria are appended: a Drone asking to widen has no field to raise its own bar with.
-
-**Evidence gains one Judge record per step, holding every judge's verdict.** Each verdict carries `{criterion_id, verdict, citation, source}`, where `source` is the verification-source vocabulary: `check`, `judge`, `attestation`.
-
-`attestation` means **a person attested**. It is settable only by a human, renders distinctly, and carries `confirmed` or `withheld` — which is neither mechanical vocabulary.
-
-**Citations name the criterion only.** Why: which judge raised a refusal is detail inside the record rather than part of the link, so the reference a Drone retries against keeps its shape whether `panel_size` is 1 or 3.
-
-**A refusal can hold the step rather than fail it.** A criterion asks a person by default: the step waits at its gate with the Drone alive, and the answer is agree with the refusal, disagree for this step, or disagree for the repository — the last recorded against the criterion, so it is not asked again here. Agreeing sends the step back to a fresh Drone by the restart road, the Judge's `expected`, `produced` and `consequence` and the person's note waiting in its opening brief; no retry budget is read, because a person's answer is not a retry. Why: a person who agrees with a refusal wants the work fixed, not the Job stopped — the owner's ruling of 2 Oct 2026, after Agree had stopped a Job he expected to go round again. A `judge_checks[]` entry may carry `on_refusal: refuse` to stop the step outright, and a Job's own setting overrides in either direction. `declared_plan_drift` is the one criterion that can never fail a step: it tags, or it asks.
-
-### When the Judges agree
-
-**A refusal the whole panel agreed on goes back to the Drone, with what was expected and what was found, and no person is asked.** The step goes round again as a failed Check's does: the Job stays `running`, the step passes through `retrying` signed by the Judge, and the same Drone works it again. Why: an Autopilot Job that runs overnight cannot stall on every refusal until morning, and a refusal two different models made independently is not the close call a person is there for.
-
-All four must hold, on every criterion that refused, or the refusals reach a person exactly as they did before:
-
-| Must hold | Why |
-| --- | --- |
-| Every member of the criterion's panel refused | A split is a close call, and a person reads close calls |
-| The members ran on at least two models | One model asked three times agrees with itself more than two models would. A panel of one model is not a second opinion |
-| No member called the work risky | Risk is the Judges' own call, not a list of paths. A refusal that only says the work needs redoing goes back; one a member says could do harm a redo would not undo does not |
-| Fewer than two went back already on this pass | Two retries, then a person. Past it, redoing the work has stopped working |
-
-**`panel_models` names one model per member**, and sizes the panel. A check without it runs every member on its `model`, so a `panel_size: 3` alone still sends every refusal to a person. `panel_size` defaults to one, so nothing goes back to a Drone until a workflow asks for a panel of different models.
-
-**Only a panel's members are asked about risk, and only on a refusal.** Each answers `risky: no`, or says what in the work could break, lose or expose something. A member that refuses and does not say is an unreadable answer, never a safe one, so silence cannot send work back. The reason is kept on the member's judgment. A Judge of one is asked and read exactly as before.
-
-**The drift look never goes back**: it runs no panel, so there is no agreement to read. A criterion a repository stood down with "always disagree" is not a refusal here either.
-
-**This makes the gaming check carry more than it did.** A refusal that returns to a Drone unseen leaves the gaming look as the one thing between a Drone and work shaped to satisfy the criterion rather than the request.
-
-### Cost
-
-`criteria × panel_size` is the call count and it multiplies. Four criteria at `panel_size: 3` is twelve calls — roughly 48k input / 3.6k output, still cents on Haiku. It bills against the [Manifest](manifest.md) budget cap like any other spend.
-
-**`default_gate_policy` carries a stated call-count ceiling per step**, overridable per step, with `unbounded` a legal value, defaulting to today's realistic worst case.
-
-**Money was never the driver — latency is.** The calls sit at a gate a person is waiting behind, and each one is a chance to trip `max_context_size`, which escalates.
-
-The product also stopped being fixed at Job creation: `acceptance_criteria[]` may be appended at a person's approved widening, so the left factor can climb mid-Job. **The scope-request look is outside the product** — it is one call, no panel, declared by nothing, exactly as the drift and thrashing looks are. What bounds it is one ask per step.
+**A reading raises a concern for each criterion that draws a refusal.** Each is a call in the thread with its own citation, so the person can send one and dismiss another.
 
 ### Schema sketch
 
@@ -176,43 +90,20 @@ The product also stopped being fixed at Job creation: `acceptance_criteria[]` ma
 "judge_check": {
   "enabled": true,
   "model": "haiku",
-  "panel_size": 1,
   "criteria": [
     {
       "criterion_id": "c1",
-      "source_ref": "job.acceptance_criteria[0]",
       "question": "Do expired tokens refresh once rather than per request?"
     },
     {
       "criterion_id": "c2",
-      "source_ref": "job.acceptance_criteria[1]",
       "question": "Does a failed refresh sign the session out?"
     }
-  ],
-  "gaming_check": {
-    "enabled": true,
-    "baseline_ref": "root_cause.evidence",
-    "flag_if": ["assertion_weakened", "test_scope_narrowed",
-                "test_skipped", "test_deleted", "check_config_edited"]
-  }
+  ]
 }
 ```
 
-**The** `baseline_ref` **above is contested** (see Open questions). Bug's sample sets `root_cause.evidence` while its own Compliance table still says the baseline is `repro`'s failing assertion. The two catch different things, and this sketch does not settle it.
-
-## Outputs and where they land
-
-| Output | Lands in |
-| --- | --- |
-| Verdict + citation | Job `evidence[]`, step-and-timestamp attributed |
-| A refusal's content | Named fields inside the Judge record |
-| Pass/fail | `workflow_status.last_step_verdict` |
-| Gaming flag | `escalated` with reason `evidence_suspect` once a second reading agrees; kept as cleared, with its reason, where it does not |
-| Prior judgments | Escalation payload, carrying **all** prior Judge summaries |
-| UI surface | `evidence_suspect` renders as **evidence disputed** |
-| Summary prose | Governed by `../contracts/agent-copy.md` |
-
-Verdicts land as one Judge record per step carrying every judge's verdict. Pass/fail is held separately from `step_activity`, so a retrying step can carry both what is happening and why. Record shape is on [Job](job.md), What an Evidence entry holds.
+## What a refusal holds
 
 A refusal's content is three named fields, never a formatted string:
 
@@ -222,26 +113,11 @@ A refusal's content is three named fields, never a formatted string:
 | `produced` | What will be seen instead |
 | `consequence` | What that difference does to whoever consumes it |
 
-`consequence` is the field a person triages on. What reaches a live Drone is `expected` and `produced` only, and a field selection is what makes that withholding safe.
+`consequence` is the field a person triages on. The concern card heads with it.
 
-**Judge renders in the verification source field, never in the headline.** Why: that keeps P5 (event-first) intact. Avoid "Judge rejected the evidence" — `rejected` is already a Job state.
+Summary prose is prompt plus mechanical lint, governed by `../contracts/agent-copy.md`. **Substance requirement: every Judge summary must cite a file, line or assertion that could not appear in any other Session's summary.** A summary that reads plausibly under a different Session has failed.
 
-Summary prose is prompt plus mechanical lint. **Substance requirement: every Judge summary must cite a file, line or assertion that could not appear in any other job's summary.** A summary that reads plausibly under a different job has failed.
-
-### What each member read, and what each was handed
-
-Two readings per member per criterion, beside the verdict. Both are records of the *call* rather than of the answer, and both are absent on every verdict written before protocol 8.3.
-
-| Reading | What it holds | What it is for |
-| --- | --- | --- |
-| `cited[]` | Every quotation this member made that the brief holds, as the labelled part of the brief and the lines it is on — `check:test_suite`, 2007–2008 | Two members refusing off the same lines and two refusing off different ones are the same verdict and different situations |
-| `given` | A digest of the exact text this member's call was sent, its size, and its model | Rule 5 rests on the members running against identical inputs, and until this the guarantee was asserted by the shape of a loop and observable nowhere |
-
-**The citation is placed, never quoted back.** The record already carries the words in `expected` and `produced`; what it lacked was where in the brief they came from. The labels are recorded as the brief is assembled rather than recognised in it afterwards, so a citation names the part the assembler wrote and not a heading a reader matched.
-
-**`cited[]` is empty on a no-objection, and that is not a gap.** Under the answer format a `met` verdict is one line, so it writes no prose to quote out of — which is why a surface listing what each member read can only show refusals. A refusal that argues in the Judge's own words is empty for the same reason and is a complete refusal under rule 4. **Absent is a third answer** and means nobody recorded, which is not the same as either.
-
-**The digest is a comparison and never a signature.** Its whole span is the rows of one panel, written by one build in one pass. It is taken off the call that went out rather than off the brief above it: a digest read from the shared `Brief` would say the members got the same object because the loop hands them one, which is the sentence the field exists to replace.
+**A concern's citation is placed, never quoted back.** The words are already in `expected` and `produced`; what a reader lacks is where in the brief they came from. The labels are recorded as the brief is assembled rather than recognised in it afterwards, so a citation names the part the assembler wrote and not a heading a reader matched. A refusal that argues in the Judge's own words cites nothing and is a complete refusal under rule 4.
 
 ## Configuration
 
@@ -249,47 +125,22 @@ Two readings per member per criterion, beside the verdict. Both are records of t
 | --- | --- |
 | `enabled` | Per-step. Some steps have no semantic question worth asking |
 | `model` | Per-step model dial. The rigor-scaling mechanism |
-| `panel_size` | Default 1. Rigor as a dial — see rule 5 |
-| `panel_models` | One model per member, sizing the panel. What makes a panel's agreement a second opinion — see *When the Judges agree* |
 | `criteria[]` | Per-criterion narrow questions — see above |
 | `prompt_key` | Reference into the compiled-in prompt set |
-| `gaming_check` | `baseline_ref` plus `flag_if` patterns — see Where it fires |
-| `gates_advancement` | `false` makes the pass advisory — used by final review |
-| `manifest_rule:review_gate` | Repo-level: `human_always` (default) or `auto_if_judge_passes` |
 
-**`enabled`.** Bug's `regression_verify` is purely mechanical and asks no semantic question.
-
-**`model` is a deliberate per-step dial, not fixed fleet-wide.** Routine steps use a cheap/fast model for cost and latency; the advisory final-review gate uses a stronger one. **The fleet-wide default is the cheapest model on the roster**, decided 28 Aug 2026 and carried by the Judge model config row. It is deliberately the floor rather than the middle: the dial is only legible against a default it moves away from, and Bug raising `review` to a stronger model says nothing if every step started there. A stronger default would not let the Judge see more — it reads the same checkout under the same turn cap whatever the model — it would only make every criterion cost more and take longer at a gate somebody is waiting behind.
+**`model` is a deliberate per-step dial, not fixed fleet-wide.** Routine steps use a cheap/fast model for cost and latency; a stronger one is for the step that earns it. **The fleet-wide default is the cheapest model on the roster**, decided 28 Aug 2026 and carried by the Judge model config row. It is deliberately the floor rather than the middle: the dial is only legible against a default it moves away from, and Bug raising `review` to a stronger model says nothing if every step started there. A stronger default would not let the Judge see more — it reads the same checkout under the same turn cap whatever the model — it would only make every criterion cost more and take longer for a person waiting on a press.
 
 **Judge prompts are compiled into the binary and are not user-editable.** No Kit library, no Manifest override, so prompt version is the binary version and no prompt hash is recorded on the verdict. Where the prompt library lives, and whether a prompt version is recorded on the verdict, is tracked in `../contracts/agent-prompt.md`; what a Judge is and is not told is specified there, sections 2 and 7.
 
-**`review_gate` is the repo's trust decision**, same pattern as `auto_merge`. `auto_if_judge_high_confidence` is retired vocabulary — no confidence scale ever existed; see [Workflow](workflow.md).
-
-**The Judge cost cap per check row still reads `undecided`**, and was reviewed and left open on 28 Aug 2026 rather than guessed at (see Open questions). Verification bills against the Job budget with no sub-limit of its own. What bounds Judge spend today is count-shaped rather than money-shaped: the call-count ceiling bounds `criteria × panel_size` per step, and the cost cap bounds the Job — which since 8 Sept 2026 a Manifest and the Job itself may each state, over the machine's number. That changes who can move the bound, not that the bound is the Job's.
-
-**Verification `max_context_size` is deliberately ownerless.** Why: the cap bounds all of verification rather than the Judge Check alone.
-
-**Nothing now stops a Manifest removing Judge triggers.** A Manifest could once add them and never remove them; that protection was the config direction rule, which has been withdrawn with nothing replacing it (see Open questions).
-Why it mattered: a repo that can remove them can opt out of semantic verification entirely while every other signal still reads green, and Judge is the only tier measuring correctness.
+**The Judge cost cap per check row still reads `undecided`**, and was reviewed and left open on 28 Aug 2026 rather than guessed at (see Open questions). What bounds Judge spend today is count-shaped rather than money-shaped: one call for each criterion, and only on a person's press.
 
 The **Judge confidence threshold** row is superseded and awaiting disposal (see Open questions).
 
-Evidence Scope governs what the Judge may read — `context_paths` (what changed) kept deliberately separate from `reference_docs` (the yardstick), so the Judge is never confused about which is target and which is standard. Full object on [Workflow](workflow.md).
-
 ## Dispatch and approval
 
-**A Judge call is not a sub-dispatch.** It is a call with a verdict: no worktree, no branch, no rail, no [Job Board](job-board.md) row, no `dispatched_by`, under a cent. A **sub-dispatch** is a [Drone](drone.md) spawning a **Job**, with all of those things.
-
-**It does not consume the fan-out cap.** The cap counts **Jobs only**, which is what makes "2 of 5" a legible number. [Job](job.md) keeps `spawned_jobs` and `judge_calls` as separate counts, neither of them stored.
-
-`spawned_jobs` is answered by an index on `dispatched_by`; `judge_calls` sums `panel_size` across a step's Judge records. Folding Judge calls in would make the number meaningless: a step with `panel_size: 3` and four criteria makes twelve calls and would exhaust a cap of five without spawning anything.
-
-**Auto-approval still holds, for a different reason than it used to.** A Judge call needs no human gate — not because it is a sub-dispatch, but because Fleet makes the call itself, inside an already-approved Job. Blocking there would be approval-fatigue with no decision content.
+**A Judge call is not a dispatch.** It is a call with a verdict: no worktree, no branch, no rail, no Session of its own, under a cent. It needs no approval gate, since the person's press is what starts it.
 
 ## Open questions
 
-- **[judge-visual-evidence-reading]** What can a Judge conclude from a captured frame, and is it shown one at all or only the spec that produced it? A frame is not an evidence type — capture and submission are separate since the `shown` type was removed — so what a Judge reads is the step's submitted evidence, and the frames sit beside it as something no criterion currently names. The spec is the part that is checkable — it is code, it lands in the diff, and a wrong frame comes from a wrong spec a person can read — so a Judge shown only the spec is reading the same kind of artifact it always reads, and one shown the frame is doing something this system has never asked a model to do. Blocks a captured step.
-- **[judge-cost-cap-per-check]** Does a Judge call get a cost readout, and is a per-check dollar cap the right shape for the sub-limit? Reviewed 28 Aug 2026 alongside the model default and deliberately left open: nothing can read what a Judge call cost, because the call is rendered as one-shot text and emits no result envelope, so the figure a cap would compare against never reaches Armada. A number written into the row today would be enforced by nothing while reading as a limit that was set, which is worse than an absent cap because only the absent one is visible as missing. Without it verification bills against the Job budget and competes for spend with the work it verifies — bounded meanwhile by the call-count ceiling and the Machine budget cap, the first of which needs no price to enforce and the second of which is enforced at admission rather than at a gate.
-- **[judge-triggers-removal-guard]** What now guards a Manifest from removing Judge triggers entirely? A Manifest could once add Judge triggers and never remove them — a repo that removes them can opt out of semantic verification while every other signal still reads green, and Judge is the only tier measuring correctness. That protection was the config direction rule, since withdrawn, and nothing has replaced it.
+- **[judge-cost-cap-per-check]** Does a Judge call get a cost readout, and is a per-check dollar cap the right shape for the sub-limit? Reviewed 28 Aug 2026 alongside the model default and deliberately left open: nothing can read what a Judge call cost, because the call is rendered as one-shot text and emits no result envelope, so the figure a cap would compare against never reaches Armada. A number written into the row today would be enforced by nothing while reading as a limit that was set, which is worse than an absent cap because only the absent one is visible as missing.
 - **[judge-confidence-threshold-disposal]** Is the Judge confidence threshold config row deleted or repurposed? It is superseded and currently awaiting disposal.
-- **[judge-gaming-baseline-ref-bug]** Is Bug's gaming-check baseline `root_cause.evidence` or `repro`'s failing assertion? Bug's sample schema sets `root_cause.evidence` while its own Compliance table still names `repro`'s failing assertion — the two catch different things.
