@@ -7,6 +7,8 @@
 #   python3 scripts/test_preview.py
 
 import http.server
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -774,6 +776,9 @@ class MigrationGuard(unittest.TestCase):
 
 
 RESTART_BUILD = os.path.join(HERE, "scripts", "restart-build")
+_loader = importlib.machinery.SourceFileLoader("restart_build", RESTART_BUILD)
+RESTART_BUILD_MODULE = importlib.util.module_from_spec(importlib.util.spec_from_loader("restart_build", _loader))
+_loader.exec_module(RESTART_BUILD_MODULE)
 
 
 class RestartBuild(unittest.TestCase):
@@ -850,6 +855,40 @@ class RestartBuild(unittest.TestCase):
     def test_a_failure_with_no_line_of_its_own_says_its_last_line(self):
         self.assertEqual(self.build("preview", script='printf "one\\n\\033[31mtwo\\033[0m\\n"; exit 3'), 1)
         self.assertEqual(self.status(), "failed\npreview\n\ntwo\n")
+
+    def test_the_wrapper_line_is_skipped_when_an_earlier_line_says_more(self):
+        script = ('echo "restart: fleet.json names a live pid but the API did not answer" >&2; '
+                  'echo "preview: restart exited 1"; exit 1')
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.status(), "failed\npreview\n\nfleet.json names a live pid but the API did not answer\n")
+
+    def test_the_wrapper_line_alone_is_still_reported(self):
+        self.assertEqual(self.build("preview", script='echo "preview: restart exited 1"; exit 1'), 1)
+        self.assertEqual(self.status(), "failed\npreview\n\nrestart exited 1\n")
+
+    def test_a_compile_failure_names_the_first_error_and_its_file(self):
+        script = ('echo "error[E0432]: unresolved import \\`crate::drone\\`" >&2; '
+                  'echo "  --> crates/x/src/y.rs:12:5" >&2; '
+                  'echo "error: could not compile \\`x\\` (lib) due to 1 previous error" >&2; '
+                  'echo "preview: restart exited 101"; exit 101')
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.status(), "failed\npreview\n\nerror[E0432]: unresolved import `crate::drone` (crates/x/src/y.rs:12:5)\n")
+
+    def test_a_long_compile_error_is_cut_but_keeps_the_file(self):
+        log = "error: " + "x" * 300 + "\n  --> crates/x/src/y.rs:1:1\n"
+        said = RESTART_BUILD_MODULE.one_line(log)
+        self.assertEqual(len(said), 200)
+        self.assertTrue(said.endswith(" (crates/x/src/y.rs:1:1)"), said)
+
+    def test_only_the_last_runs_errors_count(self):
+        log = ("$ preview --restart\nerror: failed to run custom build command for libsqlite3-sys\n"
+               "$ cargo clean -p libsqlite3-sys  (in /t)\n$ preview --restart\n"
+               "restart: refusing \u2014 drone-3's Drone is working\npreview: restart exited 1\n")
+        self.assertEqual(RESTART_BUILD_MODULE.one_line(log), "refusing \u2014 drone-3's Drone is working")
+
+    def test_a_typescript_error_is_a_compile_error_too(self):
+        log = "apps/desktop/src/a.ts(12,5): error TS2304: Cannot find name 'x'.\npreview: restart exited 1\n"
+        self.assertEqual(RESTART_BUILD_MODULE.one_line(log), "apps/desktop/src/a.ts(12,5): error TS2304: Cannot find name 'x'.")
 
     def test_main_is_refused_from_a_checkout_on_another_branch_and_nothing_runs(self):
         subprocess.run(["git", "-C", self.root, "checkout", "-q", "-b", "feature"], check=True)
