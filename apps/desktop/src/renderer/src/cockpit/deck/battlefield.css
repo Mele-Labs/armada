@@ -414,7 +414,8 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.bf-zoom { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); }
+/* A short pane (the Session view's Field) is shorter than the stack: what does not fit starts a second column to the left, so none is cut off. */
+.bf-zoom { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; display: flex; flex-flow: column wrap-reverse; gap: var(--space-2); max-height: calc(100% - var(--space-3) * 2); }
 .bf-zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card); }
 
 /* ---- Motion --------------------------------------------------------------------------------------------- */
