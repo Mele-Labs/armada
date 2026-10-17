@@ -2,7 +2,7 @@
 // requested or run — the merge line, a run in the checkout. Apart from
 // `App.tsx`, which is at its length.
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { ManifestChecks, type ManifestChecksProps } from "@armada/screens/src/ManifestChecks";
 import { Boundary, useAtFloor } from "@armada/shell";
@@ -22,8 +22,18 @@ import {
  */
 export function useAsked() {
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
-  const [checkFocus, setCheckFocus] = useState<string | undefined>(undefined);
-  return { mergeFocus, setMergeFocus, checkFocus, setCheckFocus };
+  const [checkFocus, setCheck] = useState<string | undefined>(undefined);
+  // The Session whose Loadout is open. It and a Check share the one panel over the work area, so opening either lets the other go.
+  const [loadoutFocus, setLoadout] = useState<string | undefined>(undefined);
+  const setCheckFocus = useCallback((next: string | undefined) => {
+    setCheck(next);
+    if (next !== undefined) setLoadout(undefined);
+  }, []);
+  const setLoadoutFocus = useCallback((next: string | undefined) => {
+    setLoadout(next);
+    if (next !== undefined) setCheck(undefined);
+  }, []);
+  return { mergeFocus, setMergeFocus, checkFocus, setCheckFocus, loadoutFocus, setLoadoutFocus };
 }
 
 type ChecksState = Pick<

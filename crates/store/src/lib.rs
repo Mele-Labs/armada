@@ -34,6 +34,7 @@ mod session_build;
 mod session_plan;
 mod session_rail;
 mod session_limit;
+mod session_loadout;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.

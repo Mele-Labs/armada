@@ -496,6 +496,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
     ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
     ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
+    ...(record.loadout_summary === undefined ? {} : { loadout: record.loadout_summary }),
     ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
       ? {}
       : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),

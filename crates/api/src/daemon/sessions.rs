@@ -304,4 +304,19 @@ pub trait Sessions: Send + Sync + 'static {
         target: String,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Owners, Refusal>> + Send;
+
+    /// `get_session_loadout` — what a session's agent knows, was told and used, the last fifty turns.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_session_loadout(
+        &self,
+        session_id: ipc::SessionId,
+    ) -> impl Future<Output = Result<ipc::SessionLoadout, Refusal>> + Send;
+
+    /// `read_loadout_item` — what one row of a session's Loadout says, read from disk where Fleet
+    /// runs. A row the Loadout does not list, or with no file behind it, is `not_read` with why.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn read_loadout_item(
+        &self,
+        asked: ipc::LoadoutItemAsked,
+    ) -> impl Future<Output = Result<ipc::LoadoutItemBody, Refusal>> + Send;
 }

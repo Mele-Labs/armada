@@ -623,6 +623,14 @@ export class WiredStore {
         ...(context_tokens === undefined || context_window === undefined ? {} : { context: { tokens: context_tokens, window: context_window } }),
       };
     },
+    loadout: async (id) => {
+      const read = await this.api.readSessionLoadout(id);
+      return read.ok ? read.value : undefined;
+    },
+    loadoutItem: async (id, item) => {
+      const read = await this.api.readLoadoutItem(id, item);
+      return read.ok ? read.value : undefined;
+    },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
