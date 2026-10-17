@@ -15,6 +15,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
+import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
 import { dropLayer, useLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
@@ -29,12 +30,15 @@ export type Hosts = { side: HTMLElement | null };
 export function SessionWorkspace({ session, entries, repositories, hosts, ed, trouble, onOpenSketch, onOpenSession, onOpenCheck, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; trouble: SlotTrouble | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; children: ReactNode }) {
   const draft = useSessionsDraft();
   const { id } = session;
-  const layer = useLayer(id);
+  const open = useLayer(id);
+  // The Field large draws itself (`FieldLayer.tsx`); the other layers are `Layer`'s.
+  const layer = open === "field" ? undefined : open;
+  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} trouble={trouble} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} />;
-  if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}</>;
+  if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
   const right = (
     <>
       <FieldPanel session={session} repositories={repositories} place="side" />
@@ -45,6 +49,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, tr
     <>
       {children}
       {layered}
+      {large}
       {hosts.side === null ? null : createPortal(right, hosts.side)}
     </>
   );

@@ -3,16 +3,24 @@
 // plots. Its own drone and a small one for each subagent hover over it and fly to the bar each is on: a file made, changed or taken
 // away is lit in the colour of that act. Each drone is doing what Fleet saw it do.
 // With no drone yet the slot is empty. Nothing here is drawn from what an agent said: a drone stands where an edit was seen.
+// The plan is carried along the Field's foot as one bar of a segment for each task, and in one take the plots a group names are framed as
+// the plan stands there. The `e` key, or the control in the band, opens the Field large in the layer over the stage (`FieldLayer.tsx`).
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { Maximize2 } from "lucide-react";
+import { Button, Tooltip } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session, WorkDrone } from "@armada/screens/src/draft/sessions";
+import { holdsText } from "@armada/screens/src/keys";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
 import type { Areas } from "../cockpit/deck/areas";
 import type { DroneIn, RepoIn } from "../cockpit/deck/layout";
 import { workingDrones } from "./field";
+import { PlanBar } from "./FieldPlan";
+import { fieldTake, groupsOf, plotsOf } from "./field-plan";
+import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 const NONE = new Map();
@@ -28,7 +36,8 @@ function narrowed(areas: Areas, paths: ReadonlySet<string>): Areas {
   });
 }
 
-export function FieldPanel({ session, repositories, place }: { session: Session; repositories: readonly RepositorySummary[]; place: Place }) {
+/** Everything the Field draws for a Session, read once: its floor, its drones, and the plan as bar and as plots. */
+function useField(session: Session, repositories: readonly RepositorySummary[]) {
   const source = useAreas();
   const work = session.work;
   // Before any drone has work the floor has the Session's own drone alone, at rest.
@@ -66,29 +75,71 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
       })),
     [drones, own, root, session.title, session.id],
   );
-  const state: PanelState | undefined = drones === RESTING ? undefined : "live";
+  const plan = work?.plan;
+  const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
+  const plots = repos[0]!.areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
+  const planned = useMemo(() => (plan === undefined || fieldTake() !== "plots" ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
+  return { repos, flying, groups, planned, resting: drones === RESTING };
+}
+
+/** The map and, along its foot, the plan. The same in the panel and in the layer; `large` is the layer's, which names each group under its stretch. */
+export function FieldMap({ session, repositories, large = false }: { session: Session; repositories: readonly RepositorySummary[]; large?: boolean }) {
+  const { repos, flying, groups, planned } = useField(session, repositories);
   return (
-    <SvPanel label="Field" area="field" place={place} state={state}>
-      <div className="sv-field">
-          <Battlefield
-            repos={repos}
-            drones={flying}
-            pads={NONE}
-            goals={NONE}
-            prs={NO_LIST}
-            trails={NONE}
-            plays={NO_LIST}
-            facts={NONE}
-            calls={NONE}
-            clashes={NO_LIST}
-            selected={undefined}
-            own={session.id}
-            onSelect={nothing}
-            onPad={nothing}
-            onGoal={nothing}
-            onPr={nothing}
-          />
-        </div>
+    <div className="sv-field sv-field--plan" data-large={large || undefined}>
+      <div className="sv-field__map">
+        <Battlefield
+          repos={repos}
+          drones={flying}
+          pads={NONE}
+          goals={NONE}
+          prs={NO_LIST}
+          trails={NONE}
+          plays={NO_LIST}
+          facts={NONE}
+          calls={NONE}
+          clashes={NO_LIST}
+          selected={undefined}
+          own={large ? `${session.id}:large` : session.id}
+          {...(planned === undefined ? {} : { planned })}
+          onSelect={nothing}
+          onPad={nothing}
+          onGoal={nothing}
+          onPr={nothing}
+        />
+      </div>
+      {groups.length === 0 ? null : <PlanBar groups={groups} titled={large} />}
+    </div>
+  );
+}
+
+export function FieldPanel({ session, repositories, place }: { session: Session; repositories: readonly RepositorySummary[]; place: Place }) {
+  const { resting } = useField(session, repositories);
+  const expanded = useLayer(session.id) === "field";
+  const id = session.id;
+  // `e` opens the Field large, and again puts it back. Not while a box holds the keys or a dialog is up.
+  useEffect(() => {
+    const listen = (event: KeyboardEvent) => {
+      if (event.key !== "e" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat || event.defaultPrevented) return;
+      if (holdsText(event.target) || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      event.preventDefault();
+      toggleLayer(id, "field");
+    };
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, [id]);
+  const state: PanelState | undefined = resting ? undefined : "live";
+  const expand = (
+    <Tooltip label={expanded ? "Collapse" : "Expand"} shortcut="E">
+      <Button variant="ghost" size="sm" iconOnly aria-label={expanded ? "Collapse" : "Expand"} onClick={() => toggleLayer(id, "field")}>
+        <Maximize2 size={16} strokeWidth={2} aria-hidden />
+      </Button>
+    </Tooltip>
+  );
+  return (
+    <SvPanel label="Field" area="field" place={place} state={state} acts={expand}>
+      {/* One canvas at a time: while the layer holds the Field large, the panel draws none. */}
+      {expanded ? <div className="sv-field sv-field--plan" /> : <FieldMap session={session} repositories={repositories} />}
     </SvPanel>
   );
 }
