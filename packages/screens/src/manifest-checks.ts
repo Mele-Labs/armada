@@ -227,7 +227,7 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
     case "merge_line":
       return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
     case "session":
-      return { label: "Session" };
+      return { label: "Job" };
     case "outside":
       return { label: "Started outside a Job" };
     default:

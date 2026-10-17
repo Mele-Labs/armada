@@ -114,7 +114,7 @@ export const KIT_INVENTORY: KitInventory = {
           },
           {
             name: "Armada",
-            says: "Answers the way Armada's own sessions do: facts, no filler.",
+            says: "Answers the way Armada's own jobs do: facts, no filler.",
             source: "/Users/user/.agent/plugins/cache/armada/1.0.0/output-styles/Armada.md",
             style: { from: "plugin", applied: "available", plugin: "armada" },
           },
@@ -131,8 +131,8 @@ export const KIT_INVENTORY: KitInventory = {
             style: { from: "built_in", applied: "available" },
           },
           {
-            name: "Armada session rules",
-            says: "Armada's rules for the sessions Bridge hosts, applied on top of the active style.",
+            name: "Armada job rules",
+            says: "Armada's rules for the jobs Bridge hosts, applied on top of the active style.",
             source: "Armada",
             style: { from: "armada", applied: "always" },
           },

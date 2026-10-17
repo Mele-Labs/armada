@@ -192,7 +192,7 @@ export function FailureBlock({
             pending={dispatching}
             onAction={onDispatchSession === undefined ? () => copyDebugInfoFor(failure, onCopied) : () => void dispatch()}
           >
-            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch session"}
+            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch job"}
           </SplitButton>
           {filing.review}
           {onDismiss === undefined ? null : (

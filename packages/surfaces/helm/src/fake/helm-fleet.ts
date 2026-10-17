@@ -108,7 +108,7 @@ const RECORD: HelmDebugInfo = {
 export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(nothingYet: S): Scenario<S, A> {
   return {
     name: "helm-talking",
-    says: "Helm pointed at a repository, with a session to report",
+    says: "Helm pointed at a repository, with a job to report",
     state: {
       ...connected(nothingYet, [JOB.job], JOB.workflows, [repository()]),
       helm: { state: "pointed", manifestId: MANIFEST_ID },

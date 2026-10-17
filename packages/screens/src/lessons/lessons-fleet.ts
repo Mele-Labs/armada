@@ -82,7 +82,7 @@ export function sessionStarted(lessons: readonly Lesson[], id: string): { lesson
           why: "refused",
           error: {
             code: "fleet.lesson_session_nothing_to_work_on",
-            message: "Kit is no repository, so there is nothing for a Session to work on. Accept it instead.",
+            message: "Kit is no repository, so there is nothing for a Job to work on. Accept it instead.",
             run_id: "mock",
             fields: {},
             chain: [],
