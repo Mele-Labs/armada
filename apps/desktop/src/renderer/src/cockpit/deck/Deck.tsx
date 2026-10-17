@@ -484,10 +484,12 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (served.length === 0 || !shown) return null;
-  // On All with several repositories served, the queue is the open Session's or pull request's repository, and nobody's with none.
+  // On All with several repositories served, the queue is the open Session's or pull request's repository, and every one's, by repository, with none.
   const wide = props.picked === null && served.length > 1;
   const root = wide ? queueRootOf(sel, ship, props.state.holds.repositories ?? []) : undefined;
-  const views = wide ? served.filter((view) => view.root === root) : served;
+  const scoped = root === undefined ? [] : served.filter((view) => view.root === root);
+  const views = scoped.length > 0 ? scoped : served;
+  const nameOf = (root: string) => ship.repos.find((one) => one.root === root)?.name ?? root;
   const merge =
     props.onGoTo === undefined ? (
       <GitMerge size={16} aria-hidden="true" />
@@ -498,25 +500,35 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         </Button>
       </Tooltip>
     );
-  if (views.length === 0) {
-    return (
-      <section className="deck-panel deck-queue" data-dim aria-label="Merge queue" tabIndex={-1}>
-        <div className="deck-queue__row">
-          {merge}
-          <span className="deck-queue__say">Select a repo to see PRs</span>
-          <PanelKey id="queue" />
-        </div>
-      </section>
+  // One light for the line, `main`; on All with several repositories, one each, named for its repository and leading its pull requests.
+  const grouped = views.length > 1;
+  const summoner = views.find((view) => view.hub?.checkout !== undefined)?.root;
+  const lightOf = (group: typeof views, name: string, summon: boolean) => {
+    const reds = group.flatMap((view) => (view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: nameOf(view.root) }]));
+    const held = heldOf(group, nameOf);
+    const red = reds.map((one) => one.name);
+    const forge = forgeOf(group, nameOf);
+    const quiet = quietSaid(forge, group.length > 1);
+    const where = grouped ? ` in ${name}` : "";
+    const mainSaid = `${red.length > 0 ? (grouped ? `Main is red${where}` : `Main is red in ${red.join(", ")}`) : `Main is green${where}`}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
+    return reds.length > 0 || held.length > 0 ? (
+      <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} name={name} summon={summon} />
+    ) : (
+      <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
+        <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
+          <span className="deck-chip__dot" data-tone="calm" data-stale={quiet !== undefined || undefined} aria-hidden="true" />
+          <span>{name}</span>
+          {quiet === undefined ? null : (
+            <Tooltip label={quiet}>
+              <span className="deck-chip__quiet" role="img" aria-label={quiet}>
+                <Unplug size={12} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      </Tooltip>
     );
-  }
-  const reds = views.flatMap((view) =>
-    view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
-  );
-  const held = heldOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
-  const red = reds.map((one) => one.name);
-  const forge = forgeOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
-  const quiet = quietSaid(forge, views.length > 1);
-  const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
+  };
   // While a Session is open its pull requests are framed in the line; with none open, or a pull request, none are.
   const viewed = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
@@ -556,12 +568,11 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
-  const marks = views.flatMap((view, at) => {
+  const chipsOf = (view: (typeof views)[number]) => {
     const dots = dotsOf(view, props.state.mergeLines, sessions);
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
     const open = dots.filter((dot) => !dot.queued);
     return [
-      ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
       ...(queued.length === 0
         ? []
         : [
@@ -576,7 +587,24 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
       ...(queued.length === 0 || open.length === 0 ? [] : [<li key={`rule:${view.root}`} className="deck-queue__rule" aria-hidden="true" />]),
       ...open.map((dot) => chipOf(view, dot)),
     ];
-  });
+  };
+  if (grouped) {
+    const rows = views.map((view) => ({
+      root: view.root,
+      name: nameOf(view.root),
+      red: view.hub?.main?.state === "red",
+      chips: [<li key={`main:${view.root}`}>{lightOf([view], nameOf(view.root), view.root === summoner)}</li>, ...chipsOf(view)],
+    }));
+    return (
+      <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
+        <div className="deck-queue__row">
+          {merge}
+          <QueueStack rows={rows} />
+          <PanelKey id="queue" />
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
       <div className="deck-queue__row">
@@ -585,30 +613,85 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
           // A wheel turned over the line moves it along, since it scrolls only across.
           if (event.deltaY !== 0 && event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
         }}>
-          <li>
-            {reds.length > 0 || held.length > 0 ? (
-              <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} />
-            ) : (
-              <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
-                <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
-                  <span className="deck-chip__dot" data-tone="calm" data-stale={quiet !== undefined || undefined} aria-hidden="true" />
-                  <span>main</span>
-                  {quiet === undefined ? null : (
-                    <Tooltip label={quiet}>
-                      <span className="deck-chip__quiet" role="img" aria-label={quiet}>
-                        <Unplug size={12} aria-hidden="true" />
-                      </span>
-                    </Tooltip>
-                  )}
-                </span>
-              </Tooltip>
-            )}
-          </li>
-          {marks}
+          <li>{lightOf(views, "main", true)}</li>
+          {views.flatMap((view, at) => [...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]), ...chipsOf(view)])}
         </ol>
         <PanelKey id="queue" />
       </div>
     </section>
+  );
+}
+
+/** How long the stacked line rests on one repository before it moves to the next, while nobody is using it. */
+const ROTATE_MS = 15_000;
+
+/**
+ * On All, the merge line one repository at a time: each row scrolls across, and the stack scrolls down and snaps to a row.
+ * **A main that turns red brings its row into view**, and while the pointer, the focus and the wheel are elsewhere the stack
+ * moves to the next repository every `ROTATE_MS`. ↑ and ↓ move it by hand.
+ */
+function QueueStack({ rows }: { rows: readonly { root: string; name: string; red: boolean; chips: ReactNode[] }[] }) {
+  const stack = useRef<HTMLDivElement>(null);
+  const over = useRef(false);
+  const touched = useRef(0);
+  const seenRed = useRef(new Set<string>());
+  const rowTo = (at: number) => {
+    const host = stack.current;
+    const row = host?.children[at] as HTMLElement | undefined;
+    if (host === null || row === undefined) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    host.scrollTo({ top: row.offsetTop - host.offsetTop, behavior: still ? "auto" : "smooth" });
+  };
+  const atNow = () => {
+    const host = stack.current;
+    return host === null || host.clientHeight === 0 ? 0 : Math.round(host.scrollTop / host.clientHeight);
+  };
+  const reds = rows.filter((row) => row.red).map((row) => row.root).join("\n");
+  useEffect(() => {
+    const now = new Set(rows.filter((row) => row.red).map((row) => row.root));
+    const turned = rows.findIndex((row) => now.has(row.root) && !seenRed.current.has(row.root));
+    seenRed.current = now;
+    if (turned >= 0) rowTo(turned);
+    // Only a change in which mains are red moves it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reds]);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const host = stack.current;
+      if (host === null || over.current || host.contains(document.activeElement) || Date.now() - touched.current < ROTATE_MS) return;
+      rowTo((atNow() + 1) % rows.length);
+    }, ROTATE_MS);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
+  const touch = () => {
+    touched.current = Date.now();
+  };
+  return (
+    <div
+      ref={stack}
+      className="deck-queue__stack"
+      onPointerEnter={() => {
+        over.current = true;
+      }}
+      onPointerLeave={() => {
+        over.current = false;
+        touch();
+      }}
+      onWheel={touch}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        touch();
+        rowTo(Math.min(rows.length - 1, Math.max(0, atNow() + (event.key === "ArrowDown" ? 1 : -1))));
+      }}
+    >
+      {rows.map((row) => (
+        <ol key={row.root} className="deck-chips" aria-label={row.name}>
+          {row.chips}
+        </ol>
+      ))}
+    </div>
   );
 }
 
