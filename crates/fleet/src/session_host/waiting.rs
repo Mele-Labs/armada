@@ -767,6 +767,7 @@ where
                 SESSION_WAITING_EMPTY,
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
+            WaitingSource::SlotChoice => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "not answered yet")),
         };
         if let (Ok(record), false) = (
             &settled,
