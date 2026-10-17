@@ -8,7 +8,7 @@
 // labels and flags are billboards, counter-rotated so they stand upright. No loop runs in script. A Job's mission is the same plane cut
 // down to its route (`scene`). Ported from proto/cockpit-flight-deck. #2301.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck } from "lucide-react";
 import { Button, Tooltip, WorkflowStepCard, useClashesOf } from "@armada/components";
 
@@ -19,8 +19,10 @@ import { Doings } from "./Doings";
 import { Drone } from "./Drone";
 import { Lifted } from "./Lifted";
 import { Pins, RouteLegs, tipOf } from "./Route";
+import { Hits, type HitActs } from "./pixi/Hits";
 import { PixiMap } from "./pixi/PixiMap";
 import { sceneOf as pixiSceneOf } from "./pixi/scene";
+import type { Stage } from "./pixi/stage";
 import { mapRenderer } from "./pixi/switch";
 import { Base, FileBar, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
 import { onPlane, px, vars } from "./bf-parts";
@@ -150,6 +152,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     return fit({ x: (l + r) / 2, y: ((t + b) / 2) * FLAT, eye: Math.min(home.eye, fitted), tilt: false });
   })();
 
+  const canvas = mapRenderer() === "pixi";
   const [hot, setHot] = useState<string>();
   const [hotTile, setHotTile] = useState<string>();
   // What the pointer is on is held here, apart from this component's state: a card that comes and goes redraws the card and nothing else, and
@@ -257,6 +260,21 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   open.current = pinned;
   const pin = pinned === undefined ? undefined : built?.route.pins.find((one) => one.id === pinned.id);
   const card = useMemo<Tip | undefined>(() => (pin === undefined ? undefined : { ...tipOf(pin), node: <WorkflowStepCard {...pin.card} /> }), [pin]);
+  const [stage, setStage] = useState<Stage>();
+  // What the canvas map's pictures do when they are pressed or hovered: this page's, read when wanted so the layer is not drawn again for a new one.
+  const hitActs = useRef<HitActs>(null as never);
+  hitActs.current = {
+    select: onSelect,
+    pad: onPad,
+    goal: onGoal,
+    pr: onPr,
+    pin: (one, target) => {
+      tips.clear();
+      setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
+    },
+    tip: showTip,
+    pinTip: (next, target) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target)),
+  };
   // Esc puts the callout away; it comes back when the pointer or focus comes to something again. A card pressed open goes first, and is the whole of that Esc.
   useEffect(() => {
     const away = (event: KeyboardEvent) => {
@@ -276,7 +294,15 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   // The Session he is looking at, if it is building something: its card stays open beside it until the pointer is on something else.
   const building = selected === undefined ? undefined : facts.get(selected)?.build;
   const lockedDrone = selected === undefined ? undefined : droneBy.get(selected);
-  const lockedEl = building === undefined || host.current === null ? null : host.current.querySelector(`[data-key="${selected}"]`);
+  // The canvas map's drone is an element over the canvas, which is in the page only once the layer has drawn: it is looked for after each draw.
+  const [stood, setStood] = useState<Element | null>(null);
+  const looked = building === undefined || host.current === null ? null : host.current.querySelector(`[data-key="${selected}"]`);
+  useLayoutEffect(() => {
+    if (!canvas) return;
+    const found = building === undefined || host.current === null ? null : host.current.querySelector(`[data-key="${selected}"][data-hit=drone]`);
+    setStood((was) => (was === found ? was : found));
+  });
+  const lockedEl = canvas ? stood : looked;
   const lockedTip = useMemo(() => (building === undefined || lockedDrone === undefined || selected === undefined ? undefined : droneTip(lockedDrone, facts.get(selected), ShieldCheck)), [building, lockedDrone, facts, selected]);
   const lockedAnchor = useMemo(() => (lockedEl === null ? undefined : { target: lockedEl }), [lockedEl]);
   const locked = selected !== undefined && lock !== undefined;
@@ -318,7 +344,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   }
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
   // The canvas map is handed what the CSS one draws from, read once: its scene changes only when one of these does.
-  const canvas = mapRenderer() === "pixi";
   // Fleet's clashes are read by a hook, one drone at a time; the canvas is handed the counts.
   const [clashed, setClashed] = useState<ReadonlyMap<string, number>>(new Map());
   const countClashes = useCallback((key: string, n: number) => setClashed((was) => ((was.get(key) ?? 0) === n ? was : new Map(was).set(key, n))), []);
@@ -353,7 +378,22 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         <rect width="100%" height="100%" filter="url(#bf-noise)" />
       </svg>
       {canvas ? drones.map((one) => <ClashCount key={one.key} drone={one} report={countClashes} />) : null}
-      {canvas ? <PixiMap size={size} cam={eff} live={view.live} scene={pixiScene!} onGround={() => { setPinned(undefined); onClear?.(); }} /> : null}
+      {canvas ? (
+        <PixiMap
+          size={size}
+          cam={eff}
+          live={view.live}
+          scene={pixiScene!}
+          onGround={(event) => {
+            if ((event.target as Element).closest("[data-hit]") !== null) return;
+            setPinned(undefined);
+            onClear?.();
+          }}
+          onStage={setStage}
+        >
+          {stage === undefined ? null : <Hits stage={stage} scene={pixiScene!} label={scene === undefined ? "Map" : "Route"} facts={facts} acts={hitActs} />}
+        </PixiMap>
+      ) : null}
       {canvas ? null : <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
           <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => {

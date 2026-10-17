@@ -305,8 +305,10 @@ export class PlaneLayer {
   }
 
   destroy(): void {
+    // The mesh lets go of its geometry as it goes, so it is held first.
+    const { geometry } = this.mesh;
     this.mesh.destroy({ children: true });
-    this.mesh.geometry.destroy(true);
+    geometry.destroy(true);
     this.shader.destroy();
   }
 }

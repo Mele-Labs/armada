@@ -111,6 +111,8 @@ async function open(browser, asked, base) {
   const link = `${base.replace(/\/$/, "")}/?scenario=battlefield-progress&frame${asked.map === "css" ? "" : `&map=${asked.map}`}`;
   await page.goto(link);
   await page.locator("[role=listbox][aria-label=Map]").first().waitFor({ timeout: 30_000 });
+  // The canvas map starts a moment after its listbox is there; software GL takes the better part of a minute.
+  if (asked.map === "pixi") await page.locator(".bf-pixi canvas").first().waitFor({ state: "attached", timeout: 120_000 });
   // The map's arrival animations and the first layout settle before anything is read.
   await sleep(4000);
   return { context, page, thrown };
@@ -185,8 +187,8 @@ async function main() {
     await server.listen();
     base = `http://127.0.0.1:${chosen}`;
   }
-  // The default launch is the headless shell: no window, no Dock icon.
-  const browser = await chromium.launch();
+  // The default launch is the headless shell: no window, no Dock icon. Its GL is software, which the canvas map needs asked for.
+  const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
   try {
     const first = await counters(browser, asked, base, phases);
     const second = await frames(browser, asked, base, phases);

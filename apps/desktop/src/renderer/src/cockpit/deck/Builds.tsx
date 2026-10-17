@@ -18,7 +18,7 @@ import type { Tip } from "./tip";
 import "./build.css";
 
 /** A landed ring stands for this long, then is gone. */
-const FRESH_LAND_MS = 15 * 60_000;
+export const FRESH_LAND_MS = 15 * 60_000;
 
 type Placed = { build: BuildIn; anchor: Point; /** The plot it stands over, which lifts it. */ tile: string | undefined };
 
@@ -49,38 +49,53 @@ const pick = (onTip: OnTip, tip: Tip) => ({
 });
 
 /** What a piece says when it is hovered: the task it stands for, and where that task is. The card is the callout's, since a tooltip cannot open here. */
-const speak = (build: BuildIn, onTip: OnTip) => (k: number, piece: ReactNode): ReactNode => {
+export function pieceTip(build: BuildIn, k: number): { tip: Tip; said: string } | undefined {
   const task = build.tasks[k];
-  if (task === undefined) return piece;
+  if (task === undefined) return undefined;
   const said = task.said ?? SAID[task.piece];
   const tip: Tip = { label: "Task", title: task.text, hue: task.piece === "solid" ? "good" : "quiet", lines: task.by === undefined ? [said] : [said, askedOf(task.by)] };
+  return { tip, said: task.by === undefined ? `${task.text}, ${said}` : `${task.text}, ${said}, ${askedOf(task.by)}` };
+}
+
+/** What an arc of the road says when it is hovered: its name, and when or that it is only what comes next here. */
+export function arcTip(build: BuildIn, k: number): { tip: Tip; said: string } | undefined {
+  const one = arcsOf(build)[k];
+  if (one === undefined) return undefined;
+  const said = arcSaid(one, build.now);
+  return { tip: { label: "Road", title: arcWord(one.id), hue: one.at === undefined ? "quiet" : "good", lines: [said] }, said: `${arcWord(one.id)}, ${said}` };
+}
+
+/** What the band says when it is hovered: the phase, and nothing of how much is done, since there is no list to say it by. */
+export function bandTip(build: BuildIn): { tip: Tip; said: string } | undefined {
+  const word = bandOf(build)?.word;
+  return word === undefined ? undefined : { tip: { label: "Phase", title: word, hue: "quiet" }, said: word };
+}
+
+const speak = (build: BuildIn, onTip: OnTip) => (k: number, piece: ReactNode): ReactNode => {
+  const one = pieceTip(build, k);
+  if (one === undefined) return piece;
   return (
-    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={task.by === undefined ? `${task.text}, ${said}` : `${task.text}, ${said}, ${askedOf(task.by)}`} {...pick(onTip, tip)}>
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={one.said} {...pick(onTip, one.tip)}>
       {piece}
     </g>
   );
 };
 
-/** What an arc of the road says when it is hovered: its name, and when or that it is only what comes next here. */
 const speakArc = (build: BuildIn, onTip: OnTip) => (k: number, arc: ReactNode): ReactNode => {
-  const one = arcsOf(build)[k];
+  const one = arcTip(build, k);
   if (one === undefined) return arc;
-  const said = arcSaid(one, build.now);
-  const tip: Tip = { label: "Road", title: arcWord(one.id), hue: one.at === undefined ? "quiet" : "good", lines: [said] };
   return (
-    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={`${arcWord(one.id)}, ${said}`} {...pick(onTip, tip)}>
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={one.said} {...pick(onTip, one.tip)}>
       {arc}
     </g>
   );
 };
 
-/** What the band says when it is hovered: the phase, and nothing of how much is done, since there is no list to say it by. */
 const speakBand = (build: BuildIn, onTip: OnTip) => (band: ReactNode): ReactNode => {
-  const word = bandOf(build)?.word;
-  if (word === undefined) return band;
-  const tip: Tip = { label: "Phase", title: word, hue: "quiet" };
+  const one = bandTip(build);
+  if (one === undefined) return band;
   return (
-    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={word} {...pick(onTip, tip)}>
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={one.said} {...pick(onTip, one.tip)}>
       {band}
     </g>
   );

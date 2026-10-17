@@ -10,10 +10,13 @@ import type { OnTip } from "./Drone";
 import type { PinIn, PinState, RouteIn } from "./mission";
 import type { Tip, TipHue } from "./tip";
 
-const SAID: Record<PinState, string> = { done: "Done", live: "At work", next: "Not started", failed: "Failed", ask: "Waiting for you" };
+export const SAID: Record<PinState, string> = { done: "Done", live: "At work", next: "Not started", failed: "Failed", ask: "Waiting for you" };
 const GLYPH: Record<PinState, LucideIcon> = { done: CircleCheck, live: LoaderCircle, next: CircleDashed, failed: CircleX, ask: CircleHelp };
 const HUE: Record<PinState, TipHue> = { done: "good", live: "calm", next: "quiet", failed: "bad", ask: "ask" };
 const TONE: Record<PinState, "calm" | "ask" | "bad" | "good"> = { done: "good", live: "calm", next: "calm", failed: "bad", ask: "ask" };
+
+/** What a screen reader says of a pin. */
+export const pinSaid = (pin: PinIn): string => `${pin.label}, ${pin.said === "" ? SAID[pin.state] : pin.said}`;
 
 /** What a pin says when it is hovered. */
 export const tipOf = (pin: PinIn): Tip => ({
@@ -66,7 +69,7 @@ export function Pins({ route, pinned, readable, onPress, onTip }: { route: Route
             role="option"
             tabIndex={0}
             aria-selected={pinned === pin.id}
-            aria-label={`${pin.label}, ${pin.said === "" ? SAID[pin.state] : pin.said}`}
+            aria-label={pinSaid(pin)}
             data-pin={pin.id}
             data-label={pin.label}
             data-state={pin.state}

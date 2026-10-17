@@ -104,10 +104,13 @@ export function Hangar({ territory }: { territory: Territory }) {
   );
 }
 
+/** What main says when it is hovered, and what a screen reader says of the flag. */
+export const goalTip = (goal: GoalIn, repo: string): Tip => ({ label: "Main", title: `main in ${repo}`, hue: goal.red ? "bad" : "good", state: { Glyph: goal.red ? ShieldX : ShieldCheck, said: goal.red ? "Red" : "Green", tone: goal.red ? "bad" : "good" } });
+export const goalSaid = (goal: GoalIn, repo: string) => `main in ${repo}: ${goal.red ? "red" : "green"}, objective`;
+
 /** Main: the flag at the objective, green or red, its name beside it and the capture of a merge under it. */
 export function Goal({ at, goal, repo, capture, onPress, onTip }: { at: Point; goal: GoalIn; repo: string; capture: Play | undefined; onPress: () => void; onTip: OnTip }) {
-  const said = `main in ${repo}: ${goal.red ? "red" : "green"}`;
-  const tip: Tip = { label: "Main", title: `main in ${repo}`, hue: goal.red ? "bad" : "good", state: { Glyph: goal.red ? ShieldX : ShieldCheck, said: goal.red ? "Red" : "Green", tone: goal.red ? "bad" : "good" } };
+  const tip = goalTip(goal, repo);
   return (
     <div
       className="bf-goal"
@@ -115,7 +118,7 @@ export function Goal({ at, goal, repo, capture, onPress, onTip }: { at: Point; g
       role="option"
       tabIndex={0}
       aria-selected={false}
-      aria-label={`${said}, objective`}
+      aria-label={goalSaid(goal, repo)}
       style={{ transform: `translate3d(${px(at.x)}, ${px(at.y)}, ${px(1)})` }}
       onClick={onPress}
       onKeyDown={(event) => keyed(event, onPress)}
@@ -175,11 +178,13 @@ export function Pad({ pad, at, onPress, onTip }: { pad: PadIn; at: Point; onPres
   );
 }
 
+/** What a pull request says when it is hovered, and what a screen reader says of its crate. */
+export const payloadTip = (pr: PrIn): Tip => ({ label: "Pull request", title: `#${pr.number}`, hue: pr.stage === "red" ? "bad" : "calm", state: { Glyph: STAGE[pr.stage].Glyph, said: STAGE[pr.stage].said, tone: pr.stage === "red" ? "bad" : "calm" } });
+export const payloadSaid = (pr: PrIn) => `Pull request #${pr.number}, ${STAGE_SAID[pr.stage]}`;
+
 /** A pull request: a small crate flying its route to the objective, further along the nearer it is to merging. */
 export function Payload({ at, from, pr, arriving, fresh, onPress, onTip }: { at: P3; from: P3; pr: PrIn; arriving: Play | undefined; fresh: Play | undefined; onPress: () => void; onTip: OnTip }) {
-  const said = STAGE_SAID[pr.stage];
-  const title = `#${pr.number}`;
-  const tip: Tip = { label: "Pull request", title, hue: pr.stage === "red" ? "bad" : "calm", state: { Glyph: STAGE[pr.stage].Glyph, said: STAGE[pr.stage].said, tone: pr.stage === "red" ? "bad" : "calm" } };
+  const tip = payloadTip(pr);
   const hop = arriving ?? fresh;
   return (
     <div
@@ -187,7 +192,7 @@ export function Payload({ at, from, pr, arriving, fresh, onPress, onTip }: { at:
       role="option"
       tabIndex={0}
       aria-selected={false}
-      aria-label={`Pull request ${title}, ${said}`}
+      aria-label={payloadSaid(pr)}
       data-stage={pr.stage}
       style={{ transform: `translate3d(${px(at.x)}, ${px(at.y)}, ${px(at.z)})` }}
       onClick={onPress}

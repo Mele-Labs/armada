@@ -1,9 +1,9 @@
 // The map drawn on a canvas, in the place of the CSS plane: it takes the camera the page already keeps and the scene the battlefield has
 // already read, and hands both to the stage, which draws when they change. It holds no state of its own. The pictures a person can press
-// are the next group's: `children` is the layer they will go in, over the canvas and under the controls, and `onStage` gives them the
-// stage to place themselves by.
+// are `Hits.tsx`'s: `children` is the layer they go in, over the canvas and under the controls, and `onStage` gives them the stage to
+// place themselves by.
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
 import type { Cam } from "../camera";
 import type { Size } from "../layout";
@@ -17,8 +17,8 @@ export type PixiMapProps = {
   cam: Cam;
   live: boolean;
   scene: PixiSceneIn;
-  /** A press on the ground, where no picture took it. */
-  onGround?: () => void;
+  /** A press on the pane. It is told where it landed, since the pictures over the canvas are inside the pane. */
+  onGround?: (event: MouseEvent) => void;
   onStage?: (stage: Stage | undefined) => void;
   children?: ReactNode;
 };
