@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import type { Session, SessionWork, WorkPlan } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionWork, SessionWorkActs, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
@@ -25,11 +25,14 @@ const plan = { scope: [], approved: false, groups: [{ id: "g1", title: "Retry", 
 const ed: PlanEditing = { id: "p1", plan, marks: [], set: () => undefined, send: () => undefined };
 const session = { id: "s1", attachments: [], rows: [], turn: { state: "idle" } } as unknown as Session;
 
-function mount(work: SessionWork, editing: PlanEditing | undefined = undefined): HTMLElement {
+const subagents = (...tasks: [string, "running" | "done"][]) =>
+  ({ id: "s1", attachments: tasks.map(([task, state], i) => ({ kind: "subagent", id: `sa-${i}`, task, state, agentType: "bridge-engineer" })), rows: [], turn: { state: "idle" } }) as unknown as Session;
+
+function mount(work: SessionWork, editing: PlanEditing | undefined = undefined, held: Session = session, acts: SessionWorkActs | undefined = undefined): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<ProgressPanel work={work} place="side" id="s1" session={session} acts={undefined} ed={editing} onOpenSketch={() => undefined} onOpenSession={() => undefined} />));
+  act(() => root.render(<ProgressPanel work={work} place="side" id="s1" session={held} acts={acts} ed={editing} onOpenSketch={() => undefined} onOpenSession={() => undefined} />));
   roots.push({ root, host });
   return host;
 }
@@ -75,4 +78,25 @@ test("Ask for an update is a button in the band, and pressing it leaves the pane
 test("a Session with no plan is its band alone", () => {
   const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 } });
   expect(host.querySelector(".sv-plan")).toBeNull();
+});
+
+test("with no plan, the subagents at work are listed, each its working mark and its title, and a finished one is left to the layer", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 } }, undefined, subagents(["Harden the restart scripts", "running"], ["Failed refresh toast", "running"], ["Old", "done"]));
+  const rows = [...host.querySelectorAll(".sv-subagents__row")];
+  expect(rows.map((one) => one.querySelector(".sv-subagents__task")?.textContent)).toEqual(["Harden the restart scripts", "Failed refresh toast"]);
+  expect(rows[0]!.querySelector('[role="img"][aria-label="Working"]')).not.toBeNull();
+});
+
+test("with a plan the subagents are not listed beside it", () => {
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, plan }, ed, subagents(["Harden the restart scripts", "running"]));
+  expect(host.querySelector(".sv-subagents")).toBeNull();
+});
+
+test("a bare None select stands folded to the band, and gives way to a subagent at work", () => {
+  const acts = { workflows: [], choose: () => undefined } as unknown as SessionWorkActs;
+  const work: SessionWork = { proposal: { workflow: null } };
+  const bare = mount(work, undefined, session, acts);
+  expect(bare.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBe("true");
+  const busy = mount(work, undefined, subagents(["Harden the restart scripts", "running"]), acts);
+  expect(busy.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBeUndefined();
 });

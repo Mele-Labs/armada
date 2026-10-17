@@ -62,6 +62,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
+import { OverTheApp } from "./session-view/OverTheApp";
 import { slotTroubleOf } from "./session-view/slot-trouble";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
@@ -385,6 +386,7 @@ export function ReadingSheet({
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
   return (
+    <OverTheApp open={(one !== undefined || steps !== undefined) && title !== ""}>
     <Sheet
       kind="session-reading"
       open={(one !== undefined || steps !== undefined) && title !== ""}
@@ -429,6 +431,7 @@ export function ReadingSheet({
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
     </Sheet>
+    </OverTheApp>
   );
 }
 
