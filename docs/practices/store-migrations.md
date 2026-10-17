@@ -10,7 +10,7 @@ file-name order, after the first 113, which are the old numbered list under
 
 ## Adding one
 
-Add a file. **No `armada need`, no number to take, and no shared file to
+Add a file. **No number to take, and no shared file to
 touch**, so two branches that each add one merge cleanly in git and on GitHub,
 which ignores `merge=union`. A name used twice fails the build. Pick the
 timestamp when you write it and `module.slug` unique across the list.

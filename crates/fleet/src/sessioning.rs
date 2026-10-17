@@ -181,7 +181,7 @@ fn step_problem(step: &ipc::WalkStep) -> Option<&'static str> {
 
 /// The steps a call named, trimmed, or what the report needs of them. **The first step that is
 /// wrong is named by its place**, so the session fixes that one and not the whole list.
-fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
+pub(crate) fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
     if named.len() > MOST_STEPS {
         return Err(String::from("no more than 200 steps"));
     }

@@ -362,6 +362,7 @@ where
                 // Whatever it came to, `due` decides whether to try again.
                 if let Ok(held) = fleet.read_worktrees(now).await {
                     fleet.strandings_attended(&held).await;
+                    fleet.behind_bays_told(&held).await;
                 }
             }
             if fleet.worktrees_memory().watched(Instant::now()) {

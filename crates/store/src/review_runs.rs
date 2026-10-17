@@ -134,4 +134,17 @@ impl Store {
         let rows = statement.query_map([], kept).map_err(unreadable)?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
     }
+
+    /// Forget a run at every head it ran on. One that is not kept is not an error. A search is kept at
+    /// the one head there is, `""`.
+    pub fn forget_review_run(&mut self, manifest_id: &str, number: u64, kind: &str, name: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "DELETE FROM review_runs WHERE manifest_id = ?1 AND number = ?2 AND kind = ?3 AND name = ?4",
+                rusqlite::params![manifest_id, i64::try_from(number).unwrap_or(i64::MAX), kind, name],
+            )
+            .map(|_| ())
+            .map_err(fault("forgetting a review run"))
+            .map_err(WriteError::Database)
+    }
 }

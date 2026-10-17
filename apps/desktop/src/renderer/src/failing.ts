@@ -31,8 +31,8 @@
 // drawn beside the row it is about, and there can be several at once.
 
 import type { BridgeIdentity, Connection, Outcome } from "@armada/protocol";
-import type { Failure, Statement, Uncaught } from "@armada/shell";
-import { fleetFailure, refusalFailure, transportFailure, uncaughtFailure } from "@armada/shell";
+import type { BuildFailed, Failure, Statement, Uncaught } from "@armada/shell";
+import { buildFailedFailure, fleetFailure, refusalFailure, transportFailure, uncaughtFailure } from "@armada/shell";
 import { statementOf } from "@armada/shell";
 import { said, servesNothing } from "@armada/screens";
 
@@ -106,10 +106,12 @@ export function guidanceOf(outcome: Outcome | null): string | null {
   return said(outcome) || null;
 }
 
-/** One toast: a command that failed or was not sent, or a throw no boundary saw. */
-export type Raised = { key: number } & ({ outcome: Outcome } | { uncaught: Uncaught });
+/** One toast: a command that failed or was not sent, a throw no boundary saw, or a restart Fleet reports as failed. */
+export type Raised = { key: number } & ({ outcome: Outcome } | { uncaught: Uncaught } | { buildFailed: BuildFailed });
 
 /** The failure a toast draws. */
 export function raisedFailure(one: Raised, bridge: BridgeIdentity): Failure | null {
-  return "uncaught" in one ? uncaughtFailure(one.uncaught, bridge) : commandFailureOf(one.outcome, bridge);
+  if ("uncaught" in one) return uncaughtFailure(one.uncaught, bridge);
+  if ("buildFailed" in one) return buildFailedFailure(one.buildFailed, bridge);
+  return commandFailureOf(one.outcome, bridge);
 }

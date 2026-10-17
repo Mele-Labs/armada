@@ -19,7 +19,7 @@ use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
 /// The ledger kinds a release acts on. Artifacts and the links between Sessions stay.
-const HELD_KINDS: [&str; 4] = ["slot", "branch", "pr", "need"];
+const HELD_KINDS: [&str; 3] = ["slot", "branch", "pr"];
 /// A hand to the Session that holds them. A 409.
 const HAND_TO_ITSELF: &str = "fleet.hand_to_itself";
 /// A hand to a Session that has ended. A 409.
@@ -157,7 +157,6 @@ where
             }
         }
         let now = self.now().as_str().to_string();
-        let mut needs_moved = false;
         {
             let mut store = self.store().lock().await;
             let fault = |why| self.ledger_fault(why);
@@ -185,7 +184,6 @@ where
                         )
                         .map_err(fault)?;
                 }
-                needs_moved |= row.kind == "need";
                 let slot_already_named = row.kind == "slot" && answer.moved.iter().any(|one| one.kind == "slot" && one.target == row.target);
                 if !slot_already_named {
                     answer.moved.push(HoldMoved {
@@ -201,11 +199,6 @@ where
             for (slot, _) in &handed_slots {
                 self.session_slot(&id, source.title.clone(), manifest.clone(), *slot, false);
                 self.session_slot(&to.id, to.title.clone(), manifest.clone(), *slot, true);
-            }
-        }
-        if let Some(served) = &served {
-            if needs_moved {
-                self.needs_status_published(served).await;
             }
         }
         if answer.moved.iter().any(|one| one.kind == "slot") {

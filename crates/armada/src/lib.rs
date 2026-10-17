@@ -31,9 +31,6 @@
 //!
 //! [`leasing`](mod@leasing) is `armada worktree`, the pool of warm
 //! worktrees agents lease.
-//!
-//! [`need`](mod@need) is `armada need`: what a branch needs on a path, and who
-//! is ahead of it there.
 
 pub mod agent;
 pub mod authoring;
@@ -46,7 +43,6 @@ pub mod locating;
 pub mod loopback;
 pub mod manifests;
 pub mod mcp;
-pub mod need;
 pub mod pocketing;
 pub mod reaching;
 pub mod say;

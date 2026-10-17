@@ -4,7 +4,8 @@
 // Two halves with a seam between them. **The forge's** (this file): the four lists read from the forge when the tab opens
 // and on Refresh and never polled, a pull request's page read when it is opened, its patches read when a change is
 // shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the quick actions,
-// Ask and the tools, which are runs Fleet keeps, and Natural Search, which is still a fixture.
+// Ask and the tools, which are runs Fleet keeps. Natural Search (`store-search.ts`) is a run across every repository, and the
+// Walk (`store-walk.ts`) a run that needs the place a change runs. All three meet a run through `review_run.changed`.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -12,12 +13,14 @@ import type { ReactNode } from "react";
 import type { PullRequestPage, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
-import type { Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, SearchFixtures, ToolDef, Verdict, View } from "./model";
+import type { Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View, WalkWork } from "./model";
 import { linesOfPatch } from "./patch";
 import type { ReviewSource } from "./source";
 import { createAgentActs, type AgentActs } from "./store-agent";
+import { createSearchActs, type SearchActs } from "./store-search";
+import { createWalkActs, type WalkActs } from "./store-walk";
 
-export { AGENT_MS, NO_SEARCH } from "./store-agent";
+const EMPTY_WALK: WalkWork = { find: { state: "idle" }, asking: false, held: undefined, reached: undefined, opening: false, said: undefined, notes: [] };
 
 const EMPTY: PrWork = {
   page: { state: "unread" },
@@ -37,11 +40,14 @@ const EMPTY: PrWork = {
   findings: [],
   submissions: [],
   review: "none",
+  walk: EMPTY_WALK,
 };
 
 export type ToolIn = { kind: ToolDef["kind"]; name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
 
-export type ReviewStore = AgentActs & {
+export type ReviewStore = AgentActs &
+  SearchActs &
+  WalkActs & {
   get: () => ReviewSnapshot;
   subscribe: (listener: () => void) => () => void;
   /** The lists, read from the forge when the review view opens and again on Refresh. Nothing polls. */
@@ -92,12 +98,12 @@ const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
-/** The store for a window, over what Fleet serves and the fixtures Natural Search is driven by. */
-export function createReviewStore(source: ReviewSource, search: SearchFixtures): ReviewStore {
+/** The store for a window, over what Fleet serves. */
+export function createReviewStore(source: ReviewSource): ReviewStore {
   const listeners = new Set<() => void>();
-  const timers = new Set<number>();
+  /** Pull requests a search turned up that no list holds: they stay while the lists are read again. */
+  const adopted = new Set<string>();
   let snapshot: ReviewSnapshot = {
-    searchBuilt: search.built,
     prs: [],
     fetchedAt: undefined,
     fetching: false,
@@ -112,6 +118,8 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
     tools: {},
     leftOut: {},
     work: {},
+    sheet: undefined,
+    places: { state: "unread", list: [], said: undefined },
   };
   const set = (next: Partial<ReviewSnapshot>) => {
     snapshot = { ...snapshot, ...next };
@@ -121,8 +129,6 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
   const change = (key: string, by: Partial<PrWork>) => set({ work: { ...snapshot.work, [key]: { ...work(key), ...by } } });
   const prOf = (key: string) => snapshot.prs.find((one) => one.key === key);
   const mend = (key: string, by: Partial<ReviewPr>) => set({ prs: snapshot.prs.map((one) => (one.key === key ? { ...one, ...by } : one)) });
-
-  const acts = createAgentActs(search, source, { get: () => snapshot, set, work, change, mend, prOf, timers, nextId });
 
   const prOfRow = (row: PullReviewRow, lists: readonly PrList[], was: ReviewPr | undefined): ReviewPr => {
     const key = keyOf(row);
@@ -146,6 +152,21 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
       explanation: was?.explanation ?? { summary: "", themes: [] },
     };
   };
+
+  /** Takes a pull request a search turned up, which may be on none of the four lists, so it opens like any other. */
+  const adopt = (row: PullReviewRow): string => {
+    const key = keyOf(row);
+    if (prOf(key) !== undefined) return key;
+    adopted.add(key);
+    set({ prs: [...snapshot.prs, prOfRow(row, [], undefined)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), work: { ...snapshot.work, [key]: { ...EMPTY, review: row.review } } });
+    acts.readTools(row.manifest_id);
+    return key;
+  };
+
+  const hold = { get: () => snapshot, set, work, change, mend, prOf, nextId, adopt };
+  const acts = createAgentActs(source, hold);
+  const search = createSearchActs(source, hold);
+  const walks = createWalkActs(source, hold, acts);
 
   /** The page of a pull request, read from the forge. A page already held stays on screen while it is read again. */
   const readPage = (key: string) => {
@@ -185,8 +206,8 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
       const kept = (was?.lists ?? []).filter((list) => silent.has(list));
       return prOfRow(row, [...new Set([...on, ...kept])], was);
     });
-    // A pull request only on a silent list stays where it was.
-    const carried = held.filter((one) => !byKey.has(one.key) && one.lists.some((list) => silent.has(list))).map((one) => ({ ...one, lists: one.lists.filter((list) => silent.has(list)) }));
+    // A pull request only on a silent list stays where it was, and so does one a search turned up that no list holds.
+    const carried = held.filter((one) => !byKey.has(one.key) && (adopted.has(one.key) || one.lists.some((list) => silent.has(list)))).map((one) => ({ ...one, lists: one.lists.filter((list) => silent.has(list)) }));
     const prs = [...arrived, ...carried].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const kept = snapshot.work;
     const fetchedAt = Date.parse(lists.fetched_at);
@@ -211,10 +232,16 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
     }
   };
 
-  source.onRun(acts.apply);
+  // A search has no pull request, so it is routed before the lookup by one.
+  source.onRun((run) => (run.kind === "search" ? search.applySearch(run) : acts.apply(run)));
+  source.onWalk(walks.applyWalk);
+  source.onNote(walks.noted);
+  source.onClosed(walks.closed);
 
   return {
     ...acts,
+    ...search,
+    ...walks,
     get: () => snapshot,
     subscribe: (listener) => {
       listeners.add(listener);
@@ -224,6 +251,8 @@ export function createReviewStore(source: ReviewSource, search: SearchFixtures):
       if (snapshot.fetching) return;
       set({ fetching: true });
       void source.lists().then((answer) => (answer.ok ? arrive(answer.value) : set({ fetching: false, failed: answer.said })));
+      // The searches are read with the lists, since a search's progress is not replayed.
+      search.readSearches();
     },
     setTab: (tab) => set({ tab }),
     open: (open) => {
@@ -313,7 +342,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { searchBuilt: false, prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, tools: {}, leftOut: {}, work: {}, sheet: undefined, places: { state: "unread", list: [], said: undefined } };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

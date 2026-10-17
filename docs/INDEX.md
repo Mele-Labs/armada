@@ -142,12 +142,7 @@ approximations.
     works its own backlog from one plain-language instruction, within caps a
     person sets, until they pause or stop it.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, 
-    `armada need` (numbers land in the order they were declared), and where each
-    part goes in Fleet.
-  - [`capabilities/needs.md`](capabilities/needs.md) — a Job or a Session says what
-    it needs, and Armada keeps one ledger row per need, so the one behind hears who
-    is ahead and a pull request waits its turn.
+    turns onto `main`, and where each part goes in Fleet.
 
 ## Journeys
 
@@ -264,6 +259,9 @@ approximations.
   — what drives the slot list instead of a timer: file events on each slot's git
   directory and on free slots' work trees, never a held slot's, since one build is
   8,600 events; `git status` is not made cheaper in process.
+- [`spikes/033-what-does-the-css-cockpit-map-cost.md`](spikes/033-what-does-the-css-cockpit-map-cost.md)
+  — the baseline the Pixi rebuild of the Cockpit map was measured against, and the canvas map beside
+  it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

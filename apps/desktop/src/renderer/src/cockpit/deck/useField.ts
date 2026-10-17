@@ -10,6 +10,7 @@ import type { TimelineEvent } from "@armada/protocol";
 
 import { age } from "../../Dashboard";
 import { useWriteClashes } from "../../clashes";
+import { useSessions } from "../../sessions-draft";
 import type { CockpitProps } from "./props";
 import { useFleetEvents } from "../fleet-events";
 import { useAreas } from "./areas-source";
@@ -18,9 +19,9 @@ import { useBuilds } from "./useBuilds";
 import { useSlotTouches } from "./touches-source";
 import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
-import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf } from "./field";
+import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, filesNamed } from "./field";
 import { useClock } from "./clock";
-import { droneOf, type PrIn, type RepoIn } from "./layout";
+import { droneOf, type FileIn, type PrIn, type RepoIn } from "./layout";
 import { fieldAt, windowOf } from "./replay";
 import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./plays";
 import { toneOf } from "./order";
@@ -60,6 +61,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const visited = useDeck((deck) => deck.visited);
   const replay = useDeck((deck) => deck.replay);
   const focus = useDeck((deck) => deck.focus);
+  const sessions = useSessions();
   const events = useFleetEvents();
   const areasOf = useAreas();
   const slotTouched = useSlotTouches();
@@ -99,12 +101,28 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       const slot = holder.get(one.key);
       return droneOf(one, callOfSubject(one, answered) !== undefined, {
         slot: slot === undefined ? undefined : slotKey(slot),
+        // The file a Session is on, as its own Field has it: its drone hovers at that pill.
+        file: one.kind === "session" ? sessions.find((row) => row.id === one.id)?.work?.field?.find((at) => at.agent === undefined)?.file : undefined,
         shown: shown.has(one.key),
         // What a tool burst placed, else what Fleet read of the holder's slot against the base; else nothing.
         touches: touchesOf(one.key, touched, slotTouched),
       });
     });
-  }, [all, holder, answered, shown, touched, slotTouched]);
+  }, [all, sessions, holder, answered, shown, touched, slotTouched]);
+
+  // The files each live Session names, drawn as pills on their plots as the Session's own Field draws them. Where two name one path the stronger act
+  // stands: a file taken away over one made, one made over one changed, one changed over one at rest. Read each render, kept by what it says, so a
+  // Session's message that moves no file hands the layout the same list.
+  const named: { root: string; file: FileIn }[] = [];
+  for (const one of all) {
+    if (one.kind !== "session") continue;
+    const row = sessions.find((session) => session.id === one.id);
+    if (row === undefined || row.dead !== undefined) continue;
+    for (const file of row.work?.files ?? []) named.push({ root: one.root, file });
+  }
+  const merged = filesNamed(named);
+  const filesKey = merged.key;
+  const files = useMemo(() => merged.files, [filesKey]);
 
   const repos = useMemo<RepoIn[]>(() => {
     const roots = [...new Set([...all.map((one) => one.root), ...mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
@@ -117,8 +135,9 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         .map(slotKey),
       goal: mains.some((one) => one.root === root),
       areas: areasOf(root),
+      ...(files.get(root) === undefined ? {} : { files: files.get(root)! }),
     }));
-  }, [all, mains, ship.repos, slots, repositories, areasOf]);
+  }, [all, mains, ship.repos, slots, repositories, areasOf, files]);
 
   const bays = useBays(slots, events, replay?.at, clock);
   const pads = useMemo(() => {

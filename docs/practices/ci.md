@@ -64,18 +64,17 @@ build of `armada` failing, is red, never an empty plan.
 of every crate the paths name, where an agent's terminal gets only the tests the
 change touched. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
-## What `ci`, `needs` and `desktop_test` are
+## What `ci` and `desktop_test` are
 
 | Name | Passes when | Failed by |
 |---|---|---|
 | `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
-| `needs` | Fleet's status says so: no standing need ahead of the pull request's on a path it shares | Not defined here. Fleet publishes it as a commit status, `docs/capabilities/needs.md`; not yet required |
 | `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
 
 **A Check the plan skipped counts as passed.** `ci` is the one name the ruleset
-requires for the Checks below. `needs` and later `desktop_test` are to be added.
+requires for the Checks below. `desktop_test` is to be added.
 
 ## Where each Check runs
 
@@ -194,8 +193,7 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 
 | Owed | Where |
 |---|---|
-| Fleet publishes the `needs` check | Fleet |
-| The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
+| The ruleset also requiring `desktop_test` | Repository settings |
 
 ## What `foundations` measured and what it did not
 

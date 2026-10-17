@@ -4,6 +4,8 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { DiffSide } from "./pull-reviews";
+import type { ReviewMatch, ReviewRequest, WalkPlace } from "./review-walks";
+import type { WalkStep } from "./sessions";
 
 /** Where a review tool was read from. A later place replaces an earlier one of the same id. */
 export type ReviewToolSource = "armada" | "kit" | "repository";
@@ -52,7 +54,7 @@ export type SaveReviewTool = {
 };
 
 /** What a run is of. */
-export type ReviewRunKind = "tool" | "explanation" | "ask";
+export type ReviewRunKind = "tool" | "explanation" | "ask" | "search";
 
 /** How far a run has got. `failed` is never a result. */
 export type ReviewRunState = "queued" | "running" | "done" | "failed";
@@ -65,6 +67,8 @@ export type StartReviewRun = {
   name: string;
   /** Run it again, whatever is kept. Without it a kept result is answered as it stands. */
   again?: boolean;
+  /** Where the change runs. Required for the tool `walk` and ignored by every other name. */
+  place?: WalkPlace;
 };
 
 /** A place in the change: a range of lines of a file, on one side of the diff. */
@@ -138,7 +142,13 @@ export type ReviewResult =
   | { shape: "steps"; steps: ReviewStep[] }
   | { shape: "reason"; problem: string; cost: string; links?: ReviewLink[] }
   | { shape: "text"; body: string }
-  | { shape: "findings"; findings: ReviewFinding[] };
+  | { shape: "findings"; findings: ReviewFinding[] }
+  /** Natural Search: the open pull requests that matched, each with why. */
+  | { shape: "matches"; matches: ReviewMatch[] }
+  /** The tool `walk` for a web change: `show_window` steps over the page at `place`. */
+  | { shape: "web_walk"; place: WalkPlace; steps: WalkStep[] }
+  /** The tool `walk` for an API: one request a step. */
+  | { shape: "api_walk"; place: WalkPlace; requests: ReviewRequest[] };
 
 /** One run about one pull request at one commit, going or kept. Carried as `run` by `review_run.changed`. */
 export type ReviewRun = {

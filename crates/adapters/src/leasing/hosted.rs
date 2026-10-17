@@ -44,6 +44,22 @@ pub(crate) fn lease(
     }
 }
 
+/// A slot onto `branch`, which exists, at its tip: the other half of a park.
+pub(crate) fn lease_existing(
+    slots: &SlotPool,
+    branch: &str,
+    holder: &str,
+) -> Result<SlotLeased, LeaseRefused> {
+    match pool(slots).try_lease_existing(branch, &Holder::hosted(holder), since(), &not_here)? {
+        Leased::Full(_) => Ok(SlotLeased::Full),
+        Leased::Took(lease) => Ok(SlotLeased::Took {
+            slot: lease.slot() as u32,
+            worktree: Worktree::at(lease.path().to_string_lossy(), branch),
+            reused: !lease.made(),
+        }),
+    }
+}
+
 /// What slot `slot` holds now that the pull request from `merged` has merged.
 pub(crate) fn after_merge(slots: &SlotPool, slot: u32, merged: &str) -> SlotAfterMerge {
     pool(slots).after_merge(slot as usize, merged)

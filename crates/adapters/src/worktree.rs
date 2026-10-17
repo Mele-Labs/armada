@@ -172,6 +172,20 @@ impl Vcs for GitVcs {
         })
     }
 
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        noted(crate::leasing::hosted::lease_existing(pool, branch, job_id)).map_err(|refused| {
+            CreateWorktreeError::SlotNotLeased {
+                repo: pool.repo_root().to_string(),
+                why: refused.said(),
+            }
+        })
+    }
+
     fn park_slot(
         &self,
         pool: &SlotPool,
@@ -229,6 +243,10 @@ impl Vcs for GitVcs {
 
     fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), String> {
         noted(crate::leasing::hosted::release_review(pool, slot, holder))
+    }
+
+    fn paths_touched_by(&self, pool: &SlotPool, authors: &[String], commits: usize) -> Vec<String> {
+        crate::history::paths_touched_by(pool.repo_root(), authors, commits)
     }
 
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {

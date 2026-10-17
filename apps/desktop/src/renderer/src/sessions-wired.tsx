@@ -501,6 +501,14 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome, sent);
   }
 
+  /** As `plain`, resolving to whether Fleet took it. */
+  private async took(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<boolean> {
+    this.say(undefined);
+    const done = await act;
+    if (!done.ok) this.tell(done.outcome);
+    return done.ok;
+  }
+
   private readonly lookup = (id: string): Session | undefined => this.mapped.find((one) => one.id === id);
 
   readonly draft: SessionsDraft = this.build();
@@ -624,6 +632,8 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    pause: (id) => this.took(this.api.pauseSession(id)),
+    resume: (id) => this.took(this.api.resumeSession(id)),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),

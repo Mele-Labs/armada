@@ -62,6 +62,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
+import { OverTheApp } from "./session-view/OverTheApp";
 import { slotTroubleOf } from "./session-view/slot-trouble";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
@@ -100,6 +101,7 @@ import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
+import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
@@ -350,6 +352,7 @@ export function ReadingSheet({
   const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
   if (one?.kind === "pull_request") {
     return (
+      <OverTheApp open>
       <SessionPullRequest
         sessionId={sessionId}
         draft={draft}
@@ -365,6 +368,7 @@ export function ReadingSheet({
       >
         <Refused />
       </SessionPullRequest>
+      </OverTheApp>
     );
   }
   const title =
@@ -387,6 +391,7 @@ export function ReadingSheet({
   const background = one?.kind === "background" ? one : undefined;
   const Glyph = artifact !== undefined ? ARTIFACT_GLYPH[artifact.form] : background !== undefined ? BACKGROUND[background.form].Glyph : undefined;
   return (
+    <OverTheApp open={(one !== undefined || steps !== undefined) && title !== ""}>
     <Sheet
       kind="session-reading"
       open={(one !== undefined || steps !== undefined) && title !== ""}
@@ -431,6 +436,7 @@ export function ReadingSheet({
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
     </Sheet>
+    </OverTheApp>
   );
 }
 
@@ -454,6 +460,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
     setDrawing(BLANK);
   };
   return (
+    <OverTheApp open={open}>
     <Sheet kind="session-sketch" open={open} floating floor={floor} size="wide" title="Draw a sketch" closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="armada-session-reading">
         <SketchPad
@@ -476,6 +483,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
         </Button>
       </div>
     </Sheet>
+    </OverTheApp>
   );
 }
 
@@ -924,7 +932,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
-              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
+              : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1038,9 +1046,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}
       {narrow ? (
-        <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
-        </Sheet>
+        <OverTheApp open={ledgerOpen}>
+          <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
+            <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
+          </Sheet>
+        </OverTheApp>
       ) : null}
       <ReadingSheet
         sessionId={session.id}
@@ -1072,7 +1082,11 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : (
+        <OverTheApp open>
+          <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />
+        </OverTheApp>
+      )}
       </ProseTerminal.Provider>
     </SessionRefs>
   );

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { Tooltip } from "@armada/components";
 
 import { SAID } from "./BuildCard";
-import { SessionGlyph } from "./Drone";
+import { SessionGlyph } from "./SessionGlyph";
 import { RingArt } from "./ring";
 import { arcSaid, arcWord, arcsOf, askedOf, bandOf, glyphOf, roadOf, seatedWorkers, wordOf, type BuildIn } from "./build";
 import { AskUpdate } from "./AskUpdate";

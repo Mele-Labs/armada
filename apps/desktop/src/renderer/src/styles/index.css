@@ -102,7 +102,8 @@ body::after {
   animation-play-state: paused !important;
 }
 
-/* A minute with no input stills the map alone: a spinner elsewhere still says something is working. */
+/* A minute with no input stills the map and the Bays panel's pulse alone: a spinner elsewhere still says something is working. */
+:root[data-idle] .deck-bay__state,
 :root[data-idle] .bf *,
 :root[data-idle] .bf *::before,
 :root[data-idle] .bf *::after {

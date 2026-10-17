@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.31'
+export const MOD_VERSION = '0.3.32'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -199,34 +199,6 @@ export function ghAct(command: string): GhAct | undefined {
   if (hit[1] === 'merge' && /(?:^|\s)--auto(?:\s|$)/.test(hit[2])) return undefined
   const number = /(?:^|\s)#?(\d+)(?:\s|$)/.exec(hit[2])?.[1]
   return { act: hit[1] as GhAct['act'], number }
-}
-
-export type NeedAct =
-  | { act: 'declare'; path: string; what: string }
-  | { act: 'took'; path: string; value: string }
-  | { act: 'release'; path: string }
-
-/** The words of a shell command, quotes taken off. */
-function wordsOf(text: string): string[] {
-  return [...text.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)].map(
-    hit => hit[1]?.replace(/\\(.)/g, '$1') ?? hit[2] ?? hit[3],
-  )
-}
-
-/** The `armada need` a command runs, in the three forms that declare, take or give back. */
-export function needAct(command: string): NeedAct | undefined {
-  const hit = /(?:^|[;&|(])\s*armada\s+need\s+([^|;&\n]*)/.exec(command)
-  if (hit === null) return undefined
-  const rest = wordsOf(hit[1])
-  const path = (one: string) => one.replace(/^(\.\/)+/, '')
-  if (rest[0] === '--release' && rest.length === 2) return { act: 'release', path: path(rest[1]) }
-  if (rest[0] === '--took' && rest.length === 3) {
-    return { act: 'took', path: path(rest[1]), value: rest[2] }
-  }
-  if (rest.length === 2 && !rest[0].startsWith('-')) {
-    return { act: 'declare', path: path(rest[0]), what: rest[1] }
-  }
-  return undefined
 }
 
 /** Whom a delivery came from, as far as the delivery says: never a session id. */

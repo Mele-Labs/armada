@@ -363,6 +363,8 @@ type OldBridgeApi = {
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
+    pauseSession: (sessionId: string) => Promise<SessionActed>;
+    resumeSession: (sessionId: string) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
     releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     handToSession: (sessionId: string, group: string) => Promise<SessionActed<SessionHeld>>;
@@ -599,6 +601,8 @@ const OLD_CHANNELS = {
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
+    pauseSession: "bridge:pause-session",
+    resumeSession: "bridge:resume-session",
     setSessionWorkflow: "bridge:set-session-workflow",
     releaseSessionHolds: "bridge:release-session-holds",
     handToSession: "bridge:hand-to-session",

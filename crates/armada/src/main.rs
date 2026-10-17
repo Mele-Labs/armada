@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use armada::clean::Scope;
-use armada::cli::{self, NeedAct, Usage, Verb, WorktreeAct};
+use armada::cli::{self, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
 use armada::{clean, declared, leasing, say, serve};
 
@@ -90,7 +90,6 @@ async fn main() -> ExitCode {
             }
         },
         Verb::Worktree(act) => worktree_verb(act),
-        Verb::Need(act) => need_verb(act),
         Verb::Pocket { port, assets } => match armada::pocketing::run(port, assets).await {
             Ok(()) => ExitCode::SUCCESS,
             Err(why) => {
@@ -98,23 +97,6 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-    }
-}
-
-fn need_verb(act: NeedAct) -> ExitCode {
-    let Ok(cwd) = std::env::current_dir() else {
-        eprintln!("the working directory could not be read");
-        return ExitCode::FAILURE;
-    };
-    match armada::need::run(&cwd, act) {
-        Ok(said) => {
-            print!("{said}");
-            ExitCode::SUCCESS
-        }
-        Err(why) => {
-            eprintln!("need: {why}");
-            ExitCode::from(1)
-        }
     }
 }
 

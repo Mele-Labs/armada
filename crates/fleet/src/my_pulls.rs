@@ -33,6 +33,11 @@ impl Mine {
         self.0.as_ref()?.first().map(String::as_str)
     }
 
+    /// Every login known, **as the forge wrote it**, the signed-in account first. Empty where none is.
+    pub(crate) fn logins(&self) -> &[String] {
+        self.0.as_deref().unwrap_or(&[])
+    }
+
     pub(crate) fn owns(&self, author: Option<&str>) -> bool {
         match (&self.0, author.map(str::trim).filter(|it| !it.is_empty())) {
             (Some(known), Some(author)) => known.iter().any(|login| login.eq_ignore_ascii_case(author)),

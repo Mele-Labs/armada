@@ -28,6 +28,9 @@ import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
+import { PlanRevisionView, useUnchanged } from "./PlanRevision";
+import type { PlanRevision } from "./PlanRevision";
+export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -150,6 +153,8 @@ export type PlanApproval = {
   after?: string;
   /** What the agent changed since the plan before this one: what is added, renamed (and what it was) and removed. */
   changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
+  /** A later version drawn with what changed marked in place and the groups nothing touched closed to a line. Absent, the card draws the plan whole. */
+  revision?: PlanRevision;
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -443,6 +448,9 @@ function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenChe
  */
 type Act = { kind: "approved"; target: string; shown: string } | { kind: "answered"; target: string; said: string };
 
+/** Fleet's last line to the agent on an answer (`TAKEN_OFF` in waiting.rs), then and now: not the person's words. */
+const TAKEN_OFF = /\n?(?:Fleet took this off your waiting list\.|This settles the item, so Fleet took it off your waiting list\. Do not add it back\.)$/;
+
 function actOf(text: string): Act | null {
   const approved = /^Approved: (\S+)$/.exec(text);
   if (approved?.[1] !== undefined) {
@@ -450,7 +458,7 @@ function actOf(text: string): Act | null {
     return { kind: "approved", target: approved[1], shown: walk === null ? approved[1] : `?${walk[0].slice(1)}` };
   }
   const answered = /^Re: ([^\n]+)\n?([\s\S]*)$/.exec(text);
-  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").trim() };
+  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").replace(TAKEN_OFF, "").trim() };
   return null;
 }
 
@@ -872,11 +880,20 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const { approved, onReview } = approval;
   const [folded, setFolded] = useState(false);
   const Fold = folded ? ChevronRight : ChevronDown;
+  const revising = approval.revision !== undefined && !approved;
+  const unchanged = useUnchanged(revising ? approval.revision : undefined);
   const stateSaid = approved ? "Plan approved" : "Plan waiting for approval";
   const StateGlyph = approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
+  // U opens the unchanged groups of a revision, or closes them all, wherever focus is on the card.
+  const onKeys = (event: KeyboardEvent<HTMLElement>) => {
+    if (!folded && event.key === "u" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      unchanged.toggleAll();
+    } else review?.onKeyDown(event);
+  };
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} data-folded={folded || undefined} {...review}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} data-folded={folded || undefined} {...review} {...(revising ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label="Plan" onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
@@ -897,7 +914,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
       </div>
       {folded ? null : (
         <>
-      {approval.changes === undefined || approval.changes.length === 0 ? null : (
+      {revising || approval.changes === undefined || approval.changes.length === 0 ? null : (
         <ul className="armada-session-thread__changes" aria-label="Changed since the last plan">
           {approval.changes.map((one, at) => (
             <li key={at} data-kind={one.kind}>
@@ -915,6 +932,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         </ul>
       )}
       <div className="armada-session-thread__plan-body">
+        {revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : (
         <ul className="armada-session-thread__groups">
           {approval.groups.map((group) => (
             <li key={group.id} className="armada-session-thread__group">
@@ -935,6 +953,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             </li>
           ))}
         </ul>
+        )}
         {approval.sketch === undefined ? null : (
           <ul className="armada-session-thread__sketch">
             <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} onOpen={() => onReview?.()} />

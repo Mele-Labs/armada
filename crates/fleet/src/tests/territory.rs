@@ -67,14 +67,70 @@ impl Rig {
     }
 }
 
+#[tokio::test]
+async fn a_served_repositorys_areas_are_its_directories_to_depth_two_with_the_files_of_each_and_a_repeated_read_at_one_head_reads_git_once() {
+    let rig = a_rig();
+
+    let first = rig.fleet.repository_areas().await.expect("read");
+    let again = rig.fleet.repository_areas().await.expect("read");
+
+    let [served] = first.repositories.as_slice() else {
+        panic!("one repository is served: {first:?}");
+    };
+    assert_eq!(served.manifest_id.as_str(), rig.manifest());
+    assert_eq!(served.root, rig.root());
+    let head = std::process::Command::new("git")
+        .args(["-C", &rig.root(), "rev-parse", "main"])
+        .output()
+        .unwrap();
+    assert_eq!(served.head, String::from_utf8_lossy(&head.stdout).trim());
+    let seen: Vec<(&str, u32, Vec<(&str, u32)>)> = served
+        .areas
+        .iter()
+        .map(|area| {
+            (area.dir.as_str(), area.files, area.kids.iter().map(|kid| (kid.name.as_str(), kid.files)).collect())
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        vec![("crates", 3, vec![("fleet", 2), ("ipc", 1)]), ("docs", 1, vec![])],
+        "the largest first, a file at the top in none"
+    );
+    assert_eq!(served.omitted, 0);
+    let named: Vec<(&str, Vec<&str>)> = served
+        .areas
+        .iter()
+        .flat_map(|area| {
+            let own = (area.dir.as_str(), area.names.iter().map(String::as_str).collect());
+            let kids = area.kids.iter().map(|kid| (kid.name.as_str(), kid.names.iter().map(String::as_str).collect()));
+            std::iter::once(own).chain(kids)
+        })
+        .collect();
+    assert_eq!(
+        named,
+        vec![("crates", vec![]), ("fleet", vec!["a.rs", "b.rs"]), ("ipc", vec!["c.rs"]), ("docs", vec!["d.md"])],
+        "a kid names its files, a top with kids none, a top without kids its own"
+    );
+    assert_eq!(again, first);
+    assert_eq!(rig.fleet.territory().tree_reads(), 1, "the second read asked git for the head only");
+
+    write(&rig.home, "docs/e.md", "x\n");
+    git(rig.home.path(), &["add", "."]);
+    git(rig.home.path(), &["commit", "--quiet", "-m", "main moves"]);
+    let moved = rig.fleet.repository_areas().await.expect("read");
+
+    assert_eq!(rig.fleet.territory().tree_reads(), 2, "a new head is read again");
+    assert_eq!(moved.repositories[0].areas[1].files, 2);
+}
+
 #[test]
 fn only_the_forty_largest_directories_are_listed_and_a_top_directory_is_never_cut_from_under_one_inside_it() {
     let mut dirs = Vec::new();
     for top in 0..30 {
         // Every directory inside a top one holds as many files as the top one, the tie that
         // would cut a parent first if parents were not listed first.
-        dirs.push(adapters::territory::Directory { path: format!("t{top:02}"), files: 5 });
-        dirs.push(adapters::territory::Directory { path: format!("t{top:02}/k"), files: 5 });
+        dirs.push(adapters::territory::Directory { path: format!("t{top:02}"), files: 5, names: Vec::new() });
+        dirs.push(adapters::territory::Directory { path: format!("t{top:02}/k"), files: 5, names: Vec::new() });
     }
 
     let (areas, omitted) = capped(dirs);
@@ -84,6 +140,21 @@ fn only_the_forty_largest_directories_are_listed_and_a_top_directory_is_never_cu
     assert_eq!(omitted, 20);
     assert_eq!(areas.len(), 20);
     assert!(areas.iter().all(|area| area.kids.len() == 1), "each top came with the directory inside it");
+}
+
+#[test]
+fn a_top_directory_with_kids_names_no_file_the_kid_already_names() {
+    let named = |path: &str, files: u32| adapters::territory::Directory {
+        path: path.into(),
+        files,
+        names: vec!["x.rs".into()],
+    };
+
+    let (areas, _) = capped(vec![named("a", 2), named("a/k", 1), named("b", 1)]);
+
+    assert!(areas[0].names.is_empty(), "a has a kid, which names x.rs");
+    assert_eq!(areas[0].kids[0].names, vec!["x.rs".to_string()]);
+    assert_eq!(areas[1].names, vec!["x.rs".to_string()], "b has none, so it names its own");
 }
 
 #[tokio::test]

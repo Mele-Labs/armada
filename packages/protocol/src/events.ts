@@ -12,6 +12,7 @@
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
 import type { ReviewRun } from "./review-runs";
+import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
 import type { SettingsList } from "./settings";
 import type { CheckoutRunRecord } from "./rehearsal";
@@ -55,6 +56,8 @@ export type Event =
   | ({ kind: "merge_lines.changed" } & MergeLines)
   /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
   | { kind: "review_run.changed"; run: ReviewRun }
+  /** A held walk moved: checking out, starting, ready, failed or closed, whole. Not replayed. */
+  | { kind: "review_walk.changed"; walk: ReviewWalk }
   /** The mods on this machine changed; the list now, whole, as `list_mods` answers. */
   | ({ kind: "mods.changed" } & ModList)
   /** settings.json changed, by a save or by hand; every setting now, whole, as `get_settings` answers. */

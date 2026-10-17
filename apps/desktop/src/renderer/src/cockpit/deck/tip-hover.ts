@@ -9,8 +9,8 @@ import type { Tip } from "./tip";
 export const LEAVE_MS = 110;
 export const SWITCH_MS = 90;
 
-/** What is shown: the card, what it hangs from, and the drone or tile it lights while it stands. */
-export type Shown = { tip: Tip; anchor: Anchor; hot?: string; tile?: string };
+/** What is shown: the card, what it hangs from, and the drone, tile or part (a pad, flag or crate) it lights while it stands. */
+export type Shown = { tip: Tip; anchor: Anchor; hot?: string; tile?: string; part?: string };
 
 export type Tips = {
   /** The pointer or focus came to something. */

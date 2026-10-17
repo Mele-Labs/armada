@@ -110,9 +110,6 @@ mod clashes;
 /// What each served repository holds and where each agent is changing it, for the deck's map.
 /// `docs/concepts/fleet.md`, *The territory*.
 mod territory;
-/// `armada need`: a checkout says what it needs on a path, and Fleet answers from
-/// the session ledger. `docs/capabilities/needs.md`.
-mod needs;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
@@ -138,6 +135,8 @@ mod repositories;
 mod requester;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// Natural Search, and where a change runs for the Walk tool.
+mod review_walks;
 /// A Session's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -281,7 +280,7 @@ pub use hosted_sessions::{
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, PauseSession, ResumeSession, SessionPaused, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
 pub use ids::{
@@ -326,9 +325,6 @@ pub use clashes::{
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
     TouchesInRepository,
-};
-pub use needs::{
-    NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList,
 };
 pub use preferences::{
     Preferences, SavePreference, DEFAULT_THEME,
@@ -375,6 +371,11 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
+pub use review_walks::{
+    ForgetReviewSearch, OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,
+    ReviewWalk, ReviewWalkState, SaveWalkPlace, StartReviewSearch, WalkHow, WalkPlace, WalkPlaceFound,
+    WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };
 pub use retro::{
     Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, Retro, RetroAnswered,

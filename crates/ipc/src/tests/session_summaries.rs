@@ -108,6 +108,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         mode: SessionMode::Auto,
         running: true,
         commands: Vec::new(),
+        paused: None,
     };
     let mut record = session(Vec::new());
     record.origin = SessionOrigin::Bridge;
