@@ -341,12 +341,16 @@ class Preview(unittest.TestCase):
 RESTART = os.path.join(HERE, "scripts", "restart")
 
 
-def roster_server(jobs, drones=None):
+def roster_server(jobs, drones=None, drones_error=None):
     """A Fleet's two reads, `/drones` and `/jobs/<id>`, from {job_id: status}.
-    `drones` names the Jobs that have a Drone; every Job has one by default."""
+    `drones` names the Jobs that have a Drone; every Job has one by default.
+    `drones_error` is an HTTP status `/drones` answers with instead."""
     drones = list(jobs) if drones is None else drones
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path == "/drones" and drones_error:
+                self.send_error(drones_error)
+                return
             if self.path == "/drones":
                 body = {"drones": [{"handle": f"drone-{j}", "job_id": j} for j in drones]}
             elif self.path.startswith("/jobs/") and self.path[6:] in jobs:
@@ -415,8 +419,8 @@ class RestartAdopt(unittest.TestCase):
                 f.write("#!/bin/sh\nexit 0\n")
             os.chmod(path, 0o755)
 
-    def fleet(self, jobs):
-        server = roster_server(jobs)
+    def fleet(self, jobs, drones_error=None):
+        server = roster_server(jobs, drones_error=drones_error)
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         with open(os.path.join(self.support, "fleet.json"), "w") as f:
@@ -574,6 +578,23 @@ class RestartAdopt(unittest.TestCase):
         self.assertNotIn("undercount", said)
         self.assertNotIn("would be adopted", said)
         self.assertIn("no Drone is working, so there is nothing to skip", said)
+
+    def test_a_fleet_with_no_drones_route_has_no_drone_working(self):
+        self.fleet({}, drones_error=404)
+        code, said = self.restart("--adopt", "--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("This Fleet runs no Drones", said)
+        self.assertNotIn("did not answer", said)
+        code, said = self.restart("--dry-run")
+        self.assertIn("no Drone is working, so the restart would go ahead", said)
+
+    def test_a_fleet_whose_roster_fails_for_another_reason_still_refuses(self):
+        self.fleet({}, drones_error=500)
+        code, said = self.restart("--adopt")
+        self.assertNotEqual(code, 0)
+        self.assertIn("did not answer", said)
+        code, said = self.restart("--dry-run")
+        self.assertIn("the restart would refuse", said)
 
     def test_adopt_still_refuses_when_the_roster_does_not_answer(self):
         self.fleet({})
