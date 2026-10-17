@@ -687,7 +687,7 @@ export type SessionsDraft = {
    * nothing serves it, and the Retro press is left off rather than drawn dead.
    */
   retro?: (id: string) => Promise<boolean>;
-  /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
+  /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;

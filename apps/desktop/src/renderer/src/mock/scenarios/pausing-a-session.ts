@@ -38,13 +38,14 @@ function build(): Scenario {
         const store = sessionsStore([none, none], none, [], control, [], [RUNNING]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
+        const closed = new Set<string>();
         return {
           ...store,
           get: () => {
             const all = store.get();
             if (all !== from) {
               from = all;
-              only = all.filter((one) => one.id === RUNNING.id);
+              only = all.filter((one) => one.id === RUNNING.id && !closed.has(one.id));
             }
             return only;
           },
@@ -52,6 +53,11 @@ function build(): Scenario {
           pause: async (id) => {
             store.edit(id, ({ paused: _, ...one }) => ({ ...one, paused: true, turn: { state: "idle" }, standing: "idle", attachments: one.attachments.filter((it) => it.kind !== "slot") }));
             return true;
+          },
+          // The mock's end: the row goes.
+          close: (id) => {
+            closed.add(id);
+            store.edit(id, (one) => ({ ...one }));
           },
           resume: async (id) => {
             store.edit(id, ({ paused: _, ...one }) => ({ ...one, turn: { state: "working" }, standing: "working", attachments: [{ kind: "slot", slot: 4 }, ...one.attachments] }));
