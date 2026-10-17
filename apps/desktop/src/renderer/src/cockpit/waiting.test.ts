@@ -154,9 +154,9 @@ describe("a call is raised only if he has not been in the Session since it began
     expect(lastOwnerMessageAt(waiting({ rows: [{ id: "m", at: "09:30:00", kind: "message", from: { kind: "you" }, text: "x" }] }))).toBe(0);
   });
 
-  test("a blocking source follows the same rule: a question, a permission and a window ask he was there for are no call", () => {
+  test("a blocking source follows the same rule: a question, a permission, a window ask and a full pool he was there for are no call", () => {
     const working = (source: string) => session("w", { turn: { state: "working" }, waitingFor: [item(source, SINCE, source)] });
-    for (const source of ["ask_card", "permission", "window_ask"]) {
+    for (const source of ["ask_card", "permission", "window_ask", "slot_choice"]) {
       expect(ids([working(source)])).toEqual([source]);
       expect(ids([working(source)], () => at("2026-10-09T09:30:00.000Z"))).toEqual([]);
       expect(ids([working(source)], () => at("2026-10-09T08:30:00.000Z"))).toEqual([source]);

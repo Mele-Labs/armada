@@ -7,6 +7,11 @@
 //! or when it ends. A Fleet that restarts forgets the line: the session's next
 //! write joins it again.
 //!
+//! **The person is asked, once per stay in the line** (`WaitingSource::SlotChoice`): wait for the
+//! next slot to free, or have Fleet add one. Wait changes nothing about the order. Add leases the
+//! new slot to the session that asked, ahead of the line, and `granting` is held across it so the
+//! grant below cannot hand the new slot to the head first.
+//!
 //! **The grant does not wait for a turn to end.** The session was told to stop
 //! when it was queued, so by the time a slot frees it is usually idle, and
 //! `Runtime::moving` is only read where a turn ends. Grant to an idle session
@@ -18,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{ManifestId, SessionTurn};
+use ipc::{Instant, ManifestId, SessionRecord, SessionTurn, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
@@ -31,24 +36,77 @@ use crate::daemon::Fleet;
 /// without telling Fleet.
 pub const EVERY: Duration = Duration::from_secs(15);
 
+/// The id of the call Fleet raises for a session that found every slot held.
+pub(crate) const SLOT_CHOICE_ITEM: &str = "slot-choice";
+
+/// What the person is asked when a session finds every worktree slot held. Choice 0 and 1 are the
+/// options in this order: `answer_waiting` takes the index.
+pub(crate) fn slot_choice_item(since: Instant) -> WaitingItem {
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    WaitingItem {
+        id: SLOT_CHOICE_ITEM.to_string(),
+        text: String::from("Every slot is in use"),
+        since,
+        source: WaitingSource::SlotChoice,
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: SLOT_CHOICE_ITEM.to_string() }),
+        options: vec![option("Wait for a slot"), option("Add a slot")],
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+    }
+}
+
+/// What the person has said about a session in the line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Choice {
+    /// Not asked yet, or asked and not answered: the call is on his list.
+    Pending,
+    /// Wait for the next slot to free.
+    Waiting,
+    /// A slot is being added for this session.
+    Adding,
+}
+
+/// One session in a line.
+struct Entry {
+    manifest: String,
+    choice: Choice,
+    since: Instant,
+}
+
+#[derive(Default)]
+struct Lines {
+    by_manifest: HashMap<String, VecDeque<String>>,
+    entries: HashMap<String, Entry>,
+}
+
 /// Who waits for a slot, by repository.
 #[derive(Default)]
 pub(crate) struct SlotQueue {
-    waiting: Mutex<HashMap<String, VecDeque<String>>>,
+    waiting: Mutex<Lines>,
     wake: Notify,
+    /// Held while a slot is leased to someone out of turn, and across the whole of a grant, so
+    /// the two never take the same slot.
+    granting: tokio::sync::Mutex<()>,
 }
 
 impl SlotQueue {
     /// Put the session at the back of the repository's line unless it is in it,
-    /// and say how many are ahead of it.
-    pub(crate) fn join(&self, manifest: &str, session: &str) -> usize {
+    /// and say how many are ahead of it, and whether it was not in the line before.
+    pub(crate) fn join(&self, manifest: &str, session: &str, now: &Instant) -> (usize, bool) {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
-        let line = waiting.entry(manifest.to_string()).or_default();
+        let line = waiting.by_manifest.entry(manifest.to_string()).or_default();
         match line.iter().position(|one| one == session) {
-            Some(at) => at,
+            Some(at) => (at, false),
             None => {
                 line.push_back(session.to_string());
-                line.len() - 1
+                let ahead = line.len() - 1;
+                waiting.entries.insert(
+                    session.to_string(),
+                    Entry { manifest: manifest.to_string(), choice: Choice::Pending, since: now.clone() },
+                );
+                (ahead, true)
             }
         }
     }
@@ -57,29 +115,56 @@ impl SlotQueue {
     /// if it does not, because a newcomer goes to the back.
     pub(crate) fn ahead_of(&self, manifest: &str, session: &str) -> usize {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
-        let Some(line) = waiting.get(manifest) else {
+        let Some(line) = waiting.by_manifest.get(manifest) else {
             return 0;
         };
         line.iter().position(|one| one == session).unwrap_or(line.len())
     }
 
-    /// The session is not waiting any more, in whichever line it was.
-    pub(crate) fn leave(&self, session: &str) {
+    /// The session is not waiting any more, in whichever line it was. Whether it had a call open
+    /// on the person's list, which is then gone and wants publishing.
+    pub(crate) fn leave(&self, session: &str) -> bool {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
-        waiting.retain(|_, line| {
+        waiting.by_manifest.retain(|_, line| {
             line.retain(|one| one != session);
             !line.is_empty()
         });
+        waiting.entries.remove(session).is_some_and(|one| one.choice == Choice::Pending)
+    }
+
+    /// What the person chose for the session, if it is in a line and he has answered.
+    pub(crate) fn chosen(&self, session: &str) -> Option<Choice> {
+        let waiting = self.waiting.lock().expect("the line is not held across a panic");
+        waiting.entries.get(session).map(|one| one.choice)
+    }
+
+    /// When the session's call was raised, while the person has not answered it.
+    pub(crate) fn pending(&self, session: &str) -> Option<Instant> {
+        let waiting = self.waiting.lock().expect("the line is not held across a panic");
+        waiting
+            .entries
+            .get(session)
+            .filter(|one| one.choice == Choice::Pending)
+            .map(|one| one.since.clone())
+    }
+
+    /// Record what the person chose for a session that is in a line, and the repository it waits
+    /// in. `None` where it is not in one.
+    pub(crate) fn choose(&self, session: &str, choice: Choice) -> Option<String> {
+        let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
+        let entry = waiting.entries.get_mut(session)?;
+        entry.choice = choice;
+        Some(entry.manifest.clone())
     }
 
     fn head(&self, manifest: &str) -> Option<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
-        waiting.get(manifest).and_then(|line| line.front().cloned())
+        waiting.by_manifest.get(manifest).and_then(|line| line.front().cloned())
     }
 
     fn manifests(&self) -> Vec<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
-        waiting.keys().cloned().collect()
+        waiting.by_manifest.keys().cloned().collect()
     }
 
     /// Whoever keeps the grant is to look now. Stored if it is not waiting, so
@@ -105,6 +190,7 @@ where
     /// ahead of it.
     pub(crate) async fn grant_queued_slots(self: &Arc<Self>) {
         let queue = Arc::clone(self.hosts().slot_queue());
+        let _alone = queue.granting.lock().await;
         for manifest in queue.manifests() {
             let Ok(served) = self.served_named(Some(&ManifestId::carried(&manifest))) else {
                 continue;
@@ -112,19 +198,81 @@ where
             while let Some(id) = queue.head(&manifest) {
                 match self.take_lease(&id, &served).await {
                     Taken::Full => break,
-                    // Ended, or leased a slot some other way: nothing to give it.
-                    Taken::Gone | Taken::Held { .. } => queue.leave(&id),
-                    Taken::Refused(why) => {
-                        queue.leave(&id);
-                        self.fleet_note(&id, format!("Could not lease the slot it was waiting for: {why}"))
-                            .await;
-                    }
-                    Taken::Moving(moving) => {
-                        queue.leave(&id);
-                        self.moved_if_idle(&id, moving).await;
-                    }
+                    taken => self.granted(&id, taken).await,
                 }
             }
+        }
+    }
+
+    /// `answer_waiting` on the slot call. **Neither choice is a message**: the agent was told to end
+    /// its turn when it was queued, and is moved in when a slot is granted.
+    pub(crate) async fn slot_chosen(self: &Arc<Self>, id: &str, choice: Option<u32>) -> Result<SessionRecord, api::Refusal> {
+        match choice {
+            Some(0) => match self.hosts().slot_queue().choose(id, Choice::Waiting) {
+                Some(_) => self.published_hosted(id).await,
+                None => Err(self.settled_already()),
+            },
+            Some(1) => {
+                self.slot_added_for(id).await?;
+                self.published_hosted(id).await
+            }
+            _ => Err(self.hosted_refusal(
+                "fleet.session_waiting_empty",
+                "whether to wait or add a slot is answered by choosing one of the two",
+            )),
+        }
+    }
+
+    /// The person chose to have a slot added for the session: add one and lease it to that session,
+    /// ahead of the line. **The new slot is the session's** and not the head's, because the
+    /// grant is held back for the whole of this. Falls back to waiting where the slot was taken in
+    /// the instant between its being made and leased, and back to asking where it could not be made.
+    pub(crate) async fn slot_added_for(self: &Arc<Self>, id: &str) -> Result<(), api::Refusal> {
+        let queue = Arc::clone(self.hosts().slot_queue());
+        let _alone = queue.granting.lock().await;
+        let Some(manifest) = queue.choose(id, Choice::Adding) else {
+            return Err(self.settled_already());
+        };
+        let manifest = ManifestId::carried(&manifest);
+        let asked = ipc::ChangeSlotPool { act: ipc::SlotAct::Add, slot: None, holder: None };
+        if let Err(refusal) = Fleet::change_slot_pool(self, asked, Some(&manifest)) {
+            queue.choose(id, Choice::Pending);
+            return Err(refusal);
+        }
+        self.worktrees_changed().await;
+        let served = self.served_named(Some(&manifest))?;
+        match self.take_lease(id, &served).await {
+            Taken::Full => {
+                queue.choose(id, Choice::Waiting);
+            }
+            taken => self.granted(id, taken).await,
+        }
+        let _ = self.published_hosted(id).await;
+        Ok(())
+    }
+
+    /// What a lease for a session in the line came to, other than the pool being full: it leaves
+    /// the line, and is moved if it was leased a slot.
+    async fn granted(self: &Arc<Self>, id: &str, taken: Taken) {
+        match taken {
+            // Ended, or leased a slot some other way: nothing to give it.
+            Taken::Gone | Taken::Held { .. } => self.line_left(id).await,
+            Taken::Full => {}
+            Taken::Refused(why) => {
+                self.line_left(id).await;
+                self.fleet_note(id, format!("Could not lease the slot it was waiting for: {why}")).await;
+            }
+            Taken::Moving(moving) => {
+                self.line_left(id).await;
+                self.moved_if_idle(id, moving).await;
+            }
+        }
+    }
+
+    /// Out of the line, and the call taken off his list if it was still there.
+    pub(crate) async fn line_left(&self, id: &str) {
+        if self.hosts().slot_queue().leave(id) {
+            let _ = self.published_hosted(id).await;
         }
     }
 
