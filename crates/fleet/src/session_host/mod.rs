@@ -9,6 +9,7 @@
 //! writes the thread.
 
 pub(crate) mod activity;
+pub(crate) mod after;
 mod agent_starting;
 mod annotating;
 mod asking;

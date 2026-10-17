@@ -148,6 +148,8 @@ mod proposing;
 mod proving;
 /// What Fleet told a Session about one it follows, so it is told once.
 mod linked_told;
+/// A Session dispatched to wait on another, until its condition is met.
+mod session_waits;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.
@@ -249,6 +251,7 @@ pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
+pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};

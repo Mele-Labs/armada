@@ -73,6 +73,7 @@ impl Rig {
                 }),
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
     }
@@ -423,6 +424,7 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
             pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .unwrap();

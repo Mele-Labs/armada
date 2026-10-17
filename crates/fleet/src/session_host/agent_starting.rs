@@ -79,6 +79,11 @@ where
         let me = self.agent_placed(caller.as_ref())?;
         let mut words = self.agent_words(&start.title, &start.message)?;
         let mut manifest = start.manifest_id;
+        // A Session it waits on is checked before anything is made, so a refused wait leaves no Session behind.
+        let after = start.after;
+        if let Some(after) = &after {
+            self.after_checked("", after).await?;
+        }
         // A group of the caller's plan: the Session is the caller's own repository and the group's work.
         let group = match start.group.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
             Some(group) => {
@@ -101,9 +106,20 @@ where
                 pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await?;
-        self.held_for_person(&me, made, words, false, group.as_deref()).await
+        let brief = words.message.clone();
+        let held = self.held_for_person(&me, made, words, false, group.as_deref(), after.is_none()).await?;
+        // A Session that waits holds its first message until the condition is met, and then for the person.
+        if let Some(after) = after {
+            let told = after.session.as_str() != me;
+            if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, true, ipc::WaitBy::Agent, told).await {
+                let _ = self.close_session(ipc::CloseSession { session_id: held.session_id.clone() }).await;
+                return Err(refusal);
+            }
+        }
+        Ok(held)
     }
 
     /// `fork_this_session`.
@@ -134,9 +150,10 @@ where
                     at: Some(at),
                 }),
                 request: None,
+                after: None,
             })
             .await?;
-        self.held_for_person(&me, made, words, true, None).await
+        self.held_for_person(&me, made, words, true, None, true).await
     }
 
     /// Keep the first message unsent, link the two ledgers, write the callout in the caller's thread
@@ -149,6 +166,7 @@ where
         words: Words,
         fork: bool,
         group: Option<&str>,
+        unsent: bool,
     ) -> Result<SessionHeld, Refusal> {
         let new = made.id.as_str().to_string();
         let manifest = made
@@ -184,7 +202,9 @@ where
                 keep(&new, STARTED_BY, caller, AttachmentState::Spent, linked.clone())?;
                 keep(caller, STARTED_TO, &new, AttachmentState::Spent, linked)?;
             }
-            keep(&new, UNSENT, &words.message, AttachmentState::Standing, BTreeMap::new())?;
+            if unsent {
+                keep(&new, UNSENT, &words.message, AttachmentState::Standing, BTreeMap::new())?;
+            }
         }
         self.row_put(
             caller,

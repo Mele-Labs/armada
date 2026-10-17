@@ -20,18 +20,18 @@ use crate::tests::peer::Placing;
 use crate::tests::session_host::{Shared, StandIn};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const FIRST: &str = "Read crates/reader and say why it drops lines.";
 
-struct Rig {
-    fleet: Arc<Hosted>,
-    stand_in: Arc<StandIn>,
-    manifest: ManifestId,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Hosted>,
+    pub(super) stand_in: Arc<StandIn>,
+    pub(super) manifest: ManifestId,
     home: TempDir,
 }
 
-fn rig(peers: Option<Arc<Placing>>) -> Rig {
+pub(super) fn rig(peers: Option<Arc<Placing>>) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
@@ -44,12 +44,12 @@ fn rig(peers: Option<Arc<Placing>>) -> Rig {
     Rig { fleet: Arc::new(fleet), stand_in, manifest, home }
 }
 
-fn caller() -> Option<api::Caller> {
+pub(super) fn caller() -> Option<api::Caller> {
     Some(api::Caller::at("127.0.0.1:50999".parse().unwrap()))
 }
 
-fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
-    StartAnotherSession { manifest_id: rig.manifest.clone(), title: title.into(), message: message.into(), group: None }
+pub(super) fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
+    StartAnotherSession { manifest_id: rig.manifest.clone(), title: title.into(), message: message.into(), group: None, after: None }
 }
 
 /// A transcript line the agent CLI wrote: `kind` is `user` or `assistant`.
@@ -61,15 +61,15 @@ fn line(kind: &str, uuid: &str, text: &str) -> String {
 }
 
 impl Rig {
-    async fn record(&self, id: &SessionId) -> SessionRecord {
+    pub(super) async fn record(&self, id: &SessionId) -> SessionRecord {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").session
     }
 
-    async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
+    pub(super) async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
-    async fn send(&self, id: &SessionId, text: &str) {
+    pub(super) async fn send(&self, id: &SessionId, text: &str) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),
@@ -82,7 +82,7 @@ impl Rig {
     }
 
     /// A hosted session with its process up: the agent that makes the calls.
-    async fn an_agent(&self) -> SessionId {
+    pub(super) async fn an_agent(&self) -> SessionId {
         let id = self
             .fleet
             .start_session(StartSession {
@@ -95,6 +95,7 @@ impl Rig {
                 pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
@@ -155,7 +156,7 @@ impl Rig {
     }
 }
 
-fn kind<'a>(record: &'a SessionRecord, kind: &str) -> Option<&'a ipc::Attachment> {
+pub(super) fn kind<'a>(record: &'a SessionRecord, kind: &str) -> Option<&'a ipc::Attachment> {
     record.attachments.iter().find(|one| one.kind == kind)
 }
 
@@ -355,7 +356,7 @@ async fn a_blank_title_or_message_is_refused() {
 
 // ---- Linked Sessions: a group of the plan handed to a Session the caller follows ----------------------
 
-fn two_groups(agent: &SessionId) -> RecordPlan {
+pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
     let group = |title: &str, tasks: &[&str]| PlanGroupInput {
         id: None,
         title: title.into(),
@@ -407,11 +408,11 @@ impl Rig {
     }
 
     /// How many lines the process of the agent at index 0 was sent that contain `text`.
-    fn told(&self, text: &str) -> usize {
+    pub(super) fn told(&self, text: &str) -> usize {
         self.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(text)).count()
     }
 
-    async fn report(&self, child: &SessionId, fact: SessionFact) {
+    pub(super) async fn report(&self, child: &SessionId, fact: SessionFact) {
         let harness = self.record(child).await.harness;
         self.fleet.report_session(SessionReport { harness, session_id: child.clone(), fact }).await.expect("reported");
     }

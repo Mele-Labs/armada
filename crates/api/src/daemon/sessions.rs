@@ -7,6 +7,7 @@
 //! rows.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use ipc::{
     ManifestId, Owners, RenameSession, SessionList, SessionRecord, SessionReport, SessionState,
@@ -221,6 +222,17 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         start: ipc::StartAnotherSession,
     ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
+
+    /// `change_waiting` — when a waiting Session starts, or where from. **The agent of the Session
+    /// waited on changes a Session that waits on it; the person (no `caller`) changes any.**
+    /// [`Refusal::Unacceptable`] for a call that places no Session, a Session that does not wait on the
+    /// caller, or a plan part the Session waited on does not hold; [`Refusal::IllegalMove`] where the
+    /// Session has started.
+    fn change_waiting(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        change: ipc::ChangeWaiting,
+    ) -> impl Future<Output = Result<ipc::SessionWait, Refusal>> + Send;
 
     /// `fork_this_session` — a hosted Session's agent forks its own conversation, whole or at a message,
     /// with a first message held for the person. [`Refusal::Unacceptable`] as `start_another_session`'s,

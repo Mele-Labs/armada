@@ -76,6 +76,7 @@ impl Rig {
                 pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started")
