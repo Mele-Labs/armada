@@ -1,4 +1,4 @@
-// The type, spacing, shadow and motion foundations in three pairings, `?type=a|b|c`, over the Cockpit.
+// The type, spacing, shadow and motion foundations in six pairings, `?type=system|inter|manrope|instrument|dm|sora`, over the Cockpit.
 // Over `cockpit-list-by-repository`. A design mock: nothing here asserts a face or a size.
 
 import { button, inside, region, role, text, walk } from "../walk";

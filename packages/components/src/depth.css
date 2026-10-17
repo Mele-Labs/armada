@@ -1,6 +1,6 @@
 /* One set of foundations for every screen, drawn in the type takes' own tokens
    (`@armada/tokens/takes.css`). Every rule starts `:root[data-type]`, so a page
-   with no take draws as it did and the three takes share one stylesheet.
+   with no take draws as it did and the six takes share one stylesheet.
    Colour is the theme's: nothing here names a hue.
 
    One material, one accent, a clear hierarchy, and nothing piled on:

@@ -1,5 +1,5 @@
-/* Three type takes for one set of foundations, a design mock the owner walks
-   with `?type=a|b|c`. Nothing here applies until the page carries `data-type`
+/* Six type takes for one set of foundations, a design mock the owner walks
+   with `?type=system|inter|manrope|instrument|dm|sora`. Nothing here applies until the page carries `data-type`
    on its root, so the app without one draws as before.
 
    Not in the cascade `styles.css` declares and not generated: when he picks a
@@ -16,20 +16,20 @@
    Cockpit's panels are laid out on them, and its layout does not move. */
 
 /* ---- Faces. Only the weights a take draws are vendored; each file's licence sits beside it. ------------- */
-@font-face { font-family: "Chakra Petch"; font-style: normal; font-weight: 300; font-display: swap; src: url("./fonts/ChakraPetch-300.woff2") format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/ChakraPetch-400.woff2") format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/ChakraPetch-500.woff2") format("woff2"); }
-@font-face { font-family: "Chakra Petch"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/ChakraPetch-600.woff2") format("woff2"); }
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/Inter-var.woff2") format("woff2"); }
+@font-face { font-family: "Inter Display"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/InterDisplay-var.woff2") format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 100 800; font-display: swap; src: url("./fonts/JetBrainsMono-var.woff2") format("woff2"); }
-@font-face { font-family: "Michroma"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/Michroma-400.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 300; font-display: swap; src: url("./fonts/IBMPlexSans-300.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 300; font-display: swap; src: url("./fonts/IBMPlexMono-300.woff2") format("woff2"); }
-@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("./fonts/SpaceGrotesk-var.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-style: normal; font-weight: 200 800; font-display: swap; src: url("./fonts/Manrope-var.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("./fonts/InstrumentSans-var.woff2") format("woff2"); }
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 100 1000; font-display: swap; src: url("./fonts/DMSans-var.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 300; font-display: swap; src: url("./fonts/DMMono-300.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/DMMono-400.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/DMMono-500.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 100 800; font-display: swap; src: url("./fonts/Sora-var.woff2") format("woff2"); }
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/Geist-var.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("./fonts/GeistMono-var.woff2") format("woff2"); }
 
-/* ---- Shared by all three ------------------------------------------------------------------------------- */
+/* ---- Shared by all six ------------------------------------------------------------------------------- */
 :root[data-type] {
   /* Material. White at low alpha over the theme's own ground, so it is neutral on any theme. The sheen and a
      tile together stay under 2% white: --fg-subtle is 4.74:1 on the glass top and 4.51:1 at 2%. */
@@ -132,49 +132,82 @@
     var(--bg-base);
 }
 
-/* ---- A: HUD. Chakra Petch, squared and angular, over Inter and JetBrains Mono ---------------------------- */
-:root[data-type="a"] {
-  --font-display: "Chakra Petch", var(--font-sans);
+/* ---- system: the Mac's own faces. Nothing vendored; -apple-system picks SF Pro Display or Text by size. ---- */
+:root[data-type="system"] {
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-title: var(--font-display);
+  --font-figure: var(--font-display);
+  --weight-head: 600;  --tracking-head: 0.08em;  --text-head: 12.5px;
+  --text-nav: 14px;  --weight-nav: 500;  --tracking-nav: 0.06em;
+  --text-row: 14.5px;  --weight-row: 500;  --tracking-row: -0.005em;
+  --text-meta: 12px;
+}
+
+/* ---- inter: Inter Display for headers, Inter for the body, JetBrains Mono ------------------------------ */
+:root[data-type="inter"] {
+  --font-display: "Inter Display", "Inter", system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-title: var(--font-display);
   --font-figure: var(--font-display);
-  --weight-head: 600;
-  --tracking-head: 0.18em;
-  --text-head: 14px;
-  --text-nav: 15px;  --weight-nav: 600;  --tracking-nav: 0.12em;
-  /* A row: a firm title, a mono age under it. */
-  --text-row: 15px;  --weight-row: 600;  --tracking-row: 0;
+  --weight-head: 600;  --tracking-head: 0.09em;  --text-head: 12.5px;
+  --text-nav: 14px;  --weight-nav: 500;  --tracking-nav: 0.06em;
+  --text-row: 14.5px;  --weight-row: 550;  --tracking-row: -0.006em;
   --text-meta: 12px;
 }
 
-/* ---- B: Wide. Michroma for headers and the places alone, over IBM Plex ------------------------------------- */
-:root[data-type="b"] {
-  --font-display: "Michroma", var(--font-sans);
-  --font-title: var(--font-sans);
-  --font-figure: var(--font-mono);
-  --weight-head: 400;
-  --tracking-head: 0.12em;
-  /* Michroma runs wide, so it gets a little room and is set in caps and nowhere else. */
-  --text-head: 12px;
-  --text-nav: 12px;  --weight-nav: 400;  --tracking-nav: 0.08em;
-  /* A row: Plex at its ordinary weight, the title a notch up from its meta. */
-  --text-row: 14px;  --weight-row: 500;  --tracking-row: 0;
-  --text-meta: 12.5px;
+/* ---- manrope: Manrope throughout, Geist Mono ------------------------------------------------------------ */
+:root[data-type="manrope"] {
+  --font-display: "Manrope", system-ui, sans-serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-title: var(--font-display);
+  --font-figure: var(--font-display);
+  --weight-head: 700;  --tracking-head: 0.1em;  --text-head: 12.5px;
+  --text-nav: 14px;  --weight-nav: 600;  --tracking-nav: 0.06em;
+  --text-row: 14.5px;  --weight-row: 600;  --tracking-row: -0.005em;
+  --text-meta: 12px;
 }
 
-/* ---- C: Modern. Space Grotesk, geometric, over Geist and Geist Mono ----------------------------------------- */
-:root[data-type="c"] {
-  --font-display: "Space Grotesk", var(--font-sans);
+/* ---- instrument: Instrument Sans throughout, Geist Mono -------------------------------------------------- */
+:root[data-type="instrument"] {
+  --font-display: "Instrument Sans", system-ui, sans-serif;
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-title: var(--font-display);
+  --font-figure: var(--font-display);
+  --weight-light: 400;  /* the face starts at 400 */
+  --weight-head: 600;  --tracking-head: 0.1em;  --text-head: 13px;
+  --text-nav: 14.5px;  --weight-nav: 500;  --tracking-nav: 0.06em;
+  --text-row: 15px;  --weight-row: 500;  --tracking-row: 0;
+  --text-meta: 12px;
+}
+
+/* ---- dm: DM Sans throughout, DM Mono ------------------------------------------------------------------------ */
+:root[data-type="dm"] {
+  --font-display: "DM Sans", system-ui, sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-title: var(--font-display);
+  --font-figure: var(--font-display);
+  --weight-head: 600;  --tracking-head: 0.1em;  --text-head: 13px;
+  --text-nav: 14.5px;  --weight-nav: 500;  --tracking-nav: 0.06em;
+  --text-row: 15px;  --weight-row: 500;  --tracking-row: 0;
+  --text-meta: 12px;
+}
+
+/* ---- sora: Sora for headers, Geist for the body, Geist Mono ------------------------------------------------ */
+:root[data-type="sora"] {
+  --font-display: "Sora", system-ui, sans-serif;
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-title: var(--font-display);
   --font-figure: var(--font-display);
-  --weight-head: 700;
-  --tracking-head: 0.1em;
-  --text-head: 14px;
-  --text-nav: 16px;  --weight-nav: 500;  --tracking-nav: 0.04em;
-  /* A row: Geist a half-weight lighter and tighter, so it reads as lean against A's firm one. */
-  --text-row: 15px;  --weight-row: 450;  --tracking-row: -0.012em;
+  /* Sora is wide and tall: a size down and a lighter tracking keep it calm. */
+  --weight-head: 600;  --tracking-head: 0.08em;  --text-head: 12px;
+  --text-nav: 13px;  --weight-nav: 500;  --tracking-nav: 0.05em;
+  --text-row: 15px;  --weight-row: 450;  --tracking-row: -0.01em;
   --text-meta: 12px;
 }
