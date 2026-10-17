@@ -17,7 +17,7 @@ use ipc::{
 use store::KeptWalkPlace;
 
 use crate::daemon::Fleet;
-use crate::pull_requesting::UNREADABLE;
+use crate::review_runs::UNREADABLE;
 
 /// A place that cannot be kept or walked. A 422.
 pub(crate) const INVALID: &str = "fleet.walk_place_invalid";

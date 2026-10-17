@@ -37,14 +37,12 @@ use api::Refusal;
 use core_model::{Job, JobId};
 use ipc::mcp::ServerReport;
 use ipc::{
-    Event, ServerEntry, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy, WireError,
+    ServerEntry, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy, WireError,
 };
-use tokio::sync::watch;
 
 use crate::checkouts::Checkout;
 use crate::daemon::Fleet;
 use crate::rehearsing::records;
-use held::Live;
 pub(crate) use held::{Holder, Servers};
 pub(crate) use launched::Launch;
 pub use unservable::Unservable;

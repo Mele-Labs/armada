@@ -86,6 +86,8 @@ mod processes;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
+/// Natural Search and the Walk tool's routes, beside a pull request's runs.
+mod review_walks;
 mod receipts;
 mod reconciling;
 /// The `:job_id` a route carries, resolved before a handler can reach it.

@@ -188,6 +188,82 @@ impl PullRequestPanel for FakeDaemon {
         Ok(ipc::ReviewRuns { runs: Vec::new() })
     }
 
+    async fn start_review_search(self: std::sync::Arc<Self>, start: ipc::StartReviewSearch) -> Result<ipc::ReviewRun, Refusal> {
+        Ok(ipc::ReviewRun {
+            manifest_id: ManifestId::carried(ipc::SEARCH_RUN_SCOPE),
+            number: 0,
+            kind: ipc::ReviewRunKind::Search,
+            name: start.words,
+            head: String::new(),
+            state: ipc::ReviewRunState::Queued,
+            started_at: "2026-10-16T09:00:00Z".into(),
+            finished_at: None,
+            failed: None,
+            result: None,
+            cost_micros: None,
+        })
+    }
+
+    async fn get_review_searches(&self) -> Result<ipc::ReviewRuns, Refusal> {
+        Ok(ipc::ReviewRuns { runs: Vec::new() })
+    }
+
+    async fn forget_review_search(&self, _forget: ipc::ForgetReviewSearch) -> Result<ipc::ReviewRuns, Refusal> {
+        Ok(ipc::ReviewRuns { runs: Vec::new() })
+    }
+
+    async fn find_walk_place(&self, _manifest_id: ManifestId, _number: u64) -> Result<ipc::WalkPlaceFound, Refusal> {
+        Ok(ipc::WalkPlaceFound { area: String::new(), tried: Vec::new(), place: None })
+    }
+
+    async fn list_walk_places(&self) -> Result<ipc::RememberedPlaces, Refusal> {
+        Ok(ipc::RememberedPlaces { places: Vec::new() })
+    }
+
+    async fn save_walk_place(&self, manifest_id: ManifestId, save: ipc::SaveWalkPlace) -> Result<ipc::RememberedPlace, Refusal> {
+        Ok(ipc::RememberedPlace {
+            id: "01place".into(),
+            manifest_id,
+            repository: "armada/armada".into(),
+            area: save.area,
+            place: save.place,
+        })
+    }
+
+    async fn forget_walk_place(&self, _manifest_id: ManifestId, _id: String) -> Result<ipc::RememberedPlaces, Refusal> {
+        Ok(ipc::RememberedPlaces { places: Vec::new() })
+    }
+
+    async fn open_review_walk(
+        self: std::sync::Arc<Self>,
+        manifest_id: ManifestId,
+        open: ipc::OpenReviewWalk,
+    ) -> Result<ipc::ReviewWalk, Refusal> {
+        Ok(ipc::ReviewWalk {
+            id: "01walk".into(),
+            manifest_id,
+            number: open.number,
+            state: ipc::ReviewWalkState::Ready,
+            slot: None,
+            address: open.place.address,
+            api: open.place.api,
+            failed: None,
+        })
+    }
+
+    async fn close_review_walk(&self, manifest_id: ManifestId, id: String) -> Result<ipc::ReviewWalk, Refusal> {
+        Ok(ipc::ReviewWalk {
+            id,
+            manifest_id,
+            number: 0,
+            state: ipc::ReviewWalkState::Closed,
+            slot: None,
+            address: String::new(),
+            api: String::new(),
+            failed: None,
+        })
+    }
+
     async fn resolve_review_thread(
         &self,
         _manifest_id: ManifestId,

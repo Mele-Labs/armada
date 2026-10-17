@@ -220,7 +220,7 @@ where
             manifest_id: scope,
             number: 0,
             kind: ReviewRunKind::Search,
-            name,
+            name: name.clone(),
             head: String::new(),
             state: ReviewRunState::Queued,
             started_at: self.clock().now().as_str().to_string(),

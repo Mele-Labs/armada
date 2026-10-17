@@ -46,7 +46,7 @@ const UNKNOWN_TOOL: &str = "fleet.review_unknown_tool";
 /// A question with nothing in it, or too long to be one. A 422.
 pub(crate) const BLANK: &str = "fleet.review_blank";
 /// The forge would not give the pull request. A 500.
-const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
+pub(crate) const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
 
 /// Turns a run may take, its reads and its answer together. A change worth explaining is read
 /// across several files, which the Judge's sixteen would cut short.
@@ -387,7 +387,7 @@ where
 
     /// Rows the store says are going that no task of this process holds died with the process
     /// that did: they end failed, and a bay they held is given back.
-    async fn review_runs_swept(&self, served: &crate::repositories::Served, manifest_id: &ManifestId, number: u64) {
+    pub(crate) async fn review_runs_swept(&self, served: &crate::repositories::Served, manifest_id: &ManifestId, number: u64) {
         let rows = self
             .store()
             .lock()
