@@ -17,6 +17,7 @@ import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
 import { sessionHolds } from "./session-prs";
+import { slotTroubleOf } from "../../session-view/slot-trouble";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
@@ -643,6 +644,8 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
+  const clashes = useWriteClashes();
+  const trouble = session === undefined ? undefined : slotTroubleOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
@@ -650,7 +653,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} {...(startIn === undefined ? {} : { startIn })} />
+        <SessionTiles session={session} draft={draft} repository={repository} trouble={trouble} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (
@@ -807,6 +810,31 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
   );
 }
 
+/**
+ * Incoming calls while a Session is open: one icon for each other thing waiting on him, at the Work list's inner edge. Its tooltip names the Session
+ * and what it waits on, and a press opens it. The open Session's own calls are in its thread. The strip keeps its width with no call, so the list does not move.
+ */
+function CallRail({ calls, ship, hosts }: { calls: readonly Item[]; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
+  return (
+    <section className="deck-panel deck-incoming deck-rail" aria-label="Incoming calls" tabIndex={-1}>
+      <ul className="deck-rail__calls">
+        {calls.map((item) => {
+          const Icon = item.icon;
+          return (
+            <li key={item.key}>
+              <Tooltip label={`${item.title}: ${item.fact === "" ? item.kind : item.fact}`} beside asChild>
+                <button type="button" className="deck-hail deck-rail__call" data-hue={item.hue} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
+                  <Icon size={16} aria-hidden="true" />
+                </button>
+              </Tooltip>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 // ---- The body ------------------------------------------------------------------------------------------
 
 /** A clash mark anywhere on the deck opens the other party on the stage, where the window's own answer would leave the deck for a page. */
@@ -906,8 +934,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const sessions = useSessions();
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
-  const [footHost, setFootHost] = useState<HTMLElement | null>(null);
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost } : undefined), [unified, sideHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const deckMarks = useMarking(DECK_MARKS);
@@ -918,6 +945,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
+  const list = <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => select(selOfSubject(one))} />;
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
@@ -928,8 +956,17 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => select(selOfSubject(one))} />
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          {unified ? (
+            <div className="deck-left__work">
+              {list}
+              <CallRail calls={incoming} ship={ship} hosts={props} />
+            </div>
+          ) : (
+            <>
+              {list}
+              <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+            </>
+          )}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
@@ -940,7 +977,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
             {unified ? null : <DispatchDeck />}
-            {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
+            {unified ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
           </div>
         </div>
         <div className="deck-right">

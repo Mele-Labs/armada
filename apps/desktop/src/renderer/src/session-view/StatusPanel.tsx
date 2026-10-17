@@ -9,14 +9,14 @@ import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/ses
 
 import { SvPanel } from "./SvPanel";
 
-const MARK = {
+export const MARK = {
   done: { Glyph: CircleCheck, said: "Done" },
   now: { Glyph: CircleDot, said: "Now" },
   next: { Glyph: CircleDashed, said: "Next" },
 } as const;
 
 // With no step named every step is a step to come: none is lit.
-const stateOf = (i: number, at: number | undefined) => (at === undefined || i > at ? "next" : i < at ? "done" : "now");
+export const stateOf = (i: number, at: number | undefined) => (at === undefined || i > at ? "next" : i < at ? "done" : "now");
 
 function StepMark({ state }: { state: keyof typeof MARK }) {
   const { Glyph, said } = MARK[state];
@@ -65,10 +65,32 @@ function Steps({ steps, at }: { steps: readonly string[]; at: number | undefined
   );
 }
 
+/** The workflow's steps as one line: a glyph each, joined by a hairline, with only the step the Session is at named. The rest are named by their tooltips. */
+export function StepRail({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
+  return (
+    <ol className="sv-rail" aria-label="Workflow">
+      {steps.map((step, i) => {
+        const state = stateOf(i, at);
+        const { Glyph, said } = MARK[state];
+        return (
+          <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
+            <Tooltip label={`${step}, ${said.toLowerCase()}`}>
+              <span className="sv-rail__mark" role="img" aria-label={`${step}, ${said.toLowerCase()}`}>
+                <Glyph size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            {state === "now" ? <span className="sv-rail__name">{step}</span> : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 const NONE = "none";
 
 /** The workflow as a picker, and None is a custom Session with no steps. A change applies from the next turn. */
-function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
+export function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
   const proposal = work.proposal;
   if (proposal === undefined || acts === undefined) {
     return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;

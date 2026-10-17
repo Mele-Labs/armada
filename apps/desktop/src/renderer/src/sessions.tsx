@@ -72,6 +72,9 @@ import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
+import { useWriteClashes } from "./clashes";
+import { showLayer } from "./session-view/layers";
+import { slotTroubleOf } from "./session-view/slot-trouble";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
@@ -901,6 +904,7 @@ const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 export function SessionView({ session, goes, onOpen, held, board, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const clashes = useWriteClashes();
   const numbered = useNumbered(session.manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
@@ -1031,7 +1035,13 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
     else setReading(one);
   };
-  const entries = entriesOf(
+  const trouble = slotTroubleOf(session, held.held.state === "read" ? (held.held.held.slots ?? []) : [], clashes);
+  // A slot worth a look is a call in the thread, and it lights the Slot key on Flight control; neither is drawn otherwise.
+  const entries: LedgerEntry[] = [
+    ...(trouble === undefined || session.dead === "ended"
+      ? []
+      : [{ key: "waiting-slot", kind: "waiting" as const, name: trouble.said, text: trouble.said, onOpen: () => showLayer(session.id, "slot") }]),
+    ...entriesOf(
     released.shown,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
@@ -1050,7 +1060,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
-  );
+    ),
+  ];
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
   const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
@@ -1064,7 +1075,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} trouble={trouble} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
       <SessionFrame
         state={state}
         said={said}

@@ -229,3 +229,84 @@
 .sv-edit-group__head .sv-group__title { font-size: var(--text-sm); color: var(--fg-default); text-align: left; }
 
 .sv-group__row > .sv-group__title { color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
+
+/* ==== Compact: what a Session open keeps on screen ================================================================ */
+
+/* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
+.sv-side > .sv-panel[data-area="field"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
+.sv-side > .sv-panel[data-area="progress"] { flex: 2 1 0; min-height: calc(var(--space-12) * 2); }
+.sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+
+/* Progress: the workflow as one line in the band, the step the Session is at named. */
+.sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }
+.sv-rail__step { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-default); }
+.sv-rail__mark { display: inline-flex; }
+.sv-rail__step[data-state="done"] { color: var(--step-advanced); }
+.sv-rail__step[data-state="now"] { flex: 0 1 auto; color: var(--accent); }
+.sv-rail__name { overflow: hidden; color: var(--fg-default); font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- A layer over the stage ------------------------------------------------------------------------------------ */
+
+/* It covers the thread and the box, which stay under it. A solid fill: the thread must not show through. */
+.deck-pane { position: relative; }
+.sv-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
+.sv-layer__head { display: flex; flex: none; align-items: center; gap: var(--space-3); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+.sv-layer__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-layer__search { flex: 1 1 0; min-width: 0; max-width: calc(var(--space-12) * 8); margin-inline-start: auto; }
+.sv-layer__head > .armada-button { margin-inline-start: auto; }
+.sv-layer__search + .armada-button, .sv-layer__search ~ .armada-button { margin-inline-start: 0; }
+.sv-layer__body { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
+.sv-layer__group { display: flex; flex-direction: column; gap: var(--space-1); }
+.sv-layer__group-label { margin: 0; padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.sv-layer__rows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.sv-layer__row {
+  display: grid;
+  grid-template-columns: var(--space-6) minmax(0, 1fr) minmax(0, auto) auto;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--h-row);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+}
+button.sv-layer__row { cursor: pointer; }
+button.sv-layer__row:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+/* Selection is a flat wash and a 2px bar. */
+button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.sv-layer__kind { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
+.sv-layer__kind [data-spinning] { animation: deck-spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sv-layer__kind [data-spinning] { animation: none; } }
+.sv-layer__title-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-layer__sub { min-width: 0; max-width: calc(var(--space-12) * 6); overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.sv-layer__state { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--space-2); min-width: var(--space-4); }
+.sv-layer__mark { display: inline-flex; color: var(--fg-muted); }
+.sv-layer__mark[data-tone="passed"], .sv-layer__mark[data-tone="done"] { color: var(--step-advanced); }
+.sv-layer__mark[data-tone="running"] { color: var(--step-running); }
+.sv-layer__mark[data-tone="failed"] { color: var(--step-failed); }
+.sv-layer__mark[data-tone="escalated"], .sv-layer__mark[data-tone="pending"] { color: var(--status-awaiting-review); }
+
+/* Slot: the facts of what is wrong, and the way to the bay. */
+.sv-layer__slot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+.sv-layer__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-6); margin: 0; font-size: var(--text-sm); }
+.sv-layer__fact { display: contents; }
+.sv-layer__fact dt { color: var(--fg-muted); }
+.sv-layer__fact dd { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.sv-layer__fact code { font-size: var(--text-xs); }
+
+/* ---- Incoming calls as a rail at the Work list's inner edge ---------------------------------------------------- */
+
+.deck-left__work { display: flex; flex: 1 1 0; min-height: 0; gap: var(--space-2); }
+.deck-left__work > .deck-list { flex: 1 1 0; min-width: 0; min-height: 0; }
+.deck-rail { flex: none; align-items: center; width: calc(var(--space-8) + var(--space-2)); }
+.deck-rail__calls { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-2) 0; list-style: none; overflow-y: auto; }
+.deck-rail__call { display: inline-flex; align-items: center; justify-content: center; width: var(--space-8); height: var(--space-8); padding: 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--hue, var(--fg-muted)); cursor: pointer; }
+.deck-rail__call:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
+.deck-rail__call:focus-visible { outline: none; background: color-mix(in srgb, var(--hue, var(--accent)) 14%, transparent); box-shadow: inset 2px 0 0 var(--hue, var(--accent)); }

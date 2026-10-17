@@ -4,9 +4,9 @@
 // follow. Two things are not the registry's: the panels' names, and the second letter of the page chord, which the
 // `deck_page` row names in its notes. #2301.
 
-import { actionOf, formatSlot, slotsOf } from "@armada/components";
+import { actionOf, digitKeyFor, formatSlot, slotsOf } from "@armada/components";
 
-import { SESSION_TILES } from "./session-tiles";
+import { SESSION_TILES, tileKey } from "./session-tiles";
 
 export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "dispatch" | "autopilot";
 
@@ -92,8 +92,11 @@ export function keySheetOf(): readonly SheetGroup[] {
             head: "Controls",
             rows: [
               { keys: caps("deck_tile"), does: actionOf("deck_tile").verb },
-              // With a Session open the same digits press its tiles instead: the first five.
-              ...SESSION_TILES.map((tile, at) => ({ keys: caps("deck_tile").slice(at, at + 1), does: `Session open: ${tile.label}` })),
+              // With a Session open the same digits press its tiles instead, `1` to `9` and `0`; the last tile has no digit.
+              ...SESSION_TILES.flatMap((tile, at) => {
+                const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
+                return key === undefined ? [] : [{ keys: [key], does: `Session open: ${tile.label}` }];
+              }),
             ],
           },
         ]

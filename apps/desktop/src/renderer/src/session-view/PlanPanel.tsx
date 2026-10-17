@@ -13,7 +13,7 @@ import { viewOf, type ViewGroup } from "./plan-marks";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 /** A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full. */
-function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
+export function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
   const [open, setOpen] = useState(false);
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done");

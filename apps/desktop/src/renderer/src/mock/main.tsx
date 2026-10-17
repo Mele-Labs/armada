@@ -30,6 +30,8 @@ const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIO
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
+// A scenario made in the new look draws in it without `?look=new`.
+if (scenario.draft?.look === "new") document.documentElement.dataset.look = "new";
 
 // A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
 // same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.
