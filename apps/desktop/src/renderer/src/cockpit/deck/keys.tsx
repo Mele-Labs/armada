@@ -6,6 +6,8 @@
 import { useEffect, useRef } from "react";
 import { Kbd, Sheet, Tooltip } from "@armada/components";
 
+import { popupIsOpen } from "@armada/screens/src/list-keyboard";
+
 import { PANELS, keySheetOf, panelKey, type Panel, type PanelId } from "./keys-model";
 
 const rootOf = (panel: Panel) => document.querySelector<HTMLElement>(panel.root) ?? undefined;
@@ -90,7 +92,7 @@ export function stepIn(panel: Panel, from: EventTarget | null, key: string): voi
 
 /**
  * The deck's window listener: `useListKeydown`'s, taken in the capture phase, so the deck hears a press before a walk's own
- * keys do. **It stands down for a dialog or a layer**, whose keys are its own while it is up.
+ * keys do. **It stands down for a dialog, a layer or an open menu**, whose keys are its own while it is up.
  */
 export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
   const latest = useRef(press);
@@ -102,6 +104,8 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
       if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
       // A layer opened over a Session's thread: Esc closes it, and is not the deck going back.
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
+      // A menu or list open over the deck: Esc closes that, wherever focus is, and is not the deck going back.
+      if (event.key === "Escape" && popupIsOpen()) return;
       latest.current(event);
     };
     window.addEventListener("keydown", listen, true);

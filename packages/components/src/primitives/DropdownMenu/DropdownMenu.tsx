@@ -38,7 +38,7 @@ export type DropdownMenuEntry =
        * does nothing. It stays in the arrow order so a person can read why.
        */
       disabled?: boolean;
-      /** What a hover on a disabled item says, where it is listed and not choosable. */
+      /** What a hover on the item says: why a disabled one is not choosable, or what a plain one starts. */
       hint?: string;
       /**
        * How many rows the item holds, where the menu is a panel's filters (the
@@ -393,7 +393,7 @@ export function DropdownMenu({
                 ) : null}
               </button>
             );
-            return entry.disabled === true && entry.hint !== undefined ? (
+            return entry.hint !== undefined ? (
               <Tooltip key={entry.id} label={entry.hint} asChild>
                 {item}
               </Tooltip>

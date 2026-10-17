@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import { Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
 import { Button, Input, PullRequestChecksMark, PullRequestStateMark, Tooltip, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useSessions } from "../sessions-draft";
 import { openFrom } from "../cockpit/deck/store";
@@ -43,10 +44,10 @@ const ROW = "[data-layer-row]";
 /** The frame every layer shares: its name, what is beside it in the head, Back, and a body that scrolls. */
 function Shell({ label, head, children }: { label: string; head?: ReactNode; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
-  // Esc is Back, wherever focus is, unless a sheet is open over the layer: that one's Esc is its own.
+  // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
     const listen = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null || popupIsOpen()) return;
       event.preventDefault();
       closeLayer();
     };
