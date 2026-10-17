@@ -8,7 +8,7 @@
 //! stay and are passed over.
 //!
 //! **`kind` is open text and `state` is not.** A new kind of attachment is a new
-//! word and no migration; a released slot and a spent need both read as a
+//! word and no migration; a released slot and a merged pull request both read as a
 //! state, so every kind is asked the same way.
 
 use std::collections::BTreeMap;
@@ -111,13 +111,12 @@ impl Holder {
 }
 
 /// Where an attachment stands. **One vocabulary for every kind**: a slot let go
-/// and a need whose branch landed are different words and the same question.
+/// and a pull request that merged are different words and the same question.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AttachmentState {
     /// In force: the slot is held, the pull request is open.
     Standing,
-    /// Done with, having been used: a merged pull request, a need whose branch
-    /// landed.
+    /// Done with, having been used: a merged pull request.
     Spent,
     /// Let go before it was used: a released slot, a session that ended in it.
     GivenBack,
@@ -384,7 +383,7 @@ impl Store {
 
     /// The standing rows of `kind` in one repository, in the order they were
     /// taken: `since`, then the holder's id. `target` narrows to one. **The
-    /// order a need is served in**, which `attachments_at` does not give: that
+    /// order a waiting row is served in**, which `attachments_at` does not give: that
     /// one answers who holds a thing now, this one who is waiting for it.
     pub fn standing_in_order(
         &self,
@@ -417,7 +416,7 @@ impl Store {
     }
 
     /// Move everything `holder` still holds, of `kind` or of every kind, to
-    /// `state`: a need spent where its Job landed, given back where it was
+    /// `state`: spent where its Job landed, given back where it was
     /// dropped. `true` where anything changed.
     pub fn settle_held(
         &mut self,

@@ -338,12 +338,6 @@ describe("a session's trail", () => {
 });
 
 describe("a session", () => {
-  it("carries the needs it holds standing, by path and the words declared, which Release names", () => {
-    const wire = record("a", { attachments: [held("need", "crates/ipc", { what: "a new operation" }), held("need", "docs", {}, "given_back")] });
-    expect(sessionOfRecord(wire, undefined, beside()).needs).toEqual([{ path: "crates/ipc", what: "a new operation" }]);
-    expect(sessionOfRecord(record("b"), undefined, beside()).needs).toBeUndefined();
-  });
-
   it("carries Helm's mark from the record", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { helm: true }), undefined, beside())).toMatchObject({ helm: true });
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();

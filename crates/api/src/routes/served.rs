@@ -161,19 +161,6 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/calls/answer",
     },
-    // The ledger of agent sessions a person runs: the harness's intake, then the
-    // two reads. `docs/concepts/session.md`.
-    // `armada need`'s act and the read beside it, on one path. `docs/capabilities/needs.md`.
-    Route {
-        operation: "act_on_need",
-        method: "POST",
-        path: "/needs",
-    },
-    Route {
-        operation: "list_needs",
-        method: "GET",
-        path: "/needs",
-    },
     // A pull request by repository and number, and the acts a Session takes on
     // one. Beside `merge_pull_request`, which is a Job's and not this.
     Route {

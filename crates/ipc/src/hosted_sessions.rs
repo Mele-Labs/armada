@@ -219,7 +219,7 @@ pub struct ReleaseSessionHolds {
 /// One ledger row the person ticked, as the ledger keys it within the Session.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChosenHold {
-    /// `slot`, `branch`, `pr` or `need`.
+    /// `slot`, `branch` or `pr`.
     pub kind: String,
     pub target: String,
 }
@@ -239,7 +239,7 @@ pub struct SessionHoldsReleased {
 /// One ledger row `release_session_holds` moved.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HoldMoved {
-    /// `slot`, `branch`, `pr` or `need`.
+    /// `slot`, `branch` or `pr`.
     pub kind: String,
     pub target: String,
     /// For a slot given back: the branch its work is on, and what was committed to it.

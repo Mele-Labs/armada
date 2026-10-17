@@ -56,6 +56,7 @@ mod building;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
+mod behind_bay;
 mod catching_up;
 mod check_output;
 mod checkouts;
@@ -114,8 +115,6 @@ pub mod mint;
 pub mod timeline;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
-/// What a Session says it needs on a file, and the ledger that keeps it.
-mod needing;
 pub mod notice_loop;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.

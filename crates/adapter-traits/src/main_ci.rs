@@ -143,24 +143,6 @@ pub struct QueueEntry {
 /// repository with none.
 pub type MergeQueue = Vec<QueueEntry>;
 
-/// What a status Fleet publishes on a commit says. **Two words, not the
-/// forge's four**: Fleet never fails a pull request on its own say, it makes
-/// one wait or lets it through.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StatusState {
-    Pending,
-    Success,
-}
-
-/// One status Fleet puts on a commit.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CommitStatus {
-    pub commit: String,
-    pub context: String,
-    pub state: StatusState,
-    pub description: String,
-}
-
 /// The open pull requests on a repository. `None` from the call that returns
 /// it is a forge that would not answer.
 pub type OpenPulls = Vec<OpenPull>;

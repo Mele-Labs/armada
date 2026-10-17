@@ -231,68 +231,69 @@ fn the_search_narrows_by_repository_and_by_state() {
     assert_eq!(found(SessionSearch::default()).len(), 3);
 }
 
-/// A need is not exclusive, and its order is when it was taken, then the
-/// holder's id: not the order the ledger answers who holds a thing in.
+/// A non-exclusive kind keeps a holder's other rows, and its order is when each
+/// was taken, then the holder's id: not the order the ledger answers who holds a
+/// thing in.
 #[test]
-fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
+fn rows_stand_in_the_order_they_were_taken_and_a_second_does_not_replace_the_first() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let held_by = Holder::session("session-b");
     let session = Holder::session("session-a");
     let take = |store: &mut crate::Store, holder: &Holder, target: &str, at: &str| {
         store
-            .attach(&attachment(holder.clone(), "need", target, at), false)
+            .attach(&attachment(holder.clone(), "pr", target, at), false)
             .expect("attached")
     };
     take(
         &mut store,
         &held_by,
-        "protocol-version.toml",
+        "41",
         "2026-10-07T09:00:02.000Z",
     );
     take(
         &mut store,
         &session,
-        "protocol-version.toml",
+        "41",
         "2026-10-07T09:00:01.000Z",
     );
-    // One holder waits on two paths at once.
+    // One holder holds two at once.
     take(
         &mut store,
         &held_by,
-        "docs/INDEX.md",
+        "42",
         "2026-10-07T09:00:03.000Z",
     );
 
     let standing = store
-        .standing_in_order("need", "armada", Some("protocol-version.toml"))
+        .standing_in_order("pr", "armada", Some("41"))
         .expect("reads");
     let order: Vec<&str> = standing.iter().map(|row| row.holder.id.as_str()).collect();
     assert_eq!(order, ["session-a", "session-b"]);
     assert_eq!(
         store
-            .standing_in_order("need", "armada", None)
+            .standing_in_order("pr", "armada", None)
             .expect("reads")
             .len(),
         3,
-        "a second path is not a replacement"
+        "a second target is not a replacement"
     );
 
     // Equal instants fall to the holder's id.
     take(
         &mut store,
         &Holder::session("session-0"),
-        "x",
+        "43",
         "2026-10-07T09:00:09.000Z",
     );
     take(
         &mut store,
         &Holder::session("session-1"),
-        "x",
+        "43",
         "2026-10-07T09:00:09.000Z",
     );
     let tied = store
-        .standing_in_order("need", "armada", Some("x"))
+        .standing_in_order("pr", "armada", Some("43"))
         .expect("reads");
     assert_eq!(tied[0].holder.id, "session-0");
 }
@@ -302,10 +303,10 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let held_by = Holder::session("session-1");
-    for target in ["a", "b"] {
+    for target in ["41", "42"] {
         store
             .attach(
-                &attachment(held_by.clone(), "need", target, "2026-10-07T09:00:00.000Z"),
+                &attachment(held_by.clone(), "pr", target, "2026-10-07T09:00:00.000Z"),
                 false,
             )
             .expect("attached");
@@ -320,7 +321,7 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     assert!(store
         .settle_held(
             &held_by,
-            Some("need"),
+            Some("pr"),
             AttachmentState::Spent,
             "2026-10-07T10:00:00.000Z"
         )
@@ -328,7 +329,7 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     let held = store.attachments_of(&held_by).expect("reads");
     assert!(held
         .iter()
-        .filter(|row| row.kind == "need")
+        .filter(|row| row.kind == "pr")
         .all(|row| row.state == AttachmentState::Spent));
     assert!(
         held.iter()
@@ -338,7 +339,7 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
     assert!(!store
         .settle_held(
             &held_by,
-            Some("need"),
+            Some("pr"),
             AttachmentState::Spent,
             "2026-10-07T11:00:00.000Z"
         )
