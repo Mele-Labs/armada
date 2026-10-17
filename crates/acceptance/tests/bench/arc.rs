@@ -147,37 +147,7 @@ steps:
 }
 
 impl Bench {
-    /// [`Bench::gate`] on one run of a group: the step's attempt the run is
-    /// filed under, and the group's own spent runs, which its retry budget is
-    /// asked against. `fleet::settling` reads both off the store.
-    pub async fn gate_on_group(
-        &self,
-        run: &Run,
-        step: &StepId,
-        submitted: &verification::Submission,
-        attempt: core_model::Attempt,
-        spent: core_model::Spent,
-    ) -> fleet::Ruling {
-        let at = fleet::AtStep::named(self.workflow.frozen(), step, &run.worktree)
-            .expect("a step of the workflow")
-            .on_attempt(attempt, spent);
-        self.gate_at(run, at, submitted).await
-    }
 
-    /// The two step moves a group's own round makes, into `retrying` and back
-    /// into `running`, signed as `fleet::dispatch` signs them.
-    pub fn went_round(&self, run: &mut Run, step: &StepId, ruling: &fleet::Ruling) {
-        let fleet::Ruling::HandedBack { retrying, .. } = ruling else {
-            panic!("only a hand-back goes round, and got {ruling:?}");
-        };
-        self.step_moved_by(
-            run,
-            step,
-            StepTarget::Retrying(*retrying),
-            ruling.signed_by(),
-        );
-        self.step_moved(run, step, StepTarget::Running);
-    }
 }
 
 /// Slice 4's shape: feature's plan, implement and tests, with `implement`

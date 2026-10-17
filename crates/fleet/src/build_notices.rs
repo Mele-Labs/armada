@@ -23,7 +23,7 @@ use ipc::{AnswerWaiting, BuildSource, SessionId, WaitingActKind};
 use store::{AttachmentState, HolderKind, SessionSearch, SessionState};
 
 use crate::building::{build_word, commit_in, restarting_in, source_in};
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
 use crate::repositories::Served;

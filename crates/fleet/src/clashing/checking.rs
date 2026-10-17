@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::clash::{self, NotChecked, Verdict};
-use core_model::{Component, Envelope, FieldValue, JobId, Level, Ulid};
 
 use super::index::Changed;
 use super::standing::Standing;
@@ -56,8 +55,6 @@ where
             self.pair_checked(&opposed).await;
         }
         self.clashes_told().await;
-        self.notes_sent().await;
-        self.tell_peers().await;
     }
 
     /// **The table is memory only**, so a restart forgets every file each holder wrote. The first
@@ -74,14 +71,7 @@ where
             };
             let sessions = store.find_sessions(&live).unwrap_or_default();
             holders.extend(sessions.into_iter().map(|one| Who::Session(one.id)));
-            for served in self.repositories().served() {
-                let slots = store.standing_of_kind("slot", served.manifest().id().as_str()).unwrap_or_default();
-                holders.extend(
-                    slots
-                        .into_iter()
-                        .filter(|row| row.holder.kind == store::HolderKind::Job)
-                        .map(|row| Who::Job(JobId::carried(Ulid::carried(row.holder.id)))),
-                );
+            for _served in self.repositories().served() {
             }
         }
         let now = self.now();
@@ -159,33 +149,9 @@ where
         }
     }
 
-    /// Git would not say. **Not a clash and not a clear**: the last reading stands. It is written to
-    /// the log of each Job in the pair; two Sessions have none to write it to, and the next write
-    /// asks again.
-    async fn not_checked(&self, opposed: &Opposed, why: &NotChecked) {
-        let jobs = [Some(&opposed.0), match &opposed.1 {
-            Side::Holder(other) => Some(other),
-            Side::Main => None,
-        }]
-        .into_iter()
-        .flatten()
-        .filter_map(|who| match who {
-            Who::Job(job) => Some(job),
-            Who::Session(_) => None,
-        });
-        for job in jobs {
-            let envelope = Envelope::new(
-                self.now(),
-                Level::Warn,
-                Component::Fleet,
-                self.run().clone(),
-                "git would not say whether this Job's changes conflict with another's, so none was reported",
-            )
-            .in_job(job.as_ulid().clone())
-            .with_field("cause", FieldValue::Str(why.to_string()));
-            self.noted_in_the_log(job, &envelope);
-        }
-    }
+    /// Git would not say. **Not a clash and not a clear**: the last reading stands, and the next
+    /// write asks again. Two Sessions have no log to write it to.
+    async fn not_checked(&self, _opposed: &Opposed, _why: &NotChecked) {}
 
     /// Main's tip moved: every standing pair is asked again, since one may have merged main in or
     /// landed, and each live holder is set against main's new tip.

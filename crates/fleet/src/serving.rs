@@ -25,12 +25,11 @@
 //! second vocabulary that agrees with the log only until something changes.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{FramePart, FrameSpan, Observed, ObservedCheckoutRun, Queries, Refusal, Resolved};
+use api::{ObservedCheckoutRun, Queries, Refusal, Resolved};
 use core_model::JobReference;
 use ipc::{
-    AlertList, DroneDetail, DroneId, DroneList, FleetCapacity, FleetHealth,
-    FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
-    JobResources, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
+    AlertList, FleetHealth,
+    FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
     ManifestSummary, ModelChoices, Work, WorkflowSummary, WorktreesHeld,
 };
 use store::{LoadJobError, ResolveJobError};
@@ -42,7 +41,7 @@ mod detail;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::wire::{
-    manifest_summary, recorded, redacted, reported, submitted, workflow_summary,
+    manifest_summary, recorded, reported, workflow_summary,
 };
 
 impl<H, V, W> Queries for Fleet<H, V, W>
@@ -120,7 +119,7 @@ where
         let mut jobs = Vec::with_capacity(loaded.jobs.len());
         for job in &loaded.jobs {
             let mut summary = self.summarised(job).await?;
-            summary.landed = landed.get(job.id()).and_then(crate::noticing::settled);
+            summary.landed = landed.get(job.id()).and_then(crate::attention::settled);
             summary.merged_at = merged_at.get(job.id()).map(ipc::Instant::from);
             jobs.push(summary);
         }
@@ -160,21 +159,8 @@ where
         self.alerts(manifest_id.as_ref()).await
     }
 
-    /// The roster, read without taking a working slot — `crate::rostered`.
-    async fn list_drones(&self, manifest_id: Option<ManifestId>) -> Result<DroneList, Refusal> {
-        self.drones_within(manifest_id).await
-    }
-
     async fn owned_jobs(&self, manifest_id: ManifestId) -> Result<Vec<JobId>, Refusal> {
         self.jobs_owned_by(manifest_id)
-    }
-
-    async fn get_drone(&self, drone_id: DroneId) -> Result<DroneDetail, Refusal> {
-        self.drone_detail(drone_id).await
-    }
-
-    async fn list_job_drones(&self, job_id: JobId) -> Result<JobDrones, Refusal> {
-        self.job_drones(job_id).await
     }
 
     /// The probes Fleet can run on itself — `crate::probing`.
@@ -211,34 +197,13 @@ where
         self.manifest_config(manifest_id)
     }
 
-    /// How full the fleet is, and the one thing holding the next Drone back.
-    ///
-    /// **The same predicate again, unreduced.** `admit_next` opens with
-    /// `room_for_another` and `queued_reason` folds it to one label; this is
-    /// the third reader, and takes the whole answer — `Room::hold` is a
-    /// `match` over the value admission itself returned.
-    ///
-    /// **`occupied` is `Slots::count`.** A count taken from Job statuses would
-    /// disagree with the roster: an escalated Job keeps its Drone alive and
-    /// idle, keeping its place. `count` sweeps the slots whose `Working` has
-    /// gone, so it answers what admission will act on.
-    ///
-    /// The roster lock is taken once, so the bound, count and reason cannot be
-    /// three readings of three different instants — admission's own lock
-    /// order, roster first, so this adds no cycle.
-    async fn get_capacity(&self) -> Result<FleetCapacity, Refusal> {
-        let mut slots = self.slots().lock().await;
-        let room = self.room_for_another(&mut slots).await;
-        Ok(FleetCapacity::of(slots.cap(), slots.count(), room.hold()))
-    }
-
     /// The build Fleet runs on — [`crate::building`].
     async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
         self.fleet_build().await
     }
 
     /// Every rule a person always-allowed for this Manifest's repository —
-    /// `crate::permitting::repository`.
+    /// `crate::allowed::repository`.
     async fn get_repository_allowed_commands(
         &self,
         manifest_id: Option<ipc::ManifestId>,
@@ -398,71 +363,6 @@ where
         })
     }
 
-    /// Every claim this Job's Drones have submitted, step by step.
-    ///
-    /// **The Job is loaded first**, for `get_job_events`' reason: an id naming
-    /// nothing is a 404, and never an empty list. Empty is a real answer and it
-    /// means no step has submitted anything yet.
-    /// What this Job holds on this machine. **The reading `crate::resources`
-    /// takes, redacted there** — a process crosses as its executable's name and
-    /// never its arguments.
-    ///
-    /// The Job is loaded first, so an id naming nothing is a 404 rather than a
-    /// panel of empty lists.
-    async fn get_job_resources(&self, job_id: JobId) -> Result<JobResources, Refusal> {
-        let job = self
-            .load(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        self.job_resources(&job)
-            .await
-            .map_err(|why| self.refusal(why))
-    }
-
-    async fn get_evidence(&self, job_id: JobId) -> Result<JobEvidence, Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let recorded = self
-            .store()
-            .lock()
-            .await
-            .step_evidence(&id)
-            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        Ok(JobEvidence {
-            job_id,
-            steps: recorded.iter().map(submitted).collect(),
-        })
-    }
-
-    /// What anybody has written on one Job's open pull request.
-    ///
-    /// **The redaction is that a `Remark` becomes plain strings, an address and
-    /// a number.** `adapter_traits::FromOutside` is what keeps text somebody
-    /// outside this machine wrote from being swept into a sentence by accident,
-    /// and JSON has no shape for it — so
-    /// [`as_written`](adapter_traits::FromOutside::as_written) is called by
-    /// hand here, which is exactly the visible step this file exists to make
-    /// people take. What crosses is what was written, uncleaned;
-    /// `crates/ipc/src/remarks.rs` says where the guard is on the far side.
-    ///
-    /// `taken_up` is the one field a forge did not write, and it is the reason
-    /// the record is read beside the reading.
-    async fn get_remarks(&self, job_id: JobId) -> Result<JobRemarks, Refusal> {
-        let said = self
-            .what_was_said(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        Ok(JobRemarks {
-            job_id,
-            pull_request: said.pull_request,
-            remarks: said
-                .remarks
-                .iter()
-                .map(|remark| redacted(remark, &said.taken_up))
-                .collect(),
-        })
-    }
-
     /// One Job's whole patch, with the file list beside it.
     ///
     /// **The expensive read, and the only place Fleet spends it for a person.**
@@ -472,9 +372,8 @@ where
     ///
     /// A Job with no worktree answers `work: None` rather than an empty
     /// reading, and a worktree that will not open is a 500 rather than a patch
-    /// nobody read. `plan_declared` is false unless this Job is the one holding
-    /// the working slot: a declaration belongs to the Drone that made it, and
-    /// there is nowhere else it survives.
+    /// nobody read. `plan_declared` is always false: a declaration belonged to a
+    /// Drone, and none works now.
     async fn get_diff(&self, job_id: JobId) -> Result<JobDiff, Refusal> {
         let job = self
             .load(&job_id.to_domain())
@@ -482,15 +381,6 @@ where
             .map_err(|why| self.refusal(why))?;
         let Some(worktree) = self.worktree_of(&job).map_err(|why| self.refusal(why))? else {
             return Ok(JobDiff { job_id, work: None });
-        };
-        let plan = match self.slot_of(job.id()).await {
-            Some(slot) => slot
-                .lock()
-                .await
-                .as_ref()
-                .filter(|at_work| at_work.is(job.id()))
-                .and_then(|at_work| at_work.declared().cloned()),
-            None => None,
         };
         // **The whole branch, which is what a person opening a Job is reading.**
         let changed = self
@@ -509,224 +399,16 @@ where
         Ok(JobDiff {
             job_id,
             work: Some(Work {
-                files: crate::footprint::seen(&changed, plan.as_ref()),
+                files: crate::wire::seen(&changed),
                 measured_from: measured.from,
                 measured_whole: measured.whole,
-                plan_declared: plan.is_some(),
+                plan_declared: false,
                 // Absent where there is nothing in it. An empty string reads as
                 // a reading that broke, and a reading that broke is the refusal
                 // above rather than a field.
                 patch: Some(patch.as_str().to_string()).filter(|text| !text.is_empty()),
             }),
         })
-    }
-
-    async fn get_repair_diff(&self, job_id: JobId, of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
-        self.repair_diff(job_id, of).await
-    }
-
-    /// What one command a Drone was not granted does, read by a model.
-    ///
-    /// **The one read on this trait that spends money**, and it still moves
-    /// nothing: `crate::explaining` makes the call, resolves the call id
-    /// against the two places a still-answerable command lives, and names every
-    /// refusal it can answer with. This only carries one out.
-    async fn explain_command(
-        &self,
-        job_id: JobId,
-        call_id: String,
-    ) -> Result<ipc::CommandExplained, Refusal> {
-        self.explained(&job_id.to_domain(), &call_id)
-            .await
-            .map_err(|why| self.refusal(why))
-    }
-
-    /// One Check's own output, read back out of the file its row points at.
-    ///
-    /// **The other end of a path that opened nothing in Armada.** A row has
-    /// carried `output_path` since the record kept it, and Bridge could only
-    /// hand that path to the operating system — so the audit the Checks chapter
-    /// exists for happened outside the app. This is the read that brings it in.
-    ///
-    /// The Job is loaded first, so an id naming nothing is a 404 before any
-    /// file is opened. A name no row of the Job kept is a different answer and
-    /// says so: [`Adrift::NoSuchCheckOutput`], a 422 — the Job is there, and
-    /// the id names nothing in its record.
-    ///
-    /// **The rows are the allowlist**, which is why they are read before the
-    /// file: `kept` is a row's own file name and `check_output::kept_output`
-    /// resolves it against them, so a caller cannot name a file Fleet did not
-    /// write for this Job.
-    async fn get_check_output(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> Result<ipc::CheckOutput, Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let ran = {
-            let store = self.store().lock().await;
-            store
-                .step_checks_every_attempt(&id)
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?
-        };
-        let asked = {
-            let store = self.store().lock().await;
-            store
-                .asked_runs(&id, self.run())
-                .map_err(|why| self.refusal(Adrift::Reading(why)))?
-        };
-        let asked: Vec<(u32, String, String)> = asked
-            .iter()
-            .flat_map(|run| {
-                run.checks
-                    .iter()
-                    .zip(&run.logs)
-                    .filter_map(|(check, path)| {
-                        (!path.is_empty()).then(|| (run.attempt, check.clone(), path.clone()))
-                    })
-            })
-            .collect();
-        crate::check_output::kept_output(
-            self.served_by_id(&id)
-                .map_err(|why| self.refusal(why))?
-                .records_root(),
-            &kept,
-            &ran,
-            &asked,
-        )
-        .ok_or_else(|| self.refusal(Adrift::NoSuchCheckOutput { named: kept }))
-    }
-
-    /// One brief a Judge or a gaming check was asked, read back.
-    ///
-    /// The Job is loaded first, so an id naming nothing is a 404 before any
-    /// file is opened. **The Job's briefs directory is the allowlist**:
-    /// `asked::read_back` refuses a name that would leave it, and that and a
-    /// name it does not hold are one answer, [`Adrift::NoSuchBrief`].
-    async fn get_brief(&self, job_id: JobId, name: String) -> Result<ipc::BriefContents, Refusal> {
-        let job = self
-            .load(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
-        crate::asked::read_back(served.records_root(), &job.handle(), &name)
-            .ok_or_else(|| self.refusal(Adrift::NoSuchBrief { named: name }))
-    }
-
-    /// One running Check's log, as it is written.
-    ///
-    /// **The live set is the allowlist**, which is `get_check_output`'s rule
-    /// with the Checks the gate is running standing in for the rows: `kept`
-    /// resolves through `Underway::log` or not at all, so a caller cannot name
-    /// a file no running gate of this Job wrote.
-    async fn observe_check_output(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> Result<api::LiveOutput, Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let Some(log) = self.underway().log(&job_id, &kept) else {
-            return Err(self.refusal(Adrift::NoSuchCheckOutput { named: kept }));
-        };
-        Ok(api::LiveOutput {
-            name: log.name,
-            attempt: log.attempt,
-            path: log.path,
-            follow: std::sync::Arc::new(crate::following::LiveFollow {
-                file: log.file,
-                job: job_id,
-                kept,
-                underway: self.underway().clone(),
-            }),
-        })
-    }
-
-    /// One frame a step's harness produced, as the file itself.
-    ///
-    /// **The rows are the allowlist**, which is `get_check_output`'s rule and
-    /// the whole of what makes a caller-supplied name safe to open a file with:
-    /// `showing::frame_bytes` resolves the name against the frames this Job
-    /// kept before it opens anything, so a name no row holds reaches no file,
-    /// whatever it spells.
-    ///
-    /// A row whose file will not open is the same answer as a name that was
-    /// never one — [`Adrift::NoSuchFrame`], a 422. The Job is there and the
-    /// image is not, which is a reclaimed `.armada/frames` and is a different
-    /// thing from the Job being absent.
-    async fn get_frame(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> Result<(ipc::KeptFrame, Vec<u8>), Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        // Every frame the record holds, including a person's presses — the
-        // second list the allowlist is. `showing::frames_held` composes it.
-        let frames = self.frames_held(&id).await?;
-        let (held, bytes) = crate::showing::frame_bytes(
-            self.served_by_id(&id)
-                .map_err(|why| self.refusal(why))?
-                .records_root(),
-            &kept,
-            &frames,
-        )
-        .ok_or_else(|| self.refusal(Adrift::NoSuchFrame { named: kept }))?;
-        Ok((crate::showing::as_wire(&held), bytes))
-    }
-
-    /// One span of a recording, resolved against the same record.
-    ///
-    /// **[`Self::get_frame`]'s allowlist and a seek instead of a read.** The
-    /// name is resolved before a file is opened, exactly as the whole read
-    /// does; what changes is that a two-minute capture costs the window rather
-    /// than its length. A span past the end of a file that is there is not a
-    /// refusal — the caller answers it as a 416.
-    async fn get_frame_part(
-        &self,
-        job_id: JobId,
-        kept: String,
-        span: FrameSpan,
-    ) -> Result<(ipc::KeptFrame, FramePart), Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let frames = self.frames_held(&id).await?;
-        let (held, part) = crate::showing::frame_part(
-            self.served_by_id(&id)
-                .map_err(|why| self.refusal(why))?
-                .records_root(),
-            &kept,
-            &frames,
-            span,
-        )
-        .ok_or_else(|| self.refusal(Adrift::NoSuchFrame { named: kept }))?;
-        Ok((crate::showing::as_wire(&held), part))
-    }
-
-    /// The run sheet and what its runs left — `crate::rehearsing`.
-    async fn get_run_sheet(&self, job_id: JobId) -> Result<ipc::RunSheet, Refusal> {
-        self.run_sheet(&job_id.to_domain()).await
-    }
-
-    async fn list_runs(&self, job_id: JobId) -> Result<ipc::RunList, Refusal> {
-        self.rehearsal_history(&job_id.to_domain()).await
-    }
-
-    async fn get_run_output(
-        &self,
-        job_id: JobId,
-        run_id: String,
-    ) -> Result<ipc::RunOutput, Refusal> {
-        self.rehearsal_output(&job_id.to_domain(), run_id).await
-    }
-
-    async fn observe_run(
-        &self,
-        job_id: JobId,
-        run_id: String,
-    ) -> Result<api::ObservedRun, Refusal> {
-        self.observe_rehearsal(&job_id.to_domain(), run_id).await
     }
 
     /// The Manifest surface's five reads — `crate::rehearsing::checkout`.
@@ -737,13 +419,6 @@ where
     ) -> Result<ipc::CheckoutRunSheet, Refusal> {
         let checkout = self.checkout_named(manifest_id.as_ref(), repository.as_deref())?;
         self.checkout_run_sheet(checkout).await
-    }
-
-    async fn list_manifest_checks(
-        &self,
-        manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::ManifestChecks, Refusal> {
-        self.manifest_checks(manifest_id).await
     }
 
     async fn list_checkout_runs(
@@ -1009,39 +684,6 @@ where
                 passes_disputed: counted.passes_disputed,
                 reports_filed: counted.reports_filed,
             },
-        })
-    }
-
-    /// One Job's turns. **Subscribe, then read the history** — the one order,
-    /// in the one place that can take both halves.
-    ///
-    /// The other order loses a row that arrives between the two. This order can
-    /// repeat one, and a repeat is detectable from the call id a row carries
-    /// while a gap is not detectable at all. It is the ordering
-    /// `api::Broadcaster::subscribe` already documents for the same reason.
-    ///
-    /// The Job is loaded first so that an id naming nothing is a 404 rather
-    /// than a socket that opens on an empty history. **Nothing else about the
-    /// Job is read**: watching is a property of a connection, not of the work,
-    /// and a status that would refuse a viewer does not exist.
-    async fn observe_job(&self, job_id: JobId) -> Result<Observed, Refusal> {
-        let job = self
-            .load(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let live = self.turns().watching(&job_id);
-        let (history, skipped) = crate::transcript::history(
-            self.served_by(&job)
-                .map_err(|why| self.refusal(why))?
-                .records_root(),
-            &job.handle(),
-        )
-        .await;
-        Ok(Observed {
-            job_id,
-            live,
-            history,
-            skipped,
         })
     }
 

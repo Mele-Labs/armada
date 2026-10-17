@@ -14,13 +14,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ipc::door::Reachable;
-use ipc::RaisedBy;
 
 use crate::tests::fake::{running, FakeDaemon};
 use crate::tests::shapes::{
-    run_id, A_PROPOSAL, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
+    run_id, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
 };
-use crate::{offerable, offered, router, Broadcaster, Redirector, Served, Steerer, DOOR_PATH, SERVED};
+use crate::{offerable, offered, router, Broadcaster, Served, DOOR_PATH, SERVED};
 
 fn wired(daemon: FakeDaemon) -> Router {
     let events = Broadcaster::new();
@@ -92,14 +91,14 @@ async fn the_tool_list_is_every_reachable_operation_and_names_its_route() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    for expected in ["list_jobs", "get_job", "get_events_since", "start_run"] {
+    for expected in ["list_jobs", "get_job", "get_events_since", "list_sessions"] {
         assert!(
             body.contains(&format!("\"name\":\"{expected}\"")),
             "the list is missing {expected}"
         );
     }
     assert!(
-        !body.contains("\"name\":\"observe_job\""),
+        !body.contains("\"name\":\"observe_land_check\""),
         "a Bridge-only operation reached the agent's tool set"
     );
     assert!(
@@ -209,21 +208,21 @@ async fn a_refusal_from_the_surface_reaches_the_agent_as_something_to_read() {
 
 /// A command goes through as a POST and its body decodes.
 ///
-/// **The refusal is the proof.** `fake.no_drone_to_redirect` is the daemon
-/// answering about a Job it holds, which it could only reach with a decoded
-/// `Redirection` — an undecodable body is a different refusal one layer out.
+/// **The answer is the proof.** The fake echoes the note it was handed, which
+/// it could only do with a decoded body — an undecodable one is a different
+/// refusal one layer out.
 #[tokio::test]
 async fn a_command_reaches_the_post_route_with_its_body() {
     let app = wired(holding_one());
     let (status, body) = call(
         &app,
         r#"{"jsonrpc":"2.0","id":5,"method":"tools/call",
-            "params":{"name":"redirect_drone","arguments":{"job_id":"1",
-            "body":{"instruction":"try the other suite"}}}}"#,
+            "params":{"name":"mark_annotation_done","arguments":
+            {"body":{"note_id":"note-7"}}}}"#,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("no_drone_to_redirect"), "{body}");
+    assert!(body.contains("annotations/note-7.json"), "{body}");
     assert!(
         !body.contains("undecodable"),
         "the body did not decode: {body}"
@@ -248,7 +247,7 @@ async fn the_handshake_states_the_scope_and_the_polling_obligation() {
 /// No server-initiated stream and no session to end, which is what keeps this
 /// door out of the unbounded-sink risk on the event socket.
 #[tokio::test]
-async fn a_get_or_a_delete_is_refused_the_way_the_drones_endpoint_refuses_one() {
+async fn a_get_or_a_delete_is_refused() {
     let app = wired(FakeDaemon::new(Broadcaster::new()));
     for verb in ["GET", "DELETE"] {
         let (status, _) = method(&app, verb, "").await;
@@ -264,7 +263,7 @@ const ANYONE: u16 = 52001;
 /// crate cannot name and which is tested beside itself; here the door is under
 /// test, and any predicate proves it enforces what it was handed.
 fn acting(row: &Reachable) -> bool {
-    row.kind == "query" || row.operation != "undo_run"
+    row.kind == "query" || row.operation != "all_done"
 }
 
 fn read_only(row: &Reachable) -> bool {
@@ -312,108 +311,19 @@ fn calling(tool: &str, arguments: &str) -> String {
 
 const LISTING: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
 
-/// **Only a Helm session is narrowed, and only it may draft.** Every other
-/// caller is listed exactly what the door listed before.
+/// **Only a Helm session is narrowed.** Every other caller is listed exactly
+/// what the door listed before.
 #[tokio::test]
 async fn a_helm_session_is_listed_what_it_may_call_and_anyone_else_what_they_were() {
     let app = shared(&helm_holding(acting));
     let helm = from(&app, HELM, LISTING).await;
-    assert!(helm.contains("\"name\":\"propose_job\""), "{helm}");
-    assert!(helm.contains("\"name\":\"redirect_drone\""), "{helm}");
-    assert!(!helm.contains("\"name\":\"undo_run\""), "{helm}");
+    assert!(helm.contains("\"name\":\"get_job\""), "{helm}");
+    assert!(!helm.contains("\"name\":\"all_done\""), "{helm}");
 
     let anyone = from(&app, ANYONE, LISTING).await;
-    assert!(anyone.contains("\"name\":\"undo_run\""), "{anyone}");
-    assert!(!anyone.contains("\"name\":\"propose_job\""), "{anyone}");
+    assert!(anyone.contains("\"name\":\"all_done\""), "{anyone}");
     let unplaced = call(&app, LISTING).await.1;
     assert_eq!(unplaced, anyone, "a call with no peer is any agent");
-}
-
-#[tokio::test]
-async fn an_undo_from_helm_is_refused_by_name_and_reaches_no_route() {
-    let app = shared(&helm_holding(acting));
-    let body = from(
-        &app,
-        HELM,
-        &calling("undo_run", r#"{"job_id":"1","run":"a-run"}"#),
-    )
-    .await;
-    assert!(body.contains("\"isError\":true"), "{body}");
-    assert!(body.contains("`undo_run` is not Helm's to call"), "{body}");
-}
-
-/// **Who acted is the transport's word.** The same bytes from a session the
-/// daemon did not place are a person's redirect.
-#[tokio::test]
-async fn a_redirect_from_helm_is_recorded_as_helm_and_anyone_elses_as_a_person() {
-    let daemon = helm_holding(acting);
-    let app = shared(&daemon);
-    let redirect = calling(
-        "redirect_drone",
-        r#"{"job_id":"1","body":{"instruction":"read the failing test first"}}"#,
-    );
-    let body = from(&app, HELM, &redirect).await;
-    assert!(!body.contains("not Helm's to call"), "{body}");
-    from(&app, ANYONE, &redirect).await;
-    assert_eq!(
-        *daemon.redirected_by.lock().expect("not poisoned"),
-        vec![Steerer::Helm, Steerer::Person]
-    );
-}
-
-/// **A draft is recorded the same way a redirect is.** `#943`: the door lets
-/// only a Helm session call `propose_job` at all (`Drafts only`, `#941`) —
-/// unlike a redirect, there is no "anyone else" arm to compare it against
-/// here, because a person drafts through Bridge's own call to the same route,
-/// never through this door — see `crate::tests::served`'s
-/// `a_plain_call_to_propose_job_is_recorded_as_a_persons`.
-#[tokio::test]
-async fn a_proposal_from_helm_is_recorded_as_helm() {
-    let daemon = helm_holding(acting);
-    let app = shared(&daemon);
-    let propose = calling(
-        "propose_job",
-        r#"{"body":{"title":"read the failing test first","workflow_id":"bug",
-            "origin":"auto_detected","urgency":"normal","atomic":false}}"#,
-    );
-    from(&app, HELM, &propose).await;
-    assert_eq!(
-        *daemon.proposed_by.lock().expect("not poisoned"),
-        vec![Redirector::Helm]
-    );
-}
-
-/// **A raise is placed by the door it came through, and its body has no say.**
-/// `#2165`: both routes read `raised_by` out of the body, so Helm's call could
-/// say `person` and meet no ceiling. The same bytes from the session the daemon
-/// placed as Helm and from any other agent are now two different raisers.
-#[tokio::test]
-async fn a_raise_is_helms_whatever_its_body_claims_and_anyone_elses_is_a_persons() {
-    let daemon = helm_holding(acting);
-    let app = shared(&daemon);
-    let cost = calling(
-        "raise_cost_cap",
-        r#"{"job_id":"1","body":{"cost_cap_micros":9000000,"raised_by":"person"}}"#,
-    );
-    let turns = calling(
-        "raise_turn_cap",
-        r#"{"job_id":"1","body":{"turn_cap":500,"raised_by":"person"}}"#,
-    );
-    for raise in [&cost, &turns] {
-        let body = from(&app, HELM, raise).await;
-        assert!(!body.contains("\"isError\":true"), "{body}");
-        from(&app, ANYONE, raise).await;
-    }
-    assert_eq!(
-        *daemon.raised_by.lock().expect("not poisoned"),
-        vec![
-            RaisedBy::Helm,
-            RaisedBy::Person,
-            RaisedBy::Helm,
-            RaisedBy::Person
-        ],
-        "cost then turns, each from Helm and then from anyone"
-    );
 }
 
 #[tokio::test]
@@ -448,74 +358,3 @@ async fn read_only_refuses_every_command_and_still_reads() {
     );
 }
 
-/// A drafted Job lands where every proposal does: at the approval gate.
-#[tokio::test]
-async fn a_job_helm_drafts_reaches_the_approval_gate() {
-    let app = shared(&helm_holding(acting));
-    let body = from(
-        &app,
-        HELM,
-        &calling("propose_job", &format!(r#"{{"body":{A_PROPOSAL}}}"#)),
-    )
-    .await;
-    assert!(body.contains("\"isError\":false"), "{body}");
-    assert!(body.contains("awaiting_approval"), "{body}");
-
-    let refused = from(
-        &app,
-        ANYONE,
-        &calling("propose_job", &format!(r#"{{"body":{A_PROPOSAL}}}"#)),
-    )
-    .await;
-    assert!(
-        refused.contains("is not a tool this Fleet offers"),
-        "{refused}"
-    );
-}
-
-/// The Drone's endpoint keeps its own tools, and this door does not widen it.
-#[tokio::test]
-async fn the_drones_endpoint_is_untouched_by_the_door_beside_it() {
-    let app = wired(FakeDaemon::new(Broadcaster::new()));
-    let request = Request::builder()
-        .method("POST")
-        .uri(crate::MCP_PATH)
-        .header("content-type", "application/json")
-        .body(Body::from(
-            r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#.to_string(),
-        ))
-        .expect("a well-formed request");
-    let response = app.oneshot(request).await.expect("the router answers");
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("a readable body")
-        .to_bytes();
-    let body = String::from_utf8_lossy(&body).to_string();
-    assert!(
-        !body.contains("\"name\":\"get_job\""),
-        "the Drone's endpoint gained a fleet-control tool: {body}"
-    );
-}
-
-/// **The connection a `start_run` arrived on reaches the daemon**, so Fleet can
-/// place the Drone behind it. A call with no peer reaches it with none.
-/// Placement itself is `fleet`'s and tested there.
-#[tokio::test]
-async fn a_start_run_through_the_door_reaches_the_daemon_on_the_connection_it_arrived_on() {
-    let daemon = Arc::new(holding_one());
-    let app = shared(&daemon);
-    let start = calling(
-        "start_run",
-        r#"{"job_id":"1","body":{"name":"test","narrowed":false,"worktree_version":false}}"#,
-    );
-
-    from(&app, 51001, &start).await;
-    call(&app, &start).await;
-
-    assert_eq!(
-        *daemon.run_asked_on.lock().expect("not poisoned"),
-        [Some(51001), None]
-    );
-}

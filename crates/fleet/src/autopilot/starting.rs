@@ -12,7 +12,7 @@ use api::{HostedSessions, Refusal};
 use ipc::{CloseSession, SessionId, SessionVoice, SetSessionWorkflow, StartSession};
 
 use crate::daemon::Fleet;
-use crate::proposal::{enrich, Enriched};
+use crate::enriching::{enrich, Enriched};
 use crate::repositories::Served;
 
 /// Who the brief is from in the Session's thread.
@@ -86,7 +86,7 @@ where
         let links = self.links_of(served);
         let body = match enrich(issue.url, links.as_ref()).await {
             Enriched::Resolved(text) => format!("{}\n\n{text}", issue.url),
-            Enriched::AsGiven | Enriched::Failed(_) => {
+            Enriched::AsGiven | Enriched::Failed => {
                 format!("{}\n\n{}\n\n{}", issue.url, issue.title, issue.excerpt)
             }
         };

@@ -7,7 +7,7 @@
 use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{Cursor, DroneId, ManifestId};
+use ipc::{Cursor, ManifestId};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused};
@@ -16,11 +16,6 @@ use crate::door::HelmCalled;
 use crate::scoped::InManifest;
 use crate::served::Served;
 
-/// The `:drone_id` segment.
-#[derive(Deserialize)]
-pub(crate) struct Named {
-    drone_id: String,
-}
 
 /// The `:manifest_id` segment.
 #[derive(Deserialize)]
@@ -41,28 +36,7 @@ pub(crate) struct From {
     manifest_id: Option<String>,
 }
 
-/// Every Drone Fleet holds a slot for.
-pub(crate) async fn list_drones<D: Queries>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-) -> Response {
-    match served.daemon().list_drones(scope.manifest()).await {
-        Ok(drones) => answer(StatusCode::OK, &drones, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// One Drone: what it declared, what drifted outside it, and a window of its
-/// own rows.
-pub(crate) async fn get_drone<D: Queries>(
-    State(served): State<Served<D>>,
-    Path(Named { drone_id }): Path<Named>,
-) -> Response {
-    match served.daemon().get_drone(DroneId::carried(drone_id)).await {
-        Ok(drone) => answer(StatusCode::OK, &drone, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
 pub(crate) async fn get_health<D: Queries>(State(served): State<Served<D>>) -> Response {

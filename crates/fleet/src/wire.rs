@@ -8,15 +8,11 @@
 //! so the field-by-field decision is written here, where every type involved
 //! is in scope.
 
-use std::collections::BTreeSet;
-
-use adapter_traits::Remark as ForgeRemark;
 use adapters::{BranchGone, Reclaimed, WorktreeGone};
 use core_model::Job;
-use ipc::mcp::NotRecorded;
 use ipc::{
-    CheckRun, DeclaredCheck, DeclaredJudge, Flagged, HeldReason, InlineContext, Judged,
-    KeptDeliverable, ManifestId, ManifestSummary, ReclaimedBranch, ReclaimedWorktree, Remark,
+    CheckRun, DeclaredCheck, DeclaredJudge, Flagged, HeldReason, Judged,
+    ManifestId, ManifestSummary, ReclaimedBranch, ReclaimedWorktree,
     StepFacts, StepId, Submitted, WorkflowId, WorkflowStep, WorkflowSummary, WorktreeHeld,
     WorktreeReclaimed,
 };
@@ -25,9 +21,6 @@ use crate::holding::{Held, Holding};
 use store::{Attempted, LoadJobError, Moved, RecordedEvent, Store};
 
 use crate::adrift::Adrift;
-use crate::evidence::NotSubmitted;
-use crate::judging::Aloft;
-use crate::underway::Underway;
 
 /// The wire shape of one declared Check.
 ///
@@ -233,13 +226,16 @@ pub(crate) fn submitted(recorded: &(core_model::StepId, core_model::StepEvidence
     }
 }
 
-/// A refusal, as the Drone reads it.
+/// The run directory and the file name, joined — what a caller names a frame by.
 ///
-/// The name is the typed variant and stays on this side; what crosses is the
-/// sentence it renders to, because that is the only part a Drone can act on.
-pub(crate) fn told(why: NotSubmitted) -> NotRecorded {
-    NotRecorded {
-        because: why.to_string(),
+/// **Derived from the path rather than stored beside it**, so there is one place the identity is
+/// built and a route cannot drift from what the record holds.
+fn tail(path: &str) -> String {
+    let mut parts = path.rsplit('/');
+    let name = parts.next().unwrap_or_default();
+    match parts.next() {
+        Some(run) => format!("{run}/{name}"),
+        None => name.to_string(),
     }
 }
 
@@ -529,16 +525,12 @@ pub(crate) fn job_ended_at(
 /// here that are not rows are the Judge call in flight and the Checks running.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn step_facts(
-    aloft: &Aloft,
-    underway: &Underway,
-    records_root: &str,
     job: &Job,
     ran: Vec<Attempted<Vec<core_model::StepCheck>>>,
     judged: Vec<Attempted<Vec<core_model::Judgment>>>,
     flagged: Vec<Attempted<Vec<core_model::GamingFlag>>>,
     resolved: Vec<Attempted<core_model::ResolvedPolicies>>,
     frames: Vec<store::KeptFrame>,
-    asked: Vec<store::AskedRun>,
     moves: &[StepMove],
 ) -> Vec<StepFacts> {
     job.steps()
@@ -614,20 +606,8 @@ pub(crate) fn step_facts(
                             .map(|flag| Flagged::of(group.attempt.number(), flag))
                     })
                     .collect(),
-                // **The one fact here read off the filesystem, and a checked one.**
-                // Nothing writes the kept copy's path down: the name is a function
-                // of the step, the run and the target the frozen workflow declares,
-                // so `keeping` rebuilds it and answers only what is there. A column
-                // would be a second authority for a name that already has one, and
-                // a path served without the check is the dead path `#246` is
-                // about, one layer down.
-                deliverables: job
-                    .workflow()
-                    .step(step.step_id())
-                    .and_then(|declared| declared.deliverable())
-                    .map(|target| kept_for(records_root, job, step.step_id(), &attempts, target))
-                    .unwrap_or_default(),
-                // **Read off the record, unlike `deliverables` above.** A
+                deliverables: Vec::new(),
+                // **Read off the record.** A
                 // frame's name is the harness's own — the repository's spec
                 // chose it — so there is no arithmetic to rebuild it from and
                 // the rows are the only list there is. `kept` is composed here
@@ -641,7 +621,7 @@ pub(crate) fn step_facts(
                         name: held.frame.name.clone(),
                         path: held.frame.path.clone(),
                         bytes: held.frame.bytes,
-                        kept: crate::showing::tail(&held.frame.path),
+                        kept: tail(&held.frame.path),
                         side: held.frame.side.into(),
                         digest: held.frame.digest.clone(),
                     })
@@ -651,21 +631,10 @@ pub(crate) fn step_facts(
                 // `StepAttempt` itself.
                 verdicts: ipc::StepAttempt::verdicts(&attempts),
                 attempts,
-                // The one fact here that is not a row. Read from the live slot
-                // as the answer is assembled, because nothing writes it down.
-                judging: aloft.on(&ipc::JobId::from(job.id()), &StepId::from(step.step_id())),
-                // Read from the live slot for `judging`'s reason, and gone the
-                // moment the ruling's rows are written.
-                checking: underway.on(&ipc::JobId::from(job.id()), &StepId::from(step.step_id())),
-                // The Drone's own run, apart from the gate's. #1062.
-                asked_run: underway
-                    .asked_run_on(&ipc::JobId::from(job.id()), &StepId::from(step.step_id())),
-                // Their own rows, never `ran`'s: an asked result is not a gate's.
-                asked_runs: asked
-                    .iter()
-                    .filter(|run| &run.step == step.step_id())
-                    .map(|run| crate::asked_run::asked::wired(job, run))
-                    .collect(),
+                judging: None,
+                checking: None,
+                asked_run: None,
+                asked_runs: Vec::new(),
             }
         })
         .collect()
@@ -776,37 +745,6 @@ pub(crate) fn reclaimed(
             },
         },
     }
-}
-
-/// The kept copies of one step's deliverable, over every run the log holds.
-///
-/// **Per run, because a re-run is a different document.** A step worked three
-/// times was judged on three deliverables and the copies are keyed by run, so
-/// one path for the step would name whichever of them sorted first and call it
-/// what the Judge read.
-///
-/// A run that kept nothing contributes nothing — a Judge that was never asked,
-/// a document too big to put in a call, a disk that refused. `keeping` checks
-/// each name, so what comes back is what a person can open.
-fn kept_for(
-    records_root: &str,
-    job: &Job,
-    step: &core_model::StepId,
-    attempts: &[ipc::StepAttempt],
-    target: &str,
-) -> Vec<KeptDeliverable> {
-    attempts
-        .iter()
-        .filter_map(|run| Some((run.attempt, core_model::Attempt::stored(run.attempt)?)))
-        .flat_map(|(number, attempt)| {
-            crate::keeping::kept_deliverables(records_root, &job.handle(), step, attempt, target)
-                .into_iter()
-                .map(move |path| KeptDeliverable {
-                    attempt: number,
-                    path,
-                })
-        })
-        .collect()
 }
 
 /// One held worktree on the wire, reasons and all.
@@ -955,26 +893,36 @@ fn held_reason(held: &Held) -> Option<HeldReason> {
     })
 }
 
-/// One comment, redacted onto the wire. **`adapter_traits::FromOutside` is
-/// called by hand here, four or seven times depending on whether the comment
-/// is inline** — see `crate::serving::get_remarks`'s own note on why that is
-/// the visible step this file exists to make people take.
+/// The adapter's word for what happened to a file, in the wire's spelling.
 ///
-/// `taken_up` is read off the set beside the reading, for the same reason
-/// `get_remarks` reads it beside `what_was_said`'s answer: it is Armada's own
-/// fact and the forge never wrote it.
-pub(crate) fn redacted(remark: &ForgeRemark, taken_up: &BTreeSet<String>) -> Remark {
-    Remark {
-        id: remark.id.as_written().to_string(),
-        by: remark.by.as_written().to_string(),
-        at: remark.at.as_written().to_string(),
-        said: remark.said.as_written().to_string(),
-        taken_up: taken_up.contains(remark.id.as_written()),
-        url: remark.url.as_ref().map(|url| url.as_written().to_string()),
-        inline: remark.inline.as_ref().map(|inline| InlineContext {
-            path: inline.path.as_written().to_string(),
-            line: inline.line,
-            hunk: inline.hunk.as_written().to_string(),
-        }),
+/// A function rather than a `From`: neither type belongs to this crate, so the impl could only
+/// live in `ipc` — and that would put the harness seam's vocabulary under the wire crate to save a
+/// `match` that is the boundary doing its job.
+pub(crate) fn kind(change: adapter_traits::Change) -> ipc::ChangeKind {
+    use adapter_traits::Change;
+    match change {
+        Change::Added => ipc::ChangeKind::Added,
+        Change::Modified => ipc::ChangeKind::Modified,
+        Change::Deleted => ipc::ChangeKind::Deleted,
+        Change::Renamed => ipc::ChangeKind::Renamed,
+        Change::Copied => ipc::ChangeKind::Copied,
+        Change::TypeChanged => ipc::ChangeKind::TypeChanged,
+        Change::Conflicted => ipc::ChangeKind::Conflicted,
+        Change::Unreadable => ipc::ChangeKind::Unreadable,
     }
+}
+
+/// What a worktree changed, as the wire carries it. **Nothing is outside a plan**: no Drone
+/// declares one any more.
+pub(crate) fn seen(changed: &adapter_traits::Changed) -> Vec<ipc::ChangedFile> {
+    changed
+        .files()
+        .iter()
+        .map(|file| ipc::ChangedFile {
+            path: file.path().to_string(),
+            change: kind(file.change()),
+            outside_plan: false,
+            lines: None,
+        })
+        .collect()
 }

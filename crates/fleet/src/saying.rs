@@ -23,7 +23,6 @@ use std::fmt;
 use core_model::{JobId, JobStatus};
 
 use crate::adrift::Adrift;
-use crate::proposing::Unresolved;
 
 impl fmt::Display for Adrift {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,12 +37,6 @@ impl fmt::Display for Adrift {
                 out,
                 "Fleet asked for a step move the machine refuses: {cause}"
             ),
-            Adrift::IllegalDroneMove(cause) => {
-                write!(
-                    out,
-                    "Fleet asked to put a drone where it cannot go: {cause}"
-                )
-            }
             Adrift::Unworkable { job, cause } => {
                 write!(
                     out,
@@ -52,38 +45,14 @@ impl fmt::Display for Adrift {
                     cause.said()
                 )
             }
-            Adrift::NoTranscript { job, cause } => write!(
-                out,
-                "{}'s work could not be written down and nothing was spawned: {cause}",
-                job.as_str()
-            ),
-            Adrift::NoWorktree { job, cause } => write!(
-                out,
-                "{} has no worktree and nothing was spawned: {cause}",
-                job.as_str()
-            ),
             Adrift::NotPrepared { job, cause } => write!(
                 out,
                 "{} has a worktree and no step ran in it: {cause}",
                 job.as_str()
             ),
-            Adrift::NotConfigurable { job, cause } => write!(
-                out,
-                "{} could not be turned into a confined spawn: {}",
-                job.as_str(),
-                cause.said()
-            ),
             Adrift::PortsRefused { job, cause } => write!(
                 out,
                 "{}'s worktree has no port span and nothing was spawned: {cause}",
-                job.as_str()
-            ),
-            Adrift::NoDrone { job, cause } => {
-                write!(out, "{} has no Drone: {cause}", job.as_str())
-            }
-            Adrift::NotTold { job, cause } => write!(
-                out,
-                "the gate ruled on {} and the Drone could not be told: {cause}",
                 job.as_str()
             ),
             Adrift::NotDelivered { job, doing, said } => write!(
@@ -155,47 +124,10 @@ impl fmt::Display for Adrift {
                 "no check failed on {}'s pull request when Fleet last read it, so there is nothing to investigate",
                 job.as_str()
             ),
-            Adrift::FindingNotForContext { job, finding } => write!(
-                out,
-                "{}'s latest review did not raise \"{finding}\" for context, so there is nothing to follow up",
-                job.as_str()
-            ),
-            Adrift::NoIssueTitle { job } => write!(
-                out,
-                "the issue drafted from {}'s review has no title, so it was not filed",
-                job.as_str()
-            ),
-            Adrift::FindingAlreadyQueued { job, finding } => write!(
-                out,
-                "\"{finding}\" on {}'s review already has a Job queued behind it, so no second one was proposed",
-                job.as_str()
-            ),
-            Adrift::IssueNotFiled { job, said } => write!(
-                out,
-                "the forge did not file the issue drafted from {}'s review: {said}",
-                job.as_str()
-            ),
-            Adrift::NothingToResolve { job } => write!(
-                out,
-                "{} has no open pull request to resolve a conflict against",
-                job.as_str()
-            ),
             Adrift::NoStepToRedo { job } => write!(
                 out,
                 "{}'s frozen workflow has nothing before the step that delivers, so there \
                  is no step to send a conflict back to",
-                job.as_str()
-            ),
-            Adrift::UnpushedDelivery { job, why } => write!(
-                out,
-                "{}'s last commit never reached its branch's remote: {why} — approving would \
-                 end the Job over a pull request that does not carry it",
-                job.as_str()
-            ),
-            Adrift::TriggerHolds { job, trigger } => write!(
-                out,
-                "{} is held by the Trigger `{trigger}`, which failed: rerun it or skip it, and \
-                 then the Job can go on",
                 job.as_str()
             ),
             Adrift::NotMerged { job, why } => write!(
@@ -203,26 +135,6 @@ impl fmt::Display for Adrift {
                 "{}'s pull request was not merged and nothing retries — {}",
                 job.as_str(),
                 why.said()
-            ),
-            Adrift::NotCommitted { job, cause } => write!(
-                out,
-                "{} finished and its work would not commit: {cause}. The Job succeeded and the \
-                 worktree still holds the change",
-                job.as_str()
-            ),
-            Adrift::NoSuchStep { job, step } => match step {
-                Some(step) => write!(
-                    out,
-                    "{} froze a workflow with no step `{}`",
-                    job.as_str(),
-                    step.as_str()
-                ),
-                None => write!(out, "{} froze a workflow with no steps", job.as_str()),
-            },
-            Adrift::NotReaped { job, cause } => write!(
-                out,
-                "whether {}'s Drone had exited could not be established: {cause}",
-                job.as_str()
             ),
             Adrift::NotForgettable { job, status } => write!(
                 out,
@@ -234,71 +146,11 @@ impl fmt::Display for Adrift {
             // Dollars, because dollars are what a person set and what the
             // detail draws beside the spend. The micros are the wire's unit and
             // are nobody's sentence.
-            Adrift::NotCappable { job, status } => write!(
-                out,
-                "{} is {} and its cost cap cannot be raised. Nothing is left to spend on a Job                  that is over — a replacement is `redispatch_job`",
-                job.as_str(),
-                status.as_wire()
-            ),
-            Adrift::CapNotRaised {
-                job,
-                asked,
-                in_force,
-            } => write!(
-                out,
-                "{} already has a cost cap of {}, so {} would not raise it. This act only ever                  raises: a Job held for money is still held after a cap that did not move",
-                job.as_str(),
-                dollars(*in_force),
-                dollars(*asked)
-            ),
-            Adrift::CapAboveCeiling {
-                job,
-                asked,
-                ceiling,
-            } => write!(
-                out,
-                "Helm may raise {}'s cost cap as far as {} and asked for {}. A Job needing \
-                 more than double what it would otherwise be allowed is one for a person to \
-                 look at rather than a bigger number",
-                job.as_str(),
-                dollars(*ceiling),
-                dollars(*asked)
-            ),
             // Turns, in the unit they are counted in — the same three
             // sentences as the cost cap's above, saying which ceiling and what
             // a person does about it. The remedy differs and is named: a Job
             // going in circles is redispatched, and a Job that finished and
             // was held out of its last step wants the number.
-            Adrift::NotTurnCappable { job, status } => write!(
-                out,
-                "{} is {} and its turn cap cannot be raised. Nothing is left to turn on a Job                  that is over — a replacement is `redispatch_job`",
-                job.as_str(),
-                status.as_wire()
-            ),
-            Adrift::TurnCapNotRaised {
-                job,
-                asked,
-                in_force,
-            } => write!(
-                out,
-                "{} already has a turn cap of {}, so {} would not raise it. This act only ever                  raises: a Job held for turns is still held after a cap that did not move",
-                job.as_str(),
-                in_force,
-                asked
-            ),
-            Adrift::TurnCapAboveCeiling {
-                job,
-                asked,
-                ceiling,
-            } => write!(
-                out,
-                "Helm may raise {}'s turn cap as far as {} and asked for {}. A Job needing \
-                 more than double the turns it would otherwise be allowed is one for a person \
-                 to look at rather than a bigger number",
-                job.as_str(),
-                ceiling,
-                asked
-            ),
             Adrift::NotReclaimable {
                 job,
                 status: JobStatus::Piloted,
@@ -369,31 +221,10 @@ impl fmt::Display for Adrift {
                  was renamed or deleted since. Nothing was replaced",
                 job.as_str()
             ),
-            Adrift::NotResumable { job, status } => write!(
-                out,
-                "{} is {}. Redirect and restart both take a Job a person is holding, which is \
-                 `escalated`",
-                job.as_str(),
-                status.as_wire()
-            ),
-            Adrift::NoStepStopped { job } => write!(
-                out,
-                "{} escalated without stopping a step, so there is none to restart. Only a \
-                 step-level trigger names a step — redirect the Drone if it is still there, and \
-                 a redispatch or Pilot is what answers this otherwise",
-                job.as_str()
-            ),
             Adrift::NoDroneToRedirect { job } => write!(
                 out,
                 "{} has no Drone to redirect — it is gone, and what is left is a restart onto \
                  the worktree it left behind",
-                job.as_str()
-            ),
-            Adrift::DroneNotLive { job, drone } => write!(
-                out,
-                "Drone {} is not one of {}'s live Drones — it has gone, and nothing was sent \
-                 to another in its place",
-                drone.as_str(),
                 job.as_str()
             ),
             Adrift::NotTheJobsProcess { job, pid } => write!(
@@ -404,64 +235,14 @@ impl fmt::Display for Adrift {
             ),
             // `questioning::NotAnswered`'s sentence, whole: a second wording
             // here would be a second authority for one refusal.
-            Adrift::NotAnswerable { because, .. } | Adrift::NoCheckToAct { because, .. } => {
-                out.write_str(because)
-            }
-            Adrift::NotUnderReview { job, status } => write!(
-                out,
-                "{} is {} and is not standing at a human gate. Approve, request changes and \
-                 reject all answer `awaiting_review` and nothing else",
-                job.as_str(),
-                status.as_wire()
-            ),
-            Adrift::NoDroneToTell { job } => write!(
-                out,
-                "{} has no Drone to tell and no worktree to put one on, so there is nowhere \
-                 for the note to wait. What is being asked for is a redispatch",
-                job.as_str()
-            ),
-            Adrift::NoteAlreadyWaiting { job, held } => write!(
-                out,
-                "{} is already holding a note for the next Drone, and a second would lose \
-                 one of the two: {held}",
-                job.as_str()
-            ),
             Adrift::WorkUnreadable { job, cause } => write!(
                 out,
                 "{}'s worktree would not be read, so there is no diff to show: {cause}",
                 job.as_str()
             ),
-            Adrift::NotTheJudges { job, step, trigger } => write!(
-                out,
-                "{}'s step `{}` stopped on {}, which is not a verdict there is anything to \
-                 disagree with. gate_failure and evidence_suspect are calls a machine made and a \
-                 person can overrule; the others say the gate never weighed the work at all",
-                job.as_str(),
-                step.as_str(),
-                trigger.as_wire()
-            ),
-            Adrift::NotUndecided { job, step, trigger } => write!(
-                out,
-                "{}'s step `{}` stopped on {}, which is a decision. Running the gate again would \
-                 ask a question that was answered and draw the same answer; disagreeing with it \
-                 is an override, and it takes a reason",
-                job.as_str(),
-                step.as_str(),
-                trigger.as_wire()
-            ),
-            Adrift::NotStandingThere { job } => write!(
-                out,
-                "{} is not the Job Fleet is standing at, so the reading the gate failed to make \
-                 cannot be made again — the baseline the step began from went with the slot. \
-                 Restart the step to put a fresh Drone on the worktree it left",
-                job.as_str()
-            ),
             // The sentence alone, with no Job id in front of it: the refusal
             // already names the Job it is about, and this is what the control
             // puts under the button a person just pressed.
-            Adrift::CannotShowAgain { why, .. } => write!(out, "{}", why.said()),
-            Adrift::CannotRerunChecks { why, .. } => write!(out, "{}", why.said()),
-            Adrift::CannotPilot { why, .. } => write!(out, "{}", why.said()),
             Adrift::ChecksRunningAgain { job } => write!(
                 out,
                 "{}'s Checks are running again on its worktree. Wait for that run to finish \
@@ -473,170 +254,33 @@ impl fmt::Display for Adrift {
                 "the proposal ended without an answer; the Job it created is moved the next \
                  time Fleet starts"
             ),
-            Adrift::RecheckAbandoned { job } => write!(
-                out,
-                "the run of {}'s Checks ended without an answer. Its log says how far it got; \
-                 press again to run them again",
-                job.as_str()
-            ),
             Adrift::PressAbandoned { job } => write!(
                 out,
                 "the run showing {}'s work ended without an answer. Its log says how far it got; \
                  press again to run it again",
                 job.as_str()
             ),
-            Adrift::NothingToRuleOn { job, step } => write!(
-                out,
-                "{}'s step `{}` has no evidence the gate could be asked about again: none was \
-                 recorded, or what was recorded will not read back as a submission",
-                job.as_str(),
-                step.as_str()
-            ),
-            Adrift::DroneStillThere { job } => write!(
-                out,
-                "{}'s Drone is alive and idle, holding its session. Redirect it rather than \
-                 restarting the step, which would throw that session away",
-                job.as_str()
-            ),
-            Adrift::WorktreeGone { job, path } => write!(
-                out,
-                "{} has no worktree at {path}, so the earlier steps' work is not on disk. \
-                 Starting the work again from the approval gate is a redispatch",
-                job.as_str()
-            ),
-            Adrift::SlotLost { job, slot, why } => write!(
-                out,
-                "{}'s worktree was slot-{slot}, and {why}. Its earlier steps' work is not \
-                 its own any more, so Fleet will not go on with it or lease it another",
-                job.as_str()
-            ),
-            Adrift::Paused { job } => write!(
-                out,
-                "{} is paused and has no worktree to act on. Resume it first",
-                job.as_str()
-            ),
-            Adrift::NotPausable { job, status } => write!(
-                out,
-                "{} is {}, which a pause cannot hold. Only a Job working, waiting in the \
-                 queue or held for a person can be paused",
-                job.as_str(),
-                status.as_wire()
-            ),
             Adrift::MainNotFixable { why, .. } => write!(out, "{why}"),
-            Adrift::AlreadyPaused { job } => write!(out, "{} is already paused", job.as_str()),
-            Adrift::NotPaused { job } => write!(out, "{} is not paused", job.as_str()),
-            Adrift::NothingToPark { job } => write!(
-                out,
-                "{} holds no worktree slot, so there is no work to park",
-                job.as_str()
-            ),
-            Adrift::CannotPark { job, refused } => write!(
-                out,
-                "{} was not paused, and nothing changed: {}",
-                job.as_str(),
-                refused.said()
-            ),
-            Adrift::NotReseated { job, why } => write!(
-                out,
-                "{} is still paused: its branch could not be put in a slot, because {why}",
-                job.as_str()
-            ),
             Adrift::Unnameable => out.write_str("a Job needs a title somebody can read"),
-            Adrift::Unreasoned { job } => write!(
-                out,
-                "overruling {}'s verdict needs a reason. Nobody is told it and nothing acts on \
-                 it; it is the record of why the Judge was wrong, and a count of overrides with \
-                 no reasons beside it says the rate and never the cause",
-                job.as_str()
-            ),
             // The Job is named and then the cause speaks, so the sentence reads
             // as one and the field it is about is in it.
             Adrift::NotFileable { job, cause } => {
                 write!(out, "nothing was filed about {}: {cause}", job.as_str())
             }
-            Adrift::NothingToPropose => {
-                out.write_str("a request needs something in it to read before it can be a Job")
-            }
-            Adrift::NoReadingWorktree(cause) => write!(
-                out,
-                "the reading's checkout could not be named: {}",
-                cause.said()
-            ),
-            Adrift::NoReading { cause, .. } => write!(
-                out,
-                "the proposer had nowhere to read: {cause}. Nothing was created"
-            ),
-            Adrift::ReadingNotDiscarded { path, cause } => write!(
-                out,
-                "the reading's checkout at {path} would not go back: {cause}. Remove it by \
-                 hand — `armada clean` will report it and leave it, because no Job derives it"
-            ),
             Adrift::NotProposable(cause) => write!(
                 out,
                 "the proposer call could not be configured: {}",
                 cause.said()
-            ),
-            Adrift::NoWorkflowFits { why, .. } => write!(
-                out,
-                "{why}. Nothing was created and the request is unchanged — say it again                  differently, or name a workflow yourself with `propose_job`"
             ),
             // **Never the sentence above.** Saying this again differently
             // changes nothing: the request was read and the workflow was
             // fine. What fixes it is a model this machine runs, or installing
             // the one asked for. `Unresolved::ModelNotHeld` names both the
             // model asked for and the set.
-            Adrift::ModelNotHeld { named, held, .. } => {
-                let why = Unresolved::ModelNotHeld {
-                    named: named.clone(),
-                    held: held.clone(),
-                };
-                write!(
-                    out,
-                    "{why}. Nothing was created and the request is unchanged — dispatch it                      again once a model it can run is available, or name one yourself with                      `propose_job`"
-                )
-            }
-            Adrift::NotProposed { cause, .. } => write!(
-                out,
-                "the request could not be read: {cause}. Nothing was created and the                  request is unchanged — this is the call failing rather than the                  request being refused, so asking again is reasonable"
-            ),
-            Adrift::NoSuchWorkflow { named, held } => {
-                let names: Vec<String> = held.iter().map(|id| format!("`{id}`")).collect();
-                write!(
-                    out,
-                    "no workflow is named `{named}`. This Fleet holds {} — `list_workflows` \
-                     says what each one is",
-                    names.join(", ")
-                )
-            }
-            Adrift::NoSuchPeer { named } => write!(
-                out,
-                "no Job is named `{named}`, and a dependency is a pointer rather than a \
-                 promise. A peer must already exist when the Job naming it is created, which \
-                 is what makes a plan creatable in dependency order and a cycle impossible \
-                 to state"
-            ),
             // The resolver's own words, which quote what the caller said. A
             // sentence written here would be a second wording of the same
             // refusal, and the two would drift.
             Adrift::Unresolvable(why) => write!(out, "{why}"),
-            Adrift::NoSuchDrone { named } => write!(
-                out,
-                "no Drone `{named}` is at work. Fleet holds a process while a step is being \
-                 worked and lets it go when the step ends, so an id from a step that has \
-                 finished reaches nothing — what it did is on the Job"
-            ),
-            Adrift::NothingToExplain { call, .. } => write!(
-                out,
-                "this job is neither waiting on nor refused the call `{call}`, so there is no \
-                 command to read. A reading is only asked for while a person still has the \
-                 command in front of them, and the id is the one `answer_command` takes"
-            ),
-            Adrift::NotExplained { call, cause, .. } => write!(
-                out,
-                "the command on call `{call}` could not be read: {cause}. Nothing about it \
-                 changed — it is waiting exactly as it was, and every answer it offered is \
-                 still offered"
-            ),
             Adrift::NoSuchCheckOutput { named } => write!(
                 out,
                 "no Check of this Job kept an output named `{named}`. The record holds where \
@@ -698,20 +342,6 @@ impl fmt::Display for Adrift {
                 "the corrected Manifest could not be written to {path}: {cause}. Nothing was \
                  changed, so what is on disk is what was there before"
             ),
-            Adrift::Modelless => out.write_str(
-                "a Job needs a model, and neither the proposal nor configuration named one. \
-                 Set `default-model-per-job-type` in crates/config/settings.toml, or name a \
-                 model on the proposal — `list_models` says which are available",
-            ),
-            Adrift::AttachmentUnreadable {
-                job,
-                filename,
-                cause,
-            } => write!(
-                out,
-                "{}'s attachment `{filename}` could not be made ready: {cause}",
-                job.as_str()
-            ),
             Adrift::CommandTimedOut { job: Some(job), waited } => write!(
                 out,
                 "Fleet gave up waiting on this after {waited:?}, which is its own limit and \
@@ -727,37 +357,9 @@ impl fmt::Display for Adrift {
             Adrift::PlanRefused { job, why } => {
                 write!(out, "{}'s plan refuses this change: {why}", job.as_str())
             }
-            Adrift::ProposalRefused { job, why } => write!(
-                out,
-                "{}'s proposal was left as it was: {why}",
-                job.as_str()
-            ),
-            Adrift::NoSuchBranch { named, .. } => write!(
-                out,
-                "this repository holds no branch `{named}`, so the work can neither start from \
-                 it nor land in it"
-            ),
             Adrift::BranchesUnread { why, .. } => {
                 write!(out, "git would not list this repository's branches: {why}")
             }
-            Adrift::TargetNotSet { job, why } => {
-                write!(out, "{}'s landing target was left as it was: {why}", job.as_str())
-            }
-            Adrift::BranchNotCut {
-                named, from, why, ..
-            } => write!(
-                out,
-                "git would not make the branch `{named}` from `{from}`, so the proposal was left \
-                 as it was: {why}"
-            ),
-            Adrift::TaskAlreadySettled { job, named, state } => write!(
-                out,
-                "{}'s task {named} is already {}, and a person's drop does not repeat a \
-                 decision already made. Add it back as a new task if the work is needed \
-                 after all",
-                job.as_str(),
-                state.as_wire()
-            ),
             Adrift::TaskNotFailed { job, named, state } => write!(
                 out,
                 "{}'s task {named} is {}, and only a failed task, or a done one in a group \
@@ -772,12 +374,6 @@ impl fmt::Display for Adrift {
                  until its gate has answered",
                 job.as_str(),
                 state.as_wire()
-            ),
-            Adrift::PlanNotKept { job, because } => write!(
-                out,
-                "{}'s plan change could not be written down: {because}. The change was \
-                 well-formed — this is Fleet's own store, not the request",
-                job.as_str()
             ),
         }
     }
@@ -798,102 +394,7 @@ impl Adrift {
     pub fn job(&self) -> Option<&JobId> {
         match self {
             Adrift::Unworkable { job, .. }
-            | Adrift::NoWorktree { job, .. }
-            | Adrift::NotPrepared { job, .. }
-            | Adrift::NotConfigurable { job, .. }
-            | Adrift::PortsRefused { job, .. }
-            | Adrift::NoDrone { job, .. }
-            | Adrift::NoTranscript { job, .. }
-            | Adrift::NotTold { job, .. }
-            | Adrift::NotCommitted { job, .. }
-            | Adrift::NotDelivered { job, .. }
-            | Adrift::NothingToMerge { job }
-            | Adrift::NothingToResolve { job }
-            | Adrift::NothingToRerun { job }
-            | Adrift::RerunRefused { job, .. }
-            | Adrift::NothingToInvestigate { job }
-            | Adrift::FindingNotForContext { job, .. }
-            | Adrift::NoIssueTitle { job }
-            | Adrift::IssueNotFiled { job, .. }
-            | Adrift::FindingAlreadyQueued { job, .. }
-            | Adrift::NoStepToRedo { job }
-            | Adrift::UnpushedDelivery { job, .. }
-            | Adrift::TriggerHolds { job, .. }
-            | Adrift::NotMerged { job, .. }
-            | Adrift::ReviewUnreadable { job, .. }
-            | Adrift::NoRemarksChosen { job }
-            | Adrift::RemarksGone { job, .. }
-            | Adrift::RemarksAlreadyTakenUp { job, .. }
-            | Adrift::NoDismissalReason { job }
-            | Adrift::FindingNotInReview { job, .. }
-            | Adrift::RemarksFileUnwritable { job, .. }
-            | Adrift::NoSuchStep { job, .. }
-            | Adrift::NotReaped { job, .. }
-            | Adrift::NotForgettable { job, .. }
-            | Adrift::NotReclaimable { job, .. }
-            | Adrift::SlotKept { job, .. }
-            | Adrift::WorktreeNotSaved { job, .. }
-            | Adrift::NotCappable { job, .. }
-            | Adrift::CapNotRaised { job, .. }
-            | Adrift::CapAboveCeiling { job, .. }
-            | Adrift::NotTurnCappable { job, .. }
-            | Adrift::TurnCapNotRaised { job, .. }
-            | Adrift::TurnCapAboveCeiling { job, .. }
-            | Adrift::NotReclaimed { job, .. }
-            | Adrift::BranchNotDeletable { job, .. }
-            | Adrift::BranchNotDeleted { job, .. }
-            | Adrift::NotRedispatchable { job, .. }
-            | Adrift::NeverRan { job }
-            | Adrift::NotReplaceable { job }
-            | Adrift::WorkflowWithdrawn { job, .. }
-            | Adrift::NotResumable { job, .. }
-            | Adrift::Paused { job }
-            | Adrift::NotPausable { job, .. }
-            | Adrift::AlreadyPaused { job }
-            | Adrift::NotPaused { job }
-            | Adrift::NothingToPark { job }
-            | Adrift::CannotPark { job, .. }
-            | Adrift::NotReseated { job, .. }
-            | Adrift::NoStepStopped { job }
-            | Adrift::NoDroneToRedirect { job }
-            | Adrift::DroneNotLive { job, .. }
-            | Adrift::NotTheJobsProcess { job, .. }
-            | Adrift::NotAnswerable { job, .. }
-            | Adrift::NoCheckToAct { job, .. }
-            | Adrift::NotUnderReview { job, .. }
-            | Adrift::NoDroneToTell { job }
-            | Adrift::NoteAlreadyWaiting { job, .. }
-            | Adrift::WorkUnreadable { job, .. }
-            | Adrift::NotTheJudges { job, .. }
-            | Adrift::NotUndecided { job, .. }
-            | Adrift::NotStandingThere { job }
-            | Adrift::CannotRerunChecks { job, .. }
-            | Adrift::CannotPilot { job, .. }
-            | Adrift::ChecksRunningAgain { job }
-            | Adrift::RecheckAbandoned { job }
-            | Adrift::CannotShowAgain { job, .. }
-            | Adrift::PressAbandoned { job }
-            | Adrift::NothingToRuleOn { job, .. }
-            | Adrift::Unreasoned { job }
-            | Adrift::NotFileable { job, .. }
-            | Adrift::DroneStillThere { job }
-            | Adrift::WorktreeGone { job, .. }
-            | Adrift::SlotLost { job, .. }
-            | Adrift::AttachmentUnreadable { job, .. }
-            | Adrift::PlanRefused { job, .. }
-            | Adrift::ProposalRefused { job, .. }
-            | Adrift::NoSuchBranch { job, .. }
-            | Adrift::BranchNotCut { job, .. }
-            | Adrift::TargetNotSet { job, .. }
-            | Adrift::TaskAlreadySettled { job, .. }
-            | Adrift::TaskNotFailed { job, .. }
-            | Adrift::TaskInFlight { job, .. }
-            | Adrift::PlanNotKept { job, .. }
-            // Both name the Job whose command was being decided about, so a
-            // reading that failed is readable from the Job it was asked on.
-            | Adrift::NothingToExplain { job, .. }
-            | Adrift::NotExplained { job, .. }
-            | Adrift::NotServed { job, .. } => Some(job),
+              | Adrift::NotPrepared { job, .. } | Adrift::PortsRefused { job, .. } | Adrift::NotDelivered { job, .. } | Adrift::NothingToMerge { job } | Adrift::NothingToRerun { job } | Adrift::RerunRefused { job, .. } | Adrift::NothingToInvestigate { job } | Adrift::NoStepToRedo { job } | Adrift::NotMerged { job, .. } | Adrift::ReviewUnreadable { job, .. } | Adrift::NoRemarksChosen { job } | Adrift::RemarksGone { job, .. } | Adrift::RemarksAlreadyTakenUp { job, .. } | Adrift::NoDismissalReason { job } | Adrift::FindingNotInReview { job, .. } | Adrift::RemarksFileUnwritable { job, .. } | Adrift::NotForgettable { job, .. } | Adrift::NotReclaimable { job, .. } | Adrift::SlotKept { job, .. } | Adrift::WorktreeNotSaved { job, .. } | Adrift::NotReclaimed { job, .. } | Adrift::BranchNotDeletable { job, .. } | Adrift::BranchNotDeleted { job, .. } | Adrift::NotRedispatchable { job, .. } | Adrift::NeverRan { job } | Adrift::NotReplaceable { job } | Adrift::WorkflowWithdrawn { job, .. } | Adrift::NoDroneToRedirect { job } | Adrift::NotTheJobsProcess { job, .. } | Adrift::WorkUnreadable { job, .. } | Adrift::ChecksRunningAgain { job } | Adrift::PressAbandoned { job } | Adrift::NotFileable { job, .. } | Adrift::PlanRefused { job, .. } | Adrift::TaskNotFailed { job, .. } | Adrift::TaskInFlight { job, .. } | Adrift::NotServed { job, .. } => Some(job),
             Adrift::CommandTimedOut { job, .. } | Adrift::BranchesUnread { job, .. } => {
                 job.as_ref()
             }
@@ -902,31 +403,7 @@ impl Adrift {
             | Adrift::Writing(_)
             | Adrift::IllegalMove(_)
             | Adrift::IllegalStepMove(_)
-            | Adrift::IllegalDroneMove(_)
-            | Adrift::Unnameable
-            | Adrift::NoSuchWorkflow { .. }
-            | Adrift::NoSuchManifest { .. }
-            | Adrift::ManifestUnreadable { .. }
-            | Adrift::ManifestUnwritable { .. }
-            | Adrift::ManifestMovedUnderTheEdit { .. }
-            | Adrift::NoSuchPeer { .. }
-            | Adrift::NoSuchDrone { .. }
-            | Adrift::NoSuchCheckOutput { .. }
-            | Adrift::Unresolvable(_)
-            | Adrift::NoSuchFrame { .. }
-            | Adrift::NoSuchBrief { .. }
-            | Adrift::NoSuchLandLog { .. }
-            | Adrift::Modelless
-            | Adrift::NothingToPropose
-            | Adrift::NoReadingWorktree(_)
-            | Adrift::NoReading { .. }
-            | Adrift::ReadingNotDiscarded { .. }
-            | Adrift::NotProposable(_)
-            | Adrift::NoWorkflowFits { .. }
-            | Adrift::ModelNotHeld { .. }
-            | Adrift::ProposalAbandoned
-            | Adrift::MainNotFixable { .. }
-            | Adrift::NotProposed { .. } => None,
+             | Adrift::Unnameable | Adrift::NoSuchManifest { .. } | Adrift::ManifestUnreadable { .. } | Adrift::ManifestUnwritable { .. } | Adrift::ManifestMovedUnderTheEdit { .. } | Adrift::NoSuchCheckOutput { .. } | Adrift::Unresolvable(_) | Adrift::NoSuchFrame { .. } | Adrift::NoSuchBrief { .. } | Adrift::NoSuchLandLog { .. } | Adrift::NotProposable(_) | Adrift::ProposalAbandoned | Adrift::MainNotFixable { .. } => None,
         }
     }
 }
@@ -940,45 +417,31 @@ impl Error for Adrift {
             Adrift::Writing(cause) => Some(cause),
             Adrift::IllegalMove(cause) => Some(cause),
             Adrift::IllegalStepMove(cause) => Some(cause),
-            Adrift::IllegalDroneMove(cause) => Some(cause),
-            Adrift::NoWorktree { cause, .. }
-            | Adrift::NoDrone { cause, .. }
-            | Adrift::NotCommitted { cause, .. } => Some(cause.as_ref()),
             Adrift::NotPrepared { cause, .. } => Some(cause),
             // The call that would not be made, as the typed leaf the runner
             // raised rather than as a sentence this rewrote.
-            Adrift::NotExplained { cause, .. } => Some(cause),
             Adrift::PortsRefused { cause, .. } => Some(cause),
-            Adrift::NotTold { cause, .. }
-            | Adrift::NotReaped { cause, .. }
-            | Adrift::NoTranscript { cause, .. }
-            | Adrift::AttachmentUnreadable { cause, .. }
-            | Adrift::RemarksFileUnwritable { cause, .. }
-            | Adrift::ManifestUnreadable { cause, .. }
-            | Adrift::ManifestUnwritable { cause, .. } => Some(cause),
-            // An id naming no open command has nothing underneath it: the two
-            // places a command can be were read, and neither held one.
-            Adrift::NothingToExplain { .. }
+            Adrift::RemarksFileUnwritable { cause, .. } | Adrift::ManifestUnreadable { cause, .. } | Adrift::ManifestUnwritable { cause, .. } => Some(cause),
+            // The rest say what the record or the request holds rather than wrapping anything that
+            // failed underneath it.
+            Adrift::Unworkable { .. }
             | Adrift::NotDelivered { .. }
-            | Adrift::Unworkable { .. }
-            | Adrift::NotConfigurable { .. }
-            | Adrift::NoSuchStep { .. }
+            | Adrift::ReviewUnreadable { .. }
+            | Adrift::NoRemarksChosen { .. }
+            | Adrift::RemarksGone { .. }
+            | Adrift::RemarksAlreadyTakenUp { .. }
+            | Adrift::NoDismissalReason { .. }
+            | Adrift::FindingNotInReview { .. }
+            | Adrift::NothingToMerge { .. }
+            | Adrift::NothingToRerun { .. }
+            | Adrift::RerunRefused { .. }
+            | Adrift::NothingToInvestigate { .. }
+            | Adrift::NoStepToRedo { .. }
+            | Adrift::NotMerged { .. }
             | Adrift::NotForgettable { .. }
-            // A reclaim refused on the status has nothing underneath it, and
-            // the repository that would not open carries git's own words in
-            // its own fields rather than in a chain — `RepoUnreadable` is a
-            // pair of strings and not an error type.
             | Adrift::NotReclaimable { .. }
             | Adrift::SlotKept { .. }
             | Adrift::WorktreeNotSaved { .. }
-            // The six the two raises make, which say what the record or the
-            // request holds rather than wrapping anything that failed.
-            | Adrift::NotCappable { .. }
-            | Adrift::CapNotRaised { .. }
-            | Adrift::CapAboveCeiling { .. }
-            | Adrift::NotTurnCappable { .. }
-            | Adrift::TurnCapNotRaised { .. }
-            | Adrift::TurnCapAboveCeiling { .. }
             | Adrift::NotReclaimed { .. }
             | Adrift::BranchNotDeletable { .. }
             | Adrift::BranchNotDeleted { .. }
@@ -986,138 +449,13 @@ impl Error for Adrift {
             | Adrift::NeverRan { .. }
             | Adrift::NotReplaceable { .. }
             | Adrift::WorkflowWithdrawn { .. }
-            | Adrift::ProposalRefused { .. }
-            | Adrift::NoSuchBranch { .. }
-            | Adrift::BranchesUnread { .. }
-            | Adrift::BranchNotCut { .. }
-            | Adrift::TargetNotSet { .. }
-            | Adrift::Unnameable
-            | Adrift::NoSuchWorkflow { .. }
-            | Adrift::NoSuchManifest { .. }
-            | Adrift::NotServed { .. }
-            | Adrift::NoSuchPeer { .. }
-            | Adrift::NoSuchDrone { .. }
-            | Adrift::NoSuchCheckOutput { .. }
-            | Adrift::NoSuchFrame { .. }
-            | Adrift::NoSuchBrief { .. }
-            | Adrift::NoSuchLandLog { .. }
-            // The five resume refusals are refusals rather than faults: a Job
-            // that cannot be redirected has nothing underneath saying why, only
-            // the state it is in.
-            | Adrift::NotResumable { .. }
-            | Adrift::NoStepStopped { .. }
             | Adrift::NoDroneToRedirect { .. }
-            | Adrift::DroneNotLive { .. }
-            // A kill naming a pid the tree no longer holds: what was read.
             | Adrift::NotTheJobsProcess { .. }
-            // And an answer that does not apply, which is the same shape.
-            | Adrift::NotAnswerable { .. }
-            | Adrift::NoCheckToAct { .. }
-            // The two review refusals join them: a Job that is not at a gate
-            // has nothing underneath saying why, only the state it is in.
-            | Adrift::NotUnderReview { .. }
-            | Adrift::NoDroneToTell { .. }
-            | Adrift::NoteAlreadyWaiting { .. }
-            // And the one an override makes, which say what the record holds
-            // rather than wrapping something that failed.
-            | Adrift::NotTheJudges { .. }
-            // And the three a gate re-run makes, which say the same: what the
-            // record holds, not what failed underneath.
-            | Adrift::NotUndecided { .. }
-            | Adrift::NotStandingThere { .. }
-            | Adrift::NothingToRuleOn { .. }
-            // A press refused, or one whose task ended: the first says what is
-            // missing and the second what happened, and neither wraps a cause.
-            | Adrift::CannotShowAgain { .. }
-            | Adrift::PressAbandoned { .. }
-            | Adrift::CannotRerunChecks { .. }
-            | Adrift::CannotPilot { .. }
             | Adrift::ChecksRunningAgain { .. }
-            | Adrift::RecheckAbandoned { .. }
             | Adrift::ProposalAbandoned
-            | Adrift::Unreasoned { .. }
-            // `NotFiled` joins them: it says what a filing could not be, not
-            // what failed underneath it.
-            | Adrift::NotFileable { .. }
-            | Adrift::DroneStillThere { .. }
-            | Adrift::WorktreeGone { .. }
-            | Adrift::SlotLost { .. }
-            // A pause says what the Job's record holds or what the pool said,
-            // as a sentence; none wraps an `Error`.
-            | Adrift::MainNotFixable { .. }
-            | Adrift::Paused { .. }
-            | Adrift::NotPausable { .. }
-            | Adrift::AlreadyPaused { .. }
-            | Adrift::NotPaused { .. }
-            | Adrift::NothingToPark { .. }
-            | Adrift::CannotPark { .. }
-            | Adrift::NotReseated { .. }
-            // The two a merge makes. `NotMerged` is not an `Error` either.
-            | Adrift::NothingToMerge { .. }
-            | Adrift::NotMerged { .. }
-            | Adrift::NothingToRerun { .. }
-            | Adrift::RerunRefused { .. }
-            | Adrift::NothingToInvestigate { .. }
-            | Adrift::FindingNotForContext { .. }
-            | Adrift::NoIssueTitle { .. }
-            | Adrift::IssueNotFiled { .. }
-            | Adrift::FindingAlreadyQueued { .. }
-            // The two a conflict resolution makes, on the same ground.
-            | Adrift::NothingToResolve { .. }
-            | Adrift::NoStepToRedo { .. }
-            // An approval refused over a commit that never reached its
-            // remote. It says what the delivery record holds, not what
-            // failed underneath it.
-            | Adrift::UnpushedDelivery { .. }
-            | Adrift::TriggerHolds { .. }
-            // Four of a review's comments' own refusals. Each says what a
-            // press could not be, and none wraps a failure underneath it —
-            // `RemarksFileUnwritable`, the fifth, does and is above with the
-            // other causes.
-            | Adrift::ReviewUnreadable { .. }
-            | Adrift::NoRemarksChosen { .. }
-            | Adrift::RemarksGone { .. }
-            | Adrift::RemarksAlreadyTakenUp { .. }
-            | Adrift::NoDismissalReason { .. }
-            | Adrift::FindingNotInReview { .. }
-            | Adrift::NothingToPropose
-            | Adrift::NoReadingWorktree(_)
-            | Adrift::NoWorkflowFits { .. }
-            | Adrift::ModelNotHeld { .. }
-            // `SpawnConfigRefused` is not an `Error` — it says what a value
-            // cannot be rather than wrapping a failure — so it prints into the
-            // message above and has nothing to chain to.
-            | Adrift::NotProposable(_)
-            // A budget that ran out says how long it waited, not what failed
-            // underneath — nothing failed, and what was running is still
-            // running.
-            | Adrift::CommandTimedOut { .. }
-            | Adrift::ManifestMovedUnderTheEdit { .. }
-            // The plan itself, or the record of it, says what a person's add
-            // or drop could not do — none of the three wraps a failure.
-            | Adrift::PlanRefused { .. }
-            | Adrift::TaskAlreadySettled { .. }
-            | Adrift::TaskNotFailed { .. }
-            | Adrift::TaskInFlight { .. }
-            | Adrift::PlanNotKept { .. }
-            | Adrift::Modelless => None,
-            Adrift::NotProposed { cause, .. } => Some(cause),
-            Adrift::NoReading { cause, .. }
-            | Adrift::ReadingNotDiscarded { cause, .. }
-            | Adrift::WorkUnreadable { cause, .. } => Some(cause.as_ref()),
+             | Adrift::PressAbandoned { .. } | Adrift::MainNotFixable { .. } | Adrift::Unnameable | Adrift::NotFileable { .. } | Adrift::NoSuchManifest { .. } | Adrift::NotServed { .. } | Adrift::ManifestMovedUnderTheEdit { .. } | Adrift::NoSuchCheckOutput { .. } | Adrift::NoSuchFrame { .. } | Adrift::NoSuchBrief { .. } | Adrift::NoSuchLandLog { .. } | Adrift::NotProposable (_) | Adrift::CommandTimedOut { .. } | Adrift::PlanRefused { .. } | Adrift::BranchesUnread { .. } | Adrift::TaskNotFailed { .. } | Adrift::TaskInFlight { .. } => None,
+            Adrift::WorkUnreadable { cause, .. } => Some(cause.as_ref()),
         }
     }
 }
 
-/// A cost cap, from millionths of a dollar, for a sentence a person reads.
-///
-/// **Dollars because that is the unit the figure was decided in.** The wire and
-/// the record carry micros, which is an integer so that two machines compare a
-/// cap the same way — and no refusal has ever been improved by quoting one.
-///
-/// Two places, always. A cap is set in whole dollars or in cents; four places
-/// belong to a *spend*, where a Job that has cost a tenth of a penny must not
-/// read as free, and a ceiling is never that small.
-fn dollars(micros: u64) -> String {
-    format!("${:.2}", micros as f64 / 1_000_000.0)
-}

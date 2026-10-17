@@ -162,7 +162,7 @@ totals a Job's Drones and a Job has one Drone at a time, so a per-task figure
 exists only once a Drone per task does.
 
 `model` is resolved from the tier map. `ResolvedStep.model`
-(`crates/core-model/src/job/workflow.rs` line 344) is the nearest thing served:
+(the `workflow` module (deleted since) line 344) is the nearest thing served:
 a per-**step** model the workflow declares, absent meaning the Job's own stands.
 
 ### `group` — `GroupView`
@@ -260,7 +260,7 @@ reads one.
 | Cost | A per-Job override reverses a stated decision |
 
 **The four gate states are already on the wire.** `AdvanceGate`
-(`crates/core-model/src/job/declared.rs` line 54) carries `auto`,
+(the `declared` module (deleted since) line 54) carries `auto`,
 `auto_if_judge_passes`, `human_always` and two `manifest_rule:` keys, and
 `gateViewOf` reads all of them with no wire change.
 
@@ -270,7 +270,7 @@ the Job, so asking for Checks on a step that declares none runs nothing — and
 reads on the wire exactly like a step that does. `unmeantOf` is Bridge saying so.
 
 **A per-Job override of `review_gate` reverses a decision with reasoning on it.**
-`crates/core-model/src/job/declared.rs` line 79 freezes that variant unresolved
+The `declared` module (deleted since) line 79 freezes that variant unresolved
 because both policies are `Live` in `crates/config/settings.toml`, so a Manifest
 saved mid-Job moves them. Nothing says which wins if the repository's policy
 moves after the press.

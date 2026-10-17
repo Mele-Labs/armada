@@ -24,9 +24,6 @@ use crate::transcript::transcript_of;
 pub(crate) struct Gathered {
     pub record: RetroRecord,
     pub annotations: Vec<LinkedAnnotation>,
-    /// Whether any Drone ever ran on it. A Job stopped at the gate has no work
-    /// to look back on.
-    pub had_a_drone: bool,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -39,23 +36,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Keep what a Drone said got in its way on a submission Fleet took.
-    /// **A note that will not keep fails nothing**: the submission stands.
-    pub(crate) async fn kept_note(
-        &self,
-        job: &JobId,
-        step: &core_model::StepId,
-        said: Option<&str>,
-        at: &core_model::Timestamp,
-    ) {
-        if let Some(said) = said {
-            let _ = self
-                .store()
-                .lock()
-                .await
-                .record_drone_note(job, step, said, at);
-        }
-    }
 
     /// The record as it stands now. **Read again on every call**: nothing
     /// here is kept, so a read after the Job ended says what the record says.
@@ -64,11 +44,35 @@ where
         let id: ipc::JobId = job_id.into();
         let detail = self.job_detail(id.clone()).await?;
         let history = Queries::get_job_events(self, id.clone()).await?;
-        let evidence = Queries::get_evidence(self, id.clone()).await?;
-        let drones = self.job_drones(id).await?;
+        let (evidence, drone_ids) = {
+            let store = self.store().lock().await;
+            let recorded = store
+                .step_evidence(job_id)
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            let events = store
+                .events_for(job_id)
+                .map_err(|why| self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(why))))?;
+            let drone_ids: Vec<DroneId> = events
+                .iter()
+                .filter_map(|event| match event.moved() {
+                    store::Moved::Drone {
+                        drone_id,
+                        presence: core_model::DronePresence::Spawned,
+                        ..
+                    } => Some(DroneId::from(drone_id)),
+                    _ => None,
+                })
+                .collect();
+            (
+                ipc::JobEvidence {
+                    job_id: id,
+                    steps: recorded.iter().map(crate::wire::submitted).collect(),
+                },
+                drone_ids,
+            )
+        };
         let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
         let handle = job.handle();
-        let drone_ids: Vec<DroneId> = drones.drones.iter().map(|d| d.drone_id.clone()).collect();
         let transcripts = transcripts_of(served.records_root(), &handle, &drone_ids);
         let log = crate::journal::read_from(served.records_root(), &handle, 0).notes;
         let notes = self
@@ -89,7 +93,6 @@ where
         });
         Ok(Gathered {
             annotations: annotations_on(served.root(), job_id),
-            had_a_drone: !drone_ids.is_empty(),
             record,
         })
     }

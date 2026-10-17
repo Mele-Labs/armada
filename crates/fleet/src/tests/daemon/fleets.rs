@@ -14,27 +14,19 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::Model;
-use config::Manifest;
 use store::Store;
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
-use super::workflows::{
-    manifest, one, two_steps, two_steps_delivering_nothing, two_steps_gated_on_a_manifest_rule,
-    two_steps_gated_on_a_manifest_rule_judged, two_steps_gated_on_a_person,
-};
-// Through the parent's re-exports, which are what every other module in the
-// suite reaches these four by.
-use super::{Counted, Ticking, NEVER_QUIET, UNTRIPPABLE};
+use super::workflows::{manifest, one, two_steps};
+use crate::tests::planted::{Counted, Ticking};
 use crate::allowance::{Allowance, Micros};
-use crate::asked_run::AskedRuns;
 use crate::budget::CommandBudget;
 use crate::daemon::{Fittings, Fleet, Host, StartingIn};
-use crate::gate::CheckBudget;
+use crate::CheckBudget;
 use crate::headroom::{Bytes, Headroom, Polling, Spare};
 use crate::holding::Reclaiming;
 use crate::judging::JudgeBudget;
 use crate::noticing::Noticing;
-use crate::permitting::{PermissionHold, UnansweredAskLimit};
 use crate::ports::PortRange;
 use crate::slots::Concurrency;
 use crate::tests::tmp::TempDir;
@@ -118,7 +110,6 @@ pub fn fitted_over<V>(
                 .to_string(),
             keepers_dir: home.path().join("sessions").to_string_lossy().to_string(),
             studio_frames_dir: home.path().join("studios").to_string_lossy().to_string(),
-            walk_frames_dir: home.path().join("walks").to_string_lossy().to_string(),
             // Under the fixture's own home, so no case reads or writes a real
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
@@ -158,7 +149,6 @@ pub fn fitted_over<V>(
         // own is ever held back by one. Reading the real machine here would
         // make every test in this crate pass or fail on what else is running.
         machine: Arc::new(crate::tests::headroom::Plentiful),
-        copy_on_write: Arc::new(crate::tests::seeding::Copying::default()),
         // The production threshold, so the cases that trip it trip the one that
         // ships. See `armada::serve::PROVISIONAL_HEADROOM`.
         headroom: Headroom::of(Spare::percent(15), Bytes::gibibytes(10)),
@@ -181,13 +171,6 @@ pub fn fitted_over<V>(
         // by a fixture that turned three hundred times.
         allowance: UNSPENDABLE,
         budget: CheckBudget::of(Duration::from_secs(5)),
-        norms: UNTRIPPABLE,
-        liveness: NEVER_QUIET,
-        // The production allowance, so the cases that spend it spend the number
-        // that ships. A fixture with its own would prove a cap and not the cap.
-        asked_runs: AskedRuns::of(3),
-        // The production allowance, for `asked_runs`' reason. #999.
-        fixes: crate::fixing::Fixes::of(1),
         // A Judge that fails every call, because no step in these fixtures
         // declares a criterion. One that answered would let a cold-by-default
         // regression pass unseen.
@@ -202,20 +185,7 @@ pub fn fitted_over<V>(
         // commands answer in milliseconds, so this only slows a genuine hang's
         // failure rather than a passing suite.
         command_budget: CommandBudget::of(Duration::from_secs(5)),
-        // **Out of reach, and not the five seconds beside it.** No fixture here
-        // should ever reach the end of a hold, and `until_waiting` polls for two
-        // seconds before it gives up — so five would be close enough for a
-        // loaded machine to end the hold under a case that was never about it.
-        // The hold cases plant their own, short enough to outlive.
-        permission_hold: PermissionHold::of(Duration::from_secs(30)),
-        // Out of reach for the same reason `permission_hold` is: no fixture
-        // here is about a permission ask running unanswered, and a bound this
-        // fixture could actually cross would escalate a Job under a case that
-        // was never about it. The cases that are plant their own, short
-        // enough to outlive.
-        unanswered_ask_limit: UnansweredAskLimit::of(Duration::from_secs(3600)),
         judge_model: Model::named("the-cheap-model").expect("a model name"),
-        second_opinion_model: Model::named("the-second-model").expect("a model name"),
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
         retro_model: Model::named("the-retro-model").expect("a model name"),
         // Resolves no link, lists nothing and takes every write, so every
@@ -264,227 +234,6 @@ pub fn a_fleet(
     work: FakeWorkProduct,
 ) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
     Fleet::assembled(fittings(home, work))
-}
-
-/// A Fleet whose version control is scripted. What `landing` needs: the commit
-/// a finished Job gets is the fake's to record, refuse, or answer as nothing,
-/// and what `delivery` needs: where the branch stands and what a push answers.
-pub fn a_fleet_committing_through(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    vcs: FakeVcs,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.vcs = vcs;
-    Fleet::assembled(fittings)
-}
-
-/// The same, on a workflow **neither of whose steps sends the work out**. What
-/// it buys is a step boundary with nothing published on it, which is what a
-/// case about the rebase alone wants — see `two_steps_delivering_nothing`.
-pub fn a_fleet_delivering_nothing(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    vcs: FakeVcs,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(two_steps_delivering_nothing());
-    fittings.vcs = vcs;
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet whose workflow puts a person on one step's gate, committing through
-/// this version control — the second half is what the last-step case needs,
-/// since approving there lands the work.
-pub fn a_fleet_gated_on_a_person(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    gate_on: &str,
-    vcs: FakeVcs,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(two_steps_gated_on_a_person(
-        gate_on,
-        None,
-        Some("summarise"),
-    ));
-    fittings.vcs = vcs;
-    Fleet::assembled(fittings)
-}
-
-/// The same, with the step's gate naming a Manifest policy rather than a
-/// person. **Delivering nothing**, for the sibling below's reason.
-pub fn a_fleet_gated_on_a_manifest_rule(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    gate_on: &str,
-    key: &str,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(two_steps_gated_on_a_manifest_rule(gate_on, key, None));
-    Fleet::assembled(fittings)
-}
-
-/// The same, over an `armada.yml` that says something about the policy — and,
-/// where a question is given, over a step that asks the Judge it.
-///
-/// **The Manifest and the workflow move together on purpose.** What a
-/// `manifest_rule:` gate comes to is the pair, and a fixture that could set one
-/// without the other would let a case assert against half of the resolution.
-pub fn a_fleet_gated_on_a_manifest_rule_saying(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    gate_on: &str,
-    key: &str,
-    says: &str,
-    question: Option<&str>,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    // **A Judge that objects to nothing, where there is a question at all.**
-    // What is under test is what the policy does with a step that *has* a
-    // judgment, and the default fixture Judge refuses every call — which would
-    // make the case pass for the wrong reason, on a ruling that never reached
-    // the gate.
-    fittings.judge = Arc::new(FakeJudge::with_no_objection());
-    fittings.starting().workflows = one(match question {
-        None => two_steps_gated_on_a_manifest_rule(gate_on, key, None),
-        Some(question) => two_steps_gated_on_a_manifest_rule_judged(gate_on, key, question),
-    });
-    fittings.starting().manifest = Manifest::parse(
-        std::path::Path::new("armada.yml"),
-        &format!("version: 1\nid: 01FIXTUREMANIFEST\n{says}"),
-    )
-    .expect("a manifest that parses");
-    Fleet::assembled(fittings)
-}
-
-/// The same, on a workflow **neither of whose steps sends the work out**, for
-/// `a_fleet_delivering_nothing`'s reason: a case about what a human boundary
-/// does to a branch would otherwise read a commit, a second rebase, a push and
-/// a pull request out of the same delta.
-pub fn a_fleet_gated_on_a_person_delivering_nothing(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    gate_on: &str,
-    vcs: FakeVcs,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(two_steps_gated_on_a_person(gate_on, None, None));
-    fittings.vcs = vcs;
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet over an `armada.yml` that names the branch its work merges into.
-pub fn a_fleet_whose_manifest_declares_a_base(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    vcs: FakeVcs,
-    base: &str,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.vcs = vcs;
-    fittings.starting().manifest = Manifest::parse(
-        std::path::Path::new("armada.yml"),
-        &format!("version: 1\nid: 01FIXTUREMANIFEST\nbase: {base}\n"),
-    )
-    .expect("a manifest that parses");
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet over a store another Fleet wrote to, holding a workflow of its own.
-///
-/// The pair of arguments is what an edited `.armada/workflows/` looks like from
-/// inside the process: Fleet reads the file once at assembly, so a different
-/// definition and a restart are the same event.
-pub fn a_fleet_holding(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    workflow: config::ResolvedWorkflow,
-    next: u64,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(workflow);
-    fittings.mint = Arc::new(Counted::from_next(next));
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet holding every one of these workflows, keyed by each one's own id —
-/// what an `.armada/workflows/` with more than one definition looks like from
-/// inside the process.
-pub fn a_fleet_holding_all(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    workflows: Vec<config::ResolvedWorkflow>,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = workflows
-        .into_iter()
-        .map(|workflow| (workflow.id().clone(), workflow))
-        .collect();
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet whose steps are judged, and by whom.
-///
-/// The workflow is an argument because the Judge is cold by default: the
-/// fixture workflow declares no criterion, so a Fleet that only swapped the
-/// client would never make a call.
-/// `impl Into<Arc<_>>` so a case that asserts **what the call was asked** can
-/// keep a handle on the judge, which records the questions.
-pub fn a_fleet_judged_by(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    workflow: config::ResolvedWorkflow,
-    judge: impl Into<Arc<FakeJudge>>,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = one(workflow);
-    fittings.judge = judge.into();
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet whose dispatch requests are read by this client, holding these
-/// workflows.
-///
-/// The workflows are an argument because they are half of what the proposer is
-/// told: a catalogue it cannot choose from proves nothing about it choosing.
-pub fn a_fleet_proposing_through(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    workflows: Vec<config::ResolvedWorkflow>,
-    proposer: FakeJudge,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.starting().workflows = workflows
-        .into_iter()
-        .map(|workflow| (workflow.id().clone(), workflow))
-        .collect();
-    fittings.judge = Arc::new(proposer);
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet over a store another Fleet wrote to. See [`Counted::from_next`].
-pub fn a_fleet_minting_from(
-    home: &TempDir,
-    work: FakeWorkProduct,
-    next: u64,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    let mut fittings = fittings(home, work);
-    fittings.mint = Arc::new(Counted::from_next(next));
-    Fleet::assembled(fittings)
-}
-
-/// A Fleet whose Drone reads its first turn, prints it back and exits — which
-/// is a Drone that finished having submitted nothing.
-pub(super) fn a_fleet_whose_drone_leaves(
-    home: &TempDir,
-    work: FakeWorkProduct,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
-    Fleet::assembled(fitted_with(
-        home,
-        work,
-        FakeHarness::that_echoes_its_first_turn(),
-    ))
 }
 
 impl<H, V, W> Fittings<H, V, W> {

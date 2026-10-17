@@ -42,14 +42,12 @@ use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent};
 use adapter_traits::Model;
 use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
-use fleet::permitting::{self, PermissionHold, UnansweredAskLimit};
 use fleet::repositories::Locating;
 use fleet::runtime::{self, Presence, RuntimeFile, Staleness};
 use fleet::{
-    detect_ceiling, Allowance, AskedRuns, BindConnectProbe, Bytes, CheckBudget, Clock,
-    CommandBudget, Concurrency, Fittings, Fleet, Headroom, Host, JudgeBudget, Liveness, Micros,
-    Mint, Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine,
-    TheVolume, UlidMint,
+    detect_ceiling, Allowance, BindConnectProbe, Bytes, CheckBudget, Clock, CommandBudget,
+    Concurrency, Fittings, Fleet, Headroom, Host, JudgeBudget, Micros, Mint, Noticing, Polling,
+    PortRange, Reclaiming, Spare, SystemClock, TheMachine, UlidMint,
 };
 use fleet::signing_in::{OverHttp, SigningIn};
 use ipc::ProtocolId;
@@ -311,17 +309,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 Err(why) => return Err(why.to_string()),
             };
             println!(
-                "reconciled: {} interrupted, {} restarted, {} adopted, {} repaired, {} unreadable, {} mended{}",
-                reconciled.interrupted.len(),
-                reconciled.restarted.len(),
-                reconciled.adopted.len(),
+                "reconciled: {} repaired, {} unreadable",
                 reconciled.repaired,
                 reconciled.unreadable.len(),
-                reconciled.mended.len(),
-                match reconciled.admitted.as_slice() {
-                    [] => String::new(),
-                    admitted => format!(", admitted {}", admitted.len()),
-                }
             );
             // **Sessions taken back, not restarted.** A hosted session's agent
             // runs under a keeper that outlives Fleet; reattaching replays what
@@ -338,64 +328,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     reconciled.recognised
                 );
             }
-            for job in &reconciled.adopted {
-                // Named rather than counted, because an adopted Drone is a Job whose
-                // record has a hole in it: what it did while Fleet was away is not in
-                // the transcript and never will be. The Job's own log says how wide.
-                eprintln!(
-                    "  a Drone outlived the last Fleet and was adopted: {}",
-                    job.as_str()
-                );
-            }
-            for job in &reconciled.mended {
-                // Named for the same reason: a person reading this Job's own log gets
-                // the why, and this line is where an operator watching boot sees that
-                // one existed at all.
-                eprintln!(
-                    "  a Job the old `Agree` arm left stranded was moved to escalated: {}",
-                    job.as_str()
-                );
-            }
             for unreadable in &reconciled.unreadable {
                 // Carried out rather than dropped: a short list with nothing saying so
                 // is the one answer the store refuses to give.
                 eprintln!("  a row would not rebuild: {unreadable}");
             }
 
-            // Evidence a restart interrupted is ruled on in a task and not
-            // here, since its gate can run for as long as a Job's Checks. The
-            // Jobs are held before this returns, so no command can race it.
-            let awaiting = reconciled.awaiting_evidence.len();
-            match fleet
-                .rule_on_pending_evidence(&reconciled.awaiting_evidence)
-                .await
-            {
-                Ok(ruling) if awaiting > 0 => {
-                    println!("  {awaiting} Job(s) hold evidence submitted before the restart; ruling on it");
-                    tokio::spawn(async move {
-                        if let Ok(ruled) = ruling.await {
-                            println!(
-                                "ruled on evidence from before the restart: {} of {awaiting}",
-                                ruled.recovered_evidence.len()
-                            );
-                        }
-                    });
-                }
-                Ok(_) => {}
-                Err(why) => eprintln!("  evidence from before the restart was not ruled on: {why}"),
-            }
-            // **Started before commands are let through, not after.**
-            // Reconciliation admitted a queued Job on the way out, and that Job
-            // is already dispatched: it needs turning whether or not anything
-            // ever connects.
-            let turning =
-                fleet::keep_turning(Arc::clone(&fleet), turn_interval, |why| {
-                    // Carried out on its own line, and the loop keeps going: one
-                    // turn having failed is not a reason for every later Job to
-                    // stop advancing silently.
-                    eprintln!("a turn did not complete: {why}");
-                });
-            println!("turning every {}ms", turn_interval.as_millis());
             // What happens to Jobs, Sessions, pull requests and slots, kept with its instant
             // for the Cockpit's timeline. Before anything can start one.
             fleet::timeline::keep_timeline(Arc::clone(&fleet));
@@ -419,9 +357,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 turn_interval,
                 |why| eprintln!("a pull request or issue was not read: {why}"),
             );
-            // A failed Trigger with `repair` on is worked by a Drone off the
-            // Job's own path, so the Job carries on while it does.
-            fleet::notice_loop::keep_repairing(Arc::clone(&fleet), turn_interval);
             // Each served repository's merge line, published when its hub moves.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
@@ -443,13 +378,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 Arc::clone(&fleet),
                 sweep_interval,
                 trim,
-                {
-                    let fleet = Arc::clone(&fleet);
-                    move || {
-                        let fleet = Arc::clone(&fleet);
-                        async move { fleet.piloted_checkouts().await }
-                    }
-                },
                 |said| eprintln!("{said}"),
             );
             // After adoption above, so a Drone taken back is already recorded and
@@ -466,7 +394,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 |said| eprintln!("{said}"),
             );
             reconciliation.finished();
-            Ok(turning)
+            Ok(())
         }
     };
     // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
@@ -495,22 +423,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     drop(reconciliation);
     println!("serving {} on {bound}", api::SERVED.len());
 
-    // **With connect info**, because a Drone's tool call is attributed by the
-    // process on the other end of its connection and `ConnectInfo` is how that
-    // peer reaches the handler. See `fleet::peer`.
-    let turning =
-        crate::booting::serve_while_booting(listener, app, stop_requested(), boot).await?;
-
-    // Between turns, letting the one in flight finish. A stop that returned
-    // mid-turn could leave a step moved and its Job not — so this waits, and
-    // says it is waiting, because a turn running a Check can hold it for the
-    // whole Check budget and a terminal that has gone quiet reads as a wedge.
-    // Stopped while still reconciling, the task is ended where it stands: what
-    // it leaves half done is what a crash leaves, and the next boot repairs it.
-    if let Some(turning) = turning {
-        println!("stopping: letting the turn in flight finish");
-        turning.stopped().await;
-    }
+    // **With connect info**, because a Session's call is attributed by the process on the other
+    // end of its connection and `ConnectInfo` is how that peer reaches the handler. See
+    // `fleet::peer`.
+    // Stopped while still reconciling, the task is ended where it stands: what it leaves half
+    // done is what a crash leaves, and the next boot repairs it.
+    crate::booting::serve_while_booting(listener, app, stop_requested(), boot).await?;
 
     // After teardown, never before it: the turn in flight has finished, and
     // every server Fleet holds — a Job's or the main checkout's — is stopped
@@ -644,37 +562,20 @@ fn assemble(
     let studio_frames_dir = machine.join("studios");
     std::fs::create_dir_all(&studio_frames_dir)?;
 
-    // A walk note's frame, one directory per Job, outside every worktree so it
-    // outlives the checkout it was taken of. Protocol 23.18.
-    let walk_frames_dir = machine.join("walks");
-    std::fs::create_dir_all(&walk_frames_dir)?;
-
     // The mods, one folder each. Made here so a person has somewhere to look; a
     // session that scaffolds one makes it again if it is gone.
     let mods_dir = machine.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    // The Evidence server alone, for a spawn that cannot name the Manifest it
-    // is serving — `fleet::spawning` writes this file's Manifest-resolved
-    // sibling for every spawn that can. The path is `api`'s own constant rather
-    // than a literal: this address is in no route table a gate rule reads, so
-    // the one thing standing between a typo and a Drone that can never report
-    // is that the address written here and the address routed there are one
-    // value.
+    // Where the machine's agent-facing files sit: the Session door and the scout's servers are
+    // written beside this path.
     let mcp_config = machine.join(MCP_FILE);
-    adapters::the_drones_servers(
-        &mcp_config,
-        &format!("http://127.0.0.1:{port}{}", api::MCP_PATH),
-        &[],
-    )?;
 
     // The Judge and Helm's host both run the program the Drone runs, so a
     // machine that named one through the override names all three — a second
     // variable would let any pair disagree about which binary is installed.
     let judge_binary = agent.program().to_string();
     let judge_model = model_at(shipped.get(keys::MODELS_JUDGE), shipped.get(keys::EFFORT_JUDGE))?;
-    let second_opinion_model =
-        model_at(shipped.get(keys::MODELS_SECOND_OPINION), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     let fleet = Fleet::assembled(Fittings {
@@ -693,7 +594,6 @@ fn assemble(
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
-            walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
@@ -733,7 +633,6 @@ fn assemble(
         // The operator's home, for this one bundled reading. A Job's own
         // repository is read at admission, on its own volume — `fleet::admitting`.
         machine: Arc::new(TheMachine::watching(&home)),
-        copy_on_write: Arc::new(TheVolume),
         headroom: Headroom::of(
             Spare::percent(whole(shipped.get(keys::MEMORY_SPARE_PERCENT))),
             Bytes::gibibytes(u64::from(whole(shipped.get(keys::DISK_FLOOR_GIB)))),
@@ -748,32 +647,15 @@ fn assemble(
             u64::from(whole(shipped.get(keys::TURN_CAP_PER_JOB))),
         ),
         budget: CheckBudget::of(shipped.get(keys::CHECK_SECONDS)),
-        norms: StepNorms::of(
-            whole(shipped.get(keys::TOOL_CALLS_PER_STEP)),
-            shipped.get(keys::STEP_WALL_CLOCK_SECONDS),
-            shipped.get(keys::STEP_GRACE_SECONDS),
-        ),
-        liveness: Liveness::of(
-            shipped.get(keys::DRONE_QUIET_AFTER_SECONDS),
-            whole(shipped.get(keys::DRONE_POKE_LIMIT)),
-        ),
-        asked_runs: AskedRuns::of(whole(shipped.get(keys::ASKED_RUNS_PER_STEP))),
-        fixes: fleet::fixing::Fixes::of(whole(shipped.get(keys::FIXES_PER_STEP))),
         // The same CLI, invoked as a call rather than as a session. The
         // spelling of the model is the adapter's; this crate never learns it.
         judge: Arc::new(HeadlessAgent::at(judge_binary)),
         judge_budget: JudgeBudget::of(shipped.get(keys::JUDGE_SECONDS)),
         proposer_budget: JudgeBudget::of(shipped.get(keys::PROPOSER_SECONDS)),
         command_budget: CommandBudget::of(shipped.get(keys::COMMAND_SECONDS)),
-        // Not a setting beside the others: the four minutes is derived from
-        // what the agent CLI itself waits, so it stays spelled beside that
-        // derivation and this line only names it.
-        permission_hold: PermissionHold::of(permitting::HOLD),
-        unanswered_ask_limit: UnansweredAskLimit::of(shipped.get(keys::UNANSWERED_ASK_SECONDS)),
         judge_model,
         proposer_model,
         retro_model,
-        second_opinion_model,
         // The tracker and link reader each repository's Manifest chose; the
         // forge's own where it chose none. #91.
         trackers: Arc::new(adapters::TrackersByProvider),

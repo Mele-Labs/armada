@@ -192,7 +192,7 @@ approximations.
 - [`spikes/014-how-much-room-does-a-brief-leave-for-comments.md`](spikes/014-how-much-room-does-a-brief-leave-for-comments.md)
   — how much of an opening brief a merge press's chosen comments could take
   before they are most of what the Drone reads, read cold against `assemble`
-  in `crates/fleet/src/briefing.rs`, and the character bound on the whole set
+  in the `briefing` module (deleted since), and the character bound on the whole set
   that follows from it. Not measured in this session; handed over.
 - [`spikes/015-can-a-person-answer-a-blocked-command.md`](spikes/015-can-a-person-answer-a-blocked-command.md)
   — whether a Drone refused a command can wait on a person's answer through a

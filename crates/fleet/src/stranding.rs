@@ -16,7 +16,7 @@ use ipc::{
 use store::KeptStranding;
 
 use crate::daemon::Fleet;
-use crate::peers::listed;
+use crate::clashing::listed;
 
 /// Which stranding a reading is of: its branch, and when its lease began as the wire spells it.
 /// Empty where the slot named neither.

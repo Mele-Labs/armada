@@ -5,18 +5,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use core_model::{JobId, Timestamp};
+use core_model::Timestamp;
 
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 
 /// The least time between a write that puts two holders on one file and the check of them, and
 /// between two checks of one pair.
 pub(crate) const DEBOUNCE: Duration = Duration::from_secs(30);
 
-/// Something that writes in a repository: a Job's Drone or a Session.
+/// Something that writes in a repository: a Session.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Who {
-    Job(JobId),
     Session(String),
 }
 
@@ -79,8 +78,6 @@ struct State {
     /// Where main stood when last looked at, and where it has moved to since, by repository.
     main_tip: BTreeMap<String, String>,
     main_moved: BTreeMap<String, String>,
-    /// Messages for Sessions that a Job's Drone left, to be sent by the next pass.
-    notes_for_sessions: Vec<(String, String)>,
     /// Whether the table was filled from the worktrees once since Fleet started.
     seeded: bool,
 }
@@ -257,7 +254,7 @@ impl Writes {
     /// Nothing is held, nothing moved and nothing waits to be sent.
     pub(crate) fn idle(&self) -> bool {
         let state = self.state();
-        state.by_holder.is_empty() && state.main_moved.is_empty() && state.notes_for_sessions.is_empty()
+        state.by_holder.is_empty() && state.main_moved.is_empty()
     }
 
     /// Main's tip in this repository is `tip`. **True where it moved** from one seen before; the
@@ -280,15 +277,6 @@ impl Writes {
     /// Main's tip as last seen.
     pub(crate) fn main_tip(&self, manifest: &str) -> Option<String> {
         self.state().main_tip.get(manifest).cloned()
-    }
-
-    /// Hold a message for a Session until the next pass sends it.
-    pub(crate) fn note_for_session(&self, session: &str, text: String) {
-        self.state().notes_for_sessions.push((session.to_string(), text));
-    }
-
-    pub(crate) fn notes_for_sessions(&self) -> Vec<(String, String)> {
-        std::mem::take(&mut self.state().notes_for_sessions)
     }
 
     /// True the first time it is asked, when the table is to be filled from what git holds.

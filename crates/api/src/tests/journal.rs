@@ -27,7 +27,7 @@ use tower::{Service, ServiceExt};
 use crate::journal::{Journal, Reading, Window};
 use crate::tests::connected;
 use crate::tests::fake::FakeDaemon;
-use crate::tests::shapes::{run_id, A_PROPOSAL};
+use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served};
 
 /// A log a test appends to, standing in for the file.
@@ -95,30 +95,13 @@ fn note(msg: &str) -> LogNote {
 fn wired(log: Arc<FakeLog>) -> Router {
     let events = Broadcaster::new();
     let daemon = Arc::new(FakeDaemon::new(events.clone()));
+    crate::tests::fake::running(&daemon, "01JOB");
     router(Served::sharing(daemon, run_id(), events).reading(log))
 }
 
-/// A Job the fake holds, so the route is not a 404.
-async fn a_job(app: &Router) -> JobId {
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/jobs")
-                .header("content-type", "application/json")
-                .body(Body::from(A_PROPOSAL))
-                .expect("a well-formed request"),
-        )
-        .await
-        .expect("the router answers");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let body = http_body_util::BodyExt::collect(response.into_body())
-        .await
-        .expect("a body")
-        .to_bytes();
-    let job: ipc::JobSummary = ipc::decode("a Job", &body).expect("a Job comes back");
-    job.id
+/// The Job [`wired`] plants, so the route is not a 404.
+fn a_job() -> JobId {
+    JobId::carried("01JOB")
 }
 
 async fn read(socket: &mut WebSocketStream<DuplexStream>) -> JournalMessage {
@@ -147,7 +130,7 @@ async fn a_job_with_no_drone_gets_what_fleet_did_and_then_what_it_does_next() {
     let log = Arc::new(FakeLog::default());
     log.wrote(note("worktree cut"));
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let mut socket = connected(app, &format!("/jobs/{}/log", job.as_str()), 8192).await;
 
@@ -183,7 +166,7 @@ async fn a_note_carries_its_voice_its_level_and_the_fields_it_opens_to() {
         ..note("the step edited outside its declared scope")
     });
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let mut socket = connected(app, &format!("/jobs/{}/log", job.as_str()), 8192).await;
     let JournalMessage::Opened(_) = read(&mut socket).await else {
@@ -206,7 +189,7 @@ async fn a_log_that_will_not_read_says_so_rather_than_going_quiet() {
     let log = Arc::new(FakeLog::default());
     log.broke();
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let mut socket = connected(app, &format!("/jobs/{}/log", job.as_str()), 8192).await;
     let JournalMessage::Opened(_) = read(&mut socket).await else {
@@ -241,8 +224,9 @@ async fn an_unknown_job_is_a_404_before_the_upgrade() {
 async fn a_fleet_with_no_reader_says_so_rather_than_opening_an_empty_stream() {
     let events = Broadcaster::new();
     let daemon = Arc::new(FakeDaemon::new(events.clone()));
+    crate::tests::fake::running(&daemon, "01JOB");
     let app = router(Served::sharing(daemon, run_id(), events));
-    let job = a_job(&app).await;
+    let job = a_job();
     assert_eq!(
         handshake(app, &format!("/jobs/{}/log", job.as_str())).await,
         StatusCode::INTERNAL_SERVER_ERROR
@@ -260,7 +244,7 @@ async fn the_settled_read_answers_the_log_once_and_says_it_is_a_window() {
     log.wrote(note("worktree cut"));
     log.wrote(note("preparation began"));
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let answered = fetched(&app, &format!("/jobs/{}/log/read", job.as_str())).await;
     assert_eq!(answered.0, StatusCode::OK);
@@ -288,7 +272,7 @@ async fn the_settled_read_leaves_the_stream_exactly_where_it_was() {
     let log = Arc::new(FakeLog::default());
     log.wrote(note("worktree cut"));
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let answered = fetched(&app, &format!("/jobs/{}/log/read", job.as_str())).await;
     assert_eq!(answered.0, StatusCode::OK);
@@ -309,7 +293,7 @@ async fn a_settled_read_of_a_broken_log_says_so_rather_than_refusing() {
     log.wrote(note("worktree cut"));
     log.broke();
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let answered = fetched(&app, &format!("/jobs/{}/log/read", job.as_str())).await;
     assert_eq!(answered.0, StatusCode::OK, "not a refusal");
@@ -334,8 +318,9 @@ async fn the_settled_read_of_an_unknown_job_is_a_404() {
 async fn a_settled_read_with_no_reader_is_a_fault_and_not_an_empty_window() {
     let events = Broadcaster::new();
     let daemon = Arc::new(FakeDaemon::new(events.clone()));
+    crate::tests::fake::running(&daemon, "01JOB");
     let app = router(Served::sharing(daemon, run_id(), events));
-    let job = a_job(&app).await;
+    let job = a_job();
     let answered = fetched(&app, &format!("/jobs/{}/log/read", job.as_str())).await;
     assert_eq!(answered.0, StatusCode::INTERNAL_SERVER_ERROR);
 }
@@ -352,7 +337,7 @@ async fn an_agent_reads_what_fleet_did_to_a_job_in_one_call() {
     log.wrote(note("worktree cut"));
     log.wrote(note("preparation ran `pnpm install`"));
     let app = wired(Arc::clone(&log));
-    let job = a_job(&app).await;
+    let job = a_job();
 
     let offered = called(&app, r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).await;
     assert!(

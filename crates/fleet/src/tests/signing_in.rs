@@ -41,11 +41,6 @@ impl Enrolled {
         }
     }
 
-    /// The machine name each enrolment carried.
-    pub(crate) fn machines(&self) -> Vec<String> {
-        self.machines.lock().unwrap_or_else(PoisonError::into_inner).clone()
-    }
-
     fn tokens(&self) -> Vec<String> {
         self.tokens.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }

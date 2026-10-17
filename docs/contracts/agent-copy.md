@@ -53,7 +53,7 @@ contracts.
 
 **PR descriptions and commit messages — not linted.** Fleet composes both
 from the Job's record, in `crates/fleet/src/review.rs` and
-`crates/fleet/src/landing.rs`, and admits no Drone sentence to either. A
+The `landing` module (deleted since), and admits no Drone sentence to either. A
 Drone is denied `git`, so nothing it writes leaves Armada this way.
 
 **Judge summaries — prompt plus lint, warning only.** The lint is not
@@ -253,7 +253,7 @@ Where a step's `evidence.captured` is true, `shown_by` is not only read.
 Fleet runs the file it names through this repository's `evidence.run` once
 the Drone submits — `docs/concepts/manifest.md`'s Evidence section says what
 that command expects and what it leaves behind. The step's own instruction
-carries this to the Drone, composed in `crates/fleet/src/terms.rs`; it is not
+carries this to the Drone, composed in the `terms` module (deleted since); it is not
 repeated here.
 
 ### Two kinds in one field

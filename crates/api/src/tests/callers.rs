@@ -17,7 +17,7 @@ use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{router, Broadcaster, Served, DOOR_PATH, MCP_PATH};
+use crate::{router, Broadcaster, Served, DOOR_PATH};
 
 fn wired() -> Router {
     let events = Broadcaster::new();
@@ -117,9 +117,9 @@ async fn a_page_cannot_deliver_a_command() {
     assert!(refused.body.contains("api.from_a_page"), "{}", refused.body);
 }
 
-/// Every path on the listener, not only the ones in the inventory. The Drone's
-/// endpoint and the agent's door are on this port too, and a layer that held
-/// only the Bridge surface would leave both open.
+/// Every path on the listener, not only the ones in the inventory. The agent's
+/// door is on this port too, and a layer that held only the Bridge surface
+/// would leave it open.
 #[tokio::test]
 async fn a_page_is_refused_on_every_path_this_listener_carries() {
     let app = wired();
@@ -127,7 +127,6 @@ async fn a_page_is_refused_on_every_path_this_listener_carries() {
         ("GET", "/health"),
         ("GET", "/jobs"),
         ("POST", "/jobs/01JOB/kill_job"),
-        ("POST", MCP_PATH),
         ("POST", DOOR_PATH),
     ];
 

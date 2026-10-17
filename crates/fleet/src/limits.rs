@@ -103,10 +103,9 @@ where
     /// The limits in force and what shipped, read under the roster so the bound
     /// and the headroom are one instant.
     pub(crate) async fn limits_in_force(&self) -> FleetLimits {
-        let slots = self.slots().lock().await;
         FleetLimits {
             values: Limits {
-                concurrency: Concurrency::of(slots.cap()),
+                concurrency: self.concurrency(),
                 headroom: self.headroom(),
                 checks_at_once: self.checks_at_once(),
             }
@@ -123,19 +122,16 @@ where
 
     /// Put the limits settings.json holds in force.
     ///
-    /// **Roster first**, the order `crate::slots` states, and the file is
-    /// already written by the time this runs, so nothing in memory moves on a
-    /// save that did not land.
+    /// The file is already written by the time this runs, so nothing in memory moves on a save
+    /// that did not land.
     pub(crate) async fn relimited(&self, settings: &Resolved) {
-        let mut slots = self.slots().lock().await;
         let limits = self.shipped().overlaid_by(settings);
-        slots.rebound(limits.concurrency);
+        self.reconcurred(limits.concurrency);
         self.rehoused(limits.headroom);
         self.rechecked(limits.checks_at_once);
-        // **Beside `rebound`, because it is derived from it.** A person who
-        // raised the Jobs bound narrowed every Check on the machine by the same
-        // act, and a width still divided by the old bound would hand out more
-        // of the machine than the new one allows. #1444.
+        // **Beside the bound, because it is derived from it.** A person who raised the Jobs bound
+        // narrowed every Check on the machine by the same act, and a width still divided by the
+        // old bound would hand out more of the machine than the new one allows. #1444.
         self.rewidened(limits.concurrency);
     }
 }

@@ -9,7 +9,21 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use super::standing::Peer;
 use super::{Opposed, Side, Who};
 use crate::daemon::Fleet;
-use crate::peers::{listed, ClashWith, News};
+
+/// The first three paths, and a count for the rest.
+pub(crate) fn listed(paths: &[String]) -> String {
+    const NAMED: usize = 3;
+    let named = paths
+        .iter()
+        .take(NAMED)
+        .map(|path| format!("`{path}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    match paths.len().saturating_sub(NAMED) {
+        0 => named,
+        rest => format!("{named} and {rest} more"),
+    }
+}
 
 /// What the clash is with, from the point of view of the one told.
 enum About {
@@ -20,11 +34,6 @@ enum About {
 /// A Session's message: the words are Fleet's, the reach is the other side's.
 fn session_says(about: &About, paths: &[String]) -> String {
     match about {
-        About::Peer(Peer::Job { id, handle, title }) => format!(
-            "Your changes to {} conflict with Job {handle} (\"{title}\"). Send its Drone a \
-             message with redirect_drone, job_id {id}, to agree who changes what.",
-            listed(paths)
-        ),
         About::Peer(Peer::Session {
             address, branch, ..
         }) => {
@@ -50,31 +59,6 @@ fn session_says(about: &About, paths: &[String]) -> String {
             )
         }
     }
-}
-
-/// A Drone's line, queued for its next peer turn.
-fn drone_news(about: &About, paths: Vec<String>) -> News {
-    let with = match about {
-        About::Peer(Peer::Job { handle, title, .. }) => ClashWith::Job {
-            title: title.clone(),
-            handle: handle.clone(),
-        },
-        About::Peer(Peer::Session {
-            address,
-            title,
-            branch,
-            ..
-        }) => ClashWith::Session {
-            address: address.clone(),
-            title: title.clone(),
-            branch: branch.clone(),
-        },
-        About::Main { base, landed } => ClashWith::Main {
-            base: base.clone(),
-            landed: landed.clone(),
-        },
-    };
-    News::Clash { paths, with }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -139,10 +123,6 @@ where
             }
         };
         let told = match to {
-            Who::Job(job) => {
-                self.owe(job, drone_news(&about, paths.clone())).await;
-                true
-            }
             Who::Session(id) => matches!(
                 self.told_by_fleet(id, &session_says(&about, &paths)).await,
                 Ok(true)
@@ -150,14 +130,6 @@ where
         };
         if told {
             self.writes().told(opposed, to);
-        }
-    }
-
-    /// Notes a Job's Drone left Sessions, sent as messages from Fleet naming that Job.
-    pub(crate) async fn notes_sent(self: &Arc<Self>) {
-        for (session, text) in self.writes().notes_for_sessions() {
-            // A Session that cannot hear it now has lost the note: the Drone may leave another.
-            let _ = self.told_by_fleet(&session, &text).await;
         }
     }
 }

@@ -1,16 +1,13 @@
 //! `get_pull_request`, the three acts on one and `review_pull_request`. Since
 //! 23.48. `docs/concepts/session.md`, *Acts on a pull request*.
 
-use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use axum::Extension;
 use ipc::ManifestId;
 
-use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{PullRequests, Redirector};
-use crate::door::HelmCalled;
+use crate::answers::{answer, refused};
+use crate::daemon::PullRequests;
 use crate::served::Served;
 
 pub(crate) async fn get_pull_request<D: PullRequests>(
@@ -73,27 +70,3 @@ pub(crate) async fn enable_auto_merge<D: PullRequests>(
     }
 }
 
-/// A Code Review Job at the approval gate. 201: the Job exists.
-pub(crate) async fn review_pull_request<D: PullRequests>(
-    State(served): State<Served<D>>,
-    Path(repository): Path<String>,
-    helm: Option<Extension<HelmCalled>>,
-    body: Bytes,
-) -> Response {
-    let review: ipc::ReviewPullRequest = match ipc::decode("a pull request to review", &body) {
-        Ok(review) => review,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
-    match served
-        .daemon()
-        .review_pull_request(ManifestId::carried(repository), review, by)
-        .await
-    {
-        Ok(dispatched) => answer(StatusCode::CREATED, &dispatched, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}

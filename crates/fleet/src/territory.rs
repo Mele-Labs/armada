@@ -48,11 +48,6 @@ pub(crate) struct Territory {
 }
 
 impl Territory {
-    /// How many times git was asked for a tree. A read at a kept head is not one.
-    #[cfg(test)]
-    pub(crate) fn tree_reads(&self) -> u64 {
-        self.tree_reads.load(Ordering::Relaxed)
-    }
 
     /// How many slots git was asked about.
     #[cfg(test)]
