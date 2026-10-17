@@ -9,6 +9,7 @@ const row = inside(list, button("Pin the store clock"));
 const paused = inside(list, role("img", "Paused"));
 
 const pausingASession = walk("pausing-a-session", [
+  { press: row, say: "A Session working, open on the stage" },
   { key: "ContextMenu", on: row, say: "The row's menu opens on the ContextMenu key" },
   { look: role("menuitem", "Auto Pilot"), say: "Pause, Auto Pilot, then Close" },
   { press: role("menuitem", "Pause"), say: "Pause" },
