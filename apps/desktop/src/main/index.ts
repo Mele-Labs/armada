@@ -63,6 +63,7 @@ import { handleBayHistory } from "./bay-history-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
+import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
 
 // Bridge's window, and the one connection under it.
 //
@@ -221,9 +222,9 @@ function anyWindowShown(): boolean {
 }
 
 function createWindow(): BrowserWindow {
+  const placed = restoreWindow();
   const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...placed.bounds,
     show: false,
     // Frameless: the title row Bridge draws itself — #1087 — replaces macOS's
     // grey bar, which said only "Armada" while the app's own controls sat
@@ -244,6 +245,9 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  if (placed.maximized) window.maximize();
+  if (placed.fullScreen) window.setFullScreen(true);
+  rememberWindow(window);
   window.on("ready-to-show", () => window.show());
 
   // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
