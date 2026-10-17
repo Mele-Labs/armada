@@ -12,36 +12,11 @@ use alloc::vec::Vec;
 
 use crate::envelope::Timestamp;
 use crate::job::fields::{AcceptanceCriterion, Branch, Facts};
-use crate::job::ids::Title;
+use crate::workflow::Title;
 use crate::job::status::JobStatus;
 use crate::job::step::StepSeed;
-use crate::job::workflow::FrozenWorkflow;
-
-/// Whether the pull request is offered for review or parked as a draft.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum PrMode {
-    #[default]
-    Ready,
-    Draft,
-}
-
-impl PrMode {
-    pub const ALL: &'static [PrMode] = &[PrMode::Ready, PrMode::Draft];
-
-    pub fn as_wire(&self) -> &'static str {
-        match self {
-            PrMode::Ready => "ready",
-            PrMode::Draft => "draft",
-        }
-    }
-
-    pub fn from_wire(value: &str) -> Option<PrMode> {
-        PrMode::ALL
-            .iter()
-            .copied()
-            .find(|mode| mode.as_wire() == value)
-    }
-}
+use crate::workflow::FrozenWorkflow;
+use crate::workflow::PrMode;
 
 /// Every place a pull request's mode may be said, named so that none is passed
 /// for another.

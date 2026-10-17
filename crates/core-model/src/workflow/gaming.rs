@@ -26,7 +26,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::job::ids::{RepoPath, StepId};
+use crate::workflow::ids::{RepoPath, StepId};
 
 /// Who answers a pattern.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -12,8 +12,8 @@
 
 use alloc::vec::Vec;
 
-use crate::job::ids::{RepoPath, StepId};
-use crate::job::scope::under;
+use crate::workflow::{RepoPath, StepId};
+use crate::workflow::under;
 
 /// One statement about where a Job's writes will land.
 ///

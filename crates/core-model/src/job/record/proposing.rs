@@ -21,11 +21,11 @@ use crate::job::fields::{
     Subject, TopLevelOrigin, Urgency, WriteTargets,
 };
 use crate::job::handle::JobNumber;
-use crate::job::ids::{JobId, ManifestId, ModelName, ProposalId, Title, WorkflowId};
+use crate::workflow::{JobId, ManifestId, ModelName, ProposalId, Title, WorkflowId};
 use crate::job::status::JobStatus;
 use crate::job::step::{rows_at_creation, StepSeed};
 use crate::job::transition::{IllegalTransition, TransitionReason};
-use crate::job::workflow::FrozenWorkflow;
+use crate::workflow::FrozenWorkflow;
 
 use super::{Job, NewJob, Transitioned};
 

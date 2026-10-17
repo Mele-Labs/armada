@@ -22,13 +22,9 @@
 //! against this module rather than the other way round.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{
-    AgentHarness, Ask, Delivery, Environment, LinkLookup, LookupCall, Model, ModelClient, Vcs,
-    WorkProduct,
-};
+use adapter_traits::{AgentHarness, Ask, Delivery, LinkLookup, LookupCall, Vcs, WorkProduct};
 use config::ResolvedWorkflow;
 use core_model::{Component, Envelope, FieldValue, Job, Level, ProposalId, Ulid, WorkflowId};
 use tokio::process::Command;
@@ -37,35 +33,10 @@ use tokio::time::timeout;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::drafting::StatedBy;
-use crate::judging::{watched, CallFailed, JudgeBudget};
+use crate::judging::{watched, CallFailed};
 use crate::proposals::Watching;
 use crate::proposing::{Brief, NotProposed, Proposal, ProposedJob, Unresolved};
-
-/// Everything one call needs in order to ask.
-///
-/// The same four fields as [`Judging`](crate::Judging), and three of them the
-/// same values: one client, one budget, Fleet's own environment. Only the model
-/// differs, because only the model is a separate dial.
-#[derive(Clone)]
-pub struct Proposing {
-    pub client: Arc<dyn ModelClient + Send + Sync>,
-    pub budget: JudgeBudget,
-    /// What a request is read by. Resolved by the composition root — which
-    /// model is cheap is a vendor's fact and nothing below Fleet may spell one.
-    pub model: Model,
-    /// Fleet's own, because the call authenticates as Fleet.
-    pub environment: Environment,
-    /// Every model a Drone on this machine may be spawned as —
-    /// `ipc::ModelChoices::models`, as `list_models` serves it.
-    ///
-    /// **Not the dial above.** `model` is what reads the request; this is what
-    /// the request's Job will be worked by, and the owner's decision of 30 Sep
-    /// 2026 is that this call picks it from here. A list rather than a free
-    /// field, so the proposer cannot name a model nothing can run.
-    pub choices: Vec<String>,
-    /// `prompts.proposer` as it stood when the call was put together.
-    pub prompt: String,
-}
+pub use crate::session_proposer::Proposing;
 
 /// Make the call, and answer with what it proposed.
 ///
