@@ -3,17 +3,12 @@
 // question with options. Only the question carries the standing answers. The walk `session-errands`
 // plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-const { reclaimed_at: _cleared, ...job } = { ...asRow(featureRunning(), 91, "errands-job", "Cache the manifest read").job, owner_manifest_id: OWNER };
-const running = { ...asRow(featureRunning(), 91, "errands-job", "Cache the manifest read"), job };
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -47,12 +42,11 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("session-errands", "The Cockpit with one Session waiting on a slash command, a shell command, a pull request, a plain line and a question", [running]);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("session-errands", "The Cockpit with one Session waiting on a slash command, a shell command, a pull request, a plain line and a question");
   return {
     ...base,
-    state: { ...base.state, repository: repository().root, jobs: [running.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], [SESSION]) },
+    state: { ...base.state, repository: repository().root },
+    draft: { sessions: () => sessionsStore([SESSION]) },
   };
 }
 

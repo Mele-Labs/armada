@@ -18,7 +18,6 @@ import type {
   KitServerRow,
   ManifestDeclared,
   ManifestDriftRead,
-  ManifestSpend,
   Outcome,
   StartCheckoutRun,
   VerifyStep,
@@ -26,7 +25,7 @@ import type {
 
 import { onBoard } from "@armada/bridge-api";
 import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import { sheet } from "@armada/screens/src/fixtures/run-sheet";
 
 import type { ManifestApi, ManifestState } from "../api";
@@ -83,9 +82,6 @@ export const DECLARED: ManifestDeclared = {
   setup_requires: ["bootstrap"],
   poke_limit: 3,
 };
-
-/** No Job has spent anything here, so the budget section warns about nothing. */
-const NO_SPEND: ManifestSpend = { jobs: 0, most_cost_micros: 0, most_turns: 0 };
 
 /** What pressing Save on the forms comes to: written, or refused for a result that would not load. */
 export type EditGoesTo = "took" | "refused";
@@ -216,12 +212,11 @@ export const PULLED_TEXT = MANIFEST_TEXT.replace("base: main", "base: main\n\nau
 
 /**
  * A repository-wide always-allow, as `get_repository_allowed_commands`
- * answers it — #836's own case: `gh issue view`, always-allowed from Job 7
- * while filing #834.
+ * answers it — #836's own case: `gh issue view`, always-allowed while
+ * filing #834.
  */
 export const GH_ISSUE_VIEW: AllowedCommandRow = {
   run: "gh issue view",
-  reach: "repository",
   allowed_at: "2026-09-13T09:41:00Z",
   by: "person",
 };
@@ -289,7 +284,6 @@ export type Manifesting = {
   diff?: CheckoutRunDiff;
   drift?: ManifestDriftRead;
   edit?: EditGoesTo;
-  spend?: ManifestSpend;
   /** Whether the file opens declaring `freeze: true`. */
   frozen?: boolean;
   /** `false` where the repository has no root `armada.yml`. */
@@ -309,7 +303,7 @@ export type ManifestingState = PublishedCore & ManifestState;
 export function manifesting<S extends ManifestingState, A extends ManifestApi>(nothingYet: S, options: Manifesting = {}): Scenario<S, A> {
   const one = repository();
   const served = options.setUp === false ? { root: one.root, records_root: one.records_root } : one;
-  const base = onBoard<S, A>(nothingYet, [], {
+  const base = onBoard<S, A>(nothingYet, {
     repositories: [served],
     picked: options.picked === false ? null : served.root,
   });
@@ -323,7 +317,7 @@ export function manifesting<S extends ManifestingState, A extends ManifestApi>(n
 }
 
 function behaviour(fleet: FleetHandle<ManifestState>, options: Manifesting): Partial<ManifestApi> {
-  const { save = "took", edit = "took", drift = DRIFT_CURRENT, spend = NO_SPEND } = options;
+  const { save = "took", edit = "took", drift = DRIFT_CURRENT } = options;
   const runs = options.runs ?? { runs: [], unreadable: [] };
   let disk = MANIFEST_TEXT;
   let declared: ManifestDeclared = options.frozen === true ? { ...DECLARED, freeze: true } : DECLARED;
@@ -372,7 +366,6 @@ function behaviour(fleet: FleetHandle<ManifestState>, options: Manifesting): Par
       );
       return { state: "saved", saved: { path: MANIFEST_PATH, at: WROTE_AT } };
     },
-    readManifestSpend: async () => ({ ok: true, spend }),
     readKitInventory: async () => ({ ok: true, setup: inventory }),
     removeKitAllowedCommand: async (run) => {
       options.onRemoveKitAllowed?.(run);

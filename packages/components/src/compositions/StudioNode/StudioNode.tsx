@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Badge } from "../../primitives/Badge/Badge";
 import { Card } from "../../primitives/Card/Card";
-import { JOB_STATUS, type Rendering } from "../../generated/vocabulary";
 import { FactChip } from "../FactChip/FactChip";
 import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchPreview";
 
@@ -14,9 +12,8 @@ import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchP
  * and the state on one line, the title under it, and the facts as chips. What a
  * node holds at length is read beside the whiteboard, not on it.
  *
- * **Only Run and Job take status colour.** A Job's is its `Badge`; a Run's is
- * its word in `--run-{state}`, because a bordered pill is a Job state and
- * nothing else. Every other state is plain text in `--fg-muted`.
+ * **Only Run takes status colour**: its word in `--run-{state}`, because a bordered pill is
+ * a status and nothing else. Every other state is plain text in `--fg-muted`.
  *
  * **Every working node pulses** and says so with `aria-busy`, which is what a
  * reader who cannot see the pulse is told.
@@ -24,7 +21,7 @@ import { SketchPreview, type SketchPreviewProps } from "../SketchPreview/SketchP
 
 /**
  * How a run started from the Studio stands. Each takes its hue from
- * `--run-{state}` in `tokens/status.css`, which aliases the Job status it reads
+ * `--run-{state}` in `tokens/status.css`, which aliases the status it reads
  * as (#1277).
  *
  * **`starting` and `serving` are a server's** — a Command with `serve`, which
@@ -102,9 +99,7 @@ export type StudioNodeOf =
   | { kind: "epic"; address: string }
   | { kind: "deferral"; state: StudioDeferralState }
   | { kind: "outline"; state: StudioOutlineState }
-  | { kind: "issue_draft"; state: "draft" }
-  /** `state` is the `job_status` wire value, absent where the Job has not been read. */
-  | { kind: "job"; state?: string };
+  | { kind: "issue_draft"; state: "draft" };
 
 export type StudioNodeKind = StudioNodeOf["kind"];
 
@@ -141,7 +136,6 @@ export const STUDIO_NODE_KIND: Readonly<Record<StudioNodeKind, string>> = {
   deferral: "Deferral",
   outline: "Outline",
   issue_draft: "Issue draft",
-  job: "Job",
 };
 
 /** The neutral states' words. A Contradiction's outcomes use the concept page's names. */
@@ -167,48 +161,30 @@ const NEUTRAL_STATE: Readonly<Record<string, string>> = {
 /** What the node's state reads as, and whether it is still working. */
 export type StudioNodeReading = {
   words: string | null;
-  /** A Job status rendering, for Job only. */
-  status: Rendering | null;
   /** The run's state, for its `--run-*` hue. Run only. */
   run: StudioRunState | null;
-  /** The wire value, where the registry carries no verb for it. */
-  missing: string | null;
   working: boolean;
 };
 
 /**
- * A Run or Job whose state has not been read. A Studio carries a reference to
- * the run or the Job and never its state, so until one is read there is nothing
+ * A Run whose state has not been read. A Studio carries a reference to
+ * the run and never its state, so until one is read there is nothing
  * to say — and saying nothing beats guessing.
  */
-const UNREAD: StudioNodeReading = { words: null, status: null, run: null, missing: null, working: false };
+const UNREAD: StudioNodeReading = { words: null, run: null, working: false };
 
 export function studioNodeReading(node: StudioNodeOf): StudioNodeReading {
-  if (node.kind === "job") {
-    if (node.state === undefined) return UNREAD;
-    const rendering = JOB_STATUS[node.state] ?? null;
-    const usable = rendering?.verb != null && rendering.badgeStatus != null && rendering.icon != null;
-    return {
-      words: usable ? rendering.verb : node.state,
-      status: usable ? rendering : null,
-      run: null,
-      missing: usable ? null : node.state,
-      working: node.state === "running",
-    };
-  }
   if (node.kind === "run") {
     if (node.state === undefined) return UNREAD;
     // **A server pulses the whole time it is up**, not only while it comes up:
     // it is a process Armada is holding, which is what the pulse says.
     const working = node.state === "running" || node.state === "starting" || node.state === "serving";
-    return { words: node.state, status: null, run: node.state, missing: null, working };
+    return { words: node.state, run: node.state, working };
   }
-  if (!("state" in node) || node.state === undefined) return { words: null, status: null, run: null, missing: null, working: false };
+  if (!("state" in node) || node.state === undefined) return { words: null, run: null, working: false };
   return {
     words: NEUTRAL_STATE[node.state] ?? node.state,
-    status: null,
     run: null,
-    missing: null,
     working: node.kind === "finding" && node.state === "gathering",
   };
 }
@@ -262,7 +238,6 @@ function Frame({ frame, alt }: { frame: StudioNodeFrame; alt: string }) {
 export function StudioNode(props: StudioNodeProps) {
   const { title, facts = [], selected = false } = props;
   const reading = studioNodeReading(props);
-  const { status } = reading;
   // **Clipped to the card, with the whole of it in the title** — `FactChip`'s
   // rule for a value longer than its column, and the defect `#1378` was raised
   // on: an address wrapped over three lines is what the node was before.
@@ -280,16 +255,11 @@ export function StudioNode(props: StudioNodeProps) {
     >
       <div className="armada-studio-node__head">
         <span className="armada-studio-node__kind">{STUDIO_NODE_KIND[props.kind]}</span>
-        {status?.badgeStatus != null && status.icon != null ? (
-          <Badge status={status.badgeStatus} icon={status.icon} pulsing={reading.working}>
-            {status.verb}
-          </Badge>
-        ) : reading.words === null ? null : (
+        {reading.words === null ? null : (
           <span
             className="armada-studio-node__state"
             data-run={reading.run ?? undefined}
             data-working={reading.working || undefined}
-            title={reading.missing === null ? undefined : `No verb in the registry for ${reading.missing}`}
           >
             {reading.words}
           </span>

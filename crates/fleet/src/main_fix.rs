@@ -7,7 +7,6 @@
 //! refuses a second fix.
 
 use adapter_traits::{AgentHarness, Delivery, Holder, Vcs, WorkProduct};
-use core_model::JobStatus;
 use store::{MainCi, MainFix, TakenBy, TakenHow};
 
 use crate::adrift::Adrift;
@@ -15,10 +14,10 @@ use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
 use crate::repositories::Served;
 
-/// The last lines of the failing job's log the Job is handed, beside its address.
+/// The last lines of the failing job's log a Session is handed, beside its address.
 const LOG_LINES: usize = 60;
 
-/// Why a red could not be handed to a Job.
+/// Why a red could not be handed to a Session.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MainNotFixable {
     /// This Fleet does not serve the repository.
@@ -28,9 +27,9 @@ pub enum MainNotFixable {
     /// A newer commit's CI is still running on main, and may already have
     /// fixed it.
     ChecksRunning,
-    /// A Job or a Session is already working on this red.
+    /// A Session is already working on this red.
     Taken(TakenBy),
-    /// Another machine's Job or a Session holds this red in the central store.
+    /// Another machine's Session holds this red in the central store.
     /// `held_for` is whole seconds.
     TakenElsewhere { holder: Holder, held_for: i64 },
     /// The central store could not be asked or said no, so the red was not
@@ -46,9 +45,6 @@ impl std::fmt::Display for MainNotFixable {
             MainNotFixable::ChecksRunning => {
                 write!(out, "new checks are running on main, and may have fixed it")
             }
-            MainNotFixable::Taken(TakenBy::Job(job)) => {
-                write!(out, "{} is already working on this red", job.as_str())
-            }
             MainNotFixable::Taken(TakenBy::Session(id)) => {
                 write!(out, "Session {id} is already working on this red")
             }
@@ -57,7 +53,6 @@ impl std::fmt::Display for MainNotFixable {
                 "{} {} on {} has held this red for {}. Take it over to replace that claim",
                 match holder.kind {
                     adapter_traits::HolderKind::Session => "Session",
-                    adapter_traits::HolderKind::Job => "Job",
                 },
                 holder.id,
                 holder.machine,
@@ -76,14 +71,6 @@ fn aged(seconds: i64) -> String {
         3600..=86_399 => format!("{} h", seconds / 3600),
         _ => format!("{} d", seconds / 86_400),
     }
-}
-
-/// Whether a take of a red still counts: the Job has not been stopped.
-pub(crate) fn stopped(status: JobStatus) -> bool {
-    matches!(
-        status,
-        JobStatus::Killed | JobStatus::CompletedFailed | JobStatus::Rejected
-    )
 }
 
 /// The facts of a red, one line each, as the band shows them.
@@ -142,8 +129,7 @@ where
         Ok((served, main))
     }
 
-    /// The Job or Session working on this red, if one is: the newest take whose
-    /// Job has not been stopped or whose Session has not ended.
+    /// The Session working on this red, if one is: the newest take whose Session has not ended.
     pub(crate) async fn taking(&self, main: &MainCi) -> Option<TakenBy> {
         let store = self.store().lock().await;
         self.fixing_of(&store, main)
@@ -202,7 +188,7 @@ where
         })
     }
 
-    /// Record that a Session has this red, as a Job's take is. **`forked_from` is the Session
+    /// Record that a Session has this red. **`forked_from` is the Session
     /// Fleet forked this one from**, which cannot be handed the red twice.
     pub(crate) async fn recorded_session_take(&self, main: &MainCi, session: &str, how: TakenHow, forked_from: Option<&str>) {
         let Some(take) = self.take_of(main, TakenBy::Session(session.to_string()), how, forked_from) else {
@@ -221,7 +207,7 @@ where
         }
     }
 
-    /// Main is green: every take ends, and the Job whose pull request put it
+    /// Main is green: every take ends, and the Session whose pull request put it
     /// there says it fixed main.
     async fn fixed(&self, main: &MainCi) {
         self.cleared_elsewhere(main).await;
@@ -233,27 +219,42 @@ where
             .await;
         let mut store = self.store().lock().await;
         let fixer = merged.and_then(|merged| {
-            let number = merged.number;
-            let found = store
-                .jobs_with_pull_request_number(number)
-                .unwrap_or_default()
+            let served = self
+                .repositories()
+                .served()
                 .into_iter()
-                .find(|job| {
-                    self.served_by_id(job)
-                        .is_ok_and(|it| it.root() == main.repository)
-                })?;
-            Some((found, number))
+                .find(|served| served.root() == main.repository)?;
+            let manifest = served.manifest().id().as_str().to_string();
+            let branch = merged
+                .branch
+                .as_ref()
+                .map(|branch| branch.as_written().to_string())
+                .unwrap_or_default();
+            let owners = crate::slot_holders::sessions_on_pull(
+                &store,
+                &manifest,
+                served.root(),
+                merged.number,
+                &branch,
+                true,
+            );
+            let takes = store
+                .main_fixes_of(&main.repository, main.red_at.as_ref()?)
+                .ok()?;
+            let fixer = takes
+                .iter()
+                .find(|take| take.ended_at.is_none() && owners.iter().any(|id| id == take.by.id()))?;
+            Some((fixer.by.id().to_string(), merged.number))
         });
         let _ = store.end_main_fixes(
             &main.repository,
             &main.read_at,
-            fixer.as_ref().map(|(job, number)| (job, *number)),
+            fixer.as_ref().map(|(session, number)| (session.as_str(), *number)),
         );
     }
 
-    /// The Job or Session working on main's red, for the hub and the guards: the
-    /// newest take that has not ended, whose Job has not been stopped and whose
-    /// Session is still running.
+    /// The Session working on main's red, for the hub and the guards: the
+    /// newest take that has not ended, whose Session is still running.
     pub(crate) fn fixing_of(&self, store: &store::Store, main: &MainCi) -> Option<TakenBy> {
         let red_at = main.red_at.as_ref()?;
         store
@@ -263,9 +264,6 @@ where
             .filter(|take| take.ended_at.is_none())
             .map(|take| take.by)
             .find(|by| match by {
-                TakenBy::Job(job) => store
-                    .load_job(job)
-                    .is_ok_and(|found| !stopped(found.status())),
                 TakenBy::Session(id) => store
                     .session(id)
                     .ok()

@@ -3,7 +3,7 @@
 // switching scenarios.
 
 import type { Studio } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Scenario } from "../moment";
 import { studying } from "../studios-fake";
@@ -32,7 +32,6 @@ export const restyleReview: Scenario = {
   ...ship,
   name: "restyle-review",
   says: "The whole ship at rest, with Retros, Doctor's probes and Studios kept in two repositories on the same Fleet",
-  reads: { ...pagesLook.reads, ...ship.reads },
   studios: studied.studios,
   retros: pagesLook.retros,
   lessons: pagesLook.lessons,

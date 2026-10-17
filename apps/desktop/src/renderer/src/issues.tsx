@@ -80,25 +80,19 @@ export function OpenIssues({
                   <TableCell variant="mono">{issue.reference}</TableCell>
                   <TableCell>{issue.title}</TableCell>
                   <TableCell variant="metadata">
-                    {issue.job_id !== undefined
-                      ? "A job is on it"
-                      : issue.linked_pull_request
-                        ? "A pull request names it"
-                        : issue.labels.join(", ")}
+                    {issue.linked_pull_request ? "A pull request names it" : issue.labels.join(", ")}
                   </TableCell>
                   <TableCell>
-                    {issue.job_id !== undefined ? null : (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        ground="card"
-                        aria-label={`Dispatch issue ${issue.reference}`}
-                        disabled={disabled}
-                        onClick={() => onDispatch(issue.url)}
-                      >
-                        Dispatch
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      ground="card"
+                      aria-label={`Dispatch issue ${issue.reference}`}
+                      disabled={disabled}
+                      onClick={() => onDispatch(issue.url)}
+                    >
+                      Dispatch
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

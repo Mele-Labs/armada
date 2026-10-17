@@ -13,7 +13,6 @@ use super::{Applies, Entry, Kind, Section, Shipped, Words};
 pub const PROMPT_SCOUT_ASK: Words = Words("prompts.scoutAsk");
 pub const PROMPT_SCOUT_READ_IN: Words = Words("prompts.scoutReadIn");
 pub const PROMPT_SCOUT_RESCUE: Words = Words("prompts.scoutRescue");
-pub const PROMPT_RETRO_JOB: Words = Words("prompts.retroJob");
 pub const PROMPT_RETRO_SESSION: Words = Words("prompts.retroSession");
 pub const PROMPT_RETRO_WHERE_FIXES_LAND: Words = Words("prompts.retroWhereFixesLand");
 pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
@@ -41,8 +40,6 @@ pub fn prompt_keys() -> impl Iterator<Item = Words> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PromptSection {
     Judge,
-    JudgeGaming,
-    JudgeSecondReading,
     Scouts,
     Autopilot,
     Helm,
@@ -51,10 +48,8 @@ pub enum PromptSection {
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 7] = [
+    pub const ORDER: [PromptSection; 5] = [
         PromptSection::Judge,
-        PromptSection::JudgeGaming,
-        PromptSection::JudgeSecondReading,
         PromptSection::Scouts,
         PromptSection::Autopilot,
         PromptSection::Helm,
@@ -66,12 +61,10 @@ impl PromptSection {
     pub const fn position(self) -> usize {
         match self {
             PromptSection::Judge => 0,
-            PromptSection::JudgeGaming => 1,
-            PromptSection::JudgeSecondReading => 2,
-            PromptSection::Scouts => 3,
-            PromptSection::Autopilot => 4,
-            PromptSection::Helm => 5,
-            PromptSection::Retros => 6,
+            PromptSection::Scouts => 1,
+            PromptSection::Autopilot => 2,
+            PromptSection::Helm => 3,
+            PromptSection::Retros => 4,
         }
     }
 
@@ -79,8 +72,6 @@ impl PromptSection {
     pub fn title(self) -> &'static str {
         match self {
             PromptSection::Judge => "Judge",
-            PromptSection::JudgeGaming => "Judge: gaming",
-            PromptSection::JudgeSecondReading => "Judge: second reading",
             PromptSection::Scouts => "Scouts",
             PromptSection::Autopilot => "Autopilot",
             PromptSection::Helm => "Helm",
@@ -145,13 +136,6 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Choosing the next issue",
         "What Autopilot's picker is asked for each pick. {instruction} is the person's instruction, {issues} the open issues nothing is working on and {workflows} the workflows the repository holds. Its answer is read by field name, so keep the field names.",
         &["instruction", "issues", "workflows"],
-    ),
-    prompt(
-        PromptSection::Retros,
-        PROMPT_RETRO_JOB,
-        "The retro of a Job",
-        "What the retro of a finished Job is asked. {record} is the Job's record, and {where_fixes_land} and {how_to_write} are the two prompts below.",
-        &["record", "where_fixes_land", "how_to_write"],
     ),
     prompt(
         PromptSection::Retros,

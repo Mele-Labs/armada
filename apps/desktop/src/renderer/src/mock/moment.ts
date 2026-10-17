@@ -6,7 +6,7 @@
 
 import { connected as connectedOver, onBoard as onBoardOver, unanswered } from "@armada/bridge-api";
 import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@armada/bridge-api";
-import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
+import type { RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
@@ -14,7 +14,7 @@ import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncIte
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
 import type { BayHistory } from "@armada/protocol";
-import type { BoardControl, SessionsStore } from "./sessions/script";
+import type { BayControl, SessionsStore } from "./sessions/script";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -28,7 +28,7 @@ export { unanswered };
  * `more` is Sessions open beside the usual ones, for a scenario that wants others.
  */
 export type MockDraft = {
-  sessions?: (board: BoardControl, more?: readonly Session[]) => SessionsStore;
+  sessions?: (board: BayControl, more?: readonly Session[]) => SessionsStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
@@ -83,19 +83,17 @@ export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;
 /** What a scenario's `behaves` reaches: the state as published, and the one way to change it. */
 export type FleetHandle = FleetHandleOf<BridgeState>;
 
-/** The state a connected Fleet publishes, holding these Jobs. */
+/** The state a connected Fleet publishes. */
 export function connected(
-  jobs: JobSummary[],
   workflows: WorkflowSummary[],
   repositories: RepositorySummary[],
 ): BridgeState {
-  return connectedOver(NOTHING_YET, jobs, workflows, repositories);
+  return connectedOver(NOTHING_YET, workflows, repositories);
 }
 
-/** A connected Fleet holding exactly these rows, for a test that needs a Board no named scenario draws. */
+/** A connected Fleet holding exactly these repositories, for a test that needs a window no named scenario draws. */
 export function onBoard(
-  jobs: JobSummary[],
   options: { workflows?: WorkflowSummary[]; repositories?: RepositorySummary[]; picked?: string | null } = {},
 ): Scenario {
-  return onBoardOver<BridgeState, BridgeApi>(NOTHING_YET, jobs, options);
+  return onBoardOver<BridgeState, BridgeApi>(NOTHING_YET, options);
 }

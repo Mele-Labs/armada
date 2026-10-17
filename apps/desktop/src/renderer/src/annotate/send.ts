@@ -1,16 +1,11 @@
-// A note sent to Fleet, #1250: proposed as a Job through the describe-the-work
-// path the composer uses, so it lands at the approval gate like any request and
-// nothing runs until a person approves it.
+// A note sent to Fleet, #1250: as a message to a Session, a new one or one that is live.
 
 import { said } from "@armada/screens/src/copy";
-import type { Outcome, StagedAttachment } from "@armada/protocol";
+import type { Outcome } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import { requestOf, type Annotation, type Box, type Sent } from "../../../shared/annotations";
 import type { Sink } from "./sink";
-
-/** The two calls a send makes on Fleet's seam. */
-export type Proposer = Pick<BridgeApi, "stageAttachment" | "proposeFromRequest">;
 
 export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string };
 
@@ -37,30 +32,6 @@ export async function pictureOf(note: Annotation, box: Box | null, sink: Sink): 
 /** Why Send is not offered here, or null where it is. */
 export function unsendable(sink: Sink): string | null {
   return sink.via === "main" ? null : "Sending needs Bridge and its Fleet; in the mock the note stays a file";
-}
-
-/**
- * Stage the note's picture, where it has one (`pictureOf`), and propose the note's request against the repository the notes are about.
- * **Nothing is saved here**: the caller writes `sent` onto the note, so a send
- * that fails leaves the note exactly as it was.
- */
-export async function sendToFleet(note: Annotation, box: Box | null, sink: Sink, fleet: Proposer, at: Date): Promise<SendAnswer> {
-  const root = await sink.root();
-  if (root === null) return { ok: false, saying: "Job not sent: no repository found above Bridge" };
-
-  const attachments: StagedAttachment[] = [];
-  const png = await pictureOf(note, box, sink);
-  if (png !== null) {
-    const filename = `annotation-${note.id}.png`;
-    const { path } = await fleet.stageAttachment(png, filename, "image/png");
-    attachments.push({ path, filename, mimeType: "image/png" });
-  }
-
-  const answer = await fleet.proposeFromRequest(requestOf(note), attachments, root);
-  if (!answer.ok) return { ok: false, saying: `Job not sent: ${refusal(answer.outcome)}` };
-  const job = answer.jobs[0];
-  if (job === undefined) return { ok: false, saying: "Job not sent: Fleet answered with none" };
-  return { ok: true, sent: { jobId: job.id, handle: job.handle, at: at.toISOString() } };
 }
 
 /** The calls a Session send makes on Fleet's seam. */

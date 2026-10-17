@@ -146,7 +146,6 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
 /// repository or the first. The door always names its scope on these.
 const NAMES_ITS_SCOPE: &[&str] = &[
     "get_events_since",
-    "list_drones",
     "list_worktrees",
     "list_sessions",
     "who_owns",
@@ -154,15 +153,8 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "change_slot_pool",
     "rescue_slot",
     "list_servers",
-    "propose_from_request",
-    "list_jobs",
-    "list_job_board",
-    "list_reviews",
-    "get_activity_feed",
-    "list_alerts",
     "get_manifest_reading",
     "get_manifest_drift",
-    "get_manifest_spend",
     "start_server",
     "list_studios",
     // The main checkout's runs, which a Helm session starts and reads (#1288).

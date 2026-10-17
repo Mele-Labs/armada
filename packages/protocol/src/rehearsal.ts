@@ -1,50 +1,25 @@
-// A person's run of one Manifest entry — in a Job's worktree or in the main
-// checkout. `crates/ipc/src/rehearsal.rs`. Since protocol 10.6.
+// A person's run of one Manifest entry in the main checkout.
+// `crates/ipc/src/rehearsal.rs`. Since protocol 10.6.
 //
-// **A rehearsal, never a verdict.** Nothing here is a Check row or Evidence,
-// and nothing here moves a Job. Bridge still draws a run's result in Job
-// colours, read from its code and `stopped` — how it looks, not what it counts.
+// **A rehearsal, never a verdict.** Nothing here is a Check row or Evidence.
+// Bridge draws a run's result from its code and `stopped` — how it looks, not
+// what it counts.
 
-import type { ChangedFile } from "./events";
-import type { AskedRun, Requester } from "./requester";
-import type { JobRead, Outcome } from "./reads";
+import type { Requester } from "./requester";
 import type { ProtocolId } from "./connection";
+import type { Outcome } from "./reads";
 import type { ServerEntry } from "./servers";
 
-/** `GET /jobs/:job_id/run_sheet` — what can be run in this Job's worktree. */
-export type RunSheet = {
-  job_id: string;
-  /** The Commands `setup.requires` names, in its order. */
-  setup: RunEntry[];
-  /** Every Check, in the order the Manifest declares them. */
-  checks: RunEntry[];
-  /** Every Command `setup.requires` does not name. */
-  commands: RunEntry[];
-  /** When the Manifest was last changed by a commit at or before the Job was created. */
-  manifest_edited_at?: string;
-  worktree_on_disk: boolean;
-  /** The worktree's own `armada.yml` declares something other than these lists. */
-  worktree_differs: boolean;
-  /** Why the worktree's own `armada.yml` could not be read, where it could not. */
-  worktree_unreadable?: string;
-  /** A Drone is working in the tree: a run shares it, and Undo is refused. */
-  drone_working: boolean;
-  /** The run in flight on this Job, if one is. */
-  running?: RunUnderway;
-  /**
-   * The Commands declaring `serve`, each with this Job's instance. Not in
-   * `commands`: a server is started with `start_server`. Since protocol 10.10.
-   */
-  servers?: ServerEntry[];
-  /** What the worktree's build directories started from. Absent where the Job's Manifest declares no `setup.seed`. Since protocol 13.46. */
-  seeding?: WorktreeSeeding;
+/**
+ * One file a run changed. **A name and a kind, never bytes.** `change` is one of
+ * `added`, `modified`, `deleted`, `renamed`, `copied`, `type_changed`,
+ * `conflicted`, `unreadable`, left as `string` like every other closed set.
+ */
+export type ChangedFile = {
+  /** Repository-relative, exactly as git spells it. */
+  path: string;
+  change: string;
 };
-
-/** What a Job's worktree was seeded with, or why it started cold. `crates/ipc/src/rehearsal.rs`. */
-export type WorktreeSeeding =
-  | { state: "seeded"; commit: string; paths: string[] }
-  | { state: "cold"; why: string }
-  | { state: "unrecorded" };
 
 /** `setup.seed` as the Manifest declares it, and where its warm-up stands. Since protocol 13.46. */
 export type DeclaredSeed = { paths: string[]; warmed_by: string[]; warmth: SeedWarmth };
@@ -61,86 +36,16 @@ export type RunEntry = {
   run: string;
   /** It declares `narrow`. */
   narrows: boolean;
-  /**
-   * What a narrowed run resolves to against what the Job changed. Absent where
-   * it declares no `narrow`, or where nothing the Job changed feeds it.
-   */
+  /** What a narrowed run resolves to. Absent where it declares no `narrow`. */
   narrow_run?: string;
   /** The Commands that run first, in order. */
   requires: string[];
   expect_exit_code: number;
   destructive: boolean;
-  /** From what the Job froze. `false` is read from the Manifest Fleet holds now. */
   frozen: boolean;
 };
 
-/** `POST /jobs/:job_id/start_run`'s body. A name, never a command line. */
-export type StartRun = {
-  name: string;
-  narrowed?: boolean;
-  /** Run the worktree's own `armada.yml` rather than what the Job froze. */
-  worktree_version?: boolean;
-};
-
-/** A run that has started and not finished. `start_run`'s answer. */
-export type RunUnderway = {
-  id: string;
-  job_id: string;
-  name: string;
-  command: string;
-  narrowed: boolean;
-  /** Elapsed time is counted from here; nothing ticks on the wire. */
-  started_at: string;
-  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
-  requester?: Requester;
-};
-
-/** One finished run. `run.finished`'s payload and `list_runs`'s row. */
-export type RunRecord = {
-  id: string;
-  job_id: string;
-  name: string;
-  command: string;
-  narrowed: boolean;
-  worktree_version: boolean;
-  frozen: boolean;
-  required: string[];
-  started_at: string;
-  ended_at: string;
-  duration_ms: number;
-  /** Absent where there was no code: a signal, a budget, a spawn that failed. */
-  exit_code?: number;
-  expect_exit_code: number;
-  /** How it ended, in a sentence. A rehearsal: the hue is Bridge's reading. */
-  ended: string;
-  stopped: boolean;
-  changed: ChangedFile[];
-  /** Why the change could not be read. Undo is then unavailable. */
-  changed_unreadable?: string;
-  /** A Drone was working during the run, so `changed` may hold its edits too. */
-  shared_with_drone: boolean;
-  /** Where the tree before the run is kept. Absent: nothing to undo from. */
-  snapshot?: string;
-  undone_at?: string;
-  /** The log, relative to `ManifestSummary.records_root`. */
-  log: string;
-  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
-  requester?: Requester;
-};
-
-/** `GET /jobs/:job_id/runs` — newest first, and what would not read. */
-export type RunList = {
-  job_id: string;
-  runs: RunRecord[];
-  unreadable: { id: string; why: string }[];
-  /**
-   * The Checks a Drone asked for on this Job, **as rows of their own and never
-   * among `runs`**: a dry result is not a rehearsal's. Oldest first. Since 23.40.
-   */
-  asked_runs?: AskedRun[];
-};
-
-/** `GET /jobs/:job_id/runs/:run_id/output` — `CheckOutput`'s window. */
+/** `GET /manifest/runs/:run_id/output` — `CheckOutput`'s window. */
 export type RunOutput = {
   id: string;
   name: string;
@@ -152,79 +57,11 @@ export type RunOutput = {
   whole: boolean;
 };
 
-/** `stop_run`'s and `undo_run`'s body. */
+/** `stop_checkout_run`'s and `undo_checkout_run`'s body. */
 export type NamedRun = { id: string };
 
-/**
- * What `list_runs` came back as. **Answered to the caller rather than held
- * as state**, `CheckOutputRead`'s reason: the sheet asks for it once, when a person
- * opens *Earlier runs*, and it does not move once Fleet has answered.
- */
-export type RunListRead = { ok: true; runs: RunList } | { ok: false; outcome: Outcome };
-
-/** What `get_run_output` came back as. `RunListRead`'s shape and reason. */
+/** What `get_checkout_run_output` came back as, answered to the caller rather than held as state. */
 export type RunOutputRead = { ok: true; output: RunOutput } | { ok: false; outcome: Outcome };
-
-/**
- * One message on a run's socket, `GET /jobs/:job_id/runs/:run_id/observe`.
- * `observe_job`'s shape: the log so far, then new lines, a count where the
- * bound dropped some, and why it stopped. Output never rides `/events`.
- */
-export type RunMessage =
-  | ({ message: "opened" } & RunOpened)
-  | ({ message: "lines" } & { lines: string[] })
-  | ({ message: "missed" } & { dropped: number })
-  | ({ message: "closed" } & { because: string });
-
-export type RunOpened = {
-  protocol_id: ProtocolId;
-  job_id: string;
-  id: string;
-  name: string;
-  path: string;
-  /** The run was still going when this opened. `false`: the history is all of it. */
-  live: boolean;
-  /** Older lines the opening read left out, because the window is bounded. */
-  skipped: number;
-};
-
-/** `GET /jobs/:job_id/run_sheet`, in `reads.ts`'s four states. Bridge-only, not on the wire. */
-export type RunSheetRead = JobRead<{ sheet: RunSheet }>;
-
-/**
- * The run a window is watching on `observe_run`, as main holds it.
- *
- * **`FollowedLog`'s shape, one subject over** — a run's own id in place of a
- * Check's `kept`, and `RunMessage`'s four kinds in place of `OutputMessage`'s
- * three. One at a time: the sheet shows one run's output, and opening another
- * replaces it.
- */
-export type RunFollowed =
-  | { state: "none" }
-  | { state: "opening"; jobId: string; runId: string }
-  | {
-      state: "following";
-      jobId: string;
-      runId: string;
-      name: string;
-      path: string;
-      /** The file's own line number of `lines[0]`, counted from one. */
-      fromLine: number;
-      /** The newest lines, oldest first, bounded. */
-      lines: string[];
-      /** Why the stream ended, or absent while it is still arriving. */
-      ended?: string;
-    }
-  | { state: "failed"; jobId: string; runId: string; detail: string };
-
-// ---------------------------------------------------------------------------
-// The checkout's half — Journey 9, *Running one*. Since protocol 11.9.
-// ---------------------------------------------------------------------------
-//
-// Its own shapes rather than the Job's with the id left out: every type above
-// carries a required `job_id`, and the main checkout is not a Job with a blank
-// one. What these drop is what only a Job has — a frozen Manifest, a worktree
-// that can be gone, a Drone in the tree, and a diff to narrow against.
 
 /** `GET /manifest/run_sheet` — what can be run in the main checkout. */
 export type CheckoutRunSheet = {
@@ -256,9 +93,7 @@ export type CheckoutRunSheet = {
 export type WorkspaceCommands = { dir: string; commands: RunEntry[] };
 
 /**
- * `POST /manifest/start_run`'s body. A name and nothing else — there is no
- * frozen Manifest to choose against and no diff to narrow to, so neither of
- * `StartRun`'s two flags has an answer here.
+ * `POST /manifest/start_run`'s body. A name and nothing else.
  */
 export type StartCheckoutRun = { name: string; workspace?: string };
 
@@ -339,9 +174,9 @@ export type CheckoutRunList = {
 };
 
 /**
- * One message on `GET /manifest/runs/:run_id/observe`. `RunMessage`'s four,
- * one owner over. What ended the run is `checkout_run.finished`'s, as it is
- * for a Job; this carries only what the run printed.
+ * One message on `GET /manifest/runs/:run_id/observe`: the log so far, then new lines, a count
+ * where the bound dropped some, and why it stopped. What ended the run is
+ * `checkout_run.finished`'s; this carries only what the run printed.
  */
 export type CheckoutRunMessage =
   | ({ message: "opened" } & CheckoutRunOpened)
@@ -361,12 +196,7 @@ export type CheckoutRunOpened = {
 };
 
 /**
- * `GET /manifest/run_sheet`, in `reads.ts`'s four states. Bridge-only, not on
- * the wire — `RunSheetRead`'s kind, one owner over.
- *
- * **`Reports`' shape rather than a `JobRead`**, for that type's own stated
- * reason: there is no id to check an answer against, which is the whole of
- * what `JobRead` exists to do.
+ * `GET /manifest/run_sheet`, in four states. Bridge-only, not on the wire.
  */
 export type CheckoutRunSheetRead =
   | { state: "none" }
@@ -376,8 +206,7 @@ export type CheckoutRunSheetRead =
 
 /**
  * The checkout run a window is watching on `observe_checkout_run`, as main
- * holds it. `RunFollowed`'s four states with the Job taken out of each.
- * Bridge-only, not on the wire.
+ * holds it, one run at a time. Bridge-only, not on the wire.
  */
 export type CheckoutRunFollowed =
   | { state: "none" }

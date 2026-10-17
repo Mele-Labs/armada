@@ -7,12 +7,11 @@
 //
 // **A number is the guide's own for good.** A guide added takes the next
 // number above the highest in use and is filed wherever its group wants it, so
-// the catalogue reads in group order and not in number order. Guides 8, 11
+// the catalogue reads in group order and not in number order. Guides 2, 8, 11
 // and 20 are retired and gone. `guides.test.ts` holds both rules.
 
 import type { Guide, GuideGroupId } from "./guide";
 import { GUIDE_COMPLETION } from "./001-when-is-a-job-done";
-import { GUIDE_MEMBER_LINK } from "./002-how-do-jobs-land-in-order";
 import { GUIDE_DISPATCH } from "./003-how-do-i-dispatch-a-job";
 import { GUIDE_GROUP_ORDER } from "./004-why-does-only-one-group-run-at-a-time";
 import { GUIDE_PLAN_ASKS } from "./006-how-do-i-change-the-plan";
@@ -33,7 +32,6 @@ import { GUIDE_MERGE_LINE } from "./022-what-is-the-merge-line";
 export * from "./guide";
 export {
   GUIDE_COMPLETION,
-  GUIDE_MEMBER_LINK,
   GUIDE_DISPATCH,
   GUIDE_GROUP_ORDER,
   GUIDE_PLAN_ASKS,
@@ -55,6 +53,8 @@ export {
 /**
  * The numbers no guide may take. **A retired guide keeps its number.**
  *
+ * 2 explained the link a Job's member carries to the one before it, and went with the members list.
+ *
  * 11 explained the second edge a group gets on the Workflow canvas. The plan's
  * graph moved to the Plan tab on 25 September 2026, so the guide had nothing
  * left to explain and was retired rather than rewritten.
@@ -65,14 +65,13 @@ export {
  * 8 explained the run tree's step bar, which went with the Overview reframe of
  * 29 September 2026. 20 explained drift, and no screen draws `run.drift`.
  */
-export const RETIRED_GUIDE_NUMBERS: readonly number[] = [5, 8, 11, 20];
+export const RETIRED_GUIDE_NUMBERS: readonly number[] = [2, 5, 8, 11, 20];
 
 export const GUIDES: readonly Guide[] = [
   GUIDE_JOB,
   GUIDE_DISPATCH,
   GUIDE_BEFORE_A_RUN,
   GUIDE_COMPLETION,
-  GUIDE_MEMBER_LINK,
   GUIDE_PLAN,
   GUIDE_GROUP_ORDER,
   GUIDE_PLAN_ASKS,

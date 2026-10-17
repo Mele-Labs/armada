@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, SlotReading, Vcs, WorkProduct};
-use core_model::Job;
 use ipc::{
     ManifestId, RescueAct, RescueSlot, SlotFindingState, SlotHolderKind, SlotHolding,
     SlotLastHolder, SlotStranded, WorktreeSlot, WorktreesHeld,
@@ -27,16 +26,6 @@ pub(crate) fn key_of(reading: &SlotReading) -> (String, String) {
             .map(|since| since.as_str().to_string())
             .unwrap_or_default(),
     )
-}
-
-/// A Job as the last holder of a slot. Open until it ends.
-pub(crate) fn job_holder(job: &Job) -> SlotLastHolder {
-    SlotLastHolder {
-        kind: SlotHolderKind::Job,
-        id: job.id().as_str().to_string(),
-        title: Some(job.title().as_str().to_string()),
-        open: !job.status().is_terminal(),
-    }
 }
 
 /// What a stranded slot's Session is asked.
@@ -107,7 +96,6 @@ where
                 matches!(
                     slot.held,
                     SlotHolding::Stranded { .. }
-                        | SlotHolding::Job { .. }
                         | SlotHolding::HostedSession { .. }
                 )
             });

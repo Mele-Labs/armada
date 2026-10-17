@@ -217,16 +217,16 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
     if (typeof open === "boolean") barred(event)?.showPanel(open);
   });
-  // The panel beside the page. **Main names the Job or the Session**, off the panel that asked; the
+  // The panel beside the page. **Main names the Session**, off the panel that asked; the
   // call carries nothing, so a panel cannot name another and no other document is answered.
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
     const subject = captureWindows.panelFrom(event.sender);
-    if (subject !== null) summon(subject.kind === "job" ? { jobId: subject.id } : { jobId: null, sessionId: subject.id });
+    if (subject !== null) summon({ sessionId: subject.id });
   });
   // The owner named on the bar, the same act as the panel's: main reads it off the window, never the bar.
   ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
     const owner = barred(event)?.owner ?? null;
-    if (owner !== null) summon(owner.kind === "job" ? { jobId: owner.id } : { jobId: null, sessionId: owner.id });
+    if (owner !== null) summon({ sessionId: owner.id });
   });
   // The walk the page plays: four entries and one boolean, each a call main makes on the page's walk handle.
   ipc.handle(CHANNELS.captureWindowWalkNext, async (event) => void (await barred(event)?.walkAct("next")));

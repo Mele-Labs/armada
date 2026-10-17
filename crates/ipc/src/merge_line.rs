@@ -104,15 +104,30 @@ pub enum LandCheckState {
     TimedOut,
 }
 
+/// The two ends a pull request comes to, and the whole of the set.
+///
+/// **Neither open nor unknown is here**, and that is what makes this closed: a
+/// pull request that has not settled is the absence of this value, so no
+/// variant means "no news". What the forge can say beyond these two, Armada
+/// does not record.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Settled {
+    /// Somebody merged it. The answer to *did this land*.
+    Merged,
+    /// It was closed and never merged — published, and turned down.
+    ClosedUnmerged,
+}
+
 /// A pull request, by number and address.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MergeLinePullRequest {
     pub number: u64,
     pub url: String,
-    /// `landed` only: how it ended, the Job's own `Settled`. Absent is
+    /// `landed` only: how it ended, `Settled`. Absent is
     /// nothing known, which is every pull request still in line. Since 23.2.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settled: Option<crate::Settled>,
+    pub settled: Option<Settled>,
 }
 
 /// Where one branch is on the line: `land_state` in `enum-verbs.toml`.

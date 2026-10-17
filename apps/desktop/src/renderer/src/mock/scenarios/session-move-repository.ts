@@ -3,7 +3,7 @@
 // The walks `session-move-repository` and `cockpit-session-move-repository` play it.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { holding } from "../holding";
@@ -69,14 +69,13 @@ const LISTENING: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("session-move-repository", "A Session in shop that belongs in armada, with a branch there, and a terminal Session that cannot be moved", [], { alsoServed: [ARMADA, SHOP, BILLING] });
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("session-move-repository", "A Session in shop that belongs in armada, with a branch there, and a terminal Session that cannot be moved", [ARMADA, SHOP, BILLING]);
   return {
     ...base,
     state: { ...base.state, repository: null },
     draft: {
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [WRONG, LISTENING]);
+      sessions: () => {
+        const store = sessionsStore([WRONG, LISTENING]);
         // The first start is the store's own fixture, spent here so a move makes the next.
         store.start();
         return movable(store, new Set([WRONG.id, LISTENING.id]));

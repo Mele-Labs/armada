@@ -18,7 +18,6 @@ use adapter_traits::{
     AgentHarness, CiState, Delivery, OpenPull, PullMergeable, PullReview, QueueEntry, QueueState,
     RecentlyMerged, Vcs, WorkProduct,
 };
-use core_model::JobId;
 use core_model::Timestamp;
 use ipc::{
     HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview,
@@ -408,23 +407,6 @@ where
         })
     }
 
-    /// The Job of ours whose pull request this is, in this repository.
-    pub(crate) fn job_of_pull(
-        &self,
-        store: &store::Store,
-        served: &Served,
-        number: u64,
-    ) -> Option<JobId> {
-        store
-            .jobs_with_pull_request_number(number)
-            .unwrap_or_default()
-            .into_iter()
-            .find(|job| {
-                self.served_by_id(job)
-                    .is_ok_and(|it| it.root() == served.root())
-            })
-    }
-
     /// The Session that held a pull request, else its branch, in any state, **given back and spent
     /// included**: the question is who made it, and a Session that has finished still did. The
     /// newest hold stands where several do.
@@ -446,20 +428,6 @@ where
         };
         held(crate::pull_requesting::PR, &number.to_string())
             .or_else(|| branch.and_then(|branch| held("branch", branch)))
-    }
-
-    /// The Checks each served repository's Manifest declares, by root.
-    pub(crate) fn land_checks(&self) -> Vec<(String, Vec<String>)> {
-        self.repositories()
-            .served()
-            .iter()
-            .map(|served| {
-                (
-                    served.root().to_string(),
-                    served.manifest().checks_as_written().to_vec(),
-                )
-            })
-            .collect()
     }
 
     /// Each served repository's hub, by root. A repository Fleet has read
@@ -518,8 +486,8 @@ where
                     (held_back.contains_key(&root) || quiet).then(MergeLineHub::default)
                 })?;
                 let fixing = main.as_ref().and_then(|main| self.fixing_of(&store, main));
-                hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
-                hub.fixing_elsewhere = elsewhere.get(&root).and_then(fixing_elsewhere);
+                hub.fixing_session = fixing.as_ref().map(|by| session_titled(by.session()));
+                hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
                 hub.checkout = held_back.get(&root).map(|held| held_checkout(held, checkout_sent.get(&root).copied()));
                 let instant = |at: &core_model::Timestamp| ipc::Instant::carried(at.as_str());
                 hub.forge_read_at = visits.get(&root).and_then(|it| it.read_at.as_ref()).map(instant);
@@ -554,17 +522,16 @@ fn held_checkout(held: &adapter_traits::HeldBack, pull_request: Option<ipc::Chec
     }
 }
 
-/// Another machine's claim as the hub draws it. **A Job's claim is not drawn.**
-fn fixing_elsewhere(holder: &adapter_traits::Holder) -> Option<ipc::FixingElsewhere> {
+/// Another machine's claim as the hub draws it.
+fn fixing_elsewhere(holder: &adapter_traits::Holder) -> ipc::FixingElsewhere {
     let kind = match holder.kind {
         adapter_traits::HolderKind::Session => ipc::HolderKind::Session,
-        adapter_traits::HolderKind::Job => return None,
     };
-    Some(ipc::FixingElsewhere {
+    ipc::FixingElsewhere {
         machine: holder.machine.clone(),
         holder: ipc::ClaimHolder { kind, id: holder.id.clone() },
         since: ipc::Instant::carried(crate::clock::rfc3339_utc(holder.since * 1000)),
-    })
+    }
 }
 
 /// The hub for one repository, or `None` where there is nothing to say.
@@ -764,7 +731,7 @@ fn request(
         }),
         additions: pull.facts.additions,
         deletions: pull.facts.deletions,
-        owner: one.owner.as_ref().and_then(PullOwner::on_the_wire),
+        owner: one.owner.as_ref().map(PullOwner::on_the_wire),
         merge_by_hand: false,
         mine: one.mine,
     }

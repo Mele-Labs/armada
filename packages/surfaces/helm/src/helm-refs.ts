@@ -1,6 +1,5 @@
-// What Helm's words name that Bridge can open: a pull request or an issue by its number, a Job by its
-// number, handle or id, a Session by its id, its address or its exact title. **Read off what the window
-// holds**, never off the words' own claim: a number or a name that matches nothing here is left as text.
+// What Helm's words name that Bridge can open: a pull request or an issue by its number, a Session by its id, its address
+// or its exact title. **Read off what the window holds**, never off the words' own claim: a number or a name that matches nothing here is left as text.
 // The spans are `Prose`'s to turn into links (`ProseRefs`); this is the finding.
 
 import type { ProseReference } from "@armada/components";
@@ -8,7 +7,6 @@ import type { MergeLine } from "@armada/protocol";
 
 /** What there is to find. `numbered` is the conversation's repository: its open issues and pull requests, and any number already looked up. */
 export type RefWorld = {
-  jobs: readonly { id: string; handle: string; title: string }[];
   sessions: readonly { id: string; title?: string }[];
   /** `url` is the forge's address for it, which the same number in another repository does not share. */
   numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
@@ -18,14 +16,11 @@ export type RefSpan = { from: number; to: number; ref: ProseReference };
 
 const escaped = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Every place `needle` stands as a whole word, so `Job 1` is not found inside `Job 12`. */
+/** Every place `needle` stands as a whole word, so `s-01J9ZK7M` is not found inside a longer word. */
 function* whole(text: string, needle: string): Generator<[number, number]> {
   if (needle === "") return;
   for (const found of text.matchAll(new RegExp(`(?<![\\w-])${escaped(needle)}(?![\\w-])`, "g"))) yield [found.index, found.index + needle.length];
 }
-
-/** The number a Job's handle leads with: `12-drone-count` is Job 12, and a handle that is only its number is too. */
-const numberOf = (handle: string): string | undefined => /^(\d+)(?:-|$)/.exec(handle)?.[1];
 
 /**
  * The branch a pull request is on, read off the repository's merge line: the open ones Fleet read off the forge,
@@ -55,13 +50,6 @@ export function scanRefs(text: string, world: RefWorld): RefSpan[] {
   for (const one of text.matchAll(/(?<![(\[<\w])(https?:\/\/[^\s<>`)\]]+?)\/(?:pull|issues)\/(\d+)(?![\w/#?])/g)) {
     const hit = world.numbered.find((it) => it.number === one[2] && it.url !== undefined && it.url === one[0].replace(/[.,;:!?]+$/, ""));
     if (hit !== undefined) found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: hit.kind, id: hit.number, title: bare(hit.title) } });
-  }
-  for (const job of world.jobs) {
-    const ref: ProseReference = { kind: "job", id: job.id, title: job.title };
-    const number = numberOf(job.handle);
-    if (number !== undefined) for (const one of text.matchAll(new RegExp(`\\bJob ${number}\\b`, "gi"))) found.push({ from: one.index, to: one.index + one[0].length, ref });
-    // A handle that is only its number is `Job N` above: bare, it would link every "13" in a sentence.
-    for (const needle of [...(/^\d+$/.test(job.handle) ? [] : [job.handle]), job.id]) for (const [from, to] of whole(text, needle)) found.push({ from, to, ref });
   }
   for (const session of world.sessions) {
     const ref: ProseReference = { kind: "session", id: session.id, title: session.title ?? session.id };

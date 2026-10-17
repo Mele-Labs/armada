@@ -2,7 +2,7 @@
 // and read #412; ops keeps them in Jira and reads ABC-123 and OPS-7. The walk `issue-backlogs` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -19,7 +19,7 @@ const OPS: RepositorySummary = {
   manifest: { ...repository().manifest!, id: "ops", repository: "ops", path: "ops/armada.yml" },
 };
 
-const board = onBoard([], { repositories: [STOREFRONT, OPS] });
+const board = onBoard({ repositories: [STOREFRONT, OPS] });
 
 /** Served as the Sessions fleet serves a scenario, so Helm's box is the Sessions box and `#` reads each repository's issues. */
 function build(): Scenario {

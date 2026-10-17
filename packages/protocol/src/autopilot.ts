@@ -10,7 +10,7 @@ export type AutopilotState = "running" | "paused" | "stopped";
  * The cap that paused it. It stays named until a person's Resume, which Fleet refuses (409
  * `fleet.autopilot_capped`, naming the cap) while any cap is still reached. #2105.
  */
-export type AutopilotCap = "until" | "spend" | "jobs";
+export type AutopilotCap = "until" | "spend" | "sessions";
 
 /** What became of one pick. `withdrawn`: its Session had not run when Autopilot was stopped. */
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
@@ -42,15 +42,15 @@ export type Autopilot = {
   at_once: number;
   until?: string;
   spend_cap_micros?: number;
-  job_cap?: number;
+  session_cap?: number;
   state: AutopilotState;
   started_at: string;
   ended_at?: string;
   /** Where a cap rather than a person paused it. Cleared by Resume. */
   capped_by?: AutopilotCap;
   spent_micros: number;
-  /** How many Sessions it has started, which `job_cap` is held to. Named for the Jobs it once started. */
-  jobs_started: number;
+  /** How many Sessions it has started, which `session_cap` is held to. */
+  sessions_started: number;
   at_work: number;
   picks: AutopilotPick[];
   /** Why the last pass picked nothing, in Fleet's words. Absent once a pass goes through. */
@@ -73,7 +73,7 @@ export type AutopilotSettings = {
   at_once: number;
   until?: string;
   spend_cap_micros?: number;
-  job_cap?: number;
+  session_cap?: number;
 };
 
 /**
@@ -86,7 +86,7 @@ export type AutopilotQuoted = {
   at_once?: string;
   until?: string;
   spend_cap_micros?: string;
-  job_cap?: string;
+  session_cap?: string;
 };
 
 /**

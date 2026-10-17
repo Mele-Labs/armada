@@ -6,7 +6,7 @@ import { LessonCard, type LessonAnswers } from "./LessonCard";
 /**
  * One retro item, read top to bottom: one arrow from whose way it got in to
  * where the fix lands, a headline, what happened, what would change, and two
- * answers. The Retros page and a Job's retro sheet draw this card.
+ * answers. The Retros page and a retro sheet draw this card.
  */
 const meta: Meta<typeof LessonCard> = {
   title: "Compositions/Lesson card",
@@ -23,15 +23,11 @@ export default meta;
 
 type Story = StoryObj<typeof LessonCard>;
 
-const JOB_TIP = "Turn this into a Job that applies the change. It waits for your approval on the Board.";
-
 const SESSION_TIP = "Starts a Session on this repository and sends it this request now. It begins work at once.";
 
-const answers = (agreeLabel: string, agreeTip: string, session = false): LessonAnswers => ({
-  agreeLabel,
-  agreeTip,
+const answers = (agree?: { label: string; tip: string }, session = false): LessonAnswers => ({
+  ...(agree === undefined ? {} : { agree: { ...agree, onAgree: fn() } }),
   disagreeTip: "Discards it.",
-  onAgree: fn(),
   onDisagree: fn(),
   ...(session ? { startSession: { tip: SESSION_TIP, onStart: fn() } } : {}),
 });
@@ -39,7 +35,7 @@ const answers = (agreeLabel: string, agreeTip: string, session = false): LessonA
 const words = (root: HTMLElement) =>
   [...root.querySelectorAll(".armada-lesson__word")].map((one) => one.textContent);
 
-/** **Armada.** The button makes a Job, so it says so. */
+/** **Armada.** Agreed by starting a Session, so there is no other agree button. */
 export const Armada: Story = {
   name: "An Armada item",
   args: {
@@ -51,21 +47,19 @@ export const Armada: Story = {
       what: "It compared the step against a local main two commits behind origin.",
       fix: "Compare against origin/main, where the branch is cut from.",
     },
-    answers: answers("Create Job", JOB_TIP, true),
+    answers: answers(undefined, true),
   },
   play: async ({ canvas, canvasElement }) => {
     await expect(words(canvasElement)).toEqual(["Fleet", "Armada"]);
-    await expect(canvas.getByRole("button", { name: "Create Job" })).toBeVisible();
-    // The Session is the other way to agree, and sits between the Job and the rejection.
     await expect(canvas.getByRole("button", { name: "Start Session" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Reject change" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Accept" })).toBeNull();
     const names = [...canvasElement.querySelectorAll("button")].map((one) => one.textContent?.trim());
-    await expect(names.slice(0, 3)).toEqual(["Create Job", "Start Session", "Reject change"]);
+    await expect(names.slice(0, 2)).toEqual(["Start Session", "Reject change"]);
   },
 };
 
-/** **A Session being started.** Its own button sweeps and the other two are held. */
+/** **A Session being started.** Its own button sweeps and the other is held. */
 export const StartingSession: Story = {
   name: "An item whose Session is being started",
   args: {
@@ -77,15 +71,14 @@ export const StartingSession: Story = {
       what: "One docs edit set off all 4211 Rust tests.",
       fix: "Run only xtask's tests when only apps/ or packages/ change.",
     },
-    answers: { ...answers("Create Job", JOB_TIP, true), pressing: "session" },
+    answers: { ...answers(undefined, true), pressing: "session" },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Create Job" })).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Reject change" })).toBeDisabled();
   },
 };
 
-/** **Refused.** Fleet's words, with all three buttons kept. */
+/** **Refused.** Fleet's words, with both buttons kept. */
 export const SessionRefused: Story = {
   name: "An item whose Session Fleet refused",
   args: {
@@ -95,16 +88,16 @@ export const SessionRefused: Story = {
       statement: "The gate compared the step against a stale local main.",
       title: "The gate blamed the Drone for Fleet's own mistake",
     },
-    answers: { ...answers("Create Job", JOB_TIP, true), refusal: "Armada is not served by this Fleet." },
+    answers: { ...answers(undefined, true), refusal: "Armada is not served by this Fleet." },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Armada is not served by this Fleet.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Start Session" })).toBeEnabled();
-    await expect(canvas.getByRole("button", { name: "Create Job" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Reject change" })).toBeEnabled();
   },
 };
 
-/** **Kit.** Nothing is dispatched, so the button accepts. */
+/** **Kit.** No Session is started, so the button accepts. */
 export const Kit: Story = {
   name: "A Kit item",
   args: {
@@ -116,12 +109,11 @@ export const Kit: Story = {
       what: "It asked to run grep on a check log, and the step waited until you allowed it.",
       fix: "Add grep on .armada/checks to the allowlist.",
     },
-    answers: answers("Accept", "Saves it under Accepted."),
+    answers: answers({ label: "Accept", tip: "Saves it under Accepted." }),
   },
   play: async ({ canvas, canvasElement }) => {
     await expect(words(canvasElement)).toEqual(["Drone", "Kit"]);
     await expect(canvas.getByRole("button", { name: "Accept" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Create Job" })).toBeNull();
     // Kit is no repository, so there is no Session to start.
     await expect(canvas.queryByRole("button", { name: "Start Session" })).toBeNull();
   },
@@ -140,12 +132,12 @@ export const AllFields: Story = {
       fix: "Run only xtask's tests when only apps/ or packages/ change.",
       cites: [{ id: "check:2", name: "rust_test", mono: true, detail: "every Rust test ran", when: "Oct 2, 9:31 PM" }],
     },
-    answers: answers("Create Job", JOB_TIP),
+    answers: answers(undefined, true),
   },
   play: async ({ canvas, canvasElement }) => {
     await expect(words(canvasElement)).toEqual(["Fleet", "Manifest"]);
     await expect(canvas.getByText("What would change")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Create Job" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Start Session" })).toBeVisible();
     await expect(canvas.queryByText("rust_test")).toBeNull();
   },
 };
@@ -163,28 +155,7 @@ export const Old: Story = {
   },
 };
 
-/** **Answered.** Its last state and a link to the Job it proposed, and no buttons. */
-export const Agreed: Story = {
-  name: "An agreed item",
-  args: {
-    item: {
-      who: "fleet",
-      landsIn: "armada",
-      statement: "The gate compared the step against a stale local main.",
-      title: "The gate blamed the Drone for Fleet's own mistake",
-      what: "It compared the step against a local main two commits behind origin.",
-      fix: "Compare against origin/main, where the branch is cut from.",
-    },
-    settled: { said: "Agreed", job: { label: "Proposed Job", onOpen: fn() } },
-  },
-  play: async ({ canvas, canvasElement }) => {
-    await expect(words(canvasElement)).toEqual(["Fleet", "Armada"]);
-    await expect(canvas.getByRole("button", { name: "Proposed Job" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Create Job" })).toBeNull();
-  },
-};
-
-/** **Answered by a Session.** `Session started`, and a link that opens it, as Agreed links to its Job. */
+/** **Answered by a Session.** `Session started`, and a link that opens it. */
 export const SessionStarted: Story = {
   name: "An item answered by a Session",
   args: {
@@ -202,7 +173,6 @@ export const SessionStarted: Story = {
     await expect(canvas.getByText("Session started", { exact: true })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Open Session" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Start Session" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: "Create Job" })).toBeNull();
   },
 };
 

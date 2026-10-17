@@ -11,8 +11,6 @@ import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../pr
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { ApprovalCard } from "../HelmThread/ApprovalCard";
-import type { HelmApprovalCard } from "../HelmThread/ApprovalCard";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
@@ -63,7 +61,7 @@ export type SessionThreadRow =
       stableKey?: string;
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
-  /** Words typed in Helm's box that went to a Session or a Job and never to Helm: Helm's own thread has these, a Session's does not. */
+  /** Words typed in Helm's box that went to a Session and never to Helm: Helm's own thread has these, a Session's does not. */
   | {
       id: string;
       at: string;
@@ -75,8 +73,6 @@ export type SessionThreadRow =
       tags?: readonly ComposerTag[];
       stableKey?: string;
     }
-  /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
-  | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
@@ -224,8 +220,8 @@ export type SessionThreadProps = {
   onOpenWindow?: (url: string) => void;
   /** Opens a sketch the agent drew, by its ledger id. Absent, its card is not a press. */
   onOpenSketch?: (sketch: string) => void;
-  /** Opens the Session or Job a row of Helm's sent words went to. Absent, that row's chip is not a press. */
-  onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
+  /** Opens the Session a row of Helm's sent words went to. Absent, that row's chip is not a press. */
+  onOpenSent?: (target: { kind: "session"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
   /** Opens a retro this Session wrote, by its number, on the Retros page. Absent, the card has no link. Keep it stable: the card is memoised. */
@@ -257,7 +253,7 @@ export type SessionThreadProps = {
   onForkAt?: (pick: ForkPick) => void;
 };
 
-const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
+const TAG_KIND = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
 
 /**
  * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
@@ -559,7 +555,7 @@ function Row({
   onOpenSketch?: (sketch: string) => void;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
-  onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
+  onOpenSent?: (target: { kind: "session"; id: string }) => void;
 }) {
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
@@ -621,13 +617,6 @@ function Row({
     );
   }
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
-  if (row.kind === "approval") {
-    return (
-      <li role="region" aria-label="Approval asked for">
-        <ApprovalCard {...row.card} />
-      </li>
-    );
-  }
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;

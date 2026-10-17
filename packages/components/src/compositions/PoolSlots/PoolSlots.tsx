@@ -4,13 +4,13 @@ import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTileGrid } from "../../tile-grid";
-import { PoolTile, stateOf } from "./PoolTile";
+import { PoolTile } from "./PoolTile";
 import { TileSheet } from "./TileSheet";
 import { CURSOR, focusTile } from "./keys";
 import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
-export type { ClearCost, Offered, TileRow } from "./tiles";
+export type { TileRow } from "./tiles";
 export { ClearSaves } from "./ClearSaves";
 export { TileSheet } from "./TileSheet";
 export { useTileManage } from "./TileManage";
@@ -18,25 +18,20 @@ export type { TileManageProps } from "./TileManage";
 export { ReleaseConfirm } from "./ReleaseConfirm";
 
 /**
- * Cleanup's grid, one tile per worktree and each styled by what holds it. A
- * bay of the pool: held is a filled card under a band in the leased hue, free
- * an open dashed outline, stranded hatched in the warning hue, and a slot not
- * made a faint ghost. A Job's worktree outside the pool is drawn in the same
- * grid after the bays. Kept, a bay or a worktree outside the pool, is drawn
- * in a section of its own under the pool, named Kept. A slot a person closed is shuttered in the closed hue;
- * a held one closed keeps its holder and takes the closed mark.
- * `armada worktree --status` is the same reading. Marks are group `Worktree
- * slot` in `packages/icons/icons/`.
+ * Cleanup's grid, one tile per bay and each styled by what holds it. Held is a
+ * filled card under a band in the leased hue, free an open dashed outline,
+ * stranded hatched in the warning hue, and a slot not made a faint ghost. A
+ * slot a person closed is shuttered in the closed hue; a held one closed keeps
+ * its holder and takes the closed mark. `armada worktree --status` is the same
+ * reading. Marks are group `Worktree slot` in `packages/icons/icons/`.
  *
  * **A tile says its state and nothing else.** A press on it opens its panel in
- * the trailing sheet, where every act is: what it holds, Clear, Delete branch,
- * Forget Job, and for a bay Close, Reopen, Remove and Rescue with its Finding.
+ * the trailing sheet, where every act is: Close, Reopen, Remove, Release and
+ * Rescue with its Finding.
  */
 export type PoolSlotsProps = {
-  /** Bays first, then worktrees outside the pool, in the order they are drawn. */
+  /** The bays, in the order they are drawn. */
   rows: readonly TileRow[];
-  /** Open the Job holding a tile. Absent draws the Job as a name. */
-  onOpenJob?: ((jobId: string) => void) | undefined;
   /**
    * Change the pool: add a slot (no `slot`), or remove, close or reopen one.
    * Absent draws no slot acts and no add tile.
@@ -48,18 +43,8 @@ export type PoolSlotsProps = {
    * of the acts.
    */
   onRescue?: (act: RescueAct, slot: number) => void;
-  /** Give a worktree back. Sent only from Clear's confirm. Absent draws no Clear. */
-  onClear?: (jobId: string) => void;
   /** Release a slot an agent session holds, for the holder it showed. Sent only from its confirm. */
   onRelease?: (slot: number, holder: string) => void;
-  /** Delete a worktree's branch at the tip its confirm named. Absent draws no Delete branch. */
-  onDeleteBranch?: (jobId: string, tip: string) => void;
-  /** Delete a Job's record. Sent only from its confirm. Absent draws no Forget Job. */
-  onForget?: (jobId: string) => void;
-  /** Pause a Job that holds a bay. Sent only from its confirm. Absent draws no Pause. */
-  onPause?: (jobId: string) => void;
-  /** Resume a paused Job. Absent draws no Resume. */
-  onResume?: (jobId: string) => void;
   /** A path or a branch is copied on a press; the surface confirms it. */
   onCopied?: (value: string) => void;
   /** Why the last add was refused, drawn on the add tile. */
@@ -96,15 +81,9 @@ function AddTile({ onAct, refused, adding }: { onAct: NonNullable<PoolSlotsProps
 
 export function PoolSlots({
   rows,
-  onOpenJob,
   onAct,
   onRescue,
-  onClear,
   onRelease,
-  onDeleteBranch,
-  onForget,
-  onPause,
-  onResume,
   onCopied,
   addRefused,
   adding,
@@ -113,7 +92,7 @@ export function PoolSlots({
   /** The tile whose panel is open. */
   const [opened, setOpened] = useState<string | null>(null);
   const view = useRef<HTMLDivElement>(null);
-  // One Tab stop for the pool and Kept together, the arrows and j and k across both; o opens a tile's panel, as a press on its name does.
+  // One Tab stop for the pool, the arrows and j and k across it; o opens a tile's panel, as a press on its name does.
   useTileGrid(view, {
     tile: ".armada-bay",
     cursor: CURSOR,
@@ -123,20 +102,13 @@ export function PoolSlots({
       name.click();
     },
   });
-  // A tile that went away, a slot removed or a record forgotten, has no panel left.
+  // A tile that went away, a slot removed, has no panel left.
   const open = rows.find((row) => keyOf(row) === opened);
-  // Kept, a bay or a worktree outside the pool, is its own section: each waits on a person, not on the pool.
-  const kept = rows.filter((row) => stateOf(row).bay === "kept");
-  const rest = rows.filter((row) => stateOf(row).bay !== "kept");
-  const bays = rest.filter((row) => row.slot !== undefined);
-  const outside = rest.filter((row) => row.slot === undefined);
-  const pooled = bays.length > 0 || outside.length > 0 || onAct !== undefined;
-  const tile = (row: TileRow) => (
-    <PoolTile key={keyOf(row)} row={row} open={keyOf(row) === opened} onOpenJob={onOpenJob} onOpen={() => setOpened(keyOf(row))} />
-  );
+  const pooled = rows.length > 0 || onAct !== undefined;
+  const tile = (row: TileRow) => <PoolTile key={keyOf(row)} row={row} open={keyOf(row) === opened} onOpen={() => setOpened(keyOf(row))} />;
   return (
     <>
-      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on, a section each. A band repeats its list's name, so it is unread. */}
+      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on. A band repeats its list's name, so it is unread. */}
       <div className="armada-pool-slots__views" ref={view}>
         {pooled ? (
           <div className="armada-pool-slots__view">
@@ -144,37 +116,20 @@ export function PoolSlots({
               Worktree slots
             </div>
             <ul className="armada-pool-slots" aria-label="Worktree slots">
-              {bays.map(tile)}
+              {rows.map(tile)}
               {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
-              {outside.map(tile)}
             </ul>
           </div>
         ) : null}
-        {kept.length === 0 ? null : (
-          <div className="armada-pool-slots__view" data-section="kept">
-            <div className="armada-pool-slots__band" aria-hidden>
-              Kept
-            </div>
-            <ul className="armada-pool-slots" aria-label="Kept">
-              {kept.map(tile)}
-            </ul>
-          </div>
-        )}
       </div>
       {open === undefined ? null : (
         <TileSheet
           key={opened}
           row={open}
           floor={floor}
-          onOpenJob={onOpenJob}
           {...(onAct === undefined ? {} : { onAct })}
           {...(onRescue === undefined ? {} : { onRescue })}
-          {...(onClear === undefined ? {} : { onClear })}
           {...(onRelease === undefined ? {} : { onRelease })}
-          {...(onDeleteBranch === undefined ? {} : { onDeleteBranch })}
-          {...(onForget === undefined ? {} : { onForget })}
-          {...(onPause === undefined ? {} : { onPause })}
-          {...(onResume === undefined ? {} : { onResume })}
           {...(onCopied === undefined ? {} : { onCopied })}
           onClose={() => {
             // The sheet takes focus when it opens, so closing it gives focus back to the tile it was opened from.

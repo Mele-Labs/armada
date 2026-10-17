@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { GUIDE_ALWAYS_LOOKS, GUIDE_COMPLETION, GUIDE_MEMBER_LINK } from "../../guides";
+import { GUIDE_ALWAYS_LOOKS, GUIDE_COMPLETION, GUIDE_GROUP_ORDER } from "../../guides";
 import { GuideCard } from "./GuideCard";
 
 const meta: Meta<typeof GuideCard> = {
@@ -23,7 +23,7 @@ export const Longer: Story = {
 
 /** A guide that carries a drawing, in the narrowest layer it is drawn in. */
 export const WithAFigure: Story = {
-  args: { guide: GUIDE_MEMBER_LINK },
+  args: { guide: GUIDE_GROUP_ORDER },
 };
 
 /**

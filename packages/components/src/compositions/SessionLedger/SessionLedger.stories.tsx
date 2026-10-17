@@ -27,7 +27,6 @@ const ENTRIES: LedgerEntry[] = [
   { key: "s7", kind: "slot", name: "Worktree slot 7", text: "7", onOpen: open },
   { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", slot: 3, onOpen: open },
   { key: "p", kind: "pull_request", name: "Pull request #1843, checks failed", text: "#1843 Pin the store clock", mark: { glyph: "failed", said: "Checks failed: store: 2 failed" }, onOpen: open },
-  { key: "j", kind: "job", name: "Job 52", text: "52 Pin the store clock", slot: 4, onOpen: open },
   { key: "st", kind: "studio", name: "Studio Flaky store shapes", text: "Flaky store shapes", onOpen: open },
   { key: "k", kind: "sketch", name: "Sketch Store clock", text: "Store clock", onOpen: open },
   { key: "a", kind: "subagent", name: "Subagent Read the CI history, running", text: "Read the CI history", mark: { glyph: "running", said: "Running" }, onOpen: open },
@@ -159,7 +158,7 @@ export const ReleaseRow: Story = {
   args: {
     entries: [
       { key: "s4", kind: "slot", name: "Worktree slot 4", text: "4", release: { name: "slot-4", onPress: releasing }, onOpen: open },
-      { key: "s7", kind: "slot", name: "Worktree slot 7", text: "7", released: { kept: "A piloted Job holds it, and the pilot's exit gives it back." }, release: { name: "slot-7", onPress: releasing }, onOpen: open },
+      { key: "s7", kind: "slot", name: "Worktree slot 7", text: "7", released: { kept: "Another Session holds it." }, release: { name: "slot-7", onPress: releasing }, onOpen: open },
       { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", released: {}, onOpen: open },
     ],
   },
@@ -168,7 +167,7 @@ export const ReleaseRow: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Release slot-4" }));
     await expect(releasing).toHaveBeenCalledTimes(1);
     await expect(canvas.getByRole("img", { name: "Given back" })).toBeInTheDocument();
-    await expect(canvas.getByText("A piloted Job holds it, and the pilot's exit gives it back.")).toBeInTheDocument();
+    await expect(canvas.getByText("Another Session holds it.")).toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Release fix/flaky-store" })).not.toBeInTheDocument();
   },
 };
@@ -248,10 +247,10 @@ export const FilterBar: Story = {
 
 /** Only the sections that hold a row are drawn, and the picture is gone. */
 export const Some: Story = {
-  args: { entries: ENTRIES.filter((one) => one.kind === "branch" || one.kind === "job") },
+  args: { entries: ENTRIES.filter((one) => one.kind === "branch" || one.kind === "studio") },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Branches" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Studios" })).toBeInTheDocument();
     await expect(canvas.queryByRole("heading", { name: "Worktree Slot" })).toBeNull();
     await expect(canvas.queryByRole("heading", { name: "Artifacts" })).toBeNull();
     await expect(canvas.queryByRole("img", { name: "Nothing attached" })).toBeNull();
@@ -338,7 +337,7 @@ export const ArtifactsFiltered: Story = {
 export const Accumulated: Story = {
   args: { entries: ENTRIES },
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Open Job 52" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Open Studio Flaky store shapes" }));
     await expect(open).toHaveBeenCalled();
   },
 };
@@ -401,14 +400,14 @@ const CARDS: LedgerEntry[] = [
     onOpen: open,
   },
   {
-    key: "jc",
-    kind: "job",
-    name: "Job 52",
-    text: "52 Pin the store clock",
+    key: "bc",
+    kind: "branch",
+    name: "Branch 52-pin-the-store-clock",
+    text: "52-pin-the-store-clock",
     mark: { glyph: "running", said: "Running" },
     slot: 4,
     card: {
-      title: "52 Pin the store clock",
+      title: "52-pin-the-store-clock",
       facts: [
         { label: "State", value: "Running", tone: "running" },
         { label: "Step", value: "implement", mono: true },
@@ -440,8 +439,8 @@ export const PreviewCards: Story = {
     await userEvent.tab();
     await expect(pr).toHaveFocus();
     await userEvent.tab();
-    const job = canvas.getByRole("button", { name: "Open Job 52" });
-    await expect(job).toHaveFocus();
+    const branch = canvas.getByRole("button", { name: "Open Branch 52-pin-the-store-clock" });
+    await expect(branch).toHaveFocus();
     await waitFor(() => expect(screen.getByText("implement")).toBeVisible());
     // The card does not take the press.
     await userEvent.keyboard("{Enter}");

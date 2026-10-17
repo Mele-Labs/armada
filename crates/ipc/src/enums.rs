@@ -17,7 +17,6 @@
 //! A peer that sent it does not share this vocabulary, and guessing which
 //! variant it meant is how a Job renders as something it is not.
 
-use core_model::Origin as DomainOrigin;
 use serde::de::{Deserializer, Error as _};
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -73,41 +72,6 @@ macro_rules! wire_enum {
 }
 
 wire_enum! {
-    /// Which checkout a frame is a photograph of.
-    ///
-    /// **What makes a set of frames a before and an after.** `#209` asks for
-    /// the branch *and* the base so a reviewer sees what changed rather than
-    /// what is, and two frames the spec called `home.png` are only a pair if
-    /// something says which is which. Nothing else on [`KeptFrame`] could: the
-    /// name is the harness's own, and both runs belong to one attempt of one
-    /// step.
-    ///
-    /// **Pair them by `name` and read the leftovers as answers.** A name on
-    /// both sides is a before and an after; a name only on the branch is a
-    /// screen the change added, which has no before; a name only at base is one
-    /// it removed, which has no after. None of the three is a fault, and a
-    /// client that drew a missing half as an error would draw the commonest
-    /// case `#209` is for — a brand-new screen — as the feature being broken.
-    ///
-    /// **Strict, like every other closed set here and unlike
-    /// `FleetCapacity.held_by`.** A third spelling would mean this seam had
-    /// grown a third kind of checkout, which is a change every reader has to be
-    /// told about — `docs/practices/protocol.md` holds the test.
-    Side, core_model::Side, "a side"
-}
-wire_enum! {
-    /// Where a Job is. Fourteen, from `domain/job-statuses.toml`.
-    ///
-    /// **Strict, and Bridge picks a screen from it** — `docs/practices/protocol.md`
-    /// names this set as the one whose growth is a major bump for exactly that
-    /// reason, which is why `proposing` moved the major to 19.
-    JobStatus, core_model::JobStatus, "a Job status"
-}
-wire_enum! {
-    /// What happens if the Job waits, not how it feels.
-    Urgency, core_model::Urgency, "an urgency"
-}
-wire_enum! {
     /// What a node on a Studio is. `docs/concepts/studio.md`, *Nodes*.
     StudioNodeKind, core_model::StudioNodeKind, "a Studio node kind"
 }
@@ -137,10 +101,6 @@ wire_enum! {
     StudioEdgeStanding, core_model::StudioEdgeStanding, "a Studio edge standing"
 }
 wire_enum! {
-    /// Where a Job came from.
-    Origin, DomainOrigin, "an origin"
-}
-wire_enum! {
     /// What one declared mechanical Check did. Six, from
     /// `domain/check-outcomes.toml`. **Two of them advance a step and only one
     /// of those is a pass** — `skipped` is a Check whose declared paths the step
@@ -148,18 +108,9 @@ wire_enum! {
     CheckOutcome, core_model::CheckOutcome, "a check outcome"
 }
 wire_enum! {
-    /// What one Judge call answered about one criterion. **Neither word is an
-    /// approval**: `met` reads "no objection", and there is no third variant.
-    JudgeVerdict, core_model::JudgeVerdict, "a judge verdict"
-}
-wire_enum! {
     /// Who caused a transition, and a message that did not record which never
     /// will. `judge` and `check` since 22.0: a strict set, so each was a major.
     Actor, core_model::Actor, "an actor"
-}
-wire_enum! {
-    /// Which verification source answers a criterion.
-    CriterionSource, core_model::CriterionSource, "a criterion source"
 }
 wire_enum! {
     /// Whether a Job's pull request is offered for review or parked as a
@@ -178,11 +129,6 @@ wire_enum! {
     ManifestReach, core_model::ManifestReach, "a Manifest's word about a server"
 }
 wire_enum! {
-    /// Where one step of the frozen WorkflowDef got to. The inner machine's
-    /// states, which are rows rather than a field on the Job.
-    StepState, core_model::StepState, "a step state"
-}
-wire_enum! {
     /// What it takes to advance past one step. Five, from
     /// `domain/workflowdef-fields.toml`.
     ///
@@ -196,150 +142,13 @@ wire_enum! {
     AdvanceGate, core_model::AdvanceGate, "an advance gate"
 }
 wire_enum! {
-    /// Which way a dependency edge points.
-    DependencyDirection, core_model::DependencyDirection, "a dependency direction"
-}
-wire_enum! {
-    /// Why an approved Job has not started. **Derived at read time**, so what
-    /// crosses is what was true when the row was read and never a stored label.
-    QueuedReason, core_model::QueuedReason, "a queued reason"
-}
-wire_enum! {
-    /// Which of a Job's two ceilings is holding it, where one is.
-    ///
-    /// **The finer half of [`QueuedReason::OverBudget`]**, and beside it rather
-    /// than inside it: the Board's label is still `over_budget`, and this says
-    /// which act would clear it.
-    ///
-    /// **Closed, unlike [`AdmissionHold`](crate::AdmissionHold).** That one is
-    /// open because its set grows with every resource signal Fleet learns to
-    /// read; there are two budget ceilings and `fleet::allowance` argues out
-    /// the two candidates for a third — wall clock is `drone-job-timeout`'s,
-    /// and quota carries no quantity. Bridge matches on this to choose which
-    /// raise it offers, which is [`JobStatus`]'s case rather than
-    /// `AdmissionHold`'s: a word it never heard of is a control it would draw
-    /// wrong.
-    BudgetHold, core_model::BudgetHold, "a budget hold"
-}
-wire_enum! {
-    /// Which act a person took to put a `queued` Job back in the queue.
-    ///
-    /// **The other axis over `queued`**, beside [`QueuedReason`]: that one says
-    /// what the Job is waiting for and this says who put it there. Absent on a
-    /// Job approved and never run, which is the ordinary way in.
-    ///
-    /// **Closed, unlike [`AdmissionHold`](crate::AdmissionHold).** That one is
-    /// open because its set grows with every resource signal Fleet learns to
-    /// read; this one is the shape of the inner step machine, and a fourth
-    /// value would mean that machine grew a state. `docs/practices/protocol.md`
-    /// carries the distinction.
-    Resumption, core_model::Resumption, "a resumption"
-}
-wire_enum! {
     /// What kind of work product a step's evidence is, from the
     /// WorkflowDef schema, and **the workflow's word rather than the Drone's**:
     /// the Evidence tool has no parameter for it, so a submission is recorded
     /// under the type its frozen step declared.
     EvidenceType, core_model::EvidenceType, "an evidence type"
 }
-wire_enum! {
-    /// An act a person may take on a Job that stopped, spelled as
-    /// `operations/` keys the operation that performs it.
-    ///
-    /// **The set is declared by the acts Fleet implements** and by no registry,
-    /// so the spelling is the route's rather than a word chosen here — a screen
-    /// that names an act and a header that offers it cannot end up describing
-    /// different things. Pilot, the fifth act in `docs/concepts/job.md`, is
-    /// absent because Fleet serves no route for it.
-    ///
-    /// **A new act is a minor bump.** Bridge types the field `string[]` and
-    /// offers only the acts it knows, so a spelling it was built before is
-    /// ignored rather than matched. The day it branches exhaustively on one,
-    /// this seam's table makes the next act a major.
-    Recourse, core_model::Recourse, "a recourse"
-}
-wire_enum! {
-    /// Whether a Drone arrived on a Job or left it. **Presence, not state** —
-    /// `assigned_drone` is a pointer that is set or null, so the log carries
-    /// the two moments that change it and nothing else about a Drone's life.
-    DronePresence, core_model::DronePresence, "a drone presence"
-}
-wire_enum! {
-    /// Where one task of a Job's plan stands. **A Drone's claim or a person's,
-    /// and it gates nothing** — Bridge draws a mark from it and matches on it.
-    /// `handed_in` and `failed` since 22.0, and Fleet's alone to write.
-    TaskState, core_model::TaskState, "a task state"
-}
-wire_enum! {
-    /// Where one group of a Job's plan is. The registry's eight words, of which
-    /// Fleet writes `pending`, `running`, `retrying`, `passed` and `failed`
-    /// since 23.4; a peer must still read the other three.
-    GroupState, core_model::GroupState, "a group state"
-}
-wire_enum! {
-    /// How hard the planner thought a task was, which picks its model off the
-    /// Job's map. **A task with no tier leaves the field out**: that is the
-    /// planner leaving it to Armada, not a fourth word. Since 23.6.
-    TaskTier, core_model::TaskTier, "a task tier"
-}
 
-/// The four origins a Job proposed over the wire may claim.
-///
-/// **`sub_dispatched` is not among them, and that is the point.** A Job spawned
-/// by a step of another Job is created inside Fleet and never proposed by a
-/// peer, so the refusal is at the boundary rather than in a check behind it:
-/// `Origin::top_level` is the narrowing `core-model` already carries, and this
-/// deserialises through it.
-///
-/// It has no `as_wire` of its own upstream either — the spelling comes from the
-/// `Origin` it converts into, which is why widening one cannot leave the other
-/// behind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TopLevelOrigin(core_model::TopLevelOrigin);
-
-impl TopLevelOrigin {
-    pub fn as_wire(&self) -> &'static str {
-        DomainOrigin::from(self.0).as_wire()
-    }
-
-    /// Read a spelling back. `None` for `sub_dispatched`, and for anything the
-    /// registry does not have.
-    pub fn from_wire(spelling: &str) -> Option<TopLevelOrigin> {
-        DomainOrigin::from_wire(spelling)
-            .and_then(|origin| origin.top_level())
-            .map(TopLevelOrigin)
-    }
-
-    pub fn domain(&self) -> core_model::TopLevelOrigin {
-        self.0
-    }
-}
-
-impl From<core_model::TopLevelOrigin> for TopLevelOrigin {
-    fn from(origin: core_model::TopLevelOrigin) -> Self {
-        TopLevelOrigin(origin)
-    }
-}
-
-impl Serialize for TopLevelOrigin {
-    fn serialize<S: Serializer>(&self, out: S) -> Result<S::Ok, S::Error> {
-        out.serialize_str(self.as_wire())
-    }
-}
-
-impl<'de> Deserialize<'de> for TopLevelOrigin {
-    fn deserialize<D: Deserializer<'de>>(input: D) -> Result<Self, D::Error> {
-        let spelling = String::deserialize(input)?;
-        DomainOrigin::from_wire(&spelling)
-            .and_then(|origin| origin.top_level())
-            .map(TopLevelOrigin)
-            .ok_or_else(|| {
-                D::Error::custom(format!(
-                    "`{spelling}` is not an origin a proposed Job may claim"
-                ))
-            })
-    }
-}
 wire_enum! {
     /// Which door a request that moved a Job came through: `bridge`, `helm`,
     /// `door`, `http` or `phone`. Since 23.12. `docs/concepts/retro.md`.

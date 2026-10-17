@@ -223,7 +223,6 @@ export function SlotPane({ view, ledger, clock, repo, known, props }: { view: Ba
   const slot = view.slot;
   const stranded = view.state === "stranded";
   const history = useBayHistory(slot.manifest_id, slot.slot, ledger);
-  const worktrees = props.state.held.state === "read" ? props.state.held.held.worktrees : [];
   const sends = props.bayActs;
   const manages = sends !== undefined || props.onRescueSlot !== undefined;
   // A holder the ship still holds opens as a link; one that is gone is named by its id.
@@ -241,15 +240,9 @@ export function SlotPane({ view, ledger, clock, repo, known, props }: { view: Ba
             <BayManage
               key={view.key}
               slot={slot}
-              worktrees={worktrees}
               now={props.now}
               onChange={sends?.onChange}
               onRescue={props.onRescueSlot}
-              onReclaim={sends?.onReclaim}
-              onDeleteBranch={sends?.onDeleteBranch}
-              onForget={sends?.onForget}
-              onPause={sends?.onPause}
-              onResume={sends?.onResume}
             />
           </div>
         )}

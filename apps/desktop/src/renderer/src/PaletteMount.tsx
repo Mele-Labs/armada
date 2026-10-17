@@ -6,7 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { Palette, type PaletteBoardRow, type PaletteRepository, type PaletteSurface } from "@armada/shell";
+import { Palette, type PaletteRepository, type PaletteSurface } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
@@ -29,8 +29,6 @@ export type PaletteMountProps = {
   failing: unknown | null;
   /** Whether Fleet is connected. */
   live: boolean;
-  /** Reported, as `App.tsx` worded it. */
-  board: readonly PaletteBoardRow[];
   /** The repositories the title row's picker lists, and the one picked: `null` is All. */
   repositories: readonly PaletteRepository[];
   picked: string | null;
@@ -56,7 +54,6 @@ export function PaletteMount({
   checkoutRunSheet,
   failing,
   live,
-  board,
   repositories,
   picked,
   acts,
@@ -84,7 +81,6 @@ export function PaletteMount({
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
-      board={board}
       repositories={repositories}
       picked={picked}
       // Only the live Sessions: the palette jumps to work in hand.

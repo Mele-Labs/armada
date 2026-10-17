@@ -519,11 +519,10 @@ fn flattened(line: &str) -> String {
 /// One of Armada's own operations.
 ///
 /// **A query never asks**, since a read changes nothing anywhere. A command
-/// asks only where it is one of the three: pausing a Job, adding a task,
-/// writing a Studio note and starting a local run are none of them.
+/// asks only where it is one of the three: writing a Studio note and starting
+/// a local run are none of them.
 fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
     const SHARED: &[&str] = &[
-        "approve_dispatch",
         "approve_review",
         "merge_pull_request",
         // A pull request by number is nobody's Job and the same act: the
@@ -535,23 +534,12 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         // A comment, an approval or a request for changes is read by everyone
         // watching the repository.
         "write_pull_request",
-        "redispatch_job",
         "dispatch_studio_draft",
         "request_changes",
-        // Two of a pilot's exits: the work goes on toward delivery, or a person
-        // says finished work is finished with no gate run.
-        "submit_for_verification",
-        "attest_complete",
     ];
     const GONE: &[&str] = &[
-        "kill_job",
-        "kill_drone",
-        "kill_one_drone",
-        // Closing a Job as superseded ends the Job.
-        "close_as_superseded",
         "kill_process",
         "kill_processes",
-        "forget_job",
         "delete_branch",
         "delete_studio",
         "remove_studio_nodes",
@@ -566,8 +554,6 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "file_finding_issue",
         "rerun_checks",
         "rerun_failed_checks",
-        "enable_job_auto_merge",
-        "rerun_gate",
         "investigate_failed_checks",
         "add_repository",
         "clone_repository",

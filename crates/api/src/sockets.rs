@@ -1,65 +1,21 @@
-//! The two upgrades, and what goes down each.
+//! The upgrades, and what goes down each.
 //!
-//! **Three sockets and not one.** `/events` is global and carries every Job's
-//! state, because Bridge holds exactly one connection; `/jobs/:id/observe` is
-//! one Job's turns and `/jobs/:id/log` is what Fleet did to it, both opened
-//! deliberately on one Job. A transcript row on the global stream would evict
-//! the state changes the Board is drawn from, and an eviction there is a full
-//! resync of every Job rather than a lost row.
+//! `/events` is global, because Bridge holds exactly one connection; a Check's
+//! log and a run's output each open deliberately on a socket of their own. A
+//! transcript row on the global stream would evict the state changes Bridge
+//! draws from, and an eviction there is a full resync rather than a lost row.
 //!
-//! **The third is not a fourth voice on the second.** `observe_job` exists
-//! only while a Drone is writing — it answers `nothing_writing` and closes on
-//! exactly the Job whose log this carries — and folding notes into `Saw` would
-//! be a variant an old Bridge's `switch` has no arm for, which
-//! `docs/practices/protocol.md` makes a major bump.
-//!
-//! All three are extractors in the same `Router`. There is no second port.
+//! All of them are extractors in the same `Router`. There is no second port.
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{Missed, ProtocolId, Resync, StreamMessage, WireError};
+use ipc::{Missed, ProtocolId, Resync, StreamMessage};
 
-use crate::answers::{problem, refused};
+use crate::answers::refused;
 use crate::daemon::Queries;
-use crate::reference::Resolved;
 use crate::served::Served;
 use crate::stream::Next;
-
-/// A listener built with no reader for a Job's own log.
-///
-/// **A fault and not an empty answer.** A stream that opened and stayed silent
-/// would read as a Job nothing is happening to, which is the exact reading this
-/// whole route exists to stop being wrong.
-pub(crate) const NO_JOURNAL: &str = "api.no_journal_reader";
-
-
-/// One Job's own log: what Fleet did to it, as the Job's log recorded it.
-///
-/// **Per-Job and its own socket**, for the reasons at the top of this module.
-/// The Job is resolved **before** the upgrade — `crate::reference::Resolved` is
-/// the extractor — so an id that names nothing is a 404 the caller reads at the
-/// moment they asked, and the handle the log is named by comes back with it.
-pub(crate) async fn job_log<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    upgrade: WebSocketUpgrade,
-) -> Response {
-    let Some(journal) = served.journal() else {
-        return problem(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            &WireError::raised(
-                NO_JOURNAL,
-                "this Fleet was built with no reader for a Job's own log",
-                served.run_id().clone(),
-            )
-            .about_job(job.id()),
-        );
-    };
-    upgrade.on_upgrade(move |socket| crate::journal::relay(socket, job, journal))
-}
-
 
 /// Which merge line Check's log a viewer asked for: the line's own words.
 #[derive(serde::Deserialize)]
@@ -125,23 +81,16 @@ async fn watch<D: Queries>(mut socket: WebSocket, served: Served<D>) {
     }
 }
 
-/// Current state, whole. `false` where the socket or the daemon is gone, and
-/// the caller stops.
-///
-/// A daemon that cannot answer closes the socket rather than sending a partial
-/// snapshot: there is no error message on this stream, and a client that
-/// reconnects gets a whole answer or none.
+/// Where the stream is, and what this build speaks. `false` where the socket is
+/// gone, and the caller stops. Nothing is read from the daemon: the state a
+/// client holds is fetched by its own reads, and this tells it when to.
 async fn resync<D: Queries>(socket: &mut WebSocket, served: &Served<D>) -> bool {
     let cursor = served.events().cursor();
-    let Ok(jobs) = served.daemon().list_jobs(None).await else {
-        return false;
-    };
     send(
         socket,
         &StreamMessage::Resync(Resync {
             protocol_id: ProtocolId::current(),
             cursor,
-            jobs,
         }),
     )
     .await

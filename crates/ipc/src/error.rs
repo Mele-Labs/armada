@@ -17,7 +17,6 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{DroneId, JobId, StepId};
 
 /// The process instance that emitted the error.
 ///
@@ -53,14 +52,6 @@ pub struct WireError {
     /// costs: a traversable chain cannot cross a wire, so everything downstream
     /// of here reads strings.
     pub chain: Vec<String>,
-    /// Absent on a failure that precedes a Job.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
-    /// A retry is a second Drone id under one Job.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub drone_id: Option<DroneId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub step_id: Option<StepId>,
 }
 
 impl WireError {
@@ -73,9 +64,6 @@ impl WireError {
             run_id,
             fields: BTreeMap::new(),
             chain: Vec::new(),
-            job_id: None,
-            drone_id: None,
-            step_id: None,
         }
     }
 
@@ -87,12 +75,6 @@ impl WireError {
 
     pub fn with_field(mut self, key: impl Into<String>, value: WireValue) -> WireError {
         self.fields.insert(key.into(), value);
-        self
-    }
-
-    /// The Job this failure is about, once one exists.
-    pub fn about_job(mut self, job_id: JobId) -> WireError {
-        self.job_id = Some(job_id);
         self
     }
 }

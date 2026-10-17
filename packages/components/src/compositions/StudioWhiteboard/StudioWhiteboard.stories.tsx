@@ -43,7 +43,6 @@ const nodes: StudioWhiteboardNode[] = [
   { id: "forge-pull", position: { x: 0, y: 780 }, node: { kind: "pull_request", title: "Dispatch an issue from its node", address: "https://example.invalid/armada/pull/1391", facts: ["#1391", "Merged"] } },
   { id: "forge-epic", position: { x: 340, y: 780 }, node: { kind: "epic", title: "Studio", address: "https://example.invalid/armada/milestone/17", facts: ["#17", "12 of 30 issues"] } },
   { id: "issue", position: { x: 1360, y: 260 }, node: { kind: "issue_draft", state: "draft", title: "The Board's legend is illegible" } },
-  { id: "job", position: { x: 1700, y: 260 }, node: { kind: "job", state: "running", title: "The Board's legend is illegible", facts: ["j-3f2a", "bug"] } },
 ];
 
 /** Every edge kind; each relation once proposed and once accepted. */

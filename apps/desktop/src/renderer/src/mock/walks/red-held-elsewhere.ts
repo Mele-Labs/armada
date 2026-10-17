@@ -11,7 +11,7 @@ const ASK = dialog("Take over from nick-mbp");
 const heldElsewhere = walk("red-held-elsewhere", [
   { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
   { look: RED, say: "Main is red" },
-  { look: inside(RED, role("group", /^Job 7be40d15, work-mac-mini/)), say: "Another machine's Job holds it: its kind, its short id, and its machine" },
+  { look: inside(RED, role("group", /^Session 7be40d15, work-mac-mini/)), say: "Another machine's Session holds it: its kind, its short id, and its machine" },
   { hover: inside(RED, role("img", "work-mac-mini")), say: "The machine, by its mark" },
   { hover: inside(RED, role("img", /^Claimed \d+m ago$/)), say: "How long ago it was claimed" },
   { look: inside(RED, button("Take over")), say: "Dispatch and Send back are not offered. Take over is" },

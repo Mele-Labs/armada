@@ -38,7 +38,7 @@ use tokio::time::Instant;
 
 use crate::daemon::Fleet;
 use crate::leasing::Reading;
-use crate::wire::{worktree_held, worktree_slot};
+use crate::wire::worktree_slot;
 
 /// A snapshot this old is read again, every slot, behind the request that finds
 /// it and on the timer while anyone is asking. The owner's bound on how stale
@@ -319,7 +319,7 @@ where
     /// a keeper is serving, so the surface that pressed the act and reads the
     /// list is not shown the list from before it.
     pub(crate) async fn worktrees_changed(&self) {
-        // A rescue or a reclaim gives a slot back without passing the Job's ledger.
+        // A rescue or a reclaim gives a slot back without passing a session's release.
         self.hosts().slot_freed();
         self.worktrees_memory().changed();
         if self.worktrees_memory().serving() {
@@ -329,30 +329,14 @@ where
     }
 
     /// The list read from git and the store now.
-    ///
-    /// **`Fleet::held_among` is the derivation and this only redacts it**: the
-    /// five tests are written once in `crate::holding`, and a filter here that
-    /// decided for itself what is safe would be a third opinion. The one thing
-    /// dropped is a piloted Job's checkout, through `Holding::offerable` (#367).
     #[cfg(test)]
     pub(crate) async fn worktrees_live(&self) -> Result<WorktreesHeld, Refusal> {
         self.worktrees_read(Reading::Live).await
     }
 
     async fn worktrees_read(&self, how: Reading) -> Result<WorktreesHeld, Refusal> {
-        // One read of the Jobs for both halves, which then run side by side.
-        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
-        let jobs = Arc::new(loaded.jobs);
-        let (holding, slots) = tokio::join!(
-            Fleet::held_among(self, Arc::clone(&jobs)),
-            Fleet::pool_slots_among(self, &jobs, how),
-        );
+        let slots = self.pool_slots(how).await;
         Ok(WorktreesHeld {
-            worktrees: holding
-                .iter()
-                .filter(|one| one.offerable())
-                .map(worktree_held)
-                .collect(),
             slots: slots.iter().map(worktree_slot).collect(),
         })
     }

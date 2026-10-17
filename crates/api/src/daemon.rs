@@ -151,10 +151,9 @@ impl<
 /// to the protocol.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Refusal {
-    /// No Job by that id. The id was invented, or the Job was retained out.
-    NoSuchJob(WireError),
-    /// The Job exists and the machine does not admit the move — approving one
-    /// already running, killing one already terminal.
+    /// Nothing by that id, or that name. It was invented, or it is gone.
+    NotFound(WireError),
+    /// The thing exists and the machine does not admit the move.
     IllegalMove(WireError),
     /// **The request decoded and names something that cannot work.** A proposal
     /// naming a workflow or a Manifest Fleet does not hold, or carrying a blank
@@ -175,7 +174,7 @@ impl Refusal {
     /// The HTTP status this answers with.
     pub fn status(&self) -> u16 {
         match self {
-            Refusal::NoSuchJob(_) => 404,
+            Refusal::NotFound(_) => 404,
             Refusal::IllegalMove(_) => 409,
             Refusal::Unacceptable(_) => 422,
             Refusal::Fault(_) => 500,
@@ -184,7 +183,7 @@ impl Refusal {
 
     pub fn error(&self) -> &WireError {
         match self {
-            Refusal::NoSuchJob(error)
+            Refusal::NotFound(error)
             | Refusal::IllegalMove(error)
             | Refusal::Unacceptable(error)
             | Refusal::Fault(error) => error,

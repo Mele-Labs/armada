@@ -20,7 +20,7 @@ pub enum AutopilotState {
 pub enum AutopilotCap {
     Until,
     Spend,
-    Jobs,
+    Sessions,
 }
 
 /// What became of one pick.
@@ -66,7 +66,7 @@ pub struct Autopilot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spend_cap_micros: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_cap: Option<u32>,
+    pub session_cap: Option<u32>,
     pub state: AutopilotState,
     pub started_at: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -76,9 +76,8 @@ pub struct Autopilot {
     pub capped_by: Option<AutopilotCap>,
     /// What its Sessions have spent so far, summed from each Session's own cost.
     pub spent_micros: u64,
-    /// How many Sessions it has started, the count `job_cap` is held to. **Named for the Jobs it once
-    /// started**; it counts Sessions.
-    pub jobs_started: u32,
+    /// How many Sessions it has started, the count `session_cap` is held to.
+    pub sessions_started: u32,
     /// How many of its Sessions hold a place now: live, at work, and not waiting on a person.
     pub at_work: u32,
     pub picks: Vec<AutopilotPick>,
@@ -114,7 +113,7 @@ pub struct AutopilotSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spend_cap_micros: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_cap: Option<u32>,
+    pub session_cap: Option<u32>,
 }
 
 /// `propose_autopilot`'s answer: the settings, and the words each was read from. #2105.
@@ -143,5 +142,5 @@ pub struct AutopilotQuoted {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spend_cap_micros: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_cap: Option<String>,
+    pub session_cap: Option<String>,
 }

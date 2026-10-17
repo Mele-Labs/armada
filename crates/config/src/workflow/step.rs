@@ -44,14 +44,12 @@ const STEP_KEYS: &[&str] = &[
     "declare_plan_at",
     "retry_limit",
     "model",
-    "may_dispatch_jobs",
     "verdict_routing",
     "iteration_cap",
     "quiet_after_seconds",
     "poke_limit",
     "follows_plan",
     "records_plan",
-    "drone_per_task",
     "phase",
 ];
 
@@ -126,14 +124,12 @@ pub struct Step {
     evidence_scope: Option<EvidenceScope>,
     retry_limit: u32,
     model: Option<ModelName>,
-    may_dispatch_jobs: bool,
     verdict_routing: BTreeMap<GateVerdict, StepId>,
     iteration_cap: Option<u32>,
     quiet_after_seconds: Option<u32>,
     poke_limit: Option<u32>,
     follows_plan: bool,
     records_plan: bool,
-    drone_per_task: bool,
     phase: Option<StepPhase>,
 }
 
@@ -243,13 +239,6 @@ impl Step {
         self.model.as_ref()
     }
 
-    /// Whether a Drone on this step is given the tool that creates Jobs.
-    /// **False on every step that leaves the key out**, which is every step of
-    /// every workflow that creates none.
-    pub fn may_dispatch_jobs(&self) -> bool {
-        self.may_dispatch_jobs
-    }
-
     /// Where this step goes on a verdict that neither advances nor ends.
     /// **Empty on every step of a linear workflow**, and empty is what makes a
     /// step's only exit forward. This is the one place a back edge is declared.
@@ -306,12 +295,6 @@ impl Step {
         self.records_plan
     }
 
-    /// Whether this step works its tasks one at a time, each by a Drone of its
-    /// own. **False where the file leaves the key out.**
-    pub fn drone_per_task(&self) -> bool {
-        self.drone_per_task
-    }
-
     /// The phase the step declared. **`None` where the file leaves the key
     /// out**, which `core_model::StepPhase::of` reads off `delivers`.
     pub fn phase(&self) -> Option<StepPhase> {
@@ -346,7 +329,7 @@ pub(super) fn read(
         .filter(|text| !text.trim().is_empty());
     let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
-    // `may_dispatch_jobs`'s rule, for its reason: a value read as absent
+    // `captured`'s rule, for its reason: a value read as absent
     // would be a step written to record the plan beside its own product that
     // silently does not. A step whose *whole* product is the plan does not
     // need this key at all — `evidence.submitted.type: "plan"` already says
@@ -384,16 +367,6 @@ pub(super) fn read(
         .optional("model")
         .and_then(|value| yaml::text(&model_key, value, out))
         .and_then(|named| roster::offered(&model_key, named, roster, out));
-    // **Absent is false, and anything that is not a boolean is a refusal.**
-    // This key is what puts the dispatch tool in a Drone's hands, so a value
-    // read as absent would be a step written to create Jobs that silently
-    // cannot — and a Job that goes quiet is an argument-list fault, which is
-    // the hardest kind to see.
-    let grant_key = table.at("may_dispatch_jobs");
-    let may_dispatch_jobs = match table.optional("may_dispatch_jobs") {
-        None => Some(false),
-        Some(value) => yaml::flag(&grant_key, value, out),
-    };
     // **Absent is Fleet's, and absent has to stay absent all the way to the
     // record** — `ResolvedStep::quiet_after_seconds` says why. A step written
     // with the number Fleet happens to ship would be a second place that
@@ -421,7 +394,7 @@ pub(super) fn read(
         .optional("poke_limit")
         .and_then(|value| yaml::counted(&poke_key, value, out));
     // **Absent is false, and anything that is not a boolean is a refusal** —
-    // `may_dispatch_jobs`'s rule, for its reason: a value read as absent would
+    // `records_plan`'s rule, for its reason: a value read as absent would
     // be a step written to work the plan that silently is not given the
     // tools. Whether this step may say so at all — a plan strictly earlier —
     // is a fact about the whole workflow and is refused in `super::workflow`.
@@ -429,14 +402,6 @@ pub(super) fn read(
     let follows_plan = match table.optional("follows_plan") {
         None => Some(false),
         Some(value) => yaml::flag(&follows_key, value, out),
-    };
-    // `follows_plan`'s rule, for its reason. A step with no plan before it
-    // has no task to put a Drone on, and runs one Drone as it would without
-    // the key, so nothing about the workflow's shape is refused here.
-    let each_key = table.at("drone_per_task");
-    let drone_per_task = match table.optional("drone_per_task") {
-        None => Some(false),
-        Some(value) => yaml::flag(&each_key, value, out),
     };
     // **Absent is none, and a word outside the three is a refusal**, so a
     // misspelt phase is not drawn in the lane its fallback picks.
@@ -555,17 +520,8 @@ pub(super) fn read(
             },
         ));
     }
-    // **A step that creates Jobs is one a person answers.** What it creates
-    // waits at `awaiting_approval` for `approve_wave` at this step's gate
-    // (spike 022, slice 6), so any other gate would leave them unreleasable.
-    let proposes_unanswered = may_dispatch_jobs == Some(true)
-        && advance_gate.is_some_and(|gate| gate != AdvanceGate::HumanAlways);
-    if proposes_unanswered {
-        out.push(Refusal::new(&gate_key, Fault::ProposesWithoutAPerson));
-    }
     table.close(STEP_KEYS, out);
     if disagrees
-        || proposes_unanswered
         || drafts_nothing
         || (judged && evidence_type.is_none())
         || (is_plan_step && !has_plan_recorded)
@@ -592,14 +548,12 @@ pub(super) fn read(
         evidence_scope,
         retry_limit: retry_limit?,
         model,
-        may_dispatch_jobs: may_dispatch_jobs?,
         verdict_routing: routing,
         iteration_cap,
         quiet_after_seconds,
         poke_limit,
         follows_plan: follows_plan?,
         records_plan: records_plan?,
-        drone_per_task: drone_per_task?,
         phase,
     })
 }
@@ -644,7 +598,7 @@ fn evidence(
         kind
     });
     // **Absent is false, and anything that is not a boolean is a refusal** —
-    // `may_dispatch_jobs`'s rule, for its reason: a value read as absent would
+    // `records_plan`'s rule, for its reason: a value read as absent would
     // be a step written to be captured that silently is not.
     let captured_at = block.at("captured");
     let captured = match block.optional("captured") {

@@ -26,7 +26,6 @@ fn shipped_texts() -> Vec<(Words, String)> {
         (keys::PROMPT_SCOUT_ASK, crate::scout::shipped_ask()),
         (keys::PROMPT_SCOUT_READ_IN, crate::scout::shipped_read_in()),
         (keys::PROMPT_SCOUT_RESCUE, crate::scout::shipped_rescue()),
-        (keys::PROMPT_RETRO_JOB, crate::retro::QUESTION.to_string()),
         (
             keys::PROMPT_RETRO_SESSION,
             crate::retro::SESSION_QUESTION.to_string(),

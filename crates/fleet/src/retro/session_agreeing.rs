@@ -56,10 +56,10 @@ where
             .lock()
             .await
             .session_lesson(retro, ordinal)
-            .map_err(|cause| self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause))))?
+            .map_err(|cause| self.refusal(Adrift::Reading(store::ReadError::Unreadable(cause))))?
             .filter(|held| held.session_id == session)
             .ok_or_else(|| {
-                Refusal::NoSuchJob(WireError::raised(
+                Refusal::NotFound(WireError::raised(
                     NO_SUCH_LESSON,
                     format!("no retro item is named {lesson_id}"),
                     self.run_id(),

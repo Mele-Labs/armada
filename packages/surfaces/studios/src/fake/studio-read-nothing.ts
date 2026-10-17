@@ -3,7 +3,7 @@
 // owner, 2 Oct 2026, over a toast he looked at and did not want.
 
 import type { Studio } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { READS_AS_NOTHING, studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
 

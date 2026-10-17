@@ -19,15 +19,6 @@ export const TIDY_DASHBOARD = `{
 }
 `;
 
-/** What the second writes over it: Record before Plan in a Job, Pulse hidden, Plan first. */
-export const TIDY_JOB = `{
-  "version": 1,
-  "dashboard.panels": { "order": ["merge-line", "fleet"] },
-  "rail": { "hidden": ["lessons"] },
-  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }
-}
-`;
-
 /** `text` checked and installed as the mod `tidy`, the way Fleet would read it from its folder. */
 export function writeTidy(text: string): void {
   const { file, problems } = parseLayout(text);

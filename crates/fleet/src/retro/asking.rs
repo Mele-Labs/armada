@@ -10,12 +10,11 @@ use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::PROMPT_RETRO_ASK;
 use ipc::{
-    AskLessonAnswer, AskRole, AskTurn, Lesson, LessonAsk, LinkedAnnotation, RetroRecord,
-    WireError,
+    AskLessonAnswer, AskRole, AskTurn, Lesson, LessonAsk, RetroRecord, WireError,
 };
 use serde::Serialize;
 
-use super::serving::{lesson_of, parsed, parsed_session, session_lesson_of};
+use super::serving::{parsed_session, session_lesson_of};
 use crate::daemon::Fleet;
 use crate::prompts::Prompts;
 
@@ -55,12 +54,10 @@ pub(crate) const ASK: &str =
      -----END EARLIER TURNS-----\n\n\
      The person asks: {question}";
 
-/// The rows an item cites, and the notes it cites, as the model reads them.
+/// The rows an item cites, as the model reads them.
 #[derive(Serialize)]
 struct Cited {
     record: RetroRecord,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    annotations: Vec<LinkedAnnotation>,
 }
 
 #[derive(Serialize)]
@@ -119,62 +116,40 @@ where
     /// **A record that will not read leaves the rows empty**, and the prompt
     /// says so through the empty list: the model then has nothing to show.
     async fn lesson_and_rows(&self, lesson_id: &str) -> Result<(Lesson, Cited), Refusal> {
-        if let Some((session, retro, ordinal)) = parsed_session(lesson_id) {
-            let held = self
-                .store()
-                .lock()
-                .await
-                .session_lesson(retro, ordinal)
-                .map_err(|cause| {
-                    self.refusal(crate::adrift::Adrift::Reading(store::LoadJobError::Unreadable(
-                        cause,
-                    )))
-                })?
-                .filter(|held| held.session_id == session)
-                .ok_or_else(|| self.no_such_lesson(lesson_id))?;
-            let kept = self
-                .store()
-                .lock()
-                .await
-                .session(&session)
-                .map_err(|why| self.ledger_fault(why))?;
-            let named = kept.as_ref().map_or_else(
-                || ipc::RetroSession {
-                    id: session.clone(),
-                    title: None,
-                },
-                super::session_writing::session_of,
-            );
-            let lesson = session_lesson_of(held, named);
-            let record = self
-                .read_session_retro(&session, Some(retro))
-                .await
-                .map(|retro| retro.record)
-                .unwrap_or_default();
-            return Ok((lesson.clone(), only_cited(record, Vec::new(), &lesson.evidence)));
-        }
-        let (job_id, ordinal) = parsed(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
+        let (session, retro, ordinal) =
+            parsed_session(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
         let held = self
             .store()
             .lock()
             .await
-            .lesson(&job_id, ordinal)
+            .session_lesson(retro, ordinal)
             .map_err(|cause| {
-                self.refusal(crate::adrift::Adrift::Reading(store::LoadJobError::Unreadable(
+                self.refusal(crate::adrift::Adrift::Reading(store::ReadError::Unreadable(
                     cause,
                 )))
             })?
+            .filter(|held| held.session_id == session)
             .ok_or_else(|| self.no_such_lesson(lesson_id))?;
-        let handle = match self.load(&job_id).await {
-            Ok(job) => job.handle(),
-            Err(_) => job_id.as_str().to_string(),
-        };
-        let lesson = lesson_of(held, handle);
-        let (record, notes) = match self.retro_record(&job_id).await {
-            Ok(gathered) => (gathered.record, gathered.annotations),
-            Err(_) => (RetroRecord::default(), Vec::new()),
-        };
-        Ok((lesson.clone(), only_cited(record, notes, &lesson.evidence)))
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .session(&session)
+            .map_err(|why| self.ledger_fault(why))?;
+        let named = kept.as_ref().map_or_else(
+            || ipc::RetroSession {
+                id: session.clone(),
+                title: None,
+            },
+            super::session_writing::session_of,
+        );
+        let lesson = session_lesson_of(held, named);
+        let record = self
+            .read_session_retro(&session, Some(retro))
+            .await
+            .map(|retro| retro.record)
+            .unwrap_or_default();
+        Ok((lesson.clone(), only_cited(record, &lesson.evidence)))
     }
 }
 
@@ -195,33 +170,17 @@ pub(crate) fn bound(question: &str, history: &[AskTurn]) -> Option<String> {
     None
 }
 
-/// `record` cut to the rows `cites` names, and the notes of the same names.
-fn only_cited(mut record: RetroRecord, notes: Vec<LinkedAnnotation>, cites: &[String]) -> Cited {
+/// `record` cut to the rows `cites` names.
+fn only_cited(mut record: RetroRecord, cites: &[String]) -> Cited {
     let held = |cite: &String| cites.contains(cite);
     record.refusals.retain(|row| held(&row.cite));
-    record.failed_checks.retain(|row| held(&row.cite));
-    record.not_met.retain(|row| held(&row.cite));
-    record.not_done.retain(|row| held(&row.cite));
-    record.said_after.retain(|row| held(&row.cite));
     record.restarts.retain(|row| held(&row.cite));
-    record.asked.retain(|row| held(&row.cite));
-    record.waited.retain(|row| held(&row.cite));
-    record.acts.retain(|row| held(&row.cite));
     record.notes.retain(|row| held(&row.cite));
     record.asks.retain(|row| held(&row.cite));
     record.corrections.retain(|row| held(&row.cite));
     record.failed_tools.retain(|row| held(&row.cite));
     record.subagents.retain(|row| held(&row.cite));
-    let annotations = notes
-        .into_iter()
-        .enumerate()
-        .filter(|(n, _)| held(&format!("annotation:{}", n + 1)))
-        .map(|(_, note)| note)
-        .collect();
-    Cited {
-        record,
-        annotations,
-    }
+    Cited { record }
 }
 
 fn prompt(

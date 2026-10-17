@@ -2,7 +2,7 @@
 //! `docs/concepts/retro.md`, *Start Session*.
 //!
 //! `agreeing` and `session_agreeing` have the rules and these are they, for the
-//! act that starts a hosted Session where that one proposes a Job. **The brief
+//! act that starts a hosted Session. **The brief
 //! is sent at once**, by the road a person's first message takes, so the
 //! process starts and the turn runs under the rules any message is under.
 //!
@@ -21,7 +21,7 @@ use ipc::{
 
 use super::agreeing::LESSON_NAMES_NO_PLACE;
 use super::session_agreeing::SESSION_NAMES_NO_REPOSITORY;
-use super::serving::{parsed, parsed_session};
+use super::serving::parsed_session;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -31,9 +31,8 @@ const NOTHING_TO_WORK_ON: &str = "fleet.lesson_session_nothing_to_work_on";
 /// none to hand back. A 409.
 const NOT_OPEN: &str = "fleet.lesson_not_open";
 
-/// Which item, by the id's two spellings.
+/// Which item: the Session, its retro's number and the item's place.
 enum Item {
-    Job(core_model::JobId, u32),
     Session(String, i64, u32),
 }
 
@@ -61,14 +60,9 @@ where
         self: &Arc<Self>,
         lesson_id: &str,
     ) -> Result<LessonSessionStarted, Refusal> {
-        let item = match parsed_session(lesson_id) {
-            Some((session, retro, ordinal)) => Item::Session(session, retro, ordinal),
-            None => {
-                let (job, ordinal) =
-                    parsed(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
-                Item::Job(job, ordinal)
-            }
-        };
+        let (session, retro, ordinal) =
+            parsed_session(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
+        let item = Item::Session(session, retro, ordinal);
         let held = self.held_item(lesson_id, &item).await?;
         if held.state != LessonState::Open {
             return self.standing_session(held).await;
@@ -144,13 +138,6 @@ where
 
     async fn held_item(&self, lesson_id: &str, item: &Item) -> Result<Held, Refusal> {
         match item {
-            Item::Job(job, ordinal) => {
-                let kept = self.lesson_held(lesson_id, job, *ordinal).await?;
-                let (state, line, send_failed) =
-                    (kept.state, kept.line.clone(), kept.session_send_failed.clone());
-                let lesson = self.lesson_standing(kept).await?;
-                Ok(Held { state, line, lesson, send_failed })
-            }
             Item::Session(session, retro, ordinal) => {
                 let kept = self
                     .session_lesson_held(lesson_id, session, *retro, *ordinal)
@@ -163,14 +150,10 @@ where
         }
     }
 
-    /// The repository a `manifest` fix is worked in: the one its Job, or its
-    /// Session, was worked in.
+    /// The repository a `manifest` fix is worked in: the one its Session was
+    /// worked in.
     async fn item_repository(&self, lesson_id: &str, item: &Item) -> Result<ManifestId, Refusal> {
         match item {
-            Item::Job(job, _) => {
-                let source = self.load(job).await.map_err(|why| self.refusal(why))?;
-                Ok(ManifestId::carried(source.owner_manifest_id().as_str()))
-            }
             Item::Session(session, _, _) => {
                 let kept = self
                     .store()
@@ -199,7 +182,6 @@ where
     async fn claim_lesson_item(&self, item: &Item) -> Result<bool, Refusal> {
         let mut store = self.store().lock().await;
         match item {
-            Item::Job(job, ordinal) => store.answer_lesson(job, *ordinal, LessonState::Agreed),
             Item::Session(_, retro, ordinal) => {
                 store.answer_session_lesson(*retro, *ordinal, LessonState::Agreed)
             }
@@ -210,7 +192,6 @@ where
     async fn reopen_lesson_item(&self, item: &Item) {
         let mut store = self.store().lock().await;
         let _ = match item {
-            Item::Job(job, ordinal) => store.reopen_lesson(job, *ordinal),
             Item::Session(_, retro, ordinal) => store.reopen_session_lesson(*retro, *ordinal),
         };
     }
@@ -218,7 +199,6 @@ where
     async fn keep_lesson_item_send_failed(&self, item: &Item, why: &str) -> Result<(), Refusal> {
         let mut store = self.store().lock().await;
         match item {
-            Item::Job(job, ordinal) => store.keep_lesson_send_failed(job, *ordinal, why),
             Item::Session(_, retro, ordinal) => {
                 store.keep_session_lesson_send_failed(*retro, *ordinal, why)
             }
@@ -229,7 +209,6 @@ where
     async fn keep_lesson_item_session(&self, item: &Item, started: &str) -> Result<(), Refusal> {
         let mut store = self.store().lock().await;
         match item {
-            Item::Job(job, ordinal) => store.keep_lesson_session(job, *ordinal, started),
             Item::Session(_, retro, ordinal) => {
                 store.keep_session_lesson_session(*retro, *ordinal, started)
             }
@@ -262,10 +241,9 @@ where
     }
 }
 
-/// Which Job or Session the item came from, as the brief names it.
+/// Which Session the item came from, as the brief names it.
 fn source_of(lesson: &Lesson) -> String {
-    let kind = if lesson.session.is_some() { "Session" } else { "Job" };
-    format!("{kind} {}", lesson.handle)
+    format!("Session {}", lesson.handle)
 }
 
 /// The first message an agent is sent for an item: the same parts

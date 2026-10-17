@@ -20,7 +20,7 @@ mod existing;
 mod git;
 mod handing;
 mod history;
-pub(crate) mod jobs;
+pub(crate) mod hosted;
 mod parking;
 mod reading;
 mod record;
@@ -47,7 +47,6 @@ use git::{count, git, git_ok};
 pub use history::{checkouts_in, checkouts_of, turns_of, Checkout, Turn, KEPT_DAYS};
 pub use record::Holder;
 use record::Record;
-pub use saving::{save_worktree, SavedWorktree};
 pub use shape::Unshaped;
 pub(crate) use watching::acted;
 pub use trim::{sweep_repository, trim_target, Trim, Trimmed, CEILING_GIB, TRIM_AFTER_DAYS};
@@ -266,7 +265,7 @@ impl Pool {
     /// a hosted session, which holds as a Job of its own id, can lease one
     /// for a subagent beside its own.
     fn handed_back(&self, holder: &Holder) -> Option<Lease> {
-        let Holder::Job(_) = holder else { return None };
+        let Holder::Hosted(_) = holder else { return None };
         let slot = self.held_by(holder)?;
         Some(Lease {
             slot,
@@ -449,7 +448,7 @@ impl Pool {
         on: Option<&str>,
     ) -> Result<Released, ReleaseRefused> {
         let slot = self.path_of(number);
-        let Some(mut record) = Record::read(&self.record_path(number)) else {
+        let Some(record) = Record::read(&self.record_path(number)) else {
             return Err(ReleaseRefused::NotLeased(slot));
         };
         if holder.is_some_and(|holder| *holder != record.holder) {
@@ -471,12 +470,6 @@ impl Pool {
             },
         };
         if let Some(refused) = refused {
-            if let Holder::Job(_) = record.holder {
-                record.kept = Some(refused.said());
-                record
-                    .write(&self.record_path(number))
-                    .map_err(ReleaseRefused::Vcs)?;
-            }
             return Err(refused);
         }
         git(&slot, &["switch", "--detach", "--quiet"]).map_err(ReleaseRefused::Vcs)?;
@@ -487,21 +480,6 @@ impl Pool {
             slot: number,
             branch,
         })
-    }
-
-    /// Write on slot `number`, which `holder` must hold, that its Job
-    /// completed. `--status` then says it is held until a person clears it.
-    pub fn mark_completed(&self, number: usize, holder: &Holder) -> Result<(), String> {
-        let lock = self.lock_file(number)?;
-        lock.lock().map_err(|why| why.to_string())?;
-        let path = self.record_path(number);
-        match Record::read(&path) {
-            Some(mut record) if record.holder == *holder => {
-                record.completed = true;
-                record.write(&path)
-            }
-            _ => Err(format!("{} does not hold slot-{number}", holder.said())),
-        }
     }
 
     /// The slot `holder` holds, if it holds one.
@@ -577,8 +555,6 @@ impl Pool {
             branch,
             holder,
             since,
-            kept,
-            completed,
             ..
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
@@ -586,8 +562,6 @@ impl Pool {
                 branch: branch.clone(),
                 holder: holder.clone(),
                 since: *since,
-                kept: kept.clone(),
-                completed: *completed,
             };
             return (held, None);
         }
@@ -698,11 +672,9 @@ impl Pool {
             branch: branch.to_string(),
             holder: holder.clone(),
             since,
-            kept: None,
             // The new holder's own, where the lease was asked for from an agent's command; the
             // last one's is gone with the old record, and `note_session` fills in the rest.
             session: self.session.clone().filter(|_| matches!(holder, Holder::Process { .. })),
-            completed: false,
         };
         record
             .write(&self.record_path(number))

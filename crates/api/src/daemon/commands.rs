@@ -18,30 +18,13 @@
 use std::future::Future;
 
 use crate::daemon::Refusal;
-use ipc::{
-    FileReport, JobForgotten, JobId,
-    JobSummary, ManifestSaved, Report, SaveManifestFile, WorktreeReclaimed,
-};
+use ipc::{ManifestSaved, SaveManifestFile};
 
 /// Everything a client asks Fleet to do.
 pub trait Commands: Send + Sync + 'static {
 
 
 
-
-
-
-    /// `kill_job` — ends the Job at `killed`, terminal, carrying no verdict.
-    /// Not on the Intervention Ladder, and the only thing that ends a Job by
-    /// hand: **Fleet stops a Drone only at a cap**, and a cap ends the
-    /// spending rather than the work — the worktree survives it.
-    ///
-    /// Legal from every non-terminal status, including those with no Drone
-    /// under them, which is why it cannot be spelled as [`Commands::kill_drone`].
-    fn kill_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
 
 
@@ -78,48 +61,6 @@ pub trait Commands: Send + Sync + 'static {
 
 
 
-    /// `forget_job` — deletes the Job's whole record. **Real deletion, not a
-    /// further status**: the row and everything beneath it are gone, through
-    /// `Store::forget_job`, and there is no undo.
-    ///
-    /// **Terminal only.** Refused with a 409 on a Job still in flight — there
-    /// is no record to erase while a Drone might still write to it, only a
-    /// status to move, and [`Commands::kill_job`] is the act that ends one that
-    /// is not there yet.
-    ///
-    /// **It does not reclaim the worktree or the branch.** `armada clean`
-    /// already owns that, on its own retention schedule; a person clearing a
-    /// finished Job off the Board is not also being asked to think about disk.
-    ///
-    /// What comes back is the id and nothing else — there is no Job left for a
-    /// summary to describe.
-    fn forget_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<JobForgotten, Refusal>> + Send;
-
-    /// `reclaim_worktree` — removes one terminal Job's checkout and deletes the
-    /// branch it derived. **The other half of [`Commands::forget_job`]**, and a
-    /// separate method for the reason that one gives for not doing it: two
-    /// unrelated things to fail at in one call is worse than two calls, and
-    /// neither one's outcome depends on the other.
-    ///
-    /// **Terminal only**, with a 409 otherwise: there is no disk to reclaim
-    /// while a Drone might still write to it.
-    ///
-    /// **A branch the base cannot reach is kept**, always. There is no force
-    /// on this seam — a live Fleet must not be the thing that deletes commits
-    /// nobody has taken — so a caller asking for the disk back may get the
-    /// checkout and not the branch, and [`ipc::WorktreeReclaimed`] says which
-    /// half happened rather than reporting one number for both.
-    ///
-    /// The record is untouched. A reclaimed Job is still on the Board, and
-    /// [`Commands::forget_job`] is what takes the row.
-    fn reclaim_worktree(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> impl Future<Output = Result<WorktreeReclaimed, Refusal>> + Send;
-
     /// `change_slot_pool` — add a slot to the repository's pool, remove one,
     /// or close or reopen one, on this machine only: `armada worktree lease`
     /// honours it as Fleet does. [`Refusal::IllegalMove`] naming why a slot
@@ -139,77 +80,6 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::RescueSlot,
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::SlotRescued, Refusal>> + Send;
-
-    /// `delete_branch` — deletes a terminal Job's branch, unmerged or not, once
-    /// its checkout is gone and only while it stands at the `tip` a person was
-    /// shown. [`Refusal::IllegalMove`] otherwise, naming which.
-    fn delete_branch(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        asked: ipc::DeleteBranch,
-    ) -> impl Future<Output = Result<ipc::BranchDeleted, Refusal>> + Send;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /// `file_report` — a person says this Job failed in error, and the Job's
-    /// own record is filed with what they said.
-    ///
-    /// **The one operation here that records a person disagreeing with the
-    /// machine at all.** Every other signature on this trait answers *did this
-    /// fail*; none of them answers *did this fail correctly*, and a Job that
-    /// failed perfectly by its own lights and was wrong is indistinguishable
-    /// through any of them from one that failed rightly.
-    ///
-    /// # It creates nothing and dispatches nothing
-    ///
-    /// What comes back is the report. No Job is proposed, no Drone is spawned,
-    /// and nothing about the Job it names changes — filing is its own act, and
-    /// dispatching against what was filed is the existing flow pointed at it.
-    ///
-    /// # A blank sentence is [`Refusal::Unacceptable`]
-    ///
-    /// The record was already there before anybody pressed anything, so a
-    /// report with the bundle and no sentence has added exactly nothing. This
-    /// is `override_verdict`'s refusal for the same reason and it is not
-    /// enough on its own: a required non-blank field does not make a reason
-    /// meaningful, which is why [`ipc::FileReport::claim`] is a closed set and
-    /// is the field anything counting reads.
-    fn file_report(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        filing: FileReport,
-    ) -> impl Future<Output = Result<Report, Refusal>> + Send;
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     /// `save_manifest_file` — write a corrected `armada.yml` to disk, and stop
     /// there.

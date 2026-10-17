@@ -237,8 +237,7 @@
   border-radius: var(--radius-md);
 }
 
-.armada-check-list__row .armada-tooltip,
-.armada-check-list__row .armada-slot-owner {
+.armada-check-list__row .armada-tooltip {
   position: relative;
   z-index: 1;
 }

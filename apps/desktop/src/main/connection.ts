@@ -9,48 +9,36 @@
 // What is here is the state — `current` and `publish` — and the wiring that
 // builds everything reaching it. `socket.ts` is the socket's own lifecycle;
 // `arrivals.ts` folds one stream message into the state, handed `ArrivalHost`,
-// a narrow view of this file rather than a copy of it. `job-focus.ts` holds
-// the open Job whole; `job-reads.ts` holds the port its reviewed work is read
-// over. Only addresses moved off the file the gate measures.
+// a narrow view of this file rather than a copy of it.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
-import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
-import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type { Connection, HelmContext, HelmDebugRead, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
+import type { CheckOutputRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
-import type { ComposingRead } from "@armada/screens/src/composing-reads";
-import { applyArrival, reread } from "./arrivals";
+import { applyArrival } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
-import { JobCommands } from "./command";
-import { PilotExits } from "./pilot-exits";
+import { Commands } from "./command";
+import { CheckReads } from "./check-reads";
+import { LessonReads } from "./lesson-reads";
 import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
-import { askCommander, CommanderSocket } from "./commander";
 import { HelmConnection } from "./helm";
-import { JournalSocket } from "./journal";
-import { ActiveJobs } from "./active-jobs";
-import { JobFocus } from "./job-focus";
-import { JobReads } from "./job-reads";
-import { ObserveSocket } from "./observe";
 import { HeldReader } from "./holding";
 import { OverviewReads } from "./overview";
 import { Questions } from "./questions";
 import { RehearsalConnection } from "./rehearsal";
 import { ManifestFileCommands } from "./editing";
-import { PlanEdits } from "./plan-edits";
 import { KitCommands } from "./kit";
-import { AddedStepCommands } from "./added-steps";
 import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { RepositoryReads } from "./repositories";
 import { Picked, PickedByWindow, repositoryToStart, startOn } from "./picked";
-import { ReportsReader } from "./reports";
-import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
 import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
@@ -88,24 +76,6 @@ export class FleetConnection {
   private current: BridgeState = NOTHING_YET;
   /** The socket lifecycle — reading the runtime file, connecting, retrying. */
   private readonly socket: FleetSocket;
-  /**
-   * Whether the resync now arriving is a later one on a socket already up.
-   *
-   * **What tells a reconnection from a gap**, and they are not the same
-   * recovery. A gap is events lost under a connection that held: HTTP answered
-   * throughout, so only the reads events feed can be stale. A reconnection is a
-   * socket that was down, and every read attempted while it was down failed —
-   * which is a failure standing on a panel that nothing else will clear.
-   *
-   * Both arrive as the same message, so the difference has to be held here.
-   * `crates/api/src/sockets.rs` sends one on every connection and one more
-   * after every `Missed`.
-   */
-  private greeted = false;
-  /** The open Job, its examination and its history — see `job-focus.ts`. */
-  private readonly jobFocus: JobFocus;
-  /** The Job and its Drones for every active Job — `active-jobs.ts`. */
-  private readonly activeJobs: ActiveJobs;
   /** Journey 9's run sheet and the servers it starts — see `rehearsal.ts`.
    * One field for both, `commands`' reason: they are one feature. */
   readonly rehearsal: RehearsalConnection;
@@ -129,10 +99,6 @@ export class FleetConnection {
       overview: OverviewReads;
     }
   >();
-  /** Steps added to one Job — see `added-steps.ts`. Keyed by Job, so no window has its own. */
-  readonly addedSteps = new AddedStepCommands((): number | null => this.connected()?.port ?? null);
-  /** A person's own add or drop of a task — see `plan-edits.ts`. */
-  readonly planEdits: PlanEdits;
   /** What Fleet serves and which repository each window picked — see `repositories.ts`. */
   readonly repositories: RepositoryReads;
   /** Every question waiting on a person, from every repository — see `questions.ts`. */
@@ -140,51 +106,15 @@ export class FleetConnection {
     current: () => this.current,
     publish: (change) => this.publish(change),
   });
-  /** The Job whose turns are open. A second socket to Fleet — see `observe.ts`. */
-  private observing: string | null = null;
-  /**
-   * The Job whose own log is open. **The same Job as `observing`, always** —
-   * both sockets are opened by the same act of opening a Job, and they are two
-   * fields rather than one because each may be down while the other is up.
-   */
-  private reading: string | null = null;
-  /**
-   * The token this window sent with the proposal it is waiting on, or `null`.
-   *
-   * **What tells this window's proposal from anybody else's.** Fleet publishes
-   * every proposal on one stream, and the id it mints is not known until the
-   * first event arrives — so the correlation has to run the other way, on a
-   * token the window chose before it sent.
-   *
-   * Held here rather than on `BridgeState` because it is not a fact about the
-   * app; it is how this object recognises its own messages, and a renderer that
-   * could read it could claim another window's call.
-   */
-  private proposalRef: string | null = null;
-  /** The Job `proposalRef`'s call is reading for, once an event has named it. */
-  private proposalJobId: string | null = null;
-  private readonly turns: ObserveSocket;
-  /** What Fleet did to the open Job — a third socket. See `journal.ts`. */
-  private readonly notes: JournalSocket;
-  /** The open Job's Commander, its thread — another socket, and one that is written to by a request. `commander.ts`. */
-  private readonly commander: CommanderSocket;
   /** One running Check's log, as it is written — a fourth socket. `following.ts`. */
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
   private readonly landFollow: LandFollowSocket;
   /** Which repository Helm answers for, and the requests into its Session. `helm.ts`. */
   private readonly helm: HelmConnection;
-  /** Not `private`, `commands`' reason: `remarks-poll.ts` (`#667`) reaches `remarksChanged` from `index.ts`. */
-  readonly material: ReviewMaterial;
-  /**
-   * Every filed report, where a surface asked — see `reports.ts`. **The one
-   * read here no Job scopes**, because a report outlives the Job it is about.
-   */
-  private readonly reports = new ReportsReader((reports) => this.publish({ reports }));
   /**
    * What Fleet is holding disk for, where a surface asked — see `holding.ts`.
-   * **Scoped to nothing, like the reports above it**: what is being decided is
-   * which of a set to give back, and no Job id asks that.
+   * **Scoped to nothing**: what is being decided is which of a set to give back.
    */
   private readonly held = new HeldReader((held) => this.publish({ held }));
   /** A repository's Studios and the one open, where the Studios surface asked — `studios.ts`. */
@@ -235,15 +165,14 @@ export class FleetConnection {
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
-   * Every act on a Job — see `command.ts`. Reached through this rather than
-   * re-exported one method at a time: a delegator carries no reasoning, and
-   * nine of them would be nine places for the reasoning to go missing.
+   * Every act no one surface owns — see `command.ts`. Reached through this rather than re-exported
+   * one method at a time: a delegator carries no reasoning.
    */
-  readonly commands: JobCommands;
-  /** The three ways out of a pilot — `pilot-exits.ts`. */
-  readonly pilotExits: PilotExits;
-  /** One Job's work, reviewed, and the two collection-wide reads — see `job-reads.ts`. */
-  private readonly jobReads: JobReads;
+  readonly commands: Commands;
+  /** One Check's output, and stopping a Session's Check — `check-reads.ts`. */
+  private readonly checkReads: CheckReads;
+  /** A retro, the Lessons listing and the guided review — `lesson-reads.ts`. */
+  private readonly lessonReads: LessonReads;
   /** `arrivals.ts`'s switch, and the exact slice of this object it may reach. */
   private readonly arrivalHost: ArrivalHost;
 
@@ -257,34 +186,12 @@ export class FleetConnection {
       now: wiring.now,
       ...(wiring.timing === undefined ? {} : { timing: wiring.timing }),
       settle: (connection) => this.settle(connection),
-      opened: () => {
-        this.greeted = false;
-      },
       arrived: (text, fleet) => this.arrived(text, fleet),
     });
-    this.turns = new ObserveSocket((observed) => this.publish({ observed }));
-    this.notes = new JournalSocket((journalled) => this.publish({ journalled }));
-    this.commander = new CommanderSocket((commander) => this.publish({ commander }));
     this.follow = new FollowSocket((followed) => this.publish({ followed }));
     this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
-    this.material = new ReviewMaterial((change) => this.publish(change));
     const port = (): number | null => this.connected()?.port ?? null;
     this.helm = new HelmConnection({ publish: (change) => this.publish(change), port, folded: (record) => this.sessions.changed(record) });
-    this.activeJobs = new ActiveJobs({ publish: (change) => this.publish(change) });
-    this.jobFocus = new JobFocus({
-      port,
-      active: this.activeJobs,
-      current: () => this.current,
-      now: wiring.now,
-      publish: (change) => this.publish(change),
-      turns: this.turns,
-      notes: this.notes,
-      commander: this.commander,
-      review: this.material,
-      observing: () => this.observing,
-      reading: () => this.reading,
-    });
-    this.planEdits = new PlanEdits({ port, foldPlan: (jobId, plan) => this.jobFocus.foldPlan(jobId, plan) });
     const publish = (change: Partial<BridgeState>) => this.publish(change);
     // The one registry every per-window pick is minted into — `rehearsal` and `repositories`
     // both read it, so a window's Setup, Verify and rail all name the same `Picked`.
@@ -305,57 +212,21 @@ export class FleetConnection {
       onPicked: (root) => this.helm.onPicked(root),
       port,
     });
-    this.commands = new JobCommands({
+    this.commands = new Commands({
       port,
-      // Never held with a real listing: `searchFiles` and `proposeFromRequest`'s own default,
-      // exercised only where a caller supplies no `picked` — every real one does.
+      // Never held with a real listing: `searchFiles`' own default, exercised only where a caller
+      // supplies no `picked` — every real one does.
       picked: new Picked(),
-      fold: (job) => this.fold(job),
-      forget: (jobId) => this.forget(jobId),
-      reread: (port) => reread(port, (change) => this.publish(change), this.wiring.now),
-      refresh: (port, jobId) => this.jobFocus.refresh(port, jobId),
       publish: (change) => this.publish(change),
-      watchProposal: (clientRef) => {
-        this.proposalRef = clientRef;
-        if (clientRef !== null) this.proposalJobId = null;
-        // A window that starts a proposal has nothing to show until Fleet says
-        // the call went out; one that has finished with a proposal shows
-        // nothing either. Both are the same clear, and it is here rather than
-        // only on the coming-back event so that a request which never reached
-        // Fleet does not leave a card standing.
-        if (clientRef === null) this.publish({ proposing: null });
-      },
-      proposalOut: () => this.current.proposing,
-      proposalJob: () => this.proposalJobId,
     });
-    this.pilotExits = new PilotExits({
-      port,
-      fold: (job) => this.fold(job),
-      reread: (port) => reread(port, (change) => this.publish(change), this.wiring.now),
-      refresh: (port, jobId) => this.jobFocus.refresh(port, jobId),
-    });
-    this.jobReads = new JobReads({
-      port,
-      material: this.material,
-      reports: this.reports,
-      held: this.held,
-    });
+    this.checkReads = new CheckReads(port);
+    this.lessonReads = new LessonReads(port);
     // The exact slice of this object `arrivals.ts`'s switch may reach — built
     // once, after everything it names, so the switch never touches a private
     // field directly. See the module doc.
     this.arrivalHost = {
       current: () => this.current,
       now: () => this.wiring.now(),
-      greeted: () => this.greeted,
-      setGreeted: (value) => void (this.greeted = value),
-      proposalRef: () => this.proposalRef,
-      setProposalJob: (value) => {
-        this.proposalJobId = value;
-      },
-      setProposalRef: (value) => {
-        this.proposalRef = value;
-      },
-      watchedJobId: () => this.jobFocus.watchedJobId(),
       repositories: this.repositories,
       rehearsal: this.rehearsal,
       overviewAgain: (at) => this.overviewAgainForEveryWindow(at),
@@ -373,14 +244,9 @@ export class FleetConnection {
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,
-      material: this.material,
       socket: this.socket,
       publish: (change) => this.publish(change),
-      fold: (job) => this.fold(job),
-      forget: (jobId) => this.forget(jobId),
       settle: (connection) => this.settle(connection),
-      refresh: (port, jobId) => this.jobFocus.refresh(port, jobId),
-      takeAgain: (port, again) => this.jobFocus.takeAgain(port, again),
     };
   }
 
@@ -467,20 +333,11 @@ export class FleetConnection {
   async state(): Promise<BridgeState> {
     const fleet = this.connected();
     if (fleet !== null) {
-      await reread(fleet.port, (change) => this.publish(change), this.wiring.now);
       await this.repositories.readHoldings(fleet.port);
-      // Every question waiting on a person, against the Board just read.
-      await this.questions.readAll(fleet.port);
-      // Every region of the open Job — the same list a reconnection takes, so
-      // the two cannot drift apart. #472.
-      await this.jobFocus.takeAgain(fleet.port, { because: "a_person_asked" });
-      // A no-op where nothing has them open. Nothing but Bridge files a
-      // report, so the list moves when somebody presses a button in a window —
-      // and a second window is a second somebody, which is what Refresh is for.
-      await this.reports.again(fleet.port);
-      // What is held changes when a Job ends, when a sweep runs, and when
-      // somebody reclaims one. A refresh is the cheapest of the three to be
-      // sure about.
+      // Every Helm call waiting on a person.
+      await this.questions.readHelmCalls(fleet.port);
+      // What is held changes when a slot is leased or released and when a sweep runs. A refresh is
+      // the cheapest way to be sure about it.
       await this.held.again(fleet.port);
       // A Studio moves when a person or Helm writes to it, and each write is on the stream — so
       // this is for a window that reloaded, not for a gap.
@@ -497,20 +354,9 @@ export class FleetConnection {
 
   stop(): void {
     this.socket.stop();
-    // Watching ends with the window; the Job does not, because nothing observed
-    // is written onto it.
-    this.observing = null;
-    this.reading = null;
-    this.jobFocus.close();
-    this.activeJobs.close();
     this.rehearsal.close();
-    this.turns.close();
-    this.notes.close();
-    this.commander.close();
     this.follow.close();
     this.landFollow.close();
-    this.material.close();
-    this.reports.close();
     this.held.close();
     this.studios.close();
     this.sessions.close();
@@ -535,7 +381,7 @@ export class FleetConnection {
     return this.helm.readThought(text);
   }
 
-  /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
+  /** The words reached a Session: Fleet keeps a row for them in `manifestId`'s thread. */
   recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
     return this.helm.recordThoughtSent(manifestId, text, target, carry);
   }
@@ -556,63 +402,6 @@ export class FleetConnection {
     applyArrival(this.arrivalHost, text, fleet);
   }
 
-  // -------------------------------------------- one Job, whole and recounted
-  // These, and `job-focus.ts`'s own `refresh`/`takeAgain` above, are that
-  // file — reached through this because the renderer and `index.ts` still
-  // call these exact names, and only their bodies moved.
-
-  async watchJob(jobId: string | null): Promise<void> {
-    await this.jobFocus.watchJob(jobId);
-  }
-
-  /** The Job and Drones of every active Job, while a Cockpit or Dashboard draws them. */
-  followActive(want: boolean): void {
-    this.activeJobs.follow(want, this.connected()?.port ?? null, this.current.jobs);
-  }
-
-  async readResources(jobId: string | null): Promise<void> {
-    await this.jobFocus.readResources(jobId);
-  }
-
-  /** Pulse's 10 s tick, from `index.ts`. `resources-poll.ts`, `#1571`. */
-  async resourcesAgain(port: number, jobId: string): Promise<void> {
-    await this.jobFocus.resourcesAgain(port, jobId);
-  }
-
-  async examineJob(jobId: string): Promise<void> {
-    await this.jobFocus.examineJob(jobId);
-  }
-
-  async readHistory(jobId: string | null): Promise<void> {
-    await this.jobFocus.readHistory(jobId);
-  }
-
-  // -------------------------------------------------------- one Job's turns
-  /**
-   * Watch one Job's turns, or `null` to stop. **A socket that only reads** —
-   * see `observe.ts`, and `docs/concepts/observe.md` for why that is the whole
-   * difference from Pilot.
-   */
-  async observeJob(jobId: string | null): Promise<void> {
-    const port = this.connected()?.port ?? null;
-    this.observing = jobId;
-    this.turns.open(port, jobId);
-    // **The Job's own log opens with the transcript, on one act and not two.**
-    // A person opening a Job wants what happened to it; which of the two
-    // sockets carries a given line is Fleet's business rather than theirs, and
-    // a second channel would let a surface open one and forget the other —
-    // which is the empty panel this exists to fix, arriving by another route.
-    this.reading = jobId;
-    this.notes.open(port, jobId);
-    // And its Commander's thread, on the same act for the same reason.
-    this.commander.open(port, jobId);
-  }
-
-  /** The owner's words to a Job's Commander. They queue for the next turn and never interrupt one. */
-  askCommander(jobId: string, text: string): Promise<Outcome> {
-    return askCommander(this.connected()?.port ?? null, jobId, text);
-  }
-
   /** One running Check's log, as it is written, or `null` to stop. Opened by a press. */
   followCheckOutput(jobId: string | null, kept: string | null): void {
     this.follow.open(this.connected()?.port ?? null, jobId, kept);
@@ -623,76 +412,43 @@ export class FleetConnection {
     this.landFollow.open(this.connected()?.port ?? null, at);
   }
 
-  // ------------------------------------------------- one Job's work, reviewed
-  // These, `readReports`, `readHeld` and `rereadHeld` below are `job-reads.ts`,
-  // reached through this rather than re-exported one method at a time — the
-  // decisions naming each one are `command.ts`'s reason repeated. The renderer
-  // and `index.ts` still call these exact names; only their bodies moved.
-
-  async readEvidence(jobId: string | null): Promise<void> {
-    await this.jobReads.readEvidence(jobId);
-  }
-
-  async readDiff(jobId: string | null): Promise<void> {
-    await this.jobReads.readDiff(jobId);
-  }
-
-  async readRemarks(jobId: string | null): Promise<void> {
-    await this.jobReads.readRemarks(jobId);
-  }
-
-  async readCheckOutput(jobId: string, kept: string): Promise<CheckOutputRead> {
-    return await this.jobReads.readCheckOutput(jobId, kept);
-  }
+  // ------------------------------------------------------- reads that answer the caller
+  // `check-reads.ts` and `lesson-reads.ts`, reached through this rather than re-exported one
+  // method at a time. The renderer and `index.ts` call these exact names.
 
   async readSessionCheckOutput(run: number): Promise<CheckOutputRead> {
-    return await this.jobReads.readSessionCheckOutput(run);
+    return await this.checkReads.readSessionCheckOutput(run);
   }
 
   async stopSessionCheck(run: number, force: boolean): Promise<Outcome> {
-    return await this.jobReads.stopSessionCheck(run, force);
-  }
-
-  async readBrief(jobId: string, name: string): Promise<BriefRead> {
-    return await this.jobReads.readBrief(jobId, name);
+    return await this.checkReads.stopSessionCheck(run, force);
   }
 
   async readRetro(subject: RetroSubject): Promise<RetroRead> {
-    return await this.jobReads.readRetro(subject);
+    return await this.lessonReads.readRetro(subject);
   }
 
   async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {
-    return await this.jobReads.readLessons(picked, state);
+    return await this.lessonReads.readLessons(picked, state);
   }
 
   async reviewLessons(picked: Picked): Promise<LessonReviewRead> {
-    return await this.jobReads.reviewLessons(picked);
+    return await this.lessonReads.reviewLessons(picked);
   }
 
   async askLesson(lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
-    return await this.jobReads.askLesson(lessonId, question, history);
+    return await this.lessonReads.askLesson(lessonId, question, history);
   }
 
-  /** `leftOut` and the Manifest reading for the repository New job's ask answered, on All — #959.
-   * `picked` is the calling window's own, though the answer would be the same off any window's. */
-  async readComposing(repository: string, picked: Picked): Promise<ComposingRead> {
-    return await this.jobReads.readComposing(repository, picked);
-  }
-
-  async readFrame(jobId: string, kept: string): Promise<FrameRead> {
-    return await this.jobReads.readFrame(jobId, kept);
-  }
-
-  async readReports(want: boolean): Promise<void> {
-    await this.jobReads.readReports(want);
-  }
-
+  /** Read what Fleet is holding disk for, or drop it. */
   async readHeld(want: boolean): Promise<void> {
-    await this.jobReads.readHeld(want);
+    await this.held.want(this.connected()?.port ?? null, want);
   }
 
+  /** Read it again, after something that changes what is held. A no-op where nobody has the surface open. */
   async rereadHeld(): Promise<void> {
-    await this.jobReads.rereadHeld();
+    const port = this.connected()?.port ?? null;
+    if (port !== null) await this.held.again(port);
   }
 
   /**
@@ -714,27 +470,6 @@ export class FleetConnection {
   }
 
   // ------------------------------------------------------------------ state
-  /** A Job a command answered with. New rows lead; a known row is replaced. */
-  private fold(job: JobSummary): void {
-    const held = this.current.jobs.some((row) => row.id === job.id);
-    this.publish({
-      jobs: held
-        ? this.current.jobs.map((row) => (row.id === job.id ? job : row))
-        : [job, ...this.current.jobs],
-      readAt: this.wiring.now(),
-    });
-  }
-
-  /**
-   * A Job's whole record is gone — `forget_job` answered for it, or
-   * `job.forgotten` named it on the stream. **Removed, not folded**: unlike
-   * every other event here there is no row left to replace it with, so a
-   * client drops it from whatever it is holding.
-   */
-  private forget(jobId: string): void {
-    this.publish({ jobs: this.current.jobs.filter((job) => job.id !== jobId) });
-  }
-
   private settle(connection: Connection): void {
     this.publish({ connection });
   }
@@ -749,9 +484,6 @@ export class FleetConnection {
     // wired at `RepositoryReads`'s own `onPicked`, the one place a pick
     // actually changes.
     if (change.holds !== undefined) this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
-    // A Job began or ended where the Board says so. After the publish: the
-    // readers speak only when an answer lands, and that is never in here.
-    if (change.jobs !== undefined) this.activeJobs.sync(this.connected()?.port ?? null, this.current.jobs);
     this.wiring.publish(this.current);
   }
 }

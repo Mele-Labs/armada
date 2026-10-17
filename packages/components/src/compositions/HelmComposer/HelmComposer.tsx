@@ -1,4 +1,3 @@
-import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
@@ -36,9 +35,6 @@ function switchEntries(
     ...repositories.map((one) => row(one)),
   ];
 }
-
-/** The open Job chipped above the message box — `#1075`. */
-export type HelmComposerChip = { jobHandle: string; title: string };
 
 /**
  * What the Sessions box takes from outside, and Helm's takes the same. **No permission mode**: Helm
@@ -106,10 +102,6 @@ export type HelmComposerProps = {
    * draws no control.
    */
   onOpenRecord?: () => void;
-  /** The open Job, while its chip stands. Absent off a Job, or once its `×` has been pressed. */
-  chip?: HelmComposerChip;
-  /** The chip's own `×`. Omitted with no `chip` draws nothing to remove. */
-  onRemoveChip?: () => void;
   /**
    * The footer's one sentence — where the person is, in the caller's own
    * words. **Built off the same context #1075 sends with every ask**, never a
@@ -139,8 +131,6 @@ export function HelmComposer({
   onSwitch,
   onCopyRecord,
   onOpenRecord,
-  chip,
-  onRemoveChip,
   location,
   box = {},
   onSend,
@@ -167,9 +157,6 @@ export function HelmComposer({
 
   return (
     <div className="armada-helm-composer">
-      {chip === undefined ? null : (
-        <AttachmentChip filename={`Job ${chip.jobHandle} · ${chip.title}`} onRemove={onRemoveChip} />
-      )}
       <div className="armada-helm-composer__head">
         {naming === undefined ? null : (
           <span className="armada-helm-composer__repository">{naming}</span>

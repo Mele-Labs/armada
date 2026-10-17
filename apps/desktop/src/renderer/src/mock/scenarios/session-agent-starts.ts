@@ -4,7 +4,7 @@
 // would (`../sessions-fleet.ts`), with the agent's turns scripted on what he types.
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -13,16 +13,16 @@ import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
 const AT = "2026-10-12T09:14:02.000Z";
-const DEBUG = "01DEBUGJOBAAAAAAAAAAAAAAAA";
+const DEBUG = "01DEBUGCAPAAAAAAAAAAAAAAAA";
 
 const records = () => [
-  hosted(DEBUG, { title: "Debug Job 14", attachments: [held("slot", "3"), held("branch", "fix/retry-cap")] }),
+  hosted(DEBUG, { title: "Debug the retry cap", attachments: [held("slot", "3"), held("branch", "fix/retry-cap")] }),
   hosted("01SESSIONBBBBBBBBBBBBBBBBB", { title: "Fix the flaky store test", attachments: [held("slot", "4"), held("branch", "fix/flaky-store")] }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
   [DEBUG]: [
-    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "Job 14 stopped on the verify step. Find out why." },
+    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The retry loop ran 5 attempts with the cap set to 3. Find out why." },
     { kind: "tool", id: "t1", at: AT, text: "Read crates/retry/src/loop.rs" },
     { kind: "tool", id: "t2", at: AT, text: "Bash cargo test -p retry cap" },
     {
@@ -35,7 +35,7 @@ const threads = (): Record<string, SessionRow[]> => ({
   ],
 });
 
-const START = "Read crates/settings/src/loader.rs and find out whether a cap set for one repository is ever read. Job 14 set it to 3 and the loop ran 5 attempts. Report where the value is dropped.";
+const START = "Read crates/settings/src/loader.rs and find out whether a cap set for one repository is ever read. It was set to 3 and the loop ran 5 attempts. Report where the value is dropped.";
 const FORK = "Check the same cap where the loop reads it on every attempt and not at startup. Does the third attempt still run twice?";
 
 /** A Fleet whose agent starts and forks on the owner's word, and works once its first message is sent. */
@@ -63,7 +63,7 @@ function fleet(): FakeSessionsFleet {
       void served.agentTurn(DEBUG, [
         { kind: "tool", id: "a3", at: AT, text: "Fork session at the cap finding" },
         () => {
-          const title = "Debug Job 14, cap per attempt";
+          const title = "Debug the retry cap, cap per attempt";
           const id = served.agentStarts(DEBUG, { title, message: FORK, fork: { at: "m2" } });
           started.add(id);
           return { kind: "started", id: "a4", at: AT, session: { id, title }, fork: true };
@@ -75,7 +75,7 @@ function fleet(): FakeSessionsFleet {
 }
 
 function build(): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "14-the-retry-loop", title: "The retry loop", branch: "fix/retry-cap", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

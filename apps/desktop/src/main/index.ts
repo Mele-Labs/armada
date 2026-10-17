@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, net, Notification, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, Notification } from "electron";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,44 +8,26 @@ import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { HelmCarry } from "../shared/api/helm";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
-import type { HelmContext, LandCheckAt, StagedAttachment, ThoughtTarget } from "@armada/protocol";
+import type { HelmContext, LandCheckAt, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
-import type { ApproveDispatch, FixMain } from "@armada/protocol";
-import type {
-  Artifact,
-  AlwaysAllowScope,
-  AnswerMode,
-  CommandAnswer,
-  HelmCallAnswer,
-  JudgeAnswer,
-  SavePreference,
-  SaveSettings,
-  WhenBlocked,
-  WhenRefused,
-} from "@armada/protocol";
+import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { approvedText, sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
-import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
 import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
-import { openArtifact, openInTerminal, openSettingsFile } from "./open";
-import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } from "./forge";
-import { RemarksPoll } from "./remarks-poll";
-import { ResourcesPoll } from "./resources-poll";
+import { openSettingsFile } from "./open";
+import { openStudioNode } from "./forge";
 import { openLink } from "./links";
 import { askGateway } from "./phone-gateway";
 import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
-import { frameStream, FRAME_SCHEME } from "./streaming";
-import { Attention, soundOf } from "./telling";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
@@ -67,7 +49,7 @@ import { remember as rememberWindow, restore as restoreWindow } from "./window-s
 
 // Bridge's window, and the one connection under it.
 //
-// Bridge and Fleet have independent lifetimes: Jobs keep progressing with the
+// Bridge and Fleet have independent lifetimes: Sessions keep progressing with the
 // window closed, and opening it reconnects to whatever Fleet is already running
 // rather than starting one. Nothing here spawns Fleet.
 
@@ -86,31 +68,6 @@ import { remember as rememberWindow, restore as restoreWindow } from "./window-s
  * `AppIcon.icns` for a fortnight and the tile stayed Electron's the whole time.
  */
 const APP_ICON = join(__dirname, "AppIcon.png");
-
-// **Before the app is ready, because that is the only moment it can be.** A
-// scheme a window may load has to be privileged before any window exists;
-// `protocol.handle` below fills in what answers it, once there is a connection
-// to forward to. `streaming.ts` says why a recording is not read whole.
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: FRAME_SCHEME,
-    privileges: {
-      // `standard` gives the scheme an origin, which is what lets the policy in
-      // `index.html` name it. `secure` keeps a page loaded from `file:` from
-      // treating it as mixed content and refusing it on those grounds instead.
-      standard: true,
-      secure: true,
-      // What a `<video>` needs: a partial answer, streamed. Without `stream`
-      // the body is buffered whole, which is the thing this exists to stop.
-      stream: true,
-      supportFetchAPI: true,
-      // **Never `bypassCSP`.** The policy admits this scheme by name; one that
-      // ignored the policy would be the same hole in a different shape.
-      bypassCSP: false,
-      corsEnabled: false,
-    },
-  },
-]);
 
 /**
  * Wear the mark. **Runtime, not packaging** — `BrowserWindow`'s `icon` option
@@ -137,7 +94,7 @@ function wearTheMark(): void {
 }
 
 /**
- * Write pasted or picked bytes to a fresh staging directory, before any Job
+ * Write pasted or picked bytes to a fresh staging directory, before any Session
  * exists to key storage on. One directory per file rather than one per
  * batch, keyed by a fresh uuid, so two attachments sharing a filename in one
  * paste never collide on disk.
@@ -170,14 +127,10 @@ const walkFocused = new Set<string>();
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
-  walkNote: async (jobId, said, capture, frame) =>
-    (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
-    UNSENT,
   sessionNote: async (sessionId, said, capture, address, take) => {
     const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
-  walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
   sessionApproved: async (sessionId, address, take) => {
     const sent = await connection?.sessions.send({ session_id: sessionId, text: approvedText(address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
@@ -192,9 +145,6 @@ const captureWindows = new CaptureWindows({
   },
   sessionFailed: (sessionId, address, why) => {
     void connection?.sessions.windowFailed({ session_id: sessionId, url: address, why });
-  },
-  walkFailed: (jobId, address, why) => {
-    void connection?.commands.walkFailed(jobId, { url: address, why });
   },
   // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
   windowsChanged: () => {
@@ -211,15 +161,7 @@ const captureWindows = new CaptureWindows({
       if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
-  follow: (jobId) => follow(jobId, { watch: (id) => void connection?.watchJob(id), bridge: bridgeWindow }),
 });
-
-/** Whether any window is on screen and not minimized. A closed one is neither. */
-function anyWindowShown(): boolean {
-  return BrowserWindow.getAllWindows().some(
-    (window) => !window.isDestroyed() && window.isVisible() && !window.isMinimized(),
-  );
-}
 
 function createWindow(): BrowserWindow {
   const placed = restoreWindow();
@@ -263,22 +205,6 @@ function createWindow(): BrowserWindow {
     else if (command === "browser-forward") step("forward");
   });
 
-  // The on-screen comments poll, #667: backgrounded or minimized stops the
-  // 20 s timer, and any of these bringing a window back on screen resumes it.
-  // `closed` is here rather than left to `window-all-closed`, because on
-  // macOS the app and the connection both outlive a closed window.
-  // Pulse's 10 s timer, #1571, goes with it: a hidden window is not somebody
-  // reading a board, and its reading walks a process table per tick.
-  const tellVisibility = (): void => {
-    const shown = anyWindowShown();
-    remarksPoll.shown(shown);
-    resourcesPoll.shown(shown);
-  };
-  window.on("show", tellVisibility);
-  window.on("hide", tellVisibility);
-  window.on("minimize", tellVisibility);
-  window.on("restore", tellVisibility);
-  window.on("closed", tellVisibility);
   // This window's own pick and its per-window commands go with it.
   window.on("closed", () => {
     pickedViews.delete(window.id);
@@ -291,8 +217,7 @@ function createWindow(): BrowserWindow {
   // reach, which makes an allowlist a thing that could be wrong and a refusal a
   // thing that cannot.
   //
-  // Here because job detail now draws a real `<a href>` for a Job's pull
-  // request. That anchor cancels its own default and hands the click to main,
+  // Here because a page may draw a real `<a href>`. That anchor cancels its own default and hands the click to main,
   // but the middle click, the modifier click and the `target` a future one
   // forgets to cancel all route around a click handler — and `default-src
   // 'self'` does not cover top-level navigation. A window that navigated to a
@@ -321,37 +246,10 @@ function createWindow(): BrowserWindow {
  * What main last published.
  *
  * Kept here rather than read back off the connection, because the one caller
- * needs a Job and its Manifest and nothing else — and `FleetConnection.state`
+ * needs a Manifest and nothing else — and `FleetConnection.state`
  * is five round trips to Fleet, which is the wrong price for a click on a path.
  */
 let published: BridgeState = NOTHING_YET;
-
-/**
- * The comments timer for whichever Job's review panel is on screen. #667.
- *
- * **Reads the port off `published` rather than holding one**, `review.ts`'s
- * reason for taking a port on every call rather than keeping it: this is
- * built once, long before a connection exists to read it from. `again` is
- * `ReviewMaterial.remarksChanged`, the route `job.remarks_changed` already
- * calls, so the sweep and this timer refresh the same way.
- */
-const remarksPoll = new RemarksPoll({
-  port: () => (published.connection.state === "connected" ? published.connection.fleet.port : null),
-  again: (port, jobId) => connection?.material.remarksChanged(port, jobId) ?? Promise.resolve(),
-});
-
-/**
- * Pulse's 10 s timer, for whichever Job's board is on screen. #1571.
- *
- * **Built here for `remarksPoll`'s reason** — the port is read off `published`
- * on every tick rather than held, because this exists long before a connection
- * does. `again` is the same re-read every event naming the Job already takes,
- * so a quiet Job and a moving one refresh through one path.
- */
-const resourcesPoll = new ResourcesPoll({
-  port: () => (published.connection.state === "connected" ? published.connection.fleet.port : null),
-  again: (port, jobId) => connection?.resourcesAgain(port, jobId) ?? Promise.resolve(),
-});
 
 /** Every window's own `PickedView`, kept apart from `published` and from every other window's. */
 const pickedViews = new Map<number, PickedView>();
@@ -394,18 +292,13 @@ const toWindows = coalesce((state: BridgeState) => {
 
 /**
  * Main's own readers move on every change; the windows are told once a frame,
- * because a Job's backfill publishes once per row and each send clones the whole state.
+ * because a backfill publishes once per row and each send clones the whole state.
  */
 function publish(state: BridgeState): void {
   published = state;
   // A Run that has stopped serving ends capture in its own window — #1294.
   captureWindows.changed(state);
   toWindows(state);
-  // **Here rather than on chosen events**, because what decides a notification
-  // is the needs-you set changing and this is the one funnel every change to
-  // the list passes through. `readAt` is what tells a publish that carries a
-  // reading from one that carries only a connection state.
-  attention.read(state.jobs, state.readAt);
 }
 
 /** One window's own pick moved. Told to that window alone — nothing else here reaches the rest. */
@@ -470,12 +363,6 @@ function focusBridge(): void {
   window.focus();
 }
 
-/** Bridge's own window, where one is open. A walk window is a `BaseWindow`, never listed here. */
-function bridgeWindow(): Electron.WebContents | null {
-  const [window] = BrowserWindow.getAllWindows();
-  return window === undefined || window.isDestroyed() ? null : window.webContents;
-}
-
 /** Hand over a held press, if there is one. Nothing is handed twice. */
 function hand(window: BrowserWindow): void {
   if (summoned === null || window.isDestroyed()) return;
@@ -484,30 +371,8 @@ function hand(window: BrowserWindow): void {
 }
 
 /**
- * What Armada says when a Job starts waiting, and what the dock says while one
- * is. The rule and the words are `telling.ts`'s; these are the two effects.
- *
- * **Nothing here asks for permission.** The first `show()` is what makes macOS
- * ask, once, and a refusal turns this into a no-op with the rest of Bridge
- * untouched — see `telling.ts`. `isSupported` is the platform question rather
- * than the person's, and it is the only one this process can actually answer.
- */
-const attention = new Attention({
-  show: (told) => {
-    if (!Notification.isSupported()) return;
-    const banner = new Notification({ title: told.title, body: told.body, sound: soundOf(told.tone) });
-    banner.on("click", () => summon({ jobId: told.jobId }));
-    banner.show();
-  },
-  // The standing count, and the one signal that survives a refused permission.
-  // `dock` is macOS's; nothing else in this workspace has a tile to badge.
-  count: (waiting) => app.dock?.setBadge(waiting === 0 ? "" : String(waiting)),
-  now: () => Date.now(),
-});
-
-/**
  * What the OS says when the weekly limit makes the default model's step down due. The rule, the words and
- * the tone are `downshift-notice.ts`'s; this is the effect, and `attention`'s permission rules apply.
+ * the tone are `downshift-notice.ts`'s; this is the effect. Nothing here asks for permission: the first `show()` is what makes macOS ask, once.
  */
 const downshiftNotice = new DownshiftNotice({
   show: (told) => {
@@ -533,19 +398,6 @@ void app.whenReady().then(() => {
       return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
     });
   }
-
-  // A recording plays from here, forwarded to the port main already holds.
-  // **The port is read at request time and never captured**, for the reason
-  // the comments timer reads it that way: this is built once, and a connection
-  // comes and goes under it. `net.fetch` is Chromium's own stack, which is what
-  // streams a span rather than buffering one.
-  protocol.handle(
-    FRAME_SCHEME,
-    frameStream(
-      () => (published.connection.state === "connected" ? published.connection.fleet.port : null),
-      (url, init) => net.fetch(url, init),
-    ),
-  );
 
   connection = new FleetConnection({
     home: process.env["HOME"],
@@ -601,26 +453,7 @@ void app.whenReady().then(() => {
     // This window's own pick, overlaid — a reload is a fresh reader, not a reset of it.
     return state === undefined ? state : withView(state, viewFor(windowIdOf(event)));
   });
-  // Every act on a Job is reached through `commands` — see `command.ts`, which
-  // holds them because they are HTTP and the connection is a socket.
-  // The other way a Job reaches the same gate. Its own channel and not a mode
-  // on the one above: that one carries a workflow the person chose and this
-  // one carries the sentence they wrote, and one channel taking which would
-  // make the model call a flag.
-  ipcMain.handle(
-    CHANNELS.proposeFromRequest,
-    (event, request: string, attachments: StagedAttachment[], repository: string | null) =>
-      connection?.commands.proposeFromRequest(
-        request,
-        attachments,
-        repository,
-        connection.repositories.pickedByWindow.of(windowIdOf(event)),
-      ),
-  );
-  // No argument: what may be stopped is what this window started. See
-  // `JobCommands.stopProposal`.
-  ipcMain.handle(CHANNELS.stopProposal, () => connection?.commands.stopProposal());
-  // Staging happens before a Job exists — there is no id yet to key storage
+  // Staging happens before a Session exists — there is no id yet to key storage
   // on, and one is minted at `propose` time. Fleet is not involved here at
   // all; this only writes bytes to a temp file the request later names.
   ipcMain.handle(
@@ -634,97 +467,6 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
     connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
   );
-  ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string, approval?: ApproveDispatch) =>
-    connection?.commands.approveDispatch(jobId, approval),
-  );
-  ipcMain.handle(CHANNELS.listBranches, (_event, manifestId: string) =>
-    connection?.commands.listBranches(manifestId),
-  );
-  ipcMain.handle(CHANNELS.redispatchJob, (_event, jobId: string) =>
-    connection?.commands.redispatchJob(jobId),
-  );
-  // Two channels, because they are two acts: one ends a process and one ends
-  // the unit of work. Collapsing them here would make the difference a flag.
-  // A Drone id is read as a string or not at all: the window names a Drone and
-  // Fleet decides whether it is live.
-  ipcMain.handle(CHANNELS.killDrone, (_event, jobId: string, droneId?: unknown) =>
-    connection?.commands.killDrone(jobId, typeof droneId === "string" ? droneId : undefined),
-  );
-  ipcMain.handle(CHANNELS.killJob, (_event, jobId: string) =>
-    connection?.commands.killJob(jobId),
-  );
-  ipcMain.handle(CHANNELS.parkJob, (_event, jobId: string) =>
-    connection?.commands.parkJob(jobId),
-  );
-  ipcMain.handle(CHANNELS.fixMain, (_event, fix: FixMain) => connection?.commands.fixMain(fix));
-  ipcMain.handle(CHANNELS.resumeJob, (_event, jobId: string) =>
-    connection?.commands.resumeJob(jobId),
-  );
-  // One process of the Job, or all of them — Pulse's two kills, #1647.
-  ipcMain.handle(CHANNELS.killProcess, (_event, jobId: string, pid: number) =>
-    connection?.commands.killProcess(jobId, pid),
-  );
-  ipcMain.handle(CHANNELS.killProcesses, (_event, jobId: string) =>
-    connection?.commands.killProcesses(jobId),
-  );
-  // A failed plan task's own acts — #250, #1656, #1657.
-  ipcMain.handle(CHANNELS.pilotTask, (_event, jobId: string, taskId: string) =>
-    connection?.commands.pilotTask(jobId, taskId),
-  );
-  ipcMain.handle(CHANNELS.restartTask, (_event, jobId: string, taskId: string) =>
-    connection?.commands.restartTask(jobId, taskId),
-  );
-  ipcMain.handle(CHANNELS.editTask, (_event, jobId: string, taskId: string, edit: EditTask) =>
-    connection?.commands.editTask(jobId, taskId, edit),
-  );
-  // A group or a task dropped somewhere new on the plan — #1685.
-  ipcMain.handle(CHANNELS.movePlan, (_event, jobId: string, move: MovePlan) =>
-    connection?.commands.movePlan(jobId, move),
-  );
-  // An Epic's plan approved, releasing every Job of its wave — #1694.
-  ipcMain.handle(CHANNELS.approveWave, (_event, jobId: string, wave: ApproveWave) =>
-    connection?.commands.approveWave(jobId, wave),
-  );
-  // A Job at its approval gate, its words saved without releasing it — `edit_job`.
-  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
-    connection?.commands.editJob(jobId, edit),
-  );
-  ipcMain.handle(CHANNELS.toProposer, (_event, jobId: string, body: ToProposer) =>
-    connection?.commands.toProposer(jobId, body),
-  );
-  ipcMain.handle(CHANNELS.setLandingTarget, (_event, jobId: string, target: string) =>
-    connection?.commands.setLandingTarget(jobId, target),
-  );
-  // The disk rather than the record, and the one act here `armada clean` could
-  // already do — but only with Fleet stopped, which is never when a person
-  // wants the space back. Every row stays on the board afterwards, under
-  // `Cleared`. One call per id, in main, because main is what holds the board
-  // these ids came off of — the renderer decides which ids are terminal and
-  // sends the set once.
-  // The re-read afterwards is not bookkeeping: whether the row is still held is
-  // Fleet's reading, and a checkout that would not go has to stay on the list.
-  ipcMain.handle(CHANNELS.clearTerminalJobs, async (_event, jobIds: string[]) => {
-    const outcome = await connection?.commands.clearTerminalJobs(jobIds);
-    await connection?.rereadHeld();
-    return outcome;
-  });
-  // Real deletion, and the only channel here where that is true. One call per
-  // id, in main, for `clearTerminalJobs`'s reason above.
-  ipcMain.handle(CHANNELS.forgetTerminalJobs, (_event, jobIds: string[]) =>
-    connection?.commands.forgetTerminalJobs(jobIds),
-  );
-  // The disk rather than the record, and the one act here `armada clean`
-  // could already do — but only with Fleet stopped, which is never when a
-  // person wants the space back. The Job stays on the board afterwards,
-  // under `Cleared`.
-  // The re-read afterwards is not bookkeeping: whether the row is still held is
-  // Fleet's reading, and a checkout that would not go has to stay on the list.
-  // Folding the receipt in instead would be Bridge deciding a worktree is gone.
-  ipcMain.handle(CHANNELS.reclaimWorktree, async (_event, jobId: string) => {
-    const outcome = await connection?.commands.reclaimWorktree(jobId);
-    await connection?.rereadHeld();
-    return outcome;
-  });
   // The pool reshaped from Cleanup's bay grid, and read again after for the
   // reclaim's reason: whether a slot went is Fleet's reading.
   ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
@@ -739,162 +481,28 @@ void app.whenReady().then(() => {
     await connection?.rereadHeld();
     return outcome;
   });
-  // A force, unlike the reclaim above. The re-read afterwards is the same
-  // reason: whether the branch still stands is Fleet's reading, and a delete
-  // that refused has to stay on the list exactly as it was.
-  ipcMain.handle(CHANNELS.deleteBranch, async (_event, jobId: string, tip: string) => {
-    const outcome = await connection?.commands.clearing.deleteBranch(jobId, tip);
-    await connection?.rereadHeld();
-    return outcome;
-  });
-  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there
-  // is no undo. The re-read afterwards keeps Cleanup's own list honest: a
-  // forgotten Job's row is gone from `worktrees_held`, which walks Job
-  // records rather than directories.
-  ipcMain.handle(CHANNELS.forgetJob, async (_event, jobId: string) => {
-    const outcome = await connection?.commands.forgetJob(jobId);
-    await connection?.rereadHeld();
-    return outcome;
-  });
-  // The two acts that resume a step without redispatching. Which applies is
-  // decided by whether the Job still holds a Drone; Fleet is the authority
-  // and refuses the wrong one rather than Bridge picking silently.
-  ipcMain.handle(
-    CHANNELS.answerQuestion,
-    (_event, jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) =>
-      connection?.commands.answerQuestion(jobId, questionId, chose, mode),
-  );
-  // The owner's words to a Job's Commander, and his pick on its card.
-  ipcMain.handle(CHANNELS.askCommander, (_event, jobId: string, text: string) =>
-    connection?.askCommander(jobId, text),
-  );
-  ipcMain.handle(CHANNELS.answerCommanderCard, (_event, jobId: string, cardId: string, optionId: string) =>
-    connection?.commands.answerCommanderCard(jobId, cardId, optionId),
-  );
-  // A command the drone was not given, answered where it waits or where it was
-  // refused. The note rides with a reject, and the rule with an always-allow —
-  // nothing else reads either.
-  ipcMain.handle(
-    CHANNELS.answerCommand,
-    (
-      _event,
-      jobId: string,
-      call: string,
-      answer: CommandAnswer,
-      note?: string,
-      rule?: string,
-      scope?: AlwaysAllowScope,
-      mode?: AnswerMode,
-    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope, mode),
-  );
-  // One call helm was held on, answered in the dock. No job id: the session is
+  // One call helm was held on, answered in the dock. The session is
   // waiting inside its own tool call, and nothing on the board moves. #1389.
   ipcMain.handle(
     CHANNELS.answerHelmCall,
     (_event, call: string, answer: HelmCallAnswer, note?: string) =>
       connection?.commands.answerHelmCall(call, answer, note),
   );
-  // What that command does, read for the person deciding. It moves nothing and
-  // decides nothing — the answers above stay live while it is out.
-  ipcMain.handle(CHANNELS.explainCommand, (_event, jobId: string, callId: string) =>
-    connection?.commands.explainCommand(jobId, callId),
-  );
-  // How the job meets the next such command. Moves nothing on the job.
-  ipcMain.handle(CHANNELS.setWhenBlocked, (_event, jobId: string, whenBlocked: WhenBlocked) =>
-    connection?.commands.setWhenBlocked(jobId, whenBlocked),
-  );
-  // The question a judge refusal opened, answered: agree, disagree once, or
-  // disagree always.
-  ipcMain.handle(
-    CHANNELS.answerJudge,
-    (_event, jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode) =>
-      connection?.commands.answerJudge(jobId, askedAt, answer, note, mode),
-  );
-  // How the job meets the next such refusal. Moves nothing on the job.
-  ipcMain.handle(CHANNELS.setWhenRefused, (_event, jobId: string, whenRefused: WhenRefused) =>
-    connection?.commands.setWhenRefused(jobId, whenRefused),
-  );
-  // The model the job's next step starts on, and an allow taken back. Neither
-  // moves anything on the job.
-  ipcMain.handle(CHANNELS.setModel, (_event, jobId: string, model: string | null) =>
-    connection?.commands.setModel(jobId, model),
-  );
-  ipcMain.handle(CHANNELS.setReviewModel, (_event, jobId: string, model: string | null) =>
-    connection?.commands.setReviewModel(jobId, model),
-  );
-  ipcMain.handle(CHANNELS.removeAllowedCommand, (_event, jobId: string, run: string) =>
-    connection?.commands.removeAllowedCommand(jobId, run),
-  );
-  ipcMain.handle(
-    CHANNELS.redirectDrone,
-    (_event, jobId: string, instruction: string, droneId?: unknown) =>
-      connection?.commands.redirectDrone(
-        jobId,
-        instruction,
-        typeof droneId === "string" ? droneId : undefined,
-      ),
-  );
-  // The owner's answer to one retro item. Both are acts on the item and not on a Job.
+  // The owner's answer to one retro item.
   ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
   );
-  // Agreeing by a Session instead of a Job: Fleet starts it and drafts the first message, and sends nothing.
+  // Agreeing by a Session: Fleet starts it and drafts the first message, and sends nothing.
   ipcMain.handle(CHANNELS.startLessonSession, (_event, lessonId: string) =>
     connection?.commands.startLessonSession(lessonId),
   );
-  ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
-    connection?.commands.restartStep(jobId, note),
-  );
-  // The third act on an escalated Job, and the only one that keeps the work the
-  // gate refused. Its own channel rather than a flag on `approveReview`: that
-  // answers a gate nothing objected to, and this answers one that refused.
-  ipcMain.handle(CHANNELS.overrideVerdict, (_event, jobId: string, reason: string) =>
-    connection?.commands.overrideVerdict(jobId, reason),
-  );
-  // The answer at a gate that could not rule, which is a different place again:
-  // the override lifts a decision and this asks for one. Its own channel for
-  // the reason the two routes are two — the triggers partition, and neither act
-  // is legal where the other one is.
-  ipcMain.handle(CHANNELS.rerunGate, (_event, jobId: string) =>
-    connection?.commands.rerunGate(jobId),
-  );
-  // A stopped step's own Checks, asked again. Its own channel beside the
-  // gate re-run's: `#1105`, and the two triggers partition the same way.
-  ipcMain.handle(CHANNELS.rerunChecks, (_event, jobId: string) =>
-    connection?.commands.rerunChecks(jobId),
-  );
-  // The running gate's own Checks, one at a time or every unfinished one. Their
-  // own channels: `rerunChecks` answers a step that has stopped.
-  ipcMain.handle(CHANNELS.retryCheck, (_event, jobId: string, check: string) =>
-    connection?.commands.retryCheck(jobId, check),
-  );
-  ipcMain.handle(CHANNELS.skipCheck, (_event, jobId: string, check: string) =>
-    connection?.commands.skipCheck(jobId, check),
-  );
-  ipcMain.handle(CHANNELS.skipChecks, (_event, jobId: string) => connection?.commands.skipChecks(jobId));
-  ipcMain.handle(CHANNELS.showAgain, (_event, jobId: string, spec?: string) =>
-    connection?.commands.showAgain(jobId, spec),
-  );
-  // More money for one job, on a channel of its own because nothing else here
-  // sets a value on a job. It moves no status and asks for no drone: what it
-  // stops is the next dispatch being refused for money.
-  ipcMain.handle(CHANNELS.raiseCostCap, (_event, jobId: string, costCapMicros: number) =>
-    connection?.commands.raiseCostCap(jobId, costCapMicros),
-  );
-  // More turns for one job, on a channel of its own beside the cost cap's. Two
-  // routes on the wire and two channels here: a job held on turns is not
-  // started by more money, so one channel carrying either would report a
-  // success that left the job exactly where it was.
-  ipcMain.handle(CHANNELS.raiseTurnCap, (_event, jobId: string, turnCap: number) =>
-    connection?.commands.raiseTurnCap(jobId, turnCap),
-  );
-  // A person's Bridge preferences. Fleet-wide, so no Job id rides this
+  // A person's Bridge preferences. Fleet-wide, so no id rides this
   // channel — the only one among the acts above that names none.
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
-  // settings.json. Fleet-wide, so no Job id rides this either — `settings.ts`.
+  // settings.json. Fleet-wide, so no id rides this either — `settings.ts`.
   ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
     (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
   );
@@ -902,7 +510,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
   ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
-  // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
+  // The mods on this machine. Fleet-wide, so no id rides these either — `mods.ts`.
   ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
   ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>
     (await connection?.mods.setEnabled(name, enabled)) ?? { ok: false, why: "not_connected" },
@@ -910,34 +518,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.promoteMod, async (_event, name: string): Promise<Outcome> =>
     (await connection?.mods.promote(name)) ?? { ok: false, why: "not_connected" },
   );
-  // Saying a job failed in error. Its own channel beside the override rather
-  // than a flag on it: the override moves the job past a verdict and this moves
-  // nothing, and the two would otherwise be one press meaning either.
-  ipcMain.handle(CHANNELS.fileReport, (_event, jobId: string, filing: FileReport) =>
-    connection?.commands.fileReport(jobId, filing),
-  );
-  // A person's own add or drop of a task on the plan — `connection.planEdits`,
-  // `plan-edits.ts`. Neither is `commands`' — the answer is the plan the
-  // change leaves rather than an `Outcome`, and that plan is folded straight
-  // into the open Job's detail rather than through `command.ts`'s board.
-  ipcMain.handle(CHANNELS.addTask, (_event, jobId: string, add: AddTask) =>
-    connection?.planEdits.add(jobId, add),
-  );
-  ipcMain.handle(CHANNELS.dropTask, (_event, jobId: string, drop: DropTask) =>
-    connection?.planEdits.drop(jobId, drop),
-  );
-  // Which Job is open. Main does the reading and republishes it as events
-  // arrive, so the detail moves without the renderer asking again.
-  ipcMain.handle(CHANNELS.watchJob, (_event, jobId: string | null) =>
-    connection?.watchJob(jobId),
-  );
-  // Which Job's turns are open. A second socket to Fleet, carrying rows only:
-  // there is nothing to send up it, which is what keeps observing read-only.
-  ipcMain.handle(CHANNELS.observeJob, (_event, jobId: string | null) =>
-    connection?.observeJob(jobId),
-  );
   // Which running Check's log is open. A fourth socket, carrying lines only,
-  // and read-only for `observeJob`'s reason.
+  // and read-only.
   ipcMain.handle(
     CHANNELS.followCheckOutput,
     (_event, jobId: string | null, kept: string | null) =>
@@ -948,28 +530,6 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.followLandCheck, (_event, at: LandCheckAt | null) =>
     connection?.followLandCheck(landCheckAt(at)),
   );
-  // Which Job's transition history is unfolded. One HTTP read, kept current
-  // while it is open, and dropped when the section closes — a history is its
-  // own operation precisely so a Job opened does not pay for it.
-  ipcMain.handle(CHANNELS.readHistory, (_event, jobId: string | null) =>
-    connection?.readHistory(jobId),
-  );
-  // What the open Job holds on this machine. Opened with the Job and re-read
-  // on every event naming it — its own channel because it is its own operation
-  // and because it walks a process table, which a Job's detail does not.
-  // The Cockpit and the Dashboard, drawing a Now for every active Job without
-  // opening one. `false` when they leave; nothing is read while none is asking.
-  ipcMain.handle(CHANNELS.followActive, (_event, want: boolean) => connection?.followActive(want === true));
-  ipcMain.handle(CHANNELS.readResources, (_event, jobId: string | null) =>
-    connection?.readResources(jobId),
-  );
-  // Pulse's own 10 s timer, #1571 — the board says which Job it is drawing, and
-  // `null` when it stops. Nothing is read on this call itself: the reading is
-  // already open on `readResources` above, and this only decides whether it
-  // keeps being taken while the Job is quiet.
-  ipcMain.handle(CHANNELS.watchPulse, (_event, jobId: string | null) => {
-    resourcesPoll.watch(jobId);
-  });
   handleRehearsal({ ipc: ipcMain, connection: () => connection, windowIdOf });
   // Overview's health and per-repository drift, held open by that surface.
   ipcMain.handle(CHANNELS.watchOverview, (event, want: unknown) =>
@@ -989,11 +549,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));
   handleRepositories({ ipc: ipcMain, connection: () => connection, windowIdOf });
-  // A declared server, for this Job's worktree or the main checkout where no
-  // Job is named. `servers` on the published state is what keeps a *Serving*
+  // A declared server in the main checkout. `servers` on the published state is what keeps a *Serving*
   // row on screen after the sheet that started it closes.
-  ipcMain.handle(CHANNELS.startServer, (event, name: string, jobId?: string) =>
-    connection?.rehearsal.startServer(name, jobId, connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  ipcMain.handle(CHANNELS.startServer, (event, name: string) =>
+    connection?.rehearsal.startServer(name, connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
   ipcMain.handle(CHANNELS.stopServer, (_event, serverId: string) =>
     connection?.rehearsal.stopServer(serverId),
@@ -1011,36 +570,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
     connection?.fleetBuild.change(build, adopt),
   );
-  // The act above that read. It moves nothing, costs no model call, and the
-  // answer it publishes is also written into the Job's own log.
-  ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
-    connection?.examineJob(jobId),
-  );
-  // The three reads a review is made of. Three channels because they are three
-  // operations: the claims are four lines a step, the diff is the patch, and
-  // the conversation is a forge. Each is read only where somebody is looking.
-  ipcMain.handle(CHANNELS.readEvidence, (_event, jobId: string | null) =>
-    connection?.readEvidence(jobId),
-  );
-  ipcMain.handle(CHANNELS.readDiff, (_event, jobId: string | null) =>
-    connection?.readDiff(jobId),
-  );
-  // The panel's own 20 s timer, #667 — same Job as the read this triggers,
-  // so the two can never end up watching different pull requests.
-  ipcMain.handle(CHANNELS.readRemarks, (_event, jobId: string | null) => {
-    remarksPoll.watch(jobId);
-    return connection?.readRemarks(jobId);
-  });
-  ipcMain.handle(CHANNELS.readFrame, (_event, jobId: string, kept: string) =>
-    connection?.readFrame(jobId, kept),
-  );
-  ipcMain.handle(CHANNELS.readCheckOutput, (_event, jobId: string, kept: string) =>
-    connection?.readCheckOutput(jobId, kept),
-  );
   ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) => connection?.readSessionCheckOutput(run));
   ipcMain.handle(CHANNELS.stopSessionCheck, (_event, run: number, force: boolean) => connection?.stopSessionCheck(run, force));
-  ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
-  // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
+  // A retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
   ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) => connection?.readRetro(subject));
   ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
     connection?.readLessons(
@@ -1055,20 +587,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.askLesson, (_event, lessonId: string, question: string, history: AskTurn[]) =>
     connection?.askLesson(lessonId, question, history),
   );
-  // New job's own reads for the repository its ask answered, on All — #959.
-  ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>
-    connection?.readComposing(repository, connection.repositories.pickedByWindow.of(windowIdOf(event))),
-  );
-  // Every report a person has filed, and the counts they are read beside. The
-  // one read here that names no Job: a report outlives the Job it is about, so
-  // a listing reached through one would lose the reports that most need
-  // reading. Read-only, and nothing on this channel can file or withdraw one.
-  ipcMain.handle(CHANNELS.readReports, (_event, want: boolean) =>
-    connection?.readReports(want),
-  );
-  // What fleet is holding disk for, while somebody is deciding about it. The
-  // second read here that names no Job, and read-only: the act beside it is
-  // `reclaimWorktree`, which already has its own channel and takes one id.
+  // What fleet is holding disk for, while somebody is deciding about it. Read-only.
   ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
     connection?.readHeld(want),
   );
@@ -1086,81 +605,6 @@ void app.whenReady().then(() => {
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
-  // The four decisions on the work, and they stay four channels. Merging lands
-  // the branch and then takes the work, approving takes it and leaves the pull
-  // request open, requesting changes sends the drone back to the same step, and
-  // rejecting is terminal and ends the drone — a single channel taking which
-  // one as an argument would make that difference a flag.
-  ipcMain.handle(CHANNELS.approveReview, (_event, jobId: string) =>
-    connection?.commands.approveReview(jobId),
-  );
-  ipcMain.handle(CHANNELS.mergePullRequest, (_event, jobId: string) =>
-    connection?.commands.mergePullRequest(jobId),
-  );
-  ipcMain.handle(CHANNELS.autoMergePullRequest, (_event, jobId: string) =>
-    connection?.commands.autoMergePullRequest(jobId),
-  );
-  ipcMain.handle(CHANNELS.rerunFailedChecks, (_event, jobId: string) =>
-    connection?.commands.rerunFailedChecks(jobId),
-  );
-  ipcMain.handle(CHANNELS.investigateFailedChecks, (_event, jobId: string) =>
-    connection?.commands.investigateFailedChecks(jobId),
-  );
-  ipcMain.handle(CHANNELS.queueAfterFinding, (_event, jobId: string, finding: string) =>
-    connection?.commands.queueAfterFinding(jobId, finding),
-  );
-  ipcMain.handle(
-    CHANNELS.fileFindingIssue,
-    (_event, jobId: string, finding: string, title: string, body: string) =>
-      connection?.commands.fileFindingIssue(jobId, finding, title, body),
-  );
-  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string, walk: unknown) =>
-    connection?.commands.requestChanges(jobId, note, walk === true),
-  );
-  ipcMain.handle(CHANNELS.removeWalkNote, (_event, jobId: unknown, noteId: unknown) =>
-    typeof jobId === "string" && typeof noteId === "string"
-      ? connection?.commands.removeWalkNote(jobId, noteId)
-      : undefined,
-  );
-  ipcMain.handle(CHANNELS.rejectWork, (_event, jobId: string) =>
-    connection?.commands.rejectWork(jobId),
-  );
-  // The fifth act at the same gate, and a channel of its own for the four
-  // above's reason: it carries a set of handles off a forge rather than a note,
-  // and what it does to the Job is what `requestChanges` does.
-  ipcMain.handle(CHANNELS.takeUpRemarks, (_event, jobId: string, remarks: string[]) =>
-    connection?.commands.takeUpRemarks(jobId, remarks),
-  );
-  // A person ruling on the review. It moves nothing. #907.
-  ipcMain.handle(
-    CHANNELS.dismissFinding,
-    (_event, jobId: string, finding: string, reason: string) =>
-      connection?.commands.dismissFinding(jobId, finding, reason),
-  );
-  // The one channel that reaches the OS, and the only one carrying no Fleet
-  // request at all. **The path is built here** from the Job and the repository
-  // its Manifest was read from; what crosses is a Job id and one of three
-  // words, so no string the renderer composed reaches `shell.openPath`.
-  ipcMain.handle(CHANNELS.openInTerminal, (_event, jobId: string) => openInTerminal(published, jobId));
-  ipcMain.handle(CHANNELS.openArtifact, (_event, jobId: string, what: Artifact) =>
-    openArtifact(published, jobId, what),
-  );
-  // The second channel that reaches the OS, and the only one that leaves this
-  // machine. **The address is read here** off what main published, and checked
-  // to be a web address before it is handed over; what crosses is a Job id, so
-  // no string the renderer composed reaches `shell.openExternal`. `forge.ts`.
-  ipcMain.handle(CHANNELS.openPullRequest, (_event, jobId: string) =>
-    openPullRequest(published, jobId),
-  );
-  // The third channel that leaves this machine, `openPullRequest`'s reason:
-  // the comment's own address is read here off the remarks reading main
-  // published, never off a string the renderer sent.
-  ipcMain.handle(CHANNELS.openRemarkLink, (_event, jobId: string, remarkId: string) =>
-    openRemarkLink(published, jobId, remarkId),
-  );
-  ipcMain.handle(CHANNELS.openFindingIssue, (_event, jobId: string, finding: string) =>
-    openFindingIssue(published, jobId, finding),
-  );
   // A Studio node's own address, `openPullRequest`'s reason: read here off the
   // Studio main published, never off a string the renderer sent. #1406.
   ipcMain.handle(CHANNELS.openStudioNode, (_event, studioId: string, nodeId: string) =>
@@ -1176,16 +620,12 @@ void app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  // **On macOS the connection stays up with the window closed, and this feature
-  // rests on that.** Fleet is a daemon rather than a subprocess of the window,
-  // so Jobs progress either way — but a Bridge that stopped reading would have
-  // nothing left to notice a Job starting to wait, and telling somebody who is
-  // away from the app is the whole point. The app is still running; what it
-  // costs is one socket.
+  // **On macOS the connection stays up with the window closed.** Fleet is a daemon rather than a
+  // subprocess of the window, so Sessions progress either way, and the app is still running; what
+  // it costs is one socket.
   //
   // Everywhere else the app quits, which stops the connection on its way out.
   if (process.platform === "darwin") return;
   connection?.stop();
-  attention.close();
   app.quit();
 });

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { GUIDE_COMPLETION, GUIDE_MEMBER_LINK } from "../../guides";
+import { GUIDE_COMPLETION, GUIDE_GROUP_ORDER } from "../../guides";
 import { GuideSteps } from "./GuideSteps";
 
 /**
@@ -31,15 +31,15 @@ export default meta;
 type Story = StoryObj<typeof GuideSteps>;
 
 /**
- * **A relation, with the drawing under the line that names it.** Guide 2: a
- * numbered sequence, one line each, and the real member list under step 2 —
+ * **A relation, with the drawing under the line that names it.** Guide 4: a
+ * numbered sequence, one line each, and the real group cards under step 2 —
  * because the order is the relation.
  */
 export const WithAFigure: Story = {
-  args: { guide: GUIDE_MEMBER_LINK },
+  args: { guide: GUIDE_GROUP_ORDER },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("img", { name: /landing in order/ })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: /Two groups of a plan/ })).toBeVisible();
   },
 };
 
@@ -57,7 +57,7 @@ export const WithNoFigure: Story = {
 
 /** The same guide in the layer a `?` opens, where the drawing has less width. */
 export const InTheCard: Story = {
-  args: { guide: GUIDE_MEMBER_LINK, where: "card" },
+  args: { guide: GUIDE_GROUP_ORDER, where: "card" },
   decorators: [
     (Story) => (
       <div

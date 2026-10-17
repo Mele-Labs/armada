@@ -5,21 +5,15 @@
 //! trait. Nothing here decides: each method converts the request, calls the
 //! `Fleet` method that moves it, and maps a refusal through `Fleet::refusal`.
 //!
-//! `#712`: most commands race their work against [`CommandBudget`] through
-//! [`budgeted`](crate::budget::budgeted). **The race itself moved to
-//! `crate::budget` at the 900-line refusal, `#897`** — a method added here is
-//! a delegating line into whichever module already holds its Job's logic.
+//! A method added here is a delegating line into whichever module already
+//! holds its logic.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Commands, Refusal};
-use ipc::{JobForgotten, JobId, JobSummary, WorktreeReclaimed};
 
-use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
-use crate::reporting::Filed;
-use crate::wire::reported;
 
 impl<H, V, W> Commands for Fleet<H, V, W>
 where
@@ -228,41 +222,7 @@ where
     async fn stop_server(&self, named: ipc::NamedServer) -> Result<ipc::ServerState, Refusal> {
         self.stopped_server(&named.id)
             .await
-            .map_err(|why| self.server_refusal(why, None))
-    }
-
-    /// The unit of work, not the process.
-    async fn kill_job(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move { Fleet::kill_job(&fleet, &job_id.to_domain()).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
-    }
-
-    /// The record, gone. **Nothing is redacted here** — there is no Job left
-    /// to redact, only the id it used to name.
-    async fn forget_job(self: Arc<Self>, job_id: JobId) -> Result<JobForgotten, Refusal> {
-        budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            let id = job_id.clone();
-            async move { Fleet::forget_job(&fleet, &id.to_domain()).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        Ok(JobForgotten { job_id })
-    }
-
-    /// The disk, given back — `crate::reclaiming`, which says why nothing is redacted.
-    async fn reclaim_worktree(
-        self: Arc<Self>,
-        job_id: JobId,
-    ) -> Result<WorktreeReclaimed, Refusal> {
-        let reclaimed = Fleet::reclaim_answered(Arc::clone(&self), job_id).await?;
-        self.worktrees_changed().await;
-        Ok(reclaimed)
+            .map_err(|why| self.server_refusal(why))
     }
 
     /// The pool reshaped on this machine — `crate::leasing`.
@@ -286,41 +246,4 @@ where
         self.worktrees_changed().await;
         Ok(rescued)
     }
-
-    async fn delete_branch(
-        self: Arc<Self>,
-        job_id: JobId,
-        asked: ipc::DeleteBranch,
-    ) -> Result<ipc::BranchDeleted, Refusal> {
-        Fleet::delete_branch_answered(self, job_id, asked).await
-    }
-
-    /// A person says this Job failed in error, and the record is filed with
-    /// what they said.
-    ///
-    /// **Everything here is in `crate::reporting`**, including the emptiness and
-    /// the two refusals it has: `crate::reporting::NotFiled` names each cause
-    /// and says it, and this only carries one out as the 422 it is.
-    async fn file_report(
-        self: Arc<Self>,
-        job_id: JobId,
-        filing: ipc::FileReport,
-    ) -> Result<ipc::Report, Refusal> {
-        let id = job_id.to_domain();
-        let filed = Filed::saying(
-            filing.claim,
-            &filing.said,
-            filing.step_id,
-            filing.criterion_id,
-        )
-        .map_err(|cause| self.refusal(cause.about(&id)))?;
-        let filed = budgeted_for(self.command_budget(), job_id, {
-            let fleet = Arc::clone(&self);
-            async move { Fleet::file_report(&fleet, &id, &filed).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        reported(&filed).map_err(|why| self.refusal(why))
-    }
-
 }

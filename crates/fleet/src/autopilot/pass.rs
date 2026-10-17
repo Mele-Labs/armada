@@ -123,12 +123,7 @@ where
             .map_err(|why| format!("{why:?}"))?;
         let mut taken: BTreeSet<String> = {
             let store = self.store().lock().await;
-            let mut taken: BTreeSet<String> = store
-                .issue_sources_in_flight()
-                .map_err(|why| format!("{why:?}"))?
-                .into_iter()
-                .map(|(_, source)| source.url)
-                .collect();
+            let mut taken: BTreeSet<String> = BTreeSet::new();
             // **Every run's** live Sessions: a Stop and a Start must not pick an issue twice.
             for one in store
                 .autopilot_picks_that_started_a_session()
@@ -196,9 +191,9 @@ where
                     offered.retain(|one| one.url != url);
                     room -= 1;
                     made += 1;
-                    let job_cap = gathered.kept.job_cap;
+                    let session_cap = gathered.kept.session_cap;
                     gathered = self.autopilot_gathered(gathered.kept).await.map_err(said)?;
-                    if job_cap.is_some_and(|cap| gathered.spent.started >= cap) {
+                    if session_cap.is_some_and(|cap| gathered.spent.started >= cap) {
                         break;
                     }
                 }

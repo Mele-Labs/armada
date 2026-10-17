@@ -46,7 +46,7 @@ pub enum MainChange {
 /// A change in a repository's main, with the reading it came to.
 ///
 /// **The culprit rides on it where it was found**: the merge's pull request
-/// number, and the Fleet Job that opened that pull request, if any. It is asked
+/// number, and the Session that opened that pull request, if any. It is asked
 /// once per commit, in the reading that finds the red.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MainChanged {
@@ -216,7 +216,7 @@ where
                 let culprit = candidates[first].0.clone();
                 // A kept merge that names nobody is asked once more per process, so a red read
                 // before Sessions were named gets its Session when Fleet restarts.
-                let named = |it: &MainMerge| it.job.is_some() || it.session.is_some();
+                let named = |it: &MainMerge| it.session.is_some();
                 let merge = match continues || (same_commit && kept.is_some()) {
                     true if kept.as_ref().is_some_and(named) => kept,
                     true => self.the_merge(served, &culprit).await.or(kept),
@@ -400,20 +400,14 @@ where
             .forge_asked(served.root(), move |vcs, root| vcs.merged_by(root, &commit))
             .await?;
         let branch = pull.branch.as_ref().map(|branch| branch.as_written());
-        let (job, session) = {
+        let session = {
             let store = self.store().lock().await;
-            let job = self.job_of_pull(&store, served, pull.number);
-            let session = match job {
-                Some(_) => None,
-                None => self.session_of_pull(&store, served, pull.number, branch),
-            };
-            (job, session)
+            self.session_of_pull(&store, served, pull.number, branch)
         };
         Some(MainMerge {
             number: pull.number,
             url: pull.url.map(|url| url.as_written().to_string()),
             branch: pull.branch.map(|branch| branch.as_written().to_string()),
-            job,
             session,
         })
     }

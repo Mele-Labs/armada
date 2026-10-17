@@ -7,16 +7,15 @@
 //! the run's end, or a server's lifecycle. `docs/practices/protocol.md`, *The
 //! run socket*, is the design.
 //!
-//! **Per run, not per Job's runs.** The sheet holds a run's id from the moment
-//! it starts one, a run has an end to close on, and a Job has one run out at a
-//! time — a per-Job channel would need `observing`'s hand-over for no reader.
-//! A server is the same shape, per instance, which is why both go through
-//! [`relayed`] and differ only in the message that opens them.
+//! **Per run.** The sheet holds a run's id from the moment it starts one, and a
+//! run has an end to close on. A server is the same shape, per instance, which
+//! is why both go through [`relayed`] and differ only in the message that opens
+//! them.
 
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
-    CheckoutRunMessage, CheckoutRunOpened, JobId, Missed, OutputClosed, OutputEnded, OutputLines,
-    ProtocolId, RunMessage, ServerMessage, ServerOpened,
+    CheckoutRunMessage, CheckoutRunOpened, Missed, OutputClosed, OutputEnded, OutputLines,
+    ProtocolId, ServerMessage, ServerOpened,
 };
 use serde::Serialize;
 use tokio::sync::broadcast;
@@ -106,10 +105,10 @@ impl RunWatch {
     }
 }
 
-/// What one viewer is answered with, **assembled by the daemon** in the order
-/// that loses nothing: the subscription, then the history.
-pub struct ObservedRun {
-    pub job_id: JobId,
+/// What one viewer of a run in the main checkout is answered with, **assembled
+/// by the daemon** in the order that loses nothing: the subscription, then the
+/// history.
+pub struct ObservedCheckoutRun {
     pub id: String,
     pub name: String,
     pub path: String,
@@ -123,25 +122,8 @@ pub struct ObservedRun {
     pub unreadable: bool,
 }
 
-/// [`ObservedRun`]'s shape for a run in the main checkout. **There is no
-/// `job_id` at all**: this run belongs to the checkout and not to a Job that
-/// happens to be absent.
-pub struct ObservedCheckoutRun {
-    pub id: String,
-    pub name: String,
-    pub path: String,
-    /// `None` where the run has ended. The history is then all of it.
-    pub live: Option<RunWatch>,
-    pub history: Vec<String>,
-    pub skipped: u64,
-    pub read_to: u64,
-    pub unreadable: bool,
-}
-
-/// [`ObservedRun`]'s shape for a server. `job_id` is absent on a server
-/// started with no Job, which is the one field that differs.
+/// [`ObservedCheckoutRun`]'s shape for a server.
 pub struct ObservedServer {
-    pub job_id: Option<JobId>,
     pub id: String,
     pub name: String,
     pub path: String,
@@ -159,18 +141,6 @@ trait Spoken: Serialize {
     fn lines(lines: Vec<String>) -> Self;
     fn missed(dropped: u64) -> Self;
     fn closed(because: OutputEnded) -> Self;
-}
-
-impl Spoken for RunMessage {
-    fn lines(lines: Vec<String>) -> Self {
-        RunMessage::Lines(OutputLines { lines })
-    }
-    fn missed(dropped: u64) -> Self {
-        RunMessage::Missed(Missed { dropped })
-    }
-    fn closed(because: OutputEnded) -> Self {
-        RunMessage::Closed(OutputClosed { because })
-    }
 }
 
 impl Spoken for CheckoutRunMessage {
@@ -198,7 +168,7 @@ impl Spoken for ServerMessage {
 }
 
 
-/// Serve one viewer of a run in the main checkout, [`relay`]'s way.
+/// Serve one viewer of a run in the main checkout, [`relayed`]'s way.
 pub(crate) async fn relay_checkout(socket: WebSocket, observed: ObservedCheckoutRun) {
     let opened = CheckoutRunMessage::Opened(CheckoutRunOpened {
         protocol_id: ProtocolId::current(),
@@ -217,11 +187,10 @@ pub(crate) async fn relay_checkout(socket: WebSocket, observed: ObservedCheckout
     relayed(socket, opened, tail).await;
 }
 
-/// Serve one viewer of a server, [`relay`]'s way.
+/// Serve one viewer of a server, [`relayed`]'s way.
 pub(crate) async fn relay_server(socket: WebSocket, observed: ObservedServer) {
     let opened = ServerMessage::Opened(ServerOpened {
         protocol_id: ProtocolId::current(),
-        job_id: observed.job_id,
         id: observed.id,
         name: observed.name,
         path: observed.path,
