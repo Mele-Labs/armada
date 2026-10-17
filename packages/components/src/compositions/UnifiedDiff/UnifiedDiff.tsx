@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Swords } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -43,6 +43,11 @@ export type DiffLine = {
   kind: "hunk" | "added" | "removed" | "context";
   /** The line exactly as git wrote it, marker included. Never re-marked here. */
   text: string;
+  /**
+   * On a hunk: it changes lines another change also changes, which a merge of the two would conflict on. What
+   * the mark's tooltip says, naming the other change. Drawn in the clash mark's hue and glyph.
+   */
+  collides?: string;
 };
 
 export type DiffFile = {
@@ -165,7 +170,7 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLi
           {file.folded === true ? null : (
             <ol className="armada-diff__lines">
               {file.lines.map((line, i) => (
-                <li className="armada-diff__line" data-kind={line.kind} key={i}>
+                <li className="armada-diff__line" data-kind={line.kind} data-collides={line.collides === undefined ? undefined : ""} key={i}>
                   {onLine === undefined || line.kind === "hunk" ? null : (
                     <Tooltip label={onLine.label} asChild>
                       <button
@@ -179,6 +184,13 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLi
                     </Tooltip>
                   )}
                   <pre className="armada-diff__text">{line.text}</pre>
+                  {line.collides === undefined ? null : (
+                    <Tooltip label={line.collides}>
+                      <span className="armada-diff__collides" role="img" aria-label={line.collides}>
+                        <Swords size={12} strokeWidth={2} aria-hidden />
+                      </span>
+                    </Tooltip>
+                  )}
                   {under?.(file, i)}
                 </li>
               ))}

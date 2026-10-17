@@ -9,6 +9,7 @@
 import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
+import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
 
@@ -64,6 +65,8 @@ export function ReviewKeys() {
 function press(event: KeyboardEvent, store: ReviewStore): void {
   // A dialog's keys are its own while it is up.
   if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+  // So is an open menu's or list's: Esc closes that first, wherever focus is.
+  if (event.key === "Escape" && popupIsOpen()) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (!(event.target instanceof Element)) return;
   const target = event.target;

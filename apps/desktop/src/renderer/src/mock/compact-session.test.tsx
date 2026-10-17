@@ -1,6 +1,6 @@
 // The compact Session view, through `App` on `compact-session-view` at a 1512 by 900 window: what waits on him is the thread's last card and
 // nothing is pinned; a chip over the composer jumps back to it; the Flight control keys open Artifacts, Subagents, Checks and Slot over the
-// thread and Back returns to the exact spot; the Slot key lights, and the thread gets a call, only when the slot is wrong. The walks
+// thread and Back returns to the exact spot; the Bays key opens every bay the Session holds, and lights, with a call in the thread, only when one is wrong. The walks
 // `compactSessionView` and `compactCallsInThread` play it.
 
 import { expect, test } from "vitest";
@@ -109,20 +109,42 @@ test("Checks lists the runs the Session made, newest first", async () => {
   expect(names).toEqual(["desktop, running", "fleet, passed"]);
 });
 
-test("the Slot key is lit only when the slot is wrong, and then the thread has the call and the key opens the layer", async () => {
+test("the Bays key is lit only when a bay is wrong, and then the thread has the call and the key opens every bay", async () => {
   await open();
-  await expect.element(tile("Slot")).toHaveAttribute("aria-disabled", "true");
-  expect(tile("Slot").element().hasAttribute("data-lit")).toBe(false);
+  await expect.element(tile("Bays")).not.toHaveAttribute("aria-disabled");
+  expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
   timePasses();
-  await expect.poll(() => tile("Slot").element().hasAttribute("data-lit")).toBe(true);
-  await expect.element(tile("Slot")).not.toHaveAttribute("aria-disabled");
+  await expect.poll(() => tile("Bays").element().hasAttribute("data-lit")).toBe(true);
   // The call is in the thread's last card, with the others.
   await expect.poll(() => tail()?.textContent ?? "").toContain("Slot 3 is stranded");
-  await tile("Slot").click();
-  const layer = page.getByRole("region", { name: "Slot", exact: true });
-  await expect.element(layer.getByRole("button", { name: "Open the bay" })).toBeVisible();
-  expect(layer.element().textContent).toContain("Stranded");
-  expect(layer.element().textContent).toContain("31 commits");
+  await tile("Bays").click();
+  const layer = page.getByRole("region", { name: "Bays", exact: true });
+  await expect.element(layer.getByRole("button", { name: "Show slot-3 in Bays" })).toBeVisible();
+  await expect.element(layer.getByRole("img", { name: "Stranded" })).toBeInTheDocument();
+  await expect.element(layer.getByRole("img", { name: "31 behind main" })).toBeInTheDocument();
+});
+
+test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the thread", async () => {
+  await page.viewport(1512, 900);
+  mount("compact-slot-clash");
+  await onScreen();
+  await work().getByRole("button", { name: TITLE, exact: true }).click();
+  await expect.element(tile("Bays").getByRole("img", { name: "Write clash with Name the store migrations, Rotate the audit log" })).toBeVisible();
+  expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
+  await expect.poll(() => tail()).not.toBeNull();
+  expect(tail()!.textContent).not.toContain("conflicts with another holder");
+});
+
+test("hovering a clash's other Session in Bays lights its row in Work", async () => {
+  await page.viewport(1512, 900);
+  mount("compact-slot-clash");
+  await onScreen();
+  await work().getByRole("button", { name: TITLE, exact: true }).click();
+  await tile("Bays").click();
+  const row = () => document.querySelector<HTMLElement>('[data-row="session:compact-4"]');
+  expect(row()?.hasAttribute("data-hover")).toBe(false);
+  await page.getByRole("region", { name: "Bays", exact: true }).getByRole("button", { name: "Open Rotate the audit log" }).hover();
+  await expect.poll(() => row()?.hasAttribute("data-hover")).toBe(true);
 });
 
 test("a Session calling him pulses its row in Work, and the one that is open does not", async () => {

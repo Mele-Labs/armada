@@ -6,7 +6,7 @@
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 
 import { useEffect, useRef, useState } from "react";
-import { Bug, CircleCheck, CircleDot, CirclePause, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Play, Rows3, Scale, ShieldCheck, Split, Unplug } from "lucide-react";
+import { Bug, CircleCheck, CircleDot, CirclePause, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Play, Rows3, Scale, ShieldCheck, Split, Swords, Unplug } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -20,7 +20,7 @@ import { reportBrief } from "./report-brief";
 import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, PAUSE_KEY, SESSION_TILES, tileKey, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 import { toggleLayer, useLayer } from "../../session-view/layers";
-import type { SlotTrouble } from "../../session-view/slot-trouble";
+import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 
 const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug, artifacts: Files, subagents: Split, checks: ShieldCheck, slot: Rows3, pause: CirclePause } as const;
 
@@ -31,7 +31,7 @@ const CLEAR_MS = 2400;
 export type ReportRepository = { root: string; name?: string };
 
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
-export function SessionTiles({ session, draft, repository, startIn, trouble }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; trouble?: SlotTrouble | undefined }) {
+export function SessionTiles({ session, draft, repository, startIn, bays }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined }) {
   const layer = useLayer(session.id);
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
@@ -55,7 +55,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
   const events = useFleetEvents();
   const refused = useSessionsSaid();
   const on = useAutoLand(session.id);
-  const { off, compact } = offeredOf(session, draft, repository?.root, trouble !== undefined);
+  const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: SessionTileId, act: () => Promise<void>) => {
     if (pending !== undefined) return;
@@ -113,6 +113,9 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
     select({ kind: "session", key: `session:${id}` });
     return true;
   };
+  const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
+  const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
+  const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Job for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
@@ -124,7 +127,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
     artifacts: "Everything the Job made or used",
     subagents: "Every subagent",
     checks: "The Checks the Job ran",
-    slot: trouble?.said ?? "Slot",
+    slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const dialog = releasing ? (
@@ -166,7 +169,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
                 aria-label={name}
                 data-act={tile.id === "pause" ? "pause" : undefined}
                 aria-pressed={tile.id === "map" || tile.id === "release" || tile.id === "pause" ? false : pending === tile.id || (tile.id === "land" && on) || layer === tile.id}
-                data-lit={(tile.id === "slot" && trouble !== undefined) || undefined}
+                data-lit={(tile.id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
                 aria-busy={pending === tile.id || undefined}
                 aria-disabled={why !== undefined || undefined}
                 onClick={() => why === undefined && press[tile.id]()}
@@ -183,6 +186,12 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
                   <Glyph size={20} aria-hidden="true" />
                 )}
                 <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
+                {tile.id !== "slot" || clashSaid === undefined ? null : (
+                  // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
+                  <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
+                    <Swords size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                )}
                 {key === undefined ? null : (
                   <Kbd className="deck-tile__key" aria-hidden="true">
                     {key}
