@@ -5,16 +5,19 @@
 // serves it**: started at once, moving on `review_run.changed`, kept for the commit it ran on and read again by `getReviewRuns`.
 // What it comes to is the fixture of the pull request, converted (`review-run-fixtures.ts`). State is per window.
 
-import { refusedWith, type PullRequestEntry, type PullRequestFilePatch, type PullRequestPage, type PullReviewLists, type PullReviewRow, type PullReviewThread, type PullThreadResolved, type ResolvePullThread, type ReviewResult, type ReviewRun, type ReviewTool, type ReviewTools, type WritePullRequest } from "@armada/protocol";
+import { refusedWith, type PullRequestEntry, type PullRequestFilePatch, type PullRequestPage, type PullReviewLists, type PullReviewRow, type PullReviewThread, type PullThreadResolved, type ResolvePullThread, type ReviewResult, type ReviewRun, type ReviewTool, type ReviewTools, type WalkPlace, type WritePullRequest } from "@armada/protocol";
 
 import type { ReviewsApi } from "../../../shared/api/reviews";
-import type { PrList, SearchFixtures, Thread, ToolDef } from "../pr-review/model";
+import type { PrList, Thread, ToolDef } from "../pr-review/model";
 import { patchOfLines, placeOfLine } from "../pr-review/patch";
-import { AGENT_MS } from "../pr-review/store-agent";
 import { idOfName } from "../pr-review/tools";
 import { unanswered } from "./moment";
 import { accountResult, answerResult, findingsResult, themesOf } from "./review-run-fixtures";
 import type { MockPr, ReviewSeed } from "./review-seed";
+import { NO_SEARCH_OR_WALK, createMockSearchAndWalk } from "./review-walk-fleet";
+
+/** How long a mock run takes to come to something. */
+export const AGENT_MS = 2200;
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -41,9 +44,6 @@ function wireThread(pr: MockPr, one: MockPr["threads"][number]): Thread {
     comments: one.comments,
   };
 }
-
-/** What Natural Search is driven by: the seed's finds. The only fixture the store still reads. */
-export const searchOf = (seed: ReviewSeed): SearchFixtures => ({ built: true, finds: seed.finds });
 
 /** Three places merged by id, the most specific winning, as Fleet's `list_review_tools` merges them. */
 function resolved(layers: readonly (readonly ToolDef[])[]): ReviewTool[] {
@@ -100,8 +100,13 @@ export function createMockForge(seed: ReviewSeed): MockForge {
   }
 
   /** What a run comes to: the fixture of its pull request, in the shape its kind has. */
-  const resultOf = (pr: MockPr, kind: ReviewRun["kind"], name: string): ReviewResult => {
+  const resultOf = (pr: MockPr, kind: ReviewRun["kind"], name: string, place: WalkPlace | undefined): ReviewResult => {
     if (kind === "ask") return answerResult(pr, name);
+    if (kind === "tool" && name === "walk" && place !== undefined) {
+      const walk = seed.walks[pr.key];
+      if (walk?.kind === "api") return { shape: "api_walk", place, requests: [...walk.requests] };
+      return { shape: "web_walk", place, steps: walk?.kind === "web" ? [...walk.steps] : [] };
+    }
     if (kind === "tool") return findingsResult(pr, seed.results[pr.key]?.[name] ?? []);
     return name === "how-it-works" ? themesOf(pr) : accountResult(pr.accounts[name]);
   };
@@ -133,7 +138,21 @@ export function createMockForge(seed: ReviewSeed): MockForge {
     ...(one.threads.length === 0 ? {} : { threads: one.threads }),
   });
 
+  const searchAndWalk = createMockSearchAndWalk({
+    seed,
+    rowOf: (key) => {
+      const one = [...held.values()].find((it) => it.pr.key === key);
+      return one === undefined ? undefined : rowOf(one, false);
+    },
+    factsOf: (manifestId, number) => {
+      const one = find(manifestId, number);
+      return one === undefined ? undefined : { repository: one.pr.repository, branch: one.pr.branch, conversation: one.conversation, checks: one.pr.page.checks, files: one.pr.page.files };
+    },
+    told,
+  });
+
   return {
+    ...searchAndWalk,
     getReviewLists: async () => {
       reads += 1;
       // A commit pushed since he first read the list arrives with the second read.
@@ -227,7 +246,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
         run.finished_at = new Date().toISOString();
         if (reason === undefined) {
           run.state = "done";
-          run.result = resultOf(one.pr, start.kind, start.name);
+          run.result = resultOf(one.pr, start.kind, start.name, start.place);
         } else {
           run.state = "failed";
           run.failed = reason;
@@ -266,4 +285,5 @@ export const NO_FORGE: ReviewsApi = {
   startReviewRun: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_runs/${manifestId}`) }),
   getReviewRuns: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/review_runs/${manifestId}/${number}`) }),
   onReviewRun: () => () => undefined,
+  ...NO_SEARCH_OR_WALK,
 };

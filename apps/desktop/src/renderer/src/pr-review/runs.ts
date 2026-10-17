@@ -2,7 +2,7 @@
 // shapes** (`review-runs.ts`); this is the one place they meet the explanation's themes, the other explanations' accounts,
 // an answer's text and a tool's findings.
 
-import type { ReviewFinding, ReviewMatch, ReviewResult, ReviewRun } from "@armada/protocol";
+import type { ReviewFinding, ReviewMatch, ReviewResult, ReviewRun, WalkPlace } from "@armada/protocol";
 
 import type { Account, AgentRun, Explanation, Finding, PatchRead, ToolDef, ToolMark } from "./model";
 import { sliceAround } from "./patch";
@@ -106,3 +106,13 @@ export type WalkWritten = Extract<ReviewResult, { shape: "web_walk" | "api_walk"
 
 export const walkOf = (run: ReviewRun | undefined): WalkWritten | undefined =>
   run?.state === "done" && (run.result?.shape === "web_walk" || run.result?.shape === "api_walk") ? run.result : undefined;
+
+/** A place in words, for a line and a row: where it is, and what starts it where it is pulled down. */
+export function placeWords(place: WalkPlace): string {
+  const api = place.api === undefined ? "" : `API at ${place.api}`;
+  if (place.how === "deployed") return [place.address === undefined ? "" : `Deployed at ${place.address}`, api].filter((one) => one !== "").join(", ");
+  return [`Pull it down, run ${place.command ?? ""}`.trim(), place.address === undefined ? "" : `at ${place.address}`, api].filter((one) => one !== "").join(", ");
+}
+
+/** An area as it is shown: a directory, with its slash. */
+export const areaShown = (area: string): string => (area === "" || area.endsWith("/") ? area : `${area}/`);

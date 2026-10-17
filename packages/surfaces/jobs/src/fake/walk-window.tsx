@@ -59,6 +59,8 @@ export type WalkWindowOptions = {
   into?: "Job" | "Session";
   /** What the bar's name says: the window's own title. Absent is the `run`; `null` is a window titled by its address. */
   title?: string | null;
+  /** What the bar names as the page's address, where the page in the frame stands in for another. Absent: the page's own. */
+  address?: string;
   /** The press on the owner's name, after Bridge comes forward. Absent: Bridge comes forward on what it shows. */
   onOpenOwner?: () => void;
   onNote: (said: string, picked: Picked) => void;
@@ -68,9 +70,11 @@ export type WalkWindowOptions = {
   variations?: readonly Variation[];
   /** Ready or still changing, as the opener says when it opens it. `markWalkWindow` moves it after. */
   readiness?: CaptureBarReadiness;
+  /** The window was closed, by its own Close or by another opening in its place. */
+  onClose?: () => void;
 };
 
-let held: { root: Root; host: HTMLElement } | null = null;
+let held: { root: Root; host: HTMLElement; onClose?: () => void } | null = null;
 let mark: ((readiness: CaptureBarReadiness) => void) | null = null;
 
 /** The opener says the page is ready, or that it is changing it again. Nothing where no window is open. */
@@ -90,9 +94,11 @@ export function mockPage(): string {
 /** Close what is open. */
 export function closeWalkWindow(): void {
   document.documentElement.removeAttribute("data-walking");
-  held?.root.unmount();
-  held?.host.remove();
+  const closing = held;
   held = null;
+  closing?.root.unmount();
+  closing?.host.remove();
+  closing?.onClose?.();
 }
 
 /**
@@ -113,7 +119,7 @@ export function openWalkWindow(run: string, url: string, options: WalkWindowOpti
       <WalkWindow run={run} url={url} host={host} {...options} />
     </StrictMode>,
   );
-  held = { root, host };
+  held = { root, host, ...(options.onClose === undefined ? {} : { onClose: options.onClose }) };
 }
 
 /** ⌥⌘A or ⌥⌘C, the two chords main's window takes before its page does. */
@@ -140,7 +146,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -256,7 +262,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
       </div>
       <CaptureBar
         run={title === null ? undefined : (title ?? run)}
-        address={title === null ? url : new URL(url).origin}
+        address={address ?? (title === null ? url : new URL(url).origin)}
         studio={null}
         {...(into === "Session" ? { session: job } : { job })}
         // Bridge comes forward, as main raises its window over this one.

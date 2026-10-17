@@ -6,7 +6,7 @@
 
 **Kind:** Surface.
 
-Reviews reads the forge through Fleet, and what an agent says about a pull request (the explanations, Ask and the review tools) is a run in Fleet. Natural Search is the one piece still a mock, and sits behind one seam in Bridge.
+Reviews reads the forge through Fleet, and what an agent says about a pull request (the explanations, Ask and the review tools) is a run in Fleet. Natural Search is a run across every repository, and the Walk is a run that needs the place a change runs.
 
 ## The four lists
 
@@ -79,7 +79,33 @@ Comments is not a run. It is the forge's conversation.
 
 **A pull request a Session of his holds says so on its row**, from the same owners data the pull request panel uses. Send to Session and Request changes to Session go to that Session. A note on a pull request with no holding Session stays in Armada.
 
+## Natural Search
+
+**Natural Search is the last entry of the list dropdown, and it opens a box in place of the list.** Sending it asks first, with the same box every act that spends asks with, since a Drone reads the open pull requests of every repository Fleet serves. It is one run of kind `search`, and its result is each pull request that matched with one line on why.
+
+**A search is kept under his words, with when it ran.** It is a list of its own in the dropdown, never marked out of date, and runs again only when he asks. Removing it drops it at Fleet, so it is gone after a restart. Bridge reads the searches kept when the tab opens and on Refresh, since the event is not replayed.
+
+**A pull request a search turns up opens like any other**, even where it is on none of the four lists.
+
+## The Walk
+
+**The Walk plays a pull request's change where it runs, in Armada's own walk window.** It is a review tool in the Flight control, and it costs like the others, so it asks first. A web change is a walk of a page, and an API is a run of requests, one step each over a page of Armada's that sends them. Both play in the same window a Session's `show_window` opens.
+
+**Where the change runs is found in this order, and each source is tried only when the one before found nothing:**
+
+| Source | What it reads |
+|---|---|
+| The pull request | A deploy bot's comment naming a preview or a deployed address, then the address of a passed deploy check |
+| What Armada remembers | A place kept for this repository and the area of code the pull request touches |
+| Him | A sheet that asks where it runs, with a box to remember the answer for the area |
+
+**The area is the directory, two deep, that most of the pull request's files are in.** `⇧W` opens the places Armada remembers, by repository and area, where one can be edited or forgotten. Finding a place reads and spends nothing.
+
+**Walk it holds the place up and opens the window.** A deployed place needs nothing. A pulled-down one is checked out into a slot and started, and Bridge shows each line as Fleet reports it. Closing the window gives the slot back. A note taken in the window on a pull request no Session holds stays in Armada, and is never a comment on the forge.
+
 ## Where it lives
+
+
 
 | What | Where |
 |---|---|
@@ -90,6 +116,10 @@ Comments is not a run. It is the forge's conversation.
 | Lists in Fleet | `crates/fleet/src/pull_review_lists.rs` |
 | Store | `apps/desktop/src/renderer/src/pr-review/store.tsx` |
 | Runs in Bridge | `apps/desktop/src/renderer/src/pr-review/store-agent.ts`, `runs.ts` |
+| Natural Search in Bridge | `apps/desktop/src/renderer/src/pr-review/store-search.ts`, `crates/fleet/src/review_searches.rs` |
+| The Walk in Bridge | `apps/desktop/src/renderer/src/pr-review/store-walk.ts`, `walk.tsx`; the window is `apps/desktop/src/main/capture/` |
+| Walk wire types | `crates/ipc/src/review_walks.rs`, `packages/protocol/src/review-walks.ts` |
+| Remembered places | `crates/fleet/src/walk_places.rs`, `crates/store/src/walk_places.rs` |
 | Run and definition wire types | `crates/ipc/src/review_runs.rs`, `packages/protocol/src/review-runs.ts` |
 | Run routes | `crates/ipc/operations/start_review_run.toml`, `get_review_runs.toml`, `review_run.changed.toml` |
 | Definition routes | `crates/ipc/operations/list_review_tools.toml`, `save_review_tool.toml` |
