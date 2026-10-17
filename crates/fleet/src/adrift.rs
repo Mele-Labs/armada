@@ -547,9 +547,6 @@ pub enum Adrift {
     /// the same worktree throws away the context that makes a redirect cost
     /// nothing.
     DroneStillThere { job: JobId },
-    /// A repair Drone is already on the Job's branch, sent by its Commander. A
-    /// second, or a restart over it, would put two writers in one worktree.
-    RepairUnderway { job: JobId },
     /// A restart was asked for on a Job whose worktree is no longer on disk.
     ///
     /// **Nothing is spawned.** The earlier steps' work lived in that directory,
@@ -827,12 +824,6 @@ pub enum Adrift {
     ProposalRefused {
         job: JobId,
         why: crate::approving::Refused,
-    },
-    /// An act on an Epic's wave, refused whole: nothing moved. Spike 022,
-    /// slice 6. `crate::waving::Refused` says why.
-    WaveRefused {
-        job: JobId,
-        why: crate::waving::Refused,
     },
     /// A landing named a branch the repository does not hold. Spike 022,
     /// slice 4: a worktree cannot be cut from it, nor a pull request opened

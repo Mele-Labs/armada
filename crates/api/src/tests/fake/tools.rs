@@ -11,7 +11,7 @@
 //! and belongs to Fleet.
 
 use ipc::mcp::{
-    ChecksStarted, DeclareScope, DispatchJob, NotRecorded, PermissionAsked, Receipt, SubmitEvidence,
+    ChecksStarted, DeclareScope, NotRecorded, PermissionAsked, Receipt, SubmitEvidence,
 };
 use std::sync::atomic::Ordering;
 
@@ -138,22 +138,6 @@ impl Tools for FakeDaemon {
         self.while_working("checks to run")?;
         self.checked.fetch_add(1, Ordering::SeqCst);
         Ok(ChecksStarted)
-    }
-
-    /// One minted id, and the call recorded. **The fake decides nothing about
-    /// whether the caller was allowed to ask** — that is `fleet::sub_dispatch`,
-    /// and a router test's question is whether the arguments arrive and the id
-    /// comes back.
-    async fn dispatch_job(
-        &self,
-        _caller: crate::Caller,
-        dispatch: DispatchJob,
-    ) -> Result<Receipt, NotRecorded> {
-        self.while_working("Jobs would belong to")?;
-        self.dispatched.lock().expect("not poisoned").push(dispatch);
-        Ok(Receipt {
-            word: "01M0DISPATCHEDCHILD0000000".to_string(),
-        })
     }
 
     /// Refused while nothing works, and otherwise refused naming the server,

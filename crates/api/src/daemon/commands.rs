@@ -126,16 +126,6 @@ pub trait Commands: Send + Sync + 'static {
         edit: ipc::EditJob,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `approve_wave` — an Epic's plan approved with every Job of its wave
-    /// (#1694). Each member is released as edited, and the parent comes back
-    /// `queued`, waiting on them. [`Refusal::IllegalMove`] unless the body
-    /// names exactly the wave Fleet holds at the parent's plan gate.
-    fn approve_wave(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        wave: ipc::ApproveWave,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
-
     /// `kill_drone` — kills a Drone, captures learnings, holds the worktree.
     /// Intervention Ladder rung 2. **The Job survives**: what comes back is the
     /// Job the killed Drone was on, still open, with its worktree held for a
@@ -407,8 +397,7 @@ pub trait Commands: Send + Sync + 'static {
     /// other.
     ///
     /// `by` is the transport's word, never the body's: [`Steerer::Helm`] only
-    /// where the door placed the call in a Helm session, and
-    /// [`Steerer::Commander`] only where it placed it as a Job's Commander.
+    /// where the door placed the call in a Helm session.
     fn redirect_drone(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -441,8 +430,7 @@ pub trait Commands: Send + Sync + 'static {
     /// waiting, and refused blank for [`Commands::redirect_drone`]'s reason.
     ///
     /// **`by` signs the move**, as `restart_task`'s does: the caller the
-    /// transport placed, never a field of the request, so a restart a Commander
-    /// asked for reads as the Commander's in the Job's log. `#2166`.
+    /// transport placed, never a field of the request.
     fn restart_step(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -606,14 +594,6 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         remove: RemoveWalkNote,
     ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
-
-    /// `walk_failed` — the walk window could not show the Job's served work.
-    /// Wakes its Commander once per step attempt; moves nothing itself.
-    fn walk_failed(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        failed: ipc::WalkFailed,
-    ) -> impl Future<Output = Result<ipc::WalkTold, Refusal>> + Send;
 
     /// `queue_after_finding` — a person turns a For context finding into a Job that waits on
     /// this one, so it starts when this one lands. #906. The Job itself moves nothing.
@@ -915,16 +895,6 @@ pub trait Commands: Send + Sync + 'static {
         choice: ipc::SetModel,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `set_commander_model` — the model and effort this Job's Commander runs
-    /// on, chosen by a person, each half cleared with `null`. #2166. **Read by
-    /// the next turn.** [`Refusal::IllegalMove`] on a model this Fleet does not
-    /// offer or an effort the setting does not spell.
-    fn set_commander_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        choice: ipc::SetCommanderModel,
-    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
-
     /// `set_tiers` — which model each tier of this Job's tasks runs on, the
     /// whole map replaced. Spike 022, slice 3. **Read by the next spawn.**
     ///
@@ -1138,7 +1108,7 @@ pub trait Commands: Send + Sync + 'static {
     ///
     /// **`by` on this act and the four below is the transport's word, never
     /// the body's** (`#2168`): a person's unless the door placed the call as
-    /// Helm's or a Commander's. It signs the change, and no act has a default.
+    /// Helm's. It signs the change, and no act has a default.
     /// **A working Drone is told**, mid-step; at a step boundary the next
     /// brief's THE PLAN carries it, and nothing respawns to deliver it.
     fn add_task(

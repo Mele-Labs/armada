@@ -15,7 +15,7 @@
 use std::collections::BTreeMap;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Job, JobStatus, Origin, QueuedReason, StepState};
+use core_model::{Job, JobStatus, QueuedReason, StepState};
 use ipc::{JobDetail, JobWaiting};
 
 use crate::adrift::Adrift;
@@ -116,19 +116,7 @@ where
             .iter()
             .map(|held| (held.id().clone(), held.status()))
             .collect();
-        let mut named: Vec<core_model::JobId> = unfinished_peers(job, &standing);
-        if named.is_empty() {
-            named = loaded
-                .jobs
-                .iter()
-                .filter(|child| child.origin() == Origin::SubDispatched)
-                .filter(|child| {
-                    child.dispatched_by().is_some_and(|by| &by.job_id == job.id())
-                        && !child.status().is_terminal()
-                })
-                .map(|child| child.id().clone())
-                .collect();
-        }
+        let named: Vec<core_model::JobId> = unfinished_peers(job, &standing);
         Ok(named
             .iter()
             .map(|id| {

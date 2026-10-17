@@ -32,7 +32,7 @@ flowchart LR
 | Shape | Why not |
 |---|---|
 | A Session runs the queue | A conversation in the middle is the third attempt `docs/scope.md` records as abandoned. A Session is not waited on by Fleet |
-| One endless parent that waits | A parent that waits holds a place, the deadlock `epic-as-one-job.md` names |
+| One endless parent that waits | A parent that waits holds a place, which is the deadlock |
 | **A Fleet record that starts Sessions** | Fleet does what is deterministic: counting, caps, Pause and Stop. An agent does what needs judgement, in a Session that ends. Everything that changes code is a Session |
 
 **Flexible work is a workflow, not a different kind of runner.** The picker
@@ -95,6 +95,5 @@ Neither one stops a Session that is working.
 ## What it depends on
 
 - `../concepts/fleet.md` — admission, the concurrency bound, and the dispatch gate.
-- `epic-as-one-job.md` — a Drone that dispatches Jobs, and a waiting parent that holds nothing.
 - `../concepts/judge.md` — what a refusal is, and who hears it.
 - `../concepts/job-proposer.md` — choosing a workflow from a request.

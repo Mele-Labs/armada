@@ -3,8 +3,7 @@
 //! **Its own module, and the fifth tool costs about six lines.**
 //! [`tools`](mod@super::tools) holds the three tools a Drone has always had
 //! and the helpers every tool shares — [`closed`](super::tools::closed),
-//! [`text`](super::tools::text) and the field-list prose. The dispatch
-//! tool made that split and asked the next one to keep it. What stays
+//! [`text`](super::tools::text) and the field-list prose. What stays
 //! next door is anything two tools share; nothing here is shared.
 //!
 //! **The one tool whose answer is not in the reply.** Every other tool on

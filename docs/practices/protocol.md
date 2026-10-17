@@ -551,92 +551,29 @@ are torn down before its span is released.
 
 `GET /helm/observe`, `POST /helm/tune` and `GET /helm/file` are gone, with the socket's messages (`opened`, `asked`, `fresh`, `unanswered`, `sent`, `facts`, `missed`, `closed`) and the types that carried them. Helm is a hosted Session, and its thread is read the way a Session's is: *Helm is a Session*, below. The Commander socket after this section is the same shape and is still served; it was copied from this one and now keeps the relay on its own.
 
-## The Commander socket: one Job's conversation
+## The Commander routes: retired
 
-`GET /jobs/:job_id/commander/observe` is the Helm socket's shape with a Job for
-its subject, and the same relay in `crates/api/src/conversing.rs`. It opens with
-the thread so far, then carries every message after it. `POST
-/jobs/:job_id/commander/ask` takes the owner's words and answers 202 at once,
-because the turn is the socket's. `crates/ipc/src/commander.rs` has the types and
-`packages/protocol/src/commander.ts` is Bridge's half, written by hand.
+The Commander's socket (`observe_commander`), its words (`ask_commander`), its card
+and the owner's pick (`ask_the_owner`, `answer_commander_card`), its repair Drone
+(`send_repair_drone`), its model choice (`set_commander_model`), the `walk_failed`
+that woke it are gone from Fleet: no route serves them and none is in
+`crates/ipc/operations/`. Fleet no longer publishes the `commander.changed` and
+`commander.card` events; their rows stay declared there only while the event
+variants stay on the wire. The Commander
+was deleted with the Jobs it steered (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
+Their types stay in `crates/ipc` and `packages/protocol/src` until the Job types
+are deleted, and `JobDetail.commander_model_override`, `commander_effort_override`
+and `commander_card` are always absent.
 
-**Who reads it.** Bridge's Job panel (`#2169`). `agent_access` is `No` on both: a
-Commander's words are the owner's to write, and a session must not drive or read
-another.
+## The wave routes: retired
 
-| What happened | What the viewer is told |
-| --- | --- |
-| The owner wrote | `asked`, at once, even while a turn is being written |
-| Fleet started a turn | `woke` for each reason, once, then the session's own `row`s ending in `ended` with what the turn cost |
-| The stored session was gone | `fresh` / `session_not_found`, then the rows of the new session |
-| A turn did not come back | `unanswered`, with why |
-| The Job has no worktree | **409 on `ask_commander`**, and the socket opens on an empty thread |
-
-**`commander.changed` is on `/events`** and says whether the Commander is at
-work, `idle` or `working`, for the Job's card to draw without opening the
-socket. It is published when the first queued input starts the turns and when
-the last one ends.
-
-**Nothing on it advances a Job.** A `row` is what the session said, read as what
-it said.
-
-### The Commander's card
-
-A card is the one question a Commander puts to the owner, and it outlives the
-turn that raised it. `POST /jobs/:job_id/commander/card` (`ask_the_owner`) takes
-`text` (what is wrong), `reach` (what is out of its reach), `question` and
-`options`, and answers 200 with the card as stored. `POST
-/jobs/:job_id/commander/card/answer` (`answer_commander_card`) takes the card's
-id and the option's id, and nothing else. `crates/ipc/src/commander_card.rs` has
-the types and `packages/protocol/src/commander.ts` is Bridge's half.
-
-| Rule | How it is held |
-| --- | --- |
-| Only a Commander raises one | `agent_access = "Commander only"`, a fourth table beside `Helm only` that the door lists to a Commander and to no one else, and the route refuses a call the door did not place as a Commander's |
-| The owner answers, never an agent | `answer_commander_card` is `agent_access = "No"` |
-| Two to four options, none blank or alike | The body does not decode otherwise, as a Drone's question's rule |
-| An option's id is its place | A card carries no ids of its own to invent; an answer names `1` to `4` |
-| One card out per Job | A second is a 409 naming the question already waiting |
-| A stale answer is refused | A card that is not the one out, or an option it never offered, is a 409 and nothing is kept |
-| It waits however long he takes | Kept in `commander_cards`, not held on a call; a Fleet that restarts still has it |
-
-**Counted as the Job waiting on the owner.** While a card is out
-`JobSummary.asking` reads `true` and `JobDetail.commander_card` carries it, which
-is what puts the Job in Your move and in `list_alerts`' blocked list. Nothing
-else moves: a running Job keeps running, and an escalated one stays escalated
-with the card beside it. `commander.card` on `/events` is `job.asking`'s shape,
-two messages per card: the card going out, and none coming back.
-
-**Answering wakes the Commander.** The answer is kept first, then `wake_commander`
-is called with the question and the label he picked as its reason, and the
-answer says `woke: false` where the Commander could not start.
-
-### The Commander's repair
-
-`POST /jobs/:job_id/commander/repair` (`send_repair_drone`) puts a repair Drone on
-the Job's own branch and worktree. The body is `broke`, one of `merge_conflict`,
-`dependencies`, `missing_binary` and `worktree`, and nothing else: there is no
-field for a branch, a path or a command. It answers 202 with `RepairSent`
-(`job_id`, `step_id`, `drone_id`, `broke`), because the Drone has not finished;
-Fleet restarts the step it names when the Drone hands in.
-`crates/ipc/src/commander_repair.rs` has the types and
-`packages/protocol/src/commander.ts` is Bridge's half.
-
-| Rule | How it is held |
-| --- | --- |
-| Only a Commander sends one | `agent_access = "Commander only"`, and the route refuses a call the door did not place as a Commander's, so the move that puts the step back is always signed Commander |
-| Offered where `restart_step` is, and after a failed preparation | The same reading (`Stuck::of`) decides both, with `Stuck::unprepared` for a Job escalated `not_prepared` before any step began; `RepairSent.step_id` is then the first step. A 409 where the Job is not held for a person, a Drone is on it, its worktree is gone (a redispatch), no step stopped, or the Job never had a Drone for any other reason |
-| One at a time per Job | A second repair, or a person's `restart_step`, is a 409 while one is out, and still is after a Fleet restart until the Commander has been woken for the repair the last Fleet lost |
-| Not `add_job_step` | The repair is gated as the step it unblocks; a step the Commander wrote would be gated as its own |
-
-**Nothing new crosses to Bridge.** The thread shows the Commander's call as a
-row, with `broke` in its argument, and the Job's log carries Fleet's line naming
-the step, the branch and the Drone.
-
-**`set_commander_model`** takes `model` and `effort`, both sent and either
-`null`, and answers with the Job's summary. `JobDetail.commander_model_override`
-and `commander_effort_override` read the choice back. `agent_access` is `Helm
-only`.
+`POST /jobs/:job_id/approve_wave` and the `dispatch_job` MCP tool are gone from Fleet,
+with the wave a plan proposed, the sub-dispatch that created its members and the wait
+a parent held on them. No route serves them and no operation in `crates/ipc/operations/`
+names them; `JobDetail.wave_rounds` is never filled. `fleet.wave_refused` is no longer
+raised. A Session's linked Sessions and *after another* are not waves and stay. The
+wave types stay in `crates/ipc` and `packages/protocol/src` until the Job types go
+(`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
 
 ## Changes before IDs
 
@@ -2569,9 +2506,7 @@ one, and `merged_at`, when its pull request merged; `JobDelivery` gains `merged_
 `LandingRule` gains `complete_when`. Each is absent where empty, so a 23.12 Bridge connects behind
 the banner and reads a wave as Jobs at their gate.
 
-| Route | Body | Answers | Refused |
-|---|---|---|---|
-| `POST /jobs/:job_id/approve_wave`, `approve_wave` | `ApproveWave`: `jobs`, every Job of the wave by id | The parent's `JobSummary`, `queued` | 409 `fleet.wave_refused` unless the parent is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there; 409 `fleet.not_under_review` off its gate |
+`POST /jobs/:job_id/approve_wave` is retired; see *The wave routes: retired*.
 
 **One act releases the wave.** Each member takes `awaiting_approval -> queued` as a person's act,
 as `edit_job` left it, and the parent's plan step advances without the step after it being
@@ -2608,7 +2543,7 @@ its number alone, in one column, as it did.
 
 | Field | On | Carries | Absent |
 |---|---|---|---|
-| `wave_rounds` | `JobDetail` | `WaveRound { pass, approach }` per pass, oldest first: the approach the Job's plan last recorded in that pass | A Job whose workflow has no step that proposes Jobs, or none of whose passes has recorded a plan |
+| `wave_rounds` | `JobDetail` | Retired: Fleet no longer fills it | Always |
 | `waits_on` | `JobSummary` | The ids of the Jobs this one waits on: its `depends_on` edges, which `JobDetail.dependencies` serves whole | A Job that waits on nothing |
 
 **A pass is counted as `dispatched_pass` counts it**: one, plus every return the roll-up sent onto
@@ -3955,7 +3890,7 @@ its row changes.
 
 ## When a Job's Drone was last told
 
-`JobSummary.last_told_at`, optional and additive: when a person, Helm or a Commander last sent the Job's Drone
+`JobSummary.last_told_at`, optional and additive: when a person or Helm last sent the Job's Drone
 words (`redirect_drone`, or the answer to a command it was refused) or restarted a step (`restart_step`).
 Bridge reads it to decide that a failing pull request or red main the Job owns has somebody on it again, so
 the Cockpit raises no call for it.

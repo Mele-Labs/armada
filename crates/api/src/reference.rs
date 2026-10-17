@@ -22,14 +22,12 @@
 
 use axum::extract::{FromRequestParts, Path};
 use axum::http::request::Parts;
-use axum::http::{Method, StatusCode};
 use axum::response::Response;
 use ipc::{JobId, WireError};
 use serde::Deserialize;
 
 use crate::answers::{problem, refused};
 use crate::daemon::Queries;
-use crate::placed::CommanderCalled;
 use crate::served::Served;
 
 /// The Job a request named, resolved.
@@ -111,33 +109,9 @@ impl<D: Queries> FromRequestParts<Served<D>> for Resolved {
             .resolve_job(named.job_id, within)
             .await
             .map_err(refused)?;
-        // **A Commander's acts are its own Job's.** Narrowed here, where every
-        // route under `/jobs/:job_id` resolves the Job, and not in each handler:
-        // a route written next year is scoped before it exists. A read of
-        // another Job is any agent's, and answers as it does for them.
-        if let Some(commander) = parts.extensions.get::<CommanderCalled>() {
-            if parts.method != Method::GET && commander.0 != resolved.id() {
-                return Err(problem(
-                    StatusCode::FORBIDDEN,
-                    &WireError::raised(
-                        NOT_THE_COMMANDERS_JOB,
-                        format!(
-                            "this Commander steers Job `{}` and no other, and that call named \
-                             Job `{}`",
-                            commander.0.as_str(),
-                            resolved.id().as_str()
-                        ),
-                        served.run_id().clone(),
-                    ),
-                ));
-            }
-        }
         Ok(resolved)
     }
 }
-
-/// A Commander named a Job that is not the one it steers.
-pub(crate) const NOT_THE_COMMANDERS_JOB: &str = "api.not_the_commanders_job";
 
 /// A handler asked for the Job on a route whose path names none.
 pub(crate) const NO_JOB_SEGMENT: &str = "api.no_job_segment";

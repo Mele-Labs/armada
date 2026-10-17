@@ -1,6 +1,5 @@
 //! The two acts on a Job's walk notes: what a person pointed at while walking
-//! its served mock, and taking one back. Since 23.18. And `walk_failed`, the
-//! walk window saying it could not show the work.
+//! its served mock, and taking one back. Since 23.18.
 //!
 //! **Beside `commands` rather than in it**, which is at the size the gate asks
 //! about. Both answer with every note on the Job, so Bridge redraws the list
@@ -10,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{CaptureWalkNote, RemoveWalkNote, WalkFailed};
+use ipc::{CaptureWalkNote, RemoveWalkNote};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Commands;
@@ -51,23 +50,6 @@ pub(crate) async fn remove_walk_note<D: Commands>(
     };
     match served.daemon().remove_walk_note(job.id(), remove).await {
         Ok(notes) => answer(StatusCode::OK, &notes, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// The walk window could not show the Job's served work. 200 with whether its
-/// Commander was woken.
-pub(crate) async fn walk_failed<D: Commands>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    body: Bytes,
-) -> Response {
-    let failed: WalkFailed = match ipc::decode("a failed walk", &body) {
-        Ok(failed) => failed,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().walk_failed(job.id(), failed).await {
-        Ok(told) => answer(StatusCode::OK, &told, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

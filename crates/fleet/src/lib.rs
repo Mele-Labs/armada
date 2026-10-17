@@ -108,8 +108,6 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
-/// When a Job's Commander is woken: six troubles, each once, and the loop bound.
-mod commanding_wakes;
 mod configured;
 /// Whether a gate's red is the work's or the machine's, before it is ruled on.
 mod confirming;
@@ -179,9 +177,6 @@ pub mod holding;
 /// answer 5.
 mod issue_noticing;
 mod job_issues;
-/// A Commander's repair Drone on a Job's own branch. `#2170`.
-pub mod job_repair;
-mod repair_hold;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
@@ -441,7 +436,6 @@ pub mod studio_servers;
 mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
-pub mod sub_dispatch;
 mod subagents_resumed;
 mod summarising;
 mod superseding;
@@ -491,9 +485,6 @@ pub mod underway;
 mod walk_notes;
 mod walking;
 pub mod watch;
-/// An Epic's wave: proposed, released by one press, and the members a parent
-/// that finishes on their merges waits for. Spike 022, slice 6.
-pub mod waving;
 mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
@@ -518,7 +509,7 @@ pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
 pub use confirming::{Confirmed, ONE_BY_ONE};
 pub use converging::{NoReport, ReportNow, Stage, StepNorms, Tripwire, Wandering, FORCED_REPORT};
-pub use crossing::{Cleared, Crossed, Dispatched, Produced, Reconciling, Redirected, ThePlan};
+pub use crossing::{Cleared, Crossed, Produced, Reconciling, Redirected, ThePlan};
 pub use daemon::{Fittings, Fleet, Host, StartingIn};
 pub use delivery::Delivered;
 pub use detach::Detached;
@@ -568,7 +559,6 @@ pub use showing::{frames_dir, show, ComingUp, NotShown, Shown};
 pub use showing_again::Unshowable;
 pub use silence::{Liveness, Poke, Quiet, Vigil};
 pub use slots::Concurrency;
-pub use sub_dispatch::NotDispatched;
 pub use transcript::{history, log_of, transcript_of, Live, Recording, Spine, Tap, Taps};
 pub use trigger_wire::{job_triggers, trigger_definition, trigger_list};
 pub use turning::{keep_turning, Turned, Turning, Worked};

@@ -50,7 +50,6 @@ pub struct Crossed {
     cleared: Option<Cleared>,
     redirect: Option<Redirected>,
     answered: Option<Box<crate::questioning::Answered>>,
-    dispatched: Option<Dispatched>,
     overtaken: Option<Overtaken>,
     sent_back: Option<SentBack>,
     the_plan: Option<ThePlan>,
@@ -154,17 +153,6 @@ impl Crossed {
         self.dismissed.as_ref()
     }
 
-    /// The Jobs this Job dispatched, and where each of them got to.
-    ///
-    /// **The one block a Drone could not have found out for itself.** A Drone
-    /// has no tool that reads the Board and no way to reach another Job's
-    /// record, so a step asked to act on what its Job created has nothing to
-    /// act on without this — which is why it is carried across the boundary
-    /// rather than left to be asked for.
-    pub fn and_dispatched(self, dispatched: Option<Dispatched>) -> Crossed {
-        Crossed { dispatched, ..self }
-    }
-
     pub(crate) fn produced(&self) -> Option<&Produced> {
         self.produced.as_ref()
     }
@@ -188,10 +176,6 @@ impl Crossed {
 
     pub(crate) fn answered(&self) -> Option<&crate::questioning::Answered> {
         self.answered.as_deref()
-    }
-
-    pub(crate) fn dispatched(&self) -> Option<&Dispatched> {
-        self.dispatched.as_ref()
     }
 
     pub(crate) fn overtaken(&self) -> Option<&Overtaken> {
@@ -341,41 +325,6 @@ impl ThePlan {
             )),
         }
         block
-    }
-}
-
-/// What became of the Jobs this Job dispatched.
-///
-/// # It is a rendered block and not a list of records
-///
-/// [`Cleared`] and [`Reconciling`] are the same shape and for the same reason:
-/// what a Drone needs is a paragraph it can read at the top of a brief, and a
-/// list of typed rows would make `briefing` the second place the wording of a
-/// Job's outcome is decided. The record is `store`'s and stays there.
-///
-/// **Every child is named, including the ones that failed.** A block that
-/// listed only what succeeded would be the one nobody needs — the failures are
-/// what the next step is there for.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Dispatched(Vec<(String, String, &'static str)>);
-
-impl Dispatched {
-    /// One line per child: the id, what it was called, and where it ended.
-    ///
-    /// `None` where the Job dispatched nothing, which renders no block at all
-    /// rather than a block saying there were none — `Crossed`'s rule, and the
-    /// same argument the empty boundary makes.
-    pub fn of(children: &[(String, String, &'static str)]) -> Option<Dispatched> {
-        (!children.is_empty()).then(|| Dispatched(children.to_vec()))
-    }
-
-    pub fn text(&self, prompts: &Prompts) -> String {
-        let mut said = String::from(prompts.get(keys::PROMPT_CROSSING_DISPATCHED));
-        said.push('\n');
-        for (id, title, ended) in &self.0 {
-            said.push_str(&format!("\n  {id}  {ended}  {title}"));
-        }
-        said
     }
 }
 

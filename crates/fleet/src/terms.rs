@@ -20,14 +20,12 @@
 //! `briefing`'s narrowing carried across: [`Checking`] names its Checks and
 //! not what they run, [`Delivering`] names a path in the Drone's own
 //! worktree, and [`Capturing`] names `evidence.run` and never what it runs.
-//! [`Splitting`] reads one step further, because what a step's
-//! product *becomes* is a fact about the step after it — and names no workflow.
 //!
 //! Five of the six carry **drafted wording**. Sanctioned copy is
 //! `docs/contracts/agent-prompt.md`'s to write and it has none for them yet.
 
 use config::settings as keys;
-use core_model::{FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep, StepId};
+use core_model::{FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep};
 
 use crate::prompts::Prompts;
 
@@ -444,99 +442,3 @@ impl Redeclaring {
     }
 }
 
-/// What a step that creates Jobs tells its Drone, and what the step *before*
-/// one tells its own.
-///
-/// **It is the only term read off two steps**, and the pair is the point. A
-/// step whose product is a plan and a step that turns that plan into Jobs are
-/// one decision written twice: what the first writes is carried out unchanged,
-/// and a Drone that does not know that writes a sketch. So the switch is
-/// `may_dispatch_jobs` here or on the step after — a fact about the definition
-/// in exactly the way [`Delivering`]'s target is.
-///
-/// **The consequence is what it states, because nothing else can.** A Drone
-/// reading `dispatch_job`'s description learns what one call does; it cannot
-/// learn there that the file it wrote on the part before is the authority for
-/// every call. Spike 6's finding is the general form.
-///
-/// **It names no notation.** Whether a plan is drawn in Mermaid is the
-/// repository's business; what this asks for is a drawing rather than a
-/// format, for the reason the owner gave on reading one by hand: a wave is a
-/// set of Jobs and an ordering between the sets, and prose asks a reader to
-/// redraw it before they can answer.
-///
-/// **Drafted wording**, like [`Checking`] and [`Redeclaring`].
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Splitting(String);
-
-impl Splitting {
-    /// The block this step puts to its Drone, or `None` on every step that
-    /// neither creates Jobs nor stands in front of one that does — which is
-    /// every step of every workflow but one.
-    pub fn at(prompts: &Prompts, workflow: &FrozenWorkflow, at: &StepId) -> Option<Splitting> {
-        if workflow.step(at)?.may_dispatch_jobs() {
-            return Some(Splitting(String::from(
-                prompts.get(keys::PROMPT_DRONE_SPLIT_PROPOSES),
-            )));
-        }
-        workflow
-            .after(at)
-            .is_some_and(ResolvedStep::may_dispatch_jobs)
-            .then(|| Splitting(String::from(prompts.get(keys::PROMPT_DRONE_SPLIT_DECIDES))))
-    }
-
-    /// The block, exactly as it reaches a Drone.
-    pub fn text(&self) -> &str {
-        &self.0
-    }
-}
-
-/// The step before the one that dispatches: what it writes becomes Jobs.
-///
-/// **The two reasons a piece waits are told apart** because only one survives
-/// leaving the plan: needing what another produced becomes a dependency edge,
-/// and two pieces that would write the same files are held apart by the plan
-/// and by nothing else — `#47` settled that an overlap is surfaced, never
-/// serialised.
-pub(crate) const DECIDES_IT: &str = "\
-WHAT THIS PART DECIDES
-
-The part after this one creates a Job for each piece you name here. Each of \
-them is real: it gets its own worktree, its own agent and its own spend, and \
-none of them has read what you read. Nobody rewrites what you write — it is \
-carried out as it stands.
-
-So say, for every piece: what it is called, what its agent is to be told, what \
-its work is held to, and which pieces must finish before it can start. Draw \
-them as well as describing them, because what is being decided is a shape, and \
-prose asks whoever reads this to redraw it before they can answer.
-
-Two things make a piece wait and they are not the same thing. One piece needs \
-what another produced — that is a fact about the work, and it is carried when \
-the Jobs are created. Two pieces would write the same files — that is held \
-apart by this plan and by nothing else. Say which you mean.";
-
-/// The dispatching step: what it proposes is real, waits for a person, and is
-/// carried out as written. Since slice 6 the step that creates Jobs is the one
-/// a person answers, so the decision and the creating are one part.
-pub(crate) const PROPOSES_IT: &str = "\
-WHAT THIS PART PROPOSES
-
-Each piece you name becomes a Job when you call dispatch_job for it: its own \
-worktree, its own agent and its own spend, and none of them has read what you \
-read. They wait for a person, who reads every one of them before approving \
-them together, and nothing runs until then. Nobody rewrites what you write — \
-it is what each piece is told.
-
-So say, for every piece: what it is called, what its agent is to be told, what \
-its work is held to, and which pieces must finish before it can start, by the \
-ids dispatch_job gave you back. Draw them in the plan as well, because what is \
-approved is a shape, and prose asks whoever reads it to redraw it first.
-
-Two things make a piece wait and they are not the same thing. One piece needs \
-what another produced — that is a fact about the work, and `after` carries it. \
-Two pieces would write the same files — that is held apart by this plan and by \
-nothing else. Say which you mean.
-
-If this part runs again, what it proposed before and nobody approved is \
-withdrawn, so propose the whole wave again.";

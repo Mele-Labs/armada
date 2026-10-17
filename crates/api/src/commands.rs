@@ -24,7 +24,7 @@ use ipc::{
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries, Redirector};
 use crate::door::HelmCalled;
-use crate::placed::{steered_by, CommanderCalled};
+use crate::placed::steered_by;
 use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -133,24 +133,6 @@ pub(crate) async fn edit_job<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().edit_job(job.id(), edit).await {
-        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Approve an Epic's plan and release every Job of its wave, in one act
-/// (#1694, spike 022 slice 6). **The parent comes back queued**; 409 unless the
-/// body names exactly the wave Fleet holds at the parent's plan gate.
-pub(crate) async fn approve_wave<D: Commands>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    body: Bytes,
-) -> Response {
-    let wave: ipc::ApproveWave = match ipc::decode("a wave to release", &body) {
-        Ok(wave) => wave,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().approve_wave(job.id(), wave).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -436,17 +418,10 @@ pub(crate) async fn show_again<D: Commands>(
 /// Who a raise is placed as, from the marks the door left on the request.
 /// **The body is never asked** (`#2165`): `raised_by` used to ride in it, and a
 /// Helm call that sent `person` met no ceiling.
-///
-/// **A Commander outranks Helm**, as [`steered_by`] has it: the door never sets
-/// both, and if it ever did the narrower ceiling would be the wrong one to give.
-fn raised_by(
-    helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
-) -> RaisedBy {
-    match (commander, helm) {
-        (Some(_), _) => RaisedBy::Commander,
-        (None, Some(_)) => RaisedBy::Helm,
-        (None, None) => RaisedBy::Person,
+fn raised_by(helm: Option<Extension<HelmCalled>>) -> RaisedBy {
+    match helm {
+        Some(_) => RaisedBy::Helm,
+        None => RaisedBy::Person,
     }
 }
 
@@ -462,7 +437,6 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: CapRaise = match ipc::decode("a cost cap", &body) {
@@ -471,7 +445,7 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
     };
     match served
         .shared()
-        .raise_cost_cap(job.id(), raise, raised_by(helm, commander))
+        .raise_cost_cap(job.id(), raise, raised_by(helm))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -490,7 +464,6 @@ pub(crate) async fn raise_turn_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: TurnRaise = match ipc::decode("a turn cap", &body) {
@@ -499,7 +472,7 @@ pub(crate) async fn raise_turn_cap<D: Commands>(
     };
     match served
         .shared()
-        .raise_turn_cap(job.id(), raise, raised_by(helm, commander))
+        .raise_turn_cap(job.id(), raise, raised_by(helm))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -750,14 +723,13 @@ pub(crate) async fn redispatch_job<D: Commands>(
 }
 
 /// A task is added to the Job's plan. **Signed as the caller the door placed**
-/// (`#2168`, and the four plan acts below): a person's unless the call is Helm's
-/// or a Commander's, and never as the body says. **The plan it leaves comes back**,
+/// (`#2168`, and the four plan acts below): a person's unless the call is Helm's,
+/// and never as the body says. **The plan it leaves comes back**,
 /// so the Plan region redraws without a second read. `#897`.
 pub(crate) async fn add_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let add: AddTask = match ipc::decode("a task to add", &body) {
@@ -766,7 +738,7 @@ pub(crate) async fn add_task<D: Commands>(
     };
     match served
         .shared()
-        .add_task(job.id(), add, steered_by(helm, commander))
+        .add_task(job.id(), add, steered_by(helm))
         .await
     {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
@@ -780,7 +752,6 @@ pub(crate) async fn drop_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let drop: DropTask = match ipc::decode("a task to drop", &body) {
@@ -789,7 +760,7 @@ pub(crate) async fn drop_task<D: Commands>(
     };
     match served
         .shared()
-        .drop_task(job.id(), drop, steered_by(helm, commander))
+        .drop_task(job.id(), drop, steered_by(helm))
         .await
     {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
@@ -811,7 +782,6 @@ pub(crate) async fn restart_task<D: Commands>(
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let restart: ipc::RestartTask = if body.is_empty() {
@@ -824,7 +794,7 @@ pub(crate) async fn restart_task<D: Commands>(
     };
     match served
         .shared()
-        .restart_task(job.id(), task_id, restart, steered_by(helm, commander))
+        .restart_task(job.id(), task_id, restart, steered_by(helm))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -838,7 +808,6 @@ pub(crate) async fn move_plan<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let moving: ipc::MovePlan = match ipc::decode("a plan move", &body) {
@@ -847,7 +816,7 @@ pub(crate) async fn move_plan<D: Commands>(
     };
     match served
         .shared()
-        .move_plan(job.id(), moving, steered_by(helm, commander))
+        .move_plan(job.id(), moving, steered_by(helm))
         .await
     {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
@@ -864,7 +833,6 @@ pub(crate) async fn edit_task<D: Commands>(
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let edit: ipc::EditTask = match ipc::decode("a task edit", &body) {
@@ -873,7 +841,7 @@ pub(crate) async fn edit_task<D: Commands>(
     };
     match served
         .shared()
-        .edit_task(job.id(), task_id, edit, steered_by(helm, commander))
+        .edit_task(job.id(), task_id, edit, steered_by(helm))
         .await
     {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
@@ -890,14 +858,13 @@ pub(crate) async fn redirect_drone<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = steered_by(helm, commander);
+    let by = steered_by(helm);
     match served
         .shared()
         .redirect_drone(job.id(), instruction, by)
@@ -1031,23 +998,6 @@ pub(crate) async fn set_review_model<D: Commands>(
     }
 }
 
-/// Choose the model and effort this Job's Commander runs on, or clear either.
-/// **The Job comes back unchanged**: the next turn reads it. #2166.
-pub(crate) async fn set_commander_model<D: Commands>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    body: Bytes,
-) -> Response {
-    let choice: ipc::SetCommanderModel = match ipc::decode("a Commander model choice", &body) {
-        Ok(choice) => choice,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().set_commander_model(job.id(), choice).await {
-        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 /// Set which model each tier of this Job's tasks runs on, the whole map at
 /// once. **The Job comes back unchanged**: the next spawn reads it. Spike 022,
 /// slice 3.
@@ -1137,7 +1087,6 @@ pub(crate) async fn restart_step<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
-    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     // Emptiness is read here rather than through an `Option<Json<_>>`
@@ -1154,7 +1103,7 @@ pub(crate) async fn restart_step<D: Commands>(
     };
     match served
         .shared()
-        .restart_step(job.id(), note, steered_by(helm, commander))
+        .restart_step(job.id(), note, steered_by(helm))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),

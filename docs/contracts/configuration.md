@@ -215,35 +215,6 @@ its last step, and `budget-turn-cap-per-job` carries the Job that showed the
 difference. Both keys are counted rather than positive, so `0` reads as a
 ceiling of nothing at either.
 
-## A Commander's model: a Machine setting with a Job over it
-
-Added 12 October 2026 (`#2166`). `models.commander` and `effort.commander` are
-Machine settings in settings.json, **live**, and the Commander reads them at the
-start of each turn, so a changed model reaches the next turn of a Job already
-running. The default model is the strongest on the roster and the default
-effort is the harness's own. Their rows are `commander-model` in
-`crates/config/settings.toml`.
-
-**A Job's own model wins over the Machine's, and absent defers.** The tier below
-is a record and not a file, `jobs.cost_cap_micros`'s shape one section up: a
-nullable value on the Job, where null means *use the Machine's* and is not a
-value of its own. Effort follows the same pattern, and **each half defers on its
-own**: a Job that names a model and no effort takes the Machine's effort. Both
-are columns on the Job (`commander_model_override`, `commander_effort_override`),
-chosen with `set_commander_model` and read back on `JobDetail`. The model must be
-one `list_models` offers, as `set_model` requires, and the effort one of the
-words the setting spells. `harness default` is a choice, so a Job may take the
-harness's own effort over a Machine that names one. Like `set_review_model` it is
-Helm's to call on request and not the Commander's: an agent does not choose its
-own model. It is read at the start of the next turn, and a turn running when it
-was chosen keeps the model it started with.
-
-**It is not an `armada.yml` key.** A Commander is not a step's Drone and a
-repository has no standing to choose what reads its Jobs; the two tiers that
-exist are the person's, on this machine and on this Job.
-
----
-
 ## How much of the tree a Check reads
 
 Added 8 September 2026, with `checks.<name>.narrow` and `#504`. A Drone that

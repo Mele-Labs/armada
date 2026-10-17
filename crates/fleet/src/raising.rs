@@ -44,19 +44,13 @@ use crate::daemon::Fleet;
 /// nothing about what the ceiling counts.
 const HELM_MULTIPLE: u64 = 2;
 
-/// How much more than the tier it would inherit a Job's Commander may raise it
-/// to. **Three, the owner's figure (12 Oct 2026)**, for turns and for cost
-/// alike, and wider than Helm's two because the Commander steers one Job it was
-/// placed on. Past it the Commander puts a card to the owner (`#2166`).
-const COMMANDER_MULTIPLE: u64 = 3;
-
 /// The most this raise may ask for, or that it may ask for anything.
 ///
 /// **A person is unbounded and an agent is not.** The budget belongs to whoever
 /// installed Armada, and a ceiling on what its owner may set is a setting
-/// arguing with the person who set it. Helm and a Job's Commander are the other
-/// case for one reason: an agent that can lift its own budget has no budget.
-/// Helm reaches twice the inherited tier and the Commander three times.
+/// arguing with the person who set it. Helm is the other case for one reason: an
+/// agent that can lift its own budget has no budget. Helm reaches twice the
+/// inherited tier.
 ///
 /// **The bound is a multiple of the tier the Job would inherit, never of the
 /// cap in force**, and that detail is what makes it hold: a second raise lands
@@ -67,13 +61,11 @@ const COMMANDER_MULTIPLE: u64 = 3;
 /// moves.
 ///
 /// **There is no constructor but [`Ceiling::on`]** and the field is private, so
-/// holding one is the whole of the authorisation —
-/// [`Dispatching`](crate::sub_dispatch::Dispatching)'s property one seam over,
-/// and here for its reason: what an agent may do is decided by Fleet at the
-/// boundary it came in through, never by an argument it writes.
+/// holding one is the whole of the authorisation: what an agent may do is
+/// decided by Fleet at the boundary it came in through, never by an argument
+/// it writes.
 ///
-/// **The same value renders and refuses**, which is `spawning::dispatches`'s
-/// shape: [`Ceiling::most`] is the half a surface displays and
+/// **The same value renders and refuses**: [`Ceiling::most`] is the half a surface displays and
 /// [`Ceiling::admits`] the half that refuses.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -95,11 +87,10 @@ impl Ceiling {
     pub fn on(raised_by: RaisedBy, inherited: u64) -> Ceiling {
         match raised_by {
             RaisedBy::Person => Ceiling { most: None },
-            RaisedBy::Helm => Ceiling {
+            // The wire still spells a Commander, which no door places any more: it
+            // is bounded as an agent is and never unbounded.
+            RaisedBy::Helm | RaisedBy::Commander => Ceiling {
                 most: Some(inherited.saturating_mul(HELM_MULTIPLE)),
-            },
-            RaisedBy::Commander => Ceiling {
-                most: Some(inherited.saturating_mul(COMMANDER_MULTIPLE)),
             },
         }
     }

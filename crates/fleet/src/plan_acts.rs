@@ -78,7 +78,7 @@ where
         .map_err(|why| self.refusal(why))
     }
 
-    /// A person, Helm or the Commander moves a task or a group, by `after`.
+    /// A person or Helm moves a task or a group, by `after`.
     pub(crate) async fn move_plan_by(
         self: Arc<Self>,
         job_id: ipc::JobId,

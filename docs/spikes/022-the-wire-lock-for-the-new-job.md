@@ -906,7 +906,7 @@ it end that task's Drone alone.
 - A merged pull request records when it merged, read off the forge. A parent
   completes when every member has landed.
 
-Write scope: `crates/fleet/src/sub_dispatch.rs`, `crates/fleet/src/noticing.rs`,
+Write scope: the sub-dispatch module (deleted since), `crates/fleet/src/noticing.rs`,
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/fields.rs`,
 `crates/store/src/migrations.rs`, `crates/store/src/read.rs`, `crates/ipc/src/job.rs`,
 `crates/ipc/src/detail.rs`, and the wire set above.

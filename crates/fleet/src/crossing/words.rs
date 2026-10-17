@@ -31,12 +31,6 @@ pub(crate) const PLAN_TASK: &str =
              this Job. The plan's states are kept from it, so you mark nothing \
              yourself.";
 
-/// The block the Jobs a part dispatched follow, as it ships.
-pub(crate) const DISPATCHED: &str =
-    "THE JOBS YOU DISPATCHED\n\nEvery one of these has finished. This is \
-             the whole of what you have to report on, and it is not visible to \
-             you anywhere else.";
-
 /// What the part before claimed, as it ships. `{part}` and `{claimed}` are filled by Fleet.
 pub(crate) const PRODUCED: &str = "What part {part} produced:\n  \"{claimed}\"";
 

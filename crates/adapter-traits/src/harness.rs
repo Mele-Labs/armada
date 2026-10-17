@@ -229,16 +229,6 @@ pub enum Grant {
     /// **Rendered as a declared command is, push refusal included** — a person
     /// answering a question is not reviewing a Manifest.
     RunAnAllowedCommand(String),
-    /// Create Jobs, as children of the one being worked.
-    ///
-    /// **The only grant whose effect outlives the Drone that holds it.** Every
-    /// other capability here changes a worktree or reads one; this one makes
-    /// records that get their own worktrees, their own Drones and their own
-    /// bill. It is granted on one step of one workflow — the step after a
-    /// person read the plan — and withheld everywhere else, which is what makes
-    /// a Drone inventing work a call that is not on its list rather than a call
-    /// somebody remembered to refuse.
-    DispatchAJob,
     /// Record the Job's plan: `record_plan`. **Granted only on the step whose
     /// product is a plan**, so a later step cannot replace the plan it works from.
     RecordThePlan,

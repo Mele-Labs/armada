@@ -69,8 +69,7 @@ const WIDEN_TOOL: &str = "mcp__armada__request_scope";
 
 /// **In every toolbelt, and not a `Grant`.** Asking costs nothing and creates
 /// nothing — what it produces is a question on a Board — so there is no spend to
-/// gate it behind, which is the whole of what separates it from
-/// [`DISPATCH_TOOL`] below.
+/// gate it behind.
 ///
 /// A Drone denied this one is denied in the way the comment above describes, and
 /// the shape it takes here is worse than usual: the alternative to asking is
@@ -94,15 +93,7 @@ const NOTE_TOOL: &str = "mcp__armada__leave_note";
 /// the draft still waits for a person, and Fleet bounds the run on main. #999.
 const FIX_TOOL: &str = "mcp__armada__draft_fix";
 
-/// **Not in the table above, because it is not in every toolbelt.** It is the
-/// one Armada tool that is granted rather than given: a Drone that may create
-/// Jobs is a Drone one approval bought several Drones' worth of spend from, so
-/// it is rendered only where [`Grant::DispatchAJob`] was granted. A Drone that
-/// calls it without the grant is denied by the CLI silently, which is why Fleet
-/// refuses the same call in words on its own side.
-const DISPATCH_TOOL: &str = "mcp__armada__dispatch_job";
-
-/// **Granted like the dispatch tool, per step**: the plan's recorder and its
+/// **Granted rather than given, per step**: the plan's recorder and its
 /// followers are different steps, and a Drone denied one silently is told why
 /// by Fleet's own refusal of the same call.
 const RECORD_PLAN_TOOL: &str = "mcp__armada__record_plan";
@@ -400,7 +391,6 @@ fn allowlist(config: &DroneSpawnConfig) -> Result<String, HarnessRefused> {
                 }
             }
             Grant::RepairTheWorktree(Repair::TheInstall(run)) => allowed.push(command_rule(run)?),
-            Grant::DispatchAJob => allowed.push(DISPATCH_TOOL.into()),
             Grant::RecordThePlan => allowed.push(RECORD_PLAN_TOOL.into()),
             Grant::WorkThePlan => {
                 allowed.push(ADD_TASK_TOOL.into());
@@ -639,13 +629,6 @@ pub fn note_tool() -> &'static str {
 /// The fix tool's name. In every toolbelt with the seven above. #999.
 pub fn fix_tool() -> &'static str {
     FIX_TOOL
-}
-
-/// The dispatch tool's name, for a caller that needs to assert it is *absent*
-/// from a toolbelt. The five above are in every one; this is the only Armada
-/// tool a spawn can be built without.
-pub fn dispatch_tool() -> &'static str {
-    DISPATCH_TOOL
 }
 
 /// The permission tool's name, for a caller asserting it is on

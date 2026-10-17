@@ -2,7 +2,7 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "A Job's Commander started or finished a turn: the Job and whether it is at work"
+description = "Retired: a Job's Commander started or finished a turn. Fleet no longer publishes it"
 notes = """
-Carries `CommanderChanged`, `{job_id, state}`, with `state` one of `idle` and `working`. #2166. Published when a turn starts and when the last queued turn ends, so a message that arrived mid-turn keeps it `working` until the one after it is written. It is a fact about the Job and never a row of the Commander's thread, which is `observe_commander`'s. A Job whose Commander is never woken publishes nothing. Rare for the same reason a Commander's turn is: it is woken on trouble, and by the owner.
+Carries `CommanderChanged`, `{job_id, state}`. #2166. The Commander is deleted and nothing publishes this. It stays declared only because `Event::CommanderChanged` stays on the wire until the Job types are deleted (task #30), and `every route served is an operation the inventory names` reads the enum; delete this row with the variant.
 """

@@ -109,11 +109,6 @@ where
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
         self.tuned(|dials| dials.helm_authority)
     }
-    /// How long a closed Helm session's stored session id is kept. See
-    /// `crate::helm::serving`, which sweeps by it on every reply. `#943`.
-    pub(crate) fn helm_session_retention(&self) -> std::time::Duration {
-        self.tuned(|dials| dials.helm_session_retention)
-    }
     /// What this repository has said about `auto_merge` and `review_gate`,
     /// folded across the Manifests gating one Job.
     ///
@@ -237,12 +232,6 @@ where
     }
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
-    }
-    pub(crate) fn repairing(&self) -> &crate::repair_hold::Underway {
-        &self.repairing
-    }
-    pub(crate) fn stirrings(&self) -> &std::sync::Mutex<crate::commanding_wakes::Stirred> {
-        &self.stirred
     }
     pub(crate) fn owner_runs(
         &self,

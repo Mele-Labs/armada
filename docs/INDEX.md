@@ -304,7 +304,6 @@ can find them.
 | Running a whole milestone by dispatching agents at its issues | `orchestrate-milestone` |
 | Closing a session — what the work just made untrue, and what to update | `reflect` |
 | Putting a decision to a person, and writing the options | `asking-a-person` |
-| Running a whole milestone from one approval, wave by wave | `epic-as-one-job` |
 | Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
 | Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
 | Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |

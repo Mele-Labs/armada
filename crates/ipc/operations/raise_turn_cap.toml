@@ -12,5 +12,5 @@ notes = """
 
 **422 on a value at or under the cap in force**, and **409 on a terminal Job**, for that route's reasons.
 
-**`agent_access` is `Yes`**, for that route's reason and with more force: the Job that bought this route stopped on its cheapest final step, and a person is not always at the screen when that happens. an agent is bounded where a person is not, by the connection and not by the body — the same `Ceiling` and the same multiples (`HELM_MULTIPLE`, `COMMANDER_MULTIPLE`), because a bound on how far an agent may move a ceiling says nothing about what the ceiling counts.
+**`agent_access` is `Yes`**, for that route's reason and with more force: the Job that bought this route stopped on its cheapest final step, and a person is not always at the screen when that happens. an agent is bounded where a person is not, by the connection and not by the body — the same `Ceiling` and the same multiples (`HELM_MULTIPLE`), because a bound on how far an agent may move a ceiling says nothing about what the ceiling counts.
 """
