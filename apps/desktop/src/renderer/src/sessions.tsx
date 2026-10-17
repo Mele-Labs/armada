@@ -136,7 +136,7 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    jobs: attachmentsOf(session, "job").filter((one) => one.looking !== true).map((one) => ({ id: one.id, number: one.number })),
+    jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
 }

@@ -235,7 +235,6 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           title: job.title,
           state: jobStateOf(job.status),
           branch: job.branch ?? "",
-          ...(detail["looking"] === "true" ? { looking: true as const } : {}),
           // A person's word closed it. Said apart from a Job that passed its gates.
           ...(job.piloted?.exit === "attested" ? { attested: true as const } : {}),
         });

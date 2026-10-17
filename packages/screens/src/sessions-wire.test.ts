@@ -115,13 +115,13 @@ describe("the ledger", () => {
     expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });
   });
 
-  it("reads a Job off the Board, and marks one the session was handed to look at", () => {
+  it("reads a Job off the Board, and leaves one the Board forgot off", () => {
     const board = [job("escalated", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
     const attachments = attachmentsOfRecord(
-      record("a", { attachments: [held("job", "J1", { looking: "true" }), held("job", "J-forgotten")] }),
+      record("a", { attachments: [held("job", "J1"), held("job", "J-forgotten")] }),
       beside(board),
     );
-    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55", looking: true }]);
+    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55" }]);
   });
 
   it("marks a Job a person attested", () => {

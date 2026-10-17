@@ -79,8 +79,6 @@ export type LedgerEntry = {
   background?: BackgroundForm;
   /** A `linked` row: a Session this one follows, drawn as a press that opens it. */
   linked?: LinkedSessionProps;
-  /** A Job the person tagged, which the Session is looking at and did not dispatch. */
-  looking?: boolean;
   /** A Job this Session is piloting: its exits are drawn in the row. */
   exits?: ReactNode;
   /** The slot a Job or a branch stands in, as a chip at the row's end. */
@@ -520,13 +518,6 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               <Tooltip label="Given back">
                 <span className="armada-session-mark" role="img" aria-label="Given back">
                   <Unplug size={12} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            )}
-            {row.looking !== true ? null : (
-              <Tooltip label="Looking at it, not dispatched from here">
-                <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
-                  <Search size={12} strokeWidth={2} aria-hidden />
                 </span>
               </Tooltip>
             )}

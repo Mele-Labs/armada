@@ -55,8 +55,6 @@ export type SessionAttachment =
       branch: string;
       /** Absent where the Job's own slot is not known: Fleet holds it on the Job, not on the Session. */
       slot?: number;
-      /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
-      looking?: true;
       /** Closed by a person's word and not by its gates. */
       attested?: true;
     }
@@ -840,7 +838,7 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "branch":
       return (
         (attachment.kind === "branch" && attachment.name === ref.name) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.branch === ref.name) ||
+        (attachment.kind === "job" && attachment.branch === ref.name) ||
         (attachment.kind === "pull_request" && attachment.branch === ref.name)
       );
     case "pull_request":
@@ -848,10 +846,10 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "slot":
       return (
         (attachment.kind === "slot" && attachment.slot === ref.slot) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.slot === ref.slot)
+        (attachment.kind === "job" && attachment.slot === ref.slot)
       );
     case "job":
-      return attachment.kind === "job" && attachment.looking !== true && attachment.id === ref.id;
+      return attachment.kind === "job" && attachment.id === ref.id;
   }
 }
 
