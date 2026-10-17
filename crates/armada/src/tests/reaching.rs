@@ -214,7 +214,7 @@ async fn a_check_without_a_one_test_is_narrowed_as_the_merge_line_narrows_it() {
 #[tokio::test]
 async fn a_test_by_name_runs_in_the_crate_that_declares_it() {
     let dir = a_workspace_with_one_test();
-    let ran = asked(&dir, Asked::OneTest("stops")).await.expect("declared");
+    let ran = asked(&dir, Asked::Tests(&["stops"])).await.expect("declared");
     assert_eq!(ran.command, "/bin/echo ran stops -p fleet");
 }
 
@@ -223,14 +223,14 @@ async fn a_test_by_name_runs_in_the_crate_that_declares_it() {
 #[tokio::test]
 async fn a_test_nothing_declares_is_refused_and_not_run_everywhere() {
     let dir = a_workspace_with_one_test();
-    let nowhere = asked(&dir, Asked::OneTest("no_such_test"))
+    let nowhere = asked(&dir, Asked::Tests(&["no_such_test"]))
         .await
         .expect_err("nothing declares it");
     assert!(
         nowhere.to_string().contains("nothing under `crates` declares"),
         "{nowhere}"
     );
-    let left_out = asked(&dir, Asked::OneTest("the_board"))
+    let left_out = asked(&dir, Asked::Tests(&["the_board"]))
         .await
         .expect_err("an excepted member declares it");
     let said = left_out.to_string();
@@ -265,7 +265,7 @@ async fn a_filtered_run_has_its_filter_as_its_target_and_a_plain_run_none() {
     let run = |asked| {
         execute(dir.path(), Registry::Checks, "test", asked, BUDGET, None, Priority::Normal)
     };
-    let filtered = run(Asked::OneTest("store::reads_the_last_row")).await.expect("declared");
+    let filtered = run(Asked::Tests(&["store::reads_the_last_row"])).await.expect("declared");
     assert_eq!(filtered.target.as_deref(), Some("store::reads_the_last_row"));
     assert_eq!(run(Asked::Whole).await.expect("declared").target, None);
 }

@@ -22,10 +22,11 @@ test("the picker names a repository, and never its Manifest's minted id", async 
   mount("studios");
   await onScreen();
 
-  const trigger = page.getByRole("button", { name: "Repository", exact: true });
-  await expect.element(trigger).toBeVisible();
-  expect(trigger.element().textContent ?? "").toMatch(/armada/);
-  expect(trigger.element().textContent ?? "").not.toMatch(ULID);
+  const field = page.getByRole("combobox", { name: "Repository", exact: true });
+  await expect.element(field).toBeVisible();
+  const shown = (field.element() as HTMLInputElement).value;
+  expect(shown).toMatch(/armada/);
+  expect(shown).not.toMatch(ULID);
 });
 
 test("the control beside the pick opens that repository's Manifest", async () => {

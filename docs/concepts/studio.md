@@ -36,6 +36,9 @@ flowchart LR
 
 > **Rule.** The Studios list names each Studio and when it was last touched, and names no Workspace.
 
+> **Rule.** On All repositories the Studios page lists every repository's Studios, one panel for each repository with its name as the head, and asks which repository to open only at the act that needs one. With one repository picked it is that repository's panel alone.
+> Why: a person looking for a Studio often does not know which repository it belongs to, and a gate that asks first blocks the page on a question the list can answer.
+
 > **Rule.** A Studio is kept until a person deletes it. Nothing expires it.
 > Why: rereading how a plan was reached is what it is for.
 

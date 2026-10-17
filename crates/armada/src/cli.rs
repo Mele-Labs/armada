@@ -28,12 +28,12 @@ pub enum Verb {
     /// The daemon. Everything below it needs a port, a store and a process.
     /// `repository` is added at start; none given serves what Fleet remembers.
     Serve { repository: Option<PathBuf> },
-    /// One Check the Manifest declares, by name — or one test in it, through
-    /// the Check's `one_test`, or what the paths on stdin reach, with
+    /// One Check the Manifest declares, by name — or tests in it, through the
+    /// Check's `one_test` in one run, or what the paths on stdin reach, with
     /// `changed`.
     Check {
         name: String,
-        test: Option<String>,
+        tests: Vec<String>,
         changed: bool,
     },
     /// One Command the Manifest declares, by name.
@@ -72,8 +72,8 @@ const VERBS: &[(&str, &str)] = &[
     ),
     (
         "check",
-        "run one Check the Manifest declares, by name; a second name runs one test in it, \
-         and --changed what the paths on stdin reach",
+        "run one Check the Manifest declares, by name; names after it run those tests in it \
+         in one build, and --changed what the paths on stdin reach",
     ),
     ("run", "run one Command the Manifest declares, by name"),
     (
@@ -159,9 +159,8 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             };
             let positional = positionals(rest, flags, &mut faults);
             let changed = verb == "check" && rest.iter().any(|arg| arg == CHANGED);
-            match verb.as_str() {
-                "check" => at_most_one(verb, positional.get(1..).unwrap_or(&[]), &mut faults),
-                _ => at_most_one(verb, &positional, &mut faults),
+            if verb == "run" {
+                at_most_one(verb, &positional, &mut faults);
             }
             if let (true, Some(test)) = (changed, positional.get(1)) {
                 faults.push(Fault::ChangedRunsTheWholeCheck { test: test.clone() });
@@ -169,7 +168,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             match positional.first() {
                 Some(name) if verb == "check" => Some(Verb::Check {
                     name: name.clone(),
-                    test: positional.get(1).cloned(),
+                    tests: positional.get(1..).unwrap_or(&[]).to_vec(),
                     changed,
                 }),
                 Some(name) => Some(Verb::Run { name: name.clone() }),
@@ -325,7 +324,7 @@ pub enum Fault {
     PathsComeOnStdin {
         given: String,
     },
-    /// `check --changed` beside one test's name.
+    /// `check --changed` beside a test's name.
     ChangedRunsTheWholeCheck {
         test: String,
     },
@@ -408,7 +407,7 @@ impl fmt::Display for Fault {
             Fault::ChangedRunsTheWholeCheck { test } => write!(
                 out,
                 "`{CHANGED}` narrows the whole Check to what a change reaches, so `{test}` \
-                 has nowhere to go — name one test, or pass `{CHANGED}`"
+                 has nowhere to go — name tests, or pass `{CHANGED}`"
             ),
             Fault::WorktreeActUnknown { given } => write!(
                 out,

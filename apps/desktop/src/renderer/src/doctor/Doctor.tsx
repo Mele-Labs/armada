@@ -4,7 +4,7 @@
 // reads on opening and on Check again, and changes nothing.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { RotateCw, Stethoscope } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleX, RotateCw, Stethoscope, TriangleAlert } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
@@ -16,6 +16,21 @@ import "./doctor.css";
 
 /** `age`'s spelling, with its zero said in words. */
 const checkedSaid = (ago: string) => (ago === "0m" ? "checked just now" : `checked ${ago} ago`);
+
+const GLYPHS = { pass: CircleCheck, warn: TriangleAlert, fail: CircleX, reading: CircleDashed } as const;
+const GLYPH_NAMES = { pass: "Pass", warn: "Warn", fail: "Fail", reading: "Reading" } as const;
+
+/** A result as its registry glyph in the result's hue, with the word as its tooltip. Drawn under the new look; the word stays for everything else. */
+function Glyph({ result }: { result: Row["result"] }) {
+  const Icon = GLYPHS[result];
+  return (
+    <Tooltip label={GLYPH_NAMES[result]}>
+      <span className="armada-doctor__glyph" data-result={result} role="img" aria-label={GLYPH_NAMES[result]}>
+        <Icon size={16} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
 
 function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSelect: (key: string) => void }) {
   const ref = useRef<HTMLLIElement>(null);
@@ -34,6 +49,7 @@ function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSele
       onClick={() => onSelect(row.key)}
     >
       <div className="armada-tile__head">
+        <Glyph result={row.result} />
         <span className="armada-doctor-tile__module">{row.module}</span>
         <b className="armada-doctor__result" data-result={row.result} data-chip="">
           {row.result}
@@ -82,6 +98,7 @@ function Pane({ row }: { row: Row }) {
   return (
     <article className="armada-doctor-pane" data-result={row.result} aria-label={row.module}>
       <header className="armada-doctor-pane__head">
+        <Glyph result={row.result} />
         <h2>{row.module}</h2>
         <b className="armada-doctor__result" data-result={row.result}>
           {row.result}
