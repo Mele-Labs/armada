@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ago, toPocket } from "./data";
-import type { PhoneJob } from "./gateway";
+import { ago } from "./data";
 import { codeFromInput } from "./pair";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
@@ -20,7 +19,7 @@ const EMPTY = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 describe("the signer", () => {
   it("joins method, target, time and the body hash with nothing between", async () => {
     expect(await bodyHash("")).toBe(EMPTY);
-    expect(await signedMessage("GET", "/api/jobs?state=done", 1760000000, "")).toBe(`GET/api/jobs?state=done1760000000${EMPTY}`);
+    expect(await signedMessage("GET", "/api/sessions?state=ended", 1760000000, "")).toBe(`GET/api/sessions?state=ended1760000000${EMPTY}`);
   });
 
   it("signs that message with the key, as 64 raw bytes the public key verifies", async () => {
@@ -41,9 +40,9 @@ describe("the signer", () => {
 describe("the SSE parser", () => {
   it("returns an event once its blank line arrives, across chunk boundaries", () => {
     const parser = new SseParser();
-    expect(parser.feed('data: {"change":"cre')).toEqual([]);
-    expect(parser.feed('ated"}\n')).toEqual([]);
-    expect(parser.feed("\ndata: {\"change\":\"resync\"}\n\n")).toEqual(['{"change":"created"}', '{"change":"resync"}']);
+    expect(parser.feed('data: {"change":"ses')).toEqual([]);
+    expect(parser.feed('sion"}\n')).toEqual([]);
+    expect(parser.feed("\ndata: {\"change\":\"resync\"}\n\n")).toEqual(['{"change":"session"}', '{"change":"resync"}']);
   });
 
   it("joins multi-line data, ignores other fields and comments, and reads CRLF", () => {
@@ -53,7 +52,6 @@ describe("the SSE parser", () => {
 });
 
 const NOW = Date.parse("2026-10-08T12:00:00Z");
-const base: PhoneJob = { id: "j1", title: "T", status: "escalated", asking: false, created_at: "2026-10-08T09:50:00Z" };
 
 describe("data.ts mapping", () => {
   it("counts ages the way the rows draw them", () => {
@@ -61,21 +59,6 @@ describe("data.ts mapping", () => {
     expect(ago("2026-10-08T11:46:00Z", NOW)).toBe("14m");
     expect(ago("2026-10-08T11:00:00Z", NOW)).toBe("1h");
     expect(ago("2026-10-08T09:50:00Z", NOW)).toBe("2h 10m");
-  });
-
-  it("maps a needs row", () => {
-    const job = toPocket({ ...base, repository: "armada", reason: "stalled", waiting_since: "2026-10-08T11:19:00Z", step: { at: 2, of: 5, name: "Implement" }, verdict: "veto", checks: [{ name: "typecheck", passed: true }], pull_request: "https://example.test/armada/pull/2003" }, NOW);
-    expect(job).toMatchObject({
-      repository: "armada", reason: "stalled", age: "2h 10m", quiet: "41m",
-      step: { at: 2, of: 5, name: "Implement" }, verdict: { says: "veto", line: "Veto" },
-      checks: [{ name: "typecheck", passed: true }], pr: { number: 2003, url: "example.test/armada/pull/2003" },
-    });
-  });
-
-  it("counts a finished Job's age from when it ended, and leaves absent fields absent", () => {
-    const job = toPocket({ ...base, status: "completed_success", ended_at: "2026-10-08T11:00:00Z" }, NOW);
-    expect(job.age).toBe("1h");
-    expect(job).toMatchObject({ repository: "", quiet: undefined, verdict: undefined, pr: undefined });
   });
 });
 
@@ -112,31 +95,11 @@ describe("the acts", () => {
     vi.doMock("./router", () => ({ go: () => undefined }));
     vi.stubGlobal("fetch", async (url: string, init: { method: string; body?: string; headers: Record<string, string> }) => {
       sent.push({ url, method: init.method, body: init.body ?? "", signed: /^[0-9a-f]{128}$/.test(init.headers["X-Pocket-Signature"] ?? "") });
-      return url.startsWith("/api/needs") ? new Response(JSON.stringify({ needs: [], sessions: [] })) : url.startsWith("/api/jobs?") ? new Response(JSON.stringify({ jobs: [] })) : reply();
+      return init.method === "GET" ? new Response(JSON.stringify({ sessions: [] })) : reply();
     });
     return import("./data");
   };
   const acts = () => sent.filter((one) => one.method === "POST");
-
-  it("posts each Job act, signed, with the body the route reads", async () => {
-    const data = await world();
-    await data.actOn("j1", "approve");
-    await data.actOn("j1", "restart_step");
-    await data.actOn("j1", "kill");
-    await data.actOn("j1", "redispatch");
-    await data.actOn("j1", "approve_review");
-    await data.redirect("j1", "use the cache");
-    await data.requestChanges("j1", "too broad");
-    expect(acts().map(({ url, body, signed }) => [url, body, signed])).toEqual([
-      ["/api/jobs/j1/approve", "{}", true],
-      ["/api/jobs/j1/restart_step", "{}", true],
-      ["/api/jobs/j1/kill", "{}", true],
-      ["/api/jobs/j1/redispatch", "{}", true],
-      ["/api/jobs/j1/approve_review", "{}", true],
-      ["/api/jobs/j1/redirect", '{"text":"use the cache"}', true],
-      ["/api/jobs/j1/request_changes", '{"reason":"too broad"}', true],
-    ]);
-  });
 
   it("answers a permission ask with the decision and a question ask with the choices", async () => {
     const data = await world();
@@ -150,20 +113,21 @@ describe("the acts", () => {
 
   it("dispatches the line to the repository", async () => {
     const data = await world();
-    reply = () => new Response(JSON.stringify({ jobs: [] }), { status: 201 });
+    reply = () => new Response(JSON.stringify({ session: {} }), { status: 201 });
     await data.dispatch({ text: "Trim the pool", repository: "armada" });
-    expect(acts().map(({ url, body, signed }) => [url, JSON.parse(body), signed])).toEqual([["/api/jobs", { text: "Trim the pool", repository: "armada" }, true]]);
+    expect(acts().map(({ url, body, signed }) => [url, JSON.parse(body), signed])).toEqual([["/api/sessions", { text: "Trim the pool", repository: "armada" }, true]]);
     reply = () => new Response(null, { status: 204 });
   });
 
   it("keeps the draft and answers the Gateway's sentence when the act is refused", async () => {
     const data = await world();
-    reply = () => new Response("That Job is not waiting.", { status: 409 });
-    data.DRAFTS.set("redirect-j1", "use the cache");
-    expect(await data.attempt(() => data.redirect("j1", "use the cache"), ["redirect-j1"])).toBe("That Job is not waiting.");
-    expect(data.DRAFTS.get("redirect-j1")).toBe("use the cache");
+    const body = { session_id: "s1", ask_id: "a1", answer: "refuse" as const };
+    reply = () => new Response("That Session is not waiting on an answer.", { status: 409 });
+    data.DRAFTS.set("ask-s1", "use the cache");
+    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBe("That Session is not waiting on an answer.");
+    expect(data.DRAFTS.get("ask-s1")).toBe("use the cache");
     reply = () => new Response(null, { status: 204 });
-    expect(await data.attempt(() => data.redirect("j1", "use the cache"), ["redirect-j1"])).toBeNull();
-    expect(data.DRAFTS.has("redirect-j1")).toBe(false);
+    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBeNull();
+    expect(data.DRAFTS.has("ask-s1")).toBe(false);
   });
 });
