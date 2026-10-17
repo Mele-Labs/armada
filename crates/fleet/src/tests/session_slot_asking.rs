@@ -111,13 +111,7 @@ async fn add_holds_the_new_slot_for_the_command_ahead_of_the_line_until_it_is_do
     assert_eq!(rig.fleet.vcs().slot_holders(&rig.root).len(), 9, "a ninth slot was made");
     tokio::time::sleep(Duration::from_millis(400)).await;
     assert!(resumes(&rig, &head).is_empty(), "the line does not take the slot held for the command");
-    // Nor does a write that would lease straight off the pool.
-    let newcomer = rig.start().await;
-    rig.send(&newcomer, "write").await;
-    let at = rig.stand_in.starts().len() - 1;
-    rig.stand_in.init(at);
-    let refused = rig.gate(&newcomer, "Edit", &write_to_main(&rig)).await;
-    assert!(reason(&refused).contains("queue"), "{}", reason(&refused));
+    // Every look the line got was under the reservation, so only the command's `done` can free it.
 
     asking(&rig, &id, AskForSlotAct::Done).await;
     eventually(|| async { resumes(&rig, &head).len() == 1 }).await;
@@ -161,4 +155,31 @@ async fn a_command_that_goes_quiet_loses_its_call_and_its_slot_after_the_expiry(
     assert_eq!(gone, vec![id.as_str().to_string()]);
     assert!(!queue.reserved(&manifest, None, now));
     assert!(queue.expire(now + Duration::from_secs(60)).is_empty(), "forgotten once");
+}
+
+/// With no line at all, a write would lease the added slot straight off the pool.
+#[tokio::test]
+async fn a_write_does_not_lease_the_slot_added_for_a_command() {
+    let rig = rig_placing(None);
+    for n in 1..=8 {
+        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+    }
+    let id = idle_without_a_slot(&rig).await;
+    asking(&rig, &id, AskForSlotAct::Ask).await;
+    choose(&rig, &id, 1).await;
+
+    let newcomer = rig.start().await;
+    rig.send(&newcomer, "write").await;
+    let at = rig.stand_in.starts().len() - 1;
+    rig.stand_in.init(at);
+    let refused = rig.gate(&newcomer, "Edit", &write_to_main(&rig)).await;
+    assert!(reason(&refused).contains("first in the queue"), "{}", reason(&refused));
+    rig.stand_in.finishes(at, "waiting for a slot");
+    eventually(|| async { rig.turn(&newcomer).await == ipc::SessionTurn::Idle }).await;
+
+    asking(&rig, &id, AskForSlotAct::Done).await;
+    let keeper = the_keeper(&rig);
+    eventually(|| async { resumes(&rig, &newcomer).len() == 1 }).await;
+    assert_eq!(resumes(&rig, &newcomer)[0].directory, adapter_traits::slot_path(&rig.root, 9));
+    keeper.abort();
 }
