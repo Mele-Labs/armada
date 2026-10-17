@@ -3,7 +3,7 @@
 //
 // **The places.** Jobs and Sessions, Flight control and the Ledger keep theirs. Incoming calls stands on the left under the list, without the
 // selected Session's own calls: what needs him for it is a card in its thread. With nothing selected Activity takes the place it leaves on the right. Three places
-// are given to the Session's own panels: the right column holds Status, the Ledger and the Plan, where Incoming calls used to be, the
+// are given to the Session's own panels: the right column holds the Ledger, Status and the Plan, where Incoming calls used to be, the
 // foot holds the Field from the moment the Session is selected, and Dispatch controls give way. The proposal has no panel: the title
 // is the Session's name in its header, the model and the effort are the composer's dropdowns marked as picked by the proposer, and
 // the workflow is a picker over the steps in Status. The panels are drawn into the deck's own places (`hosts`).
@@ -33,8 +33,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, on
   const { id } = session;
   const right = (
     <>
-      {work.railOff === true ? null : <StatusPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={acts} />}
       <LedgerPanel session={session} entries={entries} place="side" />
+      {work.railOff === true ? null : <StatusPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={acts} />}
       {work.plan === undefined || ed === undefined ? null : <PlanPanel id={id} plan={work.plan} place="side" ed={ed} onOpenSketch={onOpenSketch} />}
     </>
   );
