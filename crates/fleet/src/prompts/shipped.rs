@@ -153,8 +153,6 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
             keys::PROMPT_DRONE_REDECLARE_WHAT,
             crate::terms::REDECLARE_WHAT,
         ),
-        (keys::PROMPT_DRONE_SPLIT_DECIDES, crate::terms::DECIDES_IT),
-        (keys::PROMPT_DRONE_SPLIT_PROPOSES, crate::terms::PROPOSES_IT),
         (keys::PROMPT_DRONE_REVIEW, crate::review_term::REVIEW),
         (keys::PROMPT_CROSSING_PRODUCED, crate::crossing::PRODUCED),
         (
@@ -202,10 +200,6 @@ pub(super) fn drone() -> Vec<(Words, &'static str)> {
         ),
         (keys::PROMPT_CROSSING_PLAN_READ, crate::crossing::PLAN_READ),
         (keys::PROMPT_CROSSING_PLAN_TASK, crate::crossing::PLAN_TASK),
-        (
-            keys::PROMPT_CROSSING_DISPATCHED,
-            crate::crossing::DISPATCHED,
-        ),
         (keys::PROMPT_CROSSING_SENT_BACK, crate::crossing::SENT_BACK),
         (
             keys::PROMPT_CROSSING_SENT_BACK_UNRECORDED,

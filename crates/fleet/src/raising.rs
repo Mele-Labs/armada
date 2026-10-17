@@ -61,13 +61,11 @@ const HELM_MULTIPLE: u64 = 2;
 /// moves.
 ///
 /// **There is no constructor but [`Ceiling::on`]** and the field is private, so
-/// holding one is the whole of the authorisation —
-/// [`Dispatching`](crate::sub_dispatch::Dispatching)'s property one seam over,
-/// and here for its reason: what an agent may do is decided by Fleet at the
-/// boundary it came in through, never by an argument it writes.
+/// holding one is the whole of the authorisation: what an agent may do is
+/// decided by Fleet at the boundary it came in through, never by an argument
+/// it writes.
 ///
-/// **The same value renders and refuses**, which is `spawning::dispatches`'s
-/// shape: [`Ceiling::most`] is the half a surface displays and
+/// **The same value renders and refuses**: [`Ceiling::most`] is the half a surface displays and
 /// [`Ceiling::admits`] the half that refuses.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

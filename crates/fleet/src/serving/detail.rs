@@ -367,10 +367,6 @@ where
             Some(plan) => Some(self.served_plan(job.id(), plan, &runs).await),
             None => None,
         };
-        detail.wave_rounds = self
-            .wave_rounds_of(&job)
-            .await
-            .map_err(|why| self.refusal(why))?;
         // Beside the record, never in the worktree, so a reclaimed checkout
         // still shows what was said about it — `crate::walk_notes`.
         detail.walk_notes = self

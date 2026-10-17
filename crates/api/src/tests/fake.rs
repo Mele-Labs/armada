@@ -42,7 +42,7 @@ pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 use std::sync::atomic::AtomicU64;
 use std::sync::Mutex;
 
-use ipc::mcp::{DeclareScope, DispatchJob, NotRecorded, SubmitEvidence};
+use ipc::mcp::{DeclareScope, NotRecorded, SubmitEvidence};
 use ipc::{Actor, Event, Instant, JobId, JobStateChanged, JobSummary, UnreadableJob};
 
 use super::shapes;
@@ -74,7 +74,6 @@ pub struct FakeDaemon {
     /// Every question taken, in arrival order.
     pub asked: Mutex<Vec<ipc::mcp::AskQuestion>>,
     /// Every Job a Drone asked to have created, in arrival order.
-    pub dispatched: Mutex<Vec<DispatchJob>>,
     /// How many asked runs were asked for, so a test can assert that a refused
     /// call ran nothing.
     pub checked: AtomicU64,
@@ -174,7 +173,6 @@ impl FakeDaemon {
             declared: Mutex::new(Vec::new()),
             requested: Mutex::new(Vec::new()),
             asked: Mutex::new(Vec::new()),
-            dispatched: Mutex::new(Vec::new()),
             checked: AtomicU64::new(0),
             reports: Mutex::new(Vec::new()),
             held: Mutex::new(Vec::new()),

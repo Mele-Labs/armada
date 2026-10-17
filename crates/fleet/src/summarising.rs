@@ -25,7 +25,6 @@ use ipc::JobSummary;
 use crate::admitting::clear_to_run;
 use crate::allowance::Overspent;
 use crate::daemon::Fleet;
-use crate::sub_dispatch::waiting_on_children;
 
 /// Why an approved Job has not started, and — where that is a ceiling — which
 /// of the two.
@@ -194,17 +193,6 @@ where
             .map(|held| (held.id().clone(), held.status()))
             .collect();
         if !clear_to_run(job, &standing) {
-            return Ok(Waiting::on(Some(CoreQueuedReason::BlockedByDependency)));
-        }
-        // **The same label as the edge above, because it is the same fact from
-        // the Board's side.** The registry gives a `queued` Job no reason
-        // meaning "waiting on the Jobs it created"; a Job held for its children
-        // is held for work that has to finish first, which is what the
-        // dependency label says. The mechanism differs — provenance rather than
-        // an edge — and that difference is not a Board fact.
-        let owed = self.merges_owed().await.map_err(|why| self.refusal(why))?;
-        let children = crate::sub_dispatch::children_standing(&loaded.jobs, &owed);
-        if waiting_on_children(job, &children, self.waits_on_merges(job).await) {
             return Ok(Waiting::on(Some(CoreQueuedReason::BlockedByDependency)));
         }
         // **Before the machine reading, and not only because admission asks it

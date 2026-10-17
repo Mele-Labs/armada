@@ -94,32 +94,4 @@ impl Store {
             .map_err(fault("reading when a pull request merged"))
             .map_err(LoadJobError::Database)
     }
-
-    /// Which pass over `step` this Job is on, counted from one: the loop
-    /// returns that landed on it, plus one.
-    ///
-    /// **Not `step_iteration`**, which counts the returns a step *caused*. An
-    /// Epic's plan causes none; `roll_up` sends the work back to it, and each
-    /// return it receives is a new wave.
-    pub fn pass_over(
-        &self,
-        job_id: &JobId,
-        step: &core_model::StepId,
-    ) -> Result<u32, LoadJobError> {
-        let returns: i64 = self
-            .conn
-            .query_row(
-                "SELECT count(*) FROM job_events
-                 WHERE job_id = ?1 AND step_id = ?2 AND returned_by IS NOT NULL
-                   AND kind = 'step_transition'
-                   AND state_from = 'advanced' AND state_to = 'running'",
-                (job_id.as_str(), step.as_str()),
-                |row| row.get(0),
-            )
-            .map_err(fault("counting the returns that landed on a step"))
-            .map_err(LoadJobError::Database)?;
-        Ok(u32::try_from(returns.max(0))
-            .unwrap_or(u32::MAX)
-            .saturating_add(1))
-    }
 }

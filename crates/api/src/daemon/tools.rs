@@ -17,7 +17,7 @@ use std::future::Future;
 
 use crate::mcp::Caller;
 use ipc::mcp::{
-    AskQuestion, ChecksStarted, DeclareScope, DispatchJob, NotRecorded, PermissionAsked, PlanCall,
+    AskQuestion, ChecksStarted, DeclareScope, NotRecorded, PermissionAsked, PlanCall,
     Receipt, RequestScope, ServerReport, SubmitEvidence,
 };
 
@@ -211,37 +211,6 @@ pub trait Tools: Send + Sync + 'static {
         &self,
         caller: Caller,
         request: RequestScope,
-    ) -> impl Future<Output = Result<Receipt, NotRecorded>> + Send;
-
-    /// `dispatch_job` — the working Drone asks for one more Job to exist, as a
-    /// child of its own.
-    ///
-    /// **The one method on this trait whose effect is another Job.** Every
-    /// other call answers a question or moves the Job it was made on; this one
-    /// creates a record that will get a worktree, a Drone and a bill. So the
-    /// receipt carries the id that was minted, and the refusals are about
-    /// whether that Job was allowed to exist at all rather than about whether
-    /// a field parsed.
-    ///
-    /// # It takes no parent id, for the reason none of the other three does
-    ///
-    /// [`Caller`] is the transport's word. There is no parameter through which
-    /// a Drone could name the Job its children hang from, so one Drone minting
-    /// work under another Drone's Job is not an arrangement of this call that
-    /// exists.
-    ///
-    /// # The child is created approved, and this does not widen that
-    ///
-    /// `core_model::Job::create_sub_dispatched` enters at `queued` — already
-    /// approved as part of its parent — and the implementation may reach it
-    /// only from a step whose frozen workflow gave it the dispatching role,
-    /// which is a step a person cleared the plan of. A Job that reached
-    /// `queued` any other way is the approval gate weakened, and there is no
-    /// path here that does it.
-    fn dispatch_job(
-        &self,
-        caller: Caller,
-        dispatch: DispatchJob,
     ) -> impl Future<Output = Result<Receipt, NotRecorded>> + Send;
 
     /// `start_server` — the working Drone asks for a server the Manifest

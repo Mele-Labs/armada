@@ -563,6 +563,16 @@ Their types stay in `crates/ipc` and `packages/protocol/src` until the Job types
 are deleted, and `JobDetail.commander_model_override`, `commander_effort_override`
 and `commander_card` are always absent.
 
+## The wave routes: retired
+
+`POST /jobs/:job_id/approve_wave` and the `dispatch_job` MCP tool are gone from Fleet,
+with the wave a plan proposed, the sub-dispatch that created its members and the wait
+a parent held on them. No route serves them and no operation in `crates/ipc/operations/`
+names them; `JobDetail.wave_rounds` is never filled. `fleet.wave_refused` is no longer
+raised. A Session's linked Sessions and *after another* are not waves and stay. The
+wave types stay in `crates/ipc` and `packages/protocol/src` until the Job types go
+(`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
+
 ## Changes before IDs
 
 The sections headed `Protocol N.M` below were written when the wire carried a
@@ -2494,9 +2504,7 @@ one, and `merged_at`, when its pull request merged; `JobDelivery` gains `merged_
 `LandingRule` gains `complete_when`. Each is absent where empty, so a 23.12 Bridge connects behind
 the banner and reads a wave as Jobs at their gate.
 
-| Route | Body | Answers | Refused |
-|---|---|---|---|
-| `POST /jobs/:job_id/approve_wave`, `approve_wave` | `ApproveWave`: `jobs`, every Job of the wave by id | The parent's `JobSummary`, `queued` | 409 `fleet.wave_refused` unless the parent is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there; 409 `fleet.not_under_review` off its gate |
+`POST /jobs/:job_id/approve_wave` is retired; see *The wave routes: retired*.
 
 **One act releases the wave.** Each member takes `awaiting_approval -> queued` as a person's act,
 as `edit_job` left it, and the parent's plan step advances without the step after it being
@@ -2533,7 +2541,7 @@ its number alone, in one column, as it did.
 
 | Field | On | Carries | Absent |
 |---|---|---|---|
-| `wave_rounds` | `JobDetail` | `WaveRound { pass, approach }` per pass, oldest first: the approach the Job's plan last recorded in that pass | A Job whose workflow has no step that proposes Jobs, or none of whose passes has recorded a plan |
+| `wave_rounds` | `JobDetail` | Retired: Fleet no longer fills it | Always |
 | `waits_on` | `JobSummary` | The ids of the Jobs this one waits on: its `depends_on` edges, which `JobDetail.dependencies` serves whole | A Job that waits on nothing |
 
 **A pass is counted as `dispatched_pass` counts it**: one, plus every return the roll-up sent onto

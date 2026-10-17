@@ -64,10 +64,6 @@ const NO_SUCH_BRANCH: &str = "fleet.no_such_branch";
 const TARGET_SETTLED: &str = "fleet.landing_target_settled";
 /// A landing target naming no branch at all. 23.22.
 const TARGET_BLANK: &str = "fleet.landing_target_blank";
-/// An act on an Epic's wave that is not where the wave stands: a press naming
-/// another set, a plan or a member approved alone, a parent finishing before
-/// its members merged. A 409 (spike 022, slice 6).
-const WAVE_REFUSED: &str = "fleet.wave_refused";
 /// The request was read and no workflow fits. **A refusal about the request**,
 /// and the reason it has a code of its own: a caller reading `UNACCEPTABLE`
 /// cannot tell it from a proposal naming a workflow that does not exist.
@@ -553,10 +549,6 @@ where
             ),
             Adrift::ProposalRefused { job, .. } => Refusal::Unacceptable(
                 WireError::raised(UNACCEPTABLE, said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
-            ),
-            Adrift::WaveRefused { job, .. } => Refusal::IllegalMove(
-                WireError::raised(WAVE_REFUSED, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
             Adrift::NoSuchBranch { job, named } => Refusal::Unacceptable(
