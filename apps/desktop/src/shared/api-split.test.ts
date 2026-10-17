@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
-import type { LessonSessionRead } from "@armada/jobs/session-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import type {
   ChangeWaiting,
   SessionWait,

@@ -6,8 +6,8 @@
 
 import { describe, expect, test } from "vitest";
 
-import type { TaskView } from "./draft/task";
-import { executingConcurrent, executingSequential, groupFailed } from "./fixtures/build/arc";
+import type { TaskView } from "@armada/screens/src/draft/task";
+import { executingConcurrent, executingSequential, groupFailed } from "@armada/screens/src/fixtures/build/arc";
 import { doingOfTask, lastEditOf } from "./task-live";
 
 type Moment = ReturnType<typeof executingSequential>;

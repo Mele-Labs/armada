@@ -2,7 +2,7 @@
 // (a Session has one `call` on its subject, so only one of its calls is that key), one with a single question, and Helm's
 // own Session, which the deck's list does not draw. The claims are in `cockpit-call-owner.test.tsx`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 

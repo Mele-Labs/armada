@@ -4,8 +4,8 @@
 // serves no plan interview, so the asks, issues and live rows ride on the draft, by Job id.
 // The walks `job-now-*` play them, one per scenario.
 
-import type { NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
+import type { NowView } from "@armada/screens/src/draft/now";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

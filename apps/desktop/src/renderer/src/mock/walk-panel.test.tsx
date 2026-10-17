@@ -8,7 +8,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { reviewAtDelivery, running } from "@armada/jobs/fixtures/build/index";
+import { reviewAtDelivery, running } from "@armada/screens/src/fixtures/build/index";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";

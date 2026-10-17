@@ -5,10 +5,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
-import type { DroneView } from "./draft/drone";
-import { arcMoment } from "./fixtures/build/index";
-import { groupChecking } from "./fixtures/build/arc-checking";
-import { awaitingRepairChecksAgain } from "./fixtures/build/waiting";
+import type { DroneView } from "@armada/screens/src/draft/drone";
+import { arcMoment } from "@armada/screens/src/fixtures/build/index";
+import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
+import { awaitingRepairChecksAgain } from "@armada/screens/src/fixtures/build/waiting";
 import { detailOf } from "./mine";
 import { trackOf, type TrackPart } from "./step-phase";
 

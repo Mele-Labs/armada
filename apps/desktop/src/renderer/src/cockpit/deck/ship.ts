@@ -11,7 +11,7 @@ import { sessionGlyphOf, since } from "@armada/components";
 import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ofPicked } from "@armada/screens";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { NowView } from "@armada/screens/src/draft/now";
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { stateOf } from "../../session-state";

@@ -7,7 +7,7 @@
 // card is `JobDetail.commander_card`, and its hand on a task is `PlanTask.by`. The walks
 // `job-commander-*` play them, one per scenario.
 
-import type { NowRunningView, NowView } from "@armada/jobs/draft/now";
+import type { NowRunningView, NowView } from "@armada/screens/src/draft/now";
 import { commanderJob, COMMANDER_REQUEST } from "@armada/jobs/fake";
 import type { CommanderStage } from "@armada/jobs/fake";
 

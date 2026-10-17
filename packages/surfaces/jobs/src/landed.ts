@@ -22,7 +22,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { costOf, groupOf, summaryOf, type LandedCost, type LandedGroup } from "./landed-cost";
 import { clock, span } from "@armada/screens/src/duration";
-import type { JobDraft } from "./draft/held";
+import type { JobDraft } from "@armada/screens/src/draft/held";
 import {
   caseViewsOf,
   criterionViewsOf,
@@ -35,7 +35,7 @@ import {
   type CaseView,
   type CriterionView,
   type LandingRule,
-} from "./draft";
+} from "@armada/screens/src/draft/index";
 import { settledBadgeOf } from "@armada/screens/src/facts";
 import { LANDED } from "@armada/screens/src/landed-words";
 

@@ -6,9 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ARC_MOMENTS, FIXTURES, arcMoment } from "./fixtures/build/index";
-import { agentText } from "./fixtures/build/markdown";
-import { awaitingRepairChecksAgain } from "./fixtures/build/waiting";
+import { ARC_MOMENTS, FIXTURES, arcMoment } from "@armada/screens/src/fixtures/build/index";
+import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+import { awaitingRepairChecksAgain } from "@armada/screens/src/fixtures/build/waiting";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { leadOf } from "./lead";
 import { detailOf } from "./mine";

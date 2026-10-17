@@ -7,8 +7,8 @@ import type { CaptureOpened, JobSummary, ServerEntry, ServerList, ServerState, W
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import type { JobsApi, JobsState } from "../api";
-import type { ArcDraft } from "../fixtures/build/arc";
-import { mockPage as itself, openWalkWindow } from "./walk-window";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import { mockPage as itself, openWalkWindow } from "@armada/screens/src/fixtures/walk-window";
 
 
 /** `base` — the Prototype Job open — over a Fleet that started its `mock` for review at the stop. */

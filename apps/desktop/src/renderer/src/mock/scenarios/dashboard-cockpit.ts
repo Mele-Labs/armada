@@ -8,10 +8,10 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { MergeLines, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
-import { completedFailed, completedSuccess, queued, running } from "@armada/jobs/fixtures/build/index";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
+import { completedFailed, completedSuccess, queued, running } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { COCKPIT_SESSIONS } from "../cockpit-sessions";

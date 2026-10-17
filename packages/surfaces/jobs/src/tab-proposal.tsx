@@ -24,9 +24,9 @@ import type {
 } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
-import { baseBranch } from "./draft/branches";
-import type { BranchView } from "./draft/branches";
-import type { TierModels } from "./draft/proposal";
+import { baseBranch } from "@armada/screens/src/draft/branches";
+import type { BranchView } from "@armada/screens/src/draft/branches";
+import type { TierModels } from "@armada/screens/src/draft/proposal";
 import {
   completeChoices,
   criteriaAdded,

@@ -1,7 +1,7 @@
-import { retryingCheckFailure, running } from "@armada/jobs/fixtures/build/index";
+import { retryingCheckFailure, running } from "@armada/screens/src/fixtures/build/index";
 
 import { asRow, holding } from "../holding";
-import { brokenOnMain, FIX_TITLE, withBreakages } from "@armada/jobs/fake";
+import { brokenOnMain, FIX_TITLE, withBreakages } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import type { Scenario } from "../moment";
 
 /**

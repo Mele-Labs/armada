@@ -7,7 +7,7 @@ import { page, userEvent } from "vitest/browser";
 import type { JobDetail, WorkflowSummary } from "@armada/protocol";
 import { mount, rerender, unmount } from "@armada/screens/src/mounted";
 
-import { refactorAtApproval } from "./fake";
+import { refactorAtApproval } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { JobRun } from "./job-run";
 
 afterEach(unmount);

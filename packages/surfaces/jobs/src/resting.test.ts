@@ -4,8 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { PulseView } from "./draft/pulse";
-import { droneViewsOf, type DroneView } from "./draft/drone";
+import type { PulseView } from "@armada/screens/src/draft/pulse";
+import { droneViewsOf, type DroneView } from "@armada/screens/src/draft/drone";
 import { pulseReadingOf } from "./resources";
 import { droneSays, dronesUnder } from "./tab-drones-read";
 

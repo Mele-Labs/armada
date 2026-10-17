@@ -120,7 +120,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     (url) => draft.openWindow?.(session.id, url),
     undefined,
     () => undefined,
-    { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
+    { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     undefined,
   );
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;

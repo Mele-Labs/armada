@@ -3,7 +3,7 @@
 // about it. A command takes none, since it is answered by one of its offers; nor does an ask the mock
 // drew, which names no Fleet question. Those give `undefined`.
 
-import type { AskedOf } from "@armada/jobs/draft/now";
+import type { AskedOf } from "@armada/screens/src/draft/now";
 import type { AnswerMode } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 

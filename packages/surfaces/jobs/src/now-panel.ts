@@ -4,8 +4,8 @@
 
 import type { NowAct, NowAsk, NowIssue, NowPanelProps, NowRunning, NowWaiting } from "@armada/components";
 
-import type { NowActView, NowView } from "./draft/now";
-import type { JobCheckLog } from "./check-log-sheet";
+import type { NowActView, NowView } from "@armada/screens/src/draft/now";
+import type { JobCheckLog } from "@armada/screens/src/check-log-sheet";
 
 /** A quick act pressed, and the Check or Drone its row is about. `skip_all` names neither. */
 export type NowActed = { glyph: NowActView["glyph"]; check?: string; drone?: string };

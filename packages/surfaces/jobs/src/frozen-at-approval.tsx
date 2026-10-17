@@ -26,8 +26,8 @@ import {
 
 import type { JobDetail as JobWhole, ManifestSummary } from "@armada/protocol";
 
-import type { LandingRule } from "./draft/landing";
-import type { ProposalView, TierModels } from "./draft/proposal";
+import type { LandingRule } from "@armada/screens/src/draft/landing";
+import type { ProposalView, TierModels } from "@armada/screens/src/draft/proposal";
 import {
   completeChoices,
   frozenAtOf,

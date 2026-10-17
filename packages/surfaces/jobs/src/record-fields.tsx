@@ -10,7 +10,7 @@ import { Prose } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { Eyebrow, FieldLabel } from "./regions";
-import type { LedgerRow } from "./draft/ledger";
+import type { LedgerRow } from "@armada/screens/src/draft/ledger";
 
 /**
  * Every value a row carries past its title, each under its own label (the owner,

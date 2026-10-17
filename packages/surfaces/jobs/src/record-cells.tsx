@@ -9,7 +9,7 @@ import { Bot, Box, Smartphone, FileCheck, FileDiff, FlaskConical, ListTodo, Scal
 
 import { PathChip, Prose, type JobLedgerMark } from "@armada/components";
 
-import { familyOf, type LedgerFamily, type LedgerRow } from "./draft/ledger";
+import { familyOf, type LedgerFamily, type LedgerRow } from "@armada/screens/src/draft/ledger";
 
 /** 12px at strokeWidth 2 — `docs/contracts/iconography.md`'s only badge size. */
 const MARK_ICON = 12;

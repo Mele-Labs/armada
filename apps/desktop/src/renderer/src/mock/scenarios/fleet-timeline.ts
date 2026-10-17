@@ -5,7 +5,7 @@
 // plays the Jobs rail row over it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { NowView } from "@armada/screens/src/draft/now";
 
 import type { Scenario } from "../moment";
 import { s206DashboardCockpit as base } from "./dashboard-cockpit";

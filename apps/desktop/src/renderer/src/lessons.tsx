@@ -4,7 +4,8 @@
 
 import { useState } from "react";
 
-import { createReviewHold, Lessons } from "@armada/jobs";
+import { createReviewHold } from "@armada/screens/src/lessons/review-hold";
+import { Lessons } from "@armada/screens/src/lessons/Lessons";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";

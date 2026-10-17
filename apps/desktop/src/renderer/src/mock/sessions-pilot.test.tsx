@@ -6,7 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { completedSuccess } from "@armada/jobs/fixtures/build/index";
+import { completedSuccess } from "@armada/screens/src/fixtures/build/index";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard, onJob } from "./scenario";
@@ -42,7 +42,6 @@ async function pilotIt(): Promise<void> {
 
 const handoff = () => page.getByRole("region", { name: "Handed over: Job 52" });
 const ledger = () => page.getByRole("region", { name: "Attachments" });
-const exits = () => ledger().getByRole("group", { name: "Ways out of the pilot" });
 
 test("Pilot wired: a stopped Job is taken over from its pane, and the Session opens on a handoff of what Fleet knew", async () => {
   const fleet = new FakeSessionsFleet();
@@ -58,7 +57,6 @@ test("Pilot wired: a stopped Job is taken over from its pane, and the Session op
   await expect.element(handoff().getByText("Trying to")).not.toBeInTheDocument();
   // The Cockpit's Ledger carries the branch and the bay as chips in its band, with no row of their own to say they were handed over.
   await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not leased" })).not.toBeInTheDocument();
-  await expect.element(exits()).toBeVisible();
 });
 
 test("Pilot wired: Restart Step goes to Fleet as the outcome chosen", async () => {
@@ -81,45 +79,6 @@ test("Pilot wired: a take over Fleet refuses is said in the confirmation, which 
   const dialog = page.getByRole("dialog", { name: "Pilot this Job?" });
   await expect.element(dialog.getByText("A person has already taken this Job over.")).toBeVisible();
   await expect.element(handoff()).not.toBeInTheDocument();
-});
-
-test.each([
-  ["Submit for verification", "submit"],
-  ["Attest complete", "attest"],
-  ["Close as superseded", "supersede"],
-] as const)("Pilot wired: %s on the Session's ledger row goes to Fleet, and the row stops offering the exits", async (label, exit) => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
-  await pilotIt();
-  await expect.element(exits()).toBeVisible();
-
-  await userEvent.click(exits().getByRole("button", { name: label }));
-  await expect.poll(() => fleet.calls.exited).toEqual([{ jobId: STOPPED, exit }]);
-  await expect.element(exits()).not.toBeInTheDocument();
-  // The Session gave the slot and the branch back, so neither is drawn as its own any more.
-  await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not leased" })).not.toBeInTheDocument();
-});
-
-test("Pilot wired: an attestation is closed on a person's word, and the ledger says so apart from a pass", async () => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
-  await pilotIt();
-  await userEvent.click(exits().getByRole("button", { name: "Attest complete" }));
-  // An ended Job is drawn under All.
-  await userEvent.click(ledger().getByRole("region", { name: "Jobs" }).getByRole("radio", { name: "All" }));
-  await expect.element(ledger().getByRole("img", { name: "Closed by your word, not verified" })).toBeVisible();
-});
-
-test("Pilot wired: an exit Fleet refuses is said under the exits, which stay", async () => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
-  await pilotIt();
-  await expect.element(exits()).toBeVisible();
-
-  fleet.refuses = { code: "fleet.steps_not_advanced", message: "A step has not advanced. Submit it for verification, or close the Job as superseded." };
-  await userEvent.click(exits().getByRole("button", { name: "Attest complete" }));
-  await expect.element(ledger().getByText("A step has not advanced. Submit it for verification, or close the Job as superseded.")).toBeVisible();
-  await expect.element(exits()).toBeVisible();
 });
 
 /** `completedSuccess`, with the pilot a person ended it by. */

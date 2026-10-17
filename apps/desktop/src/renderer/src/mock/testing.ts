@@ -2,7 +2,7 @@
 // down after, and reach a surface the way a person does — by the title bar's tabs, the System strip or ⌘K.
 
 import { forgetAllKept } from "@armada/components";
-import { closeWalkWindow } from "@armada/jobs/fake";
+import { closeWalkWindow } from "@armada/screens/src/fixtures/walk-window";
 import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
@@ -183,9 +183,14 @@ export async function toSession(title: RegExp | string, scope?: "Active" | "Quie
     await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
     await userEvent.click(page.getByRole("menuitem", { name: scope, exact: true }));
   }
-  // A Job of the same name has a row too; the Session's is the one with the Session mark.
-  const row = work.getByRole("button", { name: title, ...(typeof title === "string" ? { exact: true } : {}) }).filter({ has: page.getByRole("img", { name: "Session", exact: true }) });
-  await userEvent.click(row);
+  // A Job of the same name has a row too; the Session's is the one keyed `session:<id>`, named by its title.
+  const row = () =>
+    [...document.querySelectorAll<HTMLElement>('section[aria-label="Work"] [data-row^="session:"]')].find((one) => {
+      const name = one.getAttribute("aria-label") ?? "";
+      return typeof title === "string" ? name === title : title.test(name);
+    });
+  await expect.poll(() => row() !== undefined).toBe(true);
+  await userEvent.click(row()!);
   const view = page.getByRole("region", { name: /^Session: / });
   await expect.element(view).toBeVisible();
   return view;

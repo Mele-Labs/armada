@@ -3,8 +3,8 @@
 // `dashboard-quick-dispatch` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
-import { completedSuccess } from "@armada/jobs/fixtures/build/index";
-import { featureRunning } from "@armada/jobs/fake";
+import { completedSuccess } from "@armada/screens/src/fixtures/build/index";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 
 import { asRow, holding } from "../holding";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";

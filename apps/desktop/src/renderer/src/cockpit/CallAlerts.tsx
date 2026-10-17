@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
-import type { CallView } from "@armada/jobs/draft/calls";
+import type { CallView } from "@armada/screens/src/draft/calls";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useItems, type Hosts } from "../Dashboard";

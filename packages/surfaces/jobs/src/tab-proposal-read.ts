@@ -28,17 +28,17 @@ import {
   criterionWrittenOf,
   decidedSaidOf,
   originSaidOf,
-} from "./draft/criterion";
-import type { CriterionView } from "./draft/criterion";
-import { baseBranch } from "./draft/branches";
-import type { BranchView } from "./draft/branches";
-import { stepTuningOf } from "./draft/tuning";
-import type { ApprovalTuning } from "./draft/tuning";
-import type { JobDraft } from "./draft/held";
-import { COMPLETE_WHEN_SERVED } from "./draft/landing";
-import type { CompleteWhen, LandingRule } from "./draft/landing";
-import { gateReadingOf, gatesForSteps, proposalViewOf, unmeantOf } from "./draft/proposal";
-import type { GateView, ProposalView, RepositorySays, TierModels } from "./draft/proposal";
+} from "@armada/screens/src/draft/criterion";
+import type { CriterionView } from "@armada/screens/src/draft/criterion";
+import { baseBranch } from "@armada/screens/src/draft/branches";
+import type { BranchView } from "@armada/screens/src/draft/branches";
+import { stepTuningOf } from "@armada/screens/src/draft/tuning";
+import type { ApprovalTuning } from "@armada/screens/src/draft/tuning";
+import type { JobDraft } from "@armada/screens/src/draft/held";
+import { COMPLETE_WHEN_SERVED } from "@armada/screens/src/draft/landing";
+import type { CompleteWhen, LandingRule } from "@armada/screens/src/draft/landing";
+import { gateReadingOf, gatesForSteps, proposalViewOf, unmeantOf } from "@armada/screens/src/draft/proposal";
+import type { GateView, ProposalView, RepositorySays, TierModels } from "@armada/screens/src/draft/proposal";
 import { absoluteOf } from "@armada/screens/src/duration";
 import { additionsOf } from "./added-reach";
 

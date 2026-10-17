@@ -10,7 +10,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { featureAtAPlanRefusal } from "./fake";
+import { featureAtAPlanRefusal } from "@armada/screens/src/fixtures/jobs/job-detail-refusal";
 import { mount, onJob, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

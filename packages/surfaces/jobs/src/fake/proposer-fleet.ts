@@ -11,9 +11,9 @@
 import type { FleetHandle, Scenario } from "@armada/bridge-api";
 import type { JobSummary, ProposalInFlight, ProposalMoved, ProposalSettled } from "@armada/protocol";
 import type { JobsApi, JobsState } from "../api";
-import type { ArcDraft } from "../fixtures/build/arc";
-import { ARC_CRITERIA, ARC_TITLE } from "../fixtures/build/arc-base";
-import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "../fixtures/build/proposing";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_CRITERIA, ARC_TITLE } from "@armada/screens/src/fixtures/build/arc-base";
+import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "@armada/screens/src/fixtures/build/proposing";
 import { movedOnto } from "@armada/screens/src/filling";
 
 

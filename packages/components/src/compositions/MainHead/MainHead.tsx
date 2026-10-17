@@ -8,8 +8,8 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { since } from "../../since";
 import { RegisteredOwner, type RegisteredOwnerRow } from "../RegisteredOwner/RegisteredOwner";
-import { since } from "../SessionList/SessionList";
 
 /**
  * Main's state at the head of the merge line, as the hub draws it. Fleet serves it as the line's

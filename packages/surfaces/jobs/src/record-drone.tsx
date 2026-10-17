@@ -3,8 +3,8 @@
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { Eyebrow } from "./regions";
-import type { GroupView } from "./draft/group";
-import { familyOf, type LedgerRow } from "./draft/ledger";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import { familyOf, type LedgerRow } from "@armada/screens/src/draft/ledger";
 import { droneOfTask, jobDroneOf } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 

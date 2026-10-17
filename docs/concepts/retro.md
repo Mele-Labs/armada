@@ -327,7 +327,7 @@ Another repository pick starts its own review. The review says how old it is,
 again; it throws the held place and threads away and has no confirmation. Nothing
 is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
-as Retros opened. `packages/surfaces/jobs/src/LessonsReview.tsx`.
+as Retros opened. `packages/screens/src/lessons/LessonsReview.tsx`.
 
 ### A Session's retro, in its thread
 

@@ -17,8 +17,8 @@ import { issueLink, type JobDetail as JobWhole, type StepDetail } from "@armada/
 
 import { span } from "@armada/screens/src/duration";
 import { checksOf as gateChecksOf, isRunning } from "./gates";
-import type { GroupView } from "./draft/group";
-import type { DroneView } from "./draft/drone";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import type { DroneView } from "@armada/screens/src/draft/drone";
 import { trackOf } from "./step-phase";
 import { ordered } from "@armada/screens/src/facts";
 import { frozenBeneath } from "@armada/screens/src/frozen";

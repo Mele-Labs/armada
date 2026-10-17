@@ -26,7 +26,7 @@ import { criteriaOf, revisionsOf } from "./tab-plan-read";
 import { WavePlan } from "./wave-plan";
 import type { WaveRegionProps } from "./tab-wave";
 import type { HeldAct } from "./Acts";
-import type { PlanRevisionView } from "./draft/revision";
+import type { PlanRevisionView } from "@armada/screens/src/draft/revision";
 
 /**
  * The review's own props — `PlanReview`'s, which Overview's gate takes too —

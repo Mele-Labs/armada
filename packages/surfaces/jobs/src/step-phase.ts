@@ -13,7 +13,7 @@
 import type { StepActivity, StepPhase, StepPhasePart } from "@armada/components";
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
-import { isWorking, type DroneView } from "./draft/drone";
+import { isWorking, type DroneView } from "@armada/screens/src/draft/drone";
 import { checksAgain, checksOf, isRunning, isWaiting } from "./gates";
 
 export type TrackPart = StepPhasePart;

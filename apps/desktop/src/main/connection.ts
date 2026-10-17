@@ -20,7 +20,7 @@ import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";

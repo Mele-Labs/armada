@@ -12,9 +12,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { JobDetail } from "../JobDetail";
-import { ARC_MOMENTS } from "./build/arc";
-import { KIND_FIXTURES, KIND_NAMES } from "./build/kinds";
-import { epicWave, membersMerged, membersStacked } from "./build/waves";
+import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
+import { KIND_FIXTURES, KIND_NAMES } from "@armada/screens/src/fixtures/build/kinds";
+import { epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
 import { propsFor } from "./props";
 
 /** Every moment the mock offers: the arc, the two landing orders, the wave. */

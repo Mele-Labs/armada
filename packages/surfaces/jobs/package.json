@@ -8,12 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./review-wire": "./src/review-wire.ts",
-    "./session-wire": "./src/session-wire.ts",
     "./fake": "./src/fake.ts",
-    "./sketch-marks": "./src/sketch-marks.ts",
-    "./draft/*": "./src/draft/*.ts",
-    "./fixtures/*": "./src/fixtures/*.ts"
+    "./sketch-marks": "./src/sketch-marks.ts"
   },
   "scripts": {
     "test": "vitest run",

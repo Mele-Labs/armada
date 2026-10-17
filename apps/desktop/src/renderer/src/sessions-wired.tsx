@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import { EFFORTS } from "@armada/jobs/draft/tuning";
+import { EFFORTS } from "@armada/screens/src/draft/tuning";
 import type { ProposedField, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";

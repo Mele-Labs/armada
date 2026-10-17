@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { CheckUnderway, CommanderCard, JobDetail, JobDrones, JudgeInFlight, Turn } from "@armada/protocol";
 import { sampleDetail, samplePlan, sampleJob, sampleStep, sampleTask } from "@armada/screens/src/draft/sample";
 
-import { droneViewsOf } from "./draft/drone";
+import { droneViewsOf } from "@armada/screens/src/draft/drone";
 import { callViewOf } from "./now-calls";
 import { nowViewOf } from "./now-real";
 import { nowPanelOf } from "./now-panel";

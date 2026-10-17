@@ -9,7 +9,7 @@ import { Button, ClashMark, NowPanel, Select, Tabs, Tooltip, isPressed, pressedD
 import { BayManage } from "@armada/cleanup";
 import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
-import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
+import { droneViewsOf, type DroneView } from "@armada/screens/src/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
 import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";
@@ -238,7 +238,6 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
         onOpen={openSession}
         // The deck's ship already wants the pool while it is drawn.
         held={{ held: state.held, onWant: () => {} }}
-        board={state.jobs}
         lines={state.mergeLines}
         settings={state.settings}
         repositories={state.holds.repositories ?? []}

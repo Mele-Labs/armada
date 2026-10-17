@@ -4,7 +4,7 @@
 import { GitMerge } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
-import { landed } from "./fixtures/build/arc-landed";
+import { landed } from "@armada/screens/src/fixtures/build/arc-landed";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { landBoardDraws, landedOf, type LandedInput, type LandedRead } from "./landed";
 

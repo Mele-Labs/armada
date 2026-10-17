@@ -11,7 +11,7 @@
 
 import { money } from "@armada/screens/src/facts";
 import { LANDED } from "@armada/screens/src/landed-words";
-import type { WaveJobView, WaveView } from "./draft/wave";
+import type { WaveJobView, WaveView } from "@armada/screens/src/draft/wave";
 import type { WaveCanvasEdge, WaveCanvasFact, WaveCanvasNode } from "@armada/components";
 
 /**

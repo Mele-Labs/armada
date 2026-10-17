@@ -18,11 +18,11 @@ import type { GateCommandOutcome, PanelMark, RunNodeGate, RunNodeTrait, StepActi
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, StepPass, StepPhase, WorkflowStep } from "@armada/protocol";
 
-import type { GateView } from "./draft/proposal";
-import type { TaskBy, TaskView } from "./draft/task";
+import type { GateView } from "@armada/screens/src/draft/proposal";
+import type { TaskBy, TaskView } from "@armada/screens/src/draft/task";
 import { TASK_ACTIVITY, taskNodeId } from "./plan-canvas";
-import { checkNameOf, deliveryOf } from "./draft/tuning";
-import type { ApprovalTuning } from "./draft/tuning";
+import { checkNameOf, deliveryOf } from "@armada/screens/src/draft/tuning";
+import type { ApprovalTuning } from "@armada/screens/src/draft/tuning";
 
 export type ApprovalNodeKind =
   | "studio"

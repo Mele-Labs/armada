@@ -1,8 +1,8 @@
 // A Job's call card, from the Now Fleet serves for it: what asks the owner and what went wrong. The
 // request and where the Job lives are the draft's, which a real Fleet does not serve here.
 
-import type { CallAskView, CallIssueView, CallView } from "./draft/calls";
-import type { NowView } from "./draft/now";
+import type { CallAskView, CallIssueView, CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 
 export function callViewOf(now: NowView | undefined): CallView | undefined {
   if (now === undefined) return undefined;

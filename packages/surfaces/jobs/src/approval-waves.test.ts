@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CHAIN_SHOWN, chainOf, wavesOf } from "./approval-canvas";
-import type { TaskView } from "./draft/task";
+import type { TaskView } from "@armada/screens/src/draft/task";
 
 const task = (id: string, concurrent_with: string[] = []): TaskView =>
   ({ id, title: id, scope: [], state: "open", touched_after_done: false, group: "G1", concurrent_with }) as unknown as TaskView;

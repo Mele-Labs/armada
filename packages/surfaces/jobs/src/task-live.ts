@@ -13,7 +13,7 @@
 
 import type { Turn } from "@armada/protocol";
 
-import type { TaskView } from "./draft/task";
+import type { TaskView } from "@armada/screens/src/draft/task";
 import { money } from "@armada/screens/src/facts";
 import { editsIn } from "./task-files";
 

@@ -22,8 +22,8 @@ import type { EditJob } from "@armada/protocol";
 import { JOB_LIFECYCLE, JOB_STATUS } from "@armada/components/src/generated/vocabulary";
 import { useCallback, useState, type ReactNode } from "react";
 
-import { criterionViewOf, criterionWrittenOf, type CriterionView } from "./draft/criterion";
-import type { WaveJobView, WaveView } from "./draft/wave";
+import { criterionViewOf, criterionWrittenOf, type CriterionView } from "@armada/screens/src/draft/criterion";
+import type { WaveJobView, WaveView } from "@armada/screens/src/draft/wave";
 import { criteriaAdded, criteriaMoved, criteriaRowsOf, criteriaWith, criteriaWithout } from "./tab-proposal-read";
 import { JobAnswer, WaveRegion, blocksOf, waitsOf, type WaveRegionProps } from "./tab-wave";
 import { waveSpentSaid } from "./wave";

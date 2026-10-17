@@ -9,7 +9,8 @@
 import { beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { proposalFromAnIssue, refactorAtApproval, withRow } from "./fake";
+import { proposalFromAnIssue } from "./fake";
+import { refactorAtApproval, withRow } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { closeNode, mount, onJob, openNode, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();

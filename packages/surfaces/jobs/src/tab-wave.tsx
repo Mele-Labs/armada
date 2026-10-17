@@ -39,8 +39,8 @@ import type {
 
 import { choiceNamed, ruleForKit } from "@armada/screens/src/copy";
 import { dockQuestionsOf } from "@armada/screens/src/dock-questions";
-import type { JobDraft } from "./draft/held";
-import { waveOf, type WaveJobView, type WaveRoundView, type WaveView } from "./draft/wave";
+import type { JobDraft } from "@armada/screens/src/draft/held";
+import { waveOf, type WaveJobView, type WaveRoundView, type WaveView } from "@armada/screens/src/draft/wave";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 import { PLAN_VIEWS, PLAN_VIEW_LABEL, type PlanView } from "./plan-view";
 import { Eyebrow } from "./regions";

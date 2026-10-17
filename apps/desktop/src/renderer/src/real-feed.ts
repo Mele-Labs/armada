@@ -4,9 +4,9 @@
 // names**: the mock carries rows Fleet does not serve, and a walk holds them.
 
 import { callViewOf, nowViewOf } from "@armada/jobs";
-import { droneViewsOf } from "@armada/jobs/draft/drone";
-import type { CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import { droneViewsOf } from "@armada/screens/src/draft/drone";
+import type { CallView } from "@armada/screens/src/draft/calls";
+import type { NowView } from "@armada/screens/src/draft/now";
 import type { Active, JobSummary } from "@armada/protocol";
 
 export type Draft = {

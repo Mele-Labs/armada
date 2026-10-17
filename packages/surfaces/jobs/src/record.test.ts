@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { filtersOf, rowSays, toneOf, underFilter, unfiledSays } from "./record";
-import type { LedgerRow } from "./draft/ledger";
+import type { LedgerRow } from "@armada/screens/src/draft/ledger";
 
 function row(over: Partial<LedgerRow> = {}): LedgerRow {
   return {

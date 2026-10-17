@@ -68,12 +68,12 @@ import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
-import type { TaskView } from "./draft/task";
+import type { TaskView } from "@armada/screens/src/draft/task";
 import { taskCard } from "./plan-canvas";
-import { baseBranch } from "./draft/branches";
-import type { ProposalView } from "./draft/proposal";
-import { EFFORTS, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
-import type { ApprovalTuning, Delivery, Effort, StepTuning } from "./draft/tuning";
+import { baseBranch } from "@armada/screens/src/draft/branches";
+import type { ProposalView } from "@armada/screens/src/draft/proposal";
+import { EFFORTS, checksOffWith, deliveryOf, tunedStep, tuningOf } from "@armada/screens/src/draft/tuning";
+import type { ApprovalTuning, Delivery, Effort, StepTuning } from "@armada/screens/src/draft/tuning";
 import {
   completeChoices,
   criteriaAdded,

@@ -7,7 +7,7 @@
 
 import { BadgeCheck, Footprints, GitCommitHorizontal, GitMerge, GitPullRequest, Layers, ListTodo, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { BuildPhase, BuildPieceKind, BuildStopId, JobDetail, SessionBuild, TaskCounts, TimelineEvent } from "@armada/protocol";
-import { taskViewsOf, type TaskState } from "@armada/jobs/draft/task";
+import { taskViewsOf, type TaskState } from "@armada/screens/src/draft/task";
 
 import { FRESH_MS, doingOfEvent } from "./doing";
 import type { DroneIn } from "./layout";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WaveJobView, WaveView } from "./draft/wave";
+import type { WaveJobView, WaveView } from "@armada/screens/src/draft/wave";
 import { waveReadingOf } from "./tab-wave";
 import { waveDepths, waveNeedOf, waveNodeId, waveRunOf, waveStandingOf } from "./wave";
 

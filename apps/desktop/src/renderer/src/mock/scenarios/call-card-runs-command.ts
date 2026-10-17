@@ -2,7 +2,7 @@
 // clean and one that fails. The card runs the command where the Session works, as its ledger does.
 // The walk `callCardRunsCommand` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session } from "@armada/screens/src/draft/sessions";
 

@@ -24,13 +24,13 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 
 import type { JobsApi, JobsState } from "../api";
-import type { ArcDraft } from "../fixtures/build/arc";
-import { PROPOSER_BUDGET_MS } from "../fixtures/build/proposing";
-import type { GroupView } from "../draft/group";
+import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import { PROPOSER_BUDGET_MS } from "@armada/screens/src/fixtures/build/proposing";
+import type { GroupView } from "@armada/screens/src/draft/group";
 import { READ_MS, requestRepositoryRead } from "./request-repository-fleet";
 import { isOutcome, parked, pausedRefusal, resumed } from "./pause-fleet";
 import { accepted, askedAgain } from "./undecided-fleet";
-import { answered, askedAbout, listed, reviewed, sessionStarted } from "./lessons-fleet";
+import { answered, askedAbout, listed, reviewed, sessionStarted } from "@armada/screens/src/lessons/lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,

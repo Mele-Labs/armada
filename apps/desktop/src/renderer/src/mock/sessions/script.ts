@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
+import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/screens/src/fixtures/walk-window";
 import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";

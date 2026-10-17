@@ -3,7 +3,7 @@
 // Mock data only. Open the Job, then its Record tab.
 
 import type { Recorded } from "@armada/protocol";
-import { reviewHeldByPolicy } from "@armada/jobs/fixtures/build/policy";
+import { reviewHeldByPolicy } from "@armada/screens/src/fixtures/build/policy";
 
 import { asRow, holding } from "../holding";
 

@@ -6,14 +6,14 @@ import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
 import { issueLink } from "@armada/protocol";
-import { ARC_JOB_ID } from "./fixtures/build/arc";
-import { running, runningWaitingOnACommand } from "./fixtures/build/index";
+import { ARC_JOB_ID } from "@armada/screens/src/fixtures/build/arc";
+import { running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { WAITING_CALL } from "@armada/screens/src/fixtures/build/running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "./fixtures/plans";
+import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/screens/src/fixtures/plans";
 
-import { commandOutstanding, runningWithSettings } from "./fake";
+import { commandOutstanding, runningWithSettings } from "@armada/screens/src/fixtures/jobs/job-detail-fixtures";
 import { entered, mount, onJob, openHelm, scenarioNamed, unmountAfterEach, whenCalled } from "@armada/desktop/mock";
 import type { FleetHandle, Mounted, Scenario } from "@armada/desktop/mock";
 import type { JobsApi } from "./api";

@@ -21,11 +21,11 @@ import {
 import type { JobDetail as JobWhole, JobSummary, JudgeAnswer, StepDetail } from "@armada/protocol";
 
 import { Eyebrow } from "./regions";
-import { decidedSaidOf, originSaidOf } from "./draft/criterion";
+import { decidedSaidOf, originSaidOf } from "@armada/screens/src/draft/criterion";
 import { absoluteOf } from "@armada/screens/src/duration";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import type { ActingAct } from "./pending";
-import type { CriterionView } from "./draft/criterion";
+import type { CriterionView } from "@armada/screens/src/draft/criterion";
 
 export type PlanLeadProps = {
   criteria: readonly CriterionView[];

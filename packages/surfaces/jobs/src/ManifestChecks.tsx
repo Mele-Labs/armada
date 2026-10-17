@@ -26,7 +26,7 @@ import type {
   RunOutputRead,
 } from "@armada/protocol";
 
-import { JobCheckLogSheet, LandCheckLogSheet } from "./check-log-sheet";
+import { JobCheckLogSheet, LandCheckLogSheet } from "@armada/screens/src/check-log-sheet";
 import type { JobOpening } from "./detail-props";
 import {
   askerOf,
@@ -40,9 +40,9 @@ import {
   type Asker,
   type CheckEntry,
   type CheckFilter,
-} from "./manifest-checks";
-import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "./outputs";
-import { LogSheet } from "./log-sheet";
+} from "@armada/screens/src/manifest-checks";
+import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "@armada/screens/src/outputs";
+import { LogSheet } from "@armada/screens/src/log-sheet";
 
 export type ManifestChecksProps = {
   /** Draw only the focused run's panel, over whatever surface asked; the list and filters are left out. */

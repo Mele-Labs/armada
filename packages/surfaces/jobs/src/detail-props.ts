@@ -62,14 +62,14 @@ import type {
 
 import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "@armada/screens/src/outstanding";
-import type { JobDraft } from "./draft/held";
+import type { JobDraft } from "@armada/screens/src/draft/held";
 import type { FrameSrc, ReadFrame } from "./frames";
 import type { FoldedReads } from "@armada/screens/src/folded-reads";
 import type { OpenArtifact, OpenPullRequest } from "@armada/screens/src/opening";
-import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
+import type { FollowCheckOutput, ReadCheckOutput } from "@armada/screens/src/outputs";
 import type { ManifestChecksProps } from "./ManifestChecks";
 import type { ReadBrief } from "./pulse-brief";
-import type { AnswerLesson, ReadRetro, StartLessonSession } from "./retro";
+import type { AnswerLesson, ReadRetro, StartLessonSession } from "@armada/screens/src/lessons/retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { RunSheetSlice } from "@armada/screens/src/rehearsal";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";

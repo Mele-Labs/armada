@@ -2,8 +2,8 @@
 // words, and one more Job whose Drone goes quiet a moment after the walk leaves Your move, so a call
 // arrives with the owner somewhere else. The walk `cockpitConsoles` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
-import type { CallView } from "@armada/jobs/draft/calls";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
+import type { CallView } from "@armada/screens/src/draft/calls";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

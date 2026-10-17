@@ -31,9 +31,9 @@ import type {
   WorkflowSummary,
 } from "@armada/protocol";
 
-import { baseBranch } from "./draft/branches";
-import type { BranchView } from "./draft/branches";
-import type { ProposalView } from "./draft/proposal";
+import { baseBranch } from "@armada/screens/src/draft/branches";
+import type { BranchView } from "@armada/screens/src/draft/branches";
+import type { ProposalView } from "@armada/screens/src/draft/proposal";
 import {
   completeChoices,
   criteriaAdded,

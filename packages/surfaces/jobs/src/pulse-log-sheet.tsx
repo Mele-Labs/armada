@@ -19,7 +19,7 @@ import { DroneBrief, DroneTurns, type PulseLogRow } from "@armada/components";
 import type { Journalled, Observed } from "@armada/protocol";
 
 import { Log } from "./Log";
-import { LogSheet } from "./log-sheet";
+import { LogSheet } from "@armada/screens/src/log-sheet";
 import { logOf, turnsOf } from "./mine";
 import { BriefPane, type ReadBrief } from "./pulse-brief";
 import { notesOf } from "./notes";

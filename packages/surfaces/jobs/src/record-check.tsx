@@ -7,10 +7,10 @@ import { CHECK_ADVANCES, ConsoleOutput, RowLink, TaskMark, WorkflowStepCard } fr
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
 import { clock } from "@armada/screens/src/duration";
-import { noteFor, regionOf, rowsOf, type useCheckOutputs } from "./outputs";
+import { noteFor, regionOf, rowsOf, type useCheckOutputs } from "@armada/screens/src/outputs";
 import { Eyebrow, FieldLabel } from "./regions";
-import type { GroupView } from "./draft/group";
-import type { LedgerRow } from "./draft/ledger";
+import type { GroupView } from "@armada/screens/src/draft/group";
+import type { LedgerRow } from "@armada/screens/src/draft/ledger";
 import { failedChecksOf, markOf } from "./tab-plan-read";
 import { stepNodeId, workflowRunOf } from "./workflow-canvas";
 import { basename, sentenceCase } from "./record-fields";

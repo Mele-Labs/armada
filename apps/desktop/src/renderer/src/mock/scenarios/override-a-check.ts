@@ -3,7 +3,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { awaitingRepairOverridable } from "@armada/jobs/fixtures/build/waiting";
+import { awaitingRepairOverridable } from "@armada/screens/src/fixtures/build/waiting";
 
 export const s161OverrideACheck: Scenario = holding("repair/override-a-check", awaitingRepairOverridable().name, [awaitingRepairOverridable()], {
   opens: awaitingRepairOverridable().job.id,

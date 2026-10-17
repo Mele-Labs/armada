@@ -16,7 +16,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { JobDetail } from "./JobDetail";
-import { running } from "./fixtures/build";
+import { running } from "@armada/screens/src/fixtures/build/index";
 import { propsFor } from "./fixtures/props";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { mount, rerender, unmount } from "@armada/screens/src/mounted";
