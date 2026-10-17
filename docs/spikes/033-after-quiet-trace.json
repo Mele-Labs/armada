@@ -1,0 +1,77 @@
+{
+  "label": "after-quiet",
+  "size": {
+    "width": 1440,
+    "height": 900
+  },
+  "at": "2026-10-17T14:20:29.899Z",
+  "thrown": [],
+  "phases": {
+    "idle": {
+      "seconds": 10,
+      "renderer": {
+        "TaskDuration": 0.024,
+        "ScriptDuration": 0.02,
+        "LayoutDuration": 0,
+        "RecalcStyleDuration": 0
+      },
+      "cpu": {
+        "browser": 0.003,
+        "renderer": 0.033,
+        "GPU": 2.037,
+        "network.mojom.NetworkService": 0
+      },
+      "layers": 31,
+      "nodes": 812,
+      "drawnFrames": 0,
+      "paints": 50,
+      "layouts": 0,
+      "styleRecalcs": 0,
+      "rasterTasks": 0
+    },
+    "busy": {
+      "seconds": 10.488,
+      "renderer": {
+        "TaskDuration": 0.824,
+        "ScriptDuration": 0.727,
+        "LayoutDuration": 0.006,
+        "RecalcStyleDuration": 0.018
+      },
+      "cpu": {
+        "browser": 0.026,
+        "renderer": 0.994,
+        "GPU": 5.182,
+        "network.mojom.NetworkService": 0.001
+      },
+      "layers": 30,
+      "nodes": 900,
+      "drawnFrames": 9,
+      "paints": 390,
+      "layouts": 24,
+      "styleRecalcs": 36,
+      "rasterTasks": 34
+    },
+    "pan": {
+      "seconds": 5.007,
+      "renderer": {
+        "TaskDuration": 1.192,
+        "ScriptDuration": 0.778,
+        "LayoutDuration": 0.033,
+        "RecalcStyleDuration": 0.082
+      },
+      "cpu": {
+        "browser": 0.209,
+        "renderer": 1.424,
+        "GPU": 1.931,
+        "network.mojom.NetworkService": 0
+      },
+      "layers": 30,
+      "nodes": 901,
+      "drawnFrames": 43,
+      "paints": 9426,
+      "layouts": 171,
+      "styleRecalcs": 228,
+      "rasterTasks": 43
+    }
+  }
+}

@@ -1,13 +1,13 @@
 // What the Cockpit map costs to draw, measured in headless Chromium: `pnpm -C apps/desktop trace-map`.
 // Three phases on the `battlefield-progress` scenario, each with its CPU time, frames and composited layers:
-//   idle  nothing happens; the CSS map still runs its loops (bob, ping, breathe).
+//   idle  nothing happens; the canvas map draws nothing, and its ticker is stopped.
 //   busy  a moment of the scenario passes every second: edits land, subagents fly, a pull request opens, queues, merges.
 //   pan   the wheel pans and zooms the camera.
 // Two passes on a fresh page each, because tracing perturbs what it measures: one reads CDP counters and the process CPU
 // times, the other counts frames from a trace. Nothing is shown on a screen.
 //
 //   taskpolicy -c utility pnpm -C apps/desktop trace-map
-//   taskpolicy -c utility pnpm -C apps/desktop trace-map --map pixi --label after
+//   taskpolicy -c utility pnpm -C apps/desktop trace-map --label after --quiet
 //
 // Numbers go to stdout as a table and to `.armada/traces/<label>-<when>.json`. The software GL of a headless browser draws the
 // canvas on the CPU, in the GPU process, so read `GPU` beside `renderer` before comparing two maps.
@@ -23,15 +23,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const DESKTOP = join(HERE, "..");
 const REPOSITORY = join(DESKTOP, "..", "..");
 
-const USAGE = "usage: trace-map [--map css|pixi] [--label name] [--idle 10] [--busy 10] [--pan 5] [--quiet] [--size 1440x900] [--url http://localhost:<port>]";
+const USAGE = "usage: trace-map [--label name] [--idle 10] [--busy 10] [--pan 5] [--quiet] [--size 1440x900] [--url http://localhost:<port>]";
 
 function parse(argv) {
-  const asked = { map: "css", label: "baseline", idle: 10, busy: 10, pan: 5, quiet: false, size: { width: 1440, height: 900 }, url: undefined };
+  const asked = { label: "baseline", idle: 10, busy: 10, pan: 5, quiet: false, size: { width: 1440, height: 900 }, url: undefined };
   for (let at = 0; at < argv.length; at += 1) {
     const one = argv[at];
     const value = () => argv[(at += 1)];
-    if (one === "--map") asked.map = value();
-    else if (one === "--label") asked.label = value();
+    if (one === "--label") asked.label = value();
     else if (one === "--idle") asked.idle = Number(value());
     else if (one === "--busy") asked.busy = Number(value());
     else if (one === "--pan") asked.pan = Number(value());
@@ -109,11 +108,11 @@ async function open(browser, asked, base) {
   const page = await context.newPage();
   const thrown = [];
   page.on("pageerror", (error) => thrown.push(error.message));
-  const link = `${base.replace(/\/$/, "")}/?scenario=battlefield-progress&frame${asked.map === "css" ? "" : `&map=${asked.map}`}`;
+  const link = `${base.replace(/\/$/, "")}/?scenario=battlefield-progress&frame`;
   await page.goto(link);
   await page.locator("[role=listbox][aria-label=Map]").first().waitFor({ timeout: 30_000 });
-  // The canvas map starts a moment after its listbox is there; software GL takes the better part of a minute.
-  if (asked.map === "pixi") await page.locator(".bf-pixi canvas").first().waitFor({ state: "attached", timeout: 120_000 });
+  // The canvas starts a moment after its listbox is there; software GL takes the better part of a minute.
+  await page.locator(".bf-pixi canvas").first().waitFor({ state: "attached", timeout: 120_000 });
   // The map's arrival animations and the first layout settle before anything is read.
   await sleep(4000);
   // `--quiet` measures the page as it is after a minute with no input: the mark `still.ts` sets then, which the mock's entry does not run.
@@ -193,18 +192,18 @@ async function main() {
     await server.listen();
     base = `http://127.0.0.1:${chosen}`;
   }
-  // The default launch is the headless shell: no window, no Dock icon. Its GL is software, which the canvas map needs asked for.
+  // The default launch is the headless shell: no window, no Dock icon. Its GL is software, which the canvas needs asked for.
   const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
   try {
     const first = await counters(browser, asked, base, phases);
     const second = await frames(browser, asked, base, phases);
-    const result = { label: asked.label, map: asked.map, size: asked.size, at: new Date().toISOString(), thrown: first.thrown, phases: {} };
+    const result = { label: asked.label, size: asked.size, at: new Date().toISOString(), thrown: first.thrown, phases: {} };
     for (const [phase] of phases) result.phases[phase] = { ...first.out[phase], ...second[phase] };
     const folder = join(REPOSITORY, ".armada", "traces");
     mkdirSync(folder, { recursive: true });
-    const file = join(folder, `${asked.label}-${asked.map}-${result.at.slice(0, 19).replace(/[-:]/g, "").replace("T", "-")}.json`);
+    const file = join(folder, `${asked.label}-${result.at.slice(0, 19).replace(/[-:]/g, "").replace("T", "-")}.json`);
     writeFileSync(file, JSON.stringify(result, null, 2));
-    console.log(`${asked.label} (map ${asked.map}, ${asked.size.width}x${asked.size.height})`);
+    console.log(`${asked.label} (${asked.size.width}x${asked.size.height})`);
     console.table(
       Object.fromEntries(
         Object.entries(result.phases).map(([phase, one]) => [
