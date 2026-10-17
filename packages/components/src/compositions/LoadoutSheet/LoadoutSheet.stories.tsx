@@ -5,7 +5,7 @@ import { turnSaid } from "../../loadout";
 import { LoadoutSheet } from "./LoadoutSheet";
 import { LOADOUT, TURNS } from "./LoadoutSheet.fixtures";
 
-/** A Session's whole Loadout, on an overlay panel: what it knows, what it was told, and what each turn used. */
+/** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
   title: "Compositions/Loadout sheet",
   component: LoadoutSheet,

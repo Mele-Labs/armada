@@ -1,6 +1,6 @@
 // A Session's Loadout: the mark in its head, its card counting what the agent knows and was told and listing what the
-// latest turn used, and the sheet a press opens, the latest turn open in it. The turn that sent `armada:mechanic` on
-// sonnet is opened in its place. Over the `session-loadout` scenario.
+// latest turn used, and the panel a press opens over the work area, where a Check opens, the latest turn open in it.
+// The turn that sent `armada:mechanic` on sonnet is opened in its place. Over the `session-loadout` scenario.
 
 import { turnSaid } from "@armada/components";
 

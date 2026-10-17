@@ -134,9 +134,9 @@ function Turns({ turns, shown }: { turns: readonly LoadoutTurn[]; shown: (source
 const ALL = "";
 
 /**
- * A Session's whole Loadout, as an overlay panel: what its agent knows, what it was told, and what each turn used,
- * every item with where it came from. **One filter narrows all three to a source.** The turns are listed latest
- * first, the latest open, and a press opens another in its place.
+ * A Session's whole Loadout, in the panel over the work area that a Check's log opens in: what its agent knows, what
+ * it was told, and what each turn used, every item with where it came from. **One filter narrows all three to a
+ * source.** The turns are listed latest first, the latest open, and a press opens another in its place.
  */
 export function LoadoutSheet({ open, read, floor = false, onClose }: LoadoutSheetProps) {
   const [source, setSource] = useState(ALL);

@@ -105,7 +105,6 @@ import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
-import { SessionLoadoutSheet } from "./session-loadout";
 
 /** The surfaces the rail and the palette leave off: Sessions, which the Cockpit holds. ⌘3 and a link to a Session still arrive there. */
 export function sessionsHidden(): readonly string[] {
@@ -281,6 +280,8 @@ export type LedgerGoes = {
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
+  /** Opens the Session's Loadout in the panel over the work area, where a Check's opens. */
+  onOpenLoadout: (sessionId: string) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
@@ -681,8 +682,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow() && deck === undefined;
   const [ledgerOpen, setLedgerOpen] = useState(false);
-  const [loadoutOpen, setLoadoutOpen] = useState(false);
-  useEffect(() => setLoadoutOpen(false), [session.id]);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   const [focusFor, setFocusFor] = useState<string | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
@@ -853,7 +852,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
-        {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => setLoadoutOpen(true) } })}
+        {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         menu={{
           entries: [
@@ -1065,7 +1064,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           return done;
         }}
       />
-      {session.loadout === undefined ? null : <SessionLoadoutSheet session={session} open={loadoutOpen} read={draft.loadout} onClose={() => setLoadoutOpen(false)} />}
       <SketchSheet
         open={padOpen}
         onClose={() => setPadOpen(false)}
