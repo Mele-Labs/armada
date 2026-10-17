@@ -72,7 +72,7 @@ caught what the parent had already had on screen:
   The item had no target, and the child spent a round-trip saying so.
 - A brief said a question was *"not settled anywhere"*. A **different** child,
   working on something else, found it settled with three reasons in
-  `docs/journeys/triage-queue.md`. The first was corrected mid-run by luck
+  a journey document. The first was corrected mid-run by luck
   rather than by anything in this skill.
 
 **A negative needs the search, not the memory.** *"Nothing decides this"* is the
@@ -165,7 +165,7 @@ out, then file what was decided. See `armada-bug`.
 
 ## If you say you are watching something, arm something
 
-A sentence about intending to check back is not a mechanism. When a Job or a
+A sentence about intending to check back is not a mechanism. When a Session or a
 build is running and you have told the owner you will report on it, use `Monitor`
 with a poll that emits on **every** terminal state — not just the good ones.
 

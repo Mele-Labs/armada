@@ -1,121 +1,61 @@
 # Workflow
 
-**What it is:** The template a Job runs against: an ordered set of steps, any of which may send the work back to an earlier one, each carrying its mechanical checks, Judge checks, evidence scope, advance gate and retry/iteration policy. Referenced by `workflow_id` and frozen into the Job at the approval press, so the yardstick cannot move under the work.
+**What it is:** The template a Session may follow: an ordered set of steps that sit in the agent's prompt and in the view as a soft rail, each carrying its mechanical checks, Judge checks and evidence scope. Fleet reads the current step off what it observed and nudges when one is skipped; nothing blocks.
 
 ---
 
 **Kind:** Entity.
 
-How a workflow is structured, how evidence is verified, how Drone behaviour is policed, and what escalates. [Judge](judge.md) owns the semantic tier and [Drone](drone.md) the runtime; this document owns the definition a Job runs against.
+How a workflow is structured and where a definition comes from. [Judge](judge.md) owns the semantic tier and [Session](session.md), *The rail*, owns how a Session follows one; this document owns the definition.
 
 ## Core principle
 
-**Self-report is a signal, not a source of truth — at every layer.** It covers not just "did the Drone finish the step" but "did the Drone report correctly at all", "is the evidence real", and "is the Drone even still working productively".
-
-The system below enforces that principle mechanically wherever possible, and cheaply — via a small Judge model — everywhere else. Human judgment is reserved for the calls that actually need it.
+**Self-report is a signal, not a source of truth.** The step a Session is on is read from what Fleet observed — the plan, the build record, the Session's own Check runs and commits — and never from the agent's word.
 
 ## Workflow schema
 
-Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape.
-
-**The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). **A step added to one Job is not written into it**: it lives in the Job's own record beside the workflow, and the workflow stays what was approved ([Trigger](trigger.md), *Steps added to one Job*). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
-
-**The step with `delivers: true` may also carry `draft_pr`**, which says whether its pull request opens as a draft and is refused on any other step. It sits between the Job's own choice and the repository's `pr_mode`. [Landing](landing.md), *What the landing rule carries*.
+Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape. A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what a Session follows; `source` says which place it came from.
 
 **The full field-by-field schema is `crates/core-model/domain/workflowdef-fields.toml`.** It carries every top-level field and every field nested under `steps[]`, with its type, whether it is required and the reasoning behind it. One row per field, nested the way the schema nests: the top-level rows are the `WorkflowDef`'s own fields, and everything under `steps[]` is a field of a step.
 
-### A step's gate is three settings, not one
-
-**Not yet built.** `advance_gate` is one value per step — `auto`, `auto_if_judge_passes`, `human_always`, or a rule the repository decides (`crates/core-model/src/workflow/declared.rs`). It cannot say "let a [Judge](judge.md) read this and run no Checks", or "stop here and ask me", without an edit to the definition.
-
-**Checks, Judge and you become three independent settings on a step.** Any combination is expressible, including none of them. A fourth state, **the repository decides**, is what `manifest_rule:auto_merge` and `manifest_rule:review_gate` are today, and it is overridable for one Job.
-
-| Ticked | What advances the step |
-| --- | --- |
-| Nothing | The submission itself. Fleet's own look still runs |
-| Checks | The Checks the step's diff selects |
-| Judge | The step's `judge_checks`, with no mechanical tier in front of them |
-| You | A person at the gate, on the `awaiting_human` step state |
-| The repository decides | Whatever the Manifest's rule resolves to, unless this Job overrode it |
-
-**Fleet's own look is not one of the boxes and cannot be turned off.** The drift check against the step's declared paths, and the gaming look over its evidence, run whatever is set — the `gate` module (deleted since). A step with nothing ticked is still refused for work that went outside what the plan declared.
-
-**The settings freeze at approval, with the workflow** — see [Job](job.md), Reading the request is a status, and approval is what locks. A box can take a declaration away and never add one (a Trigger's `block` is not a box on a step: it holds the Job where its moment stands, and it is not an advance gate): unticked Checks drop the repository's Checks the step named, and an unticked Judge drops what it would read. **An override of the repository's rule holds for the life of the Job, however the rule moves** (the owner's call of 1 Oct 2026, spike 022 answer 4): the step keeps deferring on the record, and the override is laid over the repository's word at every gate, so the Record shows what each gate read.
-
-**A workflow is its steps, and any step may send the work back.** There is no label saying a workflow is linear or a loop. A step that emits a verdict names an earlier step in `verdict_routing`, and that is the only declaration of a back edge: it must name a step before it, and a step naming itself or a later one is refused. Coding workflows (Feature, Bug, Refactor) go forward; Design Plan returns from `present` to `draft` until converged or capped.
-
-**The passes cap is what stops a back edge running forever.** A step with `verdict_routing` and no `iteration_cap` takes the default, five, from `default_gate_policy`; a step with a cap and no routing is refused, since there is nothing to bound.
-
-**A workflow's one outbound edge creates a Job and never dispatches one.** `on_fail` and `verdict_routing` jump between steps inside a definition; `on_complete` names a `workflow_id` to follow this one.
-
-Reaching `completed_success` creates that Job at `awaiting_approval`, wired back through `subject` and carrying the same owning Manifest — and stops there. The ordinary one-by-one dispatch gate stands in front of it like any other Job.
-
-**The split is the Job proposer's, reused.** Approving a proposed plan already creates Jobs without dispatching them, so a definition naming a successor is the same act with a different author.
-
-**A cycle of workflows cannot run away, because every hop waits for a person.** The primary control on Fleet's autonomy stays intact. The fan-out cap does not reach this case: it counts Jobs *inside* a Job, and successors are peers.
-
-**Only `completed_success` fires it.** What follows a failed Job is escalation, not more work.
-
-**A successor is not a sub-dispatch.** It carries no `dispatched_by` — the Job that named it is finished and there is no live Drone to attribute it to — so it does not consume the fan-out cap, and [Job](job.md)'s `origin` carries `workflow_triggered` rather than `sub_dispatched`.
-
-**`on_complete` is a completion edge, not an event hook.** A Job that lands cleanly and breaks main an hour later is not a workflow completing. What runs at a moment inside a Job is a [Trigger](trigger.md).
-
-**Declared File Plan (continuous drift check).** For steps with `scope_diff_check: true`, the Drone can declare `context_paths` at step *start* (`declare_plan_at: step_start`), not only at evidence-submission time. Fleet then compares live edits against the declared plan throughout the step rather than only at the end.
-
-A live mismatch does not auto-fail, because legitimate investigation sometimes reveals the real work is in a file outside the original plan. It tags the step for a mandatory Judge look instead. This makes the mid-step Judge pass conditional on a cheap mechanical signal rather than run on a fixed schedule — see Thrashing / off-rails below.
-
-**The declaration is kept, per step and per run of it.** It outlives the slot that held it, so a finished Job's footprint says which of the files it touched were inside what a step promised and which were outside every promise anybody made — and a Job whose steps declared nothing says that, rather than reading as a Job that went exactly where it said it would.
-
 ## The workflows
 
-### How a Job gets one
+### How a Session gets one
 
-**You do not have to pick.** A Job can be dispatched from a prompt or a link to a ticket, and the [Job proposer](job-proposer.md) reads that request and proposes which workflow the work should run under. 
-Picking one by hand stays available and is the override, not the path. That document owns the call.
+**You do not have to pick.** The [Proposer](job-proposer.md) reads the request a Session is dispatched with and proposes which workflow the work should run under, or none. Picking one by hand stays available and is the override, not the path. That document owns the call.
 
-**What is proposed is not what is stored.** The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press, as above. The proposal chooses which one and a person may choose another before the press; freezing is what stops it moving afterwards, so a workflow edited in the repo after the copy reaches no Job already holding one.
-
-### A Session follows a workflow too
-
-A hosted Session may follow one workflow, which the proposer picks at dispatch or a person sets. It is not run as a Job is: no step gates it. Fleet reads the Session's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge as the Session leaves it, advisory and never blocking. `session.md`, *The rail* and *The judges*. **An owner can switch the workflow system off** (`features.workflows`), and every Session is then a plain one.
+A Session may follow one workflow, which the proposer picks at dispatch or a person sets. No step gates it. Fleet reads the Session's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge on the person's press, advisory and never blocking. `session.md`, *The rail* and *The judges*. **An owner can switch the workflow system off** (`features.workflows`), and every Session is then a plain one.
 
 ### Where a definition comes from
 
-**Three places, merged by `workflow_id`, the most specific winning**: the set Armada carries, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`, then the repository's own `.armada/workflows/`. A repository with no workflows of its own dispatches on the carried set, and one file in either later place replaces a carried definition by id. `config::Catalogue` holds the rule. #425.
+**Three places, merged by `workflow_id`, the most specific winning**: the set Armada carries, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`, then the repository's own `.armada/workflows/`. A repository with no workflows of its own uses the carried set, and one file in either later place replaces a carried definition by id. `config::Catalogue` holds the rule. #425.
 
-**The carried set is this repository's eight definitions, compiled in**, and is judged against a repository with tests — Armada's built-in support is for code-with-tests repositories, the owner's decision. None of the eight names a Check: they gate on `every_manifest_check`, `artifact_exists`, `plan_recorded`, `diff_nonempty` and Judge checks, so each resolves against any Manifest, and a repository declaring no Checks runs that gate as nothing. See The plan step, below: all eight now use `plan_recorded` on the step that records their plan.
+**The carried set is compiled in**, and is judged against a repository with tests — Armada's built-in support is for code-with-tests repositories, the owner's decision. None of them names a Check: they declare `every_manifest_check`, `artifact_exists`, `plan_recorded`, `diff_nonempty` and Judge checks, so each resolves against any Manifest, and a repository declaring no Checks gets none. See The plan step, below.
 
 **That is Armada holding an opinion it used to refuse.** An empty `.armada/workflows/` was refused because a repository declares how its own work is done, and a carried set is Armada saying how work is done by default. The trade is accepted, and overriding is one file so that the default does not become the only way.
 
 **A definition that does not fit is left out, not refused, wherever it came from.** One that will not parse, will not resolve against the repository, or shares its id with another file in the same place, is set aside and named when Fleet starts, and the next place down answers for its id — the sentence says whose. Two files in one place sharing an id are both left out. The repository's own is held to the same rule as Kit's and Armada's: a file somebody wrote badly does not stop Fleet starting, and the others stand.
 
-**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders reads them after a hand edit, with the settle window `armada.yml`'s watch uses. **A re-read leaves out by the same rule as start**: a file that does not fit is left out with its reason and the others stand. A Job already running holds a frozen copy and does not move.
+**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders reads them after a hand edit, with the settle window `armada.yml`'s watch uses. **A re-read leaves out by the same rule as start**: a file that does not fit is left out with its reason and the others stand.
 
 **Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole. Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written. A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called. Where both Kit and the repository define an id, the repository's runs.
 
-**A Job says which place its workflow came from.** The frozen workflow carries `source` — `armada`, `kit` or `repository` — beside its steps, so the answer outlives the files. Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file and each definition of the same id a more specific place replaced, so a surface can mark the source and draw the replaced ones apart. `get_workflow` reads any one of them whole, as the text `save_workflow` takes back. Fleet's health says whether anything was left out and never how many.
-
-**Feature is the pattern other coding workflows follow; Bug is the sample to copy from.** Design Plan is the only loop; Prototype is the only workflow with gateless steps.
-
-**Refactor exercises the gaming-check path end to end and demonstrates the no-parsing rule.** A Manifest Check exit code is its entire mechanical tier, and every question about what the tests now cover is answered by a Judge reading the diff.
+**A workflow says which place it came from.** It carries `source` — `armada`, `kit` or `repository` — beside its steps. Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file and each definition of the same id a more specific place replaced, so a surface can mark the source and draw the replaced ones apart. `get_workflow` reads any one of them whole, as the text `save_workflow` takes back. Fleet's health says whether anything was left out and never how many.
 
 **The full workflow catalogue is `crates/core-model/domain/workflows.toml`**, one row per workflow shape — the shape, gate profile and status, including policy variants and workflows still needing a step list, so there is one list rather than three. The instantiated `WorkflowDef` sits beside it as JSON in `crates/core-model/domain/workflow-samples/`, where a sample exists.
-
-A Job instance references `workflow_id` and carries its own `status`, `current_step`, `retry_count` and `iteration_count` per step, `acceptance_criteria[]` (frozen at the approval press), `facts[]` (append-only once approved), and `escalations[]` (using the trigger taxonomy below). A `WorkflowDef` is the template; the Job is the running instance against it. Those counters live in `job_steps`, one row per step, on [Job](job.md).
 
 ### The plan step
 
 **A workflow may name at most one step as its recording step**, the one
-that keeps [Plan](plan.md). It names itself either of two ways: giving the
-step `evidence.submitted.type: "plan"`, where the plan is the whole of its
-product, or giving it `records_plan: true` beside another product — Code
-Review's `read` keeps `read.md` and records the plan too, Epic's `plan`
-keeps its split. Either way it needs a `plan_recorded` mechanical check
-declaring `min_tasks`. `plan_recorded` passes when a Plan exists with at
-least that many tasks, and resolves against any Manifest the same way
-`every_manifest_check`, `artifact_exists` and `diff_nonempty` do, since a
-Plan is not manifest-specific. A second step recording a plan, whichever
-spelling it uses, is refused.
+that keeps the Session's plan ([Session](session.md), *The plan*). It names
+itself either of two ways: giving the step `evidence.submitted.type: "plan"`,
+where the plan is the whole of its product, or giving it `records_plan: true`
+beside another product — Code Review's `read` keeps `read.md` and records the
+plan too. Either way it needs a `plan_recorded` mechanical check declaring
+`min_tasks`, which resolves against any Manifest the same way
+`every_manifest_check`, `artifact_exists` and `diff_nonempty` do, since a plan
+is not manifest-specific. A second step recording a plan, whichever spelling
+it uses, is refused.
 
 **A later step follows the plan by declaring `follows_plan: true`.** It is
 shown the plan in its brief and may add or update a task; a step without it
@@ -125,211 +65,17 @@ it, since Revert has no earlier step to put a recording step on — and on
 any step after it. It is refused on a step strictly before the recording
 step, and in a workflow with no recording step at all.
 
-**A step works its tasks a Drone each by declaring `drone_per_task: true`.**
-Fleet puts a Drone on each task in plan order and marks the task itself, so
-the step's Drones get neither plan tool even beside `follows_plan`; the
-step's gate runs once, after the last task is handed in. Feature, Bug and
-Refactor declare it on `implement`. [Plan](plan.md), *A Drone per task*.
-
 **A step says which phase of the run it is in by declaring `phase:`** —
 `setup`, `work` or `delivery`. A step declaring none is `delivery` where it
 `delivers` and `work` otherwise, never read off its id or its place, and Fleet
 serves the resolved phase so no reader spells the fallback again. Design
-Plan's `present` and Epic's `roll_up` declare `delivery`: each delivers what
-its workflow is for and sends nothing out.
-
-**Its Judge reads the plan rendered as text, beside whatever the step
-delivers or changes, labelled apart** — the approach, then every task with
-its id, title, state and a dropped task's reason. `context_paths` is not
-the point on the plan half: task states are, so the whole payload is
-handed over rather than a scoped slice. The plan never replaces a step's
-own deliverable or diff, and `<recording_step>.evidence` reads the same
-pairing for a later step's `reference_docs` — [Plan](plan.md) has the rest.
-
-Built as the Plan milestone. #895 wires these fields into the loader;
-#893 gives a Drone the `record_plan`, `add_task` and `update_task` tools
-that fill them; #894 switches Bug, Refactor and Feature onto a plan step and
-puts THE PLAN in every brief after it. #1006 let any step record the plan
-beside its own product, so Code Review, Design Plan, Epic, Prototype and
-Revert could each keep one without adding or reshaping a step.
-
-## Evidence scope object
-
-Attached to every step that triggers a Judge or a human gate. Prevents the Judge (or the human at the gate) from having to search the whole codebase — it is told exactly where to look.
-
-**Definition vs. resolved object.** A `WorkflowDef` step carries the *policy* — `context_source`, `max_context_size`, `exclude_paths`, the flags. It cannot carry `context_paths`, because at definition time nobody knows them: that is precisely what `context_source: drone_declared` means.
-
-**`exclude_paths` is the tier a Judge may lift.** It is where an author says what this kind of work should stay out of, written before anybody had read the code — so when a Drone finds the fix genuinely needs one of those paths, `request_scope` puts that to a Judge and a cleared path becomes declarable. The boundaries nothing lifts — secrets, CI configuration, the workflow definitions themselves — are stated in no definition and named in no key. [Configuration](../contracts/configuration.md) holds the split and why the second tier is compiled in rather than configured.
-
-**A step may state none, and it is fenced anyway.** What to exclude varies by repository rather than by kind of work, so the list falls back to `drone.exclude_paths` in the repository's `armada.yml` and then to a compiled-in default. A step that states one keeps it whole. The order is in [Configuration](../contracts/configuration.md) and in `config::resolve`, which is the only place it is written.
-
-The Drone supplies them at evidence-report time, Fleet validates them, and the **resolved** object handed to the Judge is the one on which `context_paths` is required. Where a field row says a field is required, it means required on the resolved object.
-
-**The diff is delivered, not fetched.** The resolved object carries the **actual patch** for the files in scope, pre-loaded into the Judge's context — not a list of filenames the Judge then has to go and read. The veto-only contract already says the Judge receives the task text, the **work product** and the deterministic facts; on a coding step the diff *is* the work product.
-
-Reasons, in order of weight:
-
-1. **It is what makes a panel a panel.** `judge_check.panel_size > 1` requires each Judge to run "independently against identical inputs." A Judge that chooses what to read does not have identical inputs — three Judges could read three different subsets and their unanimity would mean less than it appears to.
-2. **The evidence trail records what was actually judged.** A refusal has to cite the specific evidence it is refusing on. If the Judge fetched its own context, the exact bytes it saw are not in the record, and neither the Drone retrying against the refusal nor the human reading it can reconstruct what it looked at.
-3. **Cost and latency.** Fetching burns turns on a call measured at ~4k input tokens.
-
-`context_paths` is then the narrower thing: **what else** the Judge may open beyond the diff — the unchanged remainder of a touched file, a sibling module, an interface being conformed to. A hunk alone often cannot answer "is this test still meaningful"; the rest of the file can.
-
-**A large diff can exceed `max_context_size` and fails closed there** like anything else, which is the correct behaviour and the reason that cap exists.
-
-**On Code Review the diff is the Drone's *input* rather than its output.** "The work product" needs restating for that workflow, and it is one of the reasons the gate row is the component that bends there.
-
-### What the Judge receives, per `evidence.submitted.type`
-
-The veto-only contract says the Judge receives the task text, the **work product** and the deterministic facts. On a coding step the work product is the diff. On several of Bug's steps it is not, and "only the diff" would leave nothing to judge there — hence this table.
-
-**Drone-authored evidence is admissible; the transcript is not.** These are different things, and the distinction is what keeps `facts_note` from reading as a loophole. **The transcript is the Drone's account of its own process** — why it struggled, what it tried — testimony about itself.
-
-**A facts note is a deliverable submitted as evidence** and judged as one: the Judge asks *is this a sound root-cause analysis*, never *did the Drone work hard*. In one line: **the Judge sees what the step produced. It never sees how the step went.**
-
-| `evidence.submitted.type` | Work product handed to the Judge | What `context_paths` is for on that step |
-| --- | --- | --- |
-| `diff` | The actual patch, pre-loaded | **What else** may be opened beyond the diff |
-| `failing_test` | The patch adding the test, plus the run's exit code and status | As for `diff` |
-| `facts_note` | The note itself — Drone-authored, judged as a deliverable | **The whole payload** |
-| `test_suite_run` | The exit code as a deterministic fact, plus the diff being verified | As for `diff` |
-| `bundle` | The accumulated evidence of prior steps, assembled | **The whole payload**, alongside `reference_docs` |
-| Document or mockup (Design Plan) | The document | **The whole payload** |
-| Absent (Bug's `merge`) | Nothing — no Judge runs | n/a |
-
-Per row:
-
-- `failing_test` — Bug's `repro` asks whether the test represents the reported bug, which needs the code under test. The exit code and status are handed over as deterministic facts.
-- `test_suite_run` — the Judge question is about the **diff**, not the run; the run is already answered by its exit code.
-- `bundle` — its `reference_docs` point at prior steps' evidence. Bug's `review` is advisory (`gates_advancement: false`) and summarises rather than refuses.
-
-**Code Review inverts and is the exception the table cannot fold in.** The diff is the Drone's *input*; the work product is the review it wrote. `files_read` is what verifies the input was actually opened.
-
-The `evidence_scope` fields are rows under `evidence_scope` in the field-by-field schema above — each with its type, whether it is required, and the argument behind it.
-
-**Resolution order:** Manifest default for step type → Drone declares specifics at evidence-report time → Fleet validates against allowlist and (if enabled) the real diff → **for loop workflows, the most recent iteration's work product plus every prior verdict**.
-
-**Only the latest work product is carried, and all of the feedback.** Appending every prior iteration against a fixed cap breaches it by construction, and since exceeding `max_context_size` escalates, an unbounded append would make every loop workflow generate a guaranteed false escalation. That is worse than failing, because it trains the engineer to ignore that escalation.
-
-The split works because the two things are different objects: drafts, documents and mockups are large, while a `request_changes` verdict is a sentence or two. Keeping all the verdicts is what shows the same note went unaddressed three times, which is the judgement `iteration_cap` exists to force. Carrying only the latest iteration entire would make each round read as a fresh note.
-
-Rejected: a rolling summary, which adds a model call per iteration and puts a lossy step inside the evidence path; and a larger cap or exemption for loops, which defeats the cap on the workflows most likely to need it.
-
-## Drone compliance & policing
-
-Prototype learning: Drones don't reliably follow instructions or use the tools they're given — they'll report status in plain text, wander off-task, or technically satisfy a check while gaming it. Each failure mode below needs its own detection mechanism.
-
-### Silence / stalled
-
-- **Symptom:** no activity for X time.
-- **Detection:** a heartbeat/liveness timer per Job. The threshold is a config row in `../contracts/configuration.md`, distinct from Fleet's own resource-poll interval.
-- **Response:** poke (nudge prompt) via `poke_limit`. N pokes with no response escalate as `stalled`.
-
-The clock runs only while the Job is `running`. What bounds an indefinitely-open gate instead is on [Drone](drone.md), which owns the decision.
-
-**A Drone that exits cleanly having called nothing at all is `silent` instead.** Different trigger, different human response — redispatching a silent Drone with the same brief reproduces the same silence.
-
-`poke_limit` is a liveness check (nothing arrived at all) and is a distinct counter from [Drone](drone.md)'s evidence clarification-round cap, which is a content-sufficiency check. Both can end in the same `stalled` label.
-
-### Claims done, no evidence artifact
-
-- **Symptom:** "I'm done" but nothing to check.
-- **Detection:** the mechanical check naturally fails — no file, diff or output exists.
-- **Response:** standard gate-failure retry flow.
-
-### Claims done in plain text, bypasses structured report
-
-- **Symptom:** the Drone doesn't use the evidence-reporting mechanism at all.
-- **Detection:** Fleet's parser finds no valid evidence submission for the turn — treated as nothing happened, not as done or failed. Largely superseded by the dedicated Evidence MCP tool — see [Drone](drone.md).
-- **Response:** the same reprompt-then-poke flow as silence. Insufficient but present evidence gets a free clarification round first — capped, see [Drone](drone.md) — before this flow kicks in.
-
-**The harness envelope cannot be trusted to tell you this.** A run denied every tool it needed still terminated reporting success with exit code 0.
-
-### Thrashing / off-rails
-
-- **Symptom:** actively working, but not converging — fixated on a tangent instead of reporting stuck.
-- **Detection:** turn count vs. step norm, wall-clock vs. expected ceiling, and — for steps using `declare_plan_at: step_start` — a mechanical file-plan-vs-live-diff check. All mechanical, no LLM judgment needed to detect.
-- **Response:** a **mid-step Judge** pass, then a force-interrupt if it returns thrashing.
-
-An off-plan edit alone doesn't auto-fail; it tags the step for a mandatory Judge look rather than blocking outright.
-
-**The mid-step Judge runs only when a mechanical trigger fires** — plan drift flagged, or turn count/wall-clock exceeds norm — not on a fixed schedule regardless of activity. **It does not read the Drone's turns.** It judges the *work product so far* against the declared scope and the step's intent: "is what has been produced converging on the task, is it justified drift, or is it thrashing?"
-
-If thrashing, force-interrupt with a "stop, report current state now" directive. A Drone that then goes quiet has its step stopped on a `forced_report` row naming the report that never came, and the Job escalates as **`no_report`** rather than as `thrashing`. A Drone still writing inside its declared plan is not stopped for it.
-
-**The two are separate triggers because they take opposite responses.** `thrashing` is the look's finding and is what the directive is injected on; `no_report` is the answer that never came, and the Drone it names may have been working the whole time. One ignored an instruction, the other had run out of road, and a single badge for both told a person neither.
-
-**Reading the Drone's last N turns would be the stronger detector and is ruled out by the veto-only input contract.** The detector is weaker for it: it can no longer separate justified drift from thrashing by reading the Drone's stated intent, and must infer it from what was actually produced.
-
-### Evidence gaming
-
-- **Symptom:** evidence is technically true but substantively worthless — weakened assertion, narrowed test scope, tautological test. Mechanical *and* naive Judge checks can both pass.
-- **Detection:** `judge_check.gaming_check` compares the current step's evidence against an earlier step's, named by `baseline_ref`. Not every `flag_if` pattern reaches the Judge to do it: a pattern the patch text itself settles — a test file removed whole, a skip marker added to a test that used to run, a change to the configuration a Check's command resolves through — is read straight off the diff, and costs no call, because a model call spent on a question `git diff` already answers is money for nothing. The rest need the change understood — an assertion that now asserts less, tests still running but covering less than they did, a test that would pass whatever the code under it did — so each of those is one narrow Judge question. A flag one of those raises stops nothing until a second reading — a stronger model, allowed to reason — agrees with it; where it disagrees the step advances and the flag is kept as cleared, with the reason. A test-content flag citing a comment is not raised at all, because a comment is never an assertion. [Judge](judge.md) carries the rule.
-- **Response:** a flag that stands routes as its own `evidence_suspect` trigger, not gate-failure — resubmission under the same instructions likely reproduces the same gaming.
-
-`flag_if` names the patterns: scope narrowed, assertions weakened, a tautological test, tests skipped, tests deleted, and **a change to the configuration a Check's command resolves through** — `package.json` `scripts.test`, a Makefile target.
-
-**The config-edit pattern is there because the others are all phrased in terms of *test code*.** Editing the script a frozen `run: "pnpm test"` resolves to honours the frozen string exactly while narrowing the gate, and fell outside all of them. Freezing harder is not available: the no-parsing rule refuses to model what a tool command expands to.
-
-### Enforcement
-
-**The most reliable fix is forcing structured output at the harness level, not policing after the fact**, so a non-compliant response simply doesn't parse as a valid turn. A dedicated Evidence MCP tool is the one sanctioned way a Drone reports completion — see [Drone](drone.md), which owns it and the clarification-round cap.
-
-Headless output parses reliably and denials are visible three separate ways, both closed by measurement, so this no longer rests on an unanswered spike.
-
-**Thrashing and off-scope work are computable from the stream** — repetition and paths touched are typed events, needing no prose parsing. **Silence is the one that does not fall out for free**, since only assistant and user events carry a timestamp. What stays open is the judgement layer rather than the data — see Open questions.
-
-## Dispatch approval — two levels
-
-| Dispatch type | Approval needed? | Rationale |
-| --- | --- | --- |
-| Job-level — a Drone picks up a Job off the Board | Human, always | Primary autonomy control — you decide what gets worked on |
-| Sub-dispatch — a Drone spawns a **Job** to complete its own | No — auto | Already inside an approved Job |
-| Sub-dispatch, abuse pattern — fan-out beyond threshold | Escalate to Inbox | Volume itself is the signal, not any single dispatch |
-| Successor — a `WorkflowDef`'s `on_complete` names the next workflow | Human, always | It is a Job-level dispatch; the parent is finished |
-
-**Job-level dispatch is strictly one by one.** [Fleet](fleet.md) owns the rule.
-
-**Blocking a sub-dispatch would be approval-fatigue with no real decision content.** The fan-out cap counts **Jobs only** — a Judge call is not a sub-dispatch, which is what makes "2 of 5" a legible number. [Judge](judge.md) owns why; [Job](job.md) counts `spawned_jobs` and `judge_calls` separately.
-
-**The sub-dispatch rationale does not reach a successor**: there is no approved Job for this one to sit inside. The definition creates the Job; it does not start it, which is the same plan-versus-dispatch split the Job proposer's proposal already uses.
-
-**Human approval applies at the Job level.** Work a Drone generates in service of its own approved Job does not require separate approval.
-
-## Escalation taxonomy
-
-One Inbox surface, `snake_case` triggers. **The canonical set is `crates/core-model/domain/escalation-triggers.toml`** — [Judge](judge.md), [Drone](drone.md), [Fleet](fleet.md) and [Job](job.md) all cite individual triggers, so each is a row they can point at.
-
-Every name states the condition, not the mechanism. A **sub-kind** pauses the Job exactly as its parent trigger does and differs only in the suggested action on the payload; `silent` is the only one. Routing for `evidence_suspect` and `thrashing` is Judge's, and `stalled` is Drone's.
-
-**The escalation trigger enum, with its In code migration status, lives in `crates/core-model/domain/escalation-triggers.toml`.** What is marked *not yet* is not yet a variant in `core-model`'s Rust enum, which is the only home — `Job::transition` is the sole mutator, and the TypeScript side is generated from `ipc` rather than authored. Nothing is removed, and one migration window covers all of them.
-
-**Escalation payload:** Job + step where it tripped, trigger type (and sub-kind where one applies), full attempt/dispatch history (all prior Judge summaries, not just the latest), suggested actions (kill / rephrase & redispatch / manual override). **The suggested action is where a sub-kind earns its keep** — `stalled` and `stalled(silent)` pause the Job identically and differ only in what the payload recommends.
-
-**A repeat failure escalates identically to a first one.** It differs only in the payload and its suggested action, which is the same shape as a sub-kind. Escalation already halts autonomous action, so a first failure has already reached the engineer and there is nothing for a repeat to escalate harder into.
-
-What a repeat actually signals is not about the Drone. Retries inside a Job are bounded by the retry limit, so a repeat is across redispatches, which means a person intervened in between — and a second failure is evidence the intervention did not take. The right response to that is a better-worded escalation rather than a faster one.
-
-Rejected: escalating sooner by reducing the retry budget, which spends real retries on a judgement that may be wrong; and a distinct trigger value, which adds to a `core-model` enum for something that is not a different kind of failure.
-
-**A repeat is counted across redispatches, along the `redispatched_from` lineage** on [Job](job.md). A redispatch is always a new Job, so a job id would read every second failure as a first one.
-
-**Same failure means the same step, any reason.** A step that stalls and then fails a gate is a second time at that step rather than two first-time failures, because the note it earns is true either way: the last redirect did not change the outcome. Under a same-reason rule that case would get no note at all, which is exactly where one is most warranted.
-
-The count answers whether this step is defeating the engineer repeatedly, not whether it is defeating them identically. The payload's full attempt history keeps the individual reasons visible where the count does not distinguish them.
-
-**Thresholds are configurable and their values are not stated here.** Every dial the machinery above reads — gate-failure retry limit, sub-dispatch fan-out cap and rate limit, loop iteration cap, the `default_gate_policy` aggregate attempt cap and Judge call-count ceiling, poke limit, heartbeat interval — is a row in the Configuration Settings registry, which carries the value, the tier it resolves at and the reasoning behind it. `../contracts/configuration.md` owns the tiering rule.
-
-**One threshold is deliberately not configurable:** once a Job has escalated, no further auto-action is taken until a human responds. That is a safety default with no row and no override.
+Plan's `present` declares `delivery`: it delivers what its workflow is for and
+sends nothing out.
 
 ## What is not a workflow
 
 **Onboarding/Setup is not a workflow**, and is deliberately absent from the catalogue. Setting up a project is configuration, and it already has a journey — Locate, Scan, Proposal, Write, Verify (see the Set Up a Project (Manifest) user journey).
 
-The workflow system exists because you are *not* watching: gates, retry budgets, escalation to Alerts and a Judge that never sees the transcript are all machinery for unattended work. During setup you are sitting there reading the proposal and editing it, so a retry budget buys nothing and an escalation surface makes no sense for a screen you are already looking at.
+A workflow gives a Session steps to follow while a person is elsewhere. During setup you are sitting there reading the proposal and editing it, so steps and nudges make no sense for a screen you are already looking at.
 
 The Scan is agent work and could be dispatched, but that does not make the setup a workflow.
-
-## Open questions
-
-- **[workflow-thrashing-threshold-judgement]** What threshold of repetition counts as thrashing, and what counts as off-scope work? Headless output parses reliably and denials are visible, so this no longer rests on an unanswered spike about the data — what stays open is the judgement layer, not the data.

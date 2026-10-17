@@ -16,13 +16,13 @@ The tool set you bring: Skills, MCP servers, sub agents, Agent files, Plugins, C
 
 **Two tiers.** Kit holds your defaults; a [Manifest](manifest.md) holds its own version; they merge with a strategy and a resolution order. **Kit rows are the only ones with a Manifest tier.**
 
-**Kit sets defaults a Manifest may extend or restrict — not a ceiling a Manifest may only narrow.** Nothing above the Manifest constrains anything; the config direction rule is withdrawn. Resolution *across* several peer Manifests is a separate rule and is unaffected — see [Drone](drone.md).
+**Kit sets defaults a Manifest may extend or restrict — not a ceiling a Manifest may only narrow.** Nothing above the Manifest constrains anything; the config direction rule is withdrawn.
 
 ## Scope
 
 The machine's AI tool set and defaults, and everything in `../contracts/configuration.md` tagged "Kit only" or "Kit → Manifest."
 
-Resources, budget, timing, interface and notification routing are **not** here — those are [Machine](machine.md). Setting up your *first project* is also out of scope — that's Manifest's Init, chained together in the broader First-Run Onboarding journey (not yet designed).
+Resources, timing, interface and notification routing are **not** here — those are [Machine](machine.md). Setting up your *first project* is also out of scope — that's Manifest's Init, chained together in the broader First-Run Onboarding journey (not yet designed).
 
 ## Kit's two homes
 
@@ -35,7 +35,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **Neither is authoritative over the other's idea of anything**, which is what makes two homes survivable where the issue that raised this feared they would not be. Nothing in `~/.armada` overrides a skill; nothing in the harness's home names a Workflow. A row Kit draws is labelled with the home it came from, so a person can always tell what they are looking at and where to go to change it.
 
-**One home was the alternative and was refused.** Putting everything in the harness's home would mean Armada writing into a directory it does not own for things that are Armada's alone rather than only for a person's own edits. Putting everything in `~/.armada` would mean copying a setup that already exists — the drift the owner refused when he decided write-back, because two copies drift the moment either is touched and nobody can then say which a Drone ran against.
+**One home was the alternative and was refused.** Putting everything in the harness's home would mean Armada writing into a directory it does not own for things that are Armada's alone rather than only for a person's own edits. Putting everything in `~/.armada` would mean copying a setup that already exists — the drift the owner refused when he decided write-back, because two copies drift the moment either is touched and nobody can then say which a Session ran against.
 
 **Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts. A definition in `~/.armada/workflows/` replaces the one Armada carries with the same `workflow_id` in every repository on this machine, and a repository's own `.armada/workflows/` replaces both — [Workflow](workflow.md) holds the rule. #425. **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have. Bridge's Workflows row lists a Kit file beside the carried and repository ones, marks it with the Kit case, and writes one the same way, with scope Kit.
 
@@ -51,7 +51,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **Every kind but one is read**: Skills, Plugins, Agent file, Output styles, Sub agents, Commands, the servers a person connected, and, since 5 Oct 2026, the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)). The models list answers *not read yet, and why*: it has no stored tier to read. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along. An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 
-**Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from. A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong. What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment. So what is on the screen could not start the server it names, and a server connected outside Armada is visible here while reaching no Drone — adding one to Kit and then allowing it are the two acts they were. That is `../scope.md`'s one confinement, kept where an import would have broken it.
+**Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from. A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong. What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment. So what is on the screen could not start the server it names, and a server connected outside Armada is visible here while reaching no unattended agent. That is `../scope.md`'s one confinement, kept where an import would have broken it.
 
 **The adapter cannot hold a credential rather than being careful not to draw one.** A program is kept as its file name and a URL as its host, by a reader that allocates only that much; the argument list and the environment are read into a type that keeps nothing at all. A `Vec<String>` of arguments a screen happened not to draw is the thing this shape exists to avoid.
 
@@ -65,7 +65,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **Bridge draws each style with its name, its description and where it came from in words**: *Yours*, *This repository*, the plugin's name, *Built in*, *Armada*. The active one carries a check with the tooltip *Active* and a heavier name. The session rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the tile.
 
-**Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Drone ran against. The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
+**Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Session ran against. The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
 
 **A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together. Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository. The owner's decision. One the repository replaces is never resolved against it. A repository's own definitions are held to the same rule, at start and on every re-read: one that does not fit is left out with its reason and the others stand, and it does not refuse Fleet.
 
@@ -85,7 +85,7 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 ## Destructive-op list defaults
 
-**Governs Drone-initiated operations only** — what a Drone must stop and ask you about mid-run. Your own Bridge actions (kill a Drone, override a dispatch freeze, force-merge) always confirm and are not configurable.
+**Governs agent-initiated operations only** — what a Session must stop and ask you about mid-run. Your own Bridge actions (stop a Session, force-merge) always confirm and are not configurable.
 
 **Finding, not yet designed, and filed rather than replaced.** Union-only was what guaranteed a Manifest could never remove a confirmation Kit required; with the direction rule withdrawn, nothing does.
 
@@ -93,17 +93,13 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 **Kit holds the default allowlist, and a [Manifest](manifest.md) can extend or restrict it per project.** The same inheritance pattern governs Skills, MCP and Plugins. **Extend or restrict, in either direction, is the model wording for every two-tier setting.**
 
-**MCP servers are the first row of this that is built** — `#1275`. Fleet keeps the set, a Manifest's word is a row of its own, and `core_model::a_drone_resolves` is the whole resolution: the Manifest's word where it has one, Kit's default where it has none. Absent is not a third word. The servers a Drone is spawned against are written from that answer and nothing else, so what Bridge draws and what a Drone reads cannot disagree.
+**A scout gets no MCP server.** [Scout](scout.md) starts with none, and the sources it reads are fetched by Fleet rather than opened by the agent, so nothing here widens a scout.
 
-**A server added to Kit reaches no Drone.** `KitServer::added` takes no reach and there is no constructor that starts one anywhere else, so turning one on is a second act with its own operation. That is `../scope.md`'s one confinement kept: without `--strict-mcp-config` a v1 Drone came up holding every server the operator had connected, and a Kit whose rows arrived switched on would be the same defect through the front door.
-
-**A scout gets none of them.** [Scout](scout.md) starts with no server at all, and the sources it reads are fetched by Fleet rather than opened by the agent — so "a scout's connections" is a different question from this one, and nothing here widens a scout.
-
-**Helm's set is still the person's own, resolved by the CLI** — `#1373`, and Kit replaces none of it yet. Helm simply launches without the flag a Drone launches with.
+**Helm's set is still the person's own, resolved by the CLI** — `#1373`, and Kit replaces none of it yet. Helm launches without `--strict-mcp-config`.
 
 ### Kit's allowlist
 
-**Built 5 Oct 2026, the owner's decision: Accept on a Kit item in Retros really changes the Kit.** It began on Job 3, where a Drone asked for `grep -a -c "arc-dispatch"` on a check log, was stopped, and the owner chose *Allow for this Job*. That allowance died with the Job, the retro listed *allow grep on check logs* as a Kit item, and Accept only set it `accepted`, so the next Job's Drone was stopped on the same command.
+**Built 5 Oct 2026, the owner's decision: Accept on a Kit item in Retros really changes the Kit.** It began when an agent asked for `grep -a -c "arc-dispatch"` on a check log and was stopped, and the owner chose a one-off allowance. That allowance died with the work, the retro listed *allow grep on check logs* as a Kit item, and Accept only set it `accepted`, so the next agent was stopped on the same command.
 
 | | |
 | --- | --- |
@@ -114,7 +110,7 @@ The original four groups split across the two concepts: AI Behavior and the tool
 | Never lifts | A command a Manifest declares destructive, one it runs a Check for, one the harness cannot grant. Kit is read after all three, and widens only the two answers asking would have decided: refuse, and ask |
 | Not kept | A command that chains another, or spans lines. A standing grant on this machine for `a && b` is wider than the person who read `a` meant |
 
-**A command Kit does not list is refused as before and the refusal is recorded as before.** Kit is read in the permission question itself, not written into the Drone's toolbelt, so every call still reaches Fleet and the *denial record* the finding below flags is not bypassed.
+**A command Kit does not list is refused as before and the refusal is recorded as before.** Kit is read in the permission question itself, not written into the agent's toolbelt, so every call still reaches Fleet and the *denial record* the finding below flags is not bypassed.
 
 **How a line gets in, and out.** A person writes a line. An **Always allow** answered with `scope: kit` appends the command (or the rule they picked off its candidates) with source `always allow`. **Accept** on a Kit retro item that carries a `change` appends it with source `retro <item id>` and answers with what it applied. `remove_kit_allowed_command` takes a line out, and is what makes the other two reversible; it does not reopen the item that put it there. Adding a command already listed adds nothing, so agreeing twice applies once.
 
@@ -124,28 +120,27 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 **Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
-**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off. It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason. A command a Drone is waiting on, in Job detail and in Helm's dock, offers **Always allow on this machine** beside the repository's own Always allow, sent as `always_allow` with `scope: kit` and the rule, and only where Fleet offered a candidate rule to send. Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
+**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off. It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason. Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
 
 **Known cost: allowlist rot.** Two-tier inheritance keeps changes scoped, but upkeep is ongoing as new tools are needed. No automated solution exists; worth monitoring rather than solving now.
 
 **Findings the withdrawn direction rule leaves open**, filed rather than replaced:
 
-- Nothing prevents a Manifest removing a Judge trigger.
 - Nothing prevents a Manifest selecting a model outside the Kit set.
 - Nothing prevents a Manifest removing a required destructive-op confirmation.
 - A Command that bypasses the allowlist bypasses the denial record, which was the part that was working.
 
-**Budget is not here.** Billing mode, cost caps and the quota floor are [Machine](machine.md).
+**Quota is not here.** The quota floor is [Machine](machine.md).
 
 ## Init
 
-Guided, sequential walkthrough of the groups above, with sensible defaults pre-filled — you adjust as you go rather than starting from a blank form. The tool half only; resources, budget and interface are [Machine](machine.md) Init, and first-project setup is Manifest's (see Scope).
+Guided, sequential walkthrough of the groups above, with sensible defaults pre-filled — you adjust as you go rather than starting from a blank form. The tool half only; resources and interface are [Machine](machine.md) Init, and first-project setup is Manifest's (see Scope).
 
 What this surface is called, and whether it is its own journey, is tracked in Open questions below.
 
 ## Actions
 
-**Of this surface, one row is built**: the MCP servers a Drone gets, added, removed and allowed per Manifest from the Manifest surface in Bridge (`#1275`). Kit is the System strip's first page, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
+Kit is the System strip's first page, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
 
 | Action | What it does |
 | --- | --- |
@@ -162,7 +157,7 @@ Keeps your live local Claude environment in step with your Kit's Skills, MCP and
 
 **Automatic.** When you edit your Kit, Fleet pushes the change out; you never have to trigger it. Non-conflicting items merge silently.
 
-**Not built, and nothing in `#1275` writes a person's own Claude configuration.** A server added to Kit reaches a Drone and nobody else; a terminal session is unaffected.
+**Not built.** Nothing writes a person's own Claude configuration.
 
 **A same-named conflict with config Claude already has outside Armada surfaces for you to resolve**, rather than being silently overwritten. That is the one time you are involved.
 
@@ -198,7 +193,7 @@ Two mechanisms, both carried over from the v1 prototype:
 
 ### Upgrade
 
-**Same pattern as Manifest and Job schema versioning:** auto-increment schema version plus migration scripts, applied automatically on Fleet startup.
+**Same pattern as Manifest schema versioning:** auto-increment schema version plus migration scripts, applied automatically on Fleet startup.
 
 ## Configuration
 

@@ -6,7 +6,7 @@ description: Leasing an agent a warm worktree slot and releasing it, or cutting 
 # Agent worktrees
 
 **A worktree outlives the agent that asked for it, and nothing reclaims it.**
-`armada clean` gives back a *Job's* worktrees under `.armada/worktrees/`. Nothing
+`armada clean` gives back Fleet's worktrees under `.armada/worktrees/`. Nothing
 gives back an *agent's* under `.claude/worktrees/`, so they accumulate silently
 until a disk fills mid-run.
 
@@ -71,7 +71,7 @@ session that will release it.
 
 **Release at the merge, never remove.** A release refuses while anything is
 uncommitted, because an untracked or modified file does not survive the detach.
-Bridge's Clear and Release commit the files first, and so does Fleet for a Job that is killed or fails, so that refusal is the pool's alone. A commit on the slot's branch is enough: the branch keeps it, so a push is
+Bridge's Clear and Release commit the files first, and so does Fleet for a Session that is stopped, so that refusal is the pool's alone. A commit on the slot's branch is enough: the branch keeps it, so a push is
 optional and an unmerged branch releases. It detaches the slot and leaves its
 `target/`; the branch stays until you delete it, so do not `git branch -D` one
 whose commits are not landed. A slot whose session ended without releasing is
@@ -320,10 +320,10 @@ copy of the full debug info for the whole dependency graph.
 **Stale build output is trimmed, and a slot stays warm.** Cargo never deletes an
 old dependency build, incremental session or test binary, and on 6 Oct 2026 24
 checkouts reached 50 GB each. A `release` (and `armada clean` giving back a
-Job's slot) drops every file under the slot's `target/` that no build has
+slot) drops every file under the slot's `target/` that no build has
 written in 14 days (never a build script's `out/`, which cargo would not rebuild), and removes the whole `target/` if it is still over 20 GiB.
 Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
-slots held or free, bases, land trees, preview, and the Job and agent worktrees.
+slots held or free, bases, land trees, preview, and the agent worktrees.
 A `target/` with a cargo build running in it is skipped. Settings:
 `slot-build-trim-after-days`, `slot-build-ceiling-gib`,
 `build-sweep-interval-minutes` (constants until #1821). Outside a full disk, do

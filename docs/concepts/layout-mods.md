@@ -1,6 +1,6 @@
 # Layout mods
 
-**What it is:** A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels, Job tabs and places, by id, and nothing else, which Fleet checks and Bridge applies.
+**What it is:** A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels and places, by id, and nothing else, which Fleet checks and Bridge applies.
 
 ---
 
@@ -31,12 +31,11 @@ Every entry is drawn until a layout hides it.
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes, within a slot | |
-| `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | `first` |
-| `rail` | The places: `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
+| `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
 
-**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Jobs, Sessions, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
+**`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Sessions, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
-**`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue. `fleet` has no panel on the deck, and `order` has no effect there. A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have. A layout is machine-wide, with no repository in it, and one layout applies to every kind of Job: a Job at its approval gate and an epic Job draw the tabs the region names.
+**`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue. `fleet` has no panel on the deck, and `order` has no effect there. A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have. A layout is machine-wide, with no repository in it.
 
 A hidden entry leaves the strip or the bar and nothing else. It stays in the palette and in links, so an act that jumps to it still lands.
 
@@ -46,8 +45,7 @@ A hidden entry leaves the strip or the bar and nothing else. It stays in the pal
 {
   "version": 1,
   "dashboard.panels": { "hidden": ["merge-line"] },
-  "rail": { "hidden": ["lessons"] },
-  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }
+  "rail": { "hidden": ["lessons"] }
 }
 ```
 
@@ -125,7 +123,7 @@ The Cockpit, Mods and Settings are never hideable, and Settings → Layout, Rese
 | The regions and ids both sides check | `packages/shell/layout-registry.json` |
 | Fleet's check of `layout.json` | `crates/ipc/src/layout.rs` |
 | Fleet's list, scaffold, validation and promotion for `kind = "layout"` | `crates/fleet/src/mods/` |
-| Cockpit panels, Job tabs, places | Read `useLayout(region)` |
+| Cockpit panels and places | Read `useLayout(region)` |
 | Settings → Layout, Mods row | `packages/surfaces/settings/src/` |
 | The source over Fleet | `apps/desktop/src/renderer/src/fleet-layout.ts` |
 | The mock | `apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=modsLayout` |
