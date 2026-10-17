@@ -10,6 +10,7 @@
 import type { Check, Doing } from "./doing";
 import type { Areas } from "./areas";
 import type { Play } from "./plays";
+import { gridOf, type PillGrid } from "./pills";
 import type { Pr, Subject } from "./ship";
 import type { Clash, Touch } from "./touches";
 
@@ -138,7 +139,8 @@ function slice(parts: readonly { id: string; weight: number }[], rect: Rect, int
 export type Pad = { key: string; x: number; y: number };
 
 /** A plot of the battlefield: one directory, drawn to the area its files take. */
-export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number };
+/** A plot, and the pills that fill it: one for each file its directory holds, where Fleet counted them. */
+export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number; pills?: PillGrid };
 
 export type Territory = {
   root: string;
@@ -201,7 +203,7 @@ export function layoutOf(
   clashed: readonly Clash[] = [],
 ): Layout {
   const rects = new Map<string, Rect>();
-  const filesOf = (repo: RepoIn) => repo.areas.reduce((sum, area) => sum + (area.kids.length === 0 ? BARE_FILES : area.kids.reduce((s, k) => s + k[1], 0)), 0);
+  const filesOf = (repo: RepoIn) => repo.areas.reduce((sum, area) => sum + (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((s, k) => s + k[1], 0)), 0);
   const weights = repos.map((repo) => ({ id: repo.root, weight: 3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)) }));
   slice(weights, { x: MARGIN, y: MARGIN, w: Math.max(120, size.width - MARGIN * 2), h: Math.max(120, size.height - MARGIN * 2) }, rects, 14);
 
@@ -230,24 +232,29 @@ export function layoutOf(
     const goal = repo.goal ? { x: rect.x + rect.w / 2, y: rect.y + 84 } : undefined;
 
     // Top directories by their files, then the directories inside each.
-    const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? BARE_FILES : area.kids.reduce((sum, k) => sum + k[1], 0));
+    const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((sum, k) => sum + k[1], 0));
     const tops = new Map<string, Rect>();
     slice(repo.areas.map((area) => ({ id: area.dir, weight: sizeOf(area) })), plots, tops, 6);
     const tiles: Tile[] = [];
     const groups: Territory["groups"] = [];
+    // A plot, with a pill for each file it holds: the named ones first, then those past the names Fleet gave.
+    const plot = (path: string, top: string, rect: Rect, files: number, names: readonly string[]): Tile => {
+      const grid = gridOf(rect, Math.max(files, names.length), names, FLAT);
+      return { path, top, rect, cx: rect.x + rect.w / 2, cy: rect.y + rect.h / 2, ...(grid === undefined ? {} : { pills: grid }) };
+    };
     for (const area of repo.areas) {
       const box = tops.get(area.dir);
       if (box === undefined) continue;
       groups.push({ dir: area.dir, rect: box });
       if (area.kids.length === 0) {
-        tiles.push({ path: area.dir, top: area.dir, rect: box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 });
+        tiles.push(plot(area.dir, area.dir, box, area.names === undefined ? 0 : (area.files ?? area.names.length), area.names ?? []));
         continue;
       }
       const inner = new Map<string, Rect>();
       slice(area.kids.map(([name, files]) => ({ id: name, weight: files })), { x: box.x + 3, y: box.y + 3, w: box.w - 6, h: box.h - 6 }, inner, 3);
-      for (const [name] of area.kids) {
+      for (const [name, files, names] of area.kids) {
         const r = inner.get(name);
-        if (r !== undefined) tiles.push({ path: `${area.dir}/${name}`, top: area.dir, rect: r, cx: r.x + r.w / 2, cy: r.y + r.h / 2 });
+        if (r !== undefined) tiles.push(plot(`${area.dir}/${name}`, area.dir, r, files, names ?? []));
       }
     }
     // A touched path belongs to the plot with the longest path that begins it.

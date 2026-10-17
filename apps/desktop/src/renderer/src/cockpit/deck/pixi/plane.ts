@@ -122,6 +122,16 @@ export class PlaneBuilder {
     for (let i = 1; i < points.length - 1; i += 1) this.tri(first, first + i, first + i + 1);
   }
 
+  /** The same rectangle, for the many a plot holds: no points are made to describe it. */
+  quad(x: number, y: number, w: number, h: number, z: number, c: Rgba): void {
+    const first = this.count;
+    this.vertex(x, y, z, c);
+    this.vertex(x + w, y, z, c);
+    this.vertex(x + w, y + h, z, c);
+    this.vertex(x, y + h, z, c);
+    this.index.push(first, first + 1, first + 2, first, first + 2, first + 3);
+  }
+
   /** An axis-aligned rectangle lying flat at height z. */
   flat(x: number, y: number, w: number, h: number, z: number, c: Rgba): void {
     this.fan([{ x, y, z }, { x: x + w, y, z }, { x: x + w, y: y + h, z }, { x, y: y + h, z }], c);

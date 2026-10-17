@@ -5,6 +5,7 @@
 import { onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf } from "../build";
 import { FLAT, rand, type Bar, type P3, type Tile } from "../layout";
+import { pillRect } from "../pills";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, onGround, type Palette, type Rgba } from "./palette";
 import type { PixiSceneIn, Placed } from "./scene";
@@ -44,6 +45,18 @@ function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p
       const [from, to] = [Math.max(0, (k - w) / d), Math.min(1, k / d)];
       if (from < to) b.stroke([{ x: x0 + k - d * from, y: y0 + d * from, z: z + 0.05 }, { x: x0 + k - d * to, y: y0 + d * to, z: z + 0.05 }], 0.6, fade(p.ask, 0.4));
     }
+  }
+}
+
+/** The files of a plot, a pill for each, quiet on its top and rising with it. */
+function drawPills(b: PlaneBuilder, tile: Tile, height: number, p: Palette): void {
+  const grid = tile.pills;
+  if (grid === undefined) return;
+  const tone = fade(p.fg, 0.2);
+  const z = height + 0.2;
+  for (let i = 0; i < grid.count; i += 1) {
+    const r = pillRect(grid, i);
+    b.quad(r.x, r.y * FLAT, r.w, r.h * FLAT, z, tone);
   }
 }
 
@@ -149,6 +162,7 @@ export function drawTiles(b: PlaneBuilder, s: PixiSceneIn, p: Palette, heights: 
   for (const tile of tiles) {
     const height = heights.get(tile.path) ?? 0;
     drawSlab(b, tile, height, s, p);
+    drawPills(b, tile, height, p);
     for (const bar of bars.get(tile.path) ?? []) drawBar(b, bar, height, p);
   }
   for (const one of s.builds) {

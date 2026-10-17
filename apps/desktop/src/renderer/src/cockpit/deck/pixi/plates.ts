@@ -6,7 +6,8 @@ import { onPlane } from "../bf-parts";
 import { FLAT, type Bar, type Tile } from "../layout";
 import { FILE_SAID } from "../Scene";
 import { clashLines, type Tip } from "../tip";
-import { project, type View } from "./project";
+import { pillAt } from "../pills";
+import { project, unproject, type View } from "./project";
 import type { PixiSceneIn } from "./scene";
 
 /** The thing under the pointer: a key to tell it from the one beside it, the card it says, and the plot it lights, if it is one. */
@@ -70,7 +71,16 @@ export function plateAt(scene: PixiSceneIn, view: View, x: number, y: number): P
   }
   for (let i = tiles.length - 1; i >= 0; i -= 1) {
     const tile = tiles[i]!;
-    if (!slabFaces(view, tile, heightOf(tile.path)).some((face) => within(face, x, y))) continue;
+    const faces = slabFaces(view, tile, heightOf(tile.path));
+    if (!faces.some((face) => within(face, x, y))) continue;
+    // On a plot's top, the pill under the pointer is found from where the pointer is on the plot, not from the pills. One with a name says its file.
+    const grid = tile.pills;
+    if (grid !== undefined && within(faces[0]!, x, y)) {
+      const at = unproject(view, x, y, heightOf(tile.path));
+      const i = pillAt(grid, at.x, at.y / FLAT);
+      const name = i === undefined ? undefined : grid.names[i];
+      if (name !== undefined) return { key: `pill:${tile.path}/${name}`, tip: { label: FILE_SAID.rest, title: `${tile.path}/${name}`, hue: "quiet" } };
+    }
     const clash = scene.layout.clashes.find((one) => one.path === tile.path);
     return { key: `tile:${tile.path}`, tile: tile.path, tip: clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet" } : { label: "Write clash", title: tile.path, hue: "ask", lines: clashLines(clash) } };
   }

@@ -18,9 +18,10 @@ export type Kid = readonly [name: string, files: number, names?: readonly string
 
 /**
  * One top directory with the directories inside it, each with a file count. A top directory with no children has none
- * listed, and names its own first files instead (relative to `dir`); one with children names none.
+ * listed, and names its own first files instead (relative to `dir`) with its exact count in `files`; one with children
+ * names none.
  */
-export type Area = { dir: string; kids: readonly Kid[]; names?: readonly string[] };
+export type Area = { dir: string; kids: readonly Kid[]; names?: readonly string[]; files?: number };
 
 export type Areas = readonly Area[];
 
@@ -31,7 +32,7 @@ export type AreaSource = (root: string) => Areas;
 export const noAreas: AreaSource = () => [];
 
 const kidOf = (kid: AreaKid): Kid => (kid.names === undefined ? [kid.name, kid.files] : [kid.name, kid.files, kid.names]);
-const areaFromWire = (area: RepositoryArea): Area => ({ dir: area.dir, kids: (area.kids ?? []).map(kidOf), ...(area.names === undefined ? {} : { names: area.names }) });
+const areaFromWire = (area: RepositoryArea): Area => ({ dir: area.dir, kids: (area.kids ?? []).map(kidOf), ...(area.names === undefined ? {} : { names: area.names, files: area.files }) });
 
 /** The areas Fleet read, for the root each was read in. A root Fleet named none for has none. */
 export function areasFromFleet(read: RepositoryAreas): AreaSource {

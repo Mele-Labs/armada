@@ -27,6 +27,20 @@ export function project(v: View, p: P3): { x: number; y: number; scale: number }
   return { x: v.width / 2 + ux * scale, y: v.height / 2 + (uy * Math.cos(phi) - z * Math.sin(phi)) * scale, scale };
 }
 
+/** The point of the plane, level at height `z`, that lands at a pixel: `project` run the other way, which a level surface allows. */
+export function unproject(v: View, x: number, y: number, z: number): { x: number; y: number } {
+  const [phi, yaw] = [rad(v.pitch), rad(CAM.yaw)];
+  const depth = v.width * 2.8;
+  const [sinP, cosP] = [Math.sin(phi), Math.cos(phi)];
+  const [a, b, h] = [x - v.width / 2, y - v.height / 2, z * v.eye];
+  // The screen's height gives the depth along the camera's ground, and its width then scales to the breadth.
+  const uy = (h * sinP + (b * (depth - h * cosP)) / depth) / (cosP + (b * sinP) / depth);
+  const scale = depth / (depth - (uy * sinP + h * cosP));
+  const ux = a / scale;
+  const [dx, dy] = [ux * Math.cos(yaw) + uy * Math.sin(yaw), -ux * Math.sin(yaw) + uy * Math.cos(yaw)];
+  return { x: v.x + dx / v.eye, y: v.y + dy / v.eye };
+}
+
 /** The numbers the vertex shader reads, in the order its uniforms are declared. */
 export function packView(v: View, into: { cam: Float32Array; trig: Float32Array; screen: Float32Array }): void {
   const [yaw, phi] = [rad(CAM.yaw), rad(v.pitch)];
