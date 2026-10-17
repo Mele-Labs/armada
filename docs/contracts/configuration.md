@@ -385,7 +385,7 @@ Added 18 September 2026, with `checks.<name>.runner` and `#1456`. Every way of
 running less than a whole Check used to be written on the Check, so the same
 command was written once per Check and again in every repository using that
 runner. A Check now names the runner instead, and the commands are written once
-per runner in its own description — `docs/concepts/runner-adapter.md`.
+per runner in its own description.
 
 | Key | Required | What it says |
 | --- | --- | --- |
