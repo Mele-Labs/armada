@@ -252,4 +252,62 @@ pub trait HarnessSetup {
         let _ = repositories;
         self.read()
     }
+
+    /// The one file a session's Loadout row names, read whole up to `asked.cap`. **A default that
+    /// reads nothing**, so a harness that keeps no such files needs nothing here.
+    fn read_item(&self, asked: &ItemAsked<'_>) -> ItemRead {
+        let _ = asked;
+        ItemRead::NotRead {
+            why: String::from("This harness keeps no file for it that Armada reads."),
+        }
+    }
+}
+
+/// A Loadout row with a file behind it, by what it is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ItemKind {
+    Skill,
+    Subagent,
+    MemoryFile,
+    OutputStyle,
+}
+
+/// Whose a Loadout row is, which is where its file is looked for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ItemWhose<'a> {
+    /// The person's harness home.
+    Kit,
+    /// The session's repository, at [`ItemAsked::root`].
+    Repository,
+    /// An installed plugin, by its own name and without its marketplace.
+    Plugin(&'a str),
+}
+
+/// One row to read. **Every field but `root` and `cap` is as the query spelled it**, and nothing
+/// here has been found safe yet: that is the reader's to refuse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemAsked<'a> {
+    pub kind: ItemKind,
+    /// The name without a plugin's `<plugin>:`; a memory file's is the path the mod reported it at.
+    pub name: &'a str,
+    pub whose: ItemWhose<'a>,
+    /// The session's repository root, absolute.
+    pub root: &'a str,
+    /// The most bytes of the body to carry.
+    pub cap: usize,
+}
+
+/// What one row's file said.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ItemRead {
+    Read {
+        /// Where, for a person: from the repository's root, `~/…` under the home, or from the
+        /// plugin's own folder.
+        path: String,
+        markdown: bool,
+        body: String,
+        truncated: bool,
+    },
+    /// A sentence a person reads.
+    NotRead { why: String },
 }

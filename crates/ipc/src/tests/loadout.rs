@@ -2,8 +2,8 @@
 //! `docs/practices/protocol.md`, *A Session's Loadout*.
 
 use crate::{
-    decode, encode, Instant, LoadoutItem, LoadoutKind, LoadoutSource, LoadoutState, LoadoutSummary, LoadoutUse,
-    LoadoutUseKind, SessionFact,
+    decode, encode, Instant, LoadoutItem, LoadoutItemBody, LoadoutItemFormat, LoadoutKind, LoadoutSource, LoadoutState,
+    LoadoutSummary, LoadoutUse, LoadoutUseKind, SessionFact,
 };
 
 #[test]
@@ -70,4 +70,22 @@ fn the_summary_counts_what_is_known_apart_from_what_was_told() {
     let summary = LoadoutSummary::of(&items, None);
     assert_eq!((summary.knows, summary.told), (5, 3));
     assert_eq!(encode(&summary).expect("encodes"), r#"{"knows":5,"told":3}"#, "no turn is left out, not null");
+}
+
+#[test]
+fn an_items_body_is_tagged_on_what_and_says_truncated_only_when_it_is() {
+    let read = LoadoutItemBody::Read {
+        path: Some("skills/land/SKILL.md".into()),
+        format: LoadoutItemFormat::Markdown,
+        body: "# Land".into(),
+        truncated: false,
+    };
+    assert_eq!(
+        encode(&read).expect("encodes"),
+        r##"{"what":"read","path":"skills/land/SKILL.md","format":"markdown","body":"# Land"}"##
+    );
+    let cut = LoadoutItemBody::Read { path: None, format: LoadoutItemFormat::Text, body: String::new(), truncated: true };
+    assert_eq!(encode(&cut).expect("encodes"), r#"{"what":"read","format":"text","body":"","truncated":true}"#);
+    let not = LoadoutItemBody::NotRead { why: "A server is not a file.".into() };
+    assert_eq!(encode(&not).expect("encodes"), r#"{"what":"not_read","why":"A server is not a file."}"#);
 }

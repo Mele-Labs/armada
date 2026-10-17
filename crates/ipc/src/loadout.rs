@@ -1,8 +1,9 @@
 //! A session's Loadout: what its agent knows, was told, and used each turn, each item with where it
 //! came from. `docs/practices/protocol.md`, *A Session's Loadout*.
 //!
-//! **Names, sources and counts only.** Never a skill's body, a prompt's text, a tool's input or a
-//! file's contents.
+//! **Names, sources and counts only**, except [`LoadoutItemBody`]: never a skill's body, a prompt's
+//! text, a tool's input or a file's contents on a record, a fact or the whole Loadout. What a row says
+//! is read from disk where Fleet runs, one row at a time, when a person opens it.
 
 use serde::{Deserialize, Serialize};
 
@@ -146,4 +147,46 @@ pub struct SessionLoadout {
     pub items: Vec<LoadoutItem>,
     /// Oldest first, the newest last, at most the last fifty.
     pub turns: Vec<LoadoutTurn>,
+}
+
+/// How much of an item's contents `read_loadout_item` carries: 256 KiB, and `truncated` past it.
+pub const LOADOUT_ITEM_CAP: usize = 256 * 1024;
+
+/// `read_loadout_item`'s query: one row of a session's Loadout, as the Loadout names it. A use's
+/// `skill`, `tool` or `subagent` is asked as the kind of the same name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LoadoutItemAsked {
+    pub session_id: String,
+    pub kind: LoadoutKind,
+    pub name: String,
+    pub source: LoadoutSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+}
+
+/// What an item's contents are written in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoadoutItemFormat {
+    Markdown,
+    Text,
+}
+
+/// `read_loadout_item`: what one Loadout row says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "what", rename_all = "snake_case")]
+pub enum LoadoutItemBody {
+    Read {
+        /// Where it was read, for a person: from the repository's root, `~/…` under the home, or
+        /// from the plugin's own folder. Absent for text Armada holds itself.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        format: LoadoutItemFormat,
+        body: String,
+        /// The body stops at [`LOADOUT_ITEM_CAP`] and the file goes on.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        truncated: bool,
+    },
+    /// A sentence a person reads.
+    NotRead { why: String },
 }

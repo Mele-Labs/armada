@@ -1263,6 +1263,10 @@ where
         }
         crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))
     }
+
+    async fn read_loadout_item(&self, asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
+        self.loadout_item(asked).await
+    }
 }
 
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`

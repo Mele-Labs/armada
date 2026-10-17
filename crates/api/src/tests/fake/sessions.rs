@@ -404,4 +404,8 @@ impl Sessions for FakeDaemon {
     async fn get_session_loadout(&self, _session_id: ipc::SessionId) -> Result<ipc::SessionLoadout, Refusal> {
         Ok(ipc::SessionLoadout::default())
     }
+
+    async fn read_loadout_item(&self, _asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
+        Ok(ipc::LoadoutItemBody::NotRead { why: String::from("A fake reads nothing.") })
+    }
 }
