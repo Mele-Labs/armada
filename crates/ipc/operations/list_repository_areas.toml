@@ -4,9 +4,11 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "The directories of every served repository's base branch, to two names deep, each with the files under it"
 notes = """
-`GET /repository_areas`. `RepositoryAreas`. For each served repository, its `manifest_id`, `root`, the base `head` the counts were read at, and `areas`: each top directory (`crates`) with its `files` and the directories inside it that made the list as `kids` (`name`, `files`). The flight deck's map draws one plot for each.
+`GET /repository_areas`. `RepositoryAreas`. For each served repository, its `manifest_id`, `root`, the base `head` the counts were read at, and `areas`: each top directory (`crates`) with its `files` and the directories inside it that made the list as `kids` (`name`, `files`, `names`). The flight deck's map draws one plot for each.
 
 **Git's tree, never the disk.** `git ls-tree -r --name-only` of the base branch's head, counted per top directory and per directory inside one. A file at the top of the repository is in no directory. A file git does not track, and one in a slot that has not landed, is not counted. No directory is walked, and what `.gitignore` names is not in the tree.
+
+**Named files.** A kid names its first 100 files, and a top directory with no kids its own, each relative to that directory and in the order git lists them; `files` stays the exact count, so `files` less the names are the files not named. A top directory with kids names none. They come out of the same `ls-tree` as the counts, kept with them against the head, so naming costs no second read of git. `names` is left out where empty.
 
 **Capped at the 40 largest.** Counting each top directory and each directory inside one, the 40 with most files, ties by name, are listed and `omitted` is how many were left out. A top directory is never listed after a directory inside it, since it holds at least as many files and sorts first on a tie, so a `kid` always has its parent. A repository with a monorepo's thousand directories is drawn from its 40 largest.
 
