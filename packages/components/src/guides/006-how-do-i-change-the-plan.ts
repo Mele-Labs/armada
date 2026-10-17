@@ -10,7 +10,7 @@ export const GUIDE_PLAN_ASKS: Guide = {
   group: "plan",
   title: "How do I change the plan?",
   piece: "plan.asks",
-  concept: "docs/concepts/plan.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "The plan is the Drone's record of how it means to work.",
     "Add task, Edit this task, Drop this task and Remove change it directly, through Fleet.",

@@ -14,7 +14,7 @@ export const GUIDE_JOB: Guide = {
   group: "job",
   title: "What is a job?",
   piece: "job.what",
-  concept: "docs/concepts/job.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "A job is one piece of work you ask Armada for.",
     "It is a record rather than a worker.",

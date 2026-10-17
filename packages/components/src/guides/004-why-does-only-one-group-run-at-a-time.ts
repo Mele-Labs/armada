@@ -13,7 +13,7 @@ export const GUIDE_GROUP_ORDER: Guide = {
   group: "plan",
   title: "Why does only one group run at a time?",
   piece: "plan.group-order",
-  concept: "docs/concepts/plan.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "A step's plan is a list of tasks, gathered into groups.",
     "The groups run one at a time, in plan order.",

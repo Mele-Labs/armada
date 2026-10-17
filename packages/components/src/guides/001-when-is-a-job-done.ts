@@ -15,7 +15,7 @@ export const GUIDE_COMPLETION: Guide = {
   group: "job",
   title: "When is a job done?",
   piece: "land.completion",
-  concept: "docs/concepts/landing.md",
+  concept: "docs/concepts/fleet.md",
   steps: [
     "A job is done when its landing rule is met.",
     "The rule is chosen when the job is dispatched, and frozen from then on.",
