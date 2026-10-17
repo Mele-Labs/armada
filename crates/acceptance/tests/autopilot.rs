@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 use core_model::Timestamp;
 use fleet::autopilot::{
     candidates, picked, read_pick, read_settings, room, settings_from, Candidate, Cap, Caps,
-    NotPicked, NotResumed, Pick, Settings, Spent, State,
+    NotPicked, NotResumed, Pick, Settings, Spent, Standing, State,
 };
 
 use bench::autopilot::{
@@ -201,6 +201,9 @@ fn a_session_waiting_on_a_person_or_ended_does_not_count_against_at_once() {
 
     let full = [standing(true, false, true), standing(true, false, false)];
     assert_eq!(room(2, &full), 0, "a Session not yet run holds one too");
+
+    let replied = Standing { working: false, ..standing(true, false, true) };
+    assert_eq!(room(1, &[replied]), 1, "one that replied or went idle holds none");
 }
 
 // ---------------------------------------------------------------------------

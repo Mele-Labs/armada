@@ -114,6 +114,7 @@ pub fn standing(live: bool, waiting_on_a_person: bool, ever_ran: bool) -> Standi
     Standing {
         live,
         waiting_on_a_person,
+        working: true,
         ever_ran,
     }
 }

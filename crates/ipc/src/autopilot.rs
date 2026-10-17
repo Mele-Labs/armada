@@ -79,7 +79,7 @@ pub struct Autopilot {
     /// How many Sessions it has started, the count `job_cap` is held to. **Named for the Jobs it once
     /// started**; it counts Sessions.
     pub jobs_started: u32,
-    /// How many of its Sessions hold a place now: live, and not waiting on a person.
+    /// How many of its Sessions hold a place now: live, at work, and not waiting on a person.
     pub at_work: u32,
     pub picks: Vec<AutopilotPick>,
     /// Why the last pass picked nothing, in Fleet's words: the tracker would not answer, or the

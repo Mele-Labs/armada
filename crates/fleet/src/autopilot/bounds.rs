@@ -19,15 +19,20 @@ pub struct Standing {
     pub live: bool,
     /// It holds something for the person: a question, a permission, a plan to approve, a done.
     pub waiting_on_a_person: bool,
+    /// Its agent is at work: a turn is running, or a subagent of it is. A Session that has replied
+    /// or gone idle is not.
+    pub working: bool,
     /// Its agent's process has started at some point.
     pub ever_ran: bool,
 }
 
 impl Standing {
-    /// **Live, and not waiting on a person.** A Session with a call standing holds none: the
-    /// owner's *doesn't block the queue*. An ended one holds none either.
+    /// **Live, at work, and not waiting on a person.** One with a call standing holds none, and
+    /// neither does one that has replied or gone idle: the owner's *doesn't block the queue*, and
+    /// an Autopilot Session rarely ends on its own. An ended one holds none either. One whose
+    /// agent has not yet run is about to work, so it holds one.
     pub fn holds_a_place(&self) -> bool {
-        self.live && !self.waiting_on_a_person
+        self.live && (self.working || !self.ever_ran) && !self.waiting_on_a_person
     }
 
     /// Picked and not started: live, and its agent has never run. Stop withdraws these.

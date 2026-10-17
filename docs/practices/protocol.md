@@ -4368,7 +4368,7 @@ Since 16 Oct 2026. `docs/concepts/sketch-pane.md`, *Screens*, and `docs/concepts
 | Where | Side | Change |
 | --- | --- | --- |
 | `AutopilotPick.job_id` | Fleet writes, Bridge reads | Replaced by `session_id`: the Session the pick started, opened in the Cockpit. A pick of an earlier build carries none |
-| `Autopilot.at_work`, `spent_micros` | Fleet writes, Bridge draws | Count the Sessions it started: live, and not waiting on a person, and their reported cost. Same fields, same types |
+| `Autopilot.at_work`, `spent_micros` | Fleet writes, Bridge draws | Count the Sessions it started: live, at work, and not waiting on a person, and their reported cost. Same fields, same types |
 | `Autopilot.jobs_started`, `job_cap`, `AutopilotCap` `jobs` | Fleet writes, Bridge draws | Unchanged by name, and count Sessions started. Renaming them is for the pass that deletes Jobs |
 | `AutopilotPickState` `withdrawn` | Fleet writes | A Session closed at Stop because it had never run, where it was a Job killed |
 | `dispatch_set_aside` | Bridge calls | Starts a Session at once, where it drafted a Job to the approval gate. The route and the answer are unchanged |

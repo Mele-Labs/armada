@@ -32,7 +32,7 @@
 On Fleet's noticing interval, in a task of its own so a landing never waits behind it, each running Autopilot with room is asked for picks:
 
 1. **The caps first.** The first one reached pauses it, and says which.
-2. **The room.** Its Sessions that hold a place are counted against *at once*: the ones it started that are live, and not waiting on a person.
+2. **The room.** Its Sessions that hold a place are counted against *at once*: the ones it started that are live, at work, and not waiting on a person.
 3. **What it may pick.** The open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a Job not yet ended came from, and any this run already picked.
 4. **One call per pick**, a Policy rather than a Drone, so it holds no place. It names an issue it was offered, a workflow the repository holds, whether it is sure, and why.
 
@@ -51,8 +51,8 @@ Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilot
 > **Rule.** Only a sure pick starts a Session with no person pressing.
 > Why: the owner's call of 11 Oct 2026, `.claude/decisions/2026-10-11-autopilots-clear-picks-start-unasked.md`. A Session has no dispatch gate, so what the call decides now is whether a person is asked. In code it is one function that takes the sure pick whole, and only reading the picker's answer makes one.
 
-> **Rule.** A Session waiting on a person holds no place, and an ended one holds none.
-> Why: the owner's *doesn't block the queue*. A Session with a question, a permission, a plan to approve or a done standing for the person is not counted against *at once*. A Session that has replied or gone idle with nothing standing still is: it holds its place until it ends.
+> **Rule.** A Session waiting on a person holds no place, nor one that has replied or gone idle, and an ended one holds none.
+> Why: the owner's *doesn't block the queue*. A Session with a question, a permission, a plan to approve or a done standing for the person is not counted against *at once*. So is one that has replied or gone idle with nothing standing: an Autopilot Session rarely ends on its own, and holding its place until it did would stall the queue (the owner's 17 Oct). It stays open, and still counts as started.
 
 > **Rule.** Each cap stops the next pick and never a running Session.
 > Why: a Session's cost arrives as it works. Autopilot can overshoot a cap by as many Sessions as it runs at once.

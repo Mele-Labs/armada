@@ -10,7 +10,7 @@ use api::{Autopilots, HostedSessions, Refusal};
 use ipc::{AutopilotCap, AutopilotPickState, AutopilotSettings, AutopilotState, ManifestId};
 use testkit::{FakeHarness, FakeJudge, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
-use super::session_host::{Shared, StandIn};
+use super::session_host::{eventually, Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::proposing::a_catalogue;
@@ -144,6 +144,55 @@ async fn a_full_autopilot_asks_nothing_and_a_session_that_ends_or_waits_gives_it
     let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
     assert_eq!(now.at_work, 1, "an ended Session holds none");
     assert_eq!(now.jobs_started, 2, "and still counts as started");
+}
+
+#[tokio::test]
+async fn a_session_that_replied_and_went_idle_gives_its_place_back_while_staying_open() {
+    let home = TempDir::new();
+    let (fleet, _, stand_in) = a_fleet(&home, &[SURE_12, SURE_13]);
+    started(&fleet, 1, None).await;
+    fleet.autopilot_pass().await.expect("a pass");
+    let first = fleet.get_autopilot(here(&fleet)).await.expect("held").picks[0].clone();
+    stand_in.init(0);
+    eventually(|| async { fleet.get_autopilot(here(&fleet)).await.expect("held").at_work == 1 })
+        .await;
+
+    stand_in.finishes(0, "It is fixed.");
+
+    eventually(|| async { fleet.get_autopilot(here(&fleet)).await.expect("held").at_work == 0 })
+        .await;
+    assert_eq!(
+        row_of(&fleet, &session_of(&first)).await.state,
+        store::SessionState::Live,
+        "it replied; it did not end"
+    );
+    assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1, "its place is free");
+}
+
+#[tokio::test]
+async fn an_issue_a_live_session_of_an_earlier_run_took_is_not_picked_again_after_stop_and_start()
+{
+    let home = TempDir::new();
+    let (fleet, model, _) = a_fleet(&home, &[SURE_12, SURE_13]);
+    started(&fleet, 1, None).await;
+    fleet.autopilot_pass().await.expect("a pass");
+    let first = fleet.get_autopilot(here(&fleet)).await.expect("held").picks[0].clone();
+    fleet.stop_autopilot(here(&fleet)).await.expect("stops");
+    started(&fleet, 1, None).await;
+
+    fleet.autopilot_pass().await.expect("a pass");
+
+    let asked = model.asked();
+    let second = asked.last().expect("the new run asked");
+    assert!(
+        !second.contains("The Board labels a killed Job as failed"),
+        "the issue its live Session holds is not offered: {second}"
+    );
+    assert!(second.contains("#13") && second.contains("#11"), "the rest are: {second}");
+    assert_eq!(
+        row_of(&fleet, &session_of(&first)).await.state,
+        store::SessionState::Live
+    );
 }
 
 #[tokio::test]

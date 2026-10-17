@@ -132,18 +132,11 @@ where
                 spent.started += 1;
             }
             // A Session forgotten since it was picked is no longer anybody's to count.
-            let Some((session, ever_ran, waiting)) = self.pick_session_standing(started).await else {
+            let Some((cost, standing_now)) = self.pick_session_standing(started).await else {
                 continue;
             };
-            spent.micros += session.figures.cost_micros.unwrap_or(0);
-            standing.insert(
-                one.pick_id.clone(),
-                Standing {
-                    live: session.state == store::SessionState::Live,
-                    waiting_on_a_person: waiting,
-                    ever_ran,
-                },
-            );
+            spent.micros += cost;
+            standing.insert(one.pick_id.clone(), standing_now);
         }
         Ok(Gathered {
             kept,
@@ -153,9 +146,9 @@ where
         })
     }
 
-    /// The ledger's row of `id`, whether its agent ever ran, and whether it holds something for the
-    /// person. `None` where the ledger holds no such Session.
-    async fn pick_session_standing(&self, id: &str) -> Option<(store::KeptSession, bool, bool)> {
+    /// What the Session `id` has cost and how it stands, as room and Stop read it. `None` where the
+    /// ledger holds no such Session.
+    async fn pick_session_standing(&self, id: &str) -> Option<(u64, Standing)> {
         let store = self.store().lock().await;
         let session = store.session(id).ok().flatten()?;
         let ever_ran = store
@@ -163,9 +156,22 @@ where
             .ok()
             .flatten()
             .is_some_and(|hosting| hosting.ran);
-        let waiting = self
-            .ledger_row(&store, &session)
-            .is_ok_and(|record| !record.waiting_for.is_empty());
-        Some((session, ever_ran, waiting))
+        let record = self.ledger_row(&store, &session).ok();
+        let waiting = record.as_ref().is_some_and(|record| !record.waiting_for.is_empty());
+        let working = record.as_ref().is_some_and(|record| {
+            matches!(
+                record.standing,
+                Some(ipc::SessionStanding::Working | ipc::SessionStanding::Stuck)
+            )
+        });
+        Some((
+            session.figures.cost_micros.unwrap_or(0),
+            Standing {
+                live: session.state == store::SessionState::Live,
+                waiting_on_a_person: waiting,
+                working,
+                ever_ran,
+            },
+        ))
     }
 }

@@ -85,9 +85,9 @@ Neither one stops a Session that is working.
 | Part | State |
 |---|---|
 | The decisions | Taken, `.claude/decisions/2026-10-11-*.md` |
-| A waiting Session gives its place back | Built: a Session with a call standing for the person holds no place |
+| A waiting Session gives its place back | Built: a Session with a call standing for the person, or one that has replied or gone idle, holds no place |
 | Fleet reads issues and writes back | Built, #91: `docs/concepts/tracker.md`. The list is in the composer; the Cockpit lane is Autopilot's |
-| The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Session waiting on a person holds no place |
+| The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Session waiting on a person, or idle, holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick, which starts a Session, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
 | The Cockpit lane | Built, #2092's Bridge half, and #2105's quotes, cap pause, Edit caps and All line (the All line since replaced by the header control that asks for a repository): [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
