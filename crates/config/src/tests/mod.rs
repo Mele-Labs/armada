@@ -24,6 +24,7 @@ mod loops;
 mod manifest;
 mod model;
 mod prerequisites;
+mod review_tools;
 mod samples;
 mod scope;
 mod settings;

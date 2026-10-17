@@ -144,6 +144,13 @@ pub struct FakeVcs {
     cut_from: Mutex<Vec<String>>,
     /// Every repair branch this fake was asked to delete, in order.
     deleted_branches: Mutex<Vec<String>>,
+    /// What leasing a bay to read a pull request in answers: the head the checkout is at, or the
+    /// sentence the forge refused with. Absent is a head of forty `a`s.
+    review_head: Mutex<Option<Result<String, String>>>,
+    /// Every bay leased to read a pull request, as `(pull request, holder)`, and every one given
+    /// back, as `(slot, holder)`.
+    review_leases: Mutex<Vec<(u64, String)>>,
+    review_releases: Mutex<Vec<(u32, String)>>,
     /// What [`Vcs::changes`] counts: every act on a slot or a checkout.
     changed: AtomicU64,
     /// How many times a pool was read. A snapshot that answers from memory
@@ -1044,6 +1051,43 @@ impl Vcs for FakeVcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
         self.noted(self.leased_existing(pool, branch, job_id))
+    }
+
+    fn lease_review_bay(
+        &self,
+        pool: &SlotPool,
+        pull_request: u64,
+        holder: &str,
+    ) -> Result<adapter_traits::ReviewBay, String> {
+        let head = match self.review_head.lock().expect("not poisoned").clone() {
+            Some(Err(said)) => return Err(said),
+            Some(Ok(head)) => head,
+            None => "a".repeat(40),
+        };
+        let leased = self.slots.lease_existing(pool, &format!("review/{holder}"), holder);
+        self.noted(());
+        match leased {
+            SlotLeased::Took { slot, worktree, .. } => {
+                self.review_leases
+                    .lock()
+                    .expect("not poisoned")
+                    .push((pull_request, holder.to_string()));
+                Ok(adapter_traits::ReviewBay::Took {
+                    slot,
+                    path: worktree.path().to_string(),
+                    head,
+                })
+            }
+            SlotLeased::Full => Ok(adapter_traits::ReviewBay::Full),
+        }
+    }
+
+    fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), String> {
+        self.review_releases
+            .lock()
+            .expect("not poisoned")
+            .push((slot, holder.to_string()));
+        self.noted(self.slots.release(pool, slot, holder).map_err(|kept| kept.0))
     }
 
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {

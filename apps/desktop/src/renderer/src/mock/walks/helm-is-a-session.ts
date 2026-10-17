@@ -2,11 +2,10 @@
 // is: tool calls fold into groups, the working mark closes a turn that is running, and Stop sits beside
 // it. Once Helm writes it holds a slot and a branch, and a pull request it opens, as chips under the
 // dock's head; a subagent it runs opens in a sheet, and a question it asks is answered in the thread.
-// A thought for other work keeps its card and its "Sent to" row. The Sessions list shows Helm's Session
-// with Helm's mark, and opening it opens the dock. Over `helm-is-a-session`; each `later` is the turn's
-// next step.
+// A thought for other work keeps its card and its "Sent to" row. Over `helm-is-a-session`; each `later` is the
+// turn's next step.
 
-import { button, inside, place, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
 
 const helm = role("complementary", "Helm");
 const box = inside(helm, role("textbox", "Ask Helm"));
@@ -14,7 +13,6 @@ const held = inside(helm, role("group", "Held by Helm"));
 const thread = inside(helm, region("Thread"));
 const ask = inside(helm, role("article", "Waiting on you"));
 const subagent = role("dialog", "Subagent Find the other clock callers");
-const sessions = region("Sessions");
 
 const helmIsASession = walk("helm-is-a-session", [
   { press: button("Helm"), say: "Helm's dock on armada" },
@@ -52,11 +50,6 @@ const helmIsASession = walk("helm-is-a-session", [
   { key: "Enter", on: box, say: "Press ↵" },
   { look: inside(thread, button("Sent to Session Sessions list views")), say: "The words stay in the thread, with where they went" },
 
-  { press: place("Sessions"), say: "The Sessions list" },
-  { hover: inside(sessions, role("img", "Helm")), say: "Helm's Session carries Helm's mark" },
-  { key: "Meta+j", on: helm, say: "The dock put away" },
-  { press: inside(sessions, button(/Helm · armada/)), say: "Opening it opens the dock" },
-  { look: inside(helm, button("Open Pull request #2231")), say: "The same conversation, with what it holds" },
 ]);
 
 export { helmIsASession as "helm-is-a-session" };

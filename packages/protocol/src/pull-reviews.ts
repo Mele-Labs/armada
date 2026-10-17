@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here.
 
 import type { PullRequestReviewState } from "./pull-requests";
+import type { PullReviewHolder } from "./review-runs";
 
 /** The four lists. A pull request can be on several. */
 export type PullReviewList = "requested" | "team" | "assigned" | "mine";
@@ -32,6 +33,8 @@ export type PullReviewRow = {
   updated_at: string;
   /** The team asked, as the forge names it, on the `team` list only. */
   team?: string;
+  /** The Session of the person's that holds it, where one does. Absent, and a note on it stays in Armada. */
+  holder?: PullReviewHolder;
 };
 
 /** `get_review_lists`: read when the Reviews tab opens and on Refresh, never polled. At most `MOST_PER_LIST` a list. */

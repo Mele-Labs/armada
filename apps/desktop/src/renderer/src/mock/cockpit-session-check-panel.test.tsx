@@ -11,7 +11,7 @@ unmountAfterEach();
 test("Cockpit: pressing a Session's check opens the panel over the Cockpit", async () => {
   mount("session-checks");
   await onScreen();
-  const list = page.getByRole("region", { name: "Jobs and Sessions" });
+  const list = page.getByRole("region", { name: "Work", exact: true });
   await userEvent.click(list.getByRole("button", { name: "Session check rows" }));
   const pane = page.getByRole("region", { name: "Session: Session check rows" });
   await userEvent.click(pane.getByRole("button", { name: "Check desktop:typecheck, passed" }));

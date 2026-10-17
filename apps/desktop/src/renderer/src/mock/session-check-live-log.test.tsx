@@ -5,15 +5,14 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { stopsAsked } from "./session-check-stops";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 async function openRunning() {
   mount("session-check-live-log");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "Session check rows" }));
+  await toSession("Session check rows");
   await userEvent.click(page.getByRole("region", { name: "Thread" }).getByRole("button", { name: "Check app_smoke, running" }));
   const log = page.getByRole("dialog", { name: "Check log" });
   await expect.element(log).toBeVisible();

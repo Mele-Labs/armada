@@ -196,6 +196,8 @@ mod requester;
 /// What one Job holds on this machine, and what came of asking whether it is
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
+/// What an agent says about one pull request, and the review tools it is asked with.
+mod review_runs;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -214,6 +216,7 @@ mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
+mod slot_asking;
 mod session_retro_row;
 mod session_starts;
 mod session_summary;
@@ -487,6 +490,12 @@ pub use repositories::{
     AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use review_runs::{
+    PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace, ReviewResult,
+    ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity, ReviewStep,
+    ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewToolScope,
+    ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
     Look, WorktreeOnDisk,
@@ -515,6 +524,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
+pub use slot_asking::{AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding};
 pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,

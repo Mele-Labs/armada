@@ -173,6 +173,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A run of an agent about a pull request moved, whole. `docs/concepts/pull-review.md`.
+    Route {
+        operation: "review_run.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The default model's step down after any change to it, whole.
     Route {
         operation: "model_downshift.changed",

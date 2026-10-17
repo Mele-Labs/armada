@@ -1,8 +1,7 @@
 // Pilot from a Session on a real Fleet's path, through `App`: a person takes a stopped Job over from
 // its row, the Session starts on its worktree, and one of three exits ends the pilot. What stands where
 // main stands is `sessions-fleet.ts`, which answers the take over and the exits as Fleet does and
-// publishes the Job and the Session changing. The walk (`walks/piloting.ts`) proves what the screens
-// draw from fixtures; this proves they draw it from, and act on, what Fleet serves.
+// publishes the Job and the Session changing. This proves the screens draw it from, and act on, what Fleet serves.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -13,7 +12,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard, onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, toJobPage, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toJobPage, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 // The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
@@ -57,9 +56,8 @@ test("Pilot wired: a stopped Job is taken over from its pane, and the Session op
   await expect.element(handoff().getByText("written, not declared")).toBeVisible();
   // This Job's Drone said nothing before it stopped, so there is no account to draw, and no blank group for it.
   await expect.element(handoff().getByText("Trying to")).not.toBeInTheDocument();
-  // The handed slot is the chip of the handed branch's row, so it has no row of its own to say so.
+  // The Cockpit's Ledger carries the branch and the bay as chips in its band, with no row of their own to say they were handed over.
   await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not leased" })).not.toBeInTheDocument();
-  await expect.element(ledger().getByRole("img", { name: "Handed over with Job 52, not created here" })).toBeVisible();
   await expect.element(exits()).toBeVisible();
 });
 
@@ -83,22 +81,6 @@ test("Pilot wired: a take over Fleet refuses is said in the confirmation, which 
   const dialog = page.getByRole("dialog", { name: "Pilot this Job?" });
   await expect.element(dialog.getByText("A person has already taken this Job over.")).toBeVisible();
   await expect.element(handoff()).not.toBeInTheDocument();
-});
-
-test("Pilot wired: the Board says which Session has the Job, and its card opens that Session", async () => {
-  const fleet = new FakeSessionsFleet();
-  mount(served(fleet));
-  await pilotIt();
-  await expect.element(handoff()).toBeVisible();
-
-  await toPlace("Cockpit");
-  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: /^The retry loop/ }));
-  await expect.element(page.getByRole("img", { name: "Piloted in The retry loop" })).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Job 52" }));
-  const card = page.getByRole("dialog", { name: "Owned by The retry loop" });
-  await expect.element(card).toBeVisible();
-  await userEvent.click(card.getByRole("button", { name: "Open Session" }));
-  await expect.element(handoff()).toBeVisible();
 });
 
 test.each([
@@ -164,8 +146,7 @@ test("Pilot wired: the `/` list is what the agent named, and the composer offers
   const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", hosted: { turn: { state: "idle" }, mode: "auto", running: false, commands: ["compact", "review"] } })]);
   mount(served(fleet));
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await toSession("Fix the flaky store test");
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "/");
   await expect.element(page.getByRole("option", { name: "/compact" })).toBeVisible();
   await expect.element(page.getByRole("option", { name: "/review" })).toBeVisible();

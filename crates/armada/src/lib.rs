@@ -51,6 +51,7 @@ pub mod pocketing;
 pub mod reaching;
 pub mod say;
 pub mod session_checks;
+pub mod slot_asking;
 pub mod serve;
 pub mod settings;
 pub mod setup;

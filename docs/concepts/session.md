@@ -256,8 +256,20 @@ not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A session that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the session's next write
 joins again and he is asked again. A terminal session is not queued, because
-`armada worktree lease` waits for a slot itself, and so does that command run by a
-hosted session: it does not ask the owner yet.
+`armada worktree lease` waits for a slot itself.
+
+**`armada worktree lease` run by a hosted Session asks the owner the same question.**
+Finding every slot held, the command tells Fleet (`ask_for_slot`, naming the Session by the
+`ARMADA_SESSION` Fleet set in its process) and again about once a second, and says on stderr
+what the owner chose. It raises the Session's one `slot_choice` call, or shares the one a
+queued write already raised: never two. **Wait** leaves the command looking for a free slot, as it
+always did. **Add** makes a slot and holds it for the command until it leases it or about
+thirty seconds pass; the grant to the line leaves that repository alone meanwhile, and a write
+that would take the slot straight off the pool queues instead. Where the Session is also in
+the line, the new slot goes to the Session and the command keeps waiting. Fleet forgets a command
+it has not heard from for ten seconds, taking the call with it, so one that died leaves nothing
+on the owner's list. A command with no `ARMADA_SESSION`, or no Fleet to ask, waits as it always did.
+Nothing moves the Session: the command takes the slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere

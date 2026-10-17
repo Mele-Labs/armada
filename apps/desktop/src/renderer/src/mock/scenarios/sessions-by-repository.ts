@@ -1,5 +1,4 @@
-// The Sessions list on All repositories, two of them served: each is a band with the state columns
-// inside it. The walk `sessions-by-repository` plays it, then picks one repository, which draws no band.
+// Two repositories served, on All. The title-bar-repository walk and test play it: the title row names the pick off the Cockpit.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";

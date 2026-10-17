@@ -1,4 +1,4 @@
-// A failure toast that can start a Session. Pressing New Session on the Sessions page raises an uncaught rejection from the
+// A failure toast that can start a Session. Starting a Session from Dispatch raises an uncaught rejection from the
 // Sessions store, as the real one did, so the toast stands with Copy debug info, File an issue, Dispatch session and
 // Dismiss. Dispatch session starts a Session in Armada's repository told the debug info, the way a Session's Report does, and
 // opens it. Over the `sessions` scenario. The walk `failure-dispatch-session` plays it.
@@ -20,7 +20,7 @@ function rejectUnhandled(reason: Error): void {
 export const s261FailureDispatchSession: Scenario = {
   ...s200Sessions,
   name: "failure-dispatch-session",
-  says: "New Session throws from the Sessions store; the failure toast offers Dispatch session beside Copy debug info",
+  says: "Starting a Session throws from the Sessions store; the failure toast offers Dispatch session beside Copy debug info",
   draft: {
     sessions: (board) => {
       const store = s200Sessions.draft!.sessions!(board);

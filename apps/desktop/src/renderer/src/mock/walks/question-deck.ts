@@ -11,7 +11,7 @@ const thread = region("Thread");
 
 const questionDeck = walk("session-many-questions", [
   { press: rail("Sessions"), say: "The Sessions page" },
-  { press: inside(region("Sessions"), button(/Plan the night/)), say: "A Session asking four questions" },
+  { press: inside(region("Work", { exact: true }), button(/Plan the night/)), say: "A Session asking four questions" },
   { look: inside(ask, text("Should a destructive best answer be decided overnight?")), say: "One question in front, three behind" },
   { press: inside(ask, button(/Destructive/)), say: "Pressing the band folds the card to it, so the thread above can be read" },
   { press: inside(ask, button(/Destructive/)), say: "Pressing it again opens the card, nothing picked is lost" },

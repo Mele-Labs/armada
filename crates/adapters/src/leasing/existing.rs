@@ -41,7 +41,8 @@ impl Pool {
         loop {
             match self.take(Onto::Existing, branch, holder, since, seed)? {
                 Leased::Took(lease) => return Ok(lease),
-                Leased::Full(full) => waiting(&full),
+                Leased::Full(full) if full.settled() => waiting(&full),
+                Leased::Full(_) => {}
             }
             std::thread::sleep(Duration::from_millis(200));
         }
@@ -59,7 +60,7 @@ impl Pool {
         if let Some(own) = self.handed_back(holder) {
             return Ok(Leased::Took(own));
         }
-        self.take(Onto::Existing, branch, holder, since, seed)
+        self.looked_until_settled(|| self.take(Onto::Existing, branch, holder, since, seed))
     }
 
     /// Where a lease of `branch` puts it: on the branch as it stands if this

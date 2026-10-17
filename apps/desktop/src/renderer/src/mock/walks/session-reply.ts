@@ -7,7 +7,7 @@ import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const mine = inside(sessions, button(/Pin the store clock/));
   const needs = region("Needs you");
   return [

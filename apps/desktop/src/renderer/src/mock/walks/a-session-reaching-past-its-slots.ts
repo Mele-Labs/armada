@@ -12,8 +12,8 @@ const ANSWERS = inside(CARD, role("group", "Answers"));
 const LIST = role("list", "Folders sessions reach");
 
 export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
-  { press: place("Sessions"), say: "Sessions" },
-  { press: inside(region("Sessions"), button(/Custom margins/)), say: "A session held on a read outside its slots" },
+  { press: place("Cockpit"), say: "Cockpit" },
+  { press: inside(region("Work", { exact: true }), button(/Custom margins/)), say: "A session held on a read outside its slots" },
   { look: CARD, say: "What it wants to read, and why it is asked" },
   { look: inside(CARD, text("Permission to read")), say: "A read" },
   { look: ANSWERS, say: "Reject once for this call, and Always in its own panel" },
@@ -23,8 +23,8 @@ export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { press: inside(PICKER, button("Documents")), say: "Press a folder to widen it" },
   { look: inside(CARD, text("/Users/user/Documents/*")), say: "Documents and all it holds, lit up to the end" },
   { press: inside(ANSWERS, button("Always allow Documents", { exact: true })), say: "Always allow everything under Documents" },
-  { press: place("Sessions"), say: "Back to Sessions" },
-  { press: inside(region("Sessions"), button(/Release notes/)), say: "Another session, held on a write" },
+  { press: place("Cockpit"), say: "Back to Sessions" },
+  { press: inside(region("Work", { exact: true }), button(/Release notes/)), say: "Another session, held on a write" },
   { look: inside(CARD, text("Permission to write")), say: "A write" },
   { look: inside(CARD, text("Always applies to writes to")), say: "Always covers writes to this path" },
   { press: inside(ANSWERS, button("Always allow for this session notes.md", { exact: true })), say: "Allowed for this session until it is closed" },

@@ -6,7 +6,7 @@ import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 
 const { rail } = kit(false);
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const thread = region("Thread");
 const lapsed = role("article", "Unanswered");
 const needs = region("Needs you");
