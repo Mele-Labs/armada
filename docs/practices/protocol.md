@@ -3634,6 +3634,19 @@ The page's `head`, `body` and `threads`, the write's `comments` and `commit`, an
 
 **Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal. A Bridge before it never calls it. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
 
+## Protocol 23.92: a Session paused and resumed
+
+`docs/concepts/session.md`, *Pausing a Session*. **Additive only**: two operations, three types and one optional field. There is no number to bump: the protocol ID moves with the files below.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `pause_session` (`POST /sessions/pause`) | `PauseSession`: `session_id` | Answers the `SessionRecord` with `hosted.paused` set. Ends the turn, commits the slot's work to the branch (WIP, no push), frees the slot. `Helm only` |
+| `resume_session` (`POST /sessions/resume`) | `ResumeSession`: `session_id` | Answers the record; `hosted.paused` is absent once a slot is held, and `resuming` while it waits for one. Starts no turn. `Helm only` |
+| `HostedFacts.paused` | `SessionPaused`: `at`, `resuming` | Absent unless paused. Carried on `session.changed`, which is published on every change; no new event kind |
+| 409 `fleet.session_not_pausable`, `fleet.session_already_paused`, `fleet.session_not_paused`, `fleet.session_pause_refused` | | A terminal Session is 422 `fleet.session_command_refused`, as for a stop |
+
+**Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`. A Bridge before it ignores the field and never calls the routes. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.79: a Session forked at a message
 
 `docs/concepts/session.md`, *A fork at a message*. **Additive only**: one optional field on `ForkFrom`, one 422 and one key in an existing detail. No new operation.

@@ -144,6 +144,15 @@ export type MoveSession = { session_id: string; manifest_id: string };
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
+/** `POST /sessions/pause`: ends the turn, parks the slot's work on its branch and gives the slot back. Answers the record with `hosted.paused` set. Since 23.92. */
+export type PauseSession = { session_id: string };
+
+/** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). Starts no turn. Since 23.92. */
+export type ResumeSession = { session_id: string };
+
+/** The marker on a paused hosted Session. Not a state: `state` stays `live`. Since 23.92. */
+export type SessionPaused = { at: string; resuming: boolean };
+
 /**
  * `POST /sessions/workflow`: the person picked the Session's workflow in a panel, or cleared it. Since 23.91.
  * Answers the `SessionRecord`. A Session that has run is told at once; one that has not, with its first turn.
@@ -200,6 +209,8 @@ export type HostedFacts = {
    * has, and after a Fleet restart until one starts.
    */
   commands?: string[];
+  /** Set while the person has paused the session. Since 23.92. */
+  paused?: SessionPaused;
 };
 
 /** Who said a row. Another session that wrote to this one is named. */
