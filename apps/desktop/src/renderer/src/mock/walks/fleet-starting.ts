@@ -1,8 +1,7 @@
 // Fleet starting: a live pid that has not answered yet, told apart from no Fleet
 // at all. The mark in the dot's place, and the word on hover.
 //
-// The dot on the title row is the Fleet button: the mark takes the dot's place there, and the
-// Board's card holds the same mark.
+// The dot on the title row is the Fleet button: the mark takes the dot's place there.
 
 import { button, role, walk } from "../walk";
 

@@ -6,7 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
@@ -20,7 +20,7 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 const ENDED = "01ENDEDAAAAAAAAAAAAAAAAAAA";
 
 function served(fleet: FakeSessionsFleet): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOB", handle: "52-the-retry-loop", title: "The retry loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

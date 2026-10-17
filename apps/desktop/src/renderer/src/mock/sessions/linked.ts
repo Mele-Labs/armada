@@ -4,7 +4,7 @@
 // `start_another_session` yet, and every field here is one it would owe (`packages/screens/src/draft/sessions.ts`).
 
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment, SessionRow, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
 
 import { mockAreas } from "../cockpit-areas";
@@ -139,9 +139,8 @@ const QUESTION = {
 /** What the parent is told, as the row its thread keeps. */
 const told = (id: string, at: string, session: string, title: string, event: "needs" | "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
 
-function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, control, [], [parent(), names(), order(), record(), other()]);
+function sessions(): SessionsStore {
+  const base = sessionsStore([parent(), names(), order(), record(), other()]);
   let moment = 0;
   const handed: Session[] = [];
   let read: { from: readonly Session[]; made: number; out: readonly Session[] } | undefined;
@@ -191,6 +190,6 @@ function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
 }
 
 export function linkedSessions(name: string, says: string): Scenario {
-  const board = onBoard([], { repositories: [ARMADA], picked: ARMADA.root });
-  return { ...board, name, says, draft: { sessions: (control) => sessions(control), areas: mockAreas } };
+  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  return { ...board, name, says, draft: { sessions, areas: mockAreas } };
 }

@@ -45,7 +45,7 @@ where
             tokio::task::spawn_blocking(move || {
                 vcs.slot_pool(&pool)
                     .into_iter()
-                    .filter(|reading| matches!(&reading.held, SlotHeld::Job(holder) if *holder == id))
+                    .filter(|reading| matches!(&reading.held, SlotHeld::Hosted(holder) if *holder == id))
                     .map(|reading| (reading.slot, reading.branch))
                     .collect()
             })

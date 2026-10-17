@@ -76,8 +76,7 @@ where
         let (Some(merge), Some(red_at)) = (main.merge.as_ref(), main.red_at.as_ref()) else {
             return;
         };
-        // A Job's pull request is `main_fix::pick_up`'s.
-        let (None, Some(id)) = (&merge.job, merge.session.clone()) else {
+        let Some(id) = merge.session.clone() else {
             return;
         };
         let known = {
@@ -85,7 +84,7 @@ where
             let taken = store.main_fixes_of(&main.repository, red_at).is_ok_and(|takes| {
                 takes
                     .iter()
-                    .any(|take| take.by.session() == Some(id.as_str()) || take.forked_from.as_deref() == Some(id.as_str()))
+                    .any(|take| take.by.session() == id.as_str() || take.forked_from.as_deref() == Some(id.as_str()))
             });
             !taken && store.session(&id).ok().flatten().is_some()
         };

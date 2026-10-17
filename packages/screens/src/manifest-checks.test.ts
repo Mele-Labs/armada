@@ -49,37 +49,23 @@ test("a stopped run is stopped, and a run with no exit code says what ended it",
   expect(checkDetailsOf(one!).map((fact) => fact.label)).toContain("Ended by");
 });
 
-const label = (id: string) => `job-${id}`;
-
 test("only the merge line opens its requester, and the rest are plain words", () => {
-  expect(askerOf({ kind: "gate", job_id: "1", step: "implement" }, label)).toEqual({ label: "Gate · job-1 · implement" });
-  expect(askerOf({ kind: "drone_task", job_id: "1", step: "implement", task_id: "T3", drone_id: "d9" }, label)).toEqual({ label: "Drone d9 · job-1 · implement · T3" });
-  expect(askerOf({ kind: "drone_step", job_id: "1", step: "fix", drone_id: "d9" }, label).opens).toBeUndefined();
-  expect(askerOf({ kind: "merge_line", branch: "b" }, label)).toEqual({ label: "Merge line · b", opens: { to: "merge-line", branch: "b" } });
-  expect(askerOf({ kind: "outside" }, label)).toEqual({ label: "Started outside a Job" });
+  expect(askerOf({ kind: "session", session_id: "s1", slot: 2 })).toEqual({ label: "Session" });
+  expect(askerOf({ kind: "merge_line", branch: "b" })).toEqual({ label: "Merge line · b", opens: { to: "merge-line", branch: "b" } });
+  expect(askerOf({ kind: "outside" })).toEqual({ label: "Started outside a Session" });
 });
 
-test("mixed sources sort newest request first, with their requester and handle", () => {
-  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "fix", attempt: 1 };
-  const reported = [
-    { ...base, source: "gate", name: "test", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "timed_out", ended_at: "2026-10-06T13:00:00Z" },
-    { ...base, source: "asked_run", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d", handle: "1-a-job" }, state: "lost", started_at: "2026-10-06T14:01:00Z", logs: [{ check: "build", kept: "k.log" }], asked_run_id: 4 },
-  ];
+test("the checkout's runs and the merge line's Checks sort newest request first in one list", () => {
   const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }, { name: "slow", state: "waiting", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
-  const entries = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [line], reported);
-  const rows = entries.map((one) => checkRowOf(one, label));
-  // One list, newest request first across every source; the line's waiting Check takes its turn's start.
+  const rows = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [line]).map((one) => checkRowOf(one));
+  // The line's waiting Check takes its turn's start.
   expect(rows.map((one) => [one.name, one.by, one.says])).toEqual([
-    ["build", "Drone d · 1-a-job · fix", "lost"],
     ["lint", "Merge line · b", "running"],
     ["slow", "Merge line · b", "waiting"],
-    ["test", "Started outside a Job", "running"],
-    ["format", "Started outside a Job", "waiting"],
-    ["build", "Started outside a Job", "passed"],
-    ["test", "Gate · 1-a-job · fix", "outran its budget"],
+    ["test", "Started outside a Session", "running"],
+    ["format", "Started outside a Session", "waiting"],
+    ["build", "Started outside a Session", "passed"],
   ]);
-  expect(entries[0]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
-  expect(entries[0]?.job).toEqual({ id: "1", handle: "1-a-job" });
 });
 
 test("a merge line Check is a row with the line's requester and the names its log is asked by", () => {
@@ -87,28 +73,4 @@ test("a merge line Check is a row with the line's requester and the names its lo
   const [one] = checkEntriesOf(undefined, [], [line]);
   expect(one?.land).toEqual({ root: "/r", branch: "b", check: "test" });
   expect(checkRowOf(one!)).toMatchObject({ status: "failed", says: "timed out", by: "Merge line · b" });
-});
-
-test("reported rows and the merge line's Checks list with no run sheet to read", () => {
-  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "fix", attempt: 1 };
-  const reported = [
-    { ...base, source: "gate", name: "build", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "passed", ended_at: "2026-10-06T14:01:00Z" },
-  ] as const;
-  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
-  expect(checkEntriesOf(undefined, [ran("build", "2026-10-06T13:30:00Z")], [line], reported).map((one) => one.name)).toEqual(["build", "lint"]);
-});
-
-// Job 13, 7 Oct 2026: Fleet served the gate's rows and the page drew none, because they were
-// kept behind the checkout's run sheet, which a window that has not read it yet does not hold.
-test("a Job's gate rows are listed before the checkout's run sheet has been read", () => {
-  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "implement", attempt: 2, group: "G1", source: "gate", requester: { kind: "gate", job_id: "1", step: "implement", handle: "1-a-job" } };
-  const reported = [
-    { ...base, name: "build", state: "skipped", ended_at: "2026-10-07T04:56:54Z" },
-    { ...base, name: "test", state: "passed", ended_at: "2026-10-07T04:56:54Z" },
-  ];
-  const rows = checkEntriesOf(undefined, [], [], reported).map((one) => checkRowOf(one, label));
-  // A skipped Check says skipped, and is neither mark of a verdict.
-  expect(rows.map((one) => [one.name, one.says])).toEqual([["build", "skipped"], ["test", "passed"]]);
-  expect(rows.map((one) => one.status)).not.toContain("failed");
-  expect(rows[0]?.status).not.toBe("passed");
 });

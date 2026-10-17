@@ -12,7 +12,7 @@ use std::time::{Duration, Instant as Clock};
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    JobId, JobRetro, RetroItem, RetroRecord, RetroSession, RetroStage, RetroState, SessionRow,
+    Retro, RetroItem, RetroRecord, RetroSession, RetroStage, RetroState, SessionRow,
     SessionTurn, SessionVoice, WireError,
 };
 use store::{KeptSession, KeptSessionRetro, RetroLine};
@@ -74,7 +74,7 @@ where
     pub(crate) async fn write_session_retro(
         self: &Arc<Self>,
         session_id: &str,
-    ) -> Result<JobRetro, Refusal> {
+    ) -> Result<Retro, Refusal> {
         let runtime = self.hosts().of(session_id);
         if runtime.writing_retro.swap(true, Ordering::AcqRel) {
             return Err(Refusal::IllegalMove(WireError::raised(
@@ -126,7 +126,7 @@ where
         &self,
         session_id: &str,
         retro: Option<i64>,
-    ) -> Result<JobRetro, Refusal> {
+    ) -> Result<Retro, Refusal> {
         let (session, last) = self.session_and_last_retro(session_id).await?;
         let kept = match retro {
             None => last,
@@ -137,11 +137,11 @@ where
                     .session_retro(session_id, n)
                     .map_err(|why| {
                         self.refusal(crate::adrift::Adrift::Reading(
-                            store::LoadJobError::Unreadable(why),
+                            store::ReadError::Unreadable(why),
                         ))
                     })?
                     .ok_or_else(|| {
-                        Refusal::NoSuchJob(WireError::raised(
+                        Refusal::NotFound(WireError::raised(
                             NO_SUCH_SESSION,
                             format!("session {session_id} has no retro numbered {n}"),
                             self.run_id(),
@@ -167,7 +167,7 @@ where
         let store = self.store().lock().await;
         let session = store.session(id).map_err(|why| self.ledger_fault(why))?;
         let Some(session) = session else {
-            return Err(Refusal::NoSuchJob(WireError::raised(
+            return Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_SESSION,
                 format!("no session is named {id}"),
                 self.run_id(),
@@ -175,7 +175,7 @@ where
         };
         let last = store.latest_session_retro(id).map_err(|why| {
             self.refusal(crate::adrift::Adrift::Reading(
-                store::LoadJobError::Unreadable(why),
+                store::ReadError::Unreadable(why),
             ))
         })?;
         Ok((session, last))
@@ -263,7 +263,7 @@ where
             .session_restarts(&session.id)
             .map_err(|why| {
                 self.refusal(crate::adrift::Adrift::Reading(
-                    store::LoadJobError::Unreadable(why),
+                    store::ReadError::Unreadable(why),
                 ))
             })?;
         let home = self.host().home.clone();
@@ -366,7 +366,7 @@ where
         &self,
         session: &KeptSession,
         kept: Option<KeptSessionRetro>,
-    ) -> Result<JobRetro, Refusal> {
+    ) -> Result<Retro, Refusal> {
         let (since, until, note) = match &kept {
             Some(kept) => (
                 kept.covers_from.clone(),
@@ -383,16 +383,14 @@ where
                 note.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
             )
             .await?;
-        let mut retro = JobRetro {
-            job_id: JobId::carried(session.id.as_str()),
+        let mut retro = Retro {
             state: RetroState::Pending,
             at: None,
             model: None,
             why: None,
             items: Vec::new(),
             record: gathered.record,
-            session: Some(session_of(session)),
-            annotations: Vec::new(),
+            session: session_of(session),
         };
         if let Some(kept) = kept {
             retro.state = RetroState::Written;
@@ -405,7 +403,7 @@ where
                 .session_retro_lessons(kept.retro_id)
                 .map_err(|why| {
                     self.refusal(crate::adrift::Adrift::Reading(
-                        store::LoadJobError::Unreadable(why),
+                        store::ReadError::Unreadable(why),
                     ))
                 })?;
             retro.items = answers
@@ -416,7 +414,6 @@ where
                         answer.line,
                     );
                     item.state = Some(answer.state.into());
-                    item.job_proposed = answer.job_proposed.as_ref().map(JobId::from);
                     item.session_proposed = answer.session_proposed;
                     item.applied = answer.applied.then(|| item.change.clone()).flatten();
                     item
@@ -435,7 +432,7 @@ pub(crate) fn session_of(session: &KeptSession) -> RetroSession {
     }
 }
 
-/// How a Session's address reads where a Job's handle would.
+/// How a Session's address reads: its handle.
 pub(crate) fn handle_of(session: &str) -> String {
     address_of(session)
 }

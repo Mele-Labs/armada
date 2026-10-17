@@ -1,6 +1,6 @@
 # Set Up a Project (Manifest)
 
-**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest Armada can dispatch Jobs against.
+**What it is:** "I'm onboarding a new repo" — turn an unconfigured codebase into a working Manifest Armada can run Checks and Sessions against.
 
 Design fidelity: full on Locate, the picker, the proposal sheet and Verify. Analysis: Complete. UI/UX design: In progress.
 
@@ -9,7 +9,7 @@ Design fidelity: full on Locate, the picker, the proposal sheet and Verify. Anal
 
 **Trigger:** You point Armada at a repo or workspace it has not seen before.
 
-**Concepts touched:** Manifest, Kit, Job Board.
+**Concepts touched:** Manifest, Kit.
 
 **Milestone:** Reach. The one journey whose UI is built in the same phase as its logic, so a decision here has an immediate build consequence rather than a deferred one.
 
@@ -31,13 +31,13 @@ An accent edge marks a step that asks you something. Everything else reports.
 | Verify | Approve the run | Runs setup and every Check once |
 | Fix | Correct the failing line | Re-runs that Check, then back to Verify |
 
-Fix exists only when a Check fails. Once every Manifest is written, each workspace appears independently scoped on the Job Board, ready for dispatch.
+Fix exists only when a Check fails. Once every Manifest is written, each workspace is independently scoped, ready for a Session.
 
 ## Getting in
 
 **A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet. Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup. Locate is that dialog, and the picker's *Add a repository* opens it for every repository after. It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
 
-**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and Overview lists what the picker names — every repository's Jobs on All, or the picked one's — per [Job Board](../concepts/job-board.md).
+**The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and the Cockpit lists what the picker names, every repository's Sessions on All or the picked one's.
 
 **A clone can outlast its dialog.** Closing the dialog leaves git running. When the clone finishes, Bridge says so wherever the person is, with a way to its Setup, and never moves the window there on its own. The preview names the folder Fleet will use, a parent under a symlink included.
 
@@ -57,7 +57,7 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 
 **Ticked by evidence strength.** Strong evidence ticked, thin evidence not, so the default carries information rather than convenience.
 
-**The state column reports rather than instructs** — `ready to write`, `open, being edited`, `no checks proposed`. No hue on any of them: none is a Job state. `no checks proposed` is the useful signal; a workspace whose scripts include nothing conventional will produce a manifest that gates nothing, and the picker is where that is noticeable.
+**The state column reports rather than instructs** — `ready to write`, `open, being edited`, `no checks proposed`. No hue on any of them: none is a status. `no checks proposed` is the useful signal; a workspace whose scripts include nothing conventional will produce a manifest that gates nothing, and the picker is where that is noticeable.
 
 **The open row takes the accent edge and tint**, the pair that means *the row you are on* everywhere else. Legitimate here, because the panel really is showing that row.
 
@@ -75,7 +75,7 @@ A grid of Check names against the batch's workspaces, below the workspace list �
 
 **Reported, never filled in.** Adding a `lint` Check needs a command only you know, so the grid names the gap and offers to take you to the workspace.
 
-**The marked cell takes `--step-stopped-bg` and the word `missing`.** No hue on the word and no chip: a workspace lacking a Check name is not a Job state. Cells carry ticks rather than words, because each answers yes or no and a column of `declared` would be unreadable — the same mark the picker uses, where a tick also means *this one is in*.
+**The marked cell takes `--step-stopped-bg` and the word `missing`.** No hue on the word and no chip: a workspace lacking a Check name is not a status. Cells carry ticks rather than words, because each answers yes or no and a column of `declared` would be unreadable — the same mark the picker uses, where a tick also means *this one is in*.
 
 ## The proposal sheet
 
@@ -83,7 +83,7 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **You iterate here.** Edit it yourself or work it through with an agent, as many rounds as you like. Write comes after and commits what you arrived at, after no rounds or several.
 
-**Identity is the header, not a row.** The id is what the file *is* — the name every Job is keyed to, fixed once written. A registry row would imply one entry among many sharing the same actions, and it has none.
+**Identity is the header, not a row.** The id is what the file *is* — the name the repository is known by, fixed once written. A registry row would imply one entry among many sharing the same actions, and it has none.
 
 **Ports are declared first, above the lists that read them**, so you meet a variable before you meet a command using it.
 
@@ -135,10 +135,6 @@ A sheet over the picker, one workspace at a time, opened from a row and closed b
 
 **An inherited value is an absent key.** Leaving a row at Kit's value writes nothing and the project keeps following Kit if Kit later changes; writing the same value explicitly pins it. Two identical-looking rows with two different futures, which is why the source column is not decoration.
 
-**The budget caps are stated in one line, not offered as rows** — *Jobs here stop at $5 or your machine's turn cap; change these on the Manifest page.* Nothing is written. A cap is the one policy that can be wrong rather than merely different: below one Job's cost it makes the workspace undispatchable. At Setup no Job has run in this repository, so a control would ask for a guess with nothing to guess from, and a low one fails onboarding silently. The caps are edited on the Manifest surface, where past Jobs' costs exist to set them against — [Run and edit a Manifest](run-and-edit-a-manifest.md).
-
-**A dispatch freeze is not offered here.** It is specified — `manifest-dispatch-freeze` in `crates/config/settings.toml` — and nothing reads it yet, so `armada.yml` refuses the key.
-
 **Inheritance is applied silently and stated once, without controls.** One line names what came from Kit and is not written to this file. A default should be quiet, but a quiet default still has to be findable: a person who later hits an allowlist they never saw needs somewhere to have seen it, and that line is the somewhere. The Manifest surface is where it is changed.
 
 ### The proposal conversation happens in Helm
@@ -185,7 +181,7 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 ## Ports
 
-**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Jobs can run the same Check at once without colliding. The row states the container port and the variable it arrives as.
+**A port is declared once and read by every Check and Command below it.** Armada leases a free port per worktree and passes it in, so two Sessions can run the same Check at once without colliding. The row states the container port and the variable it arrives as.
 
 **Scan finds a port only where a file declares one, and finding none is the common case.** Plenty of projects hard-code it in source, which Scan does not read. The empty band teaches: one line on what a port entry buys you, and the control to add one. No illustration. The sentence names the benefit before the mechanism, because a person who has not hit a port collision does not know they are being protected from one.
 
@@ -195,7 +191,7 @@ Prerequisites, the destructive flag, and inserting a port variable are the only 
 
 **Derive only when there is nothing to inherit.** A detected port keeps its file's variable name — renaming it would break every command already reading it. Derivation is the starting value, not the rule.
 
-**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Job gates both workspaces. The line appears under the variable field naming the other workspace and the condition. Setup is the one moment renaming is free, and the field is where you are looking. Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
+**A colliding variable name warns in the field, not elsewhere.** Two manifests can both map a port to `PORT`, which only breaks when one Session runs the Checks of both workspaces. The line appears under the variable field naming the other workspace and the condition. Setup is the one moment renaming is free, and the field is where you are looking. Two batch-level grids were drawn and cut: a warning belongs where the name is being typed, not on a separate surface a person has to find.
 
 **The variable field carries the one sentence that prevents the most likely mistake** — writing a literal host and port into a Check and wondering why it fails. It names both ways a Check may use the port: set in the environment, where code reads it off the process environment, or written into the command for a tool that takes a flag and ignores the environment.
 
@@ -217,7 +213,7 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 
 **An undeclared published port is refused, not warned about.** A port Armada did not place would collide silently, so the run stops with a config error and a one-line fix. The refused row takes `--step-stopped-bg` and reads *would stop the run* — future tense, because nothing has run yet and this is a file being written. Naming the fix in the same row is the point: a refusal that does not say what to add is a wall.
 
-**Setup is where that error is cheap.** Finding it at dispatch means a Job failing on something a scan already knew.
+**Setup is where that error is cheap.** Finding it later means a Session failing on something a scan already knew.
 
 **Refusal belongs to the compose case because that one is structural.** The Docker adapter parses the document, so Armada knows what it found. A command string is opaque, and refusing there would be Armada claiming to understand something it only pattern-matched.
 
@@ -291,7 +287,7 @@ Cheap and worth doing, because each is a file and so each is evidence: a Dockerf
 - **[setup-batch-at-scale]** How does a batch of twenty proposals read?
   Scan finds every workspace in one pass and the picker holds them all; a real monorepo could be twenty, and one list stops being a screen at some size.
 
-This journey also shares `drone-secrets-handling` with [Guild Setup & Configuration](guild-setup-and-configuration.md), where the full item is recorded: how secrets are handled for Drones, given the established principle that a Drone never holds secrets directly and Fleet brokers, with the concrete mechanism — including unattended 1Password auth — still unresolved.
+This journey also shares `drone-secrets-handling` with [Guild Setup & Configuration](guild-setup-and-configuration.md), where the full item is recorded: how secrets are handled for agents, given the established principle that an agent never holds secrets directly and Fleet brokers, with the concrete mechanism — including unattended 1Password auth — still unresolved.
 
 ## Related
 

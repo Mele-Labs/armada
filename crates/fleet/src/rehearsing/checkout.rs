@@ -69,7 +69,7 @@ where
             setup,
             checks,
             commands,
-            manifest_edited_at: self.edited_before(&place, &self.now(), tree.as_ref()),
+            manifest_edited_at: self.edited_before(&place, &self.now(), &tree),
             running: self
                 .rehearsals()
                 .in_flight(&place.owner)
@@ -106,7 +106,7 @@ where
         )
         .map_err(|why| self.refused_run(&owner, why))?;
         let (entry, mut tree) = match &workspace {
-            None => self.entry_at(&place, &asked.name, false).await,
+            None => self.entry_at(&place, &asked.name),
             Some(one) => self.workspace_entry_at(&place, &one.manifest, &asked.name),
         }
         .map_err(|why| self.refused_run(&owner, why))?;
@@ -121,8 +121,6 @@ where
                 tree,
                 entry,
                 command,
-                false,
-                false,
                 ipc::Requester::outside(),
                 None,
             )
@@ -146,22 +144,16 @@ where
         manifest: &config::Manifest,
         name: &str,
     ) -> Result<(Entry, Tree), Unrehearsable> {
-        let whose = place.whose();
         if manifest.server(name).is_some() {
             return Err(Unrehearsable::IsAServer {
                 name: name.to_string(),
             });
         }
-        let Some(tree) = self.tree_at(place) else {
-            return Err(Unrehearsable::NoWorktree);
-        };
+        let tree = self.tree_at(place);
         if let Some(out) = self.rehearsals().in_flight(&place.owner) {
-            return Err(Unrehearsable::AlreadyRunning {
-                name: out.name,
-                whose,
-            });
+            return Err(Unrehearsable::AlreadyRunning { name: out.name });
         }
-        Ok((entries::declared(manifest).named(name, whose)?, tree))
+        Ok((entries::declared(manifest).named(name)?, tree))
     }
 
     /// End the checkout's run, and answer with its record once it is written.

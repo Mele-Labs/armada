@@ -2,7 +2,6 @@
 // thread moved on. The header holds a mark with the running count, and a press lists them. Over
 // `session-checks`. The walk `session-running-checks` plays it.
 
-import type { ManifestCheckRow } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -17,26 +16,6 @@ const SMOKE = 33;
 
 /** The wall clock `seconds` ago, as the thread's rows say it: "14:23:10". */
 const clock = (seconds: number): string => new Date(Date.now() - seconds * 1000).toTimeString().slice(0, 8);
-
-const run = (n: number, name: string, state: "running" | "passed", seconds: number, target?: string): ManifestCheckRow => ({
-  source: "asked_run",
-  requester: { kind: "session", session_id: ID, slot: SLOT },
-  session_id: ID,
-  attempt: 1,
-  name,
-  state,
-  started_at: new Date(Date.now() - seconds * 1000).toISOString(),
-  ...(state === "running" ? {} : { ended_at: new Date().toISOString(), took_ms: 21_000 }),
-  ...(target === undefined ? {} : { target }),
-  logs: [{ check: name, kept: `session.${ID}.${n}.log` }],
-  asked_run_id: n,
-});
-
-const LOGS: Record<string, string[]> = {
-  [`session.${ID}.${TEST}.log`]: ["$ cargo nextest run -p session_checking", "   Compiling session_checking v0.1.0", "        PASS [   0.012s] session_checking::marks::counts_running"],
-  [`session.${ID}.${SMOKE}.log`]: ["$ vitest run --project app_smoke", " RUN  v3.2.4"],
-  [`session.${ID}.${PASSED}.log`]: ["$ tsc -b", "Found 0 errors."],
-};
 
 const running = (): Session => ({
   id: ID,
@@ -81,28 +60,5 @@ export const s266SessionRunningChecks: Scenario = {
   ...s203SessionChecks,
   name: "session-running-checks",
   says: "A Session's agent has two Checks out and the thread has moved on: the header counts them, and a press lists them",
-  behaves: (fleet) => {
-    const base = s203SessionChecks.behaves?.(fleet) ?? {};
-    const rows = [run(SMOKE, "app_smoke", "running", 40), run(TEST, "test", "running", 190, "session_checking"), run(PASSED, "desktop:typecheck", "passed", 300)];
-    return {
-      ...base,
-      readManifestChecks: async () => ({ ok: true, checks: { rows, total: rows.length } }),
-      readSessionCheckOutput: async (n) => {
-        const kept = `session.${ID}.${n}.log`;
-        const lines = LOGS[kept];
-        return lines === undefined
-          ? { ok: false, outcome: { ok: false, why: "not_connected" } }
-          : { ok: true, output: { attempt: 1, name: kept, path: `session-check/${n}`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true } };
-      },
-      followCheckOutput: async (jobId, kept) => {
-        const lines = kept === null ? undefined : LOGS[kept];
-        if (jobId === null || kept === null || lines === undefined) {
-          fleet.publish({ followed: { state: "none" } });
-          return;
-        }
-        fleet.publish({ followed: { state: "following", jobId, kept, name: kept, attempt: 1, path: `session-check/${kept}`, fromLine: 1, lines } });
-      },
-    };
-  },
   draft: { sessions: store },
 };

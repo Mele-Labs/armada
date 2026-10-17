@@ -172,136 +172,6 @@
   }
 }
 
-/* The `+` between steps. As a node, at the head of a run or the end of one, it is a step's width so it sits on the spine. */
-.armada-triggers__add {
-  display: inline-flex;
-  align-items: center;
-}
-
-/* The bubble is drawn inside a trigger one icon wide, so it sizes to its words and not to the icon. */
-.armada-triggers__add .armada-tooltip__bubble {
-  width: max-content;
-}
-
-.armada-triggers__plus {
-  display: flex;
-  width: var(--w-workflow-node);
-  justify-content: center;
-  padding: var(--space-1) 0;
-}
-
-/* The branch a failed Trigger grows off the workflow, at a step's own width. */
-.armada-repair {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: var(--w-workflow-node);
-  padding: var(--space-3);
-  border: var(--border-width) dashed var(--accent);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--fg-default);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-.armada-repair[data-phase="failed"] {
-  border-color: var(--run-failed);
-}
-
-.armada-repair--pr {
-  flex-direction: row;
-  align-items: center;
-  width: auto;
-  border-style: solid;
-}
-
-.armada-repair__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.armada-repair__state {
-  display: inline-flex;
-  margin-left: auto;
-}
-
-.armada-repair__fix {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-repair__fix li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.armada-repair__choice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-/* A Trigger that holds its Job: one frame in the waiting hue, the barrier on a filled band, the
-   name in mono, and Rerun and Skip. Drawn on the connector it holds, so it takes presses. */
-.armada-hold {
-  display: inline-flex;
-  align-items: stretch;
-  min-width: 0;
-  border: var(--border-width) solid var(--step-waiting);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--fg-default);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-/* No `overflow: hidden` on the frame: a tooltip is drawn inside its trigger, so a clip here cut the
-   bubble to the node. The band takes the frame's corners itself. */
-.armada-hold__band {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-2);
-  border-radius: calc(var(--radius-md) - var(--border-width)) 0 0 calc(var(--radius-md) - var(--border-width));
-  background: var(--step-waiting);
-  color: var(--fg-inverse);
-}
-
-.armada-hold > .armada-triggers__name {
-  align-self: center;
-  padding: 0 var(--space-2);
-}
-
-.armada-hold__acts {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-1);
-}
-
-/* The bubbles hang under their own button or band, in a wrapper beside it: a Button clips what is
-   drawn inside it, which is what cut the bubble to the button. Anchor positioning measures against
-   the node's transformed box, which has nothing below the button, so the bubble landed on the node;
-   plain absolute placement under the trigger needs no room from the node. */
-.armada-hold .armada-tooltip__bubble,
-.armada-leaf .armada-hold__acts .armada-tooltip__bubble {
-  position: absolute;
-  position-area: none;
-  position-try-fallbacks: none;
-  inset: auto;
-  top: calc(100% + var(--space-1));
-  left: 50%;
-  translate: -50% 0;
-  margin: 0;
-  width: max-content;
-}
-
 /* A Trigger as a leaf off the step it fires at: a frame at a step's own width, so a lane holds a column of them. */
 .armada-leaf {
   display: flex;
@@ -318,12 +188,6 @@
   line-height: var(--leading-xs);
 }
 
-/* Run and Skip on a leaf that asks him, at the end of its row. */
-.armada-leaf .armada-hold__acts {
-  margin-inline-start: auto;
-  padding: 0;
-}
-
 /* A Trigger set for every workflow, in the editor: the frame wears the accent so it reads apart from this workflow's own. */
 .armada-leaf--every {
   flex-direction: column;
@@ -331,9 +195,4 @@
   gap: var(--space-1);
   padding: var(--space-1);
   border-color: var(--accent);
-}
-
-/* Run on a destructive Command: red, since pressing it does the destructive thing. */
-.armada-triggers__run {
-  color: var(--run-failed);
 }

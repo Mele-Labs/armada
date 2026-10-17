@@ -170,7 +170,7 @@ async fn ended(fleet: &Scouted, studio: &Studio, node: usize) -> StudioNode {
 
 fn code(refusal: &Refusal) -> &str {
     match refusal {
-        Refusal::NoSuchJob(e)
+        Refusal::NotFound(e)
         | Refusal::IllegalMove(e)
         | Refusal::Unacceptable(e)
         | Refusal::Fault(e) => &e.code,

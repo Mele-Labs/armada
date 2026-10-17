@@ -1,10 +1,8 @@
 //! What a run is, once whose tree it is in has been settled.
 //!
-//! **Every function here takes a [`Place`] and never a `JobId`.** Which tree,
-//! whose ports and where the records go were decided in [`owner`](super::owner);
-//! what is left is one command in one directory, and it is the same act for a
-//! Job and for the main checkout. The two entrances — [`super`] and
-//! [`checkout`](super::checkout) — differ only in the shapes they project.
+//! **Every function here takes a [`Place`].** Which tree, whose ports and where
+//! the records go were decided in [`owner`](super::owner); what is left is one
+//! command in one directory.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -32,15 +30,15 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// When the Manifest was last changed by a commit made at or before
-    /// `before` — for a Job, **before it froze it**, not the latest edit.
+    /// `before`.
     pub(super) fn edited_before(
         &self,
         place: &Place,
         before: &Timestamp,
-        tree: Option<&Tree>,
+        tree: &Tree,
     ) -> Option<ipc::Instant> {
         let before = before.epoch_millis()?.div_euclid(1_000);
-        let root = tree.map_or_else(|| PathBuf::from(place.checkout.root()), |t| t.path.clone());
+        let root = tree.path.clone();
         let file = self.manifest_file(place.checkout.served()?);
         let seconds =
             adapters::snapshot::last_touched(&root, &file.to_string_lossy(), before).ok()??;
@@ -50,16 +48,14 @@ where
 
     /// The entry a run names and the tree it would run in, checked in the
     /// order that refuses before anything is written.
-    pub(super) async fn entry_at(
+    pub(super) fn entry_at(
         &self,
         place: &Place,
         name: &str,
-        worktree_version: bool,
     ) -> Result<(Entry, Tree), Unrehearsable> {
-        let whose = place.whose();
         // A server never exits, so a run of one would hold the owner's one run
         // slot for good — and Fleet would not know to hand it on or stop it.
-        let Some((manifest, has_snapshot)) = self.manifest_at(place).await else {
+        let Some(manifest) = self.manifest_at(place) else {
             return Err(Unrehearsable::NoManifest);
         };
         if manifest.server(name).is_some() {
@@ -67,28 +63,11 @@ where
                 name: name.to_string(),
             });
         }
-        let Some(tree) = self.tree_at(place) else {
-            return Err(Unrehearsable::NoWorktree);
-        };
+        let tree = self.tree_at(place);
         if let Some(out) = self.rehearsals().in_flight(&place.owner) {
-            return Err(Unrehearsable::AlreadyRunning {
-                name: out.name,
-                whose,
-            });
+            return Err(Unrehearsable::AlreadyRunning { name: out.name });
         }
-        let listed = match (worktree_version, place.job.as_ref()) {
-            (true, _) => {
-                let theirs = self
-                    .theirs(place, &tree)
-                    .map_err(|why| Unrehearsable::WorktreeManifest { why })?;
-                entries::declared(&theirs)
-            }
-            (false, Some(job)) => entries::frozen(job, &manifest, has_snapshot),
-            // The main checkout froze nothing: the file Fleet holds is the one
-            // that runs, and `worktree_version` has nothing to mean there.
-            (false, None) => entries::declared(&manifest),
-        };
-        Ok((listed.named(name, whose)?, tree))
+        Ok((entries::declared(manifest).named(name)?, tree))
     }
 
     pub(super) fn history_at(&self, place: &Place) -> (Vec<Record>, Vec<ipc::UnreadableRun>) {
@@ -103,10 +82,7 @@ where
     pub(super) fn no_such_run(&self, place: &Place, id: String) -> Refusal {
         self.refused_run(
             &place.owner,
-            Unrehearsable::NoSuchRun {
-                id,
-                whose: place.whose(),
-            },
+            Unrehearsable::NoSuchRun { id },
         )
     }
 
@@ -174,17 +150,13 @@ where
         tree: Tree,
         entry: Entry,
         command: String,
-        narrowed: bool,
-        worktree_version: bool,
         requester: ipc::Requester,
         verify: Option<tokio::sync::oneshot::Sender<super::verifying::Handed>>,
     ) -> Result<Underway, Unrehearsable> {
-        let whose = place.whose();
         let underway = Underway {
             id: self.mint().ulid().as_str().to_string(),
             name: entry.name.clone(),
             command,
-            narrowed,
             started_at: ipc::Instant::from(&self.now()),
             workspace: tree
                 .within
@@ -199,10 +171,7 @@ where
             .rehearsals()
             .take(&place.owner, &underway, stop, ended, feed.clone())
         else {
-            return Err(Unrehearsable::AlreadyRunning {
-                name: entry.name,
-                whose,
-            });
+            return Err(Unrehearsable::AlreadyRunning { name: entry.name });
         };
         let (root, handle) = (place.checkout.records_root(), place.handle.clone());
         // Retention comes for a run before this one starts, and a Studio may
@@ -224,7 +193,6 @@ where
             entry,
             underway: underway.clone(),
             dir,
-            worktree_version,
             feed,
             verify,
         };
@@ -242,10 +210,7 @@ where
         let Some((stop, mut done)) = self.rehearsals().stopping(&place.owner, &id) else {
             return Err(match records::read(root, handle, &id) {
                 Some(Ok(_)) => Unrehearsable::NotRunning { id },
-                _ => Unrehearsable::NoSuchRun {
-                    id,
-                    whose: place.whose(),
-                },
+                _ => Unrehearsable::NoSuchRun { id },
             });
         };
         let _ = stop.send(true);
@@ -267,19 +232,12 @@ where
         if self.rehearsals().in_flight(&place.owner).is_some() {
             return Err(Unrehearsable::RunInFlight);
         }
-        let Some(tree) = self.tree_at(place) else {
-            return Err(Unrehearsable::NoWorktree);
-        };
+        let tree = self.tree_at(place);
         let (root, handle) = (place.checkout.records_root(), place.handle.as_str());
         let mut record = match records::read(root, handle, &id) {
             Some(Ok(record)) => record,
             Some(Err(why)) => return Err(Unrehearsable::NothingToUndo { id, why }),
-            None => {
-                return Err(Unrehearsable::NoSuchRun {
-                    id,
-                    whose: place.whose(),
-                })
-            }
+            None => return Err(Unrehearsable::NoSuchRun { id }),
         };
         let nothing = |why: &str| Unrehearsable::NothingToUndo {
             id: record.id.clone(),
@@ -325,7 +283,6 @@ where
         kept.map_err(|why| Unrehearsable::NotKept {
             why: format!("the tree was put back and the record was not: {why}"),
         })?;
-        self.noted_undo(place.job.as_ref(), &record);
         Ok(record)
     }
 }
@@ -351,16 +308,5 @@ where
                     .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from("armada.yml"))
             })
-    }
-
-    /// The worktree's own Manifest, or why it would not read.
-    pub(super) fn theirs(&self, place: &Place, tree: &Tree) -> Result<config::Manifest, String> {
-        let Some(served) = place.checkout.served() else {
-            return Err(String::from(
-                "this repository has no armada.yml at its root",
-            ));
-        };
-        let file = self.manifest_file(served);
-        config::Manifest::load(&tree.path.join(file)).map_err(|why| why.to_string())
     }
 }

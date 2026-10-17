@@ -1,5 +1,5 @@
 // The Checks surface, as the window draws it: every Check this repository's Manifest has had
-// requested or run — a Session's run, the merge line, a run in the checkout. Apart from
+// requested or run — the merge line, a run in the checkout. Apart from
 // `App.tsx`, which is at its length.
 
 import { useMemo, useState } from "react";
@@ -9,15 +9,10 @@ import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import {
-  followCheckOutput,
   followLandCheck,
   getCheckoutRunOutput,
   listCheckoutRuns,
   observeCheckoutRun,
-  readCheckOutput,
-  readSessionCheckOutput,
-  stopSessionCheck,
-  readManifestChecks,
 } from "./commands";
 
 /**
@@ -33,14 +28,14 @@ export function useAsked() {
 
 type ChecksState = Pick<
   BridgeState,
-  "checkoutRunSheet" | "checkoutRunFollowed" | "mergeLines" | "landFollowed" | "repository" | "jobs" | "followed"
+  "checkoutRunSheet" | "checkoutRunFollowed" | "mergeLines" | "landFollowed" | "repository"
 >;
 
-/** What the Checks page reads: everything `ManifestChecks` takes but the window's floor and the label of a Job. */
+/** What the Checks page reads: everything `ManifestChecks` takes but the window's floor. */
 export function useChecksHost(
   state: ChecksState,
   onOpenMergeLine: (branch?: string) => void,
-): Omit<ManifestChecksProps, "floor" | "jobLabel"> {
+): Omit<ManifestChecksProps, "floor"> {
   const { mergeLines, repository } = state;
   const lines = useMemo(
     () => (mergeLines?.lines ?? []).filter((one) => repository === null || one.root === repository),
@@ -52,12 +47,6 @@ export function useChecksHost(
     onObserveRun: observeCheckoutRun,
     onListRuns: listCheckoutRuns,
     onGetRunOutput: getCheckoutRunOutput,
-    onReadChecks: readManifestChecks,
-    onReadCheckOutput: readCheckOutput,
-    onReadSessionCheckOutput: readSessionCheckOutput,
-    onStopSessionCheck: stopSessionCheck,
-    onFollowCheckOutput: followCheckOutput,
-    followedLog: state.followed,
     lines,
     landFollowed: state.landFollowed,
     onFollowLand: followLandCheck,
@@ -83,12 +72,10 @@ export function ChecksSurface({
   onOpenMergeLine: (branch?: string) => void;
 }) {
   const floor = useAtFloor();
-  const { jobs } = state;
   const host = useChecksHost(state, onOpenMergeLine);
   const checks = (
       <ManifestChecks
         {...host}
-        jobLabel={(jobId) => jobs.find((one) => one.id === jobId)?.handle ?? jobId}
         floor={floor}
         {...(focus === undefined ? {} : { focus })}
         {...(only === true ? { only } : {})}

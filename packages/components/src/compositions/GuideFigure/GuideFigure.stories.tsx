@@ -44,27 +44,18 @@ export const GroupOrder: Story = {
   args: { figure: "group-order" },
 };
 
-/**
- * **The real member list**, rail and all, each card arriving in its turn. This
- * is the figure that binds hardest: it is `JobMembers` itself, so a change to
- * that list changes this guide.
- */
-export const MembersLanding: Story = {
-  args: { figure: "members-landing" },
-};
-
 /** The same drawing in the layer a `?` opens, which is the narrower of the two. */
 export const InTheCard: Story = {
-  args: { figure: "members-landing", scale: "card" },
+  args: { figure: "group-order", scale: "card" },
 };
 
 /**
  * **Held still, the drawing is its own finished state.** Under
  * `prefers-reduced-motion` nothing runs, and every reading the motion arrived
- * at is already there: the order on the rail, the link each member carries.
+ * at is already there: both groups drawn, none arriving.
  */
 export const HeldStill: Story = {
-  args: { figure: "members-landing" },
+  args: { figure: "group-order" },
   beforeEach: () => {
     const real = window.matchMedia;
     window.matchMedia = (query: string) => {
@@ -79,11 +70,7 @@ export const HeldStill: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const figure = canvas.getByRole("img", { name: /landing in order/ });
+    const figure = canvas.getByRole("img", { name: /Two groups of a plan/ });
     await expect(figure.getAnimations({ subtree: true })).toHaveLength(0);
-    // The order and the links read from the drawing itself, not from the label.
-    for (const word of ["Member 1", "Member 2", "Member 3", /branches off member 1/]) {
-      await expect(within(figure).getByText(word)).toBeVisible();
-    }
   },
 };

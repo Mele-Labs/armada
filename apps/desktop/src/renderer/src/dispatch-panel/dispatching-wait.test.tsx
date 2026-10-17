@@ -2,7 +2,7 @@
 // the wait, and nothing is sent as a first message.
 
 import { forgetAllKept } from "@armada/components";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionsDraft, WaitReading } from "@armada/screens/src/draft/sessions";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -16,7 +16,7 @@ import { DispatchingProvider, useDispatch, useDispatching, type Dispatching } fr
 
 let held: Dispatching | undefined;
 let mounted: { root: Root; host: HTMLElement } | undefined;
-const state = connected([], [], []);
+const state = connected([], []);
 const armada = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const retry = { id: "a", title: "Retry loop", rows: [], attachments: [] } as unknown as Session;
 const start = vi.fn(async (_tag?: unknown, _root?: string, _request?: string, _tuning?: unknown, _after?: unknown) => "01SESSION");

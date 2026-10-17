@@ -20,6 +20,10 @@ use crate::daemon::Fleet;
 /// `crate::allowed::repository`'s reason.
 const KIT_REFUSED: &str = "fleet.kit_refused";
 
+/// The name Armada's own server is registered under, which no Kit server may
+/// take.
+const ARMADA_SERVER: &str = "armada";
+
 /// What a change to Kit can refuse on.
 #[derive(Debug)]
 pub enum NotInKit {
@@ -56,8 +60,8 @@ impl std::fmt::Display for NotInKit {
             ),
             NotInKit::ArmadasOwnName => write!(
                 out,
-                "`{}` is Armada's own server, and a second one would leave a Drone's brief naming two",
-                adapters::evidence_server()
+                "`{}` is Armada's own server, and a second one would leave a brief naming two",
+                ARMADA_SERVER
             ),
             NotInKit::NoSuchServer { name } => write!(out, "Kit holds no server called `{name}`"),
             NotInKit::NotRecorded { cause } => write!(out, "{cause}"),
@@ -294,7 +298,7 @@ where
         let name = ServerName::named(given).ok_or_else(|| NotInKit::NotAName {
             given: given.to_string(),
         })?;
-        match name.as_str() == adapters::evidence_server() {
+        match name.as_str() == ARMADA_SERVER {
             true => Err(NotInKit::ArmadasOwnName),
             false => Ok(name),
         }

@@ -110,15 +110,6 @@ fn the_step_before_handoff_is_the_one_that_runs_it() {
     assert_eq!(taking, 1, "one step, never more");
 }
 
-#[test]
-fn a_drones_run_leaves_out_gate_and_handoff_checks() {
-    let feature = resolved(FEATURE);
-    assert_eq!(
-        names(&step(&feature, "implement").mid_step_checks()),
-        ["build"]
-    );
-}
-
 /// A workflow that delivers nothing still runs a handoff Check somewhere: on
 /// its last step gating on every Check.
 #[test]

@@ -1,50 +1,13 @@
-// The Dashboard under way, as tiles: a dozen Jobs and Sessions running in every state (a Drone at
-// work, a Check running, a Judge deciding, one waiting on the owner, one waiting on a resource, a
-// one-step Job, two queued, Sessions working, idle and asking), and in Done the Jobs and Sessions
-// that are over, with the merge line's landed branches, which Done does not list. The walk
-// `dashboard-dispatch-rows` plays it.
+// The Dashboard under way, as tiles: Sessions working, idle and asking, and in Done the Sessions that
+// are over, with the merge line's landed branches, which Done does not list.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
-import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
+import { repository } from "@armada/screens/src/fixtures/repository";
+import { mergeLines } from "@armada/screens/src/fixtures/merge-line";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import { completedFailed, completedSuccess, queued } from "@armada/screens/src/fixtures/build/index";
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-
-/** A Job on the picked repository, not yet cleared, so it stays on the Dashboard. */
-function kept(fixture: JobFixture): JobFixture {
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, owner_manifest_id: OWNER };
-  return { ...fixture, job };
-}
-
-/** The Job with its workflow cut to its first step, so its tile has no pips to draw. */
-function oneStep(fixture: JobFixture): JobFixture {
-  const [workflow] = fixture.workflows;
-  const step = workflow!.steps[0]!;
-  return { ...fixture, workflows: [{ ...workflow!, id: "one-step", steps: [step] }], job: { ...fixture.job, workflow_id: "one-step", current_step_id: step.step_id } };
-}
-
-const run = (at: number, slug: string, title: string) => kept(asRow(featureRunning(), at, slug, title));
-
-const pin = run(81, "dash-pin", "Pin the store clock");
-const fold = run(82, "dash-fold", "Fold the two notification routes into one and drop the retired route with the tests that covered it");
-const cap = run(83, "dash-cap", "Cap the retry backoff");
-const split = run(84, "dash-split", "Split the writer from the clock");
-const index = run(85, "dash-index", "Index the record files");
-const rename = kept(oneStep(asRow(featureRunning(), 86, "dash-rename", "Rename the gate verbs")));
-const retire = kept(asRow(queued(), 87, "dash-retire", "Retire the sleep calls in the store tests"));
-const move = kept(asRow(queued(), 88, "dash-move", "Move the store reads"));
-const shipped = kept(asRow(completedSuccess(), 89, "dash-shipped", "Add the heartbeat clock to the writer"));
-const shipped2 = kept(asRow(completedSuccess(), 90, "dash-shipped-2", "Cache the manifest read"));
-const failed = kept(asRow(completedFailed(), 91, "dash-failed", "Shorten the reconnect wait"));
-
-
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const quiet = { state: "idle" } as const;
@@ -100,14 +63,13 @@ const SESSIONS: Session[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("dashboard-dispatch-rows", "The Dashboard as tiles: Jobs and Sessions under way, and what is over", [pin, fold, cap, split, index, rename, retire, move, shipped, shipped2, failed]);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("dashboard-dispatch-rows", "The Dashboard as tiles: Sessions under way, and what is over");
   return {
     ...base,
     state: { ...base.state, repository: repository().root, mergeLines: { lines: [mergeLines().lines[0]!] } },
     draft: {
-      sessions: (board) =>
-        sessionsStore([none, none], none, board, [], SESSIONS, [
+      sessions: () =>
+        sessionsStore(SESSIONS, [
           ["s20", "0043 also drops the index on clock_at, so open.rs needs the new one before the first write."],
           ["s20", "Adding the index to open.rs and running the store tests."],
         ]),

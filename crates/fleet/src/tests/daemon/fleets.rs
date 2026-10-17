@@ -19,12 +19,9 @@ use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
 use super::workflows::{manifest, one, two_steps};
 use crate::tests::planted::{Counted, Ticking};
-use crate::allowance::{Allowance, Micros};
-use crate::budget::CommandBudget;
 use crate::daemon::{Fittings, Fleet, Host, StartingIn};
 use crate::CheckBudget;
 use crate::headroom::{Bytes, Headroom, Polling, Spare};
-use crate::holding::Reclaiming;
 use crate::judging::JudgeBudget;
 use crate::noticing::Noticing;
 use crate::ports::PortRange;
@@ -38,14 +35,6 @@ pub fn fittings(
 ) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
     fitted_with(home, work, FakeHarness::that_listens())
 }
-
-/// A budget no fixture can reach.
-///
-/// **The opposite call to `headroom`'s**, which plants the production
-/// threshold: a cap that ships is worth tripping in a fixture, and a budget
-/// that ships is not, because the fakes report no cost at all. Every case about
-/// the budget plants its own — see `crate::tests::allowance`.
-const UNSPENDABLE: Allowance = Allowance::of(Micros::dollars(1_000_000), u64::MAX);
 
 pub fn fitted_with(
     home: &TempDir,
@@ -161,15 +150,6 @@ pub fn fitted_over<V>(
         polling: Polling::every(Duration::ZERO),
         // Never due, so no test asks a fake forge anything unless it says to.
         noticing: Noticing::every(Duration::from_secs(86_400)),
-        // A day, for `noticing`'s reason: a fixture that swept on its own would
-        // have every other test in this crate racing a worktree removal. The
-        // tests that want a sweep ask for one.
-        reclaiming: Reclaiming::every(Duration::from_secs(86_400)),
-        // **Far more than any fixture spends**, so no test but `allowance`'s
-        // own is ever held back by the budget. The fakes report a `cost_micros`
-        // of zero, and a cap set at the shipped number would still be reached
-        // by a fixture that turned three hundred times.
-        allowance: UNSPENDABLE,
         budget: CheckBudget::of(Duration::from_secs(5)),
         // A Judge that fails every call, because no step in these fixtures
         // declares a criterion. One that answered would let a cold-by-default
@@ -184,7 +164,6 @@ pub fn fitted_over<V>(
         // The same five seconds, for `judge_budget`'s reason: a fixture's own
         // commands answer in milliseconds, so this only slows a genuine hang's
         // failure rather than a passing suite.
-        command_budget: CommandBudget::of(Duration::from_secs(5)),
         judge_model: Model::named("the-cheap-model").expect("a model name"),
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
         retro_model: Model::named("the-retro-model").expect("a model name"),

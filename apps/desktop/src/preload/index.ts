@@ -7,38 +7,32 @@ import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/s
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
-import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct } from "@armada/protocol";
+import type { CaptureOpened } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
-import type { BridgeApi, CommandExplainedRead } from "../shared/api";
+import type { BridgeApi } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
 import type { Pattern } from "../shared/haptics";
 import type { StateChange } from "../shared/state-change";
 import type {
   CheckOutputRead,
-  BriefRead,
   LessonAnswer,
   LessonsRead,
   RetroRead,
   RetroSubject,
   FrameRead,
-  ClearOutcome,
   Outcome,
-  Proposed,
-  ReclaimOutcome,
-  StagedAttachment,
 } from "@armada/protocol";
-import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
-import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
+import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
+import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
@@ -53,26 +47,19 @@ import type { HelmCarry } from "../shared/api/helm";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
-import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
-import type { RequestRepositoryRead } from "../shared/api/jobs";
-import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, BuildSource, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
-import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
+import type { BuildSource, Followed, FleetRestart, LandCheckAt } from "@armada/protocol";
+import type { RunOutputRead } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type {
   ManifestEditAnswer,
   ManifestFileRead,
   ManifestSaveAnswer,
-  ManifestSpendRead,
 } from "@armada/screens/src/editing";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
-import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type {
-  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -81,12 +68,10 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
-import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
-import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
 import type {
   ManifestProposalsRead,
@@ -94,15 +79,9 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type {
-  AlwaysAllowScope,
-  AnswerMode,
-  CommandAnswer,
   HelmCallAnswer,
-  JudgeAnswer,
   SavePreference,
   SaveSettings,
-  WhenBlocked,
-  WhenRefused,
 } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
@@ -134,26 +113,8 @@ const api: BridgeApi = {
     };
   },
 
-
-  // Describing the work, which is the only way a Job is made from this window
-  // since the hand form went (2026-09-23). `proposeJob` was the other entry
-  // and is gone with it: a capability the renderer cannot reach is one it can
-  // still be made to.
-  //
-  // `repository` is the root New job's ask answered on All, so the request
-  // names it rather than the pick — #959. `null` where a repository was
-  // already picked, as it always was.
-  proposeFromRequest: (
-    request: string,
-    attachments: readonly StagedAttachment[],
-    repository: string | null = null,
-  ): Promise<Proposed> =>
-    ipcRenderer.invoke(CHANNELS.proposeFromRequest, request, attachments, repository),
-  stopProposal: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.stopProposal),
-
   // Bytes never round-trip through the request's own JSON channel as base64 —
-  // this writes them to a staging file and hands back the path
-  // `proposeFromRequest` carries as a `staged_path`.
+  // this writes them to a staging file and hands back the path a message carries.
   stageAttachment: (bytes: ArrayBuffer, filename: string, mimeType: string): Promise<{ path: string }> =>
     ipcRenderer.invoke(CHANNELS.stageAttachment, bytes, filename, mimeType),
 
@@ -163,195 +124,15 @@ const api: BridgeApi = {
   readRequestRepository: (words: string): Promise<RequestRepositoryRead> =>
     ipcRenderer.invoke(CHANNELS.readRequestRepository, words),
 
-  approveDispatch: (jobId: string, approval?: ApproveDispatch): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.approveDispatch, jobId, approval),
-
-  listBranches: (manifestId: string): Promise<BranchesRead> =>
-    ipcRenderer.invoke(CHANNELS.listBranches, manifestId),
-
-  redispatchJob: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.redispatchJob, jobId),
-
-  killDrone: (jobId: string, droneId?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.killDrone, jobId, droneId),
-
-  killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
-  parkJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.parkJob, jobId),
-  resumeJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.resumeJob, jobId),
-  fixMain: (fix: FixMain): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.fixMain, fix),
-
-  killProcess: (jobId: string, pid: number): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.killProcess, jobId, pid),
-
-  killProcesses: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.killProcesses, jobId),
-
-  pilotTask: (jobId: string, taskId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.pilotTask, jobId, taskId),
-
-  restartTask: (jobId: string, taskId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.restartTask, jobId, taskId),
-
-  editTask: (jobId: string, taskId: string, edit: EditTask): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.editTask, jobId, taskId, edit),
-
-  movePlan: (jobId: string, move: MovePlan): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.movePlan, jobId, move),
-
-  approveWave: (jobId: string, wave: ApproveWave): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.approveWave, jobId, wave),
-
-  editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
-  toProposer: (jobId: string, body: ToProposer): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.toProposer, jobId, body),
-  setLandingTarget: (jobId: string, target: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.setLandingTarget, jobId, target),
-
-  // The disk, never the record — every row this reaches stays on the board,
-  // under `Cleared`. One entry taking every id rather than a loop of
-  // `killJob`-shaped calls at the call site, because the loop belongs to
-  // main: it is the process holding the board these ids came off of.
-  clearTerminalJobs: (jobIds: readonly string[]): Promise<ReclaimOutcome> =>
-    ipcRenderer.invoke(CHANNELS.clearTerminalJobs, jobIds),
-
-  // Real deletion, and the only entry here where that is true — every other
-  // act moves a Job further, and this removes the row. A separate entry from
-  // the one above for the reason `crates/ipc/operations/` gives: one call
-  // with two unrelated things to fail at is worse than two calls.
-  forgetTerminalJobs: (jobIds: readonly string[]): Promise<ClearOutcome> =>
-    ipcRenderer.invoke(CHANNELS.forgetTerminalJobs, jobIds),
-
-  // The per-Job half of `clearTerminalJobs` above. One id at a time — a
-  // person reclaims the Job they are looking at, and the bulk shape exists
-  // because clearing a board is a set.
-  reclaimWorktree: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.reclaimWorktree, jobId),
   changeSlotPool: (manifestId: string, change: ChangeSlotPool): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.changeSlotPool, manifestId, change),
   rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
     ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
-  // A force, unlike the reclaim above — Fleet's 409 is the safety net a stale confirmation needs.
-  deleteBranch: (jobId: string, tip: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.deleteBranch, jobId, tip),
-
-  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there is no undo.
-  forgetJob: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.forgetJob, jobId),
-
-  redirectDrone: (jobId: string, instruction: string, droneId?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.redirectDrone, jobId, instruction, droneId),
-  answerQuestion: (
-    jobId: string,
-    questionId: string,
-    chose: string | undefined,
-    mode?: AnswerMode,
-  ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerQuestion, jobId, questionId, chose, mode),
-  // The answer is one of the three Fleet offered for this call. The note is a
-  // person's own words, read only on a reject, and `undefined` crosses as
-  // `undefined` — a bare refusal sends no prose at all. The rule is one of
-  // that call's own candidates, read only on an always-allow.
-  answerCommand: (
-    jobId: string,
-    call: string,
-    answer: CommandAnswer,
-    note?: string,
-    rule?: string,
-    scope?: AlwaysAllowScope,
-    mode?: AnswerMode,
-  ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope, mode),
-  // The owner's words to a Job's Commander, and his pick on its card: a card's id and an option's id.
-  askCommander: (jobId: string, text: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.askCommander, jobId, text),
-  answerCommanderCard: (jobId: string, cardId: string, optionId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCommanderCard, jobId, cardId, optionId),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.answerHelmCall, call, answer, note),
-  // What that command does. A read, and the one capability here that answers a
-  // question about a call rather than deciding it.
-  explainCommand: (jobId: string, callId: string): Promise<CommandExplainedRead> =>
-    ipcRenderer.invoke(CHANNELS.explainCommand, jobId, callId),
-  setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.setWhenBlocked, jobId, whenBlocked),
-  answerJudge: (
-    jobId: string,
-    askedAt: string,
-    answer: JudgeAnswer,
-    note?: string,
-    mode?: AnswerMode,
-  ): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.answerJudge, jobId, askedAt, answer, note, mode),
-  setWhenRefused: (jobId: string, whenRefused: WhenRefused): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.setWhenRefused, jobId, whenRefused),
-  // The other two settings on one job. `null` crosses as `null`, which is the
-  // clear Fleet asks for by name — not `undefined`, which it would refuse.
-  setModel: (jobId: string, model: string | null): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.setModel, jobId, model),
-  setReviewModel: (jobId: string, model: string | null): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.setReviewModel, jobId, model),
-  removeAllowedCommand: (jobId: string, run: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.removeAllowedCommand, jobId, run),
-
-  // The note is optional, and `undefined` crosses as `undefined` — a plain
-  // restart sends Fleet no body at all, which is the request it took before it
-  // could read one.
-  restartStep: (jobId: string, note?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.restartStep, jobId, note),
-
-  // Overrule a Judge that refused the work. **Its own entry and never a flag on
-  // `approveReview`** — that one answers a gate nothing objected to, this one
-  // answers a gate that refused, and one capability taking which would let a
-  // refusal be taken with the act built for work nobody argued about. The
-  // reason is the second argument because it is required: Fleet answers 422
-  // without one, and an override that says nothing is the thing the act is
-  // refused for.
-  overrideVerdict: (jobId: string, reason: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.overrideVerdict, jobId, reason),
-
-  // Ask the judge again where it did not answer. **Its own entry beside the
-  // override rather than a flag on it**: that one advances the step, and this
-  // one changes nothing but asks again. No reason crosses, because nothing is
-  // being disagreed with.
-  rerunGate: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunGate, jobId),
-
-  // Run a stopped step's Checks again. Its own entry beside `rerunGate`'s, for
-  // the trigger the two partition on — `#1105`.
-  rerunChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunChecks, jobId),
-
-  // One Check of the gate that is running, run again or ended as skipped, and
-  // every unfinished one skipped. Beside `rerunChecks`, which answers a step
-  // that has stopped.
-  retryCheck: (jobId: string, check: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.retryCheck, jobId, check),
-  skipCheck: (jobId: string, check: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.skipCheck, jobId, check),
-  skipChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.skipChecks, jobId),
-
-  // Ask a Job to show its work. Its own entry because it moves nothing on the
-  // Job: what comes back is a set of frames, or why there is none. `spec` names
-  // which to run; without one Fleet runs the last a Drone named.
-  showAgain: (jobId: string, spec?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.showAgain, jobId, spec),
-
-  // Give one job a higher cost ceiling. **Its own entry and never a general
-  // update**: nothing else here sets a value on a job, and a capability that
-  // could would be one press meaning whatever field it was handed. The figure
-  // is millionths of a dollar, the unit `JobSpend` reads in, so the number
-  // shown and the number sent are the same integer.
-  raiseCostCap: (jobId: string, costCapMicros: number): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.raiseCostCap, jobId, costCapMicros),
-
-  // Let one job take more turns. Its own entry beside the cost cap rather than
-  // a unit on it: the two clear different holds, and one capability taking
-  // which ceiling to move would be a press whose effect depends on an argument.
-  // The figure is a plain turn count, the unit `JobSpend` reads it in.
-  raiseTurnCap: (jobId: string, turnCap: number): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.raiseTurnCap, jobId, turnCap),
-
   // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.
   savePreference: (save: SavePreference): Promise<Outcome> =>
@@ -374,30 +155,6 @@ const api: BridgeApi = {
   promoteMod: (name: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.promoteMod, name),
 
-  // Say a job failed in error, and file its record with the reason. **Its own
-  // entry and not a mode on `overrideVerdict`**: that one moves the job past a
-  // verdict, and this one moves nothing at all — one capability doing both
-  // would make "I think this was wrong" and "let it through anyway" the same
-  // press. Nothing here reaches the issue tracker; what comes back is a record.
-  fileReport: (jobId: string, filing: FileReport): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.fileReport, jobId, filing),
-
-  // A person's own add or drop of a task on the Job's plan — `#897`. Each
-  // answers with the plan the change leaves, not a plain `Outcome`.
-  addTask: (jobId: string, add: AddTask): Promise<PlanEditAnswer> =>
-    ipcRenderer.invoke(CHANNELS.addTask, jobId, add),
-  dropTask: (jobId: string, drop: DropTask): Promise<PlanEditAnswer> =>
-    ipcRenderer.invoke(CHANNELS.dropTask, jobId, drop),
-
-  watchJob: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.watchJob, jobId),
-
-  // Read-only, and it is a separate entry from `watchJob` because it is a
-  // separate act: one reads a Job's record, the other watches its Drone work.
-  // Neither can send anything to a Drone, and no entry here ever will.
-  observeJob: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.observeJob, jobId),
-
   // One running Check's log, as it is written. Read-only like the entry above,
   // and its own because it is its own socket.
   followCheckOutput: (jobId: string | null, kept: string | null): Promise<void> =>
@@ -407,65 +164,14 @@ const api: BridgeApi = {
   followLandCheck: (at: LandCheckAt | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.followLandCheck, at),
 
-  // One Job's transition history. Read-only like the two above it, and a
-  // separate entry because it is a separate operation: a history is not a field
-  // on the detail, so it is asked for when a surface unfolds rather than paid
-  // for on every Job opened.
-  readHistory: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readHistory, jobId),
-
-  // What the open Job holds on this machine. Read-only, and its own entry
-  // because it is its own operation: `watchJob` is re-read on every event
-  // naming the Job and this walks a process table and a directory.
-  followActive: (want: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.followActive, want),
-  readResources: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readResources, jobId),
-
-  // The 10 s tick that keeps the reading above live while Pulse draws it, and
-  // stops when it does not. Scoped to the board rather than to the Job, so the
-  // process table is walked for somebody looking at it. #1571.
-  watchPulse: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.watchPulse, jobId),
-
-  // The run sheet — Journey 9. Opened by the sheet rather than by the Job,
-  // `readDiff`'s reason: the Manifest a Job froze is read on the press that
-  // draws it, not on every Job opened.
-  watchRunSheet: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.watchRunSheet, jobId),
-
-  // One run's output, read-only like `followCheckOutput` beside it and its
-  // own socket for the same reason.
-  observeRun: (jobId: string | null, runId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.observeRun, jobId, runId),
-
-  // Run one Check or Command in this Job's worktree. **A rehearsal**: no
-  // Evidence, no `job_step_checks` row, nothing on the Job moves.
-  startRun: (jobId: string, body: StartRun): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.startRun, jobId, body),
-
-  stopRun: (jobId: string, runId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.stopRun, jobId, runId),
-
-  undoRun: (jobId: string, runId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.undoRun, jobId, runId),
-
-  listRuns: (jobId: string): Promise<RunListRead> => ipcRenderer.invoke(CHANNELS.listRuns, jobId),
-
-  getRunOutput: (jobId: string, runId: string): Promise<RunOutputRead> =>
-    ipcRenderer.invoke(CHANNELS.getRunOutput, jobId, runId),
-
-  // The same rehearsal in the main checkout — the Manifest surface. **Its own
-  // entries rather than a `jobId` that may be `null` on the seven above**: a
-  // route under `/manifest` and a route under `/jobs/:id` are two operations,
-  // and one capability taking which would read as one act and perform two.
+  // A rehearsal in the main checkout — the Manifest surface.
   watchCheckoutRunSheet: (want: boolean): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.watchCheckoutRunSheet, want),
 
   observeCheckoutRun: (runId: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.observeCheckoutRun, runId),
 
-  // A name and nothing else. There is no frozen Manifest to choose against
-  // and no diff to narrow to in the main checkout.
+  // A name and nothing else.
   startCheckoutRun: (body: StartCheckoutRun): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.startCheckoutRun, body),
 
@@ -503,11 +209,9 @@ const api: BridgeApi = {
 
   saveManifestFile: (body: SaveManifestFile): Promise<ManifestSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveManifestFile, body),
-  // Edits by key, and past Jobs' spend. Still no path: Fleet names the file.
+  // Edits by key. Still no path: Fleet names the file.
   editManifest: (body: EditManifest): Promise<ManifestEditAnswer> =>
     ipcRenderer.invoke(CHANNELS.editManifest, body),
-  readManifestSpend: (): Promise<ManifestSpendRead> => ipcRenderer.invoke(CHANNELS.readManifestSpend),
-  readManifestChecks: (): Promise<ManifestChecksRead> => ipcRenderer.invoke(CHANNELS.readManifestChecks),
   // Setup: Scan, the proposals, one edit, Write — one operation each.
   readRepositoryScan: (): Promise<RepositoryScanRead> => ipcRenderer.invoke(CHANNELS.readRepositoryScan),
   readManifestProposals: (): Promise<ManifestProposalsRead> =>
@@ -545,24 +249,12 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
-  readAlerts: (): Promise<AlertsRead> => ipcRenderer.invoke(CHANNELS.readAlerts),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
     ipcRenderer.invoke(CHANNELS.readTrigger, reading),
   saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
   removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
     ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
-  chooseTriggerFix: (jobId: string, body: ChooseTriggerFix): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.chooseTriggerFix, jobId, body),
-  rerunTrigger: (jobId: string, body: HoldAct): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunTrigger, jobId, body),
-  skipTrigger: (jobId: string, body: HoldAct): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.skipTrigger, jobId, body),
-
-  addJobStep: (adding: AddingStep): Promise<AddStepAnswer> => ipcRenderer.invoke(CHANNELS.addJobStep, adding),
-  removeJobStep: (removing: RemovingStep): Promise<RemoveStepAnswer> =>
-    ipcRenderer.invoke(CHANNELS.removeJobStep, removing),
-  editJobStep: (editing: EditingStep): Promise<EditStepAnswer> => ipcRenderer.invoke(CHANNELS.editJobStep, editing),
-  readRepairDiff: (reading: ReadingRepairDiff): Promise<RepairDiffAnswer> => ipcRenderer.invoke(CHANNELS.readRepairDiff, reading),
-
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why
   // `jobId` was optional here before that surface existed.
@@ -596,42 +288,10 @@ const api: BridgeApi = {
   changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.changeFleetBuild, build, adopt),
 
-  // Ask Fleet to go and look now. **The rung below intervene**, and the one
-  // entry here that is an act and changes nothing: what it leaves is a line in
-  // the Job's own log. It costs no model call, and the answer arrives on the
-  // published state rather than coming back from the call.
-  examineJob: (jobId: string): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.examineJob, jobId),
-
-  // What a Job's Drones claimed. Read-only, and a separate entry from the diff
-  // below because they are two operations: this one is four lines per step and
-  // that one is the patch, and a surface wanting only the claims must not have
-  // to fetch a megabyte to read them.
-  readEvidence: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readEvidence, jobId),
-
-  // The worktree against the branch it was cut from — **the one entry here
-  // that spends the patch bytes**, and asked for more than once: on opening a
-  // Job, on the press that opens the diff, and while that sheet is open and
-  // the file list moves under it. `shared/api.ts` holds why.
-  readDiff: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readDiff, jobId),
-
-  // What people wrote on a Job's open pull request. **The one read here that
-  // reaches a forge**, so it is its own entry beside the two above rather than
-  // riding one of them: a surface wanting the claims must not spend a process
-  // and a network to get them, and nothing takes this on a timer.
-  readRemarks: (jobId: string | null): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readRemarks, jobId),
-
-  readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
-    ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
   stopSessionCheck: (run: number, force: boolean): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.stopSessionCheck, run, force),
-  readBrief: (jobId: string, name: string): Promise<BriefRead> =>
-    ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
   readRetro: (subject: RetroSubject): Promise<RetroRead> =>
     ipcRenderer.invoke(CHANNELS.readRetro, subject),
@@ -648,28 +308,6 @@ const api: BridgeApi = {
   reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
   askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
     ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),
-  readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
-    ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
-  // New job's own reads on All — #959: `leftOut` and the Manifest reading for
-  // the repository the ask answered, named by root since the pick stays put.
-  // `readCheckOutput`'s shape: answered once, and nothing here is held or republished.
-  readComposing: (repository: string): Promise<ComposingRead> =>
-    ipcRenderer.invoke(CHANNELS.readComposing, repository),
-
-  // A recording's address, composed rather than fetched — it is the one entry
-  // here that opens no channel. What makes it safe to hand over is what makes
-  // the rest safe: it names a Job and a frame id the record already gave out,
-  // and main is what turns that into a request.
-  frameStreamUrl: (jobId: string, kept: string): string => frameStreamUrl(jobId, kept),
-
-  // Every report filed, with the counts. Read-only, and **the one read here
-  // that carries no Job id**: a report survives the Job being forgotten, so
-  // scoping the listing to a Job would lose the ones most worth reading. A
-  // boolean, because there is nothing to scope it to — only whether a surface
-  // is open. Nothing here files or withdraws a report; `fileReport` does the
-  // first and nothing does the second.
-  readReports: (want: boolean): Promise<void> =>
-    ipcRenderer.invoke(CHANNELS.readReports, want),
 
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
@@ -780,7 +418,6 @@ const api: BridgeApi = {
   readSessionWait: (sessionId: string, request: string): Promise<SessionActed<WaitReading>> => ipcRenderer.invoke(CHANNELS.readSessionWait, sessionId, request),
   changeWaiting: (change: ChangeWaiting): Promise<SessionActed<SessionWait>> => ipcRenderer.invoke(CHANNELS.changeWaiting, change),
   startWaitingNow: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startWaitingNow, sessionId),
-  exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
@@ -843,14 +480,14 @@ const api: BridgeApi = {
     sessionId: string,
     number: number,
     press: PullRequestPress,
-  ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
+  ): Promise<SessionActed<PullRequestState>> =>
     ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
   // A pull request no Session holds, named by its repository's Manifest.
   pressRepositoryPullRequest: (
     manifestId: string,
     number: number,
     press: PullRequestPress,
-  ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
+  ): Promise<SessionActed<PullRequestState>> =>
     ipcRenderer.invoke(CHANNELS.pressRepositoryPullRequest, manifestId, number, press),
   readPullRequestPage: (sessionId: string, number: number): Promise<SessionActed<PullRequestPage>> =>
     ipcRenderer.invoke(CHANNELS.readPullRequestPage, sessionId, number),
@@ -984,84 +621,10 @@ const api: BridgeApi = {
     openInBridge: (): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelOpenInBridge),
   },
 
-  // The three decisions on the work, and they are three entries for the reason
-  // the two kills are two: one capability taking "which decision" as an
-  // argument would read as one act and perform three, and these three differ by
-  // whether anything survives them. Approving takes the work, requesting
-  // changes sends the drone back to the same step, and rejecting ends both.
-  approveReview: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.approveReview, jobId),
-
-  mergePullRequest: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.mergePullRequest, jobId),
-
-  autoMergePullRequest: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.autoMergePullRequest, jobId),
-
-  rerunFailedChecks: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.rerunFailedChecks, jobId),
-
-  investigateFailedChecks: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.investigateFailedChecks, jobId),
-
-  queueAfterFinding: (jobId: string, finding: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.queueAfterFinding, jobId, finding),
-
-  fileFindingIssue: (jobId: string, finding: string, title: string, body: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.fileFindingIssue, jobId, finding, title, body),
-
-  // A finding's issue, `openRemarkLink`'s reason: main reads the address off the Job it holds.
-  openFindingIssue: (jobId: string, finding: string): Promise<Followed> =>
-    ipcRenderer.invoke(CHANNELS.openFindingIssue, jobId, finding),
-
-  requestChanges: (jobId: string, note: string, withWalkNotes?: boolean): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note, withWalkNotes === true),
-  removeWalkNote: (jobId: string, noteId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.removeWalkNote, jobId, noteId),
-
-  rejectWork: (jobId: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.rejectWork, jobId),
-
-  // The fifth act at the same gate, and a fifth entry for the reason the four
-  // above are four. **Handles, never words**: what crosses is what the forge
-  // calls each comment, and fleet reads the pull request again to find out what
-  // they say — so nothing on this side decides what a drone is told.
-  takeUpRemarks: (jobId: string, remarks: string[]): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.takeUpRemarks, jobId, remarks),
-
-  dismissFinding: (jobId: string, finding: string, reason: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.dismissFinding, jobId, finding, reason),
-
-  // The one entry that reaches outside the app, and the narrowest it can be:
-  // a Job id and one of three words. **No path crosses here.** Main derives
-  // the path from the Job and the repository its Manifest was read from, so
-  // the renderer never holds the argument that decides what is opened — which
-  // is what keeps this from being an arbitrary-file capability under a
-  // friendly name. It is one entry rather than three because the three differ
-  // only in which file and none of them changes anything about the Job.
-  openArtifact: (jobId: string, what: Artifact): Promise<Opened> =>
-    ipcRenderer.invoke(CHANNELS.openArtifact, jobId, what),
-  // A Job's worktree in the terminal `terminal.app` names. A Job id and nothing else, `openArtifact`'s rule.
-  openInTerminal: (jobId: string): Promise<Opened> => ipcRenderer.invoke(CHANNELS.openInTerminal, jobId),
-
-  // The second entry that reaches outside the app, and the only one that
-  // leaves the machine. **A Job id and nothing else** — narrower than the one
-  // above it, which at least takes a word. Main reads the address off the
-  // reading it published and refuses anything that is not `https:`, so no
-  // string the renderer composed can reach `shell.openExternal`; the renderer
-  // draws the address, and does not send it.
-  openPullRequest: (jobId: string): Promise<Followed> =>
-    ipcRenderer.invoke(CHANNELS.openPullRequest, jobId),
-
   // What a Studio node points at — #1406. `openPullRequest`'s reason: a Studio
   // id and a node id, never an address the renderer composed.
   openStudioNode: (studioId: string, nodeId: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openStudioNode, studioId, nodeId),
-
-  // One comment's own link, `openPullRequest`'s reason exactly: a Job id and a
-  // comment id, never an address the renderer composed.
-  openRemarkLink: (jobId: string, remarkId: string): Promise<Followed> =>
-    ipcRenderer.invoke(CHANNELS.openRemarkLink, jobId, remarkId),
 
   // Where a pressed notification says to go. **The only entry here that the
   // renderer does not initiate** — every other one is the window asking, and

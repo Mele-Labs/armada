@@ -33,7 +33,6 @@ import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
-import { Reports } from "@armada/screens";
 import { useLandings, useSummoned } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
@@ -64,7 +63,7 @@ import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
 import { useDispatchFailure } from "./failure-session";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readManifestSpend, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, readReports, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LessonsSurface } from "./lessons";
@@ -108,8 +107,6 @@ export function App() {
   );
   const asked = useAsked(); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   const lands = useLandings(); // The section a pressed notification asked for, and the call an alert did.
-  // What has been reported against the Judge. Its own view: the rate is read across every report.
-  const [auditing, setAuditing] = useState(false);
   // Whether the held worktrees are open. **Its own view for the reports' kind of reason and not the
   // same one**: what is decided there is which of a set to give back.
   const [clearing, setClearing] = useState(false);
@@ -163,7 +160,7 @@ export function App() {
   // The left column's own fold, remembered across a restart — Bridge/1088.
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
   // The mock provides a fixture; a real window builds it from what Fleet reported.
-  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, state.jobs, (build, adopt) => void changeFleetBuild(build, adopt));
+  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -248,7 +245,6 @@ export function App() {
     reading: state.manifestReading,
     onReadFile: readManifestFile,
     onEditManifest: editManifest,
-    onReadSpend: readManifestSpend,
   });
 
   // Setup, held here for the forms' reason: ticks and the open proposal outlive a look away.
@@ -262,7 +258,7 @@ export function App() {
   });
 
   // A notification pressed, or an alert's call: the Cockpit, the overlays down first.
-  useSummoned(() => (setAuditing(false), setClearing(false), goTo(SURFACE.overview)));
+  useSummoned(() => (setClearing(false), goTo(SURFACE.overview)));
 
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, openSession, openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)) }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
@@ -302,7 +298,7 @@ export function App() {
   /**
    * Go to a place in the rail. **One function, because the rail and the palette
    * are two controls on one act** — a second copy is where one of them gets
-   * left behind, which is how `auditing` came to survive a rail press.
+   * left behind,
    *
    * A clear-then-set rather than a branch per destination: a branch is where a
    * view gets left standing under the next one.
@@ -335,7 +331,6 @@ export function App() {
     // The Sessions page is the Cockpit's list: ⌘3, a Sessions link and the palette arrive there with focus on it. Jobs has no page.
     const surfaceId = place === SURFACE.sessions || place === SURFACE.jobs ? SURFACE.overview : place;
     if (place === SURFACE.sessions) window.requestAnimationFrame(() => focusPanel("list", deckNow().cursor));
-    setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
     setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
@@ -368,12 +363,11 @@ export function App() {
   const all = pickedRepository === null && repositories.length > 0;
   // Worktree Slots follow the pick too.
   const pickedHeld = useMemo(
-    () => (state.held.state === "read" ? { ...state.held, held: heldOfPicked(state.held.held, pickedRepository, state.jobs) } : state.held),
-    [state.held, pickedRepository, state.jobs],
+    () => (state.held.state === "read" ? { ...state.held, held: heldOfPicked(state.held.held, pickedRepository) } : state.held),
+    [state.held, pickedRepository],
   );
   // Where the person is, for Helm — #1075.
   const helmScreen = screenOf({
-    reading: false,
     clearing,
     manifesting,
     studying,
@@ -383,8 +377,6 @@ export function App() {
   const helmContext: HelmContext = contextOf({
     screen: helmScreen,
     picked: scoped?.id ?? null,
-    chip: null,
-    cursor: null,
     studio: openStudio?.id ?? null,
     node: studioNode,
   });
@@ -398,9 +390,9 @@ export function App() {
   if (continued !== null && (continued.id !== captureAim?.id || continued.name !== captureAim.name)) {
     setCaptureAim(continued);
   }
-  // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
-  const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, commands);
-  const atCockpit = !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing }) === SURFACE.overview; // Its call is already in front.
+  // Helm's dock lists every repository's questions, whatever the pick.
+  const asks = useDockCards(state.questions, repositories, commands);
+  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing }) === SURFACE.overview; // Its call is already in front.
   const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const { back, replaceNext } = useHistory(
@@ -411,8 +403,6 @@ export function App() {
   useRefreshKey(() => {
     if (live) void commands.refresh();
   });
-  // Reported is drawn from the palette and nowhere else.
-  const boardRows = [{ id: "reports", label: "Reported" }];
 
   return (
     /* The guidance system, over the whole window — #1602, #1603. It holds what
@@ -438,7 +428,6 @@ export function App() {
           // The Cockpit's picker names it there; every other surface has none, so the row does.
           {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
           places={<DeckPlaces state={state} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
-          questions={questions}
           asking={asks.length}
           helm={
             <>
@@ -450,7 +439,6 @@ export function App() {
               {...(helmHosted.hosted === undefined ? {} : { hosted: helmHosted.hosted })}
               helm={state.helm}
               repositories={repositories}
-              jobs={[]}
               live={live}
               onAsk={helmBox.asked}
               outgoing={helmBox.outgoing}
@@ -460,7 +448,7 @@ export function App() {
                   ? undefined
                   : {
                       name: studioName(shownStudio),
-                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, state.jobs, { servers: state.servers.servers }) }),
+                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, { servers: state.servers.servers }) }),
                     }
               }
               onSwitch={(manifestId) => pointHelm(manifestId)}
@@ -518,17 +506,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {auditing ? (
-              /* Read across every report. The rate is the point. */
-              <Boundary region="the filed reports" {...guarded}>
-                <Reports
-                  reports={state.reports}
-                  onWant={readReports}
-                  onClose={() => setAuditing(false)}
-                  onCopied={setCopied}
-                />
-              </Boundary>
-            ) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : learning ? (
+            {reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
@@ -537,9 +515,6 @@ export function App() {
               <Boundary region="Cleanup" {...guarded}>
                 <WorktreesNow
                   held={pickedHeld}
-                  // Read for the handle that names a worktree outside the
-                  // pool, and a `depended_on` reason's blocker.
-                  jobs={state.jobs}
                   onWant={readHeld}
                   onClose={() => setClearing(false)}
                   onCopied={setCopied}
@@ -716,7 +691,6 @@ export function App() {
           checkoutRunSheet={state.checkoutRunSheet}
           failing={failing}
           live={live}
-          board={boardRows}
           repositories={repositories.map((one) => ({ root: one.root, label: repositoryLabel(one, repositories) }))}
           picked={state.repository}
           acts={{
@@ -732,11 +706,6 @@ export function App() {
             },
             openSetting: (id) => openSettingsAt(id, () => goTo(SURFACE.settings)),
             refresh: () => void commands.refresh(),
-            board: () => {
-              // Reports close back to Overview, so that is where they open over.
-              goTo(SURFACE.overview);
-              setAuditing(true);
-            },
           }}
         />
 

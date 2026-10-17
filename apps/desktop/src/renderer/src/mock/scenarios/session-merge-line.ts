@@ -3,7 +3,7 @@
 // `session-pr-merge-line` plays it.
 
 import type { MergeLine } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";

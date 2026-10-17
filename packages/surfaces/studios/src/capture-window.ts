@@ -38,13 +38,11 @@ export type CaptureWindowState = {
   shown: { name: string | null; address: string };
   /**
    * The Studio a Note lands on, decided when the window opened. A `null` name
-   * is an untitled one. **`null` whole: a Job's server, walked rather than
+   * is an untitled one. **`null` whole: a server, walked rather than
    * captured** — nothing is armed, because there is nowhere for a Note to land.
    */
   studio: { id: string; name: string | null } | null;
-  /** The Job a note lands on where there is no Studio: the one whose server this walks. */
-  job?: { id: string; handle: string };
-  /** The Session a note goes to, where it showed this page. **Never folded into `job`**: the two are told apart to the panel. */
+  /** The Session a note goes to, where it showed this page. */
   session?: { id: string; title: string };
   /**
    * A pull request's walk, opened from the Reviews tab. **No Session showed this page**, so a note goes to `holder`, the title of the
@@ -69,7 +67,7 @@ export type CaptureWindowState = {
   ask?: CaptureAsk;
   /** The takes of one change the Session showed, in the order the bar draws them, and the one on screen. Absent: one page. */
   variations?: { names: string[]; at: number };
-  /** Whether the page is ready to walk, as its Session or Job says. Absent: nobody has said. */
+  /** Whether the page is ready to walk, as its Session says. Absent: nobody has said. */
   readiness?: CaptureReadiness;
   /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
   walk?: CaptureWalk;
@@ -132,8 +130,8 @@ export type CaptureAsk = {
   box?: CaptureRect | null;
 };
 
-/** The Session's thread or the Job's view beside the page — `capture-window.md`, *The panel beside the page*. */
-export type CapturePanel = { kind: "session" | "job"; open: boolean };
+/** The Session's thread beside the page — `capture-window.md`, *The panel beside the page*. */
+export type CapturePanel = { kind: "session"; open: boolean };
 
 /** An answer from the bar: an option by its index, words of the person's own, or both. */
 export type CaptureAnswer = { choice?: number; text?: string };

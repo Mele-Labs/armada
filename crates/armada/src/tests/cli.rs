@@ -61,38 +61,18 @@ fn the_four_verbs_parse() {
     );
     assert_eq!(
         asked("clean"),
-        Ok(Verb::Clean {
-            everything: false,
-            force: false
-        })
+        Ok(Verb::Clean { everything: false })
     );
     assert_eq!(
         asked("clean --all"),
-        Ok(Verb::Clean {
-            everything: true,
-            force: false
-        })
+        Ok(Verb::Clean { everything: true })
     );
 }
 
-/// **Two flags because they are two questions.** `--all` clears this machine's
-/// store; `--force` deletes work nobody has taken. Either alone, or both.
+/// `--force` deleted work nobody had taken, and nothing deletes it any more.
 #[test]
-fn force_and_all_are_separate_answers_and_compose() {
-    assert_eq!(
-        asked("clean --force"),
-        Ok(Verb::Clean {
-            everything: false,
-            force: true
-        })
-    );
-    assert_eq!(
-        asked("clean --all --force"),
-        Ok(Verb::Clean {
-            everything: true,
-            force: true
-        })
-    );
+fn clean_takes_no_force_flag() {
+    assert!(asked("clean --force").is_err());
 }
 
 /// **`check` and `run` stay two verbs.** There is no flag on either that turns
@@ -157,7 +137,7 @@ fn clean_takes_no_path() {
 
 #[test]
 fn a_flag_that_does_not_exist_names_the_one_that_does() {
-    assert!(said("clean --everything").contains("it takes `--all`, `--force`"));
+    assert!(said("clean --everything").contains("it takes `--all`"));
 }
 
 /// `covers` takes its paths on stdin, so a path typed after it is refused by

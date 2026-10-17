@@ -9,7 +9,7 @@ Armada is built one step at a time. This is the loop, and it exists because the
 loop is identical every time — repeating it into each new session by hand is
 exactly the problem Armada is being built to solve.
 
-**Until Fleet can dispatch a Job, this skill is the workflow.**
+**This skill is the workflow.**
 
 ## Where you are
 

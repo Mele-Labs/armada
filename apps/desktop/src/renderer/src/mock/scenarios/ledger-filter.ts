@@ -1,6 +1,6 @@
 // A long Session's ledger, which draws what is open and keeps the rest behind All. Over the
 // `sessions` scenario with one more Session open beside its own: six open or draft pull requests
-// among eleven merged ones, two running subagents among eleven finished, and Jobs landed and not.
+// among eleven merged ones, and two running subagents among eleven finished.
 // The walk `ledger-filter` plays it.
 
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -28,15 +28,6 @@ const subagent = (n: number, state: "running" | "done"): SessionAttachment => ({
   state,
 });
 
-const job = (number: number, state: "running" | "landed" | "superseded"): SessionAttachment => ({
-  kind: "job",
-  id: `job${number}`,
-  number,
-  title: `Pin the store clock, ${number}`,
-  state,
-  branch: `fix/pin-${number}`,
-});
-
 const more: Session[] = [
   {
     id: "s11",
@@ -54,9 +45,6 @@ const more: Session[] = [
       pull(1915, "open"),
       pull(1916, "draft"),
       pull(1917, "open"),
-      job(61, "landed"),
-      job(62, "superseded"),
-      job(63, "running"),
       ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => subagent(n, "done")),
       subagent(12, "running"),
       subagent(13, "running"),
@@ -77,6 +65,6 @@ const more: Session[] = [
 export const s204LedgerFilter: Scenario = {
   ...s200Sessions,
   name: "ledger-filter",
-  says: "A long Session's ledger: open pull requests, running subagents and Jobs by default, the finished ones behind All",
+  says: "A long Session's ledger: open pull requests, running subagents by default, the finished ones behind All",
   draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
 };

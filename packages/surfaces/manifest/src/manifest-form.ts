@@ -1,6 +1,5 @@
 // The Manifest surface's forms, held — Journey 9's *Editing*. `form-edits.ts`
-// is the arithmetic; this holds the draft, one save at a time, and what past
-// Jobs cost.
+// is the arithmetic; this holds the draft and one save at a time.
 //
 // **Held by the app and not by the screen**, for `manifest-file.ts`'s reason:
 // the screen unmounts whenever the rail moves, and a draft it owned would go
@@ -8,11 +7,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ManifestFormDraft, ManifestFormProps } from "@armada/components";
-import type { EditManifest, ManifestDeclared, ManifestReading, ManifestSpend } from "@armada/protocol";
+import type { EditManifest, ManifestDeclared, ManifestReading } from "@armada/protocol";
 
 import { clockOf } from "@armada/screens/src/duration";
-import type { ManifestEditAnswer, ManifestFileRead, ManifestSpendRead } from "@armada/screens/src/editing";
-import { budgetWarningsOf, draftOf, editsOf, problemsOf } from "./form-edits";
+import type { ManifestEditAnswer, ManifestFileRead } from "@armada/screens/src/editing";
+import { draftOf, editsOf, problemsOf } from "./form-edits";
 import { unlandedSaying } from "./manifest-file";
 
 /** What the forms ask of the host. */
@@ -25,7 +24,6 @@ export type ManifestFormSlice = {
   reading: ManifestReading | null;
   onReadFile: () => Promise<ManifestFileRead>;
   onEditManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
-  onReadSpend: () => Promise<ManifestSpendRead>;
   /** The form edit's pull request that waits for a person to merge it, where the merge line holds one. */
   mergeByHand?: ManifestFormProps["mergeByHand"];
 };
@@ -119,17 +117,14 @@ export function useManifestForm({
   reading,
   onReadFile,
   onEditManifest,
-  onReadSpend,
   repository,
   mergeByHand,
 }: ManifestFormSlice): ManifestForming {
   const [held, setHeld] = useState<Held>({ state: "none" });
-  const [spend, setSpend] = useState<ManifestSpend | null>(null);
   const [heldFor, setHeldFor] = useState(repository);
   if (heldFor !== repository) {
     setHeldFor(repository);
     setHeld({ state: "none" });
-    setSpend(null);
   }
   // What a press reads, and one save at a time — `manifest-file.ts`'s two refs.
   const current = useRef(held);
@@ -149,13 +144,6 @@ export function useManifestForm({
   useEffect(() => {
     if (showing) read();
   }, [showing, reading?.at, repository]);
-
-  useEffect(() => {
-    if (!showing) return;
-    void onReadSpend().then((answer) => {
-      if (answer.ok) setSpend(answer.spend);
-    });
-  }, [showing, repository]);
 
   function save(over: boolean): void {
     const at = current.current;
@@ -205,7 +193,6 @@ export function useManifestForm({
       autoMergeWords: declared.auto_merge.offered,
       reviewGateWords: declared.review_gate.offered,
       problems: problemsOf(draft),
-      budgetWarnings: budgetWarningsOf(draft, spend),
       changed,
       saving: held.saving,
       onSave: () => save(false),

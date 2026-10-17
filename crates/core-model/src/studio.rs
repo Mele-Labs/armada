@@ -8,8 +8,8 @@
 //! **No method rewrites content.** A Note is fixed at capture; a node moves,
 //! and that is the only change a node's own methods offer.
 //!
-//! **A Run or a Job node holds a reference and no status.** Its state is read
-//! off the run or the Job, so neither kind admits a state here at all.
+//! **A Run node holds a reference and no status.** Its state is read off the
+//! run, so the kind admits no state here at all.
 
 mod edge;
 mod finding;
@@ -36,7 +36,7 @@ pub use sketch::{
 };
 
 use crate::envelope::{Timestamp, Ulid};
-use crate::workflow::{id_newtype, JobId, ManifestId};
+use crate::workflow::{id_newtype, ManifestId};
 
 id_newtype! {
     /// A Studio's own key.
@@ -190,7 +190,6 @@ spelled! {
         Deferral => "deferral",
         Outline => "outline",
         IssueDraft => "issue_draft",
-        Job => "job",
     }
 }
 
@@ -321,8 +320,8 @@ impl EpicTake {
 
 impl StudioNodeKind {
     /// The states a node of this kind may hold, the first being where it
-    /// starts. Empty for a kind with none, and for Run and Job, whose state is
-    /// the run's or the Job's own.
+    /// starts. Empty for a kind with none, and for Run, whose state is the
+    /// run's own.
     pub fn states(&self) -> &'static [StudioNodeState] {
         use StudioNodeState as S;
         match self {
@@ -339,8 +338,7 @@ impl StudioNodeKind {
             | StudioNodeKind::Sketch
             | StudioNodeKind::Issue
             | StudioNodeKind::PullRequest
-            | StudioNodeKind::Epic
-            | StudioNodeKind::Job => &[],
+            | StudioNodeKind::Epic => &[],
             StudioNodeKind::Finding => &[S::Proposed, S::Gathering],
             StudioNodeKind::Contradiction => &[
                 S::Reported,
@@ -599,8 +597,6 @@ pub enum StudioNodeContent {
     Outline { body: String },
     /// An issue's title and body, never filed by Armada.
     IssueDraft { title: String, body: String },
-    /// A reference to a dispatched Job, never its status.
-    Job { job_id: JobId },
 }
 
 impl StudioNodeContent {
@@ -655,7 +651,6 @@ impl StudioNodeContent {
             StudioNodeContent::Deferral { .. } => StudioNodeKind::Deferral,
             StudioNodeContent::Outline { .. } => StudioNodeKind::Outline,
             StudioNodeContent::IssueDraft { .. } => StudioNodeKind::IssueDraft,
-            StudioNodeContent::Job { .. } => StudioNodeKind::Job,
         }
     }
 
@@ -694,7 +689,6 @@ impl StudioNodeContent {
             } => &[("address", address), ("number", number)],
             StudioNodeContent::Deferral { what } => &[("what", what)],
             StudioNodeContent::IssueDraft { title, body } => &[("title", title), ("body", body)],
-            StudioNodeContent::Job { job_id } => &[("job_id", job_id.as_str())],
         };
         fields
             .iter()

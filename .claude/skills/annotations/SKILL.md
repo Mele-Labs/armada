@@ -11,14 +11,14 @@ description: Work through the notes the owner left on Bridge with the annotation
 that worktree's root, so read the checkout the owner ran Bridge from — usually
 the main one. The shape is `Annotation` in `apps/desktop/src/shared/annotations.ts`.
 A note with `scope: "window"` is on the whole window rather than one element:
-its `<id>.png` is the window, and its `context` names the open Job or Session and
+its `<id>.png` is the window, and its `context` names the open Session and
 Doctor's read — start from those, not from `selector`, which is just `body`.
 
-**Three ways a note reaches work.** In the layer, *Send to Fleet* proposes it as
-a Job at the approval gate, and sending it to a Session messages that Session;
+**Three ways a note reaches work.** In the layer, *Start session* starts a Session
+for it, and sending it to a Session messages that Session;
 either way the note carries `sent` with where it went. This skill is the third:
 a session reads the notes itself. Never two to one note — a note with `sent`
-belongs to the Job or Session it went to.
+belongs to the Session it went to.
 
 ## The loop
 
@@ -44,8 +44,8 @@ main folder, and he had to ask where his note had gone. A note in a worktree's
 folder is deleted with the worktree, so when it is done, copy it into the main
 checkout's folder, marked `done`, before the worktree is given back.
 
-Read every file. Skip `status: "done"`, and skip any with `sent` — say which Job
-or Session each went to, so the owner knows it is not lost. Group what is left by
+Read every file. Skip `status: "done"`, and skip any with `sent` — say which
+Session each went to, so the owner knows it is not lost. Group what is left by
 `component`: three notes on one component are one change.
 
 ### 2. Find the code from the note, not from a guess
@@ -70,7 +70,7 @@ way the note asks, say so rather than inventing a change.
 | Small and clear — a word, a spacing, a missing state | Dispatch it, step 4 |
 | A design decision — a new illustration, a changed layout, a contract rule | Ask with `asking-a-person`, citing the contract it touches (`docs/contracts/design-system.md`, `iconography.md`). Dispatch it once he has answered. Do not decide it |
 | A defect | `armada-bug` |
-| Bigger than a session, or better run as a Job | Tell the owner to press *Send to Fleet* on it, or file it as an issue if he prefers |
+| Bigger than a session | Tell the owner to press *Start session* on it, or file it as an issue if he prefers |
 
 **Ask before dispatching, never after.** A subagent cannot put a question to the
 owner. A note that touches a decision he made (a contract line, say) is settled

@@ -369,22 +369,6 @@ pub const CARRYABLE: &str = r#"{
   ]
 }"#;
 
-/// **Armada's own `epic`, as the file ships** — the workflow whose subject is
-/// running a milestone.
-///
-/// Held by `include_str!`, so it is compiled in rather than read at run time and
-/// the test still touches no file. The real file rather than a fixture shaped
-/// like it: a fixture would go on saying what `epic` is for after `epic.json`
-/// had stopped.
-pub const EPIC: &str = include_str!("../../../../.armada/workflows/epic.json");
-
-/// Where a carried `epic` would say it was read from. See [`DEFINITION_AT`].
-pub const EPIC_AT: &str = "/carried/epic.json";
-
-/// What a person types when the work is a milestone. **No word of any `epic`
-/// step label is in it**, which is the case #424 was filed on.
-pub const A_MILESTONE: &str = "Finish the Board milestone, every issue still open under it";
-
 /// The same step gating on Armada's own two Checks **by name** — the way a
 /// definition written for one repository reads when it is carried to another.
 pub const NAMING_ARMADAS_CHECKS: &str = r#"{

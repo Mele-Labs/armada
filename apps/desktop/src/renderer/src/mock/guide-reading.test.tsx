@@ -11,8 +11,8 @@ import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import {
   GUIDES,
-  GUIDE_COMPLETION,
-  GUIDE_MEMBER_LINK,
+  GUIDE_MERGE_LINE,
+  GUIDE_PLAN,
   RETIRED_GUIDE_NUMBERS,
 } from "@armada/components";
 import type { Guide } from "@armada/components";
@@ -77,51 +77,47 @@ test("every guide in the catalogue is in the list, and the one open reads as ste
 
 test("a guide with a relation draws it under the step that names it, from the real components", async () => {
   await catalogue();
-  await rowFor(GUIDE_MEMBER_LINK).click();
+  await rowFor(GUIDE_PLAN).click();
 
-  const panel = panelFor(GUIDE_MEMBER_LINK);
-  await readsAsSteps(panel, GUIDE_MEMBER_LINK);
+  const panel = panelFor(GUIDE_PLAN);
+  await readsAsSteps(panel, GUIDE_PLAN);
 
-  const figure = panel.getByRole("img", { name: /landing in order/ });
+  const figure = panel.getByRole("img", { name: /Two groups of a plan/ });
   await expect.element(figure).toBeVisible();
 
   // Inside the step that names the order, not floating beside the list.
-  const carrying = drawnSteps(panel).filter((step) => step.includes("branches off member 1"));
+  const carrying = drawnSteps(panel).filter((step) => step.includes("Group 1"));
   expect(carrying).toHaveLength(1);
 
-  // It is `JobMembers` itself, drawing the joins the real screen draws — so a
-  // change to how two members relate changes this guide, which is the binding
-  // the owner took over a diagram that would have drifted in silence.
-  for (const said of [
-    "Member 2 branches off member 1, so it keeps working.",
-    "Member 3 waits on what member 2's merge publishes.",
-  ]) {
-    await expect.element(figure.getByText(said, { exact: false })).toBeVisible();
+  // It is the cards the real screen draws, so a change to how a group reads changes this guide,
+  // which is the binding the owner took over a diagram that would have drifted in silence.
+  for (const said of ["Group 1", "Group 2"]) {
+    expect(figure.element().textContent).toContain(said);
   }
 
-  // Nothing in a figure is a control: the drawing is hidden from the
-  // accessibility tree, and a focus stop inside it would be unreachable.
-  expect(figure.element().querySelectorAll("button, a, input, [tabindex]")).toHaveLength(0);
+  // Nothing in a figure is a control: the drawing is hidden from the accessibility tree and inert, so a
+  // real card's tooltip marks are no focus stop there.
+  for (const one of figure.element().querySelectorAll("button, a, input, [tabindex]")) expect(one.closest("[inert]")).not.toBeNull();
 });
 
 test("a guide with no relation draws no figure, and holds no frame where one would go", async () => {
   await catalogue();
-  await rowFor(GUIDE_COMPLETION).click();
-  const panel = panelFor(GUIDE_COMPLETION);
-  await readsAsSteps(panel, GUIDE_COMPLETION);
+  await rowFor(GUIDE_MERGE_LINE).click();
+  const panel = panelFor(GUIDE_MERGE_LINE);
+  await readsAsSteps(panel, GUIDE_MERGE_LINE);
 
   // There is no honest picture of a rule, so the guide draws none rather than
   // inventing one, and holds no space for the one it is not drawing.
   expect(panel.getByRole("img").query()).toBeNull();
-  expect(GUIDE_COMPLETION.figure).toBeUndefined();
+  expect(GUIDE_MERGE_LINE.figure).toBeUndefined();
 });
 
 test("the drawing animates once when the guide is opened, and never on a loop", async () => {
   // The claim is the motion, so it is the motion a person without the preference sees.
   await motion();
   await catalogue();
-  await rowFor(GUIDE_MEMBER_LINK).click();
-  const figure = panelFor(GUIDE_MEMBER_LINK).getByRole("img", { name: /landing in order/ });
+  await rowFor(GUIDE_PLAN).click();
+  const figure = panelFor(GUIDE_PLAN).getByRole("img", { name: /Two groups of a plan/ });
   await expect.element(figure).toBeVisible();
 
   // A loop is what says *still working*, and a guide is not working —
@@ -142,17 +138,15 @@ test("under prefers-reduced-motion the figure holds still and still reads", asyn
   );
 
   await catalogue();
-  await rowFor(GUIDE_MEMBER_LINK).click();
-  const figure = panelFor(GUIDE_MEMBER_LINK).getByRole("img", { name: /landing in order/ });
+  await rowFor(GUIDE_PLAN).click();
+  const figure = panelFor(GUIDE_PLAN).getByRole("img", { name: /Two groups of a plan/ });
   await expect.element(figure).toBeVisible();
 
   expect(figure.element().getAnimations({ subtree: true })).toHaveLength(0);
-  // Held still it is the finished list: three members on their rail, in order,
-  // each saying which link it carries. Nothing was carried by the movement.
-  for (const word of ["Member 1", "Member 2", "Member 3"]) {
+  // Held still it is the finished drawing: both groups, in order. Nothing was carried by the movement.
+  for (const word of ["Group 1", "Group 2"]) {
     await expect.element(figure.getByText(word, { exact: true })).toBeVisible();
   }
-  await expect.element(figure.getByText(/branches off member 1/)).toBeVisible();
 });
 
 test("a retired number is gone from the catalogue and is never handed out again", async () => {

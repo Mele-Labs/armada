@@ -20,7 +20,6 @@ use crate::rehearsing::records;
 pub(crate) struct Launch {
     pub(crate) holder: Holder,
     pub(crate) name: String,
-    pub(crate) job_id: Option<ipc::JobId>,
     pub(crate) manifest_id: ipc::ManifestId,
     pub(crate) checkout: ipc::ServerCheckout,
     /// Where under `.armada/servers/` its log directory goes.
@@ -28,7 +27,6 @@ pub(crate) struct Launch {
     pub(crate) ports: Vec<ServerPort>,
     pub(crate) links: Vec<ServerLink>,
     pub(crate) by: StartedBy,
-    pub(crate) for_review: bool,
     /// How a record left behind by a crashed Fleet says whose server this was.
     pub(crate) whose: String,
     pub(crate) run: Option<String>,
@@ -58,14 +56,12 @@ where
         let Launch {
             holder,
             name,
-            job_id,
             manifest_id,
             checkout,
             under,
             ports,
             links,
             by,
-            for_review,
             whose,
             run,
             serve,
@@ -95,7 +91,6 @@ where
         let state = ServerState {
             id: id.clone(),
             name: name.clone(),
-            job_id,
             manifest_id: Some(manifest_id),
             checkout,
             phase: ServerPhase::Starting,
@@ -103,7 +98,6 @@ where
             ports,
             links,
             started_by: by,
-            for_review,
             started_at: ipc::Instant::from(&self.now()),
             serving_since: None,
             ended_at: None,

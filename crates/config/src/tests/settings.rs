@@ -126,19 +126,11 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::CHECKS_AT_ONCE,
         s::MEMORY_SPARE_PERCENT,
         s::DISK_FLOOR_GIB,
-        s::COST_CAP_DOLLARS_PER_JOB,
-        s::TURN_CAP_PER_JOB,
-        s::ASKED_RUNS_PER_STEP,
-        s::FIXES_PER_STEP,
-        s::TOOL_CALLS_PER_STEP,
-        s::CONFLICT_CLEARING_SENDS,
-        s::JUDGE_READ_TURNS,
         s::STANDING_RULES_KIB,
         s::SLOT_BUILD_TRIM_AFTER_DAYS,
         s::SLOT_BUILD_CEILING_GIB,
         s::PORT_RANGE_BASE,
         s::PORT_BLOCK_GRANULE,
-        s::DRONE_POKE_LIMIT,
         s::TURN_INTERVAL_MS,
         s::BRIDGE_RECONNECT_MS,
         s::RUN_LOG_DAYS,
@@ -154,16 +146,11 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::CHECK_SECONDS,
         s::JUDGE_SECONDS,
         s::COMMAND_SECONDS,
-        s::UNANSWERED_ASK_SECONDS,
         s::PROPOSER_SECONDS,
-        s::STEP_WALL_CLOCK_SECONDS,
-        s::STEP_GRACE_SECONDS,
-        s::DRONE_QUIET_AFTER_SECONDS,
         s::HELM_ASK_HOLD_SECONDS,
         s::SESSION_QUIET_SECONDS,
         s::HELM_REPLY_SECONDS,
         s::MERGE_NOTICE_SECONDS,
-        s::RECLAIM_SWEEP_SECONDS,
         s::RESOURCE_POLL_SECONDS,
         s::BUILD_SWEEP_SECONDS,
     ] {
@@ -225,7 +212,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 15 + 5 + 22 + 2 + 3 + s::prompt_keys().count();
+    let handles = 13 + 10 + 5 + 22 + 2 + 3 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

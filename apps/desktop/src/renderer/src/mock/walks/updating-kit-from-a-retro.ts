@@ -1,14 +1,14 @@
-// A Kit item whose fix is a command a Drone was refused (the owner, 5 Oct
+// A Kit item whose fix is a command an agent was refused (the owner, 5 Oct
 // 2026): the button reads Update Kit, the card reads Updated Kit with the
-// command, and the Kit page lists it as a retro item's, with Remove. `retro.test.tsx`
+// command, and the Kit page lists it as a retro item's, with Remove. `retro-page.test.tsx`
 // and `kit.test.tsx` hold the claims.
 
 import { button, inside, region, role, text, toSystemPage, walk } from "../walk";
 
-const GREP = role("listitem", "A Drone had to wait for grep to be allowed");
+const GREP = role("listitem", "grep had to be allowed on a check log");
 const ALLOWLIST = region("Allowlist");
 
-export const updatingKitFromARetro = walk("retro/lessons", [
+export const updatingKitFromARetro = walk("retro/kit-command", [
   ...toSystemPage("Retros", "Retros, under Work"),
   { look: inside(GREP, button("Update Kit", { exact: true })), say: "A Kit item with a command to allow" },
   { hover: inside(GREP, button("Update Kit", { exact: true })), say: "What Update Kit does" },

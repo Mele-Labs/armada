@@ -1,4 +1,4 @@
-// Scenes for the mock's sketches, authored with a few helpers. **Mock only**: a Drone would hand
+// Scenes for the mock's sketches, authored with a few helpers. **Mock only**: an agent would hand
 // Fleet the same shape, and `parseScene` is what checks it where it is drawn.
 
 import type { Scene, SceneEdge, SceneIcon, SceneNode, ScreenElement, WirePart } from "@armada/components";
@@ -75,7 +75,7 @@ export const SHAPE_LATER = scene(
     caller,
     writer,
     disk,
-    box("later", 340, 200, "A later Job", "split the clock out", { icon: "rocket" }),
+    box("later", 340, 200, "A later Session", "split the clock out", { icon: "rocket" }),
   ],
   [arrow("caller", "writer", "append"), arrow("writer", "disk", "flush"), arrow("later", "writer", "touches", false)],
 );

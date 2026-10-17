@@ -1,5 +1,5 @@
 // The Lessons surface, as the window draws it: what got in the way across
-// Jobs, read on open and on focus (`docs/concepts/retro.md`). Apart from
+// Sessions, read on open and on focus (`docs/concepts/retro.md`). Apart from
 // `App.tsx`, which is at its length.
 
 import { useState } from "react";
@@ -12,7 +12,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewLessons, startLessonSession } from "./commands";
 import { takeRetroAsked } from "./open-retro";
 import { askToOpenSession } from "./open-session";
-import { useLessonsSource, useLessonsTab } from "./remembered-views";
+import { useLessonsTab } from "./remembered-views";
 
 /**
  * The guided review's held state for this window, per repository pick: made once, outside the
@@ -33,7 +33,6 @@ export function LessonsSurface({
   // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
   const [tab, setTab] = useLessonsTab();
   // A Session's Retro press opens the page on that Session's retro; the ask is taken once.
-  const [source, setSource] = useLessonsSource();
   const [asked] = useState(takeRetroAsked);
   return (
     <Boundary region="Retros" bridge={bridge} onCopied={onCopied}>
@@ -52,8 +51,6 @@ export function LessonsSurface({
         floor={floor}
         tab={tab}
         onTab={setTab}
-        source={source}
-        onSource={setSource}
         hold={reviewHold}
         {...(asked === undefined ? {} : { opening: asked })}
       />

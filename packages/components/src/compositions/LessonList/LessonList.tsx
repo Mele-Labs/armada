@@ -2,11 +2,11 @@ import { LessonCard, type LessonAnswers, type LessonEvidence, type LessonSettled
 import type { Lands } from "../LandsMark/LandsMark";
 import type { Who } from "../WhoMark/WhoMark";
 
-/** One item of one Job's retro, as the Lessons page lists it. */
+/** One item of one Session's retro, as the Lessons page lists it. */
 export type LessonRow = {
   /** Unique within the list. */
   id: string;
-  jobId: string;
+  sessionId: string;
   who: Who;
   /** Where its fix lands. Absent on an item stored before that was written. */
   landsIn?: Lands;
@@ -14,9 +14,9 @@ export type LessonRow = {
   title?: string;
   what?: string;
   fix?: string;
-  /** The Job, as a person reads it — `Job 3`. Its handle rides the label's tooltip. */
-  job: string;
-  jobExact?: string;
+  /** The Session, as a person reads it. Its id rides the label's tooltip. */
+  session: string;
+  sessionExact?: string;
   /** When its retro was written, as a date. The exact instant rides the label's tooltip. */
   when: string;
   whenExact?: string;
@@ -32,12 +32,12 @@ export type LessonRow = {
 export type LessonListProps = {
   /** Newest retro first, as Fleet serves them. */
   rows: readonly LessonRow[];
-  /** A press on the Job a row came from opens its retro. The row's id says which, where a Job or Session has several. */
-  onOpen: (jobId: string, rowId: string) => void;
+  /** A press on the Session a row came from opens its retro. The row's id says which, where a Session has several. */
+  onOpen: (sessionId: string, rowId: string) => void;
 };
 
 /**
- * What got in the way across Jobs, newest first — the Retros page's one list,
+ * What got in the way across Sessions, newest first — the Retros page's one list,
  * each item a `LessonCard` the owner can agree or disagree with.
  *
  * **No heading and no count.** A count beside the rows it counts is
@@ -66,9 +66,9 @@ export function LessonList({ rows, onOpen }: LessonListProps) {
           {...(row.answers === undefined ? {} : { answers: row.answers })}
           {...(row.settled === undefined ? {} : { settled: row.settled })}
           from={{
-            label: row.job,
-            ...(row.jobExact === undefined ? {} : { exact: row.jobExact }),
-            onOpen: () => onOpen(row.jobId, row.id),
+            label: row.session,
+            ...(row.sessionExact === undefined ? {} : { exact: row.sessionExact }),
+            onOpen: () => onOpen(row.sessionId, row.id),
           }}
         />
       ))}

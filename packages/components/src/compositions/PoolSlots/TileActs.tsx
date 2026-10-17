@@ -1,4 +1,4 @@
-import { CirclePause, DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Play, Power, Trash2, Unplug } from "lucide-react";
+import { DoorClosedLocked, DoorOpen, LifeBuoy, Power, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { releasable } from "@armada/protocol";
 import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
@@ -46,13 +46,10 @@ function Act({
   );
 }
 
-/** A stranded slot, or a Job's that ended and kept its slot: both hold work a person can rescue. */
+/** A stranded slot holds work a person can rescue. */
 export function rescuable(slot: WorktreeSlot): boolean {
-  return slot.held.state === "stranded" || (slot.held.state === "job" && slot.held.kept !== undefined);
+  return slot.held.state === "stranded";
 }
-
-/** Which confirm an act opens in the panel, before it is sent. */
-export type Confirming = "clear" | "branch" | "forget" | "release" | "pause";
 
 export type TileActsProps = {
   row: TileRow;
@@ -60,80 +57,43 @@ export type TileActsProps = {
   waiting: boolean;
   onAct?: ((act: SlotAct, slot?: number) => void) | undefined;
   onRescue?: ((act: RescueAct, slot: number) => void) | undefined;
-  onConfirm?: ((which: Confirming) => void) | undefined;
-  /** Resume a paused Job. Sent at once: nothing is lost by it. */
-  onResume?: (() => void) | undefined;
+  /** Open Release's confirm. */
+  onRelease?: (() => void) | undefined;
 };
-
-/**
- * What each reclaim act does, from `reclaim_worktree`, `delete_branch` and
- * `forget_job`. **A bay is released to the pool**: its worktree stays and HEAD
- * is detached. A worktree outside the pool is removed with `git worktree
- * remove`. **Uncommitted files are committed to the branch first, either way**,
- * and the branch is kept. With none, the branch is deleted only where the base
- * has all its commits. Delete branch is refused while the worktree is on disk.
- */
-export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget" | "pause", string> {
-  const { slot, held } = row;
-  const name = nameOf(row);
-  const branch = row.cost?.branch?.name ?? held?.branch ?? slot?.branch ?? "its branch";
-  const base = row.cost?.branch?.base ?? slot?.base ?? "main";
-  const tip = row.cost?.branch?.tip;
-  const keeps = `Deletes branch ${branch} only if ${base} has all its commits, otherwise keeps it.`;
-  const saves = (row.cost?.files.length ?? 0) > 0;
-  const saved = `Commits the uncommitted files to branch ${branch} as a WIP commit`;
-  return {
-    pause: `${row.held?.status === "running" ? "Stops the Drone and its processes. " : ""}${saves ? `${saved}, then releases` : "Releases"} ${name}. The work stays on branch ${branch}.`,
-    clear: saves
-      ? slot === undefined
-        ? `${saved}, then removes the worktree at ${held?.path ?? name}. Keeps branch ${branch}.`
-        : `${saved}, then releases ${name} to the pool. Keeps branch ${branch}.`
-      : slot === undefined
-        ? `Removes the worktree at ${held?.path ?? name}. ${keeps}`
-        : `Releases ${name} to the pool: detaches its worktree at .armada/slots/${name} from ${branch} and keeps the directory. ${keeps}`,
-    branch: `Deletes branch ${branch}${tip === undefined ? "" : ` at ${tip}`}. Its commits not on ${base} stay reachable only from that commit.`,
-    forget: `Deletes the record of Job ${row.job ?? held?.job_title ?? ""}. The worktree and branch are not touched.`,
-  };
-}
 
 /**
  * What each rescue act does, from `RescueAct` in Fleet and `rescue` in the
  * leasing adapter. **Stash commits what is uncommitted to the branch, pushes it
- * under its own name and frees the slot.** Pick up is a Stash that then proposes
- * a Job on that branch. Scrap resets and cleans the checkout, and deletes the
+ * under its own name and frees the slot.** Pick up is a Stash that then carries
+ * on from that branch. Scrap resets and cleans the checkout, and deletes the
  * branch only where the base has all its commits.
  */
 export function rescueTipsOf(row: TileRow): Record<"stop" | "pick_up" | "stash" | "scrap", string> {
-  const { slot, held } = row;
+  const { slot } = row;
   const name = nameOf(row);
-  const branch = row.cost?.branch?.name ?? held?.branch ?? slot?.branch ?? "its branch";
-  const base = row.cost?.branch?.base ?? slot?.base ?? "main";
+  const branch = slot.branch ?? "its branch";
+  const base = slot.base;
   const stashed = `Commits the uncommitted files in ${name} to branch ${branch} as a WIP commit, pushes ${branch} to origin and releases the slot`;
   return {
     stop: `Stops the Scout reading ${name}.`,
-    pick_up: `${stashed}, then proposes a Job to carry on from ${branch}.`,
+    pick_up: `${stashed}, then carries on from ${branch}.`,
     stash: `${stashed}.`,
     scrap: `Discards the uncommitted and untracked files in ${name} and releases the slot. Deletes branch ${branch} only if ${base} has all its commits, otherwise keeps it.`,
   };
 }
 
 /**
- * The acts a tile takes, each only where it applies. Slot acts come from the
- * bay: Rescue or Stop, Close slot or Reopen slot, and Remove slot where the
- * pool would let it go. Worktree acts come from the Job's reading: Clear,
- * Delete branch and Forget Job, each opening its confirm. **Room is left after
- * them** for acts that land later, which are the screen's to offer and not this
- * row's to guess.
+ * The acts a tile takes, each only where it applies: Rescue or Stop, Release,
+ * Close slot or Reopen slot, and Remove slot where the pool would let it go.
  */
-export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }: TileActsProps) {
-  const { slot, offered } = row;
+export function TileActs({ row, waiting, onAct, onRescue, onRelease }: TileActsProps) {
+  const { slot } = row;
   const name = nameOf(row);
-  const tips = tipsOf(row);
-  const removable = slot !== undefined && (slot.held.state === "free" || slot.held.state === "unmade");
-  const rescue = slot?.rescue;
-  const base = slot?.base ?? "main";
+  const removable = slot.held.state === "free" || slot.held.state === "unmade";
+  const rescue = slot.rescue;
+  const base = slot.base;
   const acts = [
-    onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue === undefined ? (
+    onRescue !== undefined && rescuable(slot) && rescue === undefined ? (
       <Act
         key="rescue"
         label="Rescue"
@@ -144,10 +104,10 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }:
         onPress={() => onRescue("start", slot.slot)}
       />
     ) : null,
-    onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
+    onRescue !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
       <Act key="stop" label="Stop" said={rescueTipsOf(row).stop} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
     ) : null,
-    onConfirm !== undefined && slot !== undefined && releasable(slot) ? (
+    onRelease !== undefined && releasable(slot) ? (
       <Act
         key="release"
         label="Release"
@@ -155,33 +115,10 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }:
         Glyph={Unplug}
         tone="neutral"
         waiting={waiting}
-        onPress={() => onConfirm("release")}
+        onPress={onRelease}
       />
     ) : null,
-    onConfirm !== undefined && offered?.pause === true ? (
-      <Act key="pause" label="Pause" said={tips.pause} Glyph={CirclePause} tone="neutral" waiting={waiting} onPress={() => onConfirm("pause")} />
-    ) : null,
-    onResume !== undefined && offered?.resume === true ? (
-      <Act
-        key="resume"
-        label="Resume"
-        said={`Puts branch ${row.held?.branch ?? slot?.branch ?? "its branch"} back in a slot. The Job is not started.`}
-        Glyph={Play}
-        tone="neutral"
-        waiting={waiting}
-        onPress={onResume}
-      />
-    ) : null,
-    onConfirm !== undefined && offered?.clear === true ? (
-      <Act key="clear" label="Clear" said={tips.clear} Glyph={Eraser} tone="destructive" waiting={waiting} onPress={() => onConfirm("clear")} />
-    ) : null,
-    onConfirm !== undefined && offered?.deleteBranch === true ? (
-      <Act key="branch" label="Delete branch" said={tips.branch} Glyph={GitBranchMinus} tone="destructive" waiting={waiting} onPress={() => onConfirm("branch")} />
-    ) : null,
-    onConfirm !== undefined && offered?.forget === true ? (
-      <Act key="forget" label="Forget Job" said={tips.forget} Glyph={PackageX} tone="destructive" waiting={waiting} onPress={() => onConfirm("forget")} />
-    ) : null,
-    onAct === undefined || slot === undefined ? null : slot.closed === true ? (
+    onAct === undefined ? null : slot.closed === true ? (
       <Act
         key="open"
         label="Reopen slot"
@@ -202,7 +139,7 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }:
         onPress={() => onAct("close", slot.slot)}
       />
     ),
-    onAct !== undefined && slot !== undefined && removable && slot.held.state !== "busy" ? (
+    onAct !== undefined && removable && slot.held.state !== "busy" ? (
       <Act
         key="remove"
         label="Remove slot"

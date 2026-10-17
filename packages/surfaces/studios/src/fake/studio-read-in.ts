@@ -8,7 +8,7 @@
 // shows is what he saw as eighteen loose cards, not an invented board.
 
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
 

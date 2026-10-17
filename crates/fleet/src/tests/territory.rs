@@ -103,7 +103,7 @@ async fn a_slots_touches_are_the_paths_its_holder_changed_and_a_holder_with_no_s
     let [holder] = here.holders.as_slice() else {
         panic!("only the Job that changed something: {here:?}");
     };
-    assert_eq!((holder.kind, holder.id.as_str(), holder.slot), (SlotHolderKind::Job, "01JOBBUSY", 1));
+    assert_eq!((holder.kind, holder.id.as_str(), holder.slot), (SlotHolderKind::Session, "01JOBBUSY", 1));
     assert_eq!(holder.paths, ["crates/fleet/a.rs", "new.rs"]);
     assert_eq!(holder.omitted, 0);
 }

@@ -28,31 +28,12 @@
 mod accounts;
 /// A note Bridge's annotation layer wrote, marked done by the session it was sent to.
 pub mod annotations;
-/// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
-/// holds, never stored** — which is why nothing publishes `alert.raised`.
-mod alerts;
 /// A form's edits to `armada.yml`, as edits — the half of Journey 9's *Editing*
 /// that changes only the lines it touches.
 mod amending;
-/// What `ask_person_to_approve` answers with. **Nothing moves**, so the Job's
-/// own facts are drawn again at render time and never frozen here.
-mod approval_ask;
-/// What a person decides about a Job before it runs: the approval body,
-/// `edit_job`, a criterion's origin and the branch list. Spike 022, slice 4.
-mod approving;
-/// A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
-mod asked;
-/// How many times a step was worked, and what each run came to. **The record
-/// held it and nothing served it** — see the module.
-mod asking;
-mod attempt;
-mod breakage;
 /// The build Fleet runs on, where it stands against `main`, and the request that
 /// moves it. **Fleet-wide, and not a Job's field.**
 mod building;
-/// How many Drones Fleet may run, how many it is running, and what holds the
-/// next one back. **Fleet-wide, and not a Job's field.**
-mod capacity;
 /// A scout's run, as its Finding records it, and the acts that start and stop one.
 /// `#1292`.
 mod capturing;
@@ -63,7 +44,6 @@ mod codec;
 mod commanding;
 /// One Manifest as Fleet resolved it, past the summary a picker reads.
 mod configured;
-mod detail;
 /// One entry written into a JSON document Armada does not own. Here for
 /// `codec`'s reason: bytes nobody in this process typed.
 pub mod document;
@@ -74,19 +54,12 @@ pub mod door;
 /// repository**, where `reading` is a read of the file — a `run` line naming a
 /// deleted script parses perfectly and says nothing.
 mod drift;
-/// The processes Fleet is holding, and what one of them has been doing.
-/// **Read off the roster, never off the Jobs.**
-mod drones;
 /// The Manifest file itself, read and written — the half of Journey 9's
 /// *Editing* a person acts with, where `reading` is the half that reports.
 mod editing;
 mod enums;
 mod error;
 mod event;
-/// What a cheap model said one command a Drone reached for does, for the
-/// person deciding whether to allow it. **It decides nothing** — the offers
-/// are the same whether or not anybody asks.
-mod explaining;
 /// What `search_files` found under the checkout, for the `@` mention popup.
 mod files;
 /// What Fleet can say about its own health, and what it cannot. **Not
@@ -104,37 +77,23 @@ mod thought;
 mod timeline;
 /// Who held a slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
-mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
-/// What is wrong with a Job, and what a quiet one is waiting on.
-mod job_issues;
 /// A session Bridge hosts: its commands, its thread and the gate its first
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
 /// A repository's open issues, as Fleet read them. #91.
 mod issues;
-mod job;
-/// What Fleet did to a Job, out of the Job's own log. **The third voice the
-/// activity log was designed around and nothing produced.**
-mod journal;
-mod judged;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
 /// The merge line of each served repository, as Fleet serves it.
-/// Every Check run one repository's Jobs asked for or ran. Since 23.40.
-mod manifest_checks;
 /// A possible `armada.yml` per workspace, and the edits and Write that finish it.
 mod manifest_proposal;
-/// The Evidence tool's transport. **A different seam** — Fleet to Drone, not
-/// Fleet to Bridge — so it is a module rather than a flat re-export and none of
-/// its types are in `operations/`.
-pub mod mcp;
 mod merge_hub;
 mod merge_line;
 /// `layout.json`: what a layout mod or the owner's own choice may say. `docs/concepts/layout-mods.md`.
@@ -154,15 +113,9 @@ mod territory;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
-/// Where two Jobs claim the same paths. **A fact on the card, never a
-/// verdict** — nothing in it is readable as a refusal.
-mod overlap;
-/// Taking a Job over and the bundle a person is handed. `docs/concepts/pilot.md`.
-mod piloting;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
-mod proposing;
 /// settings.json: every setting as Fleet resolved it, the save, and a refusal.
 mod settings;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
@@ -172,35 +125,22 @@ mod protocol_id;
 mod pull_requests;
 /// The pull requests waiting on a person as four lists, and the acts of a review on one.
 mod pull_reviews;
-/// A new cost ceiling for one Job, and which surface asked for it.
-mod raising;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
 /// fleet and not about a Job**, beside `capacity`. What a scout answers a read-in with. `#1293`.
 mod read_in;
 mod reading;
-/// What giving one Job's worktree and branch back did, half by half.
-/// **Two halves, because half of it happening is a real outcome.**
-mod reclaimed;
 /// A person's run of one Manifest entry, in a Job's worktree or in the main checkout. **A
 /// rehearsal, never a verdict** — nothing in it is a Check row or Evidence.
 mod rehearsal;
-/// What people wrote on a Job's pull request, and which of it a person picks.
-/// **The one place this seam carries text from outside this machine.**
-mod remarks;
-/// What a person says went wrong, with the Job's own record attached.
-mod report;
 /// The repositories one Fleet serves, and adding one by folder.
 mod repositories;
 /// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
-/// What one Job holds on this machine, and what came of asking whether it is
-/// working. **The other axis from `spend`**, which answers the model's cost.
-mod resources;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
-/// A Job's retro and the record it was read from, and the Lessons listing.
+/// A Session's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
 /// A guided review of the open retro items, and a question about one. Since
@@ -225,14 +165,9 @@ mod session_waits;
 mod session_summary;
 mod sessions;
 mod setup;
-/// What a step's harness produced, as a client is told about it.
-mod showing;
 mod sketch;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
-mod commander;
-mod commander_card;
-mod commander_repair;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// How much of the plan's windows is used.
@@ -257,263 +192,204 @@ mod studio;
 /// What `add_studio_node` carries: any content, a Picture staged rather than kept.
 mod studio_added;
 mod studio_sketch;
-/// The Triggers a repository runs, saving one, and what a Job did with each.
-/// Since 23.58.
-mod added_steps;
-mod trigger_holds;
 mod triggers;
-mod turn;
-/// A step's Checks while the gate is running them, and the socket a running
-/// Check's log is read over.
+/// The lines a running log carries over its socket, and why one stopped arriving.
 mod underway;
-/// What the fleet has spent, against the ceilings that refuse the next Drone.
-mod usage;
-/// What is outstanding on a live Drone, and what a person sends it back.
-mod waiting;
-/// What a person said while walking a Prototype's mock, kept on the Job.
-/// Since 23.18.
-mod walk_notes;
 mod walk_steps;
-/// The material a reviewing person reads, and what their note carries.
-mod work;
-/// A Job's plan and its tasks. **Not `work`'s `DeclaredPlan`**, which is where a
-/// step said its work would be.
-mod work_plan;
 
 #[cfg(test)]
 mod tests;
 
-pub use alerts::{Alert, AlertList};
-pub use annotations::{AnnotationMarked, MarkAnnotationDone};
+pub use annotations::{
+    AnnotationMarked, MarkAnnotationDone,
+};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
-    ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft, PolicyWords,
-    PortDraft,
+    ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft,
+    PolicyWords, PortDraft,
 };
-pub use approval_ask::AskedApproval;
-pub use approving::{
-    moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
-    CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
-    LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning, ToProposer,
+pub use building::{
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging,
+    FleetBuildReport,
 };
-pub use asked::{AskedRun, AskedRunState};
-pub use asking::{AnswerMode, JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
-pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
-pub use breakage::{ClaimedBreakage, WaitingOnFix};
-pub use building::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
-pub use capacity::{AdmissionHold, FleetCapacity};
 pub use capturing::{
-    CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote, CaptureWindow,
-    StagedFrame, StudioCapture,
+    CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,
+    CaptureWindow, StagedFrame, StudioCapture,
 };
-pub use checks::{CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge};
-pub use codec::{decode, encode, Undecodable, Unencodable};
+pub use checks::{
+    CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
+};
+pub use codec::{
+    decode, encode, Undecodable, Unencodable,
+};
 pub use commanding::{
-    AllowedCommandRow, AlwaysAllowScope, AnswerCommand, CommandAnswer, CommandInFlight, Reach,
-    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetCommanderModel,
-    SetModel,
-    SetWhenBlocked, WhenBlocked,
+    AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
 };
 pub use configured::ManifestConfig;
-pub use detail::{
-    AreaRow, ChangedTestRow, DismissedRow, FindingDismissed, FindingQueued, FindingRow,
-    FollowedRow, IssueFiled, JobConfidence, OpenedBecause, ProvesRow, Says, TestsSection,
-    UntestedRow,
+pub use drift::{
+    Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,
 };
-pub use detail::{
-    Criterion, Currency, Dependency, FromStudio, JobDelivery, JobDetail, JobReview, JobSpend,
-    JudgeInFlight, PullRequestChecks, PullRequestDetail, Refusal, ReplacedBy, Replaces, ReviewedBy,
-    Settled, StepDetail, StepFacts, StepPass, Stuck, Verdict, WaveRound,
+pub use editing::{
+    ManifestFile, ManifestSaved, SaveManifestFile,
 };
-pub use drift::{Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed};
-pub use drones::{DroneActivity, DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, JobDrones};
-pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
-    Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
-    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, LessonState,
-    ManifestReach, Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption,
-    ScoutSourceKind, Side, StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
-    StudioNodeKind, StudioNodeState, StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
-    Via, Whose,
+    Actor, AdvanceGate, CheckOutcome, EvidenceType, LandsIn, LessonState, ManifestReach, PrMode,
+    ReachesDrones, ScoutSourceKind, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
+    StudioNodeKind, StudioNodeState, StudioRelation, Via, Whose,
 };
-pub use error::{RunId, WireError, WireValue};
+pub use error::{
+    RunId, WireError, WireValue,
+};
 pub use event::{
-    ChangeKind, ChangedFile, Cursor, Delivered, DroneExited, DroneSpawned, Event,
-    EvidenceSubmitted, JobAskedRun, JobAsking, JobChecking, JobCommandWaiting, JobCreated,
-    JobFilesChanged, JobJudging, JobLanded, JobPaused, JobRemarksChanged, JobResumed,
-    JobStateChanged, JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
+    Cursor, Delivered, Event, Missed, Resync, StreamMessage,
 };
-pub use explaining::CommandExplained;
 pub use files::FilesFound;
-pub use health::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
-pub use commander_card::{
-    AnswerCommanderCard, AskTheOwner, CardBy, CardId, CardOption, CardOptions, CardText,
-    CommanderCard, CommanderCardAnswered, CommanderCardChanged, Unusable as CardUnusable,
-};
-pub use commander_repair::{Breakage, RepairSent, SendRepairDrone};
-pub use commander::{
-    AskCommander, CommanderChanged, CommanderConversation, CommanderMessage, CommanderOpened,
-    CommanderState, CommanderWoke,
+pub use health::{
+    FleetHealth, HelmActionAuthority, Probe, Unprobed,
 };
 pub use helm::{
     AskHelm, Blank, Freshness, HelmAsked, HelmContext, HelmFresh, HelmScreen, HelmSession,
     HelmText, HelmUnanswered,
 };
 pub use thought::{
-    HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
-    ThoughtSent, ThoughtTarget,
+    HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent,
+    ThoughtTarget,
 };
 pub use bay_history::{
     BayHistory, BayHistoryAsk, BayHistoryEntry, BayHolder, BayHolderKind, MOST_BAY_HISTORY,
 };
 pub use timeline::{
-    FleetTimeline, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
-    DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
+    FleetTimeline, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject,
+    TimelineTone, DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
     ReachesTo, RunOrNot, ASKS_A_QUESTION,
 };
-pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
-pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
+pub use helm_debug::{
+    HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText,
+};
 pub use holding::{
-    ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit,
+    ReclaimedSaved, ChangeSlotPool, CommitHome, RescueAct, RescueSlot, SlotAct, SlotCommit,
     SlotFinding, SlotFindingState, SlotHolderKind, SlotHolding, SlotLastHolder, SlotPoolChanged,
-    SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
+    SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, ReleaseSessionHolds,
-    RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
-    SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
-    SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    StopSession, TagKind, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
+    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
+    ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
+    SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, TagKind, TakeHeld, TerminalAsk,
+    TerminalAsked, TuneSession,
 };
 pub use ids::{
-    CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
-    StudioId, StudioNodeId, WorkflowId,
+    Instant, ManifestId, StepId, StudioEdgeId, StudioId, StudioNodeId, WorkflowId,
 };
-pub use issues::{IssueList, IssueRead, IssueState, TrackedIssue};
-pub use job::{
-    AttachmentRef, DependencyEdge, JobBay, JobForgotten, JobList, JobRequest, JobSummary, Paused,
-    ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
-    Subject, UnreadableJob,
-};
-pub use journal::{
-    JobLog, JournalClosed, JournalMessage, JournalOpened, LogNote, NoteLevel, NotedField, Quiet,
-};
-pub use judged::{
-    Citation, CitedAt, Cleared, Flagged, Given, Judged, JudgesSentBack, KeptDeliverable,
+pub use issues::{
+    IssueList, IssueRead, IssueState, TrackedIssue,
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
     KitInventory, KitServerRow, KitServers, OutputStyleFacts, RemoveKitAllowedCommand,
-    ServerAddress,
-    SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable,
-    WhatWasRead,
+    ServerAddress, SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow,
+    SetupUnreadable, WhatWasRead,
 };
 pub use limits::{
     ChecksAtOnce, DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent,
     SaveLimits, Within,
 };
-pub use manifest_checks::{
-    ManifestCheckLog, ManifestCheckRow, ManifestChecks, SOURCE_ASKED_RUN, SOURCE_GATE,
-};
 pub use manifest_proposal::{
     Band, EditManifestProposal, ManifestProposal, ManifestProposals, PolicyKey, ProposalEdit,
     ProposedCheck, ProposedCommand, ProposedId, ProposedPolicy, ProposedPort, ProposedRunner,
-    ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
+    ProposedSetup, Provenance, WriteManifestProposal,
 };
 pub use merge_hub::{
-    CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
-    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
-    HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
-    MainStanding, MergeLineHub, PullRequestOwner,
+    CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest,
+    CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
+    HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner,
 };
 pub use merge_line::{
-    LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
-    MergeLineEntry, MergeLinePullRequest, MergeLines,
+    Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,
+    MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
-    SetModEnabled,
+    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
+    ScaffoldMod, SetModEnabled,
 };
-pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
+pub use clashes::{
+    ClashHolder, ClashSide, WriteClash, WriteClashes,
+};
 pub use territory::{
-    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches, TouchesInRepository,
+    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
+    TouchesInRepository,
 };
-pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
-pub use job_issues::{JobIssue, JobWaiting};
-pub use overlap::{ScopeOverlap, SharedPath};
-pub use piloting::{PilotNote, Piloted};
-pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
+pub use needs::{
+    NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList,
+};
+pub use preferences::{
+    Preferences, SavePreference, DEFAULT_THEME,
+};
 pub use settings::{
-    SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,
-};
-pub use proposing::{
-    ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
-    StopProposal,
+    SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList,
+    SettingsRefused,
 };
 pub use pull_requests::{
-    FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
-    PullRequestFile, PullRequestFileOf, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
-    PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
-    PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
+    FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
+    PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
+    PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
+    PullRequestStanding, PullRequestState, PullRequestVerdict, PullRequestWriteKind,
+    WritePullRequest,
 };
 pub use pull_reviews::{
-    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow,
-    PullReviewThread, PullReviewThreadComment, PullThreadResolved, ResolvePullThread, MOST_PER_LIST,
+    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists,
+    PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
+    ResolvePullThread, MOST_PER_LIST,
 };
-pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{
-    what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote, ReadInRelation,
-    MOST_CHARACTERS, MOST_CLUSTERS, MOST_CONTRADICTIONS, MOST_NOTES, MOST_RELATIONS,
+    what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote,
+    ReadInRelation, MOST_CHARACTERS, MOST_CLUSTERS, MOST_CONTRADICTIONS, MOST_NOTES,
+    MOST_RELATIONS,
 };
-pub use reading::{ManifestFault, ManifestMoved, ManifestReading, ManifestRefused};
-pub use reclaimed::{
-    BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedSaved, ReclaimedWorktree,
-    WorktreeReclaimed,
+pub use reading::{
+    ManifestFault, ManifestMoved, ManifestReading, ManifestRefused,
 };
 pub use rehearsal::{
-    CheckoutRunDiff, CheckoutRunList, CheckoutRunMessage, CheckoutRunOpened, CheckoutRunRecord,
-    CheckoutRunSheet, CheckoutRunUnderway, DiffAgainst, NamedRun, RunDiffReading, RunEntry,
-    RunList, RunMessage, RunOpened, RunOutput, RunRecord, RunSheet, RunUnderway, StartCheckoutRun,
-    StartRun, UnreadableRun, WorkspaceCommands,
+    ChangeKind, ChangedFile, CheckoutRunDiff, CheckoutRunList, CheckoutRunMessage,
+    CheckoutRunOpened, CheckoutRunRecord, CheckoutRunSheet, CheckoutRunUnderway, DiffAgainst,
+    NamedRun, RunDiffReading, RunEntry, RunOutput, StartCheckoutRun, UnreadableRun,
+    WorkspaceCommands,
 };
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
-pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
-pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
 pub use repositories::{
     AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
 pub use review_runs::{
-    PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace, ReviewResult,
-    ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity, ReviewStep,
-    ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewToolScope,
-    ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+    PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
+    ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
+    ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut,
+    ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
 };
 pub use review_walks::{
     ForgetReviewSearch, OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,
     ReviewWalk, ReviewWalkState, SaveWalkPlace, StartReviewSearch, WalkHow, WalkPlace, WalkPlaceFound,
     WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };
-pub use resources::{
-    Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
-    Look, WorktreeOnDisk,
-};
 pub use retro::{
-    AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
-    RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
-    RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
-    RetroState, RetroWritten,
+    Lesson, Lessons, RecordAct, RecordAsked, RecordRefusal, RecordSaid, Retro, RetroAnswered,
+    RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession, RetroState,
+    RetroWritten,
 };
 pub use retro_session::LessonSessionStarted;
 pub use retro_review::{
-    AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
+    AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons,
+    SetAside,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
@@ -524,112 +400,120 @@ pub use scouting::{
     AskScout, ReadInLink, ScoutCheckout, ScoutEnded, ScoutOutcome, ScoutSource, StartScout,
     StopScout,
 };
-pub use seeding::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
-pub use servers::{
-    NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
-    ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
+pub use seeding::{
+    DeclaredSeed, SeedWarmth,
 };
-pub use slot_asking::{AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding};
+pub use servers::{
+    NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
+    ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
+};
+pub use slot_asking::{
+    AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
+};
 pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
-pub use session_retro_row::{PartialRetroItem, RetroStage};
-pub use sketch::{RawScene, ShowSketch, Sketch};
-pub use session_starts::{ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession};
-pub use session_waits::{
-    ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition, StartWaitingNow, WaitBy, WaitPull,
-    WaitReading, WaiterEvent, WaiterSide,
+pub use session_retro_row::{
+    PartialRetroItem, RetroStage,
 };
-pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
+pub use sketch::{
+    RawScene, ShowSketch, Sketch,
+};
+pub use session_starts::{
+    ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession,
+};
+pub use session_waits::{
+    ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition,
+    StartWaitingNow, WaitBy, WaitPull, WaitReading, WaiterEvent, WaiterSide,
+};
+pub use session_summary::{
+    HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState,
+};
 pub use sessions::{
-    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
-    ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
-    SessionFact, SessionId, SessionList, SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport, SessionStanding, SessionState,
-    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState,
+    DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
+    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
+    SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
+    FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
+    WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WindowClosed, WindowFailed,
+    WalkTold, WindowClosed, WindowFailed,
 };
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
-    AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
+    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
-pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
-pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
+pub use context_breakdown::{
+    ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
+};
+pub use session_activity::{
+    SessionActivity, SessionTodo, SessionTodoState,
+};
 pub use session_plan::{
-    ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark, PlanMoved,
-    PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
-    SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
-    TASK_LIST_IS_THE_PLAN,
+    ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
+    PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
+    PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
+    TouchAct, TouchBy, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
 };
 pub use session_rail::{
-    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading, JudgeSession, WaitingCite,
-    SendConcern,
+    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,
+    JudgeSession, WaitingCite, SendConcern,
 };
 pub use session_build::{
-    BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,
+    BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask,
+    ReportedTaskStatus, SessionBuild,
 };
-pub use model_downshift::{ModelDownshift, ModelDownshiftState};
-pub use plan_usage::{PlanUsage, PlanWindow};
+pub use model_downshift::{
+    ModelDownshift, ModelDownshiftState,
+};
+pub use plan_usage::{
+    PlanUsage, PlanWindow,
+};
 pub use accounts::{
-    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState, SetUpSteps,
-    SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState,
+    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
-pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
+pub use sleep::{
+    OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState,
+    SleepWalk,
+};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
-pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
-pub use since::{EventTally, EventsSince};
-pub use slot_found::{what_a_scout_found_in_a_slot, SlotFound, MOST_ITEMS, MOST_ITEM_CHARACTERS};
+pub use since::{
+    EventTally, EventsSince,
+};
+pub use slot_found::{
+    what_a_scout_found_in_a_slot, SlotFound, MOST_ITEMS, MOST_ITEM_CHARACTERS,
+};
 pub use studio::{
     AddStudioNode, ContradictionSettled, CreateStudio, DecideStudioEdge, DeferOnStudio,
-    DispatchStudioDraft, EditStudioDraft, EditStudioLink, EpicRead, EpicTake, ForgeState,
-    GroupStudioNodes, HelmStudioAct, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes,
-    RenameStudio, SettleContradiction, StartStudioRun, StartStudioServer, Studio, StudioDeleted,
-    StudioEdge, StudioHelmActed, StudioList, StudioNode, StudioNodeContent, StudioPosition,
-    StudioRunHeld, StudioRunKept, StudioRunStarted, StudioServerStarted, StudioSummary,
-    WriteUpStudioNode,
+    EditStudioDraft, EditStudioLink, EpicRead, EpicTake, ForgeState, GroupStudioNodes,
+    HelmStudioAct, MoveStudioNode, ProposeStudioEdge, RemoveStudioNodes, RenameStudio,
+    SettleContradiction, StartStudioRun, StartStudioServer, Studio, StudioDeleted, StudioEdge,
+    StudioHelmActed, StudioList, StudioNode, StudioNodeContent, StudioPosition, StudioRunHeld,
+    StudioRunKept, StudioRunStarted, StudioServerStarted, StudioSummary, WriteUpStudioNode,
 };
-pub use studio_added::{AddedContent, StudioNodeAdded};
+pub use studio_added::{
+    AddedContent, StudioNodeAdded,
+};
 pub use studio_sketch::{
     EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
     SketchPictureDrawn, SketchPoint, SketchStroke,
 };
-pub use added_steps::{
-    AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
-    EditAddedStep, JobAdditionChanged, KeptFrom, RemoveAddedStep,
-};
-pub use trigger_holds::{HoldAct, HoldSettled, JobAlert, JobAlertKind};
 pub use triggers::{
-    ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
-    RemoveTrigger, RepairOf, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
-    TriggerFixChosen, TriggerLevel, TriggerList, TriggerMoment, TriggerPullRequest, TriggerRemoved,
-    TriggerRepair, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
-    TriggerSummary,
-};
-pub use turn::{
-    BlockKind, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
-    Voice, Withheld,
+    LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger, TriggerDefinition,
+    TriggerLevel, TriggerList, TriggerMoment, TriggerRemoved, TriggerRuns, TriggerSaved,
+    TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
 };
 pub use underway::{
-    CheckNamed, CheckUnderway, ChecksUnderway, OutputClosed, OutputEnded, OutputLines, OutputMessage,
-    OutputOpened,
+    OutputClosed, OutputEnded, OutputLines,
 };
-pub use usage::{FleetUsage, ManifestSpend, Overspending};
 pub use protocol_id::ProtocolId;
-pub use waiting::{
-    AskedOption, ChosenAnswer, ChosenDecision, DecisionInFlight, QuestionInFlight, RedirectInFlight,
-    RedirectWaiting,
-};
-pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold};
-pub use walk_steps::{WalkPoint, WalkStep, WalkTarget};
-pub use work::{
-    ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
-    Submitted, TouchedFile, Work,
-};
-pub use work_plan::{
-    AddTask, ChangedBy, DropTask, EditTask, JobPlanChanged, MovePlan, PlanGroup, PlanGroupRun,
-    PlanTask, RestartTask, SetTiers, TaskBy, TaskCounts, TierModels, WorkPlan, WorkingWindow,
+pub use walk_steps::{
+    WalkPoint, WalkStep, WalkTarget,
 };

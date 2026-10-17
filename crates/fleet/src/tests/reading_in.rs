@@ -259,7 +259,7 @@ fn taking(node_id: &ipc::StudioNodeId, take: ipc::EpicTake) -> ReadInLink {
 
 fn code(refusal: &Refusal) -> &str {
     match refusal {
-        Refusal::NoSuchJob(e)
+        Refusal::NotFound(e)
         | Refusal::IllegalMove(e)
         | Refusal::Unacceptable(e)
         | Refusal::Fault(e) => &e.code,

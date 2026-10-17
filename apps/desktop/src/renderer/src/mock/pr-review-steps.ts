@@ -38,7 +38,7 @@ export const toTheList: Step[] = [
   { press: lists, say: "Natural Search is the last entry. It is not a box on the list" },
   { press: pick("Natural Search"), say: "Choosing it puts the box in place of the list" },
   { type: "PRs that touch files I've touched", into: inside(list, role("textbox", "Natural Search")), say: "What he wants, in his own words" },
-  { press: inside(list, button("Search")), say: "A Drone looks only when he sends, because it costs" },
+  { press: inside(list, button("Search")), say: "An agent looks only when he sends, because it costs" },
   { look: dialog("Natural Search"), say: "It spends tokens, so it asks first. Every act that spends asks the same way, with the same box" },
   { press: inside(dialog("Natural Search"), button("Run")), say: "Run" },
   { look: inside(list, role("img", "Looking")), say: "Running, in the list" },

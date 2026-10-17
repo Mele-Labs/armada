@@ -13,7 +13,6 @@ use serde::Deserialize;
 use crate::answers::{answer, refused};
 use crate::daemon::{Conversations, Queries};
 use crate::door::HelmCalled;
-use crate::scoped::InManifest;
 use crate::served::Served;
 
 
@@ -42,25 +41,6 @@ pub(crate) struct From {
 pub(crate) async fn get_health<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_health().await {
         Ok(health) => answer(StatusCode::OK, &health, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// What the fleet has spent, against the ceilings that refuse the next Drone.
-pub(crate) async fn get_usage<D: Queries>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().get_usage().await {
-        Ok(usage) => answer(StatusCode::OK, &usage, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// What this Manifest's past Jobs have cost, at most.
-pub(crate) async fn get_manifest_spend<D: Queries>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-) -> Response {
-    match served.daemon().get_manifest_spend(scope.manifest()).await {
-        Ok(spend) => answer(StatusCode::OK, &spend, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -95,17 +75,15 @@ pub(crate) async fn get_events_since<D: Queries + Conversations>(
         return answer(StatusCode::OK, &counted, served.run_id());
     };
     // Named, it is one repository's window; a Manifest not served is refused.
-    let owned = match served
+    if let Err(refusal) = served
         .daemon()
-        .owned_jobs(ManifestId::carried(manifest_id.clone()))
+        .scope(Some(ManifestId::carried(manifest_id.clone())))
         .await
     {
-        Ok(owned) => owned.iter().map(|id| id.as_str().to_string()).collect(),
-        Err(refusal) => return refused(refusal),
-    };
+        return refused(refusal);
+    }
     let within = crate::stream::Within {
         manifest_id: &manifest_id,
-        owned: &owned,
     };
     let counted = served
         .events()

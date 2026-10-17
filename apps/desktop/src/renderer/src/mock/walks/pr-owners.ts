@@ -1,5 +1,5 @@
 // The owner registered to a pull request, drawn as a chip: the kind, a short id and the machine. The
-// repository that registers has a Session and a Job on this machine, a Session and a Job on the
+// repository that registers has two Sessions' pull requests on this machine, two on the
 // other, and one pull request with no row; the repository that does not draws no chip anywhere. The
 // switch that turns registering on is in the repository's Manifest, and its own walk. Over `pr-owners`.
 
@@ -18,7 +18,7 @@ const owners = walk("pr-owners", [
   ...viaPalette("Merge line", "The merge line"),
   { hover: machine(ARMADA, /^Session a3f9c21e/, "This machine"), say: "A Session on this machine" },
   { hover: machine(ARMADA, /^Session 9c74d82e/, "MacBook Air"), say: "A Session on the other machine" },
-  { hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")), say: "A Job on the other machine" },
+  { hover: inside(chip(ARMADA, /^Session 7be40d15/), text("7be40d15")), say: "Another Session on the other machine" },
   toSessions,
   { press: inside(region("Work", { exact: true }), button("Store migration spike")), say: "A Session on this machine" },
   { press: inside(LEDGER, button("Open Pull request #2209")), say: "Its pull request" },

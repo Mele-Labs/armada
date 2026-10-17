@@ -222,7 +222,7 @@
   margin-top: var(--space-3);
 }
 
-/* `walk-window.tsx`: Bridge's own window on a Job's server, drawn over the
+/* `walk-window.tsx`: Bridge's own window on a server, drawn over the
    page because a browser has no second window. A window rather than a layer:
    it sits to one side, moves and resizes, and blocks nothing beside it. */
 .armada-mock-walk-window__frame {

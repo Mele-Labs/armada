@@ -2,14 +2,7 @@
 //!
 //! # A destructive command that prints nothing is one nobody trusts twice
 //!
-//! `clean` says what it removed, item by item, including the tip of every
-//! branch it deleted — a deleted branch is recoverable from its SHA and from
-//! nothing else, so the SHA goes on the screen while the person is still
-//! looking at it.
-//!
-//! A branch it kept is said twice on purpose — once beside its Job, and once
-//! at the very end, because a clean that left work standing must not read as a
-//! clean that finished.
+//! `clean` says what it removed, item by item.
 //!
 //! Absences are printed too. "There was nothing there" and "it was removed" are
 //! different answers, and a command that shows only the second leaves the
@@ -17,9 +10,7 @@
 
 use std::path::Path;
 
-use adapters::{BranchGone, WorktreeGone};
-
-use crate::clean::{Cleaned, FileGone, Holding, RecordOutcome};
+use crate::clean::{Cleaned, FileGone};
 use crate::declared::{Ended, Ran, Reached};
 
 /// How `armada check --changed` says what it narrowed to.
@@ -83,40 +74,12 @@ pub fn cleaned(cleaned: &Cleaned) {
         cleaned.manifest_id
     );
 
-    for job in &cleaned.jobs {
-        println!("\n{} — {}", job.job_id, job.title);
-        println!("  {}", worktree(&job.reclaimed.worktree));
-        println!("  {}", branch(&job.reclaimed.branch));
-        if job.record.existed() {
-            println!("  {}", record(&job.record));
-        }
-    }
-
     if !cleaned.unclaimed.is_empty() {
-        println!("\nno Job claims these, and they are left alone:");
+        println!("\nthese worktrees are left from before Sessions, and are left alone:");
         for path in &cleaned.unclaimed {
             println!("  {}", path.display());
         }
     }
-    for row in &cleaned.unreadable {
-        println!("\n{} — a row that would not rebuild", row.job_id);
-        // Before the removals, not after: it is the last time anything can say
-        // why, and a person reading this is deciding whether to stop.
-        println!("  {}", row.why);
-        println!("  {}", worktree(&row.reclaimed.worktree));
-        println!("  {}", branch(&row.reclaimed.branch));
-        if row.record.existed() {
-            println!("  {}", record(&row.record));
-        }
-    }
-    if cleaned.unreadable_elsewhere > 0 {
-        println!(
-            "\n{} row(s) would not rebuild and belong to another Manifest. \
-             Run `armada clean` in that repository to clear them.",
-            cleaned.unreadable_elsewhere
-        );
-    }
-
     if let Some(directory) = cleaned
         .machine
         .first()
@@ -137,190 +100,16 @@ pub fn cleaned(cleaned: &Cleaned) {
         let count = cleaned.bases.len();
         let plural = if count == 1 { "checkout" } else { "checkouts" };
         println!(
-            "\n{count} base {plural} given back — the next Job that needs a \
+            "\n{count} base {plural} given back — the next run that needs a \
              `before` makes one again"
         );
     }
 
-    if cleaned.jobs.is_empty()
-        && cleaned.unclaimed.is_empty()
-        && cleaned.unreadable.is_empty()
-        && cleaned.uncommitted.is_empty()
-        && cleaned.held.is_empty()
-        && cleaned.piloted.is_empty()
-        && cleaned.bases.is_empty()
-    {
-        println!("\nno Jobs and no worktrees — there was nothing to give back");
+    if cleaned.unclaimed.is_empty() && cleaned.bases.is_empty() {
+        println!("\nthere was nothing to give back");
     }
-    // Last, because these are the only parts of this a person still has to act
-    // on. The uncommitted work first: it is the only thing here that exists
-    // nowhere else at all.
-    piloted_kept(cleaned);
-    work_kept(cleaned);
-    slots_held(cleaned);
-    branches_left(cleaned);
     for fault in &cleaned.faults {
         eprintln!("  {fault}");
-    }
-}
-
-/// The Jobs a person is working in, left alone and named.
-fn piloted_kept(cleaned: &Cleaned) {
-    if cleaned.piloted.is_empty() {
-        return;
-    }
-    println!(
-        "
-these Jobs are piloted, so their worktrees were left alone:"
-    );
-    for kept in &cleaned.piloted {
-        println!("  {} — {}", kept.job_id, kept.title);
-        println!("    {}", kept.path);
-    }
-}
-
-/// The checkouts that are still there because nobody committed what is in
-/// them.
-///
-/// **Named file by file, not counted.** Which files they are is the decision;
-/// how much disk they hold is not.
-fn work_kept(cleaned: &Cleaned) {
-    if cleaned.uncommitted.is_empty() {
-        return;
-    }
-    println!(
-        "\n{} worktree(s) hold changes nobody has committed. They were left \
-         alone, and so were their Jobs:",
-        cleaned.uncommitted.len()
-    );
-    for kept in &cleaned.uncommitted {
-        println!("  {} — {}", kept.job_id, kept.title);
-        println!("    {}", kept.path);
-        for file in &kept.files {
-            println!("      {file}");
-        }
-    }
-    println!(
-        "Commit or discard them there, then run this again. `armada clean \
-         --force` removes them instead, and what is in them with them."
-    );
-}
-
-/// The pool slots Jobs still hold, by which Job and why.
-///
-/// **Each with its own way out**, because the four reasons have different ones
-/// and the wrong one is a person waiting on a Job that will never let go.
-fn slots_held(cleaned: &Cleaned) {
-    if cleaned.held.is_empty() {
-        return;
-    }
-    println!("\nthese worktree slots are still held, and their branches and Jobs with them:");
-    for held in &cleaned.held {
-        println!("  slot-{} — {} — {}", held.slot, held.job_id, held.title);
-        println!("    {}", held.path);
-        println!("    {}", holding(&held.why));
-    }
-}
-
-fn holding(why: &Holding) -> String {
-    match why {
-        Holding::Live => String::from(
-            "its Job has not ended, so it is the Job's work in progress and nothing here touches it",
-        ),
-        Holding::Completed => String::from(
-            "its Job completed and holds it until cleared. Clear the Job on the Board, \
-             or `armada clean --force` gives it back",
-        ),
-        Holding::Kept(why) => format!(
-            "its Job ended and the slot was kept: {why}. Once that is fixed, \
-             `armada clean --force` gives it back"
-        ),
-        Holding::Refused(why) => format!("not given back: {why}"),
-    }
-}
-
-/// The branches that are still there, and what to do about each.
-fn branches_left(cleaned: &Cleaned) {
-    let left = cleaned.branches_left();
-    if left.is_empty() {
-        return;
-    }
-    println!(
-        "\n{} branch(es) still hold work nothing has taken. Their worktrees \
-         were removed; the branches were not:",
-        left.len()
-    );
-    for gone in &left {
-        println!("  {}", branch(gone));
-    }
-    println!(
-        "Merge one, then `git branch -d <branch>` — git itself refuses that \
-         while it is unmerged. `armada clean --force` deletes them instead, \
-         and the commits with them."
-    );
-}
-
-fn worktree(gone: &WorktreeGone) -> String {
-    match gone {
-        WorktreeGone::Removed { path } => format!("worktree removed: {path}"),
-        WorktreeGone::RecordCleared { path } => {
-            format!("worktree registration cleared, the checkout was already gone: {path}")
-        }
-        WorktreeGone::DirectoryRemoved { path } => {
-            format!("directory removed, git had no record of it: {path}")
-        }
-        WorktreeGone::Absent { path } => format!("no worktree: {path}"),
-        WorktreeGone::Locked { path, reason } => {
-            format!("worktree left alone, it is locked — {reason}: {path}")
-        }
-        WorktreeGone::NotRemoved { path, why } => {
-            format!("worktree NOT removed — {why}: {path}")
-        }
-        WorktreeGone::Pooled { path } => format!(
-            "worktree left to the pool, which a release gives back and nothing removes: {path}"
-        ),
-    }
-}
-
-fn branch(gone: &BranchGone) -> String {
-    match gone {
-        // The tip, always. Nine branches deleted by hand were recoverable only
-        // because their SHAs were still on the screen.
-        BranchGone::Deleted { branch, tip } => {
-            format!("branch deleted: {branch} was at {tip}")
-        }
-        BranchGone::Absent { branch } => format!("no branch: {branch}"),
-        BranchGone::Kept {
-            branch,
-            tip,
-            base,
-            commits,
-        } => format!(
-            "branch kept, {commits} commit(s) of its own are not on `{base}`: \
-             {branch} is at {tip}"
-        ),
-        BranchGone::KeptUnanswered { branch, tip, why } => {
-            format!("branch kept, {why}: {branch} is at {tip}")
-        }
-        BranchGone::NotDeleted { branch, why } => {
-            format!("branch NOT deleted — {why}: {branch}")
-        }
-    }
-}
-
-fn record(outcome: &RecordOutcome) -> String {
-    match outcome {
-        RecordOutcome::Retained(retained) => {
-            if retained.drone_process {
-                "record kept, its Drone's process row was cleared".to_string()
-            } else {
-                "record kept".to_string()
-            }
-        }
-        RecordOutcome::Forgotten(forgotten) => format!(
-            "row cleared: {} event(s), {} step(s)",
-            forgotten.events, forgotten.steps
-        ),
     }
 }
 

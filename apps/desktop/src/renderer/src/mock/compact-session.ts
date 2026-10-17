@@ -5,23 +5,22 @@
 // Over the Cockpit; the Session's `work` is draft data. Outside `scenarios/`, where every export is read as a row: the rows there are this, once for the
 // walk `compactSessionView` and once for `compactCallsInThread`.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment, SessionRow, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 
 import { mockAreas } from "./cockpit-areas";
-import { asRow, holding, servedFrom } from "./holding";
+import { holding } from "./holding";
 import type { Scenario } from "./moment";
 import { arrow, box, scene } from "./scenes";
 import { sessionsStore } from "./sessions/script";
-import type { BoardControl, SessionsStore } from "./sessions/script";
+import type { BayControl, SessionsStore } from "./sessions/script";
 import { READS, READS_TITLE } from "./sessions/sketches";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const board = asRow(featureRunning(), 84, "compact", "Order the store migrations");
-const OWNER = board.manifests[0]!.id;
-const ROOT = servedFrom(board.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 const MAIN = "compact-1";
 const PRUNE = "compact-2";
@@ -279,9 +278,8 @@ const lessons = other(LESSONS, "Write the lessons page", { rows: [agent("l-1", "
 
 // ---- The store ------------------------------------------------------------------------------------------------
 
-function sessions(control: BoardControl): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, control, [], [main, prune, names, audit, fold, lessons]);
+function sessions(control: BayControl): SessionsStore {
+  const base = sessionsStore([main, prune, names, audit, fold, lessons]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   const own = new Set([MAIN, PRUNE, NAMES, AUDIT, FOLD, LESSONS]);
@@ -334,7 +332,6 @@ const bay = (slot: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlo
 /** The pool: the Session's bay is its own, or, once time has passed, left stranded with its work still in it. */
 function pool(stranded: boolean): WorktreesHeld {
   return {
-    worktrees: [],
     slots: [
       bay(1, { state: "hosted_session", session_id: AUDIT, session_title: audit.title! }, { branch: "armada/audit-rotation", since: ago(35) }),
       bay(2, { state: "hosted_session", session_id: NAMES, session_title: names.title! }, { branch: "fix/migration-names", since: ago(90) }),
@@ -375,11 +372,10 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 export function compactSession(name: string, said: string): Scenario {
-  const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
-  const base = holding(name, said, rows);
+  const base = holding(name, said);
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: rows.map((one) => one.job) },
+    state: { ...base.state, repository: null },
     held: pool(false),
     draft: { sessions, events: EVENTS, areas: () => mockAreas("/armada") },
   };

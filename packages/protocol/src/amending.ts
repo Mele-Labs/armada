@@ -186,16 +186,3 @@ export type PolicyWords = {
   written: string;
   offered: string[];
 };
-
-/**
- * `GET /manifest/spend` — the costliest and the longest Job against this
- * Manifest, each summed across its Drones. A cap is set per Job, so the
- * highest is what one below it would have stopped.
- */
-export type ManifestSpend = {
-  /** Jobs that have spent anything. Zero leaves nothing to warn against. */
-  jobs: number;
-  /** A floor where a Drone named no price. */
-  most_cost_micros: number;
-  most_turns: number;
-};

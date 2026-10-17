@@ -476,7 +476,6 @@ fn a_repository_with_no_workflows_of_its_own_runs_on_what_armada_carries() {
             "bug",
             "code_review",
             "design_plan",
-            "epic",
             "feature",
             "prototype",
             "refactor",

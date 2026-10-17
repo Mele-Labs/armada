@@ -10,13 +10,13 @@
 //! | [`running`] | One server: `run`, `serve`, `ready`, the end |
 //! | [`unservable`] | Every refusal, and its code on the wire |
 //!
-//! **One instance per holder per name**, and a second request — a person's or
-//! a Drone's — is answered with the one already up. **Off the turn loop**:
+//! **One instance per holder per name**, and a second request is answered with
+//! the one already up. **Off the turn loop**:
 //! each is a task of its own on the `Arc` the listener holds.
 //!
-//! **Teardown, then release.** A Job's servers are stopped in
-//! `crate::dispatch`'s terminal write, before its span is released, and every
-//! server is stopped when Fleet stops, before the main checkout's span goes. A
+//! **Teardown, then release.** A slot's servers are stopped before it is given
+//! back, and every server is stopped when Fleet stops, before the main
+//! checkout's span goes. A
 //! server outliving the memory that held it would hold its port with nothing
 //! left to hand it on or stop it.
 
@@ -34,7 +34,6 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{Job, JobId};
 use ipc::{
     ServerEntry, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy, WireError,
 };
@@ -49,19 +48,9 @@ pub use unservable::Unservable;
 /// A path that is not a checkout of the repository a server was asked for.
 const NOT_A_CHECKOUT: &str = "fleet.not_a_checkout";
 
-/// How long a stop, or a Job's teardown, waits for a server to end. The group
+/// How long a stop, or a slot's teardown, waits for a server to end. The group
 /// is ended with `SIGKILL`, so what is left is a reap and a publish.
 const STOPPING: Duration = Duration::from_secs(30);
-
-/// Where a server is to run.
-pub(crate) enum Place {
-    /// In the Job's worktree, on its span.
-    Job(Job),
-    /// In a checkout of this repository — its main checkout, or a worktree
-    /// somebody cut by hand — on the span that checkout holds while Fleet
-    /// runs. `crate::checkouts` is the only way to one.
-    Checkout(Checkout),
-}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -73,33 +62,20 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Start `name` at `place`, **or answer with the instance already up** —
-    /// `true` beside the state where this call started it. `for_review` is
-    /// Fleet's own start at a walked stop, `crate::walking`.
-    ///
-    /// **A Job's servers are what it froze** — `crate::snapshotting`, falling
-    /// back to the live file for a Job whose snapshot is absent or will not
-    /// read, as every other reader there does. The main checkout froze
-    /// nothing, and reads the Manifest Fleet holds. `${port.NAME}` is resolved
-    /// in every field from the span the server runs under, and the claim's
-    /// variables ride in its environment.
+    /// Start `name` in `checkout` — its main checkout, or a worktree somebody
+    /// cut by hand, on the span that checkout holds while Fleet runs —
+    /// **or answer with the instance already up**: `true` beside the state
+    /// where this call started it. It reads the Manifest Fleet holds.
+    /// `${port.NAME}` is resolved in every field from the span the server runs
+    /// under, and the claim's variables ride in its environment.
     pub(crate) async fn hold_server(
         self: Arc<Self>,
-        place: Place,
+        checkout: Checkout,
         name: &str,
         by: StartedBy,
-        for_review: bool,
     ) -> Result<(ServerState, bool), Unservable> {
-        let served = match &place {
-            Place::Job(job) => self.served_by(job).map_err(|why| Unservable::NotKept {
-                why: why.to_string(),
-            })?,
-            Place::Checkout(checkout) => checkout.served().clone(),
-        };
-        let manifest = match &place {
-            Place::Job(job) => self.effective_manifest_in(&served, job).await.0,
-            Place::Checkout(_) => served.manifest().clone(),
-        };
+        let served = checkout.served().clone();
+        let manifest = served.manifest().clone();
         let Some(server) = manifest.server(name).cloned() else {
             return Err(match manifest.command(name) {
                 Some(_) => Unservable::IsACommand {
@@ -118,62 +94,26 @@ where
                 },
             });
         };
-        // Against the same Manifest the server was found in, so a flag the
-        // Job froze is the flag that gates its Drone.
-        if by == StartedBy::Drone && server.is_destructive() {
-            return Err(Unservable::NeedsAPerson {
-                name: name.to_string(),
-            });
-        }
-        let (holder, job_id, worktree, ports, env, under, checkout) = match &place {
-            Place::Job(job) => {
-                if job.status().is_terminal() {
-                    return Err(Unservable::JobEnded);
-                }
-                let spec = self.tree_spec(&served, job).ok_or(Unservable::NoWorktree)?;
-                let tree = PathBuf::from(spec.worktree_path());
-                if !tree.is_dir() {
-                    return Err(Unservable::NoWorktree);
-                }
-                let checkout = ipc::ServerCheckout {
-                    path: spec.worktree_path(),
-                    branch: Some(spec.branch()),
-                    commit: None,
-                    behind: None,
-                };
-                (
-                    Holder::Job(job.id().clone()),
-                    Some(ipc::JobId::from(job.id())),
-                    tree,
-                    self.port_map(job).await,
-                    self.port_env(job).await,
-                    format!("jobs/{}", job.handle()),
-                    checkout,
-                )
-            }
-            Place::Checkout(checkout) => (
-                Holder::Checkout(checkout.path().to_string()),
-                None,
-                PathBuf::from(checkout.path()),
-                self.checkout_ports(&served, checkout.path()).await,
-                self.checkout_port_env(&served, checkout.path()).await,
-                checkout.under(),
-                ipc::ServerCheckout {
-                    path: checkout.path().to_string(),
-                    branch: checkout.branch().map(str::to_string),
-                    commit: self.commit_serving_now(&served).await,
-                    // Nothing has landed since a server that has not started.
-                    behind: Some(0),
-                },
-            ),
-        };
+        let (holder, worktree, ports, env, under, at) = (
+            Holder::Checkout(checkout.path().to_string()),
+            PathBuf::from(checkout.path()),
+            self.checkout_ports(&served, checkout.path()).await,
+            self.checkout_port_env(&served, checkout.path()).await,
+            checkout.under(),
+            ipc::ServerCheckout {
+                path: checkout.path().to_string(),
+                branch: checkout.branch().map(str::to_string),
+                commit: self.commit_serving_now(&served).await,
+                // Nothing has landed since a server that has not started.
+                behind: Some(0),
+            },
+        );
         let resolved = |text: &str| crate::ports::resolve_ports(text, &ports);
         let launch = Launch {
             holder,
             name: name.to_string(),
-            job_id,
             manifest_id: ipc::ManifestId::from(served.manifest().id()),
-            checkout,
+            checkout: at,
             under,
             ports: named_ports(&server, &ports),
             links: server
@@ -185,11 +125,7 @@ where
                 })
                 .collect(),
             by,
-            for_review,
-            whose: match &place {
-                Place::Job(job) => format!("job {}", job.id().as_str()),
-                Place::Checkout(checkout) => checkout.whose(),
-            },
+            whose: checkout.whose(),
             run: server.run().map(resolved),
             serve: resolved(server.serve()),
             ready: server.ready().map(resolved),
@@ -241,7 +177,6 @@ where
             None => (Vec::new(), 0, 0, true),
         };
         Ok(api::ObservedServer {
-            job_id: state.job_id,
             id: state.id,
             name: state.name,
             path: state.log,
@@ -253,9 +188,7 @@ where
         })
     }
 
-    /// The servers `manifest` declares — the one the run sheet resolved for
-    /// this Job, so what it lists is what the Job froze — each with this Job's
-    /// instance.
+    /// The servers `manifest` declares, each with `holder`'s instance.
     pub(crate) fn declared_servers(
         &self,
         holder: &Holder,
@@ -286,14 +219,6 @@ where
             .collect()
     }
 
-    /// Stop every server this Job holds, and wait for each — **before its span
-    /// is released**, which is the caller's next line.
-    pub(crate) async fn stopped_servers_of(&self, job: &JobId) {
-        let holder = Holder::Job(job.clone());
-        stopped_and_waited(self.servers().held_by(Some(&holder))).await;
-        self.servers().forget(&holder);
-    }
-
     /// Stop the servers held for the checkout at `path`, and wait for each: a
     /// slot about to be given back has no one left to serve. **By where they
     /// run**, which is the only record there is of a server in a slot: a
@@ -302,7 +227,7 @@ where
         stopped_in(self.servers().clone(), path).await;
     }
 
-    /// Stop every server Fleet holds, a Job's or the main checkout's. **Called
+    /// Stop every server Fleet holds. **Called
     /// once, as Fleet stops, before the main checkout's span is released** —
     /// `pub` for `released_checkout_ports`' reason: the composition root
     /// is what calls it. See `armada::serve`.
@@ -320,8 +245,7 @@ where
             .unwrap_or_default()
     }
 
-    /// `Commands::start_server`: a person starting one, for a Job or for a
-    /// checkout. **The `Arc` is handed on**, so the server is a task of its own.
+    /// `Commands::start_server`: a person starting one in a checkout. **The `Arc` is handed on**, so the server is a task of its own.
     ///
     /// **Not `budgeted`**: a server answers through its own refusal.
     pub(crate) async fn start_server_answered(
@@ -329,28 +253,18 @@ where
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ServerState, Refusal> {
-        let place = match &asked.job_id {
-            Some(job_id) => Place::Job(
-                self.load(&job_id.to_domain())
-                    .await
-                    .map_err(|why| self.refusal(why))?,
-            ),
-            None => {
-                let served = self.served_named(manifest_id.as_ref())?;
-                let checkout = match asked.checkout.as_deref() {
-                    Some(path) => {
-                        Checkout::beside(served, path).map_err(|why| self.checkout_refusal(why))?
-                    }
-                    None => Checkout::main(served),
-                };
-                Place::Checkout(checkout)
+        let served = self.served_named(manifest_id.as_ref())?;
+        let checkout = match asked.checkout.as_deref() {
+            Some(path) => {
+                Checkout::beside(served, path).map_err(|why| self.checkout_refusal(why))?
             }
+            None => Checkout::main(served),
         };
         let refusing = Arc::clone(&self);
-        Fleet::hold_server(self, place, &asked.name, ipc::StartedBy::Person, false)
+        Fleet::hold_server(self, checkout, &asked.name, ipc::StartedBy::Person)
             .await
             .map(|(state, _)| state)
-            .map_err(|why| refusing.server_refusal(why, asked.job_id.as_ref()))
+            .map_err(|why| refusing.server_refusal(why))
     }
 
     /// A path that is not a checkout of the repository asked about. **A 422**,
@@ -364,13 +278,9 @@ where
         ))
     }
 
-    pub(crate) fn server_refusal(&self, why: Unservable, job: Option<&ipc::JobId>) -> Refusal {
+    pub(crate) fn server_refusal(&self, why: Unservable) -> Refusal {
         let (code, refusal) = why.spelled();
-        let mut raised = WireError::raised(code, why.to_string(), self.run_id());
-        if let Some(job) = job {
-            raised = raised.about_job(job.clone());
-        }
-        refusal(raised)
+        refusal(WireError::raised(code, why.to_string(), self.run_id()))
     }
 }
 

@@ -9,7 +9,6 @@ import type {
   EditManifest,
   SaveManifestFile,
   CheckoutRunDiffRead,
-  ManifestChecksRead,
   AddKitServer,
   ManifestReach,
   ReachesDrones,
@@ -22,7 +21,6 @@ import type {
   ManifestEditAnswer,
   ManifestFileRead,
   ManifestSaveAnswer,
-  ManifestSpendRead,
 } from "@armada/screens/src/editing";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type {
@@ -101,10 +99,6 @@ export type ManifestApi = {
    * result that would not load. Writes and stops.
    */
   editManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
-  /** The costliest and the longest past Job here, for the budget warning. */
-  readManifestSpend: () => Promise<ManifestSpendRead>;
-  /** Every Check a Job's gate wrote or a Drone asked for, newest first. A read. */
-  readManifestChecks: () => Promise<ManifestChecksRead>;
   /**
    * Every rule a person always-allowed for this repository, oldest first —
    * Fleet's own table since protocol 13.5. No path and no job id: it names no
@@ -216,10 +210,8 @@ export const MANIFEST_CHANNELS = {
   // write, and neither takes a path: Fleet names the file.
   readManifestFile: "bridge:read-manifest-file",
   saveManifestFile: "bridge:save-manifest-file",
-  // The forms' two: edits as keys rather than text, and what past Jobs cost.
+  // The forms': edits as keys rather than text.
   editManifest: "bridge:edit-manifest",
-  readManifestSpend: "bridge:read-manifest-spend",
-  readManifestChecks: "bridge:read-manifest-checks",
   // A repository-wide always-allow, kept in Fleet's own table since 13.5 —
   // #836. Two entries, a read and a remove, on `readManifestFile`'s terms:
   // Fleet names the repository, so neither takes a path or an id.

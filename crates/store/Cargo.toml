@@ -8,11 +8,6 @@ publish = false
 [lints]
 workspace = true
 
-# `wreckage` compiles one method that damages a store, for the tests that
-# recover from one. Only `testkit` turns it on, and nothing that ships does.
-[features]
-wreckage = []
-
 [dependencies]
 # The reading a footprint record holds. `adapter-traits` has no dependencies of
 # its own, and taking the vocabulary that produced the reading is what keeps the

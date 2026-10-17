@@ -73,8 +73,8 @@ pub use delivery::{
 };
 pub use event::{CallDetail, DroneEvent, FileAct, Speaker, TaskStatus, ToolUse};
 pub use harness::{
-    AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
-    Model, Prompt, Prompting, Repair, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
+    DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,
+    Model, Prompt, SpawnConfigRefused,
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
@@ -146,35 +146,6 @@ pub trait AgentHarness {
     /// Errors this harness can raise. Named by the implementation so a caller
     /// matching on them is matching on something real.
     type Error;
-
-    /// How this harness would start a Drone against a prepared worktree.
-    ///
-    /// The configuration is typed and carries no raw argument builder and no
-    /// escape-hatch constructor, so a caller cannot quietly drop the isolation
-    /// the configuration exists to guarantee.
-    fn render(&self, config: &DroneSpawnConfig) -> Result<Launch, Self::Error>;
-
-    /// Whether this command could be granted to a Drone as a **standing**
-    /// rule — a declared or an allowed command: the refusal
-    /// [`render`](AgentHarness::render) would give for it, asked before a
-    /// person allows it.
-    ///
-    /// **Asked first, because the render refuses the whole spawn.** A command
-    /// a person allowed that this harness cannot express, or one that would
-    /// push, would otherwise fail the Job the next time a Drone is put on it.
-    fn grantable(&self, run: &str) -> Result<(), Self::Error>;
-
-    /// Whether a Drone may run this command **on this one call**, with no rule
-    /// written anywhere.
-    ///
-    /// **Narrower than [`grantable`](AgentHarness::grantable), and that gap is
-    /// the point.** A command may be one no rule can be written for and still
-    /// be one a Drone may run: a harness spells its allowlist in some syntax,
-    /// and a command holding that syntax's own characters cannot be spelled in
-    /// it — which says nothing about the command. `sed -n '1,140' file` reads a
-    /// file and holds a comma. Answering one permission question grants
-    /// nothing later, so only what a Drone may never do belongs here.
-    fn runnable(&self, run: &str) -> Result<(), Self::Error>;
 
     /// Read one line of the Drone's output.
     ///
@@ -403,10 +374,9 @@ pub trait Vcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 
-    /// Commit everything in the Job's slot to its own branch and give the slot
-    /// back, pushing nothing. **A pause's half of the pool**: the work stays on
-    /// the branch, and [`lease_existing_slot`](Vcs::lease_existing_slot) puts a
-    /// slot back on it at the tip. Refused, the Job keeps the slot.
+    /// Commit everything in the holder's slot to its own branch and give the
+    /// slot back, pushing nothing: the work stays on the branch. Refused, the
+    /// holder keeps the slot.
     fn park_slot(
         &self,
         pool: &SlotPool,
@@ -470,20 +440,6 @@ pub trait Vcs {
         Err(SlotParkRefused::NotLeased)
     }
 
-    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
-    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
-    /// **Not necessarily the slot the Job parked from.**
-    fn lease_existing_slot(
-        &self,
-        pool: &SlotPool,
-        branch: &str,
-        job_id: &str,
-    ) -> Result<SlotLeased, Self::Error>;
-
-    /// Whether [`lease_slot`](Vcs::lease_slot) would hand this Job a slot now.
-    /// The one predicate admission and a Board row both ask.
-    fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool;
-
     /// Where the slot a Job's record names stands now.
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding;
 
@@ -536,12 +492,12 @@ pub trait Vcs {
         commits: usize,
     ) -> alloc::vec::Vec<alloc::string::String>;
 
-    /// Delete the local branch a repair Drone wrote on, once its fix is merged
-    /// onto the Job's branch or the repair ended failed. **Handed the spec the
-    /// branch was cut from and never a name**, so it can delete one repair's
-    /// branch and no other; a branch already gone is not an error. Refused while a
-    /// slot still has it checked out, and the branch stays. `true` where it was
-    /// deleted now and `false` where it was gone already.
+    /// Delete the local branch an act cut for itself, once its work is
+    /// committed or the act ended failed. **Handed the spec the branch was cut
+    /// from and never a name**, so it can delete one act's branch and no other;
+    /// a branch already gone is not an error. Refused while a slot still has it
+    /// checked out, and the branch stays. `true` where it was deleted now and
+    /// `false` where it was gone already.
     fn delete_repair_branch(&self, spec: &WorktreeSpec) -> Result<bool, BranchKept>;
 
     /// Delete a local branch a session worked on, once the base holds every
@@ -555,11 +511,6 @@ pub trait Vcs {
     /// delete its own branch by hand**: the read half of [`Vcs::delete_merged_branch`], which
     /// deletes nothing.
     fn branch_is_merged(&self, pool: &SlotPool, branch: &str) -> bool;
-
-    /// Write on the slot this Job holds that the Job completed, so
-    /// `armada worktree --status` reads it as held until a person clears the
-    /// Job. Best-effort: it changes what the status says and nothing else.
-    fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str);
 
     /// Every slot in the pool, as `armada worktree --status` reads it.
     fn slot_pool(&self, pool: &SlotPool) -> alloc::vec::Vec<SlotReading>;

@@ -1,17 +1,8 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, Play, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Briefcase, Check, FolderGit2, GitBranch, Infinity as EveryGlyph, Minus, Package, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
-  AddedRuns,
-  AddedStep,
-  HoldAct,
-  JobAlert,
-  JobTrigger,
-  KeptFrom,
-  TriggerFiringState,
-  TriggerFixChoice,
   TriggerLevel,
-  TriggerMoment,
   TriggerSaved,
   TriggerScope,
   TriggerSkip,
@@ -20,16 +11,12 @@ import type {
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
-import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import type { WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
-import { additionName, fixOf } from "./side-branches";
-import type { SideBranch } from "./side-branches";
 import {
   blankDraft,
   definitionOf,
@@ -47,8 +34,7 @@ import {
 /**
  * Triggers: a Command or a skill that fires at a moment in a Job. The rows are the list the
  * Workflow editor draws twice, beside the workflows and on a step, and each opens the same
- * fields; `TriggerLeaf` is what a Job's canvas draws once they have fired. Fleet keeps them, and
- * the editor's `TriggersBinding` is the only way here to it.
+ * fields. Fleet keeps them, and the editor's `TriggersBinding` is the only way here to it.
  */
 
 /** What each level is, said once on its mark. */
@@ -152,7 +138,6 @@ function Fails({
   /** A Skill or a Drone step has no Self repair: a Drone already fixes its own failures, so the switch is not drawn. */
   repairable?: boolean;
   onChange: (next: { block?: boolean; repair?: boolean }) => void;
-  /** A step added to a Job that has fired is read: its switches are live only until then. */
   disabled?: boolean;
 }) {
   return (
@@ -261,12 +246,9 @@ export function TriggerSheet({
   onSaved,
   onRemoved,
   onClose,
-  keeping,
 }: {
   binding: TriggersBinding;
   target: TriggerTarget;
-  /** The addition this save keeps for every Job: Fleet records where it went. */
-  keeping?: KeptFrom;
   workflow: string | undefined;
   steps: readonly string[];
   onSaved: (saved: TriggerSaved) => void;
@@ -311,7 +293,7 @@ export function TriggerSheet({
     if (draft === null) return;
     const named = { ...draft, name: freeNameOf(draft, binding.triggers) };
     const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: nameOf(named) };
-    const result = await binding.onSave(draft.scope, definitionOf(named), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
+    const result = await binding.onSave(draft.scope, definitionOf(named), replaces || (was !== null && target.kind === "open" && !moved(was, draft)));
     if (!result.ok) {
       setStanding("refused");
       setSaid(result.said);
@@ -353,7 +335,7 @@ export function TriggerSheet({
         {draft === null ? null : (
           <div className="armada-triggers__acts">
             <Button variant="primary" disabled={draft.with === ""} onClick={() => void save()}>
-              {replaces ? "Replace" : keeping === undefined ? "Save" : "Keep"}
+              {replaces ? "Replace" : "Save"}
             </Button>
             {target.kind === "open" && was !== null ? (
               <Button variant="ghost" onClick={() => void remove()}>
@@ -391,477 +373,5 @@ function SavedMarks({ saved, scope }: { saved: TriggerSaved; scope: TriggerScope
       {saved.waits_for_main === true ? <WaitsMark /> : null}
       {saved.skipped === undefined ? null : <SkippedMark skipped={saved.skipped} />}
     </span>
-  );
-}
-
-/** A firing's state: its glyph and hue, and what the tooltip says where Fleet said more. */
-const STATE: Record<TriggerFiringState, { Glyph: LucideIcon; said: string; hue?: string }> = {
-  pending: { Glyph: CircleDashed, said: "Pending" },
-  skipped: { Glyph: Minus, said: "Skipped" },
-  running: { Glyph: CircleDot, said: "Running", hue: "running" },
-  passed: { Glyph: Check, said: "Passed", hue: "passed" },
-  failed: { Glyph: X, said: "Failed", hue: "failed" },
-  awaiting_owner: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
-  repairing: { Glyph: CircleDot, said: "Repair Drone working", hue: "running" },
-  rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running" },
-  fix_ready: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
-  held: { Glyph: Construction, said: "Held", hue: "waiting" },
-};
-
-/** The states a mark pulses in: what is still working. */
-const WORKING: readonly TriggerFiringState[] = ["running", "repairing", "rerunning"];
-
-export function FiringMark({ trigger }: { trigger: { state: TriggerFiringState; skipped?: { said: string } | undefined; exit_code?: number | undefined } }) {
-  const { Glyph, said, hue } = STATE[trigger.state];
-  const label = trigger.state === "skipped" && trigger.skipped !== undefined ? trigger.skipped.said : trigger.state === "failed" && trigger.exit_code !== undefined ? `${said}, exit ${trigger.exit_code}` : said;
-  return <Mark icon={Glyph} label={label} {...(hue === undefined ? {} : { hue })} pulsing={WORKING.includes(trigger.state)} />;
-}
-
-/** A name that goes to its line in the Job's log where it has one, and is plain where it has none. */
-function NameLink({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog: ((trigger: JobTrigger) => void) | undefined }) {
-  if (trigger.log_at === undefined || onOpenLog === undefined) return <span className="armada-triggers__name">{trigger.name}</span>;
-  return (
-    <Tooltip asChild label="Job log">
-      <button type="button" className="armada-triggers__name armada-triggers__link nodrag nopan" onClick={() => onOpenLog(trigger)}>
-        {trigger.name}
-      </button>
-    </Tooltip>
-  );
-}
-
-/**
- * One Trigger a Job holds, as a leaf off the step it fired at: the state as a mark, the name, the
- * moment, and the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
- */
-export function TriggerLeaf({
-  trigger,
-  onOpenLog,
-  onAct,
-}: {
-  /** A step added to one Job is drawn as the same leaf, and names itself to Fleet by its id. */
-  trigger: SideBranch;
-  onOpenLog?: (trigger: JobTrigger) => void;
-  /** Where the leaf asks him: Run and Skip, on a firing that waits on his answer. */
-  onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
-}) {
-  const moment = whenSaid(trigger.when, trigger.step);
-  return (
-    <div className="armada-leaf" role="group" aria-label={`${trigger.name}, ${moment}`}>
-      <FiringMark trigger={trigger} />
-      <NameLink trigger={trigger} onOpenLog={onOpenLog} />
-      <span className="armada-triggers__when">{moment}</span>
-      {trigger.addition === undefined ? <LevelMark level={trigger.level} /> : null}
-      {trigger.state === "awaiting_owner" && onAct !== undefined ? (
-        <HoldActs held={{ key: "", name: trigger.name, when: trigger.when, step: trigger.step, by: fixOf(trigger), state: trigger.state }} onAct={onAct} />
-      ) : null}
-    </div>
-  );
-}
-
-/** What a Job can be given between its steps. */
-export type AddedKind = AddedRuns["kind"];
-
-const ADDED_KIND: Record<AddedKind, string> = { script: "Script", skill: "Skill", drone: "Drone step" };
-
-/** The `+` on a connector: a menu of what one Job can be given. It draws over the canvas, which is why it takes `portal`. */
-export function AddStep({ label, onPick }: { label: string; onPick: (kind: AddedKind) => void }) {
-  return (
-    <span className="armada-triggers__add">
-      <Tooltip label="Add a step to this Job only">
-        <span>
-          <DropdownMenu
-            triggerLabel={label}
-            icon={SquarePlus}
-            portal
-            entries={(Object.keys(ADDED_KIND) as AddedKind[]).map((id) => ({ kind: "item", id, label: ADDED_KIND[id] }))}
-            onSelect={(id) => onPick(id as AddedKind)}
-          />
-        </span>
-      </Tooltip>
-    </span>
-  );
-}
-
-/** What an added step runs, as its card names it. */
-export const addedName = (runs: AddedRuns): string => (runs.kind === "script" ? runs.command : runs.kind === "skill" ? runs.skill : "Drone step");
-
-/** What it runs, as its panel's field holds it: the Command, the skill, or the brief. */
-const ranText = (runs: AddedRuns): string => (runs.kind === "script" ? runs.command : runs.kind === "skill" ? runs.skill : runs.brief);
-
-/** An added step's firing state as its card's activity and hue. */
-const ADDED_STATE: Record<TriggerFiringState, { activity: WorkflowStepCardProps["activity"]; token: string }> = {
-  pending: { activity: "not_started", token: "--status-not-started" },
-  skipped: { activity: "not_started", token: "--status-not-started" },
-  running: { activity: "running", token: "--status-running" },
-  passed: { activity: "advanced", token: "--step-advanced" },
-  failed: { activity: "failed", token: "--step-failed" },
-  awaiting_owner: { activity: "not_started", token: "--step-waiting" },
-  repairing: { activity: "running", token: "--status-running" },
-  rerunning: { activity: "running", token: "--status-running" },
-  fix_ready: { activity: "not_started", token: "--step-waiting" },
-  held: { activity: "not_started", token: "--step-waiting" },
-};
-
-/**
- * An added step as a card: a dashed accent edge and the `webhook` mark, so it reads apart from the
- * workflow's own. **One Fleet recorded skipped wears the skipped mark**, with its reason on its chip.
- */
-export function addedCard(one: AddedStep, selected: boolean, onOpen: () => void): WorkflowStepCardProps {
-  const { activity, token } = ADDED_STATE[one.state];
-  const fails = [one.block ? "blocks" : "", one.repair ? "repairs" : ""].filter((word) => word !== "").join(", ");
-  const skipped = one.state === "skipped" && one.skipped !== undefined;
-  return {
-    kind: "step",
-    name: addedName(one.runs),
-    ...(one.runs.kind === "drone" ? {} : { nameIsAnIdentifier: true }),
-    activity,
-    mark: { icon: skipped ? Minus : Webhook, token },
-    said: `Added to this Job only, ${STATE[one.state].said.toLowerCase()}`,
-    added: true,
-    facts: [
-      { value: ADDED_KIND[one.runs.kind].toLowerCase() },
-      ...(skipped ? [{ value: "skipped", hint: one.skipped!.said }] : []),
-      ...(fails === "" ? [] : [{ value: fails }]),
-    ],
-    selected,
-    onOpen,
-  };
-}
-
-/**
- * The fields of a step added to one Job. **Editable until it is added**, at the gate or in the
- * panel that adds it; after that it is read. **Its two switches stay live until it fires**, through
- * `onSwitch`; what else a person can do is take it off before it fires, and keep it for every Job.
- */
-export function AddedFields({
-  one,
-  commands,
-  editable,
-  onChange,
-  onSwitch,
-  onKeep,
-  onRemove,
-}: {
-  one: AddedStep;
-  commands: readonly string[];
-  editable: boolean;
-  onChange?: (next: Partial<Pick<AddedStep, "runs" | "block" | "repair">>) => void;
-  /** Change a switch on a step that is added and has not fired. Absent leaves them read. */
-  onSwitch?: (next: Partial<Pick<AddedStep, "block" | "repair">>) => void;
-  onKeep?: () => void;
-  onRemove?: () => void;
-}) {
-  const { runs } = one;
-  const held = runs.kind !== "script" || runs.command === "" || commands.includes(runs.command) ? commands : [...commands, runs.command];
-  const change = onChange ?? (() => undefined);
-  return (
-    <>
-      <span className="armada-triggers__fact">{`${ADDED_KIND[runs.kind]}, this Job only`}</span>
-      <span className="armada-triggers__fact">{whenSaid(one.when, one.step)}</span>
-      {editable ? null : (
-        <span className="armada-triggers__fired">
-          <FiringMark trigger={one} />
-          {one.kept === undefined ? null : <span className="armada-triggers__fact">{`Kept: ${LEVEL[one.kept].said.toLowerCase()}`}</span>}
-        </span>
-      )}
-      {!editable ? (
-        runs.kind === "drone" ? (
-          <span className="armada-triggers__fact">{runs.brief}</span>
-        ) : (
-          <span className="armada-triggers__fact">{ranText(runs)}</span>
-        )
-      ) : runs.kind === "drone" ? (
-        <Textarea label="Brief" rows={4} value={runs.brief} onChange={(event) => change({ runs: { kind: "drone", brief: event.target.value } })} />
-      ) : runs.kind === "script" ? (
-        <Select label="Script" value={runs.command} onChange={(event) => change({ runs: { kind: "script", command: event.target.value } })}>
-          <option value="" />
-          {held.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </Select>
-      ) : (
-        <Input label="Skill" mono value={runs.skill} onChange={(event) => change({ runs: { kind: "skill", skill: event.target.value } })} />
-      )}
-      <Fails
-        block={one.block}
-        repair={one.repair}
-        repairable={runs.kind === "script"}
-        disabled={!editable && onSwitch === undefined}
-        onChange={editable ? change : (onSwitch ?? change)}
-      />
-      {onKeep === undefined && onRemove === undefined ? null : (
-        <div className="armada-triggers__acts">
-          {onKeep === undefined || one.kept !== undefined ? null : (
-            <Button variant="secondary" onClick={onKeep}>
-              Keep for every Job
-            </Button>
-          )}
-          {onRemove === undefined ? null : (
-            <Button variant="ghost" onClick={onRemove}>
-              <Trash2 size={12} strokeWidth={2} aria-hidden /> Remove step
-            </Button>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-/**
- * Where a failed Trigger's repair stands, read off its row. `asking` is a fix held with no choice
- * made; `placing` is one chosen and kept until it can be placed. `none` is a Trigger no repair
- * Drone has been put on.
- */
-export type RepairPhase = "none" | "working" | "running" | "rerunning" | "asking" | "placing" | "done" | "failed";
-
-export function repairPhase(trigger: JobTrigger): RepairPhase {
-  if (trigger.repair === undefined) return "none";
-  switch (trigger.state) {
-    case "repairing":
-      return "working";
-    // A Skill or Drone step with a Drone on it: a Command that is running has no repair record.
-    case "running":
-      return "running";
-    case "rerunning":
-      return "rerunning";
-    case "fix_ready":
-      return trigger.repair.choice === undefined ? "asking" : "placing";
-    // A Skill or Drone step that changed nothing leaves no branch and no choice.
-    case "passed":
-      return trigger.repair.choice === undefined ? "none" : "done";
-    case "failed":
-    case "held":
-      return "failed";
-    default:
-      return "none";
-  }
-}
-
-/** A Job's Triggers that have a repair under way, held or ended, in the order they fired. */
-export function repairsOf<T extends JobTrigger>(triggers: readonly T[]): T[] {
-  return triggers.filter((one) => repairPhase(one) !== "none");
-}
-
-/**
- * Whether a Job has an alert from its Triggers: a fix held with no choice made, and a repair that
- * found no fix. Fleet's own rule for `list_alerts`, kept to the latest firing of each Trigger.
- */
-export function triggerAlert(triggers: readonly JobTrigger[], additions: readonly AddedStep[] = []): boolean {
-  const latest = new Map<string, JobTrigger>();
-  for (const one of triggers) latest.set(one.name, one);
-  return (
-    [...latest.values()].some((one) => {
-      const phase = repairPhase(one);
-      return phase === "asking" || phase === "failed";
-    }) ||
-    [...latest.values()].some((one) => one.state === "awaiting_owner") ||
-    additions.some((one) => one.state === "awaiting_owner") ||
-    holdsOf(triggers, additions).length > 0
-  );
-}
-
-/** What a repair makes of the Trigger's own mark where it is on the branch. */
-const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: string; pulsing?: true } | undefined> = {
-  none: undefined,
-  working: { Glyph: CircleDot, said: "Repair Drone working", hue: "running", pulsing: true },
-  running: { Glyph: CircleDot, said: "Running", hue: "running", pulsing: true },
-  rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running", pulsing: true },
-  asking: undefined,
-  placing: { Glyph: CircleDashed, said: "Pending" },
-  done: { Glyph: Check, said: "Passed", hue: "passed" },
-  failed: { Glyph: X, said: "Failed", hue: "failed" },
-};
-
-/**
- * Opens one file of a fix in its diff. **Provided by the Job's surface**, which reads the repair
- * branch's patch against the Job's branch; absent, the files are read as names.
- */
-export const RepairFileContext = createContext<((trigger: SideBranch, path: string) => void) | undefined>(undefined);
-
-/**
- * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
- * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases,
- * from the Trigger's row. **A choice is sent once**: the buttons wait for
- * the answer, and come back where Fleet refused it.
- */
-export function RepairNode({
-  trigger,
-  onChoose,
-  onOpenLog,
-}: {
-  trigger: SideBranch;
-  onChoose?: (trigger: SideBranch, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void;
-  onOpenLog?: (trigger: JobTrigger) => void;
-}) {
-  const [sent, setSent] = useState(false);
-  const phase = repairPhase(trigger);
-  const mark = REPAIR_MARK[phase];
-  const files = trigger.repair?.files ?? [];
-  const openFile = useContext(RepairFileContext);
-  const choose = async (choice: TriggerFixChoice) => {
-    if (onChoose === undefined) return;
-    setSent(true);
-    const answer = await onChoose(trigger, choice);
-    if (answer !== undefined && !answer.ok) setSent(false);
-  };
-  return (
-    <div className="armada-repair" data-phase={phase}>
-      <div className="armada-repair__head">
-        <Mark icon={GitBranch} label={trigger.drone === true ? "Drone branch" : "Repair branch"} />
-        <NameLink trigger={trigger} onOpenLog={onOpenLog} />
-        <span className="armada-repair__state">
-          {mark === undefined ? null : <Mark icon={mark.Glyph} label={mark.said} {...(mark.hue === undefined ? {} : { hue: mark.hue })} pulsing={mark.pulsing === true} />}
-        </span>
-      </div>
-      {files.length === 0 || phase === "working" || phase === "running" ? null : (
-        <ul className="armada-repair__fix" aria-label="The fix">
-          {files.map((path) => (
-            <li key={path}>
-              {openFile === undefined ? (
-                <span className="armada-triggers__name">{path}</span>
-              ) : (
-                <button type="button" className="armada-triggers__name armada-triggers__link nodrag nopan" onClick={() => openFile(trigger, path)}>
-                  {path}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {phase === "asking" ? (
-        <div className="armada-repair__choice nodrag nopan" role="group" aria-label="Where the fix goes">
-          <Button variant="primary" disabled={sent} onClick={() => void choose("this_branch")}>
-            This branch
-          </Button>
-          <Button variant="secondary" disabled={sent} onClick={() => void choose("new_pr")}>
-            New PR
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** The end of a branch that became a pull request of its own, with its number where Fleet read one. */
-export function RepairPrMark({ trigger }: { trigger: JobTrigger }) {
-  const number = trigger.repair?.pull_request?.number;
-  return (
-    <div className="armada-repair armada-repair--pr">
-      <Mark icon={GitPullRequest} label="New PR" />
-      {number === undefined ? null : <span className="armada-triggers__name">#{number}</span>}
-    </div>
-  );
-}
-
-/** Whether a repair ended in a pull request of its own, which is where its branch stops. */
-export const endsInPr = (trigger: JobTrigger): boolean => repairPhase(trigger) === "done" && trigger.repair?.choice === "new_pr";
-
-/** The Job's alert: a fix held for him, or a repair that found none. */
-export function TriggerAlertMark() {
-  return <Mark icon={Bell} label="Alert" hue="failed" />;
-}
-
-/** What each kind of a Board row's alert is called in its tooltip. */
-const ALERT: Record<JobAlert["kind"], { said: string; hue: string }> = {
-  held: { said: "Held", hue: "waiting" },
-  asks: { said: "Waiting on you", hue: "waiting" },
-  fix_ready: { said: "Fix ready", hue: "waiting" },
-  failed: { said: "Failed", hue: "failed" },
-};
-
-/** A Trigger's moment with the step it fired at, for a PR that is the step that delivers. */
-const momentOf = (when: TriggerMoment, step: string): string => (when === "pr_opened" ? (step === "" ? "PR opened" : `PR opened, ${step}`) : whenSaid(when, step));
-
-/** A Board row's bell: one mark, and a tooltip of the Trigger and where it fired. No count. */
-export function JobAlertMark({ alert }: { alert: JobAlert }) {
-  const { said, hue } = ALERT[alert.kind];
-  return <Mark icon={Bell} label={`${said}, ${alert.trigger}, ${momentOf(alert.when, alert.step)}`} hue={hue} />;
-}
-
-/** What a Trigger or an added step that holds its Job is, and the body that names it to Fleet. */
-export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState; log?: JobTrigger };
-
-/** `rerun` runs the Command again, or once where it asks first; `skip` lets it go. */
-export type HoldVerb = "rerun" | "skip";
-
-/** The states in which a blocking firing still holds the Job: held, and the repair that works on it. */
-const HOLDING: readonly TriggerFiringState[] = ["held", "repairing", "rerunning", "fix_ready"];
-
-/** A Skill or Drone step with a Drone on it holds the Job where it blocks: `running` with a repair record. */
-const droneRunning = (state: TriggerFiringState, repair: unknown): boolean => state === "running" && repair !== undefined;
-
-/** What holds the Job now, from the latest firing of each Trigger and each added step. */
-export function holdsOf(triggers: readonly JobTrigger[], additions: readonly AddedStep[] = []): Held[] {
-  const latest = new Map<string, JobTrigger>();
-  for (const one of triggers) latest.set(`${one.when}|${one.step}|${one.name}`, one);
-  const held: Held[] = [];
-  for (const [key, one] of latest) {
-    if (one.state === "held" || (one.blocks === true && (HOLDING.includes(one.state) || droneRunning(one.state, one.repair)))) {
-      held.push({ key, name: one.name, when: one.when, step: one.step, by: { trigger: one.name }, state: one.state, log: one });
-    }
-  }
-  for (const one of additions) {
-    if (one.state === "held" || (one.block && (HOLDING.includes(one.state) || droneRunning(one.state, one.repair_record)))) {
-      held.push({ key: `addition|${one.id}`, name: additionName(one), when: one.when, step: one.step, by: { addition: one.id }, state: one.state });
-    }
-  }
-  return held;
-}
-
-/** Rerun and Skip on a hold, Run and Skip on a destructive Command that asks first. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
-function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
-  const [sent, setSent] = useState(false);
-  const act = async (verb: HoldVerb) => {
-    if (onAct === undefined) return;
-    setSent(true);
-    const answer = await onAct(verb, held.by);
-    if (answer !== undefined && !answer.ok) setSent(false);
-  };
-  // A fix waiting on its choice is skipped like a hold, and rerun only through that choice.
-  const live = onAct !== undefined && !sent;
-  const asking = held.state === "awaiting_owner";
-  const first = asking ? "Run" : "Rerun";
-  return (
-    <span className="armada-hold__acts nodrag nopan">
-      <Tooltip label={first}>
-        <Button variant="ghost" size="sm" iconOnly aria-label={first} disabled={!live || (held.state !== "held" && !asking)} onClick={() => void act("rerun")}>
-          {asking ? <Play className="armada-triggers__run" size={16} strokeWidth={2} aria-hidden /> : <RotateCw size={16} strokeWidth={2} aria-hidden />}
-        </Button>
-      </Tooltip>
-      <Tooltip label="Skip">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready" && !asking)} onClick={() => void act("skip")}>
-          <SkipForward size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    </span>
-  );
-}
-
-/**
- * A Trigger that holds the Job, as one frame: a filled band with the barrier, the Trigger's name,
- * and the two things the owner does about it. Drawn on the line it holds, and beside a node.
- */
-export function HoldNode({
-  held,
-  onAct,
-  onOpenLog,
-}: {
-  held: Held;
-  onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
-  onOpenLog?: (trigger: JobTrigger) => void;
-}) {
-  const moment = momentOf(held.when, held.step);
-  return (
-    <div className="armada-hold" role="group" aria-label={`${held.name}, ${moment}`}>
-      <Tooltip label={`${held.name}, ${moment}`}>
-        <span className="armada-hold__band" role="img" aria-label={`Held, ${held.name}, ${moment}`}>
-          <Construction size={12} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-      {held.log === undefined ? <span className="armada-triggers__name">{held.name}</span> : <NameLink trigger={held.log} onOpenLog={onOpenLog} />}
-      <HoldActs held={held} {...(onAct === undefined ? {} : { onAct })} />
-    </div>
   );
 }

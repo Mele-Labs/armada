@@ -12,254 +12,11 @@
 // copy of a roster that already has two, and an unknown status renders as
 // itself rather than as a guess.
 //
-// # A Job as a row, and no longer a Job read whole
-//
-// This file was restating two Rust modules at once: `job.rs`, which is what a
-// board and a list carry, and `detail.rs`, which is the answer to
-// `GET /jobs/:job_id`. It reached the 900 lines the gate refuses for the fifth
-// time, and the seam was the one already drawn on the other side — so
-// `detail.rs`'s half is `detail.ts` now, down to which of the two modules
-// `Dependency` and `Settled` belong to. What is left is `job.rs`, the smaller
-// neighbours no module of their own has yet earned, and the re-exports that
-// keep this the one import for the wire vocabulary.
-//
-// `Settled` is imported back from `detail.ts` because a row carries `landed`
-// too. Type-only both ways, so the cycle is erased before anything runs.
+// What is left here is the smaller neighbours no module of their own has yet
+// earned, and the re-exports that keep this the one import for the wire
+// vocabulary.
 
-import type { Settled } from "./detail";
-import type { FixesMain } from "./merge-lines";
-import type { Piloted } from "./piloting";
-import type { JobAlert } from "./trigger-holds";
 import type { Requester } from "./requester";
-import type { TaskCounts } from "./work-plan";
-
-/** A Job, as a list row. `crates/ipc/src/job.rs`. */
-export type JobSummary = {
-  id: string;
-  /**
-   * What a person calls this Job — `12-the-drone-count-is-wrong`.
-   *
-   * **Beside `id`, never instead of it.** The id is what every other message
-   * names and what a surface passes back; this is what a person reads, types
-   * and finds in a branch name, a worktree directory and a pull request. A
-   * ULID sorts by time, so two Jobs from one proposal share every character
-   * but a few — the two hardest to tell apart are the two most worth telling
-   * apart.
-   *
-   * Fleet derives it from the Job's number and title. A surface renders it and
-   * never composes one.
-   */
-  handle: string;
-  /** What the Job is called. The one field on a row a person actually reads. */
-  title: string;
-  status: string;
-  reason?: Reason;
-  /**
-   * Why an approved Job has not started. Its own field because it is derived
-   * from the board at read time rather than recorded by a transition, which is
-   * what `reason` carries — absent on every status but `queued`, and absent on
-   * a queued Job that nothing is holding.
-   */
-  queued_reason?: string;
-  /**
-   * Which of the two ceilings is holding a Job that is over budget — a key
-   * into `BUDGET_HOLD` in the generated vocabulary. Since protocol 9.4.
-   *
-   * **Present only where `queued_reason` is `over_budget`**, and absent
-   * everywhere else including on a Fleet built before it said which. It costs
-   * Fleet nothing: the predicate that computed the reason already knew.
-   *
-   * Without it the money cap and the turn cap fold to one label, and a surface
-   * offering the cost-cap control on a Job held for turns offers a press that
-   * cannot start it.
-   */
-  budget_hold?: string;
-  /**
-   * The gating Manifests that are frozen, by id: on a queued Job where
-   * `queued_reason` is `frozen`, and on an `awaiting_review` Job, whose merge
-   * and next step wait for the freeze. Absent otherwise, and from an older Fleet.
-   */
-  frozen_by?: string[];
-  /**
-   * Which act a person took to put this Job back in the queue — a key into
-   * `RESUMPTION` in the generated vocabulary.
-   *
-   * **The other axis over `queued`, and the one that says somebody is
-   * waiting.** `queued_reason` says what the Job is waiting for. Absent on a
-   * Job approved and never run, which is how a Job *arrives* at `queued`
-   * rather than *returns* to it, and absent on every other status.
-   *
-   * Without it, pressing restart while the bound is spent moves nothing on
-   * screen and a correct system reads as a dropped press.
-   */
-  resumption?: string;
-  workflow_id: string;
-  owner_manifest_id: string;
-  origin: string;
-  urgency: string;
-  atomic: boolean;
-  model: string;
-  /** Which step the Job is on. */
-  current_step_id?: string;
-  /** Presence, not state: absent is a Job no process is on. */
-  assigned_drone?: string;
-  /**
-   * The Job this one replaces. A redispatch mints a new Job rather than
-   * reopening the old one, so without this a board reads every second failure
-   * as a first one.
-   */
-  redispatched_from?: string;
-  /**
-   * The Job whose Drone dispatched this one, where `origin` is
-   * `sub_dispatched`. Since protocol 14.2.
-   *
-   * **The parent's id, and nothing else of the graph.** `dependencies` and
-   * `gate_manifests` stay off this row — the Board does not draw the DAG a
-   * step's fan-out makes, only that this Job has a parent and which one, for
-   * the facts line's `Sub-dispatched by …` sentence.
-   */
-  dispatched_by?: string;
-  /**
-   * Which pass of its parent's plan proposed it, counted from one: an Epic's
-   * wave. Since 23.13 (#1692). Absent beside `dispatched_by` is a child
-   * dispatched before 23.13, or a split's extra.
-   */
-  dispatched_pass?: number;
-  /**
-   * The Jobs this one waits on, by id: its `depends_on` edges, which
-   * `JobDetail.dependencies` serves whole. Since 23.14 (#1692), so a wave read
-   * off the Board draws its order without a `get_job` per child. Absent is a
-   * Job that waits on nothing.
-   */
-  waits_on?: string[];
-  /**
-   * Whether this job's drone is waiting on an answer from a person. Since
-   * protocol 5.7.
-   *
-   * **A flag, and deliberately not the question.** What was asked and what each
-   * answer commits to are on the detail's `asking`, which is one job somebody
-   * opened; this is a board drawn for every job at once, and a paragraph per row
-   * to say one true-or-false is what the summary redacts `facts` to avoid.
-   *
-   * **Absent is false and both mean the same thing**, unlike every other
-   * optional field here — fleet omits it when it is not set rather than sending
-   * `false`, because a bool has no third reading for absence to carry.
-   *
-   * One of two fields on the row not read off the record — `landed` is the
-   * other. It comes from the working slot, so it is false on every summary
-   * built where no slot was in hand, which is every event publish — correct
-   * rather than a gap, since `job.asking` says a question exists.
-   *
-   * **A card the job's Commander has out to the owner reads here too** (#2166): it waits on a
-   * person as a Drone's question does, and the detail's `commander_card` carries it.
-   */
-  asking?: boolean;
-  /**
-   * What became of the pull request this job opened. Since protocol 6.6.
-   *
-   * **Absent is every job that has not opened one, and every one nobody has
-   * merged yet** — one absence, because neither is news. It is the only
-   * question anybody has about finished work: without it a terminal row says
-   * the same thing whether the change is in `main` or has sat unread a week.
-   */
-  landed?: Settled;
-  /**
-   * When its pull request merged, as the forge said. Since 23.13. Absent
-   * beside a `merged` is a merge Fleet noticed before 23.13.
-   */
-  merged_at?: string;
-  /**
-   * When the Job was created. Not what a whole-Job elapsed is measured from
-   * — `started_at` below is — but on the row for the same reason that one is:
-   * a row that cannot answer "is this stuck" without opening the Job needs
-   * one request per row to answer it.
-   */
-  created_at: string;
-  /**
-   * When the Job first reached `running` — the first dated arrival in the
-   * log, and only the first. Since protocol 13.39.
-   *
-   * **Absent until the Job's first Drone starts, and never `null`.** Time at
-   * `awaiting_approval` and time `queued` before that first run must not
-   * count, which is the whole reason this is a field of its own rather than
-   * `created_at`: a Job waiting for approval, or approved and waiting for a
-   * slot, shows no run time at all. Once set it never moves, even where the
-   * Job later returns to `awaiting_approval` for a sub-dispatch approval or
-   * to `queued` on a restart — only the very first arrival counts.
-   */
-  started_at?: string;
-  /**
-   * When the Job arrived at a terminal status. Since protocol 14.1.
-   *
-   * **Absent is a Job still going**, never `null`. Overview 28 (#1092): a Job
-   * killed, failed or rejected has nowhere to stand once it is over — the
-   * Board's own Done section is collapsed and Overview drops it outright —
-   * so this is the fact a **Recently ended** list reads to say when.
-   */
-  ended_at?: string;
-  /** Absent until a worktree exists. A Job at the approval gate has none. */
-  branch?: string;
-  /**
-   * When this job's worktree and branch were given back while its record
-   * stayed. Since protocol 9.2.
-   *
-   * **Absent is a job whose disk still stands** — every job before a
-   * reclaim, and every job a reclaim has not yet reached. This is what a
-   * `Cleared` tab is keyed off, rather than off whether the worktree happens
-   * to still be on disk: a directory gone for some other reason is not a
-   * record of an act.
-   */
-  reclaimed_at?: string;
-  /** How many plan tasks stand where. Absent is a job with no plan. Since 13.21. */
-  tasks?: TaskCounts;
-  /**
-   * The pause marker, **beside the status and never instead of it**. A job
-   * paused at a review gate reads `awaiting_review` with this set; a running
-   * one reads `queued` with `queued_reason` `paused` and this set. Absent is a
-   * job that is not paused, and every row from a Fleet before 23.39.
-   */
-  paused?: Paused;
-  /** Its part in main's red: working on it, or the job that fixed it. Absent is none. Since 23.42. */
-  fixes_main?: FixesMain;
-  /** Who took it over and how that ended. Absent is a job nobody piloted. Since 23.50. */
-  piloted?: Piloted;
-  /**
-   * Why this row carries the bell, and which Trigger it is about: one holds the job, a repair's fix
-   * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.68.
-   */
-  alert?: JobAlert;
-  /** Each bay the job has held, oldest first. Absent is none, or a job from before Fleet kept them. */
-  bays?: JobBay[];
-  /**
-   * When somebody last told this job's Drone something or restarted a step, RFC 3339. Fleet holds it in
-   * memory, so it is lost on a restart: read it as "told since X", never as a history. Absent is none.
-   */
-  last_told_at?: string;
-};
-
-/** One stretch of a job in one bay of its repository's pool. `crates/ipc/src/job.rs`. */
-export type JobBay = {
-  /** The slot's number, as `armada worktree --status` numbers it. */
-  slot: number;
-  /** When the job took it, RFC 3339. */
-  since: string;
-  /** When it gave it back. Absent is it still holds the bay, which a completed job does until a person clears it. */
-  until?: string;
-};
-
-/** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */
-export type Paused = {
-  /** `person` or `fleet`. */
-  by: string;
-  at: string;
-  /** A resume found every slot held, and the job waits for the first to free. */
-  resuming: boolean;
-  /**
-   * The plan's limit stopped this job's Drone and it starts again at this instant, when the limit
-   * has reset. Absent on any other pause.
-   */
-  until?: string;
-};
 
 /** One Check a step declares. `crates/ipc/src/checks.rs`. */
 export type DeclaredCheck = {
@@ -299,18 +56,11 @@ export type DeclaredCheck = {
  * question is a prompt in a screenshot.
  */
 export type DeclaredJudge = {
-  /** How many yes/no questions this entry asks. Zero looks only for gaming. */
+  /** How many yes/no questions this entry asks. */
   criteria: number;
   /** How many judges answer each one. **Absent at one**, so present means a
    * panel — a client comparing against `1` would restate the domain's default. */
   panel_size?: number;
-  /** Whether a second look asks whether the evidence was gamed. It does not
-   * gate; what it found arrives as an escalation, not as a verdict. */
-  gaming_check: boolean;
-  /** Which patterns that look watches for, spelled as `flag_if` spells them and
-   * in its order. Since 13.50. **Absent where the entry declares no gaming
-   * check.** */
-  gaming_patterns?: string[];
 };
 
 /**
@@ -358,28 +108,20 @@ export type CheckRun = {
    */
   reused_from_dry_run?: string;
   /**
-   * The group whose gate it ran at, `G1` and on. **Absent on a Check run at a
-   * step's own gate**, which held back no group — never "unknown". Since 23.4.
-   */
-  group?: string;
-  /** Which run of that group, from one. Present exactly where `group` is. Since 23.4. */
-  group_attempt?: number;
-  /**
    * Who asked for this run. Present from 23.40; **absent reads as `outside`**
-   * (`requesterOf`). `StepDetail` stamps `gate` on every row it carries.
+   * (`requesterOf`).
    */
   requester?: Requester;
 };
 
 /**
- * A Check's own output, as `GET /jobs/:job_id/checks/:kept/output` answered.
+ * A Check's own output, as `GET /sessions/checks/:run/output` answers.
  *
  * **The other half of `CheckRun.output_path`.** The row says where the output
- * was written and `main/open.ts` hands that path to the operating system; this
- * is the read that brings the lines into the app, asked for once by the person
- * who opened one Check. The split is `JobDiff`'s, made against the same
- * measurement: output is up to two 64 KiB streams, so the cheap fact rides the
- * row and the bytes are fetched. **Never on the event stream.**
+ * was written; this is the read that brings the lines into the app, asked for
+ * once by the person who opened one Check. Output is up to two 64 KiB streams,
+ * so the cheap fact rides the row and the bytes are fetched. **Never on the
+ * event stream.**
  *
  * **A window, and every number on it describes the file.** `from_line` is the
  * file's own numbering, not the window's, so a reader citing line 1,940 means
@@ -416,277 +158,21 @@ export type CheckOutput = {
    */
   whole: boolean;
 };
-
-// What the gates said about a step, re-exported so `protocol.ts` stays the one
-// import for the wire vocabulary. They live in `judged.ts` because this file
-// reached the 900 lines the gate refuses again; the cut is the one
-// `crates/ipc/src/judged.rs` already draws — and it draws it for this reason,
-// having been split off `detail.rs` on the same line.
-export type { Citation, CitedAt, Flagged, Given, Judged, KeptDeliverable } from "./judged";
-
-/** What a Job is about. Neither sequencing nor provenance. */
-export type Subject = { kind: string; reference: string };
-
-/**
- * What a redispatch did. **Two Jobs, because a redispatch is two acts** — the
- * failed one is killed and a replacement is minted carrying
- * `redispatched_from`. Nothing here reopens anything.
- */
-export type Redispatched = {
-  /** The Job that failed, now `killed`. Its worktree is as its Drone left it. */
-  replaced: JobSummary;
-  /** The replacement, at the approval gate. What the caller opens next. */
-  dispatched: JobSummary;
-};
-
-/** The reason a transition carried, where it stored one. */
-export type Reason = {
-  named?: string;
-  criteria_owed?: string[];
-};
-
-/** A Job on disk that would not load. Never filtered away. */
-export type UnreadableJob = {
-  job_id?: string;
-  fault: string;
-};
-
-/** Every Job, and every one that would not load. */
-export type JobList = {
-  jobs: JobSummary[];
-  unreadable?: UnreadableJob[];
-};
-
-/**
- * How full the fleet is, and the one thing holding the next Drone back.
- * `crates/ipc/src/capacity.rs`.
- *
- * **Fleet-wide, and the answer no per-Job field could give.** A `queued` row's
- * `queued_reason` folds the concurrency bound, CPU, memory and disk into
- * `waiting_on_resources`, because that is the only label the registry grants
- * it. This says which of them it was.
- */
-export type FleetCapacity = {
-  /** How many Jobs Fleet may work at once. */
-  bound: number;
-  /**
-   * How many it is working, from the roster admission counts against — never a
-   * count of `running` rows. An escalated Job keeps its Drone alive and idle so
-   * a redirect costs no respawn, and it keeps its place while it does.
-   */
-  occupied: number;
-  /**
-   * A key into `ADMISSION_HOLD` in the generated vocabulary. **Absent means
-   * nothing is holding it** — not unknown, and not that Fleet failed to look,
-   * because an unreadable machine admits rather than refuses.
-   *
-   * `string` and not a union, for the reason at the top of this file and one
-   * more: this is the one set on the seam a newer Fleet may widen without a
-   * protocol bump, so a union here would be a build that refuses a message it
-   * is meant to survive.
-   */
-  held_by?: string;
-};
-
-/** A Job drafted onto the approval gate. The request half of `propose_job`. */
-export type ProposeJob = {
-  /** Required. A proposal without one does not decode on the Rust side. */
-  title: string;
-  workflow_id: string;
-  owner_manifest_id: string;
-  /** One of the top-level origins. `sub_dispatched` does not deserialise. */
-  origin: string;
-  urgency: string;
-  atomic: boolean;
-  /**
-   * Optional, and absent is the ordinary case: Fleet fills it from
-   * configuration. It used to be required, and the `""` that invited was
-   * accepted, stored, drawn on the board and refused at spawn.
-   */
-  model?: string;
-  acceptance_criteria?: ProposedCriterion[];
-  subject?: { kind: string; reference: string };
-  /** Context the Job needs to run. Append-only once the Job exists. */
-  facts: string;
-  /** Null is not empty: absent is scope not yet determined. */
-  write_targets?: string[];
-  /**
-   * Files staged before the Job existed. Fleet reads the bytes itself, at
-   * `staged_path`, on the same machine — nothing here carries a payload.
-   */
-  attachments?: AttachmentRef[];
-  /**
-   * A branch the repository holds, that the Job's worktree is cut from in
-   * place of the base. Since 23.30; absent is every proposal before it.
-   */
-  continue_from?: string;
-};
-
-/**
- * One other Job claiming paths this one claims. `crates/ipc/src/overlap.rs`.
- *
- * One entry per Job rather than per path: a person decides about the other Job,
- * so the Job is the row and the paths are its detail.
- */
-export type ScopeOverlap = {
-  job_id: string;
-  /** What the other Job is called. Carried, so a card names it rather than an id. */
-  title: string;
-  /** Where the other Job is. `running` and `awaiting_review` are weighed differently. */
-  status: string;
-  /** Never empty. The entry exists because a path is shared. */
-  paths: SharedPath[];
-};
-
-/**
- * One place both Jobs claim, and who claimed it on each side. A step id is a
- * Drone's own declaration; absent is the Job's `write_targets`, which the
- * requester stated before anything ran.
- */
-export type SharedPath = {
-  /** The narrower of the two claims — where the collision is, not what contains it. */
-  path: string;
-  this_step?: string;
-  other_step?: string;
-};
-
-/**
- * A test broken on main and the Job fixing it. `crates/ipc/src/breakage.rs`.
- *
- * One entry reads from either side: the fix Job names what it claims, and the
- * Job whose Drone reported it names who is fixing what it found.
- */
-export type ClaimedBreakage = {
-  /** The Check the test failed under. */
-  check: string;
-  /** The test, by the name the reporting Drone copied from the output. */
-  test: string;
-  /** What the output said about the failure. */
-  failure: string;
-  /** The Job fixing it. */
-  fix: string;
-  /** What the fix Job is called. */
-  fix_title: string;
-  /** The Job whose Drone reported it. */
-  reported_by: string;
-  /** What that Job is called. Absent where it has been forgotten. */
-  reported_by_title?: string;
-  /**
-   * The Jobs pointed at this fix because their Checks failed on the test.
-   * Since protocol 13.42; absent is none. #1001.
-   */
-  waiting?: WaitingOnFix[];
-  /**
-   * The files no Job on this claim but the fix may change while it stands:
-   * those the reporting Drone named, then those the fix has declared. A write
-   * to one from any other Job on the claim is refused. Since protocol 23.3;
-   * absent is none. #1673.
-   */
-  held_off?: string[];
-};
-
-/** One Job pointed at a fix, waiting for it to land. `crates/ipc/src/breakage.rs`. */
-export type WaitingOnFix = {
-  job_id: string;
-  /** What the Job is called. Absent where it could not be read. */
-  title?: string;
-};
-
-export type ProposedCriterion = { text: string; source: string };
-
-/**
- * One staged file, named to Fleet. `staged_path` is an absolute path on the
- * machine Fleet runs on — the same-machine assumption this seam already
- * makes (`docs/practices/protocol.md`). Fleet reads the bytes itself; Bridge
- * never sends a payload over this channel.
- */
-export type AttachmentRef = { staged_path: string; filename: string; mime_type: string };
-
-// Everything a filed report is made of, re-exported so `protocol.ts` stays the
-// one import for the wire vocabulary. They live in `report.ts` because this
-// file reached the 900 lines the gate refuses again; the cut is the seam
-// `crates/ipc/src/report.rs` already draws, and it is the same remedy the event
-// shapes took below.
-export type { Calibration, FileReport, Report, ReportList } from "./report";
-
-/**
- * What forgetting a Job leaves to say. `crates/ipc/src/job.rs`.
- *
- * **The id, and nothing else** — there is no row left for a summary to
- * describe. `forget_job`'s command response and `job.forgotten`'s event
- * payload are the same type on the Rust side, so this is used both ways here
- * too rather than declared twice for one fact.
- */
-export type JobForgotten = { job_id: string };
-
-// The other half of forgetting: the worktree and the branch, given back while
-// Fleet runs. Its own file for the reason the two above have one — this file is
-// at the gate's ceiling, and the cut is the seam `crates/ipc/src/reclaimed.rs`
-// already draws.
-export type {
-  BranchDeleted,
-  DeleteBranch,
-  ReclaimedBranch,
-  ReclaimedSaved,
-  ReclaimedWorktree,
-  WorktreeReclaimed,
-} from "./reclaimed";
-
 // Every event shape, re-exported so `protocol.ts` stays the one import for the
 // wire vocabulary. They live in `events.ts` because this file reached the 900
 // lines the gate refuses; the cut is the socket seam `crates/ipc/src/event.rs`
 // already draws.
-// Every run of one step. Its own file for the reason `crates/ipc/src/attempt.rs`
-// has one: it is folded out of the job's log rather than read off a row, and
-// this file was over the gate's ceiling.
-export type { ResolvedPolicies, StepAttempt } from "./attempt";
-
-export type {
-  ChangedFile,
-  Delivered,
-  DroneExited,
-  DroneSpawned,
-  Event,
-  EvidenceSubmitted,
-  JobAsking,
-  JobCreated,
-  JobFilesChanged,
-  JobJudging,
-  JobLanded,
-  JobPaused,
-  JobResumed,
-  JobStateChanged,
-  JobStepAdvanced,
-  Missed,
-  Resync,
-  StreamMessage,
-} from "./events";
+export type { Delivered, Event, Missed, Resync, StreamMessage } from "./events";
 
 // Fleet's own reading of its Manifest, re-exported so `protocol.ts` stays the
 // one import for the wire vocabulary. It lives in `reading.ts` because that is
-// the cut `crates/ipc/src/reading.rs` makes, and because this file has no room:
-// it was at exactly 900 before `judged.ts` was taken out of it.
+// the cut `crates/ipc/src/reading.rs` makes.
 export type {
   ManifestFault,
   ManifestMoved,
   ManifestReading,
   ManifestRefused,
 } from "./reading";
-
-// What is outstanding on a live drone and what a person sends it back,
-// re-exported so `protocol.ts` stays the one import for the wire vocabulary.
-// Cut out for `events.ts`'s reason — this file reached 900 again — and the cut
-// is the one `crates/ipc/src/waiting.rs` makes on the other side. See
-// `waiting.ts`.
-export type {
-  AskedOption,
-  ChosenAnswer,
-  ChosenDecision,
-  DecisionInFlight,
-  QuestionInFlight,
-  RedirectInFlight,
-  RedirectWaiting,
-} from "./waiting";
 
 /** A failure, flattened for the wire. `docs/contracts/error-contract.md`. */
 export type WireError = {

@@ -108,20 +108,20 @@ const pipIn = (lane: Element | null, says: RegExp) => [...(lane?.querySelectorAl
 const laneOf = (name: RegExp) => page.getByRole("button", { name }).element().closest(".armada-tl__lane");
 
 // Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
-test.skip("a pull request is marks on the track of the Job or Session that owns it, and no lane of its own", async () => {
+test.skip("a pull request is marks on the track of the Session that owns it, and no lane of its own", async () => {
   mount("cockpit-timeline-first");
   await onScreen();
   await page.getByRole("tab", { name: "Active" }).click();
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
 
-  // #1890 opened on the Job's branch; #1896 on the branch a Session works on.
-  const job = laneOf(/^Session: Debounce the Job Board/);
-  const queued = pipIn(job, /^Queued, place 1/);
+  // #1890 opened on the branch of one Session; #1896 on the branch of another.
+  const debounce = laneOf(/^Session: Debounce the Job Board/);
+  const queued = pipIn(debounce, /^Queued, place 1/);
   expect(queued?.getAttribute("data-shape")).toBe("pull_request");
   const session = laneOf(/^Session: Flaky store test/);
   expect(pipIn(session, /^Check store passed/)?.getAttribute("data-shape")).toBe("pull_request");
-  // The Job's own marks keep the Job's shape.
-  expect(pipIn(job, /^Check lint failed/)?.getAttribute("data-shape")).toBe("session");
+  // Its own marks keep the session shape.
+  expect(pipIn(debounce, /^Check lint failed/)?.getAttribute("data-shape")).toBe("session");
 
   // No row, lane or Split entry is a pull request, whoever owns it.
   expect(page.getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
@@ -135,7 +135,7 @@ test.skip("a pull request nobody owns draws nothing, in any take", async () => {
   mount("cockpit-timeline-first");
   await onScreen();
   await page.getByRole("tab", { name: "Active" }).click();
-  // #1894 has no Job on its branch and no Session holding it: its failed Check is on no track.
+  // #1894 has no Session holding it: its failed Check is on no track.
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
   expect([...document.querySelectorAll<HTMLElement>(".armada-tl__pip")].some((one) => /Check store failed/.test(one.getAttribute("aria-label") ?? ""))).toBe(false);
   await take("Feed").click();

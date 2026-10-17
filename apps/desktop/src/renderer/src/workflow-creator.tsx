@@ -163,7 +163,7 @@ function Held({ current, manifests }: { current: string; manifests: { id: string
       onRead={onRead}
       onSave={onSave}
       onDiscuss={(draft) =>
-        void askHelm(draft, contextOf({ screen: "workflows", picked: current, chip: null, cursor: null }))
+        void askHelm(draft, contextOf({ screen: "workflows", picked: current }))
       }
     />
   );

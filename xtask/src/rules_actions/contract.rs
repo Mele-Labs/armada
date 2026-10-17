@@ -142,9 +142,6 @@ pub fn against_the_contract(
             ));
         }
         for (annotation, scope) in [
-            ("detail only", "detail"),
-            ("piloted job only", "piloted job"),
-            ("job board only", "job board"),
             ("open studio only", "open studio"),
         ] {
             if rest.contains(annotation) && entry.get("scope") != scope {

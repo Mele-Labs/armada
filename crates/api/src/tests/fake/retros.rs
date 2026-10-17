@@ -1,11 +1,11 @@
-//! Retros, as the fake answers them: an empty record for any Job it holds, and
+//! Retros, as the fake answers them: an empty record for any Session, and
 //! a listing of nothing. **What it records is the door each read came
 //! through**, which is the transport's to name and what the tests here ask.
 
 use std::sync::Arc;
 
 use ipc::{
-    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview,
+    AskLessonAnswer, LandsIn, Lesson, LessonAsk, LessonReview,
     LessonSessionStarted, LessonState,
     Lessons, ManifestId, RetroRecord, RetroState,
 };
@@ -15,41 +15,15 @@ use crate::tests::shapes::run_id;
 use crate::{Refusal, Retros};
 
 impl Retros for FakeDaemon {
-    async fn get_job_retro(&self, job_id: JobId) -> Result<JobRetro, Refusal> {
-        self.read_via
-            .lock()
-            .expect("not poisoned")
-            .push(crate::via());
-        let held = self
-            .jobs
-            .lock()
-            .expect("not poisoned")
-            .iter()
-            .any(|job| job.id == job_id);
-        if !held {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(JobRetro {
-            job_id,
-            state: RetroState::Pending,
-            at: None,
-            model: None,
-            why: None,
-            items: Vec::new(),
-            record: RetroRecord::default(),
-            session: None,
-            annotations: Vec::new(),
-        })
-    }
 
-    async fn get_session_retro(&self, session_id: String, _retro: Option<i64>) -> Result<JobRetro, Refusal> {
+    async fn get_session_retro(&self, session_id: String, _retro: Option<i64>) -> Result<ipc::Retro, Refusal> {
         Ok(self.session_retro(&session_id))
     }
 
     async fn write_session_retro(
         self: Arc<Self>,
         session_id: String,
-    ) -> Result<JobRetro, Refusal> {
+    ) -> Result<ipc::Retro, Refusal> {
         Ok(self.session_retro(&session_id))
     }
 
@@ -103,20 +77,18 @@ impl Retros for FakeDaemon {
 }
 
 impl FakeDaemon {
-    fn session_retro(&self, session_id: &str) -> JobRetro {
-        JobRetro {
-            job_id: JobId::carried(session_id),
+    fn session_retro(&self, session_id: &str) -> ipc::Retro {
+        ipc::Retro {
             state: RetroState::Pending,
             at: None,
             model: None,
             why: None,
             items: Vec::new(),
             record: RetroRecord::default(),
-            session: Some(ipc::RetroSession {
+            session: ipc::RetroSession {
                 id: session_id.to_string(),
                 title: None,
-            }),
-            annotations: Vec::new(),
+            },
         }
     }
 
@@ -135,7 +107,7 @@ impl FakeDaemon {
 
     /// The fake holds no retro items, so every id is one nothing answers to.
     fn no_such_lesson(&self, lesson_id: &str) -> Refusal {
-        Refusal::NoSuchJob(ipc::WireError::raised(
+        Refusal::NotFound(ipc::WireError::raised(
             "fake.no_such_lesson",
             format!("no retro item is named {lesson_id}"),
             run_id(),

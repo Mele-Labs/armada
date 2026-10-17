@@ -20,7 +20,7 @@ use std::time::Duration;
 use std::sync::Arc;
 
 use adapter_traits::{Environment, Model, ModelClient};
-use verification::{NothingToJudge, Standing, Unreadable};
+use verification::{Standing, Unreadable};
 
 /// How long one Judge call may take before it is a failed call.
 ///
@@ -106,13 +106,6 @@ pub enum CallFailed {
     SaidNothing,
     /// It answered something this cannot act on.
     Unreadable(Unreadable),
-    /// The step produced nothing a Judge could be shown, so no call was made.
-    ///
-    /// **Not a refusal**, and that is the whole point of it being here: a step
-    /// whose work product was never in front of the Judge has not failed
-    /// verification, it has failed to be verified, and those are read by
-    /// different people.
-    NothingToJudge(NothingToJudge),
 }
 
 impl fmt::Display for CallFailed {
@@ -141,7 +134,6 @@ impl fmt::Display for CallFailed {
             }
             CallFailed::SaidNothing => out.write_str("the Judge answered with nothing at all"),
             CallFailed::Unreadable(why) => write!(out, "{why}"),
-            CallFailed::NothingToJudge(why) => write!(out, "{why}"),
         }
     }
 }

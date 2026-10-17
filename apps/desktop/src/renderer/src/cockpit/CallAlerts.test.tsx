@@ -44,7 +44,7 @@ const waiting = (n: number, title: string, since = "2026-10-10T09:00:00Z"): Sess
     attachments: [],
     waitingFor: [{ id: `q${n}`, text: "Which one?", since, source: "agent" }],
   }) as unknown as Session;
-const read: BridgeState = { ...connected([], [], []), readAt: Date.now() };
+const read: BridgeState = { ...connected([], []), readAt: Date.now() };
 
 function draw(initial: Session[], onShow = vi.fn(), onCockpit = false) {
   const host = document.createElement("div");

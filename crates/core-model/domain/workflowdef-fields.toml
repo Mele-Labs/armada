@@ -73,7 +73,7 @@ type = "enum"
 concern = "Verification"
 parent = "steps[]"
 purpose = "When the Drone declares its context_paths. One value is named: step_start."
-open_questions = ["What are the shapes of on_fail, on_gaming_flag, declare_plan_at and scope_diff_check?"]
+open_questions = ["What are the shapes of on_fail, declare_plan_at and scope_diff_check?"]
 notes = """
 `step_start` lets the Drone declare `context_paths` at step start rather than only at evidence-submission time, enabling a continuous drift check — Fleet compares live edits against the declared plan throughout the step, not once at the end. A live mismatch does not auto-fail; it tags the step for a mandatory Judge look, since legitimate investigation sometimes reveals the real work is outside the original plan. This turns the mid-step Judge pass from a fixed-schedule check into a conditional one.
 
@@ -225,26 +225,11 @@ concern = "Gating"
 parent = "steps[]"
 purpose = "Whether this step works the Job's plan. Optional, and absent means it does not."
 notes = """
-**The one thing that grants `add_task` and `update_task`.** A step declaring it is handed the two tools that keep the plan current — `crate::WorkPlan` is the record they change — beside whatever the step already asks a Drone for. `#895`. **Except beside `drone_per_task`**, where Fleet marks every task and the step's Drones get neither tool.
+**The one thing that grants `add_task` and `update_task`.** A step declaring it is handed the two tools that keep the plan current — `crate::WorkPlan` is the record they change — beside whatever the step already asks a Drone for. `#895`.
 
 **Legal on the step that records the plan, and on any step after it.** On a step strictly before the recording step, or in a workflow declaring no recording step at all, it is a step asked to work a plan that does not exist yet from where it stands — refused at load, one rule covering both, because each is exactly the same missing fact: no step at or before this one records one. **`#1006` widened this**: it used to refuse the recording step itself too, which stopped a single step planning and keeping its own tasks current in the same breath — `revert`'s shape, where one step records the plan and works it.
 
 **False on every step written before the key existed.** A workflow with no recording step grants neither tool to anybody, which is what every step did before this key could be written at all.
-"""
-
-[fields.drone_per_task]
-type = "bool"
-concern = "Gating"
-parent = "steps[]"
-purpose = "Whether this step works the Job's plan one task at a time, each task by a Drone of its own. Optional, and absent means one Drone works the step."
-notes = """
-**Spike 022, slice 1b.** Fleet puts a Drone on each open task in plan order, and marks the task itself: `working` at the spawn, `handed_in` at that Drone's `submit_evidence`, with `shown` from its `shown_by`, and `done` once the step's Checks pass. A hand-in ends its Drone and fills no evidence inbox; once no task is open or working, one submission carrying every task's claim goes in, and the step's Checks and Judge run once. `docs/concepts/plan.md`, *A Drone per task*.
-
-**Not `follows_plan`, and it outranks it on the same step.** `follows_plan` is set where one Drone works the whole plan — revert, epic, code-review, design-plan, prototype and feature's `tests` — so reusing it would have put a Drone on each task of every one of those. A step declaring both still reads the plan, and its Drones are given neither `add_task` nor `update_task`: of eleven Drones told to call `update_task`, two did (#1752), and a Drone marking a later task done would have it skipped.
-
-**Feature, bug and refactor set it on `implement`.** Feature's `tests` keeps one Drone, because its tests are written against the whole change.
-
-**Nothing about the workflow's shape is refused.** On a step with no plan before it, or once every task is handed in — a person restarting the step — there is no task to put a Drone on, and the step runs one Drone as it would without the key.
 """
 
 [fields.phase]
@@ -482,23 +467,11 @@ type = "step_id"
 concern = "Gating"
 parent = "steps[]"
 purpose = "Where the step routes when it fails. Named on the Workflow page as an existing step-level target; nothing specifies it further."
-open_questions = ["What are the shapes of on_fail, on_gaming_flag, declare_plan_at and scope_diff_check?"]
+open_questions = ["What are the shapes of on_fail, declare_plan_at and scope_diff_check?"]
 notes = """
-This row records a field asserted to exist and nowhere defined. The only statement about it: `verdict_routing` "sits beside `on_fail` and `on_gaming_flag`, which are already step-level targets" — which establishes it is a step-level field holding a routing target, and nothing else. Not stated: its default, what happens without it, how it interacts with `retry_limit` (whether it fires per failed attempt or only once the retry budget is exhausted), or whether it can name a terminal outcome rather than a `step_id`.
+This row records a field asserted to exist and nowhere defined. The only statement about it: `verdict_routing` "sits beside `on_fail`, which is already a step-level target" — which establishes it is a step-level field holding a routing target, and nothing else. Not stated: its default, what happens without it, how it interacts with `retry_limit` (whether it fires per failed attempt or only once the retry budget is exhausted), or whether it can name a terminal outcome rather than a `step_id`.
 
 No WorkflowDef sample instantiates it.
-"""
-
-[fields.on_gaming_flag]
-type = "string"
-concern = "Gating"
-parent = "steps[]"
-purpose = "Where the step routes when the Judge's gaming check fires. Instantiated in samples as escalate:evidence_suspect; never defined on the Workflow page."
-open_questions = ["What catches a Check weakened by editing the config its command resolves through?", "What are the shapes of on_fail, on_gaming_flag, declare_plan_at and scope_diff_check?"]
-notes = """
-Better attested than `on_fail`, but still undefined: Workflow names it only as an existing step-level target alongside `on_fail`. The Bug and Refactor samples both instantiate it as `"on_gaming_flag": "escalate:evidence_suspect"`; both Judge and Workflow state the rule it implements — a gaming flag routes as its own `evidence_suspect` escalation rather than a gate failure, since resubmission under the same instructions likely reproduces the same gaming.
-
-Unspecified: whether `escalate:<trigger>` is a general syntax or the only legal value, whether a `step_id` is acceptable here as it is for `on_fail`, and whether the field is required on any step carrying a `gaming_check`.
 """
 
 [fields.poke_limit]
@@ -575,7 +548,7 @@ type = "bool"
 concern = "Verification"
 parent = "evidence_scope"
 purpose = "If true, Fleet verifies the Drone's declared context_paths against its real diff footprint before the Judge runs."
-open_questions = ["What are the shapes of on_fail, on_gaming_flag, declare_plan_at and scope_diff_check?"]
+open_questions = ["What are the shapes of on_fail, declare_plan_at and scope_diff_check?"]
 notes = """
 A mismatch is treated as a mechanical gate failure — a Drone-behaviour red flag — not a Judge question. Optional, with no default stated.
 
@@ -595,7 +568,7 @@ notes = """
 Duplicate step names are rejected at config load.
 
 Spelled `id` on the step. `step_id` remains the name of the *type* — what
-`verdict_routing`, `on_fail` and `on_gaming_flag` hold is a reference to one of
+`verdict_routing` and `on_fail` hold is a reference to one of
 these — and it is what the column is called wherever a step is named from
 outside the definition, on Job and in an escalation payload.
 
@@ -619,7 +592,7 @@ No sample carries one yet.
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "drone_per_task", "phase"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "phase"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and any step may send the work back to an earlier one through `verdict_routing`; there is no workflow-level label for it.
@@ -633,7 +606,7 @@ concern = "Retry and loops"
 parent = "steps[]"
 purpose = "Maps a non-terminal verdict to the step_id it returns to. The only declaration of a back edge, and the step named must come earlier in the list."
 notes = """
-`{ "request_changes": "draft" }` on Design Plan's `present` step. Lives on the step that emits the verdict, not on the `WorkflowDef`, so one workflow can carry more than one loop — it sits beside `on_fail` and `on_gaming_flag`, which are already step-level targets.
+`{ "request_changes": "draft" }` on Design Plan's `present` step. Lives on the step that emits the verdict, not on the `WorkflowDef`, so one workflow can carry more than one loop — it sits beside `on_fail`, which is already a step-level target.
 
 A loop return is not a retry: nothing went wrong, so it must not consume the retry budget or trip an escalation — a plan on its fourth honest draft is not a gate failure. The counter it increments is `iteration_count`, not `retry_count`.
 

@@ -13,7 +13,7 @@
 //
 // | File | What it is handed | The failures |
 // | --- | --- | --- |
-// | `reading.ts` | state Fleet published, read every render | the connection, a row the store refused |
+// | `reading.ts` | state Fleet published, read every render | the connection |
 // | `commands.ts` | the answer to something somebody pressed | a refusal, a command Fleet did not answer, a route not built yet |
 // | `thrown.ts` | an exception raised in this process | a render that threw, a throw no boundary saw |
 //

@@ -33,15 +33,13 @@
 #                   *Never* lists in `docs/contracts/design-system.md`
 #   holds         - what a node of this kind carries
 #   states        - the states it may hold, the first being where it starts.
-#                   Empty for a kind with none, and for the two whose state is
-#                   read off the run or the Job. Each is a key under `[states]`
-#   status_colour - whether it draws in Job colours. Run and Job alone
+#                   Empty for a kind with none, and for Run, whose state is
+#                   read off the run. Each is a key under `[states]`
+#   status_colour - whether it draws in run colours. Run alone
 #   added_by_hand - whether a person may put one on a Studio directly. Every
 #                   other kind is made by the act that earns it
-#   dispatches    - whether it offers Dispatch. Derived nowhere: the `dispatch`
-#                   rung's `from` says the same thing and the gate holds the two
-#                   equal, the way a status row's `transitions_out` is held to
-#                   the transition table
+#   dispatches    - whether it offers Dispatch, which starts a Session from the
+#                   node. It makes no node, so it is no rung below
 #   not_called    - words this kind avoids because Armada already uses them
 #   notes         - the reasoning the kind carries, where it carries any
 
@@ -53,7 +51,7 @@ status_colour = true
 added_by_hand = false
 dispatches = false
 not_called = []
-notes = "Its state is the run's own, so it declares none here. **A server is this kind and not a fifteenth**: a Command with `serve` is a Manifest command started from the Studio, and Run is one of only two kinds that may take status colour — which *starting* and *serving* both need. `#1345`. `run` is on the lexicon's *Never* list under Job — which bans calling a *Job* a run, and this node is a run. The gate sanctions the one word and refuses every other collision."
+notes = "Its state is the run's own, so it declares none here. **A server is this kind and not a fifteenth**: a Command with `serve` is a Manifest command started from the Studio, and Run is the only kind that may take status colour — which *starting* and *serving* both need. `#1345`. `run` is on the lexicon's *Never* list under Job — which bans calling a *Job* a run, and this node is a run. The gate sanctions the one word and refuses every other collision."
 
 [nodes.note]
 name = "Note"
@@ -204,16 +202,6 @@ dispatches = true
 not_called = ["Ticket"]
 notes = "Ticket is banned by the lexicon as a word for a Job. Filing the draft on a forge is optional and a person's own act."
 
-[nodes.job]
-name = "Job"
-holds = "A dispatched Job, as a reference to it"
-states = []
-status_colour = true
-added_by_hand = false
-dispatches = false
-not_called = []
-notes = "Holds a reference and no copy of its status, which it reads off the same rows the Job Board reads. A status written onto a node would be right once. Made by the `Dispatch` rung, and by one act off the Studio: a redispatch draws the replacement beside the Job it replaced under a `produced` edge, which is a Job node produced by a Job node and no rung of its own — nothing on a Studio was pressed. `#1440`."
-
 # -------------------------------------------------------------- node states
 #
 # Every state any node kind holds, and what it says. Which kinds hold which is
@@ -333,7 +321,7 @@ means = "Only what the forge says is open"
 #   from - what it starts from. Node kinds, `any`, or `outside`
 #   to   - what it makes. Node kinds, always
 #   who  - who acts, from the closed set `person`, `helm_on_ask`,
-#          `scout_on_ask`, `fleet`, `dispatch_gate`
+#          `scout_on_ask`, `fleet`
 #   acts - the same in a person's words, where the set alone would mislead
 
 [[promotions]]
@@ -391,10 +379,3 @@ from = ["note", "cluster", "contradiction", "outline"]
 to = ["issue_draft"]
 who = ["person", "helm_on_ask"]
 acts = "A person, or Helm on their ask. One ask may cover writing up and dispatching when it names both; \"write it up\" alone never dispatches"
-
-[[promotions]]
-rung = "Dispatch"
-from = ["issue_draft", "issue", "pull_request", "epic"]
-to = ["job"]
-who = ["dispatch_gate"]
-acts = "The dispatch gate. An Issue draft dispatches its text and the three forge kinds dispatch their address; nothing is filed, because what the address names already exists"

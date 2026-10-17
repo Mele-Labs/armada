@@ -29,7 +29,6 @@ import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrig
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
-import { followedBy } from "./follow";
 import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
@@ -44,12 +43,8 @@ export type { LandsOn } from "./layout";
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
-  /** A note kept on the Job whose server this window walks — protocol 23.18. */
-  walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
   sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take?: Take) => Promise<Outcome>;
-  /** Approve on the bar, for a Job: the act JobDetail's own Approve sends. */
-  walkApproved: (jobId: string) => Promise<Outcome>;
   /** A note taken in a review's walk: to the Session holding the pull request, or kept in Armada where none does. */
   reviewNote: (review: ReviewWalkOwner, said: string, capture: StudioCapture) => Promise<Outcome>;
   /** A review's walk window closed, whoever closed it: its held walk is over. */
@@ -64,13 +59,9 @@ export type CaptureBoard = {
   sessionClosed: (sessionId: string, address: string) => void;
   /** A Session's window could not show its page: Fleet tells the Session. */
   sessionFailed: (sessionId: string, address: string, why: string) => void;
-  /** A Job's walk window could not show its work: Fleet wakes its Commander. */
-  walkFailed: (jobId: string, address: string, why: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
-  /** A Job's window opened or took focus: its Job becomes Bridge's open Job. Never called for a Studio's or a Session's. */
-  follow: (jobId: string) => void;
 };
 
 /** `⌥⌘C`, as the action registry spells it. The renderer's own reader is `capture/Layer.tsx`. */
@@ -132,7 +123,7 @@ export class CaptureWindow {
   private readiness: CaptureReadiness | undefined = undefined;
   private readonly landsOn: LandsOn;
   private readonly sizes: WalkSizes;
-  /** The Session or the Job beside the page, and the view it is drawn in. `null`: a Studio's window. */
+  /** The Session beside the page, and the view it is drawn in. `null`: a Studio's window. */
   private readonly subject: PanelSubject | null;
   private readonly panel: WebContentsView | null;
   private readonly kept: PanelKept | null;
@@ -226,7 +217,6 @@ export class CaptureWindow {
     });
     this.window.on("focus", () => {
       this.board.focused(pin.run, true);
-      this.follow();
     });
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => {
@@ -249,7 +239,6 @@ export class CaptureWindow {
     this.lookTimer = setInterval(() => void this.lookAtThePage(), LOOK_MS);
     void this.start(pin.url, signIn);
     this.window.show();
-    this.follow();
   }
 
   /**
@@ -276,12 +265,6 @@ export class CaptureWindow {
     }
     this.signingIn = false;
     if (!contents.isDestroyed()) void contents.loadURL(url);
-  }
-
-  /** Make this window's Job Bridge's open Job, where it walks one. */
-  private follow(): void {
-    const jobId = followedBy(this.landsOn);
-    if (jobId !== null) this.board.follow(jobId);
   }
 
   /** Whether this window is still on screen. */
@@ -377,7 +360,7 @@ export class CaptureWindow {
   }
 
   /**
-   * The Job or the Session that opened this window, for the bar's link to it. **Read off the
+   * The Session that opened this window, for the bar's link to it. **Read off the
    * window's own record**, never from the bar: a document that names what to open can name any.
    */
   get owner(): PanelSubject | null {
@@ -422,7 +405,6 @@ export class CaptureWindow {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
       shown: shown(this.pin),
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
-      ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
       ...("review" in this.landsOn ? { review: { title: this.landsOn.review.title, ...(this.landsOn.review.holder === undefined ? {} : { holder: this.landsOn.review.holder.title }) } } : {}),
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
@@ -548,11 +530,9 @@ export class CaptureWindow {
     const outcome =
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
-        : "session" in this.landsOn
-          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken())
-          : "review" in this.landsOn
-            ? await this.board.reviewNote(this.landsOn.review, said, capture)
-            : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
+        : "review" in this.landsOn
+          ? await this.board.reviewNote(this.landsOn.review, said, capture)
+          : await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken());
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
@@ -566,7 +546,6 @@ export class CaptureWindow {
    * closes.** A Studio's window has no owner to tell, and its bar offers no Approve.
    */
   async approve(): Promise<Outcome> {
-    if ("job" in this.landsOn) return this.board.walkApproved(this.landsOn.job.id);
     if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken());
     return { ok: false, why: "no_owner" };
   }
@@ -850,11 +829,10 @@ export class CaptureWindow {
     }
   }
 
-  /** Tell the Session or the Job. A Studio's window has nobody to tell, and a Run that ended is already known. */
+  /** Tell the Session. A Studio's window has nobody to tell, and a Run that ended is already known. */
   private failed(address: string, why: string): void {
     if (!this.serving) return;
     if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, address, why);
-    else if ("job" in this.landsOn) this.board.walkFailed(this.landsOn.job.id, address, why);
   }
 
   /**

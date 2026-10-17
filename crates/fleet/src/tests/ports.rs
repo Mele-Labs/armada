@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use config::Manifest;
-use core_model::{JobId, Timestamp, Ulid};
+use core_model::Timestamp;
 use store::{PortClaim, PortClaimant};
 
 use crate::ports::{
@@ -170,7 +170,7 @@ fn two_ports_declaring_the_same_env_are_refused() {
 fn a_claims_span_maps_back_to_the_manifests_declared_names() {
     let m = manifest("version: 1\nid: armada\nports:\n  admin: {}\n  api: {}\n");
     let claim = PortClaim {
-        claimant: PortClaimant::Job(JobId::carried(Ulid::carried("01PORTMAPTEST"))),
+        claimant: PortClaimant::Checkout(String::from("/repo")),
         base: 41_000,
         width: 2,
         claimed_at: Timestamp::from_rfc3339("2026-09-11T09:00:00.000Z"),

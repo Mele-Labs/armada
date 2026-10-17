@@ -1,7 +1,7 @@
 // What a fake's slices share: the state it publishes, the one way to change it, and the few
 // things more than one surface reads or writes. Built once per window by `fake.ts`.
 
-import type { JobSummary, KitAllowedCommand, WorktreesHeld } from "@armada/protocol";
+import type { KitAllowedCommand, WorktreesHeld } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { unanswered } from "./moment";
@@ -14,15 +14,10 @@ export type Fleet = {
   publish: (change: Partial<BridgeState>) => void;
   /** Hear every published state. */
   listen: (onState: (state: BridgeState) => void) => () => void;
-  /** One field on one Job, and on its detail where that Job is the one open. */
-  move: (jobId: string, change: Partial<JobSummary>) => void;
   /** The pool as acts on it left it, read again after each as main does. */
   held: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld | undefined) => void };
   /** What Kit's allowlist holds on this machine. */
   kit: { get: () => KitAllowedCommand[]; set: (allowed: KitAllowedCommand[]) => void };
-  readsOf: (jobId: string) => Scenario["reads"][string] | undefined;
-  path: (jobId: string, route?: string) => string;
-  failed: (jobId: string, route: string) => { state: "failed"; jobId: string; outcome: ReturnType<typeof unanswered> };
   refused: (route: string) => { ok: false; outcome: ReturnType<typeof unanswered> };
   unread: (route: string) => { state: "failed"; outcome: ReturnType<typeof unanswered> };
 };
@@ -39,8 +34,9 @@ export type SliceName =
   | "settings"
   | "overview"
   | "cleanup"
-  | "reports"
-  | "jobs"
+  | "dispatch"
+  | "checks"
+  | "lessons"
   | "sessions"
   | "sleep"
   | "accounts"
@@ -89,18 +85,6 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
     queueMicrotask(() => listeners.forEach((listener) => listener(now)));
   }
 
-  function move(jobId: string, change: Partial<JobSummary>): void {
-    const watched = state.watched;
-    publish({
-      jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...change } : job)),
-      watched:
-        watched.state === "read" && watched.jobId === jobId
-          ? { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, ...change } } }
-          : watched,
-    });
-  }
-
-  const path = (jobId: string, route = "") => `/jobs/${encodeURIComponent(jobId)}${route}`;
   const refused = (route: string) => ({ ok: false, outcome: unanswered(route) }) as const;
 
   return {
@@ -111,38 +95,9 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
       listeners.add(onState);
       return () => listeners.delete(onState);
     },
-    move,
     held: { get: () => held, set: (next) => void (held = next) },
     kit: { get: () => kit, set: (next) => void (kit = next) },
-    readsOf: (jobId) => scenario.reads[jobId],
-    path,
-    failed: (jobId, route) => ({ state: "failed", jobId, outcome: unanswered(path(jobId, route)) }) as const,
     refused,
     unread: (route) => ({ state: "failed", outcome: unanswered(route) }) as const,
-  };
-}
-
-/**
- * The row a press on Dispatch mints: the request as the title, no workflow, no
- * step and nothing that has run.
- *
- * **The manifest is the one the dispatch named, else the first Job's**, so the new row
- * belongs to a repository the Board is already listing rather than to one nothing serves. A scenario
- * with no Job at all mints none of its own either — there is nowhere to put it.
- */
-export function proposingRow(request: string, at: string, jobs: readonly JobSummary[], manifestId?: string): JobSummary {
-  const ordinal = jobs.length + 1;
-  return {
-    id: `01M2E0DISPATCHED${String(ordinal).padStart(2, "0")}MOCK`,
-    handle: `${ordinal}-dispatched-from-the-composer`,
-    title: request,
-    status: "proposing",
-    workflow_id: "",
-    owner_manifest_id: manifestId ?? jobs[0]?.owner_manifest_id ?? "",
-    origin: "manual",
-    urgency: "normal",
-    atomic: false,
-    model: "sonnet",
-    created_at: at,
   };
 }

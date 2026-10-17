@@ -156,13 +156,23 @@ fn the_rules_say_no_group_names_a_judge() {
     assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
 }
 
+/// A session in any repository is told where its subagents come from, in order, and which model
+/// each kind of work runs on, so a lookup never runs on the session's own model.
+#[test]
+fn the_rules_say_which_subagent_and_which_model() {
+    let subagents = rules().split("\n\n").find(|block| block.starts_with("Subagents.")).expect("a subagents paragraph");
+    for named in ["`.claude/agents/`", "`armada:`", "built-in", "`model`", "`haiku`", "`sonnet`", "the session's own model"] {
+        assert!(subagents.contains(named), "{named}");
+    }
+}
+
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
 /// here. The rules' opening paragraph addresses a hosted session and the style has its own.
 #[test]
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
-    assert_eq!(blocks.len(), 4, "needs, progress, planning, finishing");
+    assert_eq!(blocks.len(), 5, "needs, progress, planning, subagents, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

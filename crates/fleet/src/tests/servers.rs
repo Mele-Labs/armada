@@ -20,7 +20,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use crate::checkouts::Checkout;
 use crate::daemon::{Fittings, Fleet};
 use crate::ports::{detect_ceiling, BindConnectProbe, PortProbe, PortRange};
-use crate::servers::{Place, Unservable};
+use crate::servers::Unservable;
 use crate::slots::Concurrency;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
@@ -252,14 +252,12 @@ async fn a_server_with_no_job_uses_the_main_checkouts_span_and_stops_on_stop() {
 
     let (started, _) = Arc::clone(&fleet)
         .hold_server(
-            Place::Checkout(Checkout::main(fleet.first())),
+            Checkout::main(fleet.first()),
             "storybook",
             StartedBy::Person,
-            false,
         )
         .await
         .expect("it starts");
-    assert_eq!(started.job_id, None);
     assert_eq!(started.ports.first().map(|one| one.port), Some(port));
     serving(&mut watching, &started.id).await;
 

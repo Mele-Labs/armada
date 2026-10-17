@@ -4,8 +4,8 @@
 # workspace that disagrees with it is stale, not right.
 #
 # The table key is the wire value, so a rule can compare this set against the
-# enum `core-model` holds without a mapping in between. The `outcome` column on
-# `job_step_checks` takes its values from here, and nothing else does.
+# enum `core-model` holds without a mapping in between. A Check run's `outcome`
+# takes its values from here, and nothing else does.
 #
 # Only `passed` is a Check that ran and held. The next four are the four
 # different things a person does about a Check that did not, which is why they

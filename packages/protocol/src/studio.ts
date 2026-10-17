@@ -114,9 +114,7 @@ export type StudioNodeContent =
   | { kind: "epic"; address: string; number: string; said?: string; title?: string; read_in?: EpicRead }
   | { kind: "deferral"; what: string }
   | { kind: "outline"; body: string }
-  | { kind: "issue_draft"; title: string; body: string }
-  /** A reference to the Job, never its status. */
-  | { kind: "job"; job_id: string };
+  | { kind: "issue_draft"; title: string; body: string };
 
 /** Where something on a forge stands. Since 14.18, #1394. */
 export type ForgeState = "open" | "closed" | "merged";
@@ -626,8 +624,6 @@ export type StudioPromotion =
   | { act: "edit_link"; node_id: string; said: string }
   /** `POST /studios/:studio_id/settle`. The two outcomes that make no node. */
   | ({ act: "settle"; node_id: string } & StudioSettlement)
-  /** `POST /studios/:studio_id/dispatch_draft`. The ordinary dispatch gate. */
-  | { act: "dispatch"; node_id: string; position: StudioPosition }
   /**
    * `POST /studios/:studio_id/read_in`. The Link stays, and what came back
    * hangs off it. `take` is asked on an Epic alone. Since 14.16, #1293;
@@ -643,6 +639,5 @@ export const STUDIO_PROMOTIONS = [
   "edit_draft",
   "edit_link",
   "settle",
-  "dispatch",
   "read_in",
 ] as const;

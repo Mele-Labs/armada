@@ -1,4 +1,4 @@
-// A long Session's ledger with Open | All in the head of its Pull requests, Jobs and Subagents
+// A long Session's ledger with Open | All in the head of its Pull requests and Subagents
 // sections: Open by default, All adds the finished, and each section keeps its own choice.
 // Over the `ledger-filter` scenario. Told twice: wide, and below the breakpoint.
 
@@ -16,7 +16,6 @@ function steps(narrow: boolean): Step[] {
     ...opened([
       { look: choice("Pull requests", "Open"), say: "Pull requests open on Open: the open and draft ones, and the merged are out of the way" },
       { look: choice("Subagents", "Open"), say: "Subagents on Open show the two still running" },
-      { look: choice("Jobs", "Open"), say: "Jobs on Open show the one not yet ended" },
       { press: choice("Pull requests", "All"), say: "All on Pull requests adds the merged ones" },
       { look: inside(section("Pull requests"), role("button", /Open Pull request #1901/)), say: "A merged pull request, here under All" },
       { look: choice("Subagents", "Open"), say: "Subagents kept its own choice: still Open" },

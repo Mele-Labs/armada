@@ -95,7 +95,7 @@ export type LessonReviewStepProps = {
  * put it here, the card itself and a thread to ask about it.
  *
  * **The card is the Lessons list's own**, passed in, so the answers read and
- * act as they do on the list. Counts here (`3 of 12`, `2 other Jobs`) stand
+ * act as they do on the list. Counts here (`3 of 12`, `2 other Sessions`) stand
  * where the items are not drawn, which hard rule 7 allows.
  */
 export function LessonReviewStep({
@@ -164,10 +164,9 @@ export function LessonReviewStep({
   );
 }
 
-/** `Also seen in 2 other Jobs`: a duplicate from a Session is not a Job, so the words widen. */
+/** `Also seen in 2 other Sessions`. */
 function seenIn(merged: readonly ReviewMerged[]): string {
-  const sessions = merged.some((one) => one.label.includes(" · "));
-  return `Also seen in ${merged.length} other ${sessions ? "places" : merged.length === 1 ? "Job" : "Jobs"}`;
+  return `Also seen in ${merged.length} other ${merged.length === 1 ? "Session" : "Sessions"}`;
 }
 
 export type LessonReviewEndProps = {

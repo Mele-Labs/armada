@@ -15,7 +15,7 @@
 //! # What is built so far
 //!
 //! Version control ([`GitVcs`], the work-product reader beside it,
-//! [`reclaim`] — which gives one Job's worktree and branch back, and is the
+//! [`reclaim`] — which deletes branches, and is the
 //! only thing in the workspace that can — and delivery, which
 //! brings a finished Job's branch up to its base, pushes it and opens it for
 //! review), and the agent harness: [`HeadlessAgent`] renders a confined Drone into a program and
@@ -60,7 +60,6 @@ mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
-mod git_guard;
 mod harness;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
@@ -142,23 +141,16 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{linked_in, remote_of, ForgeAddress};
-pub use harness::{
-    ask_tool, checks_tool, evidence_server, evidence_tool, fix_tool, note_tool,
-    permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,
-};
+pub use harness::HeadlessAgent;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
 pub use issue_tracker::IssueTracker;
 pub use tracker_providers::TrackersByProvider;
-pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
+pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,
     text_of_a_session, AnIssue, Fetch, MilestoneRead, Source, StaysALink, Taken, FETCH_SECONDS,
     FORGE_HOST, MOST_ISSUES, SESSIONS,
-};
-pub use reclaim::{
-    delete_branch, delete_repair_branch, reclaim, standing, BranchGone, BranchRefused, BranchStanding, Reclaimed,
-    RepoUnreadable, Standing, UnmergedWork, WorktreeGone, WorktreeStanding,
 };
 pub use remembering::{personal_settings, remember_the_rule, Remembered, PERSONAL_SETTINGS};
 pub use scouting::{

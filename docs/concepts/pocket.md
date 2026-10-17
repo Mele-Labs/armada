@@ -69,7 +69,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 ## What pushes
 
-Only a Session that has gone quiet: a live Session whose `standing` is `stuck`, a turn running with nothing happening for the quiet threshold. The levels are in [Respond to a Push Alert](../journeys/respond-to-a-push-alert.md), *Alert Levels*; this is the Blocked level.
+Only a Session that has gone quiet: a live Session whose `standing` is `stuck`, a turn running with nothing happening for the quiet threshold.
 
 | Session | Pushes |
 |---|---|

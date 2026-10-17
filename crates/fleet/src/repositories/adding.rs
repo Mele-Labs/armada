@@ -1,14 +1,12 @@
-//! Fleet over its [`Repositories`](super::Repositories): which one a Job or a
-//! request is in, and adding one by folder.
+//! Fleet over its [`Repositories`](super::Repositories): which one a request
+//! is in, and adding one by folder.
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{Job, JobId, JobReference};
 use ipc::{AddRepository, RepositoryList, RepositorySummary, WireError};
-use store::{NamedJob, ResolveJobError};
 
 use super::{NotAdded, NotLocated, Repository, Served};
 use crate::adrift::Adrift;
@@ -38,29 +36,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The repository a Job was created in. **Refused, never guessed**: one
-    /// store serves the machine, and a Job whose repository this Fleet does not
-    /// serve would otherwise be worked in a repository it never ran in.
-    pub(crate) fn served_by(&self, job: &Job) -> Result<Served, Adrift> {
-        self.repositories()
-            .serving(job.owner_manifest_id().as_str())
-            .ok_or_else(|| Adrift::NotServed {
-                job: job.id().clone(),
-                manifest: job.owner_manifest_id().as_str().to_string(),
-            })
-    }
-
-    /// The repository a Job is in, for the paths that hold only its id.
-    pub(crate) fn served_by_id(&self, job: &JobId) -> Result<Served, Adrift> {
-        let manifest = self.names().owner_of(job).unwrap_or_default();
-        self.repositories()
-            .serving(&manifest)
-            .ok_or(Adrift::NotServed {
-                job: job.clone(),
-                manifest,
-            })
-    }
-
     /// The repository a Manifest-scoped request names. Absent is the first
     /// added that has a Manifest, and refused where there is none.
     pub(crate) fn served_named(&self, named: Option<&ipc::ManifestId>) -> Result<Served, Refusal> {
@@ -103,34 +78,6 @@ where
                 self.run_id(),
             ))
         })
-    }
-
-    /// A reference resolved across every repository served. An id names one Job
-    /// wherever it is; a number or handle more than one repository holds is
-    /// refused as naming no one Job.
-    pub(crate) async fn resolve_job_across(
-        &self,
-        reference: &JobReference,
-        served: &[Served],
-    ) -> Result<NamedJob, ResolveJobError> {
-        let store = self.store().lock().await;
-        if let JobReference::Id(_) = reference {
-            return store.resolve_job(reference, None);
-        }
-        let mut found = Vec::new();
-        for one in served {
-            match store.resolve_job(reference, Some(one.manifest().id())) {
-                Ok(named) => found.push(named),
-                Err(ResolveJobError::NoSuchJob { .. }) => {}
-                Err(why) => return Err(why),
-            }
-        }
-        let named = reference.to_string();
-        match found.len() {
-            1 => Ok(found.remove(0)),
-            0 => Err(ResolveJobError::NoSuchJob { named }),
-            _ => Err(ResolveJobError::NoManifest { named }),
-        }
     }
 
     /// The repository a fixture starts in, for a test that has only the one.

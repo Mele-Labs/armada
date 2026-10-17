@@ -23,9 +23,7 @@ export type PendingRoute = {
   issue: number;
 };
 
-export const PENDING_ROUTES: readonly PendingRoute[] = [
-  { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/pilot", act: "pilot_task", issue: 250 },
-];
+export const PENDING_ROUTES: readonly PendingRoute[] = [];
 
 /**
  * A request body as the debug info carries it: each top-level field, a string

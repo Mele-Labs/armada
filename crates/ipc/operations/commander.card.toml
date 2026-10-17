@@ -1,8 +1,0 @@
-[operations."commander.card"]
-kind = "event"
-transport = "WebSocket"
-agent_access = "Bridge only"
-description = "Retired: a Job's Commander put a card out to the owner, or the one out was answered. Fleet no longer publishes it"
-notes = """
-Carries `CommanderCardChanged`, `{job_id, card?}`. #2166. The Commander is deleted and nothing publishes this. It stays declared only because `Event::CommanderCard` stays on the wire until the Job types are deleted (task #30), and `every route served is an operation the inventory names` reads the enum; delete this row with the variant.
-"""

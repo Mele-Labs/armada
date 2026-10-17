@@ -2,17 +2,12 @@
 // terminal to answer. Its mod put the prompt to Fleet, so it is a call in the Cockpit, answered from
 // Bridge as a hosted Session's is: ▶ on its command is Allow once. The walk `terminalPermissionCall` plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-
-const OWNER = repository().manifest!.id;
-const { reclaimed_at: _cleared, ...job } = { ...asRow(featureRunning(), 92, "runs-job", "Cache the manifest read").job, owner_manifest_id: OWNER };
-const running = { ...asRow(featureRunning(), 92, "runs-job", "Cache the manifest read"), job };
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -42,12 +37,11 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("terminal-permission-call", "The Cockpit with a terminal Session stopped on its own permission prompt", [running]);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("terminal-permission-call", "The Cockpit with a terminal Session stopped on its own permission prompt");
   return {
     ...base,
-    state: { ...base.state, repository: repository().root, jobs: [running.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], [SESSION]) },
+    state: { ...base.state, repository: repository().root },
+    draft: { sessions: () => sessionsStore([SESSION]) },
   };
 }
 

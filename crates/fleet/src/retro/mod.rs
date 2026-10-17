@@ -1,20 +1,15 @@
-//! A Job's retro: once a Job ends, what got in the way while it ran, and
+//! A Session's retro: once it has run, what got in the way while it ran, and
 //! whose way. `docs/concepts/retro.md` is the concept.
 //!
-//! [`record`] assembles the record and does no I/O; [`gathering`] reads what
-//! it is assembled from; [`writing`] asks a model once per ended Job, off the
-//! turn; [`serving`] answers `get_job_retro` and `list_lessons`; [`agreeing`]
-//! answers a person's agree or disagree on an item. **Nothing here moves a Job
-//! or reaches a Drone**, and the one thing a retro does, a person's agreeing,
-//! is to propose a Job at the approval gate.
-//!
-//! It also signs a person's move for the door it came through, which every
-//! move asks of [`signed`]: a retro of a Job an agent drove is wrong about
-//! whose friction it was unless the record says an agent drove it.
+//! [`record`] holds the helpers a record is cited with; [`session_record`]
+//! assembles it and does no I/O; [`session_writing`] asks a model once per
+//! Session, off the turn; [`serving`] answers `list_lessons`; [`agreeing`] and
+//! [`starting`] answer a person's disagree and start. **Nothing here moves a
+//! Session or reaches an agent**, and the one thing a retro does, a person's
+//! pressing Start, is to start a Session on the item.
 
 mod agreeing;
 mod asking;
-pub(crate) mod gathering;
 pub(crate) mod live;
 pub(crate) mod record;
 mod reviewing;
@@ -31,101 +26,4 @@ mod writing;
 pub(crate) use asking::ASK;
 pub(crate) use reviewing::REVIEW;
 pub(crate) use session_question::SESSION_QUESTION;
-pub(crate) use writing::{LANDS_IN, QUESTION, TEXTS};
-
-use core_model::{Actor, JobId, Via};
-
-#[cfg(test)]
-pub(crate) mod review_for_tests {
-    
-}
-
-/// The lines Fleet writes into a Job's log when a person is asked something
-/// and when they answer. **Named once**, because [`record`] pairs them.
-pub(crate) mod lines {
-    pub(crate) const A_DRONE_ASKS: &str = "the drone asked a question and is waiting for an answer";
-    pub(crate) const A_PERSON_ANSWERS_A_DRONE: &str = "a person answered the drone's question";
-    pub(crate) const A_JUDGE_ASKS: &str =
-        "a judge criterion refused, and a person is being asked rather than the step stopping";
-    pub(crate) const A_PERSON_AGREES: &str = "a person agreed with a judge's refusal";
-    pub(crate) const A_PERSON_DISAGREES_ONCE: &str =
-        "a person disagreed with a judge's refusal, for this step";
-    pub(crate) const A_PERSON_DISAGREES_ALWAYS: &str =
-        "a person disagreed with a judge's refusal, and this repository stops being asked \
-         about that criterion";
-    pub(crate) const A_COMMAND_ASKS: &str =
-        "the drone reached for a command it was not granted, and a person is being asked";
-    pub(crate) const A_PERSON_ANSWERS_A_COMMAND: &str =
-        "a person answered a command the drone was waiting on";
-    pub(crate) const A_DRONE_RAN_CHECKS: &str =
-        "the Drone asked for the step's checks and they were run";
-    /// A gate's red run again alone before it was ruled on — `crate::confirming`.
-    pub(crate) const A_RED_RUN_ALONE: &str =
-        "a check failed with other checks running beside it, and was run again alone";
-    /// The start of the line a restart with a note writes; the note follows.
-    pub(crate) const A_PERSON_RESTARTED: &str = "a person restarted the step";
-}
-
-/// Who a move is signed by, and the door it came through.
-///
-/// **A person's act that came through any door but Bridge or their phone is Helm's**: an
-/// agent made the request, and Fleet cannot see the person behind it. The
-/// Commander's door is the exception, and it is the Commander's: it is the one
-/// agent that is placed, so the act is signed as its own and never as Helm's.
-/// A move with no request behind it keeps the signer it was given and no door.
-pub(crate) fn signed(by: Actor) -> (Actor, Option<Via>) {
-    let via = api::via().map(|via| via.domain());
-    match (by, via) {
-        (Actor::Human | Actor::Commander, Some(Via::Commander)) => {
-            (Actor::Commander, Some(Via::Commander))
-        }
-        (Actor::Human, Some(via)) if !via.is_a_person() => (Actor::Helm, Some(via)),
-        (Actor::Human | Actor::Helm | Actor::Commander, via) => (by, via),
-        (by, _) => (by, None),
-    }
-}
-
-/// Keep the door a move came through, under the store lock its write took.
-/// **One that will not keep fails nothing**: the move has landed.
-pub(crate) fn kept_via(store: &mut store::Store, job: &JobId, seq: i64, via: Option<Via>) {
-    if let Some(via) = via {
-        let _ = store.record_via(job, seq, via);
-    }
-}
-
-#[cfg(test)]
-mod signed_tests {
-    use super::*;
-
-    async fn signed_through(via: Via) -> (Actor, Option<Via>) {
-        let door = Some(ipc::Via::from_wire(via.as_wire()).expect("a door"));
-        api::carrying(door, async { signed(Actor::Human) }).await
-    }
-
-    #[tokio::test]
-    async fn a_phone_press_stays_a_persons_and_names_the_phone() {
-        assert_eq!(signed_through(Via::Phone).await, (Actor::Human, Some(Via::Phone)));
-    }
-
-    #[tokio::test]
-    async fn bridge_and_the_phone_are_a_person_and_a_bare_call_is_not() {
-        assert_eq!(signed_through(Via::Bridge).await, (Actor::Human, Some(Via::Bridge)));
-        assert_eq!(signed_through(Via::Http).await, (Actor::Helm, Some(Via::Http)));
-        assert_eq!(signed(Actor::Human), (Actor::Human, None));
-    }
-
-    #[tokio::test]
-    async fn a_persons_move_through_the_commanders_door_is_signed_by_the_commander() {
-        let commander = (Actor::Commander, Some(Via::Commander));
-        assert_eq!(signed_through(Via::Commander).await, commander);
-        let door = Some(ipc::Via::from_wire("commander").expect("a door"));
-        for given in [Actor::Human, Actor::Commander] {
-            assert_eq!(api::carrying(door, async { signed(given) }).await, commander);
-        }
-    }
-
-    #[tokio::test]
-    async fn the_commander_keeps_its_name_where_no_door_is_named() {
-        assert_eq!(signed(Actor::Commander), (Actor::Commander, None));
-    }
-}
+pub(crate) use writing::{LANDS_IN, TEXTS};

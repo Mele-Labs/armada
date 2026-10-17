@@ -1,15 +1,11 @@
 //! The ID is one string on the wire.
 
-use crate::{decode, encode, Cursor, JobList, ProtocolId, Resync, StreamMessage};
+use crate::{decode, encode, Cursor, ProtocolId, Resync, StreamMessage};
 
 fn resync() -> Resync {
     Resync {
         protocol_id: ProtocolId::current(),
         cursor: Cursor::at(0),
-        jobs: JobList {
-            jobs: Vec::new(),
-            unreadable: Vec::new(),
-        },
     }
 }
 
@@ -28,7 +24,6 @@ fn the_id_crosses_as_one_string_field() {
 
 #[test]
 fn a_message_from_before_the_id_does_not_read() {
-    let body = br#"{"message":"resync","protocol_version":{"major":23,"minor":71},"cursor":0,
-        "jobs":{"jobs":[],"unreadable":[]}}"#;
+    let body = br#"{"message":"resync","protocol_version":{"major":23,"minor":71},"cursor":0}"#;
     assert!(decode::<StreamMessage>("stream message", body).is_err());
 }

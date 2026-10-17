@@ -1,20 +1,11 @@
 //! A daemon that is not Fleet.
 //!
-//! It holds Jobs in a `Vec` and moves them on request. **It asserts nothing
-//! about the status machine** — that machine is `core-model`'s and is tested
-//! there, against the edge table. This exists to answer the operations M1 serves
-//! so the transport can be exercised, and it is written without `core-model` on
-//! purpose: if a fake daemon can be built out of `ipc` alone, so can a Bridge.
+//! This exists to answer the operations Fleet serves so the transport can be
+//! exercised, and it is written without `core-model` on purpose: if a fake
+//! daemon can be built out of `ipc` alone, so can a Bridge.
 //!
-//! **This file is the record and the moves it makes.** The answers are in
-//! [`shapes`](super::shapes) and the three surfaces are the three modules
-//! below, one per trait — [`Queries`](crate::Queries),
-//! [`Commands`](crate::Commands) beside the other surfaces. It was one impl
-//! block at 856 lines while `api::Daemon` was one trait; the split is #434's
-//! and nothing about what the fake answers moved with it.
-//!
-//! Every refusal a fake can honestly raise is here, beside the `Vec` it reads
-//! to raise it. There are two, and the modules below hold none of their own.
+//! **This file is the record.** The answers are in [`shapes`](super::shapes)
+//! and the surfaces are the modules below, one per trait.
 
 mod accounts;
 mod authoring;
@@ -39,26 +30,13 @@ pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 
 use std::sync::Mutex;
 
-use ipc::{Actor, Event, Instant, JobId, JobStateChanged, JobSummary, UnreadableJob};
-
 use super::shapes;
-use super::shapes::{run_id, status};
+use super::shapes::run_id;
 use crate::{Broadcaster, Refusal};
 
 pub struct FakeDaemon {
-    /// Every Job held, which the fake's own acts move.
-    pub jobs: Mutex<Vec<JobSummary>>,
     /// The row every Session act answers with where a test sets one, in place of a thin echo.
     pub session_row: Mutex<Option<ipc::SessionRecord>>,
-    unreadable: Mutex<Vec<UnreadableJob>>,
-    events: Broadcaster,
-    /// Every report filed, in filing order, so a test can assert that a
-    /// refused filing left none behind.
-    pub reports: Mutex<Vec<ipc::Report>>,
-    /// What `list_worktrees` answers with. Set by a test, because nothing here
-    /// has a repository to read a checkout out of — the derivation is Fleet's
-    /// and the route only carries it.
-    pub held: Mutex<Vec<ipc::WorktreeHeld>>,
     /// What `list_servers` answers with, narrowed by Manifest. Set by a test.
     pub servers: Mutex<Vec<ipc::ServerState>>,
     /// When set, every call answers with a fault. The stream closing on a
@@ -114,14 +92,9 @@ pub struct FakeDaemon {
 }
 
 impl FakeDaemon {
-    pub fn new(events: Broadcaster) -> FakeDaemon {
+    pub fn new(_events: Broadcaster) -> FakeDaemon {
         FakeDaemon {
-            jobs: Mutex::new(Vec::new()),
             session_row: Mutex::new(None),
-            unreadable: Mutex::new(Vec::new()),
-            events,
-            reports: Mutex::new(Vec::new()),
-            held: Mutex::new(Vec::new()),
             servers: Mutex::new(Vec::new()),
             mute: Mutex::new(false),
             land: Mutex::new(None),
@@ -147,84 +120,8 @@ impl FakeDaemon {
         }
     }
 
-    /// A row the store could not read back, which the list must still carry.
-    pub fn with_unreadable(self, fault: &str) -> FakeDaemon {
-        self.unreadable
-            .lock()
-            .expect("not poisoned")
-            .push(UnreadableJob {
-                job_id: None,
-                fault: fault.to_string(),
-            });
-        self
-    }
-
     fn fault(&self, message: &str) -> Refusal {
         Refusal::Fault(ipc::WireError::raised("fake.mute", message, run_id()))
     }
-
-    fn no_such_job(&self, job_id: &JobId) -> Refusal {
-        Refusal::NoSuchJob(
-            ipc::WireError::raised("fake.no_such_job", "no Job by that id", run_id())
-                .about_job(job_id.clone()),
-        )
-    }
-
-    /// Move a Job, publish the transition, and answer with where it now is.
-    fn move_to(
-        &self,
-        job_id: &JobId,
-        from: &str,
-        to: &str,
-        actor: &str,
-    ) -> Result<JobSummary, Refusal> {
-        let mut jobs = self.jobs.lock().expect("not poisoned");
-        let Some(job) = jobs.iter_mut().find(|job| job.id == *job_id) else {
-            return Err(self.no_such_job(job_id));
-        };
-        if job.status.as_wire() != from {
-            return Err(Refusal::IllegalMove(ipc::WireError::raised(
-                "fake.illegal_move",
-                format!("a Job at {} does not go to {to}", job.status.as_wire()),
-                run_id(),
-            )));
-        }
-        job.status = status(to);
-        job.reason = None;
-        let moved = job.clone();
-        self.events.publish(Event::JobStateChanged(JobStateChanged {
-            job_id: job_id.clone(),
-            from: status(from),
-            to: status(to),
-            reason: None,
-            actor: Actor::from_wire(actor).expect("an actor the envelope has"),
-            at: Instant::carried("2026-08-26T09:00:00.000Z"),
-        }));
-        Ok(moved)
-    }
 }
 
-
-/// A Job already running.
-pub fn running(daemon: &FakeDaemon, id: &str) {
-    at(daemon, id, "running");
-}
-
-/// A running Job another Manifest owns, for a case about scope.
-pub fn owned_by(daemon: &FakeDaemon, id: &str, handle: &str, manifest_id: &str) {
-    let mut job = shapes::job_at(id, "running");
-    job.handle = handle.to_string();
-    job.owner_manifest_id = ipc::ManifestId::carried(manifest_id);
-    daemon.jobs.lock().expect("not poisoned").push(job);
-}
-
-/// A Job put straight into the record at any status the registry has, without
-/// a transition to get it there. **Putting it there is this side's**; the row
-/// it puts is [`shapes::job_at`].
-pub fn at(daemon: &FakeDaemon, id: &str, spelling: &str) {
-    daemon
-        .jobs
-        .lock()
-        .expect("not poisoned")
-        .push(shapes::job_at(id, spelling));
-}

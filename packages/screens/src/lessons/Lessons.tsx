@@ -1,12 +1,11 @@
-// The Retros page: what got in the way across Jobs, newest first, and one
-// Job's retro over it — `docs/concepts/retro.md`.
+// The Retros page: what got in the way across Sessions, newest first, and one
+// Session's retro over it — `docs/concepts/retro.md`.
 //
-// **The owner reads and answers.** Each item offers Agree and Disagree. Agree
-// on an Armada or Manifest item proposes a Job at the approval gate; on a Kit
-// item it saves the item under Accepted, and where the item carries a command
-// it adds that command to Kit's allowed commands and the button reads Update
-// Kit. Disagree discards it. A row's Job
-// label opens that Job's retro.
+// **The owner reads and answers.** An Armada or Manifest item is agreed with by
+// starting a Session on it; a Kit item is saved under Accepted, and where it
+// carries a command it adds that command to Kit's allowed commands and the
+// button reads Update Kit. Disagree discards it. A row's Session label opens
+// that Session's retro.
 
 import { useRef, useState, useSyncExternalStore } from "react";
 
@@ -16,20 +15,16 @@ import { said } from "../copy";
 import {
   citesOf,
   itemsOf,
-  LESSONS_SOURCES,
   LESSONS_TABS,
   lessonRowsOf,
-  notesOf,
   retroKeyOf,
   retroSubjectOf,
   statusOf,
-  underSource,
   underTab,
   useAnswers,
-  useJobRetros,
+  useRetros,
   useReadOnFocus,
   type AnswerLesson,
-  type LessonsSource,
   type LessonsTab,
   type LessonsView,
   type ReadLessons,
@@ -50,11 +45,11 @@ const VIEWS = [
 export type LessonsProps = {
   onReadLessons: ReadLessons;
   onReadRetro: ReadRetro;
-  /** Agree with one item, and disagree with one. */
+  /** Agree with one Kit item, and disagree with any item. */
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
   /**
-   * Start Session beside Create Job on an Armada or Manifest item: the call to Fleet, and the
+   * Start Session on an Armada or Manifest item: the call to Fleet, and the
    * host's way of opening the Session it started with the first message in its message box.
    * **Both or neither**; absent, and no card offers Start Session.
    */
@@ -66,8 +61,6 @@ export type LessonsProps = {
    */
   onReviewLessons?: ReviewLessons;
   onAskLesson?: AskLesson;
-  /** Open the Job an agreed item proposed. The shell's own navigation. */
-  onOpenJob?: (jobId: string) => void;
   /**
    * The rail's pick, `null` on All. **The listing is read again when it moves**:
    * main narrows the read to the pick, so another pick is another list.
@@ -81,9 +74,6 @@ export type LessonsProps = {
    */
   tab?: LessonsTab;
   onTab?: (tab: LessonsTab) => void;
-  /** Whose retros are listed, Sessions' or Jobs', on the same terms as `tab`. */
-  source?: LessonsSource;
-  onSource?: (source: LessonsSource) => void;
   /**
    * What the review keeps while the window is open, so leaving the page and coming back resumes at
    * the same card and asks the model nothing (`review-hold.ts`). **The host's**, made once for the
@@ -103,13 +93,10 @@ export function Lessons({
   onOpenSession,
   onReviewLessons,
   onAskLesson,
-  onOpenJob,
   repository,
   floor,
   tab,
   onTab,
-  source,
-  onSource,
   hold,
   opening,
 }: LessonsProps) {
@@ -119,21 +106,19 @@ export function Lessons({
   const reviewing = useSyncExternalStore(reviews.subscribe, reviews.reviewing);
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
-  const [heldSource, setHeldSource] = useState<LessonsSource>("all");
   const showing = tab ?? held;
-  const showingSource = source ?? heldSource;
   // Keyed by the pick and the list, so another of either is another read.
   // Leaving the review reads the list again: it answered items the list's own read still holds.
   const [reads, setReads] = useState(0);
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
-  const [open, setOpen] = useState<{ subject: RetroSubject; job: string } | null>(
-    opening === undefined ? null : { subject: { kind: "session", id: opening.id, ...(opening.n === undefined ? {} : { n: opening.n }) }, job: opening.label },
+  const [open, setOpen] = useState<{ subject: RetroSubject; session: string } | null>(
+    opening === undefined ? null : { subject: { kind: "session", id: opening.id, ...(opening.n === undefined ? {} : { n: opening.n }) }, session: opening.label },
   );
   const sessions = sessionStartsOf(onStartSession, onOpenSession);
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
-  const retros = useJobRetros(onReadRetro);
-  // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, sessions);
+  const retros = useRetros(onReadRetro);
+  // The items whose Evidence was pressed, so a read shared by a retro's cards speaks on the one that asked.
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
   const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
   const subjects = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, retroSubjectOf(lesson)]));
@@ -141,10 +126,10 @@ export function Lessons({
     reviews.setReviewing(false);
     setReads((was) => was + 1);
   };
-  const rows = underTab(read?.ok === true ? lessonRowsOf(underSource(read.lessons, showingSource)) : [], showing).flatMap((row) => {
-    // **The list holds the ids a row cites; its Job's retro holds the rows.** Read once per Job, on the first press.
+  const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap((row) => {
+    // **The list holds the ids a row cites; its retro holds the rows.** Read once per retro, on the first press.
     const ids = cited.get(row.id) ?? [];
-    const subject = subjects.get(row.id) ?? { kind: "job" as const, id: row.jobId };
+    const subject = subjects.get(row.id) ?? { kind: "session" as const, id: row.sessionId };
     const got = retros.of(subject);
     let withEvidence: LessonRow = row;
     if (ids.length > 0 && got?.state === "read") {
@@ -157,7 +142,7 @@ export function Lessons({
             setPressed((was) => new Set(was).add(row.id));
             retros.ask(subject);
           },
-          // Only the card that asked shows the wait or the failure, though its Job's other cards share the read.
+          // Only the card that asked shows the wait or the failure, though its retro's other cards share the read.
           ...(pressed.has(row.id) && got?.state === "pending" ? { pending: true } : {}),
           ...(pressed.has(row.id) && got?.state === "failed" ? { failure: said(got.outcome) } : {}),
         },
@@ -206,8 +191,7 @@ export function Lessons({
             onAgreeLesson={onAgreeLesson}
             onDisagreeLesson={onDisagreeLesson}
             {...(sessions === undefined ? {} : { sessions })}
-            {...(onOpenJob === undefined ? {} : { onOpenJob })}
-            onOpenRetro={(subject, label) => setOpen({ subject, job: label })}
+            onOpenRetro={(subject, label) => setOpen({ subject, session: label })}
             onList={leaveReview}
             paused={open !== null}
           />
@@ -224,15 +208,6 @@ export function Lessons({
                 const next = id as LessonsTab;
                 setHeld(next);
                 onTab?.(next);
-              }}
-            />
-            <Tabs
-              items={[...LESSONS_SOURCES]}
-              value={showingSource}
-              onChange={(id) => {
-                const next = id as LessonsSource;
-                setHeldSource(next);
-                onSource?.(next);
               }}
             />
             <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as LessonsView)} />
@@ -252,22 +227,21 @@ export function Lessons({
           {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
           <LessonList
             rows={rows}
-            onOpen={(jobId, rowId) => {
+            onOpen={(sessionId, rowId) => {
               const row = rows.find((one) => one.id === rowId);
-              setOpen({ subject: subjects.get(rowId) ?? { kind: "job", id: jobId }, job: row?.job ?? jobId });
+              setOpen({ subject: subjects.get(rowId) ?? { kind: "session", id: sessionId }, session: row?.session ?? sessionId });
             }}
           />
         </>
       )}
       {open === null ? null : (
-        <JobRetroSheet
+        <SessionRetroSheet
           subject={open.subject}
-          job={open.job}
+          session={open.session}
           read={onReadRetro}
           onAgreeLesson={onAgreeLesson}
           onDisagreeLesson={onDisagreeLesson}
           {...(sessions === undefined ? {} : { sessions })}
-          {...(onOpenJob === undefined ? {} : { onOpenJob })}
           floor={floor}
           onClose={() => setOpen(null)}
         />
@@ -294,40 +268,37 @@ export function withSessions(
 }
 
 /**
- * One Job's retro on its sheet, read when it opens and again on focus. The
- * Retros page opens it from a row and a Job's Record from its head.
+ * One Session's retro on its sheet, read when it opens and again on focus. The
+ * Retros page opens it from a row and a Session's thread from its retro card.
  */
-export function JobRetroSheet({
+export function SessionRetroSheet({
   subject,
-  job,
+  session,
   read,
   onAgreeLesson,
   onDisagreeLesson,
   sessions,
-  onOpenJob,
   floor,
   onClose,
 }: {
   subject: RetroSubject;
-  /** The Job as a person reads it, for the sheet's subtitle. */
-  job: string;
+  /** The Session as a person reads it, for the sheet's subtitle. */
+  session: string;
   read: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
   /** Start Session on an item of this retro; absent, and the sheet offers none. */
   sessions?: SessionStarts;
-  onOpenJob?: (jobId: string) => void;
   floor: boolean;
   onClose: () => void;
 }) {
   const answer = useReadOnFocus(() => read(subject), retroKeyOf(subject));
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, sessions);
   const retro = answer?.ok === true ? answer.retro : null;
   const status = retro === null ? undefined : statusOf(retro);
   const items = (retro === null ? [] : itemsOf(retro)).flatMap((item) => {
     const shown = answered(item.id ?? "", item.landsIn, {
       ...(item.state === undefined ? {} : { state: item.state }),
-      ...(item.jobProposed === undefined ? {} : { jobProposed: item.jobProposed }),
       ...(item.sessionProposed === undefined ? {} : { sessionProposed: item.sessionProposed }),
       ...(item.change === undefined ? {} : { change: item.change }),
       ...(item.applied === undefined ? {} : { applied: item.applied }),
@@ -344,12 +315,11 @@ export function JobRetroSheet({
   return (
     <RetroSheet
       open
-      job={job}
+      session={session}
       reading={answer === undefined}
       {...(answer?.ok === false ? { failure: said(answer.outcome) } : {})}
       {...(status === undefined ? {} : { status })}
       items={items}
-      notes={retro === null ? [] : notesOf(retro)}
       floor={floor}
       onClose={onClose}
     />

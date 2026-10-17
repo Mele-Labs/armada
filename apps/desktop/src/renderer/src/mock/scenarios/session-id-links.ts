@@ -3,7 +3,7 @@
 // `sessions` scenario. The walk `session-id-links` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";

@@ -1,5 +1,5 @@
 /* Studio node. A glass Card, narrowed: the kind and the state on one line, the
-   title, and the facts. A Job's hue is its Badge; a Run's is its word, below.
+   title, and the facts. A Run's hue is its word, below.
    One fixed width keeps a board of them reading as a board. */
 .armada-studio-node {
   width: var(--w-studio-node);
@@ -27,7 +27,7 @@
   white-space: nowrap;
 }
 
-/* A run's word in its own hue, each aliasing a Job status. #1277. */
+/* A run's word in its own hue, each aliasing a status. #1277. */
 .armada-studio-node__state[data-run="running"] {
   color: var(--run-running);
 }
@@ -169,9 +169,8 @@
   max-width: 100%;
 }
 
-/* A working state without a Badge — a Run running, a Finding gathering —
-   pulses its word. Opacity
-   only, at --duration-pulse, so nothing reflows. Badge carries Run and Job. */
+/* A working state — a Run running, a Finding gathering — pulses its word. Opacity
+   only, at --duration-pulse, so nothing reflows. */
 .armada-studio-node__state[data-working] {
   animation: armada-studio-node-pulse var(--duration-pulse) var(--ease) infinite;
 }

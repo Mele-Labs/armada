@@ -1,34 +1,15 @@
 // The Cockpit while answers go to Fleet. A Session asks two questions: Fleet takes the first, slowly,
-// and drops it from the Session a moment after it answered; Fleet refuses the second. Beside them a
-// Job whose workflow is still being settled, which lands later. The walk `cockpit-pending` plays it,
-// and each wait stands until one of its steps lets Fleet go (`cockpit-routes.ts`).
+// and drops it from the Session a moment after it answered; Fleet refuses the second. Each wait
+// stands until a walk's step lets Fleet go (`cockpit-routes.ts`).
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
-import { proposing, running } from "@armada/screens/src/fixtures/build/index";
-import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { REFUSES, SLOW_FLEET, gate } from "../cockpit-routes";
-import { asRow, holding } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
-const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-
-/** The picked repository's, started `minutes` ago. */
-function live(fixture: JobFixture, minutes: number, extra: Record<string, unknown> = {}): JobFixture {
-  const patch = { owner_manifest_id: OWNER, started_at: ago(minutes), ...extra };
-  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
-  return { ...fixture, job };
-}
-
-const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, { current_step_id: "tests" });
-const mainChecks = live(asRow(running(), 82, "fix-main", "Fix components_test on main"), 9);
-/** Dispatched a moment ago: the proposer has not settled a workflow, so its tile holds the steps' place. */
-const dispatched = asRow(proposing(), 83, "settling", "Split the settings reducer so the selectors can be tested");
-const settling: JobFixture = { ...dispatched, job: { ...dispatched.job, owner_manifest_id: OWNER, workflow_id: "", created_at: ago(1) } };
 
 const SESSION: Session = {
   id: "s14",
@@ -51,21 +32,16 @@ const SESSION: Session = {
 REFUSES.set("q2", { code: "fleet.session_busy", message: "Session Pin the store clock is already working on that" });
 
 function build(): Scenario {
-  const board = [cache, mainChecks, settling];
-  const base = holding("cockpit-pending", "The Cockpit with two questions waiting on a Session, answered slowly by Fleet, and a Job whose workflow is still being settled", board);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const jobs = board.map((one) => one.job);
-  const landed = { ...settling.job, workflow_id: cache.job.workflow_id };
+  const base = holding("cockpit-pending", "The Cockpit with two questions waiting on a Session, answered slowly by Fleet");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs },
-    // Each moment is a step of the walk. The first three only let Fleet go (the answer, then the item
-    // dropping, then the refusal); the fourth is the proposer settling the workflow, which brings the
-    // tile's steps onto it.
-    later: [{}, {}, {}, { jobs: [cache.job, mainChecks.job, landed] }],
+    state: { ...base.state, repository: null },
+    // Each moment is a step of the walk, and only lets Fleet go: the answer, then the item dropping,
+    // then the refusal.
+    later: [{}, {}, {}],
     draft: {
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [SESSION]);
+      sessions: () => {
+        const store = sessionsStore([SESSION]);
         const { held, ...clocks } = SLOW_FLEET;
         // Fleet answers when the walk lets it, so the waiting state stands as long as a person wants to look at it.
         const hold = held ? gate() : undefined;

@@ -1,10 +1,10 @@
-// What the Sessions page held that the Cockpit's list did not: a search by title, id, pull request, branch, slot or Job, the
+// What the Sessions page held that the Cockpit's list did not: a search by title, id, pull request, branch or slot, the
 // Quiet, Ended and All scopes, an ended Session opened on the stage, and the list drawn fifty rows at a time. Four live Sessions, two
 // quiet, a hundred and twenty ended in the last week and one ended long ago, which only a search finds. Fleet refuses a Retro, so
 // the refusal has a place to be read. The walk `cockpitSessionsList` plays it.
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -53,7 +53,7 @@ const fleet = () => {
 };
 
 function build(): Scenario {
-  const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

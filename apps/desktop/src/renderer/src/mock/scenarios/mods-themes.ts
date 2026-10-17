@@ -1,10 +1,10 @@
-// Armada Mods, tier 1: themes. The real app over a Board with one Job and one Session Bridge hosts. The
+// Armada Mods, tier 1: themes. The real app over one Session Bridge hosts. The
 // Session answers a request for a theme by writing `mods/dusk/` into the mod folder, and the theme
 // shows in Settings and in Mods. Mod state is mock-only (`../themes.ts`). The walk
 // `modsThemes` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
-import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
@@ -15,7 +15,7 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 const MODS = "~/Library/Application Support/Armada/mods/dusk";
 
 function build(): Scenario {
-  const board = onBoard([job("running", { id: "01JOBRUNNING", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
+  const board = onBoard({
     repositories: [ARMADA],
     picked: ARMADA.root,
   });

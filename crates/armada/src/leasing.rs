@@ -181,30 +181,6 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             branch,
             holder,
             since,
-            kept: Some(why),
-            ..
-        } => format!(
-            "{name}  kept     {path}  {on}  by {} for {}, which ended and could not give it back: {why}",
-            holder.said(),
-            ago(now, *since),
-            on = on_branch(slot, branch),
-        ),
-        SlotState::Held {
-            branch,
-            holder,
-            since,
-            completed: true,
-            ..
-        } => format!(
-            "{name}  done     {path}  {on}  by {} for {}, which is done and holds it until the Job is cleared",
-            holder.said(),
-            ago(now, *since),
-            on = on_branch(slot, branch),
-        ),
-        SlotState::Held {
-            branch,
-            holder,
-            since,
             ..
         } => format!(
             "{name}  held     {path}  {on}  by {} for {}",

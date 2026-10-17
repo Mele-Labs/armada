@@ -14,8 +14,7 @@ unsure of sit on a pile with its reason, and nothing ran past the caps you set.
 **This is the scope's whole promise run without a person at the dispatch.**
 Every pick is an ordinary Session, briefed on its issue and on the workflow the
 picker chose, so the only thing Autopilot adds is the choosing, the bounds and
-the off switch. Since the 15 Oct 2026 decision to fold Jobs into Sessions
-(`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`).
+the off switch. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`.
 
 ```mermaid
 flowchart LR
@@ -36,7 +35,7 @@ flowchart LR
 | **A Fleet record that starts Sessions** | Fleet does what is deterministic: counting, caps, Pause and Stop. An agent does what needs judgement, in a Session that ends. Everything that changes code is a Session |
 
 **Flexible work is a workflow, not a different kind of runner.** The picker
-chooses each Session's workflow the way the [Job proposer](../concepts/job-proposer.md)
+chooses each Session's workflow the way the [Proposer](../concepts/job-proposer.md)
 does. Work whose shape is unknown gets a workflow that plans first.
 
 ## What a person sets
@@ -47,7 +46,7 @@ does. Work whose shape is unknown gets a workflow that plans first.
 | At once | How many of its Sessions may run together |
 | Until | A time. Optional |
 | Spend | A dollar total across its Sessions. Optional |
-| Jobs | How many Sessions it may start. Optional. Named for the Jobs it once started |
+| Sessions started | How many Sessions it may start. Optional |
 
 > **Rule.** Each cap stops the next pick and never a running Session.
 > Why: a Session's cost arrives as it works. A cap that read as "spending stops
@@ -86,14 +85,14 @@ Neither one stops a Session that is working.
 |---|---|
 | The decisions | Taken, `.claude/decisions/2026-10-11-*.md` |
 | A waiting Session gives its place back | Built: a Session with a call standing for the person, or one that has replied or gone idle, holds no place |
-| Fleet reads issues and writes back | Built, #91: `docs/concepts/tracker.md`. The list is in the composer; the Cockpit lane is Autopilot's |
-| The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Session waiting on a person, or idle, holds no place |
+| Fleet reads issues | Built, #91: `docs/concepts/tracker.md`. Fleet never comments on or labels the issue. The list is in the composer; the Cockpit lane is Autopilot's |
+| The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Proposer's is, not an agent. A Session waiting on a person, or idle, holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick, which starts a Session, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
 | The Cockpit lane | Built, #2092's Bridge half, and #2105's quotes, cap pause, Edit caps and All line (the All line since replaced by the header control that asks for a repository): [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
 
 ## What it depends on
 
-- `../concepts/fleet.md` — admission, the concurrency bound, and the dispatch gate.
+- `../concepts/fleet.md` — the limits Fleet keeps.
 - `../concepts/judge.md` — what a refusal is, and who hears it.
 - `../concepts/job-proposer.md` — choosing a workflow from a request.

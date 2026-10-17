@@ -23,20 +23,19 @@ const NEED_UNNAMED: &str = "fleet.need_unnamed";
 /// A `took` for a need nobody declared. A 422.
 const NEED_NOT_DECLARED: &str = "fleet.need_not_declared";
 
-/// A need as the wire states it. **A Job's is left out**: the wire names no Job as a holder.
-fn line(need: &Need) -> Option<NeedLine> {
+/// A need as the wire states it.
+fn line(need: &Need) -> NeedLine {
     let kind = match need.holder.kind {
         store::HolderKind::Session => ipc::HolderKind::Session,
-        store::HolderKind::Job => return None,
     };
-    Some(NeedLine {
+    NeedLine {
         holder: ipc::Holder { kind, id: need.holder.id.clone() },
         held_by: need.held_by.clone(),
         path: need.path.clone(),
         what: need.what.clone(),
         took: need.took.clone(),
         since: ipc::Instant::carried(&need.since),
-    })
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -129,9 +128,9 @@ where
                     ledger::declare(&mut store, &holder, &manifest, branch, path, what, &now)
                         .map_err(fault)?;
                 Ok(NeedAnswer {
-                    mine: line(&done.mine),
+                    mine: Some(line(&done.mine)),
                     already: done.already,
-                    ahead: done.ahead.iter().filter_map(line).collect(),
+                    ahead: done.ahead.iter().map(line).collect(),
                     gave_back: false,
                 })
             }
@@ -153,7 +152,7 @@ where
                     )));
                 };
                 Ok(NeedAnswer {
-                    mine: line(&need),
+                    mine: Some(line(&need)),
                     already: false,
                     ahead: Vec::new(),
                     gave_back: false,
@@ -188,7 +187,7 @@ where
         // must not disturb it.
         needs.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(NeedList {
-            needs: needs.iter().filter_map(line).collect(),
+            needs: needs.iter().map(line).collect(),
         })
     }
 

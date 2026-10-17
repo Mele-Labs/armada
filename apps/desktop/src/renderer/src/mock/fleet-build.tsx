@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildPosition, FleetBuildStage } from "@armada/components";
+import type { FleetBuild, FleetBuildChoice, FleetBuildPosition, FleetBuildStage } from "@armada/components";
 
 import { FleetBuildFrom } from "../fleet-build";
 import { onTimePassing } from "./time-passes";
@@ -14,7 +14,6 @@ type Seed = {
   position: FleetBuildPosition;
   working: FleetBuildChoice | null;
   stage?: FleetBuildStage;
-  drones?: readonly FleetBuildDrone[];
   failed?: string;
 };
 
@@ -29,11 +28,6 @@ const STAGES: Record<FleetBuildChoice, readonly FleetBuildStage[]> = {
   preview: ["merging", "building_fleet", "building_bridge", "restarting_fleet", "reopening_bridge"],
 };
 
-const WORKING: readonly FleetBuildDrone[] = [
-  { id: "01K", label: "Reword the empty states" },
-  { id: "01L", label: "Count drones from the roster" },
-];
-
 const SEEDS: Record<string, Seed> = {
   "fleet/build-aligned": { on: "main", position: { ahead: 0, behind: 0 }, working: null },
   "fleet/build-behind": { on: "main", position: { ahead: 0, behind: 3 }, working: null },
@@ -41,7 +35,6 @@ const SEEDS: Record<string, Seed> = {
   // A frame to look at: its restart is not timed. Each `later` step of its walk moves it on a stage,
   // and it holds at the last, so it does not finish on its own.
   "fleet/build-refreshing": { on: "preview", position: { ahead: PREVIEW_AHEAD, behind: 0 }, working: "preview", stage: "merging" },
-  "fleet/build-drones-working": { on: "main", position: { ahead: 0, behind: 3 }, working: null, drones: WORKING },
   "fleet/build-failed": {
     on: "main",
     position: { ahead: 0, behind: 3 },
@@ -89,7 +82,7 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
     position: now.position,
     working: now.working,
     ...(now.stage === undefined ? {} : { stage: now.stage }),
-    drones: now.drones ?? [],
+    drones: [],
     ...(now.failed === undefined ? {} : { failed: now.failed }),
     onChoose: (on) => restart(on),
     onRestart: () => restart(now.on),

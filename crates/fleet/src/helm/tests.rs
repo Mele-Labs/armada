@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use config::Manifest;
-use ipc::door::{DRAFTING, HELM_ONLY, REACHABLE};
+use ipc::door::{HELM_ONLY, REACHABLE};
 
 use super::reach::{RESERVED, UNASKED};
 use super::{brief, may, Authority, Voice};
@@ -44,8 +44,8 @@ To change a setting the person asks for, find its key and values with get_settin
 with save_settings. Limits, sleep mode, mods and Kit servers have their own tools.
 
 Before what the person typed, one line says where they are in Bridge: the screen, the \
-repository picked, a Job chipped to the message box, the row the cursor is on. It names a Job by \
-id and nothing more. Call get_job for what is in it rather than assuming the line carries it.
+repository picked, and the Studio and node open on the Studios screen. It names ids and nothing \
+more.
 
 On a Studio you may add a node that starts proposed, propose an edge and name an untitled Studio \
 without being asked (add_studio_node, propose_studio_edge and rename_studio). Every other act on \
@@ -64,8 +64,8 @@ of this repository: its Jobs, Drones, Sessions, pull requests and what is waitin
 Saying that you did something does not do it. Only a tool call does.
 
 Before what the person typed, one line says where they are in Bridge: the screen, the \
-repository picked, a Job chipped to the message box, the row the cursor is on. It names a Job by \
-id and nothing more. Call get_job for what is in it rather than assuming the line carries it.
+repository picked, and the Studio and node open on the Studios screen. It names ids and nothing \
+more.
 
 This machine is set so that Helm only reads. You may call every tool that reads and none that \
 acts. Where an act would help, say which and why, and leave it to the person.";
@@ -169,16 +169,6 @@ fn every_reserved_act_is_an_operation_the_door_offers() {
     }
 }
 
-/// The door offers drafting to a Helm session alone, so an acting Helm must be
-/// allowed every row of it and a read-only one none. `#941`.
-#[test]
-fn drafting_is_an_acting_helms_and_never_a_read_only_ones() {
-    for row in DRAFTING {
-        assert!(may(Authority::Acting, row), "`{}`", row.operation);
-        assert!(!may(Authority::ReadOnly, row), "`{}`", row.operation);
-    }
-}
-
 /// The door offers `Helm only` rows to a Helm session alone, so an acting one
 /// must be allowed every row of it, and a read-only one only its reads —
 /// the checkout's runs (`#1288`). `#1150`.
@@ -271,7 +261,6 @@ fn every_studio_act_offered_to_helm_is_unasked_or_waits_for_an_ask() {
     ];
     for row in REACHABLE
         .iter()
-        .chain(DRAFTING)
         .chain(HELM_ONLY)
         .filter(|row| row.kind == "command" && row.operation.contains("studio"))
     {
@@ -297,7 +286,6 @@ fn helm_reads_the_checkout_runs_it_can_start() {
     let offered = |operation: &str| {
         REACHABLE
             .iter()
-            .chain(DRAFTING)
             .chain(HELM_ONLY)
             .find(|row| row.operation == operation)
     };
@@ -330,7 +318,6 @@ fn telling_a_session_is_an_acting_helms_alone_and_the_note_says_so() {
     assert!(
         !REACHABLE
             .iter()
-            .chain(DRAFTING)
             .any(|row| row.operation == "tell_session"),
         "it reaches an agent that is not Helm"
     );

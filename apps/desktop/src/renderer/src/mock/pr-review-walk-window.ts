@@ -1,10 +1,10 @@
 // What opens Armada's walk window for a review's walk in the mock: **the stand-in the mock already opens when a Session
-// shows a page** (`openWalkWindow`, `@armada/jobs/fake`), with the same bar, steps, Autoplay, notes and keys. The page in its
+// shows a page** (`openWalkWindow`, `@armada/screens/src/fixtures/walk-window`), with the same bar, steps, Autoplay, notes and keys. The page in its
 // frame is the mock itself, since the preview a pull request deployed is not reachable from a browser tab: it plays the
 // walk's steps, handed over in the address as `show_window` hands Bridge its `steps` (`inline-walk.ts`). An API walk's
 // page is the request runner (`review-walk-runner.tsx`), which the same steps press.
 
-import { mockPage, openWalkWindow } from "@armada/jobs/fake";
+import { mockPage, openWalkWindow } from "@armada/screens/src/fixtures/walk-window";
 
 import type { ShownReviewWalk } from "../../../shared/review-walk";
 import { stepsOfRequests } from "../../../shared/review-walk";

@@ -45,9 +45,9 @@ use config::Roster;
 use fleet::repositories::Locating;
 use fleet::runtime::{self, Presence, RuntimeFile, Staleness};
 use fleet::{
-    detect_ceiling, Allowance, BindConnectProbe, Bytes, CheckBudget, Clock, CommandBudget,
-    Concurrency, Fittings, Fleet, Headroom, Host, JudgeBudget, Micros, Mint, Noticing, Polling,
-    PortRange, Reclaiming, Spare, SystemClock, TheMachine, UlidMint,
+    detect_ceiling, BindConnectProbe, Bytes, CheckBudget, Clock,
+    Concurrency, Fittings, Fleet, Headroom, Host, JudgeBudget, Mint, Noticing, Polling,
+    PortRange, Spare, SystemClock, TheMachine, UlidMint,
 };
 use fleet::signing_in::{OverHttp, SigningIn};
 use ipc::ProtocolId;
@@ -308,11 +308,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 Ok(reconciled) => reconciled,
                 Err(why) => return Err(why.to_string()),
             };
-            println!(
-                "reconciled: {} repaired, {} unreadable",
-                reconciled.repaired,
-                reconciled.unreadable.len(),
-            );
             // **Sessions taken back, not restarted.** A hosted session's agent
             // runs under a keeper that outlives Fleet; reattaching replays what
             // it said while Fleet was down.
@@ -327,11 +322,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     "  {} Link on a Studio is now the Issue, Pull request or Epic its address names",
                     reconciled.recognised
                 );
-            }
-            for unreadable in &reconciled.unreadable {
-                // Carried out rather than dropped: a short list with nothing saying so
-                // is the one answer the store refuses to give.
-                eprintln!("  a row would not rebuild: {unreadable}");
             }
 
             // What happens to Jobs, Sessions, pull requests and slots, kept with its instant
@@ -380,19 +370,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 trim,
                 |said| eprintln!("{said}"),
             );
-            // After adoption above, so a Drone taken back is already recorded and
-            // only those of a Fleet that is gone are ended.
-            fleet::keep_ending_orphans(
-                fleet::orphans::EVERY,
-                {
-                    let fleet = Arc::clone(&fleet);
-                    move || {
-                        let fleet = Arc::clone(&fleet);
-                        async move { fleet.recorded_drone_pids().await }
-                    }
-                },
-                |said| eprintln!("{said}"),
-            );
+            fleet::keep_ending_orphans(fleet::orphans::EVERY, |said| eprintln!("{said}"));
             reconciliation.finished();
             Ok(())
         }
@@ -403,10 +381,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         eprintln!("{} {tally}", clock.now().as_str());
     });
     let run_id = ipc::RunId::carried(UlidMint::new().ulid().as_str());
-    // The reader for a Job's own log, taken from the Fleet before it is handed
-    // over. **Nothing else on this side knows where the logs are**, which is
-    // why it comes from Fleet rather than from the root resolved above.
-    let job_logs = Arc::new(fleet.job_logs());
     // Kept past the move below, for the main checkout's own port span: its
     // release happens here, once, after the turn loop has drained — not from
     // inside a Fleet method the way a Job's own release is, because there is
@@ -414,7 +388,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let fleet_for_shutdown = Arc::clone(&fleet);
     let app = api::router(
         api::Served::sharing(fleet, run_id, events)
-            .reading(job_logs)
             .reconciling(&reconciliation),
     );
     // The boot's clone is the only one left, so a boot that fails or is ended
@@ -641,18 +614,12 @@ fn assemble(
         check_slots: crate::declared::machine_slots_for_fleet(),
         polling: Polling::every(shipped.get(keys::RESOURCE_POLL_SECONDS)),
         noticing: Noticing::every(shipped.get(keys::MERGE_NOTICE_SECONDS)),
-        reclaiming: Reclaiming::every(shipped.get(keys::RECLAIM_SWEEP_SECONDS)),
-        allowance: Allowance::of(
-            Micros::dollars(u64::from(whole(shipped.get(keys::COST_CAP_DOLLARS_PER_JOB)))),
-            u64::from(whole(shipped.get(keys::TURN_CAP_PER_JOB))),
-        ),
         budget: CheckBudget::of(shipped.get(keys::CHECK_SECONDS)),
         // The same CLI, invoked as a call rather than as a session. The
         // spelling of the model is the adapter's; this crate never learns it.
         judge: Arc::new(HeadlessAgent::at(judge_binary)),
         judge_budget: JudgeBudget::of(shipped.get(keys::JUDGE_SECONDS)),
         proposer_budget: JudgeBudget::of(shipped.get(keys::PROPOSER_SECONDS)),
-        command_budget: CommandBudget::of(shipped.get(keys::COMMAND_SECONDS)),
         judge_model,
         proposer_model,
         retro_model,

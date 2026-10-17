@@ -1,10 +1,10 @@
 // The Session composer's empty Model option names `ModelChoices.session`, the model a Session starts on,
-// and not `ModelChoices.default`, the Drone and Job default.
+// and not `ModelChoices.default`.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
@@ -16,7 +16,7 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 
 test("the composer's default model follows models.session when it differs from models.default", async () => {
   const served = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" })]).scenario(
-    onBoard([], { repositories: [ARMADA], picked: ARMADA.root }),
+    onBoard({ repositories: [ARMADA], picked: ARMADA.root }),
   );
   const models = { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus" };
   mount({ ...served, state: { ...served.state, holds: { ...served.state.holds, models } } });
