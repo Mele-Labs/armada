@@ -68,7 +68,7 @@ function Group({ group, ed, parent, onOpenSession }: { group: ViewGroup; ed: Pla
         <div className="sv-group__body">
           <GroupEditor group={group} ed={ed} />
           {child !== undefined || handOff === undefined ? null : (
-            <Button variant="ghost" size="sm" onClick={() => handOff(ed.id, group.id)}>
+            <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
               <Link size={12} strokeWidth={2} aria-hidden />
               Hand to a Session
             </Button>

@@ -232,7 +232,7 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
     const Kind = one.kind === "job" ? Box : one.linked !== undefined ? Link : SquareTerminal;
-    const kindSaid = one.kind === "job" ? "Job" : one.linked !== undefined ? `Linked Session, handed from ${one.linked.group}` : "Session";
+    const kindSaid = one.kind === "job" ? "Job" : one.linked !== undefined ? (one.linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${one.linked.group}`) : "Session";
     const quiet = one.since ?? one.step?.label ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.

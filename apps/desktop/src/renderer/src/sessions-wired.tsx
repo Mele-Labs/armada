@@ -340,6 +340,15 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: a group of the plan goes to a Session of its own, which Fleet starts and briefs. Resolves to it once the window holds it; a refusal is a toast. */
+  private async handing(id: string, group: string): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.handToSession(id, group);
+    if (!done.ok) return void this.tell(done.outcome);
+    await this.held(done.value.session_id);
+    return done.value.session_id;
+  }
+
   /** One call: the Session ends and starts again in another repository. Resolves to the new one once the window holds it; a refusal is a toast. */
   private async moving(id: string, manifestId: string): Promise<string | undefined> {
     this.say(undefined);
@@ -518,6 +527,7 @@ export class WiredStore {
     dropQueued: (id) => this.changeQueued((ideas) => ideas.filter((one) => one.id !== id)),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
+    handOff: (id, group) => this.handing(id, group),
     forkAt: (id, at) => this.forkingAt(id, at),
     move: (id, manifestId) => this.moving(id, manifestId),
     retro: (id) => this.retroing(id),

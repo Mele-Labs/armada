@@ -110,7 +110,8 @@ export type SessionAttachment =
   | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
   /**
    * A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's.
-   * `group` is the plan group it was handed from, which makes it a linked Session: the parent follows it (`linkedOf`).
+   * `group` is the plan group it was handed from, which makes it a linked Session drawn on that group and in the Ledger's Linked section (`linkedOf`).
+   * Every Session started from another stands under it in Work, group or none.
    */
   | { kind: "started_to"; id: string; group?: string }
   | { kind: "started_by"; id: string; group?: string };
@@ -568,10 +569,10 @@ export type SessionsDraft = {
    */
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
   /**
-   * Hands a plan group to a new Session this one follows, and returns its id. Absent where nothing serves it, and a group carries no act
-   * to hand it off.
+   * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
+   * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.
    */
-  handOff?: (id: string, group: string) => string | undefined;
+  handOff?: (id: string, group: string) => string | Promise<string | undefined> | undefined;
   /**
    * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.
