@@ -22,6 +22,8 @@
   left: 50%;
   width: min(calc(var(--palette-width) * 1.75), calc(100vw - var(--space-6)));
   max-width: calc(100vw - var(--space-6));
+  /* In a short window the drawer scrolls, so the act under the form stays inside the sheet. */
+  max-height: calc(100vh - 12vh - var(--space-6));
   transform: translateX(-50%);
 }
 
@@ -123,6 +125,7 @@
 /* ---- The drawer: opens under the line ------------------------------------------------------- */
 
 .armada-dispatch-panel__drawer {
+  min-height: 0;
   display: grid;
   grid-template-rows: 0fr;
   visibility: hidden;
@@ -139,7 +142,8 @@
 
 .armada-dispatch-panel__drawer-body {
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);

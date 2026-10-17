@@ -161,6 +161,28 @@ test("the Dispatch sheet's second kind is Autopilot: Tab steps to it, and the sh
   await expect.element(panel).not.toBeInTheDocument();
 });
 
+test("in a short window the Dispatch sheet stays inside it and its Autopilot form scrolls to the start act", async () => {
+  await page.viewport(1100, 460);
+  await cockpit();
+  (document.activeElement as HTMLElement).blur();
+  await userEvent.keyboard("n");
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  await userEvent.keyboard("Work the open bugs until 7am");
+  for (let tries = 0; tries < 3; tries += 1) {
+    if ((await panel.getByRole("tab", { name: "Autopilot" }).element().getAttribute("aria-selected")) === "true") break;
+    await userEvent.keyboard("{Tab}");
+  }
+  await panel.getByRole("button", { name: "Read it" }).click();
+  const start = panel.getByRole("button", { name: "Start Autopilot" });
+  await expect.element(start).toBeInTheDocument();
+  const frame = panel.element().closest<HTMLElement>(".armada-dispatch-panel__frame")!;
+  await expect.poll(() => frame.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+  start.element().scrollIntoView();
+  await expect.element(start).toBeVisible();
+  await start.click();
+  await expect.element(panel).not.toBeInTheDocument();
+});
+
 /** The Cockpit on the second repository, whose Autopilot its Job cap paused. */
 function onPocket(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
