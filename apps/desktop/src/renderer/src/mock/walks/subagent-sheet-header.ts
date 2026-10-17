@@ -8,7 +8,7 @@ import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, row, sheet, close } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const running = "Subagent Read the CI history of store_flaky, running";
   const done = "Subagent Find other tests that read the wall clock, done";
   const panel = sheet("Subagent Read the CI history of store_flaky");

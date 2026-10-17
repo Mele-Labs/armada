@@ -216,6 +216,7 @@ mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
+mod slot_asking;
 mod session_retro_row;
 mod session_starts;
 mod session_waits;
@@ -524,6 +525,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
+pub use slot_asking::{AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding};
 pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,

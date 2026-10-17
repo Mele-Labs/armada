@@ -4345,7 +4345,21 @@ Since 16 Oct 2026. `docs/concepts/session.md`, *A full pool asks the person*. **
 | `answer_waiting` | Bridge sends, Fleet takes | `choice` 0 or 1 on that item. **No message goes to the agent**: it was told to end its turn when it was queued, and is moved into its slot when one is granted. Words or a mode without a `choice` are a 422 `fleet.session_waiting_empty` |
 | `dismiss_waiting` | | Refused 422 `fleet.session_waiting_empty` for a `slot_choice` item: it is answered |
 
+**The same call from a command.** `ask_for_slot` (`POST /sessions/slot_wanted`, `agent_access` `No`) is `armada worktree lease` run by a hosted Session telling Fleet every slot is held. Body `AskForSlot`: `act` (`ask`, repeated about once a second, or `done`) and `session_id`, read by the command from `ARMADA_SESSION`. Answers `SlotAsked`: `standing` (`asking`, `waiting`, `added` or `unasked`). Bridge never sends it, and `packages/protocol/src/sessions.ts` carries both types so the wire reads whole. It raises the same `slot-choice` item, and one item where the Session is also in the line: **one call, never two**. Fleet forgets a command it has not heard from for ten seconds. *Add a slot* for a command with no line makes a slot and holds it for that command until `done` or thirty seconds; for a Session in the line, the slot goes to the Session and the command keeps waiting. A command with no `ARMADA_SESSION`, or no Fleet, does not call it. `armada need` has nothing to order here either.
+
 **Skew.** A Bridge before this meets `slot_choice` as a source it does not know. The IDs differ, so the two are refused regardless. The event stream is untouched beyond the `session.row` and `session.changed` the item already rides on.
+
+## A sketch wireframes a screen: the `screen` node
+
+Since 16 Oct 2026. `docs/concepts/sketch-pane.md`, *Screens*, and `docs/concepts/session.md`, *Drawing a sketch*. **Additive only**: one node kind and one node field in the scene `show_sketch` carries, no operation, no event kind and no route. The protocol ID moves with the files below, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| Scene node `kind` `screen` and field `screen` (`show_sketch`, `POST /sessions/sketch`) | Session writes, Fleet checks | A layout tree of rows, columns, grids and wireframe parts. `crates/ipc/src/sketch/screen.rs`, the same rules as `screen.ts`; a tree on any other kind, or a screen with none, is refused |
+| Fleet's check | Fleet refuses | 422 naming the part by its path in the tree, what it holds and what is allowed. Nesting is bounded |
+| `Attachment.detail.scene` on the `sketch` artifact | Fleet writes, Bridge reads | Unchanged in shape: the scene is JSON text, so Bridge's `parseScene` reads the new kind with no DTO to mirror |
+
+**Skew.** A Bridge before this draws a scene holding a screen as an empty frame, because `parseScene` refuses a kind it does not know. The IDs differ, so the two are refused regardless. The scene stays under the sketch byte cap: a desktop screen of the 16 Oct layout measured 2560 bytes.
 
 ## Open questions
 

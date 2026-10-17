@@ -253,6 +253,10 @@ impl Vcs for GitVcs {
         crate::leasing::jobs::standing(pool, slot, job_id)
     }
 
+    fn slot_after_merge(&self, pool: &SlotPool, slot: u32, merged: &str) -> adapter_traits::SlotAfterMerge {
+        crate::leasing::jobs::after_merge(pool, slot, merged)
+    }
+
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
         noted(crate::leasing::jobs::release(pool, slot, job_id))
     }

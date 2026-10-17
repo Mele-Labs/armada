@@ -7,7 +7,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const { thread } = kit(false);
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const pasted = region("What they paste");
 const command = inside(thread, role("group", "cargo test -p store store_open"));
 

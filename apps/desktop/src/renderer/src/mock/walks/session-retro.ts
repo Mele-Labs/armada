@@ -7,7 +7,8 @@
 import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
-const ROW = inside(region("Sessions"), role("listitem", "Fix the flaky store test"));
+const ROW = inside(region("Work", { exact: true }), button("Fix the flaky store test"));
+const MORE = inside(role("region", /^Session: /), button("More"));
 const CARD = inside(region("Thread"), region("Retro"));
 const RETRO = dialog("Retro");
 const item = (words: string) => inside(RETRO, role("listitem", words));
@@ -16,9 +17,9 @@ const drawn = (words: string) => inside(CARD, role("listitem", words));
 
 const retro = walk("session-retro-live", [
   toSessions,
-  { hover: inside(ROW, button("Retro")), say: "Retro, an icon on each row and in the Session's header" },
-  { press: inside(ROW, button("Fix the flaky store test")), say: "Open the Session" },
-  { press: button("Retro", { exact: true }), say: "It writes the retro of what happened since the last one" },
+  { press: ROW, say: "Open the Session" },
+  { press: MORE, say: "Retro is in the head's More menu" },
+  { press: role("menuitem", "Retro"), say: "It writes the retro of what happened since the last one" },
   { look: inside(CARD, text("Asking the agent what got in the way")), say: "The retro is a card in the thread, and you stay here" },
   { look: inside(CARD, role("timer")), say: "With the time it has been at this stage" },
   { later: inside(CARD, text("Asking the agent what got in the way")), say: "Fleet has the agent's answer" },

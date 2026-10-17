@@ -33,6 +33,7 @@ export * from "./primitives/TerminalPane/XtermScreen";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
+export * from "./primitives/Inspect/Inspect";
 
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/ActiveJobsList/ActiveJobsList";
@@ -454,6 +455,7 @@ export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
+export * from "./compositions/SketchScene/screen";
 export * from "./compositions/SketchScene/share";
 export { SketchShareContext } from "./compositions/SketchScene/SketchShare";
 export * from "./compositions/AskerView/AskerView";
@@ -497,7 +499,6 @@ export * from "./compositions/AutopilotBar/AutopilotBar";
 export * from "./compositions/ThoughtCard/ThoughtCard";
 // A write clash on a row, and the line it becomes in an open Job or Session.
 export * from "./compositions/ClashMark/ClashMark";
-export * from "./compositions/StopCard/StopCard";
 export * from "./clock";
 export * from "./marking";
 export * from "./compositions/SubagentMarks/SubagentMarks";

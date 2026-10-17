@@ -10,7 +10,7 @@ import { HANDOFF_ASK } from "../session-handoff";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -47,11 +47,8 @@ function served(fleet: FakeSessionsFleet): Scenario {
   return fleet.scenario(board);
 }
 
-async function open(title: string, view = "Active") {
-  await toPlace("Sessions");
-  const list = page.getByRole("region", { name: "Sessions" });
-  await userEvent.click(list.getByRole("tab", { name: view }));
-  await userEvent.click(list.getByRole("button", { name: title }));
+async function open(title: string, view: "Active" | "Ended" = "Active") {
+  await toSession(title, view);
 }
 const mark = () => page.getByRole("button", { name: "Fresh start" });
 
@@ -63,13 +60,10 @@ test("The composer's Model select reads the version the process resolved, and th
 
   await open("Big one");
   await expect.element(model()).toHaveDisplayValue("Opus 5.5 · default");
-  await toPlace("Sessions");
   await open("Old one");
   await expect.element(model()).toHaveDisplayValue("Sonnet 5.5");
-  await toPlace("Sessions");
   await open("Small one");
   await expect.element(model()).toHaveDisplayValue("sonnet");
-  await toPlace("Sessions");
   await open("Blank one");
   await expect.element(model()).toHaveDisplayValue("opus · default");
   // The head names no model: the composer does.
@@ -82,13 +76,10 @@ test("A Session past 300k of context, or a day, offers a fresh start, and a smal
 
   await open("Big one");
   await expect.element(mark()).toBeVisible();
-  await toPlace("Sessions");
   await open("Old one");
   await expect.element(mark()).toBeVisible();
-  await toPlace("Sessions");
   await open("Small one");
   await expect.element(mark()).not.toBeInTheDocument();
-  await toPlace("Sessions");
   await open("Ended one", "Ended");
   await expect.element(mark()).not.toBeInTheDocument();
 });

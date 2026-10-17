@@ -23,8 +23,8 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 
 ```
 slot=$(armada worktree lease <branch>)   # waits while every slot is held; never `path=`, zsh ties it to PATH
-armada worktree --status                 # who holds each, and since when
-armada worktree release <path>           # after the pull request merges
+armada worktree --status                 # who holds each, the branch checked out, and since when
+armada worktree release <path>           # after the pull request merges; Fleet tells you the slot is free, and gives it back when your turn ends with nothing new in it
 ```
 
 **A lease belongs to the process that took it, and a restart orphans it.** The

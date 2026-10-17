@@ -1,7 +1,7 @@
 // Start Session on a retro item, through `App` (`docs/concepts/retro.md`, *Where Bridge draws it*):
-// the press asks Fleet to start the Session and the app goes to Sessions. Fleet sends the brief
+// the press asks Fleet to start the Session and the app goes to the Cockpit, where a Session is viewed. Fleet sends the brief
 // itself, so nothing is put in a message box. The mock Fleet mints no Session (the jobs fake holds
-// none), so only the move to Sessions is checked here.
+// none), so only the move to the Cockpit is checked here.
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -19,7 +19,7 @@ beforeEach(() => {
 
 const toRetros = () => toSystemPage("Retros");
 
-test("Start Session on an Armada item goes to Sessions and writes nothing in a message box", async () => {
+test("Start Session on an Armada item goes to the Cockpit and writes nothing in a message box", async () => {
   mount(s205SessionRetro);
   await onScreen();
   await toRetros();
@@ -28,7 +28,7 @@ test("Start Session on an Armada item goes to Sessions and writes nothing in a m
   await expect.element(item).toBeVisible();
   await userEvent.click(item.getByRole("button", { name: "Start Session" }));
 
-  await expect.element(page.getByRole("region", { name: "Sessions" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Work", exact: true })).toBeVisible();
   expect(Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:"))).toEqual([]);
 });
 

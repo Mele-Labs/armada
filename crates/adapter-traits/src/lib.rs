@@ -104,9 +104,9 @@ pub use setup::{
     StyleFrom, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    BranchKept, CommitHome, RescueRefused, ReviewBay, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
-    SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
-    SlotStanding, StrandedWork, WorkShown,
+    BranchKept, CommitHome, RescueRefused, ReviewBay, SlotAfterMerge, SlotChange, SlotCommit,
+    SlotHeld, SlotKept, SlotLeased, SlotParkRefused, SlotParked, SlotPool, SlotReading,
+    SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, WorkShown,
 };
 pub use under_review::{
     FailureWeight, FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy,
@@ -486,6 +486,15 @@ pub trait Vcs {
 
     /// Where the slot a Job's record names stands now.
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding;
+
+    /// What slot `slot` holds now that the pull request from `merged`, the branch it was leased
+    /// on, has merged. **Read only**: Fleet decides from it whether to give the slot back, and
+    /// never gives back one that answers anything but [`SlotAfterMerge::Idle`]. An adapter that
+    /// cannot read the slot answers `Moved`, which keeps it.
+    fn slot_after_merge(&self, pool: &SlotPool, slot: u32, merged: &str) -> SlotAfterMerge {
+        let _ = (pool, slot, merged);
+        SlotAfterMerge::Moved
+    }
 
     /// Give back the slot this Job holds, by the pool's rules: refused while
     /// the tree holds anything uncommitted, or commits its branch, the remote

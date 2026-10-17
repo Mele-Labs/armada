@@ -111,6 +111,10 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)), stop: None })
     }
 
+    async fn ask_for_slot(&self, _call: ipc::AskForSlot) -> Result<ipc::SlotAsked, Refusal> {
+        Ok(ipc::SlotAsked { standing: ipc::SlotAskStanding::Unasked })
+    }
+
     async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
         Ok(ipc::CheckOutput {
             attempt: 1,

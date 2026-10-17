@@ -13,6 +13,7 @@ use config::Manifest;
 use fleet::{CopyOnWrite, NotCloned, TheVolume};
 
 use crate::setup::MANIFEST;
+use crate::slot_asking::Asking;
 
 /// The base a Manifest that names none is leased from.
 const BASE_UNSTATED: &str = "main";
@@ -36,8 +37,24 @@ pub fn pool_of(within: &Path) -> Result<Pool, String> {
 }
 
 /// `armada worktree lease [--existing] <branch>`. Waits while every slot is
-/// held, and says so once.
+/// held, and says so once. **Run by a hosted Session**, it also tells Fleet, which asks the
+/// owner whether to wait or add a slot; with no Fleet to ask it waits alone, as ever.
 pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
+    let asker = || {
+        let session = std::env::var(Holder::SESSION_ENV).ok().filter(|id| !id.is_empty())?;
+        Asking::for_session(&session)
+    };
+    lease_asking(within, branch, existing, asker)
+}
+
+/// [`lease`], with `asker` finding who to tell once every slot proves held. It is not called
+/// for a lease that finds a slot at once.
+pub(crate) fn lease_asking(
+    within: &Path,
+    branch: &str,
+    existing: bool,
+    asker: impl FnOnce() -> Option<Asking>,
+) -> u8 {
     let pool = match pool_of(within) {
         Ok(pool) => pool.leased_for(std::env::var(Holder::AGENT_SESSION_ENV).ok()),
         Err(why) => return refused(&why),
@@ -49,6 +66,8 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
         );
     };
     let mut told = false;
+    let mut asker = Some(asker);
+    let mut asking: Option<Asking> = None;
     let seed = |from: &Path, to: &Path| {
         TheVolume.clone_tree(from, to).map_err(|why| match why {
             NotCloned::Unsupported { why } | NotCloned::Failed { why } => why,
@@ -59,11 +78,19 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
             told = true;
             waiting(full, pool.count());
         }
+        if let Some(find) = asker.take() {
+            asking = find();
+        }
+        if let Some(asking) = asking.as_mut() {
+            asking.look();
+        }
     };
     let leased = match existing {
         true => pool.lease_existing(branch, &holder, now(), &seed, &mut wait),
         false => pool.lease(branch, &holder, now(), &seed, &mut wait),
     };
+    // The call comes off the owner's list before the path is printed.
+    drop(asking);
     match leased {
         Ok(lease) => {
             said(&lease, branch);
@@ -122,6 +149,21 @@ pub fn status(within: &Path) -> u8 {
     0
 }
 
+/// The branch a slot is on, as git has it checked out, which is where the work is. The lease
+/// records the branch the slot was cut for, and a session may have moved off it. Both are said
+/// where they differ; `detached` is a checkout on no branch.
+fn on_branch(slot: &Slot, leased: &str) -> String {
+    let head = match adapters::leasing::checked_out(&slot.path) {
+        Some(head) => head,
+        None if slot.path.join(".git").exists() => String::from("detached"),
+        None => return leased.to_string(),
+    };
+    match head == leased {
+        true => head,
+        false => format!("{head} (leased as {leased})"),
+    }
+}
+
 pub(crate) fn line(slot: &Slot, now: u64) -> String {
     let name = match slot.closed {
         true => format!("slot-{} closed", slot.number),
@@ -142,9 +184,10 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             kept: Some(why),
             ..
         } => format!(
-            "{name}  kept     {path}  {branch}  by {} for {}, which ended and could not give it back: {why}",
+            "{name}  kept     {path}  {on}  by {} for {}, which ended and could not give it back: {why}",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Held {
             branch,
@@ -153,9 +196,10 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             completed: true,
             ..
         } => format!(
-            "{name}  done     {path}  {branch}  by {} for {}, which is done and holds it until the Job is cleared",
+            "{name}  done     {path}  {on}  by {} for {}, which is done and holds it until the Job is cleared",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Held {
             branch,
@@ -163,17 +207,20 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             since,
             ..
         } => format!(
-            "{name}  held     {path}  {branch}  by {} for {}",
+            "{name}  held     {path}  {on}  by {} for {}",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Abandoned { branch, since } => format!(
-            "{name}  free     {path}  {branch}'s holder is gone after {}, and nothing is unlanded",
-            ago(now, *since)
+            "{name}  free     {path}  {on}  the holder is gone after {}, and nothing is unlanded",
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Stranded { branch, since, why } => format!(
-            "{name}  stranded {path}  {branch}'s holder is gone after {}, and it holds {why}",
-            ago(now, *since)
+            "{name}  stranded {path}  {on}  the holder is gone after {}, and it holds {why}",
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
     }
 }

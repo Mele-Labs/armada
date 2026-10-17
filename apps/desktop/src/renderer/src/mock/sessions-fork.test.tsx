@@ -1,5 +1,5 @@
 // Fork from a dead Session on a real Fleet's path, through `App`: a Session that ended, or whose
-// terminal stopped asking, offers Fork in place of its message box; a live one offers the box and no
+// terminal stopped asking, offers Fork in its head's More menu, with no message box; a live one offers the box and no
 // Fork; and pressing it asks Fleet to fork that Session and opens the new one. What stands where
 // main stands is `sessions-fleet.ts`. The walk (`walks/session-fork.ts`) shows how it reads.
 
@@ -11,7 +11,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -35,16 +35,14 @@ const records = () => [
 ];
 
 /** The dead ones are in the list's Quiet and Ended views, off the Active one it opens on. */
-const VIEW: Record<string, string> = { "One that ended": "Ended", "A terminal gone quiet": "Quiet" };
+const VIEW: Record<string, "Ended" | "Quiet"> = { "One that ended": "Ended", "A terminal gone quiet": "Quiet" };
 
 async function open(title: string) {
-  // Sessions' own page: the Dashboard lists no Sessions apart from its tabs.
-  await toPlace("Sessions");
-  const list = page.getByRole("region", { name: "Sessions" });
-  await userEvent.click(list.getByRole("tab", { name: VIEW[title] ?? "Active" }));
-  await userEvent.click(list.getByRole("button", { name: title }));
+  await toSession(title, VIEW[title] ?? "Active");
 }
-const fork = () => page.getByRole("button", { name: "Fork", exact: true });
+/** Fork is an item of the More menu in the Session's head, and the menu has to be opened to press it. */
+const fork = () => page.getByRole("menuitem", { name: "Fork", exact: true });
+const menu = () => userEvent.click(page.getByRole("region", { name: /^Session: / }).getByRole("button", { name: "More" }));
 const message = () => page.getByRole("textbox", { name: "Message" });
 
 test("Fork is offered on a Session that ended or went quiet, and a message box on none of them", async () => {
@@ -53,9 +51,9 @@ test("Fork is offered on a Session that ended or went quiet, and a message box o
 
   for (const title of ["One that ended", "A terminal gone quiet"]) {
     await open(title);
+    await menu();
     await expect.element(fork()).toBeVisible();
     await expect.element(message()).not.toBeInTheDocument();
-    await toPlace("Sessions");
   }
 });
 
@@ -66,8 +64,8 @@ test("A live Session, hosted or in a terminal that is listening, offers a messag
   for (const title of ["A live hosted one", "A terminal being listened to"]) {
     await open(title);
     await expect.element(message()).toBeVisible();
+    await menu();
     await expect.element(fork()).not.toBeInTheDocument();
-    await toPlace("Sessions");
   }
 });
 
@@ -77,6 +75,7 @@ test("Pressing Fork asks Fleet to fork that Session and opens the new one, linke
   await onScreen();
 
   await open("One that ended");
+  await menu();
   await userEvent.click(fork());
 
   await expect.poll(() => fleet.calls.forked).toEqual([ENDED]);
@@ -84,6 +83,7 @@ test("Pressing Fork asks Fleet to fork that Session and opens the new one, linke
   await expect.element(ledger.getByText("Forked from One that ended")).toBeVisible();
   // The new Session is live: it takes a message, and offers no Fork.
   await expect.element(message()).toBeVisible();
+  await menu();
   await expect.element(fork()).not.toBeInTheDocument();
 });
 
@@ -96,6 +96,7 @@ test("Fork: the thread opens on one closed row holding the old conversation, rea
   await onScreen();
 
   await open("A terminal gone quiet");
+  await menu();
   await userEvent.click(fork());
 
   const folded = page.getByRole("group", { name: "Forked from A terminal gone quiet" });

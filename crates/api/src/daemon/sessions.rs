@@ -143,6 +143,14 @@ pub trait Sessions: Send + Sync + 'static {
         call: ipc::SessionCheckCall,
     ) -> impl Future<Output = Result<ipc::SessionCheckAnswer, Refusal>> + Send;
 
+    /// `ask_for_slot` — a Session's `armada worktree lease` found every slot held. Raises the
+    /// Session's `slot_choice` call, or keeps the one it has, and answers where the person's choice
+    /// stands. Never a refusal for a Session Fleet does not host: that answers `unasked`.
+    fn ask_for_slot(
+        &self,
+        call: ipc::AskForSlot,
+    ) -> impl Future<Output = Result<ipc::SlotAsked, Refusal>> + Send;
+
     /// `get_session_check_output` — one Session run's log. [`Refusal::Unacceptable`] for a run no
     /// Session kept.
     fn get_session_check_output(

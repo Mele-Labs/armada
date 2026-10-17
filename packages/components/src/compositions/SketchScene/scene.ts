@@ -8,8 +8,9 @@
 // that does not validate is `undefined` and draws nothing**: no partial drawing, no repaired one.
 
 import type { SketchPoint, SketchStroke } from "../SketchPad/ink-types";
+import { readScreen, screenGuess, type ScreenElement } from "./screen";
 
-export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire"] as const;
+export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire", "screen"] as const;
 export type SceneKind = (typeof SCENE_KINDS)[number];
 
 /** What a wireframe node stands for, drawn as a block and never as a control. */
@@ -38,6 +39,8 @@ export type SceneNode = {
   /** The language a code node is read as, in its header band. */
   lang?: string;
   wire?: WirePart;
+  /** What a `screen` draws: a layout tree, sized by its contents. `w` is its width, and `h` is not read. */
+  screen?: ScreenElement;
   /** Where the node comes in the order the scene plays its steps. */
   step?: number;
 };
@@ -62,11 +65,13 @@ const oneOf = <T extends string>(list: readonly T[]) => (value: unknown): value 
 
 function nodeOf(value: unknown): SceneNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step } = value;
+  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen } = value;
   if (!isText(id) || id === "" || !oneOf(SCENE_KINDS)(kind) || !isNumber(x) || !isNumber(y)) return undefined;
   if (!optional(w, isNumber) || !optional(h, isNumber) || !optional(title, isText) || !optional(body, isText)) return undefined;
   if (!optional(icon, oneOf(SCENE_ICONS)) || !optional(lang, isText) || !optional(wire, oneOf(WIRE_PARTS)) || !optional(step, isNumber)) return undefined;
   if ((kind === "group" || kind === "lane") && (!isNumber(w) || !isNumber(h))) return undefined;
+  const drawn = kind === "screen" ? readScreen(screen) : undefined;
+  if (kind === "screen" && drawn === undefined) return undefined;
   return {
     id, kind, x, y,
     ...(w === undefined ? {} : { w: w as number }),
@@ -76,6 +81,7 @@ function nodeOf(value: unknown): SceneNode | undefined {
     ...(icon === undefined ? {} : { icon: icon as SceneIcon }),
     ...(lang === undefined ? {} : { lang: lang as string }),
     ...(wire === undefined ? {} : { wire: wire as WirePart }),
+    ...(drawn === undefined ? {} : { screen: drawn }),
     ...(step === undefined ? {} : { step: step as number }),
   };
 }
@@ -258,7 +264,10 @@ export function markRemove(marks: SceneMarks, ids: readonly string[]): SceneMark
 
 /** The frame a scene occupies, rounded, so a change in it is a change in what to fit. */
 export function extentOf(scene: Scene): string {
-  const boxes = scene.nodes.map((one) => ({ x: one.x, y: one.y, r: one.x + (one.w ?? 240), b: one.y + (one.h ?? 90) }));
+  const boxes = scene.nodes.map((one) => {
+    const guess = one.screen === undefined ? { w: 240, h: 90 } : screenGuess(one.screen, one.w);
+    return { x: one.x, y: one.y, r: one.x + (one.w ?? guess.w), b: one.y + (one.h ?? guess.h) };
+  });
   if (boxes.length === 0) return "";
   const round = (n: number) => String(Math.round(n / 20) * 20);
   return [Math.min(...boxes.map((one) => one.x)), Math.min(...boxes.map((one) => one.y)), Math.max(...boxes.map((one) => one.r)), Math.max(...boxes.map((one) => one.b))].map(round).join(",");

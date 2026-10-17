@@ -574,6 +574,22 @@ pub(crate) async fn report_session_check<D: Sessions>(
     }
 }
 
+/// `armada worktree lease` tells Fleet every slot is held, or that it is done waiting. 200 with
+/// where the person's choice stands.
+pub(crate) async fn ask_for_slot<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let call: ipc::AskForSlot = match ipc::decode("a lease waiting for a slot", &body) {
+        Ok(call) => call,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ask_for_slot(call).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One Session run's log as it is written, on a socket of its own. A run no Session kept is a 422
 /// before the socket opens.
 pub(crate) async fn observe_session_check<D: Sessions>(

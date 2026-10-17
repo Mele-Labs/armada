@@ -7,7 +7,7 @@ import type { Step } from "../walk";
 import { NARROW, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const needs = region("Needs you");
   const stop = inside(needs, role("group", "kill $(lsof -ti tcp:5788)"));
   const install = inside(region("Thread"), role("group", "pnpm install --frozen-lockfile"));
@@ -16,9 +16,9 @@ function steps(): Step[] {
     { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened" },
     { look: inside(stop, button("Run")), say: "A command to run is its own block, with Run, as in the thread" },
     { press: inside(stop, button("Run")), say: "Run from the band" },
-    { look: text("Stop the mock server on 5788"), say: "A clean exit settles the item, and the agent is told" },
+    { look: text("It ran clean."), say: "A clean exit settles the item, and the agent is told" },
     { press: inside(install, button("Run")), say: "The other command, run from the thread instead" },
-    { look: text("Install the preview's packages"), say: "It settles the same way, and the band is gone with nothing left in it" },
+    { look: region("Thread"), say: "It settles the same way, and the band is gone with nothing left in it" },
   ];
 }
 
