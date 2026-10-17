@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.28'
+export const MOD_VERSION = '0.3.29'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -227,17 +227,6 @@ export function needAct(command: string): NeedAct | undefined {
     return { act: 'declare', path: path(rest[0]), what: rest[1] }
   }
   return undefined
-}
-
-const DISPATCH = /^mcp__armada-fleet__(propose_job|propose_from_request|approve_dispatch|redispatch_job)$/
-
-export function isDispatch(tool: string): boolean {
-  return DISPATCH.test(tool)
-}
-
-/** Job ids in a dispatch's answer, which are ULIDs. */
-export function jobIdsIn(text: string): string[] {
-  return [...new Set(text.match(/\b[0-9A-HJKMNP-TV-Z]{26}\b/g) ?? [])].slice(0, 10)
 }
 
 /** Whom a delivery came from, as far as the delivery says: never a session id. */
