@@ -498,7 +498,7 @@ pub use review_runs::{
     ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
 };
 pub use review_walks::{
-    OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,
+    ForgetReviewSearch, OpenReviewWalk, RememberedPlace, RememberedPlaces, ReviewMatch, ReviewRequest, ReviewRequestMethod,
     ReviewWalk, ReviewWalkState, SaveWalkPlace, StartReviewSearch, WalkHow, WalkPlace, WalkPlaceFound,
     WalkSource, WalkTried, SEARCH_RUN_SCOPE,
 };

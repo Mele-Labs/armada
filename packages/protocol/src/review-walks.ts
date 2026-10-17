@@ -16,6 +16,12 @@ export type StartReviewSearch = {
   again?: boolean;
 };
 
+/** `forget_review_search`'s body (`POST /review_searches/forget`). */
+export type ForgetReviewSearch = {
+  /** The words of the search to drop, as he asked them. */
+  words: string;
+};
+
 /** One pull request a search turned up, and the one line that says why. Always an open pull request of a served repository. */
 export type ReviewMatch = {
   pull: PullReviewRow;
@@ -74,7 +80,7 @@ export type RememberedPlaces = {
   places: RememberedPlace[];
 };
 
-/** `save_walk_place`'s body (`PUT /walk_places/:repository`). Replaces the place kept for the area. */
+/** `save_walk_place`'s body (`POST /walk_places/:repository`). Replaces the place kept for the area. */
 export type SaveWalkPlace = {
   area: string;
   place: WalkPlace;

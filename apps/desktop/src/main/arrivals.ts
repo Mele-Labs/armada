@@ -71,8 +71,8 @@ export interface ArrivalHost {
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
   readonly timeline: Pick<TimelineHost, "appended">;
-  /** A review run that moved, told to the windows whole — `reviews.ts`. */
-  readonly reviews: Pick<ReviewsHost, "changed">;
+  /** A review run or a held walk that moved, told to the windows whole — `reviews.ts`. */
+  readonly reviews: Pick<ReviewsHost, "changed" | "walkChanged">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -588,6 +588,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // re-reads it, so a Session taking a slot on its first write left the bays as drawn. Fleet
     // enters the event after the pool changes, so the read finds the new holder. Nothing open is no read.
     if (event.event.kind === "slot.leased" || event.event.kind === "slot.released") void host.held.again(fleet.port);
+    return;
+  }
+  if (event.kind === "review_walk.changed") {
+    // Above the tail as the run's is: no Job to find, and the walk travels whole.
+    host.publish({ connection });
+    host.reviews.walkChanged(event.walk);
     return;
   }
   if (event.kind === "review_run.changed") {

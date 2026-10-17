@@ -27,6 +27,13 @@ pub struct StartReviewSearch {
     pub again: bool,
 }
 
+/// `forget_review_search`'s body. `POST /review_searches/forget`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForgetReviewSearch {
+    /// The words of the search to drop, as he asked them: Fleet reads them as a search is keyed.
+    pub words: String,
+}
+
 /// One pull request a search turned up, and the one line that says why it matched. **Always an
 /// open pull request of a served repository**: Fleet refuses a run whose answer names any other.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,7 +124,7 @@ pub struct RememberedPlaces {
     pub places: Vec<RememberedPlace>,
 }
 
-/// `save_walk_place`'s body. `PUT /walk_places/:repository`. Replaces the place kept for the area.
+/// `save_walk_place`'s body. `POST /walk_places/:repository`. Replaces the place kept for the area.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SaveWalkPlace {
     pub area: String,

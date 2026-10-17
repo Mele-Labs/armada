@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Stop remembering where changes to an area run"
 notes = """
-`DELETE /walk_places/:repository/:id`, `repository` a manifest id, `id` a `RememberedPlace.id`. Answers `RememberedPlaces`, what is kept now. A place already gone is not an error.
+`POST /walk_places/:repository/:id/forget`, `repository` a manifest id, `id` a `RememberedPlace.id`. Answers `RememberedPlaces`, what is kept now. A place already gone is not an error.
 """
