@@ -70,6 +70,8 @@ export class Stage {
   private stood = new Map<string, Stood>();
   private readonly listeners = new Set<(view: View) => void>();
   private fonts = 0;
+  private themed: MutationObserver | undefined;
+  private still: MediaQueryList | undefined;
 
   private constructor(host: HTMLElement) {
     this.host = host;
@@ -123,14 +125,23 @@ export class Stage {
     app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
     app.ticker.add(this.tick);
     // A name drawn before its font arrived is drawn again once it has.
-    void document.fonts.ready.then(() => {
-      if (this.gone) return;
-      this.fonts += 1;
-      this.palette = readPalette(this.host);
-      this.sync(true);
-    });
+    void document.fonts.ready.then(() => this.restyle());
+    // A theme put on the page, a mod's edited, or reduced motion asked for changes the tokens under every colour here. The loader adopts
+    // its sheet before it sets `data-theme`, so the tokens are already the new ones when this runs.
+    this.themed = new MutationObserver(() => this.restyle());
+    this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
+    this.still.addEventListener("change", this.restyle);
     this.sync(true);
   }
+
+  /** The palette read again from the page as it is now, and everything drawn from it drawn again. The pictures that keep what they were drawn with are told by `fonts`. */
+  private readonly restyle = (): void => {
+    if (this.gone || this.app === undefined) return;
+    this.fonts += 1;
+    this.palette = readPalette(this.host);
+    this.sync(true);
+  };
 
   // ---- What the page tells it -------------------------------------------------------------------------------
 
@@ -179,6 +190,8 @@ export class Stage {
     this.gone = true;
     cancelAnimationFrame(this.frame);
     this.listeners.clear();
+    this.themed?.disconnect();
+    this.still?.removeEventListener("change", this.restyle);
     const app = this.app;
     this.app = undefined;
     if (app === undefined) return;

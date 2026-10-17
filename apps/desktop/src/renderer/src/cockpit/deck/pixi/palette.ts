@@ -1,7 +1,7 @@
 // The map's colours and type, read from the tokens the page is wearing rather than written here. A canvas cannot see a CSS variable, so
 // each is resolved the way the page resolves it: set on a probe element and read back as a computed colour, which takes in a theme's
 // override and a `color-mix()` alike. `readPalette` is the one place that touches the page; a theme change is a second call to it and
-// a redraw, which `PixiMap` leaves for the group that wires themes.
+// a redraw, which the stage makes when the page's `data-theme` changes.
 
 /** Red, green, blue and alpha, each 0 to 1. */
 export type Rgba = readonly [number, number, number, number];
