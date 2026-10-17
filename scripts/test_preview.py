@@ -350,6 +350,17 @@ class Preview(unittest.TestCase):
         self.assertEqual(self.count(runs), 1)
         self.assertNotIn("does not build", done.stdout)
 
+    def test_a_path_relative_to_the_package_still_finds_the_branch(self):
+        self.branch("feat/bad", {"bad.rs": "x\n", "apps/desktop/src/App.tsx": "x\n"})
+        self.branch("feat/other", {"elsewhere/src/Other.tsx": "x\n"})
+        self.hold("feat/bad", "feat/other")
+        script, runs = self.failing_restart("src/App.tsx")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("skipped (does not build: apps/desktop/src/App.tsx)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "elsewhere/src/Other.tsx")))
+
     def test_the_retry_is_once_and_a_second_failure_is_reported(self):
         self.branch("feat/bad", {"bad.rs": "x\n"})
         self.hold("feat/bad")

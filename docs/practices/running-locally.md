@@ -370,7 +370,8 @@ migration guard and the snapshot.
 branch cut before a deletion without a word, and `cargo install` then fails
 (exit 101) on code that branch never saw. When the restart fails with compiler
 errors, `scripts/preview` reads the files they name (rustc's `-->` under an
-error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`), drops every merged
+error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths relative
+to the package, so a changed file also matches by its tail), drops every merged
 branch that changed one, and merges and restarts again. The table says
 `skipped (does not build: <files>)`. If no merged branch touched a named file,
 or the second run fails too, the failure stands as it was.

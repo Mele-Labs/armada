@@ -324,14 +324,19 @@ def error_paths(output, wt):
 
 
 def does_not_build(root, base, rows, output, wt):
-    """{branch: files} for the merged branches that changed a file the compiler errors name."""
+    """{branch: files} for the merged branches that changed a file the compiler errors name,
+    whole or by its tail."""
     named = error_paths(output, wt)
     culprits = {}
     for branch, what, _ in rows:
         if what != "merged":
             continue
         touched = set(out(root, "diff", "--name-only", f"{base}...{branch}").splitlines())
-        files = [p for p in named if p in touched]
+        # pnpm, tsc and vite print paths relative to the package (`src/App.tsx` for
+        # `apps/desktop/src/App.tsx`), so a path no branch file equals is matched by its tail.
+        files = []
+        for path in named:
+            files += [path] if path in touched else sorted(f for f in touched if f.endswith("/" + path))
         if files:
             culprits[branch] = files
     return culprits
