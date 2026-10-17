@@ -13,7 +13,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::envelope::{Timestamp, Ulid};
-use crate::job::ids::StepId;
+use crate::workflow::StepId;
 
 use super::Job;
 

@@ -14,7 +14,7 @@ use crate::session_host::queueing::keep_granting_slots;
 const OTHERS: &str = "an agent's session";
 
 /// A rig whose pool is full but for slot 1, with a session standing in slot 1.
-async fn with_slot_one_held() -> (Rig, SessionId) {
+pub(super) async fn with_slot_one_held() -> (Rig, SessionId) {
     let rig = rig_placing(None);
     for n in 2..=8 {
         rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
@@ -28,12 +28,12 @@ async fn with_slot_one_held() -> (Rig, SessionId) {
     (rig, holder)
 }
 
-fn write_to_main(rig: &Rig) -> String {
+pub(super) fn write_to_main(rig: &Rig) -> String {
     format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root)
 }
 
 /// A session that has written, been queued, and stopped its turn as told.
-async fn queued_and_idle(rig: &Rig, text: &str) -> (SessionId, String) {
+pub(super) async fn queued_and_idle(rig: &Rig, text: &str) -> (SessionId, String) {
     let id = rig.start().await;
     rig.send(&id, text).await;
     let at = rig.stand_in.starts().len() - 1;
@@ -45,7 +45,7 @@ async fn queued_and_idle(rig: &Rig, text: &str) -> (SessionId, String) {
     (id, reason(&answer))
 }
 
-async fn close(rig: &Rig, id: &SessionId) {
+pub(super) async fn close(rig: &Rig, id: &SessionId) {
     rig.fleet
         .close_session(CloseSession {
             session_id: id.clone(),
@@ -55,7 +55,7 @@ async fn close(rig: &Rig, id: &SessionId) {
 }
 
 /// The starts of `id` that resumed it, which is how a move into a slot shows.
-fn resumes(rig: &Rig, id: &SessionId) -> Vec<crate::session_host::Start> {
+pub(super) fn resumes(rig: &Rig, id: &SessionId) -> Vec<crate::session_host::Start> {
     rig.stand_in
         .starts()
         .into_iter()
@@ -63,7 +63,7 @@ fn resumes(rig: &Rig, id: &SessionId) -> Vec<crate::session_host::Start> {
         .collect()
 }
 
-fn the_keeper(rig: &Rig) -> tokio::task::JoinHandle<()> {
+pub(super) fn the_keeper(rig: &Rig) -> tokio::task::JoinHandle<()> {
     keep_granting_slots(Arc::clone(&rig.fleet), Duration::from_secs(3600))
 }
 

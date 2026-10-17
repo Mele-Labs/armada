@@ -12,7 +12,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::envelope::Timestamp;
-use crate::job::{StepId, WorkflowId};
+use crate::workflow::{StepId, WorkflowId};
 
 /// The moment in a Job a Trigger runs at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -519,7 +519,7 @@ impl TriggerFiring {
 /// Whether a failure at `(when, step)` can hold a Job of `workflow`. **Not the
 /// last step's `step_passes`**: no step comes after it for the hold to stand
 /// in front of, and what follows is the Job landing, which `pr_opened` holds.
-pub fn can_hold(workflow: &crate::job::FrozenWorkflow, when: TriggerWhen, step: &StepId) -> bool {
+pub fn can_hold(workflow: &crate::workflow::FrozenWorkflow, when: TriggerWhen, step: &StepId) -> bool {
     match when {
         TriggerWhen::StepStarts | TriggerWhen::PrOpened => true,
         TriggerWhen::StepPasses => workflow.after(step).is_some(),

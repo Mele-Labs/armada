@@ -26,8 +26,8 @@
 
 use alloc::vec::Vec;
 
-use crate::job::gaming::EvidenceRef;
-use crate::job::ids::RepoPath;
+use crate::workflow::gaming::EvidenceRef;
+use crate::workflow::ids::RepoPath;
 
 /// Where a step's `context_paths` came from.
 ///
