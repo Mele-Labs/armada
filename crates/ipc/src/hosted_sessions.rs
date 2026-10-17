@@ -12,8 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::helm_call::{HelmCallAnswer, HelmCallInFlight, QuestionAnswer};
-use crate::ids::{Instant, JobId, ManifestId};
-use crate::piloting::{DroneNarrative, PilotOutcome};
+use crate::ids::{Instant, ManifestId};
 use crate::sessions::{SessionId, SessionRecord};
 
 /// The permission mode a hosted session runs in, as a terminal's are.
@@ -45,14 +44,6 @@ pub struct StartSession {
     /// Absent is [`SessionMode::Auto`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<SessionMode>,
-    /// Take a Job over and start the session on its worktree. Since 23.51.
-    ///
-    /// **One call is the whole act**: Fleet marks the Job, ends its Drone,
-    /// hands the Job's slot and branch to the new session and writes the
-    /// handoff row first in its thread. The session's repository is the Job's,
-    /// so `manifest_id` is not read.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pilot: Option<PilotFrom>,
     /// Start as a copy of a session's conversation. Since 23.69.
     ///
     /// The new session has its own id, ledger and slot, and holds none of the
@@ -68,18 +59,17 @@ pub struct StartSession {
     pub root: Option<String>,
     /// The words the person dispatched with. Since 23.91.
     ///
-    /// **Present, Fleet reads them once, with the Job proposer's model**, and fills in what the
+    /// **Present, Fleet reads them once, with the proposer's model**, and fills in what the
     /// person left unset: the title, the workflow, the model and the effort. The call is not
     /// waited on here: the Session exists at once, carries `proposal.reading` while the call is
     /// out, and starts its process on the answer. A first message sent meanwhile is held until
-    /// then. Whatever this start sets itself stands over the answer. Not read with `pilot`,
-    /// `fork` or `root`.
+    /// then. Whatever this start sets itself stands over the answer. Not read with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request: Option<String>,
     /// A Session this one waits on, and when it starts. **Present, `request` is the Session's brief
     /// and nothing is sent**: it holds the brief, no slot and no process until the condition is met,
     /// and then starts on the other Session's handoff followed by the brief. The Session waited on
-    /// is told. Not read with `pilot`, `fork` or `root`. `docs/concepts/session.md`, *A Session that
+    /// is told. Not read with `fork` or `root`. `docs/concepts/session.md`, *A Session that
     /// waits on another*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<crate::session_waits::StartAfter>,
@@ -98,49 +88,29 @@ pub struct ForkFrom {
     pub at: Option<String>,
 }
 
-/// The Job a session starts by taking over. Since 23.51.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PilotFrom {
-    pub job_id: JobId,
-    pub outcome: PilotOutcome,
-}
-
 /// What a message tags with `@`, so the agent knows what is meant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TagKind {
     Session,
-    Job,
     PullRequest,
     Branch,
     /// A tracker issue. `id` is its number as a string.
     Issue,
 }
 
-/// Something a message names: another session, a Job, a pull request or a
+/// Something a message names: another session, a pull request, an issue or a
 /// branch. **Fleet writes the line that tells the agent**; the person's words
 /// are kept as typed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionTag {
     pub kind: TagKind,
-    /// A session's id, a Job's id, a pull request's or an issue's number, or a branch's name.
+    /// A session's id, a pull request's or an issue's number, or a branch's name.
     pub id: String,
     pub title: String,
-    /// What a Job tag knows of the Job, so the ledger can hold it as one the
-    /// session is looking at.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job: Option<TaggedJob>,
     /// The forge's address for an issue or a pull request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TaggedJob {
-    pub number: u32,
-    pub branch: String,
-    pub slot: u32,
-    pub state: String,
 }
 
 /// A picture or a file sent with a message. `data` is base64.
@@ -249,7 +219,7 @@ pub struct ReleaseSessionHolds {
 /// One ledger row the person ticked, as the ledger keys it within the Session.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChosenHold {
-    /// `slot`, `branch`, `pr`, `job` or `need`.
+    /// `slot`, `branch`, `pr` or `need`.
     pub kind: String,
     pub target: String,
 }
@@ -269,7 +239,7 @@ pub struct SessionHoldsReleased {
 /// One ledger row `release_session_holds` moved.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HoldMoved {
-    /// `slot`, `branch`, `pr`, `job` or `need`.
+    /// `slot`, `branch`, `pr` or `need`.
     pub kind: String,
     pub target: String,
     /// For a slot given back: the branch its work is on, and what was committed to it.
@@ -404,33 +374,6 @@ pub enum SessionRow {
         files: Vec<SentFile>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tags: Vec<SessionTag>,
-    },
-    /// What a piloted session starts with: the Job's own worktree, handed over,
-    /// and what Fleet knew when its Drone stopped, as the handoff bundle's
-    /// structured fields. **Written once, first in the thread.** Since 23.51.
-    Handoff {
-        id: String,
-        at: Instant,
-        job_id: JobId,
-        number: u32,
-        title: String,
-        /// `take_over` or `restart_step`.
-        reason: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        slot: Option<u32>,
-        branch: String,
-        /// The step the Job stopped on. Absent where none did.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        step: Option<HandoffStep>,
-        /// How many times that step was worked.
-        attempts: u32,
-        /// What the Judge refused on it, in its own words.
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        refusals: Vec<String>,
-        plan: HandoffPlan,
-        /// Absent where no Drone said what it was stuck on.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        narrative: Option<DroneNarrative>,
     },
     /// A tool call, one line.
     Tool {
@@ -581,7 +524,7 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         why: Option<String>,
     },
-    /// Words that went to another Session or to a Job: a person's thought Helm's dock routed, or
+    /// Words that went to another Session: a person's thought Helm's dock routed, or
     /// what Helm passed on with `tell_session`. **Written in a Helm Session's thread only, and never
     /// delivered to it**: it records where the words went and the agent is not told. `files` and
     /// `tags` are what went with them, read back with `get_session_file`. Since the Helm Session.
@@ -627,33 +570,10 @@ pub enum SessionRow {
     },
 }
 
-/// The step a Job stopped on.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HandoffStep {
-    pub id: String,
-    pub label: String,
-}
-
-/// The step's declared plan against the worktree. **A mark and no judgement**:
-/// both lists restate a comparison Fleet already made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HandoffPlan {
-    /// Whether the step declared one. False is no plan, and `outside` is then
-    /// empty rather than everything.
-    pub declared: bool,
-    /// Files the worktree holds changed that the plan did not cover.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub outside: Vec<String>,
-    /// Paths the plan named that nothing changed under.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unwritten: Vec<String>,
-}
-
 impl SessionRow {
     pub fn id(&self) -> &str {
         match self {
             SessionRow::Message { id, .. }
-            | SessionRow::Handoff { id, .. }
             | SessionRow::Tool { id, .. }
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }

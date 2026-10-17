@@ -270,7 +270,7 @@ pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, Tur
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
 pub use pending_evidence::PendingEvidence;
-pub use piloting::{KeptPilot, Narrative, PilotExit};
+pub use piloting::{KeptPilot, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};

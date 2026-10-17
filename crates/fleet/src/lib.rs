@@ -538,7 +538,7 @@ pub use mint::{Mint, UlidMint};
 pub use noticing::{Noticed, Noticing};
 pub use overruling::Overruling;
 pub use peer::{NotACaller, PeerOf};
-pub use piloting::{Hatch, Unpilotable};
+pub use piloting::Unpilotable;
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use policy::{HeldBecause, Policies};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};

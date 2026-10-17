@@ -154,7 +154,7 @@ where
         self: Arc<Self>,
         mut start: StartSession,
     ) -> Result<SessionRecord, Refusal> {
-        let plain = start.pilot.is_none() && start.fork.is_none() && start.root.is_none();
+        let plain = start.fork.is_none() && start.root.is_none();
         let request = start
             .request
             .take()

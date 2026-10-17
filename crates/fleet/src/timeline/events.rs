@@ -1,7 +1,5 @@
-//! A Job's moves and a Session's row, turned into timeline facts as they are
-//! published.
+//! A Session's row, turned into timeline facts as it is published.
 //!
-//! **A Job's own events carry the instant they happened**, and are dated by it.
 //! A Session row is replaced whole, so what changed is read against what this
 //! saw last: the first sighting is its start, a waiting item that was not there
 //! is an ask (or, where the agent listed it, a wait), one that left the agent's list is resolved,
@@ -11,25 +9,16 @@
 //! time its row changes, with the start the row states.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use core_model::{CheckOutcome, JobStatus, StepState};
 use ipc::{AttachmentState, Event, SessionRecord, SessionState, TimelineKind, TimelineTone, WaitingSource};
 
 use super::{bare, Fact, Subject, Timeline, SAYS};
-use crate::naming::Names;
-
-/// A Job's files changing is entered at most this often, in milliseconds.
-const FILES_EVERY: i64 = 60_000;
 
 /// What was last seen, so a repeat is not entered twice.
 #[derive(Default)]
 struct Seen {
     sessions: BTreeMap<String, SeenSession>,
-    /// A Check's result, by Job, the run of the step and the Check's name.
-    checks: BTreeSet<(String, u32, String)>,
-    /// When a Job's files were last entered, in milliseconds.
-    files: BTreeMap<String, i64>,
 }
 
 #[derive(Default)]
@@ -44,15 +33,13 @@ struct SeenSession {
 
 /// The tap on the event stream.
 pub(super) struct Hearing {
-    names: Arc<Names>,
     timeline: Timeline,
     seen: Mutex<Seen>,
 }
 
 impl Hearing {
-    pub(super) fn new(names: Arc<Names>, timeline: Timeline) -> Hearing {
+    pub(super) fn new(timeline: Timeline) -> Hearing {
         Hearing {
-            names,
             timeline,
             seen: Mutex::new(Seen::default()),
         }
@@ -68,156 +55,8 @@ impl Hearing {
         }
     }
 
-    /// A Job's fact, titled and placed from the index when the event names only its id.
-    fn job(
-        &self,
-        id: &ipc::JobId,
-        at: &ipc::Instant,
-        kind: TimelineKind,
-        tone: TimelineTone,
-        says: impl Into<String>,
-    ) -> Fact {
-        let domain = id.to_domain();
-        Fact::new(at.as_str(), kind, Subject::Job(id.as_str().to_string()), tone, says)
-            .titled(self.names.of(&domain))
-            .in_repository(self.names.owner_of(&domain))
-    }
-
-    /// The same, from an event that carries the Job whole.
-    fn summarised(
-        job: &ipc::JobSummary,
-        at: &ipc::Instant,
-        kind: TimelineKind,
-        tone: TimelineTone,
-        says: impl Into<String>,
-    ) -> Fact {
-        Fact::new(at.as_str(), kind, Subject::Job(job.id.as_str().to_string()), tone, says)
-            .titled(Some(job.handle.clone()))
-            .in_repository(Some(job.owner_manifest_id.as_str().to_string()))
-    }
-
     fn facts(&self, event: &Event, seen: &mut Seen) -> Vec<Fact> {
-        use TimelineKind as K;
-        use TimelineTone as T;
         match event {
-            Event::JobCreated(made) => {
-                vec![Self::summarised(&made.job, &made.at, K::JobCreated, T::Idle, "Dispatched")]
-            }
-            Event::JobStateChanged(moved) => {
-                let named = moved.reason.as_ref().and_then(|reason| reason.named.clone());
-                let job = |kind, tone, says: &str| self.job(&moved.job_id, &moved.at, kind, tone, says);
-                let one = match moved.to.domain() {
-                    JobStatus::Queued => job(K::JobQueued, T::Idle, "Queued"),
-                    JobStatus::Running if moved.from.domain() != JobStatus::Running => {
-                        job(K::JobStarted, T::Run, "Started").live()
-                    }
-                    JobStatus::AwaitingReview => job(K::JobAsked, T::Ask, "Needs review"),
-                    JobStatus::AwaitingRepair => job(K::JobAsked, T::Ask, "Needs repair"),
-                    JobStatus::AwaitingAttestation => job(K::JobAsked, T::Ask, "Needs attestation"),
-                    JobStatus::Escalated => job(K::JobAsked, T::Ask, "Escalated"),
-                    JobStatus::CompletedFailed => job(K::JobFailed, T::Bad, "Failed").over(),
-                    JobStatus::Rejected => job(K::JobFailed, T::Bad, "Rejected").over(),
-                    JobStatus::Killed => job(K::JobFailed, T::Idle, "Killed").over(),
-                    _ => return Vec::new(),
-                };
-                vec![one.detail(named)]
-            }
-            Event::JobStepAdvanced(step) => {
-                let name = capitalised(step.step_id.as_str());
-                let (tone, says) = match step.to.domain() {
-                    StepState::Advanced => (T::Ok, format!("{name} passed")),
-                    StepState::Running => (T::Run, format!("{name} started")),
-                    StepState::Retrying => (T::Run, format!("{name} started again")),
-                    StepState::Stopped => (T::Bad, format!("{name} stopped")),
-                    StepState::AwaitingHuman => (T::Ask, format!("{name} needs you")),
-                    StepState::NotStarted => return Vec::new(),
-                };
-                vec![Self::summarised(&step.job, &step.at, K::JobStep, tone, says)
-                    .detail(step.why.clone())
-                    .live()]
-            }
-            Event::JobChecking(checking) => {
-                let job = checking.job_id.as_str().to_string();
-                let Some(underway) = &checking.checking else {
-                    seen.checks.retain(|(held, ..)| *held != job);
-                    return Vec::new();
-                };
-                underway
-                    .checks
-                    .iter()
-                    .filter_map(|one| {
-                        let ran = one.ran.as_ref()?;
-                        let (tone, said) = match ran.outcome.domain() {
-                            CheckOutcome::Passed => (T::Ok, "passed"),
-                            CheckOutcome::Failed | CheckOutcome::Signalled => (T::Bad, "failed"),
-                            CheckOutcome::TimedOut => (T::Bad, "timed out"),
-                            CheckOutcome::NeverRan => (T::Bad, "did not run"),
-                            CheckOutcome::Skipped => return None,
-                        };
-                        seen.checks
-                            .insert((job.clone(), underway.attempt, one.name.clone()))
-                            .then(|| {
-                                self.job(
-                                    &checking.job_id,
-                                    &checking.at,
-                                    K::JobCheck,
-                                    tone,
-                                    format!("Check {} {said}", one.name),
-                                )
-                                .detail(Some(one.name.clone()))
-                                .live()
-                            })
-                    })
-                    .collect()
-            }
-            Event::JobJudging(judging) => judging
-                .judging
-                .as_ref()
-                .map(|call| {
-                    vec![self
-                        .job(&judging.job_id, &judging.at, K::JobJudged, T::Run, format!("Judge reads {}", call.look))
-                        .live()]
-                })
-                .unwrap_or_default(),
-            Event::JobFilesChanged(changed) => {
-                let job = changed.job_id.as_str().to_string();
-                let at = changed.at.to_domain().epoch_millis().unwrap_or_default();
-                if changed.files.is_empty()
-                    || seen.files.get(&job).is_some_and(|last| at - last < FILES_EVERY)
-                {
-                    return Vec::new();
-                }
-                seen.files.insert(job, at);
-                let n = changed.files.len();
-                let says = if n == 1 { "1 file changed".to_string() } else { format!("{n} files changed") };
-                vec![self
-                    .job(&changed.job_id, &changed.at, K::JobFiles, T::Run, says)
-                    .detail(changed.files.first().map(|file| file.path.clone()))
-                    .live()]
-            }
-            Event::JobAsking(asking) => asking
-                .asking
-                .as_ref()
-                .map(|question| {
-                    let says = match question.decisions.len() {
-                        0 => format!("Asked: {}", question.question),
-                        n => format!("Asked {n} decisions"),
-                    };
-                    vec![self.job(&asking.job_id, &asking.at, K::JobAsked, T::Ask, says)]
-                })
-                .unwrap_or_default(),
-            Event::JobCommandWaiting(waiting) => waiting
-                .waiting
-                .as_ref()
-                .map(|command| {
-                    vec![self
-                        .job(&waiting.job_id, &waiting.at, K::JobAsked, T::Ask, "Asked to run a command")
-                        .detail(Some(command.detail.clone()))]
-                })
-                .unwrap_or_default(),
-            Event::JobLanded(landed) => {
-                vec![Self::summarised(&landed.job, &landed.at, K::JobLanded, T::Ok, "Landed on main").over()]
-            }
             Event::SessionChanged(record) => Self::session(record, seen),
             _ => Vec::new(),
         }
@@ -296,12 +135,4 @@ impl Hearing {
         before.ended = ended;
         facts
     }
-}
-
-fn capitalised(word: &str) -> String {
-    let mut chars = word.chars();
-    chars
-        .next()
-        .map(|first| first.to_uppercase().chain(chars).collect())
-        .unwrap_or_default()
 }

@@ -130,17 +130,6 @@ pub const PROMPT_PERMIT_REPOSITORY: Words = Words("prompts.permitRepository");
 pub const PROMPT_PERMIT_MACHINE: Words = Words("prompts.permitMachine");
 pub const PROMPT_PERMIT_REJECTED: Words = Words("prompts.permitRejected");
 pub const PROMPT_PERMIT_REJECTED_NOTE: Words = Words("prompts.permitRejectedNote");
-pub const PROMPT_PILOT_OPENING: Words = Words("prompts.pilotOpening");
-pub const PROMPT_PILOT_WORKTREE: Words = Words("prompts.pilotWorktree");
-pub const PROMPT_PILOT_RESTART: Words = Words("prompts.pilotRestart");
-pub const PROMPT_PILOT_FOR_GOOD: Words = Words("prompts.pilotForGood");
-pub const PROMPT_PILOT_STOPPED: Words = Words("prompts.pilotStopped");
-pub const PROMPT_PILOT_JUDGE_REFUSED: Words = Words("prompts.pilotJudgeRefused");
-pub const PROMPT_PILOT_CHECKS_FAILED: Words = Words("prompts.pilotChecksFailed");
-pub const PROMPT_PILOT_OUTSIDE_PLAN: Words = Words("prompts.pilotOutsidePlan");
-pub const PROMPT_PILOT_CHANGED: Words = Words("prompts.pilotChanged");
-pub const PROMPT_PILOT_NARRATIVE: Words = Words("prompts.pilotNarrative");
-pub const PROMPT_PILOT_RECORD: Words = Words("prompts.pilotRecord");
 
 pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::DroneBrief, PROMPT_DRONE_NOTEKEEPING, "Notes it keeps", "Where a Drone keeps files it writes for itself. {job} is the Job's id.", &["job"]),
@@ -270,15 +259,4 @@ pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_MACHINE, "Permission: allowed on this machine", "A person allowed a command on this machine. {rule} is what was kept and {command} what the Drone ran.", &["rule", "command"]),
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_REJECTED, "Permission: refused", "A person said no to a command. {command} is the command.", &["command"]),
     prompt(PromptSection::InjectedTurns, PROMPT_PERMIT_REJECTED_NOTE, "Permission: the person's words", "The line a person's own words follow when they said no with a note.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_OPENING, "Pilot handoff: opening", "What a piloted session reads first. {title} and {id} name the Job.", &["title", "id"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_WORKTREE, "Pilot handoff: the worktree", "{path} and {branch} say where the work is.", &["path", "branch"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_RESTART, "Pilot handoff: to restart the step", "Where the Job was taken over to restart its step.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_FOR_GOOD, "Pilot handoff: for good", "Where the Job was taken over for good.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_STOPPED, "Pilot handoff: where it stopped", "{step} is the step, {label} its name in quotes or nothing, {trigger} why in brackets or nothing, and {runs} how many runs.", &["step", "label", "trigger", "runs"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_JUDGE_REFUSED, "Pilot handoff: what the Judge refused", "The line the refused criteria follow.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_CHECKS_FAILED, "Pilot handoff: checks that failed", "The line the failed checks follow.", &[]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_OUTSIDE_PLAN, "Pilot handoff: outside the plan", "{files} are the files changed outside the declared plan.", &["files"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_CHANGED, "Pilot handoff: what changed", "{files} are the files the worktree changes.", &["files"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_NARRATIVE, "Pilot handoff: the Drone's account", "What the Drone said it was stuck on. {trying_to}, {blocked_by} and {tried} are its words.", &["trying_to", "blocked_by", "tried"]),
-    prompt(PromptSection::InjectedTurns, PROMPT_PILOT_RECORD, "Pilot handoff: the full record", "The closing line, pointing at get_handoff.", &[]),
 ];

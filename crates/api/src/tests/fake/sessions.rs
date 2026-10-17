@@ -187,7 +187,6 @@ impl Sessions for FakeDaemon {
             number: claim.number,
             branch: String::new(),
             url: String::new(),
-            holder_kind: String::from("session"),
             holder_id: String::from("session"),
         })
     }

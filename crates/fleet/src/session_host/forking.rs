@@ -244,7 +244,6 @@ where
             effort: hosting.as_ref().and_then(|hosting| hosting.effort.clone()),
             mode: hosting.as_ref().map(|hosting| super::serving::mode_of(&hosting.mode)),
             root: None,
-            pilot: None,
             fork: None,
             request: None,
             after: None,

@@ -10,8 +10,6 @@ use ipc::{SessionFact, SessionId, SessionOrigin, SessionReport, TimelineSubject,
 
 use super::timeline::{kept, kinds, publish, read};
 use crate::tests::tmp::TempDir;
-use crate::timeline::{Doer, JobToolsSeen};
-use crate::transcript::Tap;
 
 fn row(id: &str, state: &str, waiting: &str, attachments: &str) -> String {
     format!(
@@ -150,41 +148,6 @@ async fn a_terminal_sessions_acts_are_entered_once_where_its_turn_ends() {
     assert!(events[1..].iter().all(|one| one.title.as_deref() == Some("Flaky store test")));
 }
 
-/// A Job's Drone reads and runs are counted off its stream; its edits are `job.files`, so they are not.
-#[tokio::test]
-async fn a_jobs_reads_and_commands_are_entered_and_its_edits_are_left_to_its_files() {
-    let home = TempDir::new();
-    let (fleet, _) = kept(&home);
-    let tap = JobToolsSeen {
-        harness: Arc::clone(fleet.harness()),
-        timeline: fleet.timeline().clone(),
-        doer: Doer::job("01JOB", Some("job-7".to_string()), Some("armada".to_string())),
-    };
-    let called = |tool: &str, detail: &str| DroneEvent::Called {
-        tool: tool.to_string(),
-        call: "c".to_string(),
-        detail: CallDetail::of(detail),
-    };
-    tap.saw(&[
-        called(testkit::READS, "src/a.rs"),
-        called(testkit::READS, "src/b.rs"),
-        called(testkit::RUNS, "cargo build"),
-        called(testkit::RUNS, "API_TOKEN=abc123 deploy now"),
-        called(testkit::EDITS, "src/a.rs +3 -1"),
-        called("another_tool", "anything"),
-    ]);
-    fleet.timeline().close_bursts_of(&Doer::job("01JOB", None, None));
-
-    let events = read(&fleet).await;
-    assert_eq!(kinds(&events), ["job.read", "job.ran"]);
-    assert_eq!((events[0].says.as_str(), events[0].detail.as_deref()), ("Read 2 files", Some("src/b.rs")));
-    assert_eq!(events[0].title.as_deref(), Some("job-7"));
-    assert_eq!(events[1].says, "Ran 2 commands");
-    assert_eq!(events[0].items, ["src/b.rs", "src/a.rs"], "newest first, kept through the store");
-    assert_eq!(events[1].items, ["API_TOKEN=*** deploy now", "cargo build"], "a command is hidden as its detail is");
-    assert_eq!(events[1].detail.as_deref(), events[1].items.first().map(String::as_str));
-}
-
 /// A Session whose agent starts another, or forks its own, is the subject of the entry.
 #[tokio::test]
 async fn a_session_that_starts_another_is_entered() {
@@ -223,7 +186,6 @@ async fn a_hosted_sessions_calls_are_entered_where_its_turn_ends() {
             model: None,
             effort: None,
             mode: None,
-            pilot: None,
             fork: None,
             request: None,
             after: None,
