@@ -156,9 +156,7 @@ function Holder({ clash }: { clash: ClashView }) {
 
 /** What a folded bar says of more than one other holder, in place of a chip for each: the owner's ask of 17 Oct 2026. */
 function othersSaid(clashes: readonly ClashView[]): string {
-  const kinds = new Set(clashes.map((one) => one.with.kind));
-  const noun = kinds.size > 1 || kinds.has("main") ? "others" : kinds.has("job") ? "other Jobs" : "other Sessions";
-  return `${clashes.length} ${noun}`;
+  return `${clashes.length} ${clashes.some((one) => one.with.kind === "main") ? "others" : "other Sessions"}`;
 }
 
 function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: string }) {

@@ -685,7 +685,7 @@ export type SessionsDraft = {
   /** One file of a pull request, read when a person opens it from the Files tab. Absent with `pullRequestPage`. */
   pullRequestFile?: (id: string, number: number, path: string) => Promise<PullRequestFileRead>;
   /** One file of a write clash between the Session and `other`, read when a person opens it from Bays. */
-  clashFile?: (id: string, other: { kind: "job" | "session" | "main"; id: string }, path: string) => Promise<ClashFileRead>;
+  clashFile?: (id: string, other: { kind: "session" | "main"; id: string }, path: string) => Promise<ClashFileRead>;
   /**
    * A comment, an approval or a request for changes on a pull request. **Answers the page read
    * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.
