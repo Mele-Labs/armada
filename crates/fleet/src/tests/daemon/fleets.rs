@@ -140,9 +140,6 @@ pub fn fitted_over<V>(
         run_log_retention: Duration::from_secs(30 * 24 * 60 * 60),
         // The setting's own default. No fixture here asserts on `ReadOnly`.
         helm_authority: crate::helm::Authority::Acting,
-        // The production default, `run_log_retention`'s reason: no fixture
-        // here asserts on the sweep window.
-        helm_session_retention: Duration::from_secs(30 * 24 * 60 * 60),
         // Two seconds, not the shipped five minutes: a case about nobody
         // answering has to outlive the hold, and `HelmAskHold` is a fitting
         // for exactly that.
@@ -221,7 +218,6 @@ pub fn fitted_over<V>(
         second_opinion_model: Model::named("the-second-model").expect("a model name"),
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
         retro_model: Model::named("the-retro-model").expect("a model name"),
-        commander_model: Model::named("the-commander-model").expect("a model name"),
         // Resolves no link, lists nothing and takes every write, so every
         // fixture but `proposing`'s own behaves exactly as it did before this
         // seam existed. The cases about it, and about writing back, plant their

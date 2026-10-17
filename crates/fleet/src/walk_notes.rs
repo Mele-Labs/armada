@@ -13,19 +13,16 @@
 //! send leaves every note unsent, to go with the next one.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::JobId;
 use ipc::{
-    CaptureElement, CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold,
-    WireError,
+    CaptureElement, CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes, WireError,
 };
 use store::{KeptWalkNote, WalkNoteRemoved, WalkServed};
 
 use crate::adrift::Adrift;
-use crate::commanding_wakes::Trouble;
 use crate::daemon::Fleet;
 use crate::studios::MOST_A_FRAME_MAY_WEIGH;
 
@@ -148,23 +145,6 @@ where
             }
         }
         self.walk_notes_answered(&id).await
-    }
-
-    /// `walk_failed`: the Job's Commander woken on what the walk window saw,
-    /// once per step attempt. Moves nothing itself.
-    pub(crate) async fn walk_failed_told(
-        self: Arc<Self>,
-        job_id: ipc::JobId,
-        failed: WalkFailed,
-    ) -> Result<WalkTold, Refusal> {
-        let id = job_id.to_domain();
-        self.load(&id).await.map_err(|why| self.refusal(why))?;
-        let trouble = Trouble::WalkFailed {
-            url: failed.url.trim().to_string(),
-            why: failed.why.trim().to_string(),
-        };
-        let told = self.woken_for(&id, trouble).await;
-        Ok(WalkTold { told })
     }
 
     /// Every walk note on a Job, oldest first, as `get_job` carries them.

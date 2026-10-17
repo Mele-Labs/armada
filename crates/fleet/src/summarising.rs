@@ -130,11 +130,6 @@ where
             summary.piloted = self.piloted_on_row(&store, job);
             summary.alert = self.alert_on_row(&store, job);
             summary.bays = bays_on_row(&store, job);
-            // **A card the Job's Commander put out waits on the owner as a
-            // Drone's question does**, so the Job reads `asking` and sits in
-            // Your move. Not a status: a running Job keeps running.
-            summary.asking |= !job.status().is_terminal()
-                && store.open_commander_card(job.id()).ok().flatten().is_some();
         }
         Ok(summary)
     }

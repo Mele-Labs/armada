@@ -610,10 +610,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::walking::remove_walk_note::<D>),
         )
         .route(
-            "/jobs/:job_id/walk/failed",
-            post(crate::walking::walk_failed::<D>),
-        )
-        .route(
             "/jobs/:job_id/queue_after_finding",
             post(queue_after_finding::<D>),
         )
@@ -750,10 +746,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::commands::set_review_model::<D>),
         )
         .route(
-            "/jobs/:job_id/set_commander_model",
-            post(crate::commands::set_commander_model::<D>),
-        )
-        .route(
             "/jobs/:job_id/set_tiers",
             post(crate::commands::set_tiers::<D>),
         )
@@ -783,26 +775,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/helm/session", get(get_helm_session::<D>))
         .route("/helm/ask", post(ask_helm::<D>))
-        .route(
-            "/jobs/:job_id/commander/observe",
-            get(crate::conversing::observe_commander::<D>),
-        )
-        .route(
-            "/jobs/:job_id/commander/ask",
-            post(crate::conversing::ask_commander::<D>),
-        )
-        .route(
-            "/jobs/:job_id/commander/card",
-            post(crate::conversing::ask_the_owner::<D>),
-        )
-        .route(
-            "/jobs/:job_id/commander/repair",
-            post(crate::conversing::send_repair_drone::<D>),
-        )
-        .route(
-            "/jobs/:job_id/commander/card/answer",
-            post(crate::conversing::answer_commander_card::<D>),
-        )
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
         .route("/helm/read_thought", post(read_thought::<D>))

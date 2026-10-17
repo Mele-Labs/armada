@@ -177,9 +177,6 @@ pub struct Fittings<H, V, W> {
     /// `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only`,
     /// resolved here like every other Machine setting. `#943`.
     pub helm_authority: crate::helm::Authority,
-    /// `settings.helm-session-retention-expiry`, resolved here for
-    /// `run_log_retention`'s reason. `#943`.
-    pub helm_session_retention: std::time::Duration,
     /// How long one Helm call is held open for a person before Fleet answers
     /// `deny` for them. `#1389`, and `crate::helm::HelmAskHold` says why it is
     /// a fitting.
@@ -291,10 +288,6 @@ pub struct Fittings<H, V, W> {
     /// per ended Job, read by a person, and raised for neither of the others'
     /// reasons.
     pub retro_model: Model,
-    /// What a Job's Commander runs on when the Job names none. **Its own dial**:
-    /// it reads a whole Job and acts on it, and is raised for neither of the
-    /// others' reasons.
-    pub commander_model: Model,
     /// The tracker a repository's open issues are read from and written back
     /// on, and what a request's own link in it resolves to before it becomes a
     /// Job's `facts`; asked per repository with what its Manifest chose.
@@ -355,10 +348,7 @@ where
         // Jobs bound moves it for them at the next start.
         let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
         let run = fittings.mint.ulid();
-        let helm = crate::helm::Conversations::hosted_by(
-            Arc::new(crate::helm::ProcessHost::on_this_machine(&fittings.host, width)),
-            fittings.helm_ask_hold,
-        );
+        let helm = crate::helm::Conversations::holding_for(fittings.helm_ask_hold);
         let sessions = crate::session_host::Hosts::hosted_by(
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
                 &fittings.host,
@@ -458,8 +448,6 @@ where
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
             heals: std::sync::Mutex::default(),
-            repairing: crate::repair_hold::Underway::default(),
-            stirred: std::sync::Mutex::default(),
             trigger_repairs: std::sync::Mutex::default(),
             owner_runs: std::sync::Mutex::default(),
             pressing: crate::showing_again::Pressing::default(),
@@ -479,13 +467,6 @@ where
             mods: crate::mods::Told::default(),
             run,
         }
-    }
-
-    /// The same Fleet with Helm's messages carried by `host` — a stand-in in a
-    /// test, or a host somewhere other than a process Fleet starts.
-    pub fn hosting_helm_on(mut self, host: Arc<dyn crate::helm::Hosting>) -> Fleet<H, V, W> {
-        self.helm = crate::helm::Conversations::hosted_by(host, self.helm.hold());
-        self
     }
 
     /// The same Fleet with its scouts started by `host` — a stand-in agent in

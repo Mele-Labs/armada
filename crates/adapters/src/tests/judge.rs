@@ -209,19 +209,7 @@ fn the_default_steps_down_to_a_roster_model_below_the_strongest() {
     let at = |model| roster.iter().position(|named| *named == model);
     assert!(at(HeadlessAgent::downshift_model()).is_some(), "a member of the roster");
     assert!(
-        at(HeadlessAgent::downshift_model()) > at(HeadlessAgent::commander_model()),
-        "the roster runs strongest first"
-    );
-}
-
-/// A Commander runs on the strongest tier, as `commander-model` decided on
-/// 12 Oct 2026: a member of the roster, and its first.
-#[test]
-fn a_commander_runs_on_the_strongest_model_on_the_roster() {
-    assert_eq!(HeadlessAgent::commander_model(), "opus");
-    assert_eq!(
-        HeadlessAgent::models().first().copied(),
-        Some(HeadlessAgent::commander_model()),
+        at(HeadlessAgent::downshift_model()) > Some(0),
         "the roster runs strongest first"
     );
 }

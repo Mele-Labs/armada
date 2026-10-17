@@ -208,68 +208,18 @@ async fn a_second_helm_raise_reaches_no_further_than_the_first() {
     );
 }
 
-/// **The Commander reaches three times what the Job would inherit.** `#2165`:
-/// wider than Helm's two because a Commander steers one Job it was placed on,
-/// and still a multiple of the tier, so the bound is a figure and not a habit.
-#[tokio::test]
-async fn the_commander_may_triple_the_inherited_cap_and_no_more() {
-    let home = TempDir::new();
-    let fleet = capped(&home);
-    let job = approved(&fleet, &home, "a change its Commander is steering").await;
-
-    let refused = fleet
-        .raise_cost_cap(&job, &dollars(16), RaisedBy::Commander)
-        .await
-        .expect_err("three times five dollars is fifteen, and sixteen is past it");
-    assert!(
-        refused.to_string().contains("$15.00"),
-        "the refusal names the ceiling: {refused}"
-    );
-
-    fleet
-        .raise_cost_cap(&job, &dollars(15), RaisedBy::Commander)
-        .await
-        .expect("exactly the ceiling is the ceiling reached, not passed");
-}
-
-/// **Three raises do not compound.** The ceiling is a multiple of what the Job
-/// would inherit and never of the cap in force, so a Commander that has reached
-/// fifteen dollars is still held at fifteen.
-#[tokio::test]
-async fn a_second_commander_raise_reaches_no_further_than_the_first() {
-    let home = TempDir::new();
-    let fleet = capped(&home);
-    let job = approved(&fleet, &home, "a change its Commander asks about twice").await;
-    fleet
-        .raise_cost_cap(&job, &dollars(15), RaisedBy::Commander)
-        .await
-        .expect("the first raise takes the Job to the ceiling");
-
-    let refused = fleet
-        .raise_cost_cap(&job, &dollars(45), RaisedBy::Commander)
-        .await
-        .expect_err("the ceiling is still fifteen, not forty-five");
-
-    assert!(refused.to_string().contains("$15.00"), "{refused}");
-}
-
 /// **Each raiser has the ceiling its own multiple makes**, on one Job and one
-/// figure: the same eleven dollars is past Helm's ten, inside the Commander's
-/// fifteen, and nothing to a person.
+/// figure: the same eleven dollars is past Helm's ten, and nothing to a person.
 #[tokio::test]
 async fn one_figure_meets_a_different_ceiling_for_each_raiser() {
     let home = TempDir::new();
     let fleet = capped(&home);
-    let job = approved(&fleet, &home, "a change three raisers ask about").await;
+    let job = approved(&fleet, &home, "a change two raisers ask about").await;
 
     assert!(fleet
         .raise_cost_cap(&job, &dollars(11), RaisedBy::Helm)
         .await
         .is_err());
-    assert!(fleet
-        .raise_cost_cap(&job, &dollars(11), RaisedBy::Commander)
-        .await
-        .is_ok());
     assert!(fleet
         .raise_cost_cap(&job, &dollars(500), RaisedBy::Person)
         .await

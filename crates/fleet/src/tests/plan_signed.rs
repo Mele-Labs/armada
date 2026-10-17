@@ -1,5 +1,5 @@
-//! A plan act signed as the caller who made it: a person, Helm, or the Job's
-//! Commander, each through one path with one set of refusals. `#2168`.
+//! A plan act signed as the caller who made it: a person or Helm,
+//! each through one path with one set of refusals. `#2168`.
 //!
 //! **The caller is the transport's word**, so every act here is handed a
 //! `Steerer` as the route would place it, and what is read back is what the
@@ -32,7 +32,7 @@ struct Caller {
     task: ipc::TaskBy,
 }
 
-fn the_callers() -> [Caller; 3] {
+fn the_callers() -> [Caller; 2] {
     [
         Caller {
             by: Steerer::Person,
@@ -45,12 +45,6 @@ fn the_callers() -> [Caller; 3] {
             actor: Actor::Helm,
             author: PlanAuthor::Helm,
             task: ipc::TaskBy::Helm,
-        },
-        Caller {
-            by: Steerer::Commander,
-            actor: Actor::Commander,
-            author: PlanAuthor::Commander,
-            task: ipc::TaskBy::Commander,
         },
     ]
 }
@@ -217,7 +211,7 @@ async fn each_caller_adds_edits_drops_and_moves_a_task_as_its_own() {
     }
 }
 
-/// A task Helm or the Commander changed after a person did wears the later
+/// A task Helm changed after a person did wears the later
 /// hand, and a step marking it afterwards does not take it off.
 #[tokio::test]
 async fn a_task_wears_whoever_last_changed_it_and_a_step_does_not_wipe_it() {
@@ -229,7 +223,6 @@ async fn a_task_wears_whoever_last_changed_it_and_a_step_does_not_wipe_it() {
     };
     for (by, expected) in [
         (Steerer::Person, ipc::TaskBy::Person),
-        (Steerer::Commander, ipc::TaskBy::Commander),
         (Steerer::Helm, ipc::TaskBy::Helm),
     ] {
         let plan = Commands::edit_task(
@@ -273,8 +266,8 @@ async fn a_task_wears_whoever_last_changed_it_and_a_step_does_not_wipe_it() {
     );
 }
 
-/// **One path, one set of refusals.** What a person is told no to, Helm and the
-/// Commander are told no to in the same words, and nothing is kept.
+/// **One path, one set of refusals.** What a person is told no to, Helm is
+/// told no to in the same words, and nothing is kept.
 #[tokio::test]
 async fn every_caller_meets_the_same_refusals_and_none_leaves_a_change() {
     for caller in the_callers() {

@@ -408,10 +408,7 @@ On a command, a plain agent's access is `agent_access = "Yes"`; a Helm session
 also reaches `Drafts only` and `Helm only` rows, which is every command the door
 offers but `undo_run` once a person asks for it in conversation —
 `fleet::helm::may` is the rule, and the Intervention Ladder no longer bounds it.
-**A `Commander only` command is listed to a Job's Commander and to no other
-caller, Helm included**: `ask_the_owner` is the card a Commander puts to
-the owner when the fix is out of its reach, and `send_repair_drone` is the
-repair Drone it puts onto the Job's own branch. **A `Bridge only` command reaches no agent, Helm included**: accepting a Studio
+**A `Bridge only` command reaches no agent, Helm included**: accepting a Studio
 edge, removing a node and deleting a Studio are a person's acts. The full set of
 operations — each with its kind, its transport and what an agent may reach
 directly — is in `crates/ipc/operations/`.

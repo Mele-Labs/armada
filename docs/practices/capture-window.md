@@ -364,8 +364,7 @@ this window, and that is another security review. `#1294`.
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
-> a Session as `window_failed`, which Fleet passes on as its own notice, and a
-> Job as `walk_failed`, which wakes its Commander. A load that failed, an HTTP
+> a Session as `window_failed`, which Fleet passes on as its own notice. A load that failed, an HTTP
 > status of 400 or more on the page, or the page's process gone counts, and so
 > does a loaded page that shows Vite's error overlay or draws nothing two looks
 > running. Main looks every two seconds, never while the page is still

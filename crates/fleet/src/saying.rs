@@ -498,11 +498,6 @@ impl fmt::Display for Adrift {
                  restarting the step, which would throw that session away",
                 job.as_str()
             ),
-            Adrift::RepairUnderway { job } => write!(
-                out,
-                "a repair Drone is on {}'s branch. Wait for it to hand in or to end",
-                job.as_str()
-            ),
             Adrift::WorktreeGone { job, path } => write!(
                 out,
                 "{} has no worktree at {path}, so the earlier steps' work is not on disk. \
@@ -885,7 +880,6 @@ impl Adrift {
             | Adrift::Unreasoned { job }
             | Adrift::NotFileable { job, .. }
             | Adrift::DroneStillThere { job }
-            | Adrift::RepairUnderway { job }
             | Adrift::WorktreeGone { job, .. }
             | Adrift::SlotLost { job, .. }
             | Adrift::AttachmentUnreadable { job, .. }
@@ -1051,7 +1045,6 @@ impl Error for Adrift {
             // what failed underneath it.
             | Adrift::NotFileable { .. }
             | Adrift::DroneStillThere { .. }
-            | Adrift::RepairUnderway { .. }
             | Adrift::WorktreeGone { .. }
             | Adrift::SlotLost { .. }
             // A pause says what the Job's record holds or what the pool said,

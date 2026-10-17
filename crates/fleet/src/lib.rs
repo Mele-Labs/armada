@@ -108,8 +108,6 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
-/// When a Job's Commander is woken: six troubles, each once, and the loop bound.
-mod commanding_wakes;
 mod configured;
 /// Whether a gate's red is the work's or the machine's, before it is ruled on.
 mod confirming;
@@ -179,9 +177,6 @@ pub mod holding;
 /// answer 5.
 mod issue_noticing;
 mod job_issues;
-/// A Commander's repair Drone on a Job's own branch. `#2170`.
-pub mod job_repair;
-mod repair_hold;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;

@@ -449,7 +449,6 @@ where
             | Adrift::NoDroneToRedirect { job }
             | Adrift::NotAnswerable { job, .. }
             | Adrift::DroneStillThere { job }
-            | Adrift::RepairUnderway { job }
             | Adrift::WorktreeGone { job, .. }
             | Adrift::SlotLost { job, .. }
             | Adrift::NotTheJudges { job, .. }

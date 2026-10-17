@@ -677,7 +677,6 @@ fn assemble(
         model_at(shipped.get(keys::MODELS_SECOND_OPINION), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
-    let commander_model = model_at(shipped.get(keys::MODELS_COMMANDER), shipped.get(keys::EFFORT_COMMANDER))?;
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -723,7 +722,6 @@ fn assemble(
             true => fleet::helm::Authority::Acting,
             false => fleet::helm::Authority::ReadOnly,
         },
-        helm_session_retention: days(shipped.get(keys::HELM_SESSION_DAYS)),
         helm_ask_hold: fleet::helm::HelmAskHold::of(at_start.get(keys::HELM_ASK_HOLD_SECONDS)),
         // The kernel, because the question is which process holds a socket.
         // `fleet::peer` holds the measurement that chose it over `lsof`.
@@ -775,7 +773,6 @@ fn assemble(
         judge_model,
         proposer_model,
         retro_model,
-        commander_model,
         second_opinion_model,
         // The tracker and link reader each repository's Manifest chose; the
         // forge's own where it chose none. #91.
