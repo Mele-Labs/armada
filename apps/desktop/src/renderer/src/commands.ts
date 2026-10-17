@@ -1,71 +1,29 @@
 // What this app asks the host to do, and what it asks the host to hold open.
 //
-// **Its own file for the reason `dispatch.ts` and `palette.ts` are their own**:
-// this is a subject rather than a line of wiring. The subject is the preload
-// boundary — nothing here knows which surface is open or what is drawn, and
-// nothing that draws knows how to reach the host.
+// **Its own file for the reason `palette.ts` is its own**: this is a subject rather than a line of
+// wiring. The subject is the preload boundary — nothing here knows which surface is open or what is
+// drawn, and nothing that draws knows how to reach the host.
 //
-// **The pieces of state here are the ones a command in flight has**, and
-// they are here for that reason and not because they were nearby: which Job an
-// act is on, which Job a decision on its work is on, what the last command
-// answered and which control that answers on, what the last reclaim gave back,
-// whether a re-read is out, and which Job is having its Checks run again.
-// Every one of them is set by a call below and read by nothing else.
-//
-// # What is not decided here
-//
-// A command that ends somewhere on screen says so through a callback rather
-// than by reaching for state it does not own: a redispatch's replacement is
-// opened by `onOpen`, and a re-read's answer is published by `onRead`. Two
-// commands need something the render knows — a proposal needs the workflow
-// roster, and a confirmed restart needs the note the dialog collected — and
-// both take it as an argument, because both are a function of the render.
-//
-// **The one piece of navigation state that is not navigation** is here too:
-// whether the open Job's turns socket is held. It was navigation while watching
-// swapped the surface for a transcript; the turns are the open step's activity
-// log now, so it tracks which Job is open and nothing presses it.
+// **The pieces of state here are the ones a command in flight has**: what the last command answered,
+// and which question an answer is out on. A command that ends somewhere on screen says so through a
+// callback rather than by reaching for state it does not own: a re-read's answer is published by
+// `onRead`.
 
-import { sentRedirects } from "./sent-redirects";
-import type { ToProposer, ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { BuildSource, ChangeSlotPool, FixMain, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
-import { useEffect, useState } from "react";
+import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
+import { useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import { triggerActs } from "./trigger-commands";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
-import type {
-  AddTask,
-  Artifact,
-  DropTask,
-  FileReport,
-  Outcome,
-  StagedAttachment,
-  WorktreeReclaimed,
-} from "@armada/protocol";
-import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type {
-  AlwaysAllowScope,
-  CommandAnswer,
-  HelmCallAnswer,
-  JudgeAnswer,
-  StartCheckoutRun,
-  StartRun,
-  WhenBlocked,
-  WhenRefused,
-} from "@armada/protocol";
-import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol";
+import type { Outcome } from "@armada/protocol";
+import type { AlwaysAllowScope, CommandAnswer, HelmCallAnswer, JudgeAnswer, StartCheckoutRun } from "@armada/protocol";
+import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
-import type { Confirming } from "./ConfirmAct";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
-import type { PauseAct, Taken, TakenAct } from "@armada/screens";
-import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, TaskAct } from "@armada/jobs";
-import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";
-import { patternFor, useHaptics } from "@armada/components";
-import { proposeRequest } from "./dispatch";
 
 /* The host calls the screens make, bound once at module scope.
  *
@@ -77,7 +35,6 @@ import { proposeRequest } from "./dispatch";
  * They exist at all because a screen may not reach for the preload. A screen
  * that did could not be rendered outside the app, which is the whole of why the
  * screens are a layer. */
-export const readDiff = (jobId: string | null): void => void window.armada.readDiff(jobId);
 export const readReports = (want: boolean): void => void window.armada.readReports(want);
 export const readHeld = (want: boolean): void => void window.armada.readHeld(want);
 // The Studios surface — #1287. The two reads are held by effects, so they are stable here too.
@@ -164,15 +121,10 @@ export const bayActs = {
   onPause: slotActs.onPause,
   onResume: slotActs.onResume,
 };
-export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
-export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
-/** Pulse's own 10 s tick, held open for as long as the board is drawn. #1571. */
-export const watchPulse = (jobId: string | null): void => void window.armada.watchPulse(jobId);
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
 export const readSessionCheckOutput = (run: number) => window.armada.readSessionCheckOutput(run);
 export const stopSessionCheck = (run: number, force: boolean) => window.armada.stopSessionCheck(run, force);
-export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
 /** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);
 export const readLessons = (state: "open" | "accepted") => window.armada.readLessons(state);
@@ -185,41 +137,11 @@ export const setupSessionFleet = { startSession: (title?: string, root?: string)
 export const reviewLessons = () => window.armada.reviewLessons();
 export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
   window.armada.askLesson(lessonId, question, history);
-/** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
-export const listBranches = async (manifestId: string) => {
-  const read = await window.armada.listBranches(manifestId);
-  return read.ok ? read.branches : null;
-};
-/** New job's own reads for the repository its ask answered, on All — #959. */
-export const readComposing = (repository: string) => window.armada.readComposing(repository);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
 export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
 
-export const readFrame = (jobId: string, kept: string) => window.armada.readFrame(jobId, kept);
-/** Where a recording streams from. Composed, not fetched — main answers it. */
-export const frameSrc = (jobId: string, kept: string) => window.armada.frameStreamUrl(jobId, kept);
-/** Ask a Job to show its work again. Answered to the screen that pressed it. */
-export const showAgain = (jobId: string, spec?: string) => window.armada.showAgain(jobId, spec);
-export const openArtifact = (jobId: string, what: Artifact) => window.armada.openArtifact(jobId, what);
-export const openInTerminal = (jobId: string) => window.armada.openInTerminal(jobId);
-export const openPullRequest = (jobId: string) => window.armada.openPullRequest(jobId);
-export const openRemarkLink = (jobId: string, remarkId: string) =>
-  window.armada.openRemarkLink(jobId, remarkId);
 
-/** Open the issue a finding became. Main reads the address; the renderer sends none. #906. */
-export const openFindingIssue = (jobId: string, finding: string) =>
-  window.armada.openFindingIssue(jobId, finding);
-export const examine = (jobId: string): void => void window.armada.examineJob(jobId);
-// The run sheet — Journey 9. Opened by the sheet, not the Job.
-export const watchRunSheet = (jobId: string | null): void => void window.armada.watchRunSheet(jobId);
-export const observeRun = (jobId: string | null, runId: string | null): void =>
-  void window.armada.observeRun(jobId, runId);
-export const startRun = (jobId: string, body: StartRun) => window.armada.startRun(jobId, body);
-export const stopRun = (jobId: string, runId: string) => window.armada.stopRun(jobId, runId);
-export const undoRun = (jobId: string, runId: string) => window.armada.undoRun(jobId, runId);
-export const listRuns = (jobId: string) => window.armada.listRuns(jobId);
-export const getRunOutput = (jobId: string, runId: string) => window.armada.getRunOutput(jobId, runId);
 // The same rehearsal in the main checkout — the Manifest surface. Held open
 // by the app rather than by the screen, because the palette lists off the same
 // reading and a read the screen owned would leave those rows missing
@@ -299,36 +221,19 @@ export const changeFleetBuild = (build: BuildSource, adopt: boolean) => window.a
 // window then does is its own bar's.
 export const openCaptureWindow = (serverId: string, url: string) =>
   window.armada.openCaptureWindow(serverId, url);
-/** A Job's servers as its run sheet acts on them, the capture window opened to walk one. */
-export const runSheetServers = {
-  onStartServer: startServer,
-  onStopServer: stopServer,
-  onOpenServerLink: openServerLink,
-  onWalkInBridge: openCaptureWindow,
-};
 export const stageAttachment = (bytes: ArrayBuffer, filename: string, mimeType: string) =>
   window.armada.stageAttachment(bytes, filename, mimeType);
 /** Paths under the checkout narrowed against typed text, for the `@` mention popup. */
 export const searchFiles = (query: string, manifestId?: string) => window.armada.searchFiles(query, manifestId);
-/** What one command does, for the person deciding whether to allow it. A read: nothing moves. */
-export const explainCommand = (jobId: string, callId: string) =>
-  window.armada.explainCommand(jobId, callId);
 
-/** What a command needs from the render, and where two of them land. */
+/** What a command needs from the render. */
 export type Sending = {
-  /**
-   * Where a redispatch's replacement goes. The Job that was open is over and
-   * the one worth reading is the new one, which is a fact about the detail —
-   * so it is answered to the render rather than decided here.
-   */
-  onOpen: (jobId: string) => void;
   /** Where a re-read's answer goes: the one place published state is held. */
   onRead: (state: BridgeState) => void;
-  /** The rows as drawn, so a press taken at a frozen repository can say it waits. */
-  jobs: readonly JobSummary[];
-  /** An act on a paused Job was refused, so the confirm that offers Resume opens. The act is not sent again. */
-  onPaused: (jobId: string) => void;
 };
+
+/** The answers a card in Helm's dock sends for a question a Drone asked. */
+export type ActingAct = "answer" | "answer_command" | "answer_judge";
 
 /**
  * Every command the window can send, and the state one in flight has.
@@ -340,106 +245,16 @@ export type Sending = {
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const triggers = triggerActs(setOutcome);
-  // The trackpad, for the finger that pressed. Every act on a Job answers through `heard`.
-  const tap = useHaptics();
-  // A press a freeze took and holds. Its own state: `outcome` draws refusals, and this is not one.
-  const [taken, setTaken] = useState<Taken | null>(null);
-  const rowOf = (jobId: string) => sending.jobs.find((job) => job.id === jobId);
-  useEffect(() => {
-    if (taken !== null && !takenStands(taken, rowOf(taken.jobId))) setTaken(null);
-  }, [sending.jobs, taken]);
-  function took(jobId: string, act: TakenAct, answer: Outcome): void {
-    if (answer.ok) setTaken({ jobId, act, from: rowOf(jobId)?.status });
-  }
-  const notice = taken === null ? null : takenNotice(taken, rowOf(taken.jobId));
-  // Which Job an act is in flight on. **Nothing destructive happens on one
-  // press** — the dialog that collects the confirmation is the render's.
+  // Which question an answer is in flight on, by the id of the Job that asked it, so its card's controls wait.
   const [acting, setActing] = useState<string | null>(null);
-  // Which Helm call has an answer in flight, by the call id Fleet minted.
-  // **Beside `acting` and not inside it**: a Helm call is on no Job, so the
-  // one flag every Job act sets could not name it. #1389.
+  // Which Helm call has an answer in flight, by the call id Fleet minted. **Beside `acting` and not
+  // inside it**: a Helm call is on no Job, so the one flag could not name it. #1389.
   const [answeringHelm, setAnsweringHelm] = useState<string | null>(null);
-  // Which act that is, so the control that sent it is the one that waits. #1117.
+  // Which answer that is, so the control that sent it is the one that waits. #1117.
   const [actingAct, setActingAct] = useState<ActingAct | null>(null);
-  // Which Job has a decision on its work in flight. Separate from `acting`,
-  // the header's act set: sharing one flag would grey out the header's kills
-  // while a review note was being sent.
-  const [deciding, setDeciding] = useState<string | null>(null);
-  // Which of the four answers that is, so the control pressed is the one that waits. #1117.
-  const [decidingAct, setDecidingAct] = useState<DecidingAct | null>(null);
-  // Which Job is having a stopped step's Checks run again. Its own state
-  // beside `acting`'s: a re-run can take minutes, and the step needs to keep
-  // saying so for as long as it runs — `acting` alone cannot say which act
-  // that grey covers, and every other one here answers in milliseconds.
-  const [rerunningChecks, setRerunningChecks] = useState<string | null>(null);
-  // What the last reclaim (or bulk clear) gave back. **Its own state and not
-  // `outcome`** — that one draws refusals, and this is a success worth
-  // reading: the act asks for two things, the halves can disagree, and a kept
-  // branch is something a person has to go and deal with by hand.
-  //
-  // **An array, because the bulk act can keep more than one.** The per-Job
-  // act always sets exactly one entry; `clearTerminal` below sets one per
-  // branch a base cannot reach, which is the whole reason a person is told
-  // rather than left to notice a branch nothing deleted.
-  const [givenBack, setGivenBack] = useState<WorktreeReclaimed[]>([]);
-  // What Fleet refused the last Pause or Resume, for the confirm that sent it to say.
-  const [pauseSaid, setPauseSaid] = useState<string | null>(null);
-  // Which bulk sweep of finished Jobs is out, so its control waits and a second press sends nothing. #1117.
-  const [sweeping, setSweeping] = useState<"clear" | "forget" | null>(null);
-  // What Fleet said to the last act on a Job, named, so only the control that
-  // sent it answers on its edge. Cleared as the next act goes out, and once the
-  // line's own hold is over — a stale answer would replay on the next mount.
-  // The pull request as the forge showed it after Merge was pressed with its checks running.
-  const [forgeReading, setForgeReading] = useState<{ jobId: string; state: PullRequestState } | null>(null);
-  const [lastAnswer, setLastAnswer] = useState<{ jobId: string; answered: ActAnswer } | null>(null);
-  useEffect(() => {
-    const hold = lastAnswer === null ? null : answerHoldMs();
-    if (hold === null) return;
-    const timer = setTimeout(() => setLastAnswer(null), hold);
-    return () => clearTimeout(timer);
-  }, [lastAnswer]);
-  /**
-   * An act on a paused Job comes back `fleet.paused`, and what a person is
-   * shown is the confirm that offers Resume, not a refusal. **The act is not
-   * sent again**: Resume only resumes, and the act is pressed once more after.
-   */
-  function resumeFirst(jobId: string, answer: Outcome): boolean {
-    if (!refusedAsPaused(answer)) return false;
-    tap(patternFor("refused"));
-    sending.onPaused(jobId);
-    return true;
-  }
-
-  /** Publish an act's outcome, and hand its answer to the control that sent it. */
-  function heard(jobId: string, act: ActingAct | DecidingAct, answer: Outcome): void {
-    if (resumeFirst(jobId, answer)) return;
-    setOutcome(answer);
-    // The tap is the answer's, not the control's, so it plays even where the
-    // two acts below leave nothing on screen to draw one. #1326.
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    // Accepted, a forget leaves no record and a redispatch opens its
-    // replacement: neither leaves the pressed control on screen to answer.
-    if (answer.ok && (act === "forget_job" || act === "redispatch")) return;
-    setLastAnswer({ jobId, answered: { act, answer: answer.ok ? "accepted" : "refused" } });
-  }
 
   /**
-   * Hand main's red to a Job. **A refusal goes to the pipeline every command failure uses**, but the two
-   * the band draws itself: a claim the store could not make, and a red another machine already holds.
-   * An accepted one says nothing, since the band names the Job a beat later.
-   */
-  async function fixMain(fix: FixMain): Promise<"claim_not_made" | "taken_elsewhere" | undefined> {
-    const answer = await window.armada.fixMain(fix);
-    if (!answer.ok && answer.why === "refused") {
-      if (answer.error.code === "fleet.main_claim_not_made") return "claim_not_made";
-      if (answer.error.code === "fleet.main_taken_elsewhere") return "taken_elsewhere";
-    }
-    if (!answer.ok) setOutcome(answer);
-    return undefined;
-  }
-
-  /**
-   * Send main's red to a Session as a message, through the call the Sessions surface sends with. **A
+   * Send main's red to a Session as a message, through the call the Cockpit sends with. **A
    * refusal goes to the pipeline every command failure uses**; an accepted one says nothing, since the
    * Session's ledger shows the message.
    */
@@ -448,46 +263,8 @@ export function useCommands(sending: Sending) {
     if (!answer.ok) setOutcome(answer.outcome);
   }
 
-  /**
-   * Stop the proposal that is out. **Kills the call rather than stopping the
-   * wait** — see `JobCommands.stopProposal`.
-   *
-   * A refusal goes to the same pipeline every other command failure uses. A
-   * success says nothing: what a person sees is the wait ending, which the
-   * event stream draws a beat later, and a toast on top of it would announce an
-   * outcome they are already looking at.
-   */
-  async function stopProposal(): Promise<void> {
-    const answer = await window.armada.stopProposal();
-    if (!answer.ok) setOutcome(answer);
-  }
-
-  /**
-   * The app's half of a proposer answer, now that nothing is waiting for it:
-   * a failure goes to the same pipeline every other command failure uses, and
-   * what is left is answered to the caller as a sentence to tell. `dispatch.ts`
-   * makes the call and `answeredAs` decides which of the two an answer is.
-   *
-   * **`null` is the ordinary answer.** The Jobs the request became are rows on
-   * the Board and a person's own stop is not news, so most presses land here
-   * saying nothing.
-   *
-   * `repository` is the root New job's own ask answered, on All — #959, so the
-   * request names it rather than the pick, which stays on All while composing.
-   */
-  async function proposeFrom(
-    request: string,
-    attachments: readonly StagedAttachment[],
-    repository: string | null = null,
-  ): Promise<string | null> {
-    const read = await proposeRequest(request, attachments, repository);
-    if (read.outcome !== null) setOutcome(read.outcome);
-    return read.told;
-  }
-
-  /** Hold `acting` on a Job, with the act named, for as long as `work` is out. #1117. */
+  /** Hold `acting` with the answer named for as long as `work` is out. #1117. */
   async function acted<T>(jobId: string, act: ActingAct, work: () => Promise<T>): Promise<T> {
-    setLastAnswer(null);
     setActing(jobId);
     setActingAct(act);
     try {
@@ -498,222 +275,10 @@ export function useCommands(sending: Sending) {
     }
   }
 
-  /** `acted`, for the acts at the review gate that `deciding` guards. */
-  async function decided<T>(jobId: string, act: DecidingAct, work: () => Promise<T>): Promise<T> {
-    setLastAnswer(null);
-    setDeciding(jobId);
-    setDecidingAct(act);
-    try {
-      return await work();
-    } finally {
-      setDeciding(null);
-      setDecidingAct(null);
-    }
-  }
-
-  async function approve(jobId: string, approval?: ApproveDispatch): Promise<Outcome> {
-    const answer = await window.armada.approveDispatch(jobId, approval);
-    if (resumeFirst(jobId, answer)) return answer;
-    setOutcome(answer);
-    took(jobId, "approve", answer);
-    return answer;
-  }
-
   /**
-   * Reclaim every terminal Job's worktree and branch at once, keeping every
-   * row. **One outcome shown, not a tally** — a failed reclaim is surfaced
-   * through the same refusal pipeline every other command failure uses,
-   * naming the first one that refused; the rest that succeeded already show
-   * their disk back by the time this returns.
-   *
-   * **Every kept branch is named, not only the first.** A base that cannot
-   * reach a branch is the safe setting working rather than a fault, and a
-   * sweep that only ever showed the last one would leave every branch before
-   * it silently kept.
-   */
-  async function clearTerminal(jobIds: readonly string[]): Promise<void> {
-    setSweeping("clear");
-    try {
-      const result = await window.armada.clearTerminalJobs(jobIds);
-      if (result.failed.length > 0) setOutcome(result.failed[0]!.outcome);
-      const kept = result.reclaimed.filter((one) => one.branch.unmerged_commits != null);
-      if (kept.length > 0) setGivenBack(kept);
-    } finally {
-      setSweeping(null);
-    }
-  }
-
-  /**
-   * Delete every terminal Job's whole record at once. **The bulk half of
-   * `forget_job`**, for `clearTerminal`'s reason above — one outcome shown,
-   * naming the first refusal, and the rows that succeeded are already gone
-   * from the board.
-   */
-  async function forgetTerminal(jobIds: readonly string[]): Promise<void> {
-    setSweeping("forget");
-    try {
-      const result = await window.armada.forgetTerminalJobs(jobIds);
-      if (result.failed.length > 0) setOutcome(result.failed[0]!.outcome);
-    } finally {
-      setSweeping(null);
-    }
-  }
-
-  /**
-   * Do the confirmed act. **Six preload calls, not one with a discriminator**
-   * — killing a Drone leaves the Job, killing the Job ends it, a redispatch
-   * mints a replacement, a restart puts a fresh Drone on the same worktree at
-   * the step that stopped, a reclaim takes the worktree away and leaves the
-   * Job exactly where it is, and a forget takes the row.
-   *
-   * A redispatch answers with the replacement's id, and the detail follows it:
-   * the Job that was open is over, and the one worth reading is the new one.
-   *
-   * **A reclaim answers with a receipt, which is shown rather than folded.**
-   * Nothing on the board changes — the record survives, `forgetJob` is what
-   * takes it — and the answer's two halves can disagree, so what happened is
-   * stated instead of being left to a silent success.
-   *
-   * **A forget answers with nothing to fold either**, for the opposite
-   * reason: there is no row left. `board.forget`, reached through
-   * `Clearing.forget`, is what removes it from what is drawn.
-   *
-   * **The note arrives rather than being read here.** Only the restart has one,
-   * and it is collected by the dialog that confirms — which is the render's, so
-   * putting the dialog away and reading what it holds is the render's too.
-   */
-  async function act(act: ConfirmableAct, jobId: string, note?: string, droneId?: string): Promise<boolean> {
-    if (act === "pause_job" || act === "resume_job") return pausing(jobId, act);
-    await acted(jobId, act, async () => {
-      const answer =
-        act === "redispatch"
-          ? await window.armada.redispatchJob(jobId)
-          : act === "kill_drone"
-            ? await (droneId === undefined ? window.armada.killDrone(jobId) : window.armada.killDrone(jobId, droneId))
-            : act === "restart_step"
-              ? await window.armada.restartStep(jobId, note)
-              : act === "reclaim_worktree"
-                ? await window.armada.reclaimWorktree(jobId)
-                : act === "forget_job"
-                  ? await window.armada.forgetJob(jobId)
-                  : await window.armada.killJob(jobId);
-      heard(jobId, act, answer);
-      if (act === "restart_step") took(jobId, "restart", answer);
-      if (answer.ok && answer.reclaimed !== undefined) setGivenBack([answer.reclaimed]);
-      if (answer.ok && answer.jobId !== undefined) sending.onOpen(answer.jobId);
-    });
-    return true;
-  }
-
-  /**
-   * Pause or resume a Job. **Not through `heard`**: a refusal is said in the
-   * confirm that sent it, in git's words, and a toast beside it would say it
-   * twice. Answers whether Fleet took it, which is when the confirm goes away.
-   */
-  async function pausing(jobId: string, act: PauseAct): Promise<boolean> {
-    setPauseSaid(null);
-    return acted(jobId, act, async () => {
-      const answer = await (act === "pause_job" ? window.armada.parkJob(jobId) : window.armada.resumeJob(jobId));
-      tap(patternFor(answer.ok ? "accepted" : "refused"));
-      setLastAnswer({ jobId, answered: { act, answer: answer.ok ? "accepted" : "refused" } });
-      if (!answer.ok) {
-        setPauseSaid(pauseRefusal(act, answer) ?? (answer.why === "refused" ? answer.error.message : said(answer)));
-      }
-      return answer.ok;
-    });
-  }
-
-  /**
-   * Send what the confirm dialog collected, and answer whether Fleet took it.
-   *
-   * **The restart's note is read here rather than in the dialog.** Only the
-   * restart has one, and a blank field is not sent: `restartStep` drops it, so
-   * a person who opened the dialog and typed nothing gets the restart they
-   * pressed for rather than the 422 a blank note earns. Pulse's two kills are
-   * commands of their own, not Job acts — `ConfirmAct`.
-   */
-  async function confirmed(what: Confirming, note: string): Promise<boolean> {
-    if (what.act === "kill_process" || what.act === "kill_processes") {
-      await killProcess(what.jobId, what.act === "kill_process" ? what.pid : undefined);
-      return true;
-    }
-    return act(what.act, what.jobId, what.act === "restart_step" ? note : undefined, "droneId" in what ? what.droneId : undefined);
-  }
-
-  /**
-   * Kill one process the Job holds, or every one — Pulse's two kills, once
-   * the shared dialog confirmed. `pid` absent is all of them.
-   *
-   * **Not through `acted`**, which names an act the header's controls wait on
-   * and has no word for a process. The answer still goes where every command's
-   * does, so a failure is drawn with its code and something to copy — a pid
-   * Fleet no longer finds in the Job's tree among them (#1647).
-   */
-  async function killProcess(jobId: string, pid?: number): Promise<void> {
-    const answer =
-      pid === undefined
-        ? await window.armada.killProcesses(jobId)
-        : await window.armada.killProcess(jobId, pid);
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-  }
-
-  /**
-   * A failed plan task's Pilot or Restart, or Edit this task, from its panel.
-   * **Not through
-   * `acted`**, `killProcess`'s reason: it names a task, not a header act. The
-   * answer goes where every command's does, so `Not implemented` is drawn with
-   * the issue that builds a route not served yet — #250, #1657.
-   */
-  async function taskAct(act: TaskAct, jobId: string, taskId: string, edit?: EditTask): Promise<Outcome> {
-    const answer =
-      act === "pilot_task"
-        ? await window.armada.pilotTask(jobId, taskId)
-        : act === "restart_task"
-          ? await window.armada.restartTask(jobId, taskId)
-          : await window.armada.editTask(jobId, taskId, edit ?? {});
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    return answer;
-  }
-
-  /**
-   * A group or a task dropped somewhere new on the plan, served since 23.4
-   * (#1685). `taskAct`'s reason: the answer is drawn where every command's is.
-   */
-  async function movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
-    const answer = await window.armada.movePlan(jobId, move);
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    return answer;
-  }
-
-  /**
-   * Send a redirect. **Not through `act`** — the dialog that collected the
-   * instruction already was the confirmation, so there is nothing left to
-   * confirm here, only to send.
-   */
-  async function redirect(jobId: string, instruction: string, droneId?: string): Promise<void> {
-    // The words are above the Drone's box from the press, going, and a refusal leaves them there with a Retry.
-    await sentRedirects.send(jobId, instruction, () =>
-      acted(jobId, "redirect", async () => {
-        const answer =
-          droneId === undefined
-            ? await window.armada.redirectDrone(jobId, instruction)
-            : await window.armada.redirectDrone(jobId, instruction, droneId);
-        heard(jobId, "redirect", answer);
-        return answer.ok;
-      }),
-    );
-  }
-
-  /**
-   * Answer the question a drone asked, with the label a person picked.
-   *
-   * **Not through `act`** for `redirect`'s reason and one of its own: there was
-   * never a dialog, because there was never anything to confirm — the answer is
-   * one of a closed set the drone itself offered, and it stops the drone
-   * waiting rather than ending anything.
+   * Answer the question a drone asked, with the label a person picked. There is nothing to confirm:
+   * the answer is one of a closed set the drone itself offered, and it stops the drone waiting rather
+   * than ending anything.
    */
   async function answer(jobId: string, questionId: string, chose: string): Promise<Outcome> {
     return acted(jobId, "answer", async () => {
@@ -723,11 +288,7 @@ export function useCommands(sending: Sending) {
     });
   }
 
-  /**
-   * Allow or reject a command the drone was not given. **Not through `act`**,
-   * for `answer`'s reason: the answers are the closed set Fleet offered for
-   * that call, and none of them ends anything.
-   */
+  /** Allow or reject a command the drone was not given. The answers are the closed set Fleet offered for that call. */
   async function answerCommand(
     jobId: string,
     call: string,
@@ -763,23 +324,7 @@ export function useCommands(sending: Sending) {
     }
   }
 
-  /**
-   * Change how the job meets the next command its drone was not given. **Not
-   * through `act`** — a setting ends nothing, so there is nothing to confirm.
-   * Under `acting` all the same, so the header's own control is off while it
-   * is out rather than sending a second change over the first.
-   */
-  async function setWhenBlocked(jobId: string, whenBlocked: WhenBlocked): Promise<void> {
-    return acted(jobId, "set_when_blocked", async () => {
-      setOutcome(await window.armada.setWhenBlocked(jobId, whenBlocked));
-    });
-  }
-
-  /**
-   * Answer the question a judge refusal opened. **Not through `act`**, for
-   * `answerCommand`'s reason: the answer is one of the closed set this design
-   * offers, and none of them ends anything from the renderer's own view.
-   */
+  /** Answer the question a judge refusal opened, from the closed set Fleet offers. */
   async function answerJudge(
     jobId: string,
     askedAt: string,
@@ -793,295 +338,10 @@ export function useCommands(sending: Sending) {
     });
   }
 
-  /** Change how the job meets the next judge criterion that refuses. On `setWhenBlocked`'s terms. */
-  async function setWhenRefused(jobId: string, whenRefused: WhenRefused): Promise<void> {
-    return acted(jobId, "set_when_refused", async () => {
-      setOutcome(await window.armada.setWhenRefused(jobId, whenRefused));
-    });
-  }
-
-  /**
-   * Choose the model the job's next step starts on, or `null` for the
-   * workflow's. On `setWhenBlocked`'s terms: nothing to confirm, and under
-   * `acting` so the panel is off while it is out.
-   */
-  async function setModel(jobId: string, model: string | null): Promise<void> {
-    return acted(jobId, "set_model", async () => {
-      setOutcome(await window.armada.setModel(jobId, model));
-    });
-  }
-
-  /** The review step's model, on `setModel`'s terms. #903. */
-  async function setReviewModel(jobId: string, model: string | null): Promise<void> {
-    return acted(jobId, "set_review_model", async () => {
-      setOutcome(await window.armada.setReviewModel(jobId, model));
-    });
-  }
-
-  /**
-   * Take back a command allowed for this job. On `setWhenBlocked`'s terms — it
-   * ends nothing, and the command can be allowed again from the next refusal.
-   */
-  async function removeAllowedCommand(jobId: string, run: string): Promise<void> {
-    return acted(jobId, "remove_allowed_command", async () => {
-      setOutcome(await window.armada.removeAllowedCommand(jobId, run));
-    });
-  }
-
-  /**
-   * Overrule a Judge that refused the work. **Not through `act`**, for
-   * `redirect`'s reason: the dialog that collected the reason was the
-   * confirmation. **And not through `decide`**, which answers a gate nothing
-   * objected to — this one answers a gate that refused.
-   */
-  async function overrule(jobId: string, reason: string): Promise<void> {
-    return acted(jobId, "override_verdict", async () => {
-      heard(jobId, "override_verdict", await window.armada.overrideVerdict(jobId, reason));
-    });
-  }
-
-  /**
-   * Ask the judge again on a step it did not answer. **Not through `act`**,
-   * which confirms first: nothing is destroyed, nothing is overruled and
-   * nothing is advanced by pressing this, so there is nothing for a dialog to
-   * state. **And not through `overrule`**, which advances the step — this only
-   * asks again.
-   */
-  async function rerun(jobId: string): Promise<void> {
-    return acted(jobId, "rerun_gate", async () => {
-      heard(jobId, "rerun_gate", await window.armada.rerunGate(jobId));
-    });
-  }
-
-  /**
-   * Run a stopped step's Checks again. `rerun`'s shape, and `rerunningChecks`
-   * beside `acting` for the wait's own reason: this can run for minutes, and
-   * the step panel says so for as long as it does.
-   */
-  async function rerunChecks(jobId: string): Promise<void> {
-    setLastAnswer(null);
-    setActing(jobId);
-    setActingAct("rerun_checks");
-    setRerunningChecks(jobId);
-    try {
-      heard(jobId, "rerun_checks", await window.armada.rerunChecks(jobId));
-    } finally {
-      setActing(null);
-      setActingAct(null);
-      setRerunningChecks(null);
-    }
-  }
-
-  /**
-   * The Now panel's quick acts on the gate that is running. **A refusal goes to the pipeline every
-   * command failure uses**, the host's toast: Fleet refuses where no gate is running or the Check
-   * is not one it runs. An accepted one says nothing, since the row moves a beat later.
-   */
-  async function onTheGate(work: Promise<Outcome>): Promise<void> {
-    const answer = await work;
-    if (!answer.ok) setOutcome(answer);
-  }
-  const retryCheck = (jobId: string, check: string) => onTheGate(window.armada.retryCheck(jobId, check));
-  const skipCheck = (jobId: string, check: string) => onTheGate(window.armada.skipCheck(jobId, check));
-  const skipChecks = (jobId: string) => onTheGate(window.armada.skipChecks(jobId));
-
-  /**
-   * Give one job a higher cost ceiling. **Not through `act`**, for `redirect`'s
-   * reason: the dialog that collected the figure was the confirmation. It moves
-   * no part of the job — what it changes is that the next dispatch is not
-   * refused for money.
-   */
-  async function raiseCap(jobId: string, costCapMicros: number): Promise<void> {
-    return acted(jobId, "raise_cost_cap", async () => {
-      heard(jobId, "raise_cost_cap", await window.armada.raiseCostCap(jobId, costCapMicros));
-    });
-  }
-
-  /**
-   * Let one job take more turns. **Not through `act`**, on `raiseCap`'s terms:
-   * the dialog that collected the figure was the confirmation, and what changes
-   * is that the next dispatch is not refused for turns.
-   */
-  async function raiseTurns(jobId: string, turnCap: number): Promise<void> {
-    return acted(jobId, "raise_turn_cap", async () => {
-      heard(jobId, "raise_turn_cap", await window.armada.raiseTurnCap(jobId, turnCap));
-    });
-  }
-
-  /**
-   * File a report on a job that failed in error.
-   *
-   * **Not through `act`, and not like the others at all**: nothing about the
-   * job changes, so there is nothing to fold and nothing to re-read. It returns
-   * the outcome rather than only publishing one, because the record that comes
-   * back is what the dialog shows next — held there rather than in app state,
-   * where it would outlive the dialog that produced it.
-   */
-  async function report(jobId: string, filing: FileReport): Promise<Outcome> {
-    const answer = await window.armada.fileReport(jobId, filing);
-    // Published as well as returned: a refusal belongs in the one place this
-    // app says what a command answered, and a success is worth the same line.
-    setOutcome(answer);
-    return answer;
-  }
-
-  /**
-   * Add a task to a job's plan. **Not through `act`**, `report`'s reason: what
-   * comes back is the plan the add leaves rather than an `Outcome`, and the
-   * dialog that collected the title is what needs it, to redraw at once and to
-   * stay open on a refusal with what was typed.
-   */
-  async function addTask(jobId: string, add: AddTask): Promise<PlanEditAnswer> {
-    const answer = await window.armada.addTask(jobId, add);
-    setOutcome(answer.ok ? { ok: true } : answer.outcome);
-    return answer;
-  }
-
-  /** Drop a task from a job's plan, with a reason. `addTask`'s own reason. */
-  async function dropTask(jobId: string, drop: DropTask): Promise<PlanEditAnswer> {
-    const answer = await window.armada.dropTask(jobId, drop);
-    setOutcome(answer.ok ? { ok: true } : answer.outcome);
-    return answer;
-  }
-
-  /**
-   * Answer the review gate. **Four preload calls, not one with a
-   * discriminator** — merging lands the branch and then takes the work,
-   * approving takes it and leaves the pull request where it is, requesting
-   * changes sends the drone back to the same step with the note, and rejecting
-   * is terminal and ends the drone. **Nothing confirms here**: approving and
-   * merging are the ordinary paths, and rejecting is confirmed by the review
-   * render's own dialog, where the diff being decided on is still on screen.
-   */
-  async function decide(
-    jobId: string,
-    what: "approve" | "changes" | "reject" | "merge",
-    note = "",
-    withWalkNotes = false,
-    auto = false,
-  ): Promise<void> {
-    return decided(jobId, what, async () => {
-      const answer =
-        what === "merge"
-          ? auto
-            ? await window.armada.autoMergePullRequest(jobId)
-            : await window.armada.mergePullRequest(jobId)
-          : what === "approve"
-            ? await window.armada.approveReview(jobId)
-            : what === "changes"
-              ? await window.armada.requestChanges(jobId, note, withWalkNotes)
-              : await window.armada.rejectWork(jobId);
-      heard(jobId, what, answer);
-      if (auto && answer.ok && answer.pullRequest !== undefined) {
-        setForgeReading({ jobId, state: answer.pullRequest });
-      } else if (what === "merge" || what === "approve") took(jobId, what, answer);
-    });
-  }
-
-  /**
-   * Approve an Epic Job's plan, releasing every Job of the wave it proposed.
-   * **Under `deciding`, as `approve`**: it is the answer at the plan's gate,
-   * so the button pressed is the one that waits. `Not implemented` names #1694
-   * until Fleet serves the route.
-   */
-  async function approveWave(jobId: string, wave: ApproveWave): Promise<void> {
-    return decided(jobId, "approve", async () => {
-      heard(jobId, "approve", await window.armada.approveWave(jobId, wave));
-    });
-  }
-
-  /**
-   * Edit one Job of an Epic's proposed wave, from its panel. `movePlan`'s
-   * reason: the answer is drawn where every command's is, and the panel's form
-   * closes only on one that was taken. `edit_job`, served since 23.8.
-   */
-  async function editJob(jobId: string, edit: EditJob): Promise<Outcome> {
-    const answer = await window.armada.editJob(jobId, edit);
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    return answer;
-  }
-
-  /**
-   * Send the proposal back to the proposer with a note. `editJob`'s terms: the
-   * answer is drawn where every command's is, so a refusal reads as Fleet's sentence.
-   * `to_proposer`, since 23.25.
-   */
-  async function toProposer(jobId: string, body: ToProposer): Promise<Outcome> {
-    const answer = await window.armada.toProposer(jobId, body);
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    return answer;
-  }
-
-  /**
-   * Give an approved Job with no landing target one, once. `editJob`'s terms:
-   * the answer is drawn where every command's is, so a refusal reads as the
-   * sentence Fleet returned. `set_landing_target`, since 23.22.
-   */
-  async function setLandingTarget(jobId: string, target: string): Promise<Outcome> {
-    const answer = await window.armada.setLandingTarget(jobId, target);
-    setOutcome(answer);
-    tap(patternFor(answer.ok ? "accepted" : "refused"));
-    return answer;
-  }
-
-  /**
-   * Hand the comments a person picked off the pull request to a drone.
-   *
-   * **Under `deciding`, with the four answers at the same gate.** It leaves
-   * `awaiting_review` the way requesting changes does, so a second press aims
-   * at a job that is no longer at the gate any of the five is legal on.
-   *
-   * **Nothing confirms.** What it commits to is on screen above the control —
-   * a drone on the same branch, and the act keeps the worktree and every step
-   * so far, like `changes` beside it.
-   */
-  async function takeUpRemarks(jobId: string, remarks: string[]): Promise<void> {
-    return decided(jobId, "take_up_remarks", async () => {
-      heard(jobId, "take_up_remarks", await window.armada.takeUpRemarks(jobId, remarks));
-    });
-  }
-
-  /** Dismiss a finding the review raised, with the reason. #907. */
-  async function dismissFinding(jobId: string, finding: string, reason: string): Promise<void> {
-    return decided(jobId, "dismiss_finding", async () => {
-      setOutcome(await window.armada.dismissFinding(jobId, finding, reason));
-    });
-  }
-
-  /** Queue a Job after this one lands, from a For context finding. #906. */
-  async function queueAfterFinding(jobId: string, finding: string): Promise<void> {
-    return decided(jobId, "queue_after_finding", async () => {
-      setOutcome(await window.armada.queueAfterFinding(jobId, finding));
-    });
-  }
-
-  /** File the issue a person confirmed from a For context finding. #906. */
-  async function fileFindingIssue(jobId: string, finding: string, title: string, body: string): Promise<void> {
-    return decided(jobId, "file_finding_issue", async () => {
-      setOutcome(await window.armada.fileFindingIssue(jobId, finding, title, body));
-    });
-  }
-
-  /** Start the pull request's failed CI runs again. #905. */
-  async function rerunFailedChecks(jobId: string): Promise<void> {
-    return decided(jobId, "rerun_failed_checks", async () => {
-      setOutcome(await window.armada.rerunFailedChecks(jobId));
-    });
-  }
-
-  /** Send the branch back for a Drone to find out why CI failed. #905. */
-  async function investigateFailedChecks(jobId: string): Promise<void> {
-    return decided(jobId, "investigate_failed_checks", async () => {
-      setOutcome(await window.armada.investigateFailedChecks(jobId));
-    });
-  }
-
   /**
    * Ask Fleet for current state over the connection Bridge already holds.
    *
-   * **It re-reads; it does not reconnect.** The stream keeps the board current
+   * **It re-reads; it does not reconnect.** The stream keeps the window current
    * on its own, so this is for the case where somebody wants to be sure rather
    * than for a connection that is broken — and dropping a working socket would
    * not fix one that is.
@@ -1093,129 +353,15 @@ export function useCommands(sending: Sending) {
   return {
     outcome,
     setOutcome,
-    taken: notice === null ? null : { ...notice, onDismiss: () => setTaken(null) },
     acting,
     actingAct,
-    deciding,
-    decidingAct,
-    /** The answer the open Job's pressed control shows, where the last one was on it. */
-    /** Merge at the review gate: the press, the auto-merge press while checks run, and what the forge showed after it. */
-    mergeProps: (jobId: string) => ({
-      onMergePullRequest: (id: string) => void decide(id, "merge"),
-      onAutoMergePullRequest: (id: string) => void decide(id, "merge", "", false, true),
-      forgeReading: forgeReading?.jobId === jobId ? forgeReading.state : undefined,
-    }),
-    answeredOn: (jobId: string): ActAnswer | undefined =>
-      lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
-    takeUpRemarks,
-    fixMain,
     sendToSession,
     ...triggers,
-    dismissFinding,
-    rerunFailedChecks,
-    investigateFailedChecks,
-    queueAfterFinding,
-    fileFindingIssue,
-    givenBack,
-    setGivenBack,
-    pauseSaid,
-    sweeping,
-    stopProposal,
-    proposeFrom,
-    approve,
-    clearTerminal,
-    forgetTerminal,
-    act,
-    confirmed,
-    killProcess,
-    taskAct,
-    redirect,
     answer,
     answerCommand,
     answerHelmCall,
     answeringHelm,
     answerJudge,
-    setWhenRefused,
-    setWhenBlocked,
-    setModel,
-    setReviewModel,
-    removeAllowedCommand,
-    overrule,
-    rerun,
-    rerunChecks,
-    retryCheck,
-    skipCheck,
-    skipChecks,
-    rerunningChecks,
-    raiseCap,
-    raiseTurns,
-    report,
-    addTask,
-    dropTask,
-    movePlan,
-    approveWave,
-    editJob,
-    setLandingTarget,
-    toProposer,
-    listBranches,
-    decide,
     refresh,
   };
-}
-
-/**
- * `--duration-answer`, in milliseconds: the stylesheet's clock for how long an
- * answer holds, read rather than retyped. `null` where it cannot be read, and
- * the answer then stands until the next press clears it.
- */
-function answerHoldMs(): number | null {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue("--duration-answer").trim();
-  const read = /^(\d+(?:\.\d+)?)(ms|s)$/.exec(raw);
-  return read === null ? null : Number(read[1]) * (read[2] === "s" ? 1000 : 1);
-}
-
-/**
- * What main is asked to hold open for the Job being read, and nothing else.
- *
- * **Four reads and one flag, all of them a function of which Job is open.** The
- * renderer says which one that is and does no reading of its own — a component
- * that fetched would be Bridge's second connection.
- */
-export function useWatching(openJob: string | null): void {
-  // Whether the open Job's turns socket is held open. **Not navigation, and not
-  // a control either.** A Job that is open is a Job being observed: the turns
-  // are the open step's activity log rather than a screen of their own, and a
-  // log that filled only after a press is the tab job detail removed.
-  const [observing, setObserving] = useState(false);
-
-  // Which Job main should read whole and keep current.
-  useEffect(() => {
-    void window.armada.watchJob(openJob);
-  }, [openJob]);
-
-  // What the open Job holds on this machine. **Opened with the Job**, like the
-  // two sockets: the panel it draws answers *is this working*, which is the
-  // question somebody opening a Job they suspect has wedged came with. Main
-  // re-reads it on every event naming the Job and this says nothing about when.
-  useEffect(() => {
-    void window.armada.readResources(openJob);
-  }, [openJob]);
-
-  // The open Job's history, for the line of Pulse that says what a person last
-  // did. Opened with the Job; main re-reads it on every move once it is asked.
-  useEffect(() => {
-    void window.armada.readHistory(openJob);
-  }, [openJob]);
-
-  // Opening another Job drops the socket, and does it before the one below is
-  // reopened — the rows in hand belong to the Job that was open, and carrying
-  // them into a different one would be a transcript under the wrong title.
-  // Closing the Job closes the socket, so nothing is held for a Job nobody is
-  // reading.
-  useEffect(() => setObserving(openJob !== null), [openJob]);
-
-  // Which Job's turns main should hold a socket open for.
-  useEffect(() => {
-    void window.armada.observeJob(observing ? openJob : null);
-  }, [observing, openJob]);
 }

@@ -27,9 +27,8 @@ export type Frame = {
 
 const clamp = (n: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, n)));
 
-/** `missionJob` is the Job a mission's plane is about: its drone hovers clear of the pin it is over, so that the pin can be pressed. */
-export function frameOf(input: { layout: Layout; drones: readonly DroneIn[]; plays: readonly Play[]; big: number; missionJob?: string | undefined }): Frame {
-  const { layout, drones, plays, big, missionJob } = input;
+export function frameOf(input: { layout: Layout; drones: readonly DroneIn[]; plays: readonly Play[]; big: number }): Frame {
+  const { layout, drones, plays, big } = input;
   const heights = heightsOf(layout, drones, plays);
   const tiles = layout.territories.flatMap((one) => one.tiles);
   const floorAt = (at: Point) => {
@@ -42,7 +41,7 @@ export function frameOf(input: { layout: Layout; drones: readonly DroneIn[]; pla
     const reach = tiles.filter((t) => t.rect.x < at.x + 170 && t.rect.x + t.rect.w > at.x - 170 && t.rect.y < at.y + 90 && t.rect.y + t.rect.h > at.y - 60);
     const clear = Math.max(floorAt(at), ...reach.map((t) => heights.get(t.path) ?? 0));
     // Reading, it dips toward the plot it is probing.
-    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0) + (missionJob === drone.key ? Math.round(30 * big) : 0);
+    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0);
   };
   const flying = (drone: DroneIn): P3 | undefined => {
     const at = layout.at.get(drone.key);

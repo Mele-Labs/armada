@@ -6,7 +6,7 @@ import type { MergeLineView } from "@armada/screens";
 import { forgeOf, quietSaid, readSaid } from "./forge";
 
 const at = (hour: number, minute: number) => new Date(2026, 9, 16, hour, minute).toISOString();
-const view = (root: string, hub: { readAt?: string; quietSince?: string }): MergeLineView => ({ root, line: [], landed: [], sentBack: [], hub: { pulls: [], recent: [], ...hub } });
+const view = (root: string, hub: { readAt?: string; quietSince?: string }): MergeLineView => ({ root, line: [], landed: [], sentBack: [], hub: { pulls: [], ...hub } });
 const named = (root: string) => root.slice(1);
 
 test("the age reads in seconds, then minutes, then hours and minutes", () => {

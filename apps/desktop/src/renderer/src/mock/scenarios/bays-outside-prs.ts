@@ -96,7 +96,7 @@ function build(): Scenario {
     state: { ...base.state, jobs, mergeLines: withOutside(base.state.mergeLines!) },
     reads: { ...base.reads, [asking.job.id]: asking },
     later: [],
-    draft: { ...base.draft!, sessions: (control) => sessionsStore([none, none], none, [], control, [], sessions) },
+    draft: { ...base.draft!, sessions: (control) => sessionsStore([none, none], none, control, [], sessions) },
   };
 }
 

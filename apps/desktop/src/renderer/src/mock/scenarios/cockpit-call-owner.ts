@@ -43,7 +43,7 @@ function build(): Scenario {
   return {
     ...base,
     state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
-    draft: { sessions: (control) => sessionsStore([none, none], none, [], control, [], [two, helm]) },
+    draft: { sessions: (control) => sessionsStore([none, none], none, control, [], [two, helm]) },
   };
 }
 

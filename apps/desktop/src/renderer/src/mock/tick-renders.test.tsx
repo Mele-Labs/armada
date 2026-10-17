@@ -4,7 +4,7 @@
 
 import { expect, test, vi } from "vitest";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -72,21 +72,10 @@ async function twoTicks(): Promise<Map<string, number>> {
 }
 
 test("a tick on the Cockpit does not draw the window: its figures read minutes", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
   const total = await twoTicks();
   expect(total.has("App")).toBe(false);
   // Not a count: the deck draws once when the minute turns, which can fall in the window.
   expect(total.has("Shell")).toBe(false);
-}, 20_000);
-
-test("a tick on the Jobs list moves its seconds and draws no more than the list", async () => {
-  mount("every-state");
-  await onScreen();
-  await toPlace("Jobs");
-  const before = document.body.textContent;
-  const total = await twoTicks();
-  expect(document.body.textContent, "the elapsed figures moved").not.toEqual(before);
-  // The figures themselves and what draws them, and no row, list or screen.
-  expect([...total.keys()].filter((name) => !["Last", "Marks", "JobMarks", "DoingNow", "Tooltip"].includes(name))).toEqual([]);
 }, 20_000);

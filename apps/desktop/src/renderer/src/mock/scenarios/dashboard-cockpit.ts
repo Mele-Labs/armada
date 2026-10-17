@@ -8,8 +8,6 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { MergeLines, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { CallView } from "@armada/screens/src/draft/calls";
-import type { NowView } from "@armada/screens/src/draft/now";
 import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import { completedFailed, completedSuccess, queued, running } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -73,96 +71,7 @@ const broke = over(asRow(completedFailed(), 92, "broke", "Move the store reads b
 const plan = live(asRow(featureRunning(), 85, "dash-plan", "Split the writer from the clock"), 26, "scope", true);
 const check = live(asRow(featureRunning(), 86, "dash-issue", "Shorten the reconnect wait"), 33, "implement", true);
 
-const now: Record<string, CallView> = {
-  [plan.job.id]: {
-    request: "Fleet's event log writer and its heartbeat clock share one struct, so a slow disk stalls the heartbeat and Bridge marks Fleet unreachable. Pull the clock out so the heartbeat never waits on the writer. Keep the log format as it is, and do not touch the retry cap while you are in there. The store tests should pass untouched.",
-    running: [{ key: "r", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],
-    asks: [
-      {
-        key: "p",
-        kind: "plan",
-        context: [
-          "Writer::tick() reads Clock::now() under the same lock that guards the buffer.",
-          "Splitting touches 6 call sites and the Writer constructor.",
-          "Wrapping keeps the lock and adds a second timer; the stall stays.",
-        ],
-        decisions: [
-          {
-            id: "shape",
-            question: "Split the clock out of the writer, or wrap it in place?",
-            options: [
-              { id: "split", label: "Split it out" },
-              { id: "wrap", label: "Wrap it in place" },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  [check.job.id]: {
-    request: "When Bridge loses its socket to Fleet, it waits a flat 30s before reconnecting. Cut the first wait to 5s and back off from there, keeping the cap at 60s.",
-    running: [{ key: "r", of: "drone", name: "Drone on Implement", line: "Waiting on the store test", state: "running" }],
-    issues: [
-      {
-        key: "i1",
-        of: "check",
-        name: "store",
-        text: "store: 2 failed",
-        said: "Check failed",
-        context: [
-          "FAIL store::reconnect::waits_five_seconds",
-          "  expected: 5s",
-          "  actual:   30s",
-          "FAIL store::reconnect::caps_at_sixty",
-          "  assertion failed: backoff(9) <= 60s",
-        ],
-      },
-    ],
-  },
-  [debounce.job.id]: { running: [{ key: "r", of: "drone", name: "Drone on Implement", line: "Editing resize-handler.ts", state: "running" }] },
-  [cache.job.id]: { running: [{ key: "r", of: "drone", name: "Drone on Write tests", line: "cargo test -p manifest read_again", state: "running" }] },
-  [mainChecks.job.id]: { running: [{ key: "r", of: "drone", name: "Drone on Fix", line: "Reading the failing snapshot", state: "running" }] },
-  [migrate.job.id]: { running: [{ key: "r", of: "drone", name: "Drone on Scope", line: "Listing the migrations since 0042", state: "running" }] },
-};
 
-/** What each Job runs now, and what waits on what: the Now panel's own data, by Job id. */
-const nows: Record<string, NowView> = {
-  [debounce.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Implement", line: "Editing resize-handler.ts", step: { id: "implement", name: "Implement" }, state: "running", tail: ["Read resize-handler.ts", "Edit resize-handler.ts: debounce the observer", "Run pnpm test -p desktop resize"] },
-      { key: "c", of: "check", name: "lint", step: { id: "implement", name: "Implement" }, state: "running" },
-    ],
-  },
-  [cache.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Write tests", line: "cargo test -p manifest read_again", state: "running" },
-      { key: "c1", of: "check", name: "typecheck", state: "passed" },
-      { key: "c2", of: "check", name: "manifest_test", state: "running" },
-    ],
-  },
-  [mainChecks.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Fix", line: "Reading the failing snapshot", state: "running" },
-      { key: "j", of: "judge", name: "Judge on the plan", line: "Reading the plan against the diff", state: "running" },
-    ],
-  },
-  [migrate.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Scope", line: "Listing the migrations since 0042", state: "running" }] },
-  [pause.job.id]: { waiting: [{ key: "w", kind: "job", text: "Debounce the Job Board's resize handler", target: debounce.job.id }] },
-  [pin.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Scope", line: "Reading store_test.rs", state: "running" }] },
-  [pwa.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Implement", line: "Writing the pairing screen", state: "running" }] },
-  [code.job.id]: { waiting: [{ key: "w", kind: "job", text: "Pair a phone with Fleet", target: pwa.job.id }] },
-  [shell.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Write tests", line: "Caching the shell in a service worker", state: "running" }] },
-  [plan.job.id]: {
-    running: [{ key: "d", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],
-    waiting: [{ key: "w", kind: "transition", text: "Plan to Implement, on your answer" }],
-  },
-  [check.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Implement", line: "Waiting on the store test", state: "running" },
-      { key: "c", of: "check", name: "store", state: "failed" },
-    ],
-  },
-};
 
 const SESSIONS = COCKPIT_SESSIONS;
 const quiet = { state: "idle" } as const;
@@ -272,7 +181,7 @@ function build(): Scenario {
     reads: { ...base.reads, [plan.job.id]: plan, [check.job.id]: check },
     held: pool(),
     later: [{ jobs: [...jobs, plan.job] }, { jobs: [...jobs, plan.job, check.job] }, {}, { mergeLines: withPulls(mergeLines(), true) }],
-    draft: { calls: now, now: nows, sessions: (control) => asking(sessionsStore([none, none], none, [], control, [], SESSIONS)) },
+    draft: { sessions: (control) => asking(sessionsStore([none, none], none, control, [], SESSIONS)) },
   };
 }
 

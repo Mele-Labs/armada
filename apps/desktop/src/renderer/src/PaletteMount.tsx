@@ -8,37 +8,28 @@
 
 import { Palette, type PaletteBoardRow, type PaletteRepository, type PaletteSurface } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
-import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
 import { SETTINGS_PALETTE } from "@armada/settings";
-import { isTerminal, studioName, titleOf } from "@armada/screens";
+import { studioName } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession } from "./open-session";
 import { useSessions } from "./sessions-draft";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
-/** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */
-export type PaletteOn = { id: string; title: string } | undefined;
-
 export type PaletteMountProps = {
   open: boolean;
   onClose: () => void;
-  /** A Job read whole, or nothing. Decides the context and the filters. */
-  reading: JobSummary | null;
   /** The Studio open on its whiteboard, or nothing — by its name alone, which
       is all a title needs and all this should be able to read. */
   shownStudio: { name?: string } | null;
-  on: PaletteOn;
   surfaces: readonly PaletteSurface[];
-  jobs: BridgeState["jobs"];
   checkoutRunSheet: BridgeState["checkoutRunSheet"];
-  cursor: string | null;
   failing: unknown | null;
   /** Whether Fleet is connected. */
   live: boolean;
-  /** Reported and the two bulk sweeps, as `App.tsx` worded them. */
+  /** Reported, as `App.tsx` worded it. */
   board: readonly PaletteBoardRow[];
   /** The repositories the title row's picker lists, and the one picked: `null` is All. */
   repositories: readonly PaletteRepository[];
@@ -48,9 +39,7 @@ export type PaletteMountProps = {
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
    * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd" | "debugBridge" | "openSession">;
-  /** A destructive act chosen from the palette, handed on to confirm. */
-  onConfirmAct: (id: string, jobId: string) => void;
+  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "debugBridge" | "openSession">;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
 };
@@ -62,20 +51,15 @@ export type PaletteMountProps = {
 export function PaletteMount({
   open,
   onClose,
-  reading,
   shownStudio,
-  on,
   surfaces,
-  jobs,
   checkoutRunSheet,
-  cursor,
   failing,
   live,
   board,
   repositories,
   picked,
   acts,
-  onConfirmAct,
   dispatch,
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
@@ -86,23 +70,15 @@ export function PaletteMount({
       open={open}
       onClose={onClose}
       dispatch={dispatch}
-      // Three places, not two: a Studio open on its whiteboard is neither the
-      // Board nor a job read whole, and the acts scoped to it act on the board
-      // rather than on anything focused — #1364.
-      context={reading !== null ? "detail" : shownStudio === null ? "board" : "studio"}
+      // Two places: a Studio open on its whiteboard is not the Cockpit, and the acts
+      // scoped to it act on the board rather than on anything focused — #1364.
+      context={shownStudio === null ? "board" : "studio"}
       // The block is titled with what its rows act on, which on a Studio is the
       // Studio: the acts scoped there put a node on the board.
-      on={
-        shownStudio !== null && reading === null
-          ? `Studio — ${studioName(shownStudio)}`
-          : on === undefined
-          ? null
-          : `${on.id} — ${titleOf(on)}`
-      }
+      on={shownStudio === null ? null : `Studio — ${studioName(shownStudio)}`}
       surfaces={surfaces}
       // **No filter rows.** They were the Job Board's state tabs, and that
-      // surface is gone; Overview draws its sections rather than narrowing one
-      // list, so there is nothing here for a row to set.
+      // surface is gone, so there is nothing here for a row to set.
       filters={[]}
       // One row per Check and Command, off the same reading the Manifest
       // surface draws from — Journey 9's own table. Empty until that read has
@@ -111,24 +87,18 @@ export function PaletteMount({
       board={board}
       repositories={repositories}
       picked={picked}
-      // Only the Jobs not over, and below only the live Sessions: the palette jumps to work in hand.
-      jobs={jobs.filter((job) => !isTerminal(job)).map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
+      // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
       sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
       settings={SETTINGS_PALETTE}
-      dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
-      absent={absentIn({ reading: reading !== null, cursor, failing: failing !== null })}
+      dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
+      absent={absentIn({ failing: failing !== null })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, on?.id ?? null, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession })
+        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession })
       }
-      // Every destructive act confirms, even from the palette. It hands the act
-      // over and stays open behind the dialog, which is the way back.
-      onConfirmAct={(id: string) => {
-        if (on?.id !== undefined) onConfirmAct(id, on.id);
-      }}
     />
   );
 }

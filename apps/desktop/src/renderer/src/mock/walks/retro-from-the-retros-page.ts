@@ -34,7 +34,7 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   { press: inside(RETRO, button("Close")), say: "Back to Retros" },
   { hover: inside(STALE_MAIN, button("Create Job", { exact: true })), say: "Create Job on an Armada item" },
   { press: inside(STALE_MAIN, button("Create Job", { exact: true })), say: "It proposes a Job" },
-  { look: inside(STALE_MAIN, button("Proposed Job")), say: "The item keeps a link to it" },
+  { look: inside(STALE_MAIN, text(/^Agreed$/)), say: "The item reads Agreed" },
   { press: tab("Kit"), say: "Kit: the tool set" },
   { hover: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit on a Kit item with a command" },
   { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command and saves it" },

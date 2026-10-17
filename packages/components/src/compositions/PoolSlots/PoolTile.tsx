@@ -81,8 +81,16 @@ export function Figure({ shown, said }: { shown: string; said: string }) {
   );
 }
 
-/** The Job holding a tile: its mark and its title, a link that opens it. */
-export function JobLink({ jobId, title, onOpenJob }: { jobId: string; title: string; onOpenJob: (jobId: string) => void }) {
+/** The Job holding a tile: its mark and its title, a link that opens it where the host can open one. */
+export function JobLink({ jobId, title, onOpenJob }: { jobId: string; title: string; onOpenJob?: ((jobId: string) => void) | undefined }) {
+  if (onOpenJob === undefined) {
+    return (
+      <span className="armada-bay__job">
+        <Box size={12} strokeWidth={2} aria-hidden />
+        <span>{title}</span>
+      </span>
+    );
+  }
   return (
     <button type="button" className="armada-bay__job" onClick={() => onOpenJob(jobId)}>
       <Box size={12} strokeWidth={2} aria-hidden />
@@ -99,7 +107,7 @@ export function jobOf(row: TileRow): { jobId: string; title: string } | null {
   return null;
 }
 
-function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob: (jobId: string) => void }) {
+function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob?: ((jobId: string) => void) | undefined }) {
   const job = jobOf(row);
   const held = row.slot?.held;
   if (job !== null) {
@@ -125,14 +133,14 @@ const clock = (instant: string) => CLOCK.format(new Date(instant));
  * its title, a link where it can still be opened, then what Fleet did about it.
  * A Job opens from its record, which outlives it; a Session only while it is open.
  */
-function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob: (jobId: string) => void }) {
+function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob?: ((jobId: string) => void) | undefined }) {
   const ownership = useContext(ChipOwnership);
   const who = slot.stranded?.last_holder;
   if (who === undefined) return null;
   const job = who.kind === "job";
   const kind = job ? "Job" : "Session";
   const Glyph = job ? Box : SquareTerminal;
-  const opens = job ? () => onOpenJob(who.id) : who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
+  const opens = job ? (onOpenJob === undefined ? undefined : () => onOpenJob(who.id)) : who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
   return (
     <div className="armada-bay__holder">
       {who.title === undefined ? (
@@ -188,7 +196,7 @@ export function PoolTile({
 }: {
   row: TileRow;
   open: boolean;
-  onOpenJob: (jobId: string) => void;
+  onOpenJob?: ((jobId: string) => void) | undefined;
   onOpen: () => void;
 }) {
   const { slot, held, heldFor, sat } = row;

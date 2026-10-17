@@ -79,7 +79,7 @@ function build(): Scenario {
     draft: {
       events: EVENTS,
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [REPORTED]);
+        const store = sessionsStore([none, none], none, control, [], [REPORTED]);
         // The ship holds this Session and the ones a report starts beside it, not the usual fixtures.
         const own = new Set([REPORTED.id]);
         // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.

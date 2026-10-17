@@ -4,7 +4,7 @@
 
 import { button, place, toSystemPage, walk } from "../walk";
 
-export const aPickerThatFollowsTheSurface = walk("every-state", [
+export const aPickerThatFollowsTheSurface = walk("default", [
   { look: button("All repositories"), say: "On a repository's surface the picker is live" },
   { press: button("Settings"), say: "Settings is this machine's, not a repository's" },
   { look: button("This machine"), say: "The picker says so, and is greyed: a pick changes nothing here" },

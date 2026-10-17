@@ -1,11 +1,9 @@
 // The Cockpit's timeline over `dashboard-cockpit`'s Sessions, with the last two hours of what Fleet did to
 // them: one needing an answer, one that went quiet, a Check red on a pull request, main red, work that
-// landed. Fleet keeps no entry about a Job, so each Job of the Board has a Session standing in its place. Nothing arrives later, so a walk reads one frame. The walks
-// `fleet-timeline-feed`, `fleet-timeline-lanes` and `fleet-timeline-split` play it, and `jobs-page`
-// plays the Jobs rail row over it.
+// landed. Each Session here stands under the id and title of a Job row of the Board. Nothing arrives later, so a walk reads one frame. The walks
+// `fleet-timeline-feed`, `fleet-timeline-lanes` and `fleet-timeline-split` play it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
-import type { NowView } from "@armada/screens/src/draft/now";
 
 import type { Scenario } from "../moment";
 import { s206DashboardCockpit as base } from "./dashboard-cockpit";
@@ -138,46 +136,10 @@ const EVENTS: TimelineEvent[] = [
   event(8, pull(1895, "Read the pairing code"), "pr.checks", "ok", "Checks passed", POCKET),
 ];
 
-/** What each running Job's Drone did last, and how many seconds ago: the Jobs page's Now line. */
-const DOING: Record<number, readonly [string, number]> = {
-  80: ["Edit apps/desktop/src/renderer/src/resize-handler.ts", 12],
-  81: ["cargo test -p manifest read_again", 40],
-  82: ["Read crates/store/tests/snapshots/store.snap", 4],
-  83: ["Grep migrations/ -e CREATE", 9],
-  87: ["Read crates/store/tests/store_test.rs", 2],
-  88: ["Write apps/pocket/src/pairing.tsx", 21],
-  90: ["Write apps/pocket/src/service-worker.ts", 11 * 60],
-};
-
-/** The scenario's `now` reads, each running Drone given the line it last wrote. */
-function nowing(): Record<string, NowView> {
-  const held = base.draft?.now ?? {};
-  return Object.fromEntries(
-    Object.entries(held).map(([id, view]) => {
-      const number = Number(jobs.find((row) => row.id === id)?.handle.split("-")[0]);
-      const said = DOING[number];
-      if (said === undefined) return [id, view];
-      const [line, seconds] = said;
-      const running = (view.running ?? []).map((one) => (one.of === "drone" ? { ...one, tail: [line], since: ago(seconds / 60) } : one));
-      return [id, { ...view, running }];
-    }),
-  );
-}
-
-/** How far each running Job's plan has come: done, working, open. The base gives every Job the same counts. */
-const TASKS: Record<number, readonly [number, number, number]> = { 80: [3, 1, 1], 81: [1, 1, 3], 82: [0, 1, 2], 83: [0, 1, 4], 87: [0, 0, 3], 88: [2, 1, 1], 90: [3, 1, 2] };
-
 export const s207FleetTimeline: Scenario = {
   ...base,
   name: "fleet-timeline",
-  says: "The Cockpit's timeline: two hours of what Fleet did to Jobs, Sessions and pull requests in two repositories",
+  says: "The Cockpit's timeline: two hours of what Fleet did to Sessions and pull requests in two repositories",
   later: [],
-  state: {
-    ...base.state,
-    jobs: base.state.jobs.map((one) => {
-      const counts = TASKS[Number(one.handle.split("-")[0])];
-      return counts === undefined ? one : { ...one, tasks: { done: counts[0], working: counts[1], open: counts[2], dropped: 0 } };
-    }),
-  },
-  draft: { ...base.draft, events: EVENTS, now: nowing() },
+  draft: { ...base.draft, events: EVENTS },
 };

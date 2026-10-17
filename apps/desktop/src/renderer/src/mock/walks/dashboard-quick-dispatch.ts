@@ -1,5 +1,5 @@
 // The Cockpit and the Dispatch sheet: n opens it ready for the work, the one repository set up is chosen,
-// and the words typed are the Job's request. Over `dashboard-quick-dispatch`.
+// and the words typed are the Session's request. Over `dashboard-quick-dispatch`.
 
 import { inside, place, role, walk } from "../walk";
 
@@ -11,7 +11,7 @@ const dashboardQuickDispatch = walk("dashboard-quick-dispatch", [
   { key: "n", on: place("Cockpit"), say: "Press n" },
   { look: request, say: "The Dispatch sheet opens, ready for the work" },
   { type: "Retire the sleep calls in the store tests", into: request, say: "The first words typed" },
-  { look: inside(frame, role("button", "Dispatch", { exact: true })), say: "The act is a Job's Dispatch" },
+  { look: inside(frame, role("button", "Start", { exact: true })), say: "The act is Start" },
 ]);
 
 export { dashboardQuickDispatch as "dashboard-quick-dispatch" };

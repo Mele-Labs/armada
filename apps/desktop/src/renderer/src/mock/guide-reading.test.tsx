@@ -17,12 +17,12 @@ import {
 } from "@armada/components";
 import type { Guide } from "@armada/components";
 
-import { motion, mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
+import { motion, mount, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-/** The scenario the catalogue is opened from, and the one in the pull request's URLs. */
-const SCENARIO = "arc/executing-concurrent";
+/** The scenario the catalogue is opened from. */
+const SCENARIO = "default";
 
 /** The catalogue, reached the way a person reaches it: by the rail. */
 async function catalogue(): Promise<void> {
@@ -36,14 +36,6 @@ const rowFor = (guide: Guide) =>
 
 /** The panel beside the list, holding one guide. */
 const panelFor = (guide: Guide) => page.getByRole("article", { name: guide.title });
-
-/** The `?` beside a piece, by the name `GuideMark` gives it. */
-const markFor = (guide: Guide) =>
-  page.getByRole("button", { name: `Open guide ${guide.number}, ${guide.title}` });
-
-/** The card a `?` opens. */
-const cardFor = (guide: Guide) =>
-  page.getByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` });
 
 /** Every numbered step drawn in one region, as its text. */
 const drawnSteps = (where: ReturnType<typeof panelFor>) =>
@@ -161,26 +153,6 @@ test("under prefers-reduced-motion the figure holds still and still reads", asyn
     await expect.element(figure.getByText(word, { exact: true })).toBeVisible();
   }
   await expect.element(figure.getByText(/branches off member 1/)).toBeVisible();
-});
-
-test("the card a ? opens draws the same shape, figure and all", async () => {
-  // The Job with members is where guide 2's `?` sits, so this is the card path.
-  mount("members/stacked");
-  await onScreen();
-  await markFor(GUIDE_MEMBER_LINK).click();
-
-  const card = cardFor(GUIDE_MEMBER_LINK);
-  await expect.element(card).toBeVisible();
-  await readsAsSteps(card, GUIDE_MEMBER_LINK);
-
-  const figure = card.getByRole("img", { name: /landing in order/ });
-  await expect.element(figure).toBeVisible();
-  // The drawing takes the card's width rather than overflowing it: a figure
-  // wider than the layer it is in is a guide a person has to scroll sideways.
-  const inside = figure.element().getBoundingClientRect();
-  const layer = card.element().getBoundingClientRect();
-  expect(inside.width).toBeGreaterThan(0);
-  expect(inside.right).toBeLessThanOrEqual(layer.right);
 });
 
 test("a retired number is gone from the catalogue and is never handed out again", async () => {

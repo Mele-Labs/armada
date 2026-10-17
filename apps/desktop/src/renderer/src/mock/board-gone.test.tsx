@@ -19,7 +19,7 @@ unmountAfterEach();
  * row's button went too: its one bar searches and dispatches. `one-bar.tsx`.
  */
 test("Overview carries no Dispatch of its own, and the title row's one bar is the way in", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await expect.element(page.getByRole("button", { name: /^Search, or describe work to dispatch/ })).toBeVisible();
@@ -27,7 +27,7 @@ test("Overview carries no Dispatch of its own, and the title row's one bar is th
 });
 
 test("the Job Board is gone from the title bar", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await expect.element(page.getByRole("navigation", { name: "Places" })).toBeVisible();
@@ -35,11 +35,11 @@ test("the Job Board is gone from the title bar", async () => {
   expect(page.getByRole("button", { name: "Job Board" }).query()).toBeNull();
 });
 
-test("the Board's old shortcut reaches Jobs, because a digit is a tab's place in the bar", async () => {
-  mount("every-state");
+test("the Board's old shortcut reaches the Cockpit, which holds the work a digit once named", async () => {
+  mount("default");
   await onScreen();
 
-  // `⌘2` was the Board's, and then Studios'. It is the second tab now.
+  // `⌘2` was the Board's, then Studios', then Jobs'. The Cockpit holds Sessions alone now.
   await userEvent.keyboard("{Meta>}2{/Meta}");
-  await expect.poll(() => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent).toContain("Jobs");
+  await expect.poll(() => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent).toContain("Cockpit");
 });

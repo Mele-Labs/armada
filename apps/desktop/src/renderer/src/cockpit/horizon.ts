@@ -120,7 +120,7 @@ export function pullBlocks(
       pull.branch,
       `${reading?.says ?? "Open"}${position === undefined ? "" : `, place ${position}`}`,
       ...(pull.mergeByHand === true ? [MERGE_BY_HAND] : []),
-      ...(owner === undefined ? [] : [`${owner.kind === "job" ? "Job" : "Session"}: ${owner.title}`]),
+      ...(owner === undefined ? [] : [`Session: ${owner.title}`]),
     ].join(" · ");
     return {
       number: pull.number,
@@ -142,8 +142,8 @@ export function pullBlocks(
   });
 }
 
-/** What a dot does when pressed: the pull request on the forge, or the Job that owns the entry. */
-export type DotAct = { kind: "link"; url: string } | { kind: "job"; id: string };
+/** What a dot does when pressed: the pull request on the forge. */
+export type DotAct = { kind: "link"; url: string };
 
 /** What the dot's card says, row by row. A row is drawn only where its fact is. */
 export type DotCard = PullFacts & {
@@ -201,16 +201,15 @@ function checkOf(entry: MergeLineView["line"][number]): string | undefined {
 export function landingDots(line: MergeLineView["line"]): readonly Dot[] {
   return line.map((entry) => {
     const says = LAND_STATE[entry.state]?.verb ?? entry.state;
-    const owner: Owner | undefined = entry.job === undefined ? undefined : { kind: "job", id: entry.job.id, title: entry.job.title };
-    const act: DotAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : entry.job !== undefined ? { kind: "job", id: entry.job.id } : undefined;
+    const act: DotAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : undefined;
     const state = LANDING[entry.state] ?? "open";
     return {
       key: `line:${entry.branch}`,
       state,
       queued: true,
       icon: MARK[state]?.icon ?? null,
-      tip: [entry.branch, says, ...(owner === undefined ? [] : [`Job: ${owner.title}`])].join(" · "),
-      card: { heading: entry.branch, title: undefined, branch: entry.branch, says, check: checkOf(entry), place: entry.place, owner },
+      tip: [entry.branch, says].join(" · "),
+      card: { heading: entry.branch, title: undefined, branch: entry.branch, says, check: checkOf(entry), place: entry.place, owner: undefined },
       act,
     };
   });

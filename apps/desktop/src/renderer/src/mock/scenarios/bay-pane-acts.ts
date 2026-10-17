@@ -14,10 +14,10 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const ARMADA = ship.held?.slots?.find((one) => one.slot === 2)?.manifest_id ?? "armada";
 const POCKET = "pocket";
 
-/** The Job and the Sessions the ship holds, so a history row that names one opens it. */
-const jobOn = (slot: number): BayHolder => {
+/** The Sessions the ship holds on a bay, so a history row that names one opens it. */
+const sessionOn = (slot: number): BayHolder => {
   const held = ship.held?.slots?.find((one) => one.manifest_id === ARMADA && one.slot === slot)?.held;
-  return held?.state === "job" ? { kind: "job", id: held.job_id, ...(held.job_title === undefined ? {} : { title: held.job_title }) } : { kind: "job", id: "gone" };
+  return held?.state === "hosted_session" ? { kind: "session", id: held.session_id, title: held.session_title } : { kind: "session", id: "gone" };
 };
 const PIN_CLOCK: BayHolder = { kind: "session", id: "r1", title: "Pin the store clock" };
 const GATE_POLICY: BayHolder = { kind: "session", id: "p1", title: "Gate policy on every run" };
@@ -55,22 +55,22 @@ const HISTORIES: BayHistory[] = [
       released(66 * HOUR + 20, CHECKS_EARLIER),
       leased(70 * HOUR + 5, CHECKS_EARLIER, "armada/session-0e41b6c2"),
       checkout(69 * HOUR, "b7d2ee0", "main", "armada/session-0e41b6c2"),
-      released(72 * HOUR + 30, jobOn(2)),
-      leased(81 * HOUR, jobOn(2), "armada/81-cache"),
-      checkout(80 * HOUR + 50, "3fa9c14", "armada/81-cache"),
+      released(72 * HOUR + 30, sessionOn(2)),
+      leased(81 * HOUR, sessionOn(2), "fix/cache-key"),
+      checkout(80 * HOUR + 50, "3fa9c14", "fix/cache-key"),
       released(90 * HOUR, PIN_CLOCK),
       leased(97 * HOUR, PIN_CLOCK, "fix/pin-store-clock"),
       checkout(96 * HOUR + 30, "d18e6a5", "fix/pin-store-clock", "main"),
     ],
     true,
   ),
-  // Free: given back an hour ago, after a session and a Job.
+  // Free: given back an hour ago, after two Sessions.
   history(ARMADA, 5, [
     leased(5 * HOUR, GATE_POLICY, "fleet/gate-policy-every-run"),
     checkout(4 * HOUR + 50, "a40c9e3", "fleet/gate-policy-every-run", "main"),
     released(3 * HOUR, GATE_POLICY),
-    leased(2 * HOUR + 30, jobOn(3), "armada/83-reconnect"),
-    released(HOUR, jobOn(3)),
+    leased(2 * HOUR + 30, sessionOn(3), "fleet/reconnect-wait"),
+    released(HOUR, sessionOn(3)),
   ]),
   // Stranded: its last holder is gone.
   history(ARMADA, 6, [

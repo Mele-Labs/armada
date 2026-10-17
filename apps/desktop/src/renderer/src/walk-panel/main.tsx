@@ -19,8 +19,7 @@ import { withState } from "../state-feed";
 // preload, in a view main places beside the page and never over it.
 //
 // **It reads what Bridge's window reads**, published by main to every Bridge document, and draws it
-// with the components Bridge's window draws it with. Its subject is the query main loaded it with; a
-// Job's is Bridge's open Job, because main made it so when this window opened or took focus.
+// with the components Bridge's window draws it with. Its subject is the Session in the query main loaded it with.
 
 const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 const SUBJECT = subjectOf(window.location.search);

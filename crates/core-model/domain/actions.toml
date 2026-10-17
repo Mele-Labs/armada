@@ -278,18 +278,6 @@ destructive = false
 confirms = false
 notes = "`rotate-cw` is Redispatch and `refresh-cw` is reserved to churning, so the two rotation glyphs are both spoken for. Restarting one step is neither. Carries no `unbuilt`: Bridge has this act — `Acts.tsx` fires `restart_step` from the step panel and has since #62. What it has no keyboard path to is a different thing from what it cannot do, and #233 read the missing binding as a missing act."
 
-[actions.pilot]
-kind = "Action"
-tier = "Contextual"
-verb = "Pilot"
-icon = "terminal"
-shortcut = "p"
-scope = "list and detail"
-destructive = false
-confirms = false
-unbuilt = "#250"
-notes = "The glyph is reserved to Pilot. Once the terminal has focus every keystroke belongs to it and this tier is suspended; only Esc Esc releases it — a safety rule written against an act that does not exist yet, which is what #233 found. #250 is the control; the handover the exemption describes is #255's three exits."
-
 [actions.copy_debug_info]
 kind = "Action"
 tier = "Contextual"

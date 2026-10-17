@@ -1,5 +1,5 @@
 // A Session's pull request turns main red. The head names the Session beside the pull request that
-// merged, and Send back lists Sessions and Jobs with the Session already chosen, the brief there to
+// merged, and Send back lists Sessions with the Session already chosen, the brief there to
 // edit as the message it is sent as.
 
 import { button, dialog, inside, region, role, text, viaPalette, walk } from "../walk";
@@ -23,16 +23,15 @@ export const mainRedSession = walk("main-red-session", [
   { look: inside(RED, button(SESSION)), say: "Its title opens the Session" },
   { look: inside(LANDED, role("listitem", /^armada\/session-c279e883, landed/)), say: "In Recently landed: the same pull request, a red run on main, and the Session that opened it" },
   { look: inside(LANDED, role("img", "ci failed on main")), say: "The run on its merge commit failed" },
-  { look: inside(RED, button("Dispatch a new Job")), say: "And dispatching a new Job, in the band" },
+  { look: inside(RED, button("Dispatch a new Session")), say: "And dispatching a new Session, in the band" },
   { look: inside(RED, button("Send back", { exact: true })), say: "Send back sits beside the Session that merged: it goes back to that one" },
   { look: inside(PULLS, role("listitem", /^armada\/14-wire-the-cockpit/)), say: "A long branch is cut short, so the number and its owner stay inside the row" },
   { hover: inside(PULLS, button(/^Wire the Cockpit/)), say: "The owner is cut short too: hover has its whole title" },
   { press: inside(RED, button("Send back", { exact: true })), say: "Send back" },
   { look: inside(SEND, role("list", "Attached")), say: "What goes with it" },
-  { look: inside(SEND, role("radiogroup", "Sessions")), say: "Sessions first, then Jobs" },
+  { look: inside(SEND, role("radiogroup", "Sessions")), say: "The Sessions it can go back to" },
   { look: inside(SEND, role("img", "Merged #1830")), say: "The Session that merged comes first in its group, marked" },
   { look: inside(SEND, role("radio", new RegExp(`^${SESSION}`))), say: "And is already chosen" },
-  { look: inside(SEND, role("radiogroup", "Jobs")), say: "Jobs below" },
   { look: inside(SEND, role("textbox", "Message")), say: "The brief, there to edit: it goes to the Session as a message" },
   { press: inside(SEND, button("Send back", { exact: true })), say: "Send it" },
   { later: inside(RED, button("Send back", { exact: true })), say: "The Session fixes it" },

@@ -101,26 +101,3 @@ test("a Sketch placed from the rail is drawn on the pad, kept when it closes, an
   await expect.element(pad().getByRole("group", { name: "Box: The board" })).toBeVisible();
   await expect.element(pad().getByRole("group", { name: /^A line from / })).toBeInTheDocument();
 });
-
-test("dispatching from a Sketch puts its drawing on the composer's pad, made from that node", async () => {
-  await openEditable();
-  const before = sketches().length;
-  await page.getByRole("button", { name: "Add a Sketch" }).click();
-  await pressBoard();
-  await drawTwoJoined();
-  await pad().getByRole("button", { name: "Close" }).click();
-  await expect.element(pad()).not.toBeInTheDocument();
-  await expect.poll(() => sketches().length).toBe(before + 1);
-
-  const id = await pickPlaced();
-  await act("Dispatch").click();
-  // The drawing is attached at once — the chip — and drawn under Sketch.
-  await expect.element(page.getByText("sketch 1", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Sketch" }).click();
-  const composer = page.getByLabelText("The picture attached to this request");
-  await expect.element(composer).toBeVisible();
-  await expect.element(composer.getByRole("group", { name: "Box: The rail" })).toBeVisible();
-  await expect.element(composer.getByRole("group", { name: "Box: The board" })).toBeVisible();
-  await expect.element(composer.getByRole("group", { name: /^A line from / })).toBeInTheDocument();
-  await expect.element(page.getByText(id, { exact: true })).toBeVisible();
-});

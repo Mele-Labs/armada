@@ -281,7 +281,7 @@ const lessons = other(LESSONS, "Write the lessons page", { rows: [agent("l-1", "
 
 function sessions(control: BoardControl): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [main, prune, names, audit, fold, lessons]);
+  const base = sessionsStore([none, none], none, control, [], [main, prune, names, audit, fold, lessons]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   const own = new Set([MAIN, PRUNE, NAMES, AUDIT, FOLD, LESSONS]);

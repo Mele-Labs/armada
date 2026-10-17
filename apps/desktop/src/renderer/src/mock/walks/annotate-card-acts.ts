@@ -11,7 +11,7 @@ function steps(narrow: boolean): Step[] {
   const { thread } = kit(narrow);
   const card = dialog("Note");
   return [
-    { press: deckRow("The retry loop"), say: "A press on the page starts a note" },
+    { press: deckRow("Fix the flaky store test"), say: "A press on the page starts a note" },
     { type: "The row should say which step it is on", into: inside(dialog("New note"), role("textbox", "Note")), say: "What is wrong with it" },
     { press: button("Save note"), say: "Saved" },
     { look: inside(card, text("The row should say which step it is on")), say: "The note stays up where it was left" },
