@@ -1,6 +1,6 @@
-// A question the agent asked and nobody answered in time stays as the deck in a pill's sheet over the composer, and
+// A question the agent asked and nobody answered in time stays as the deck in the Needs you panel on the composer, and
 // answering it sends the choice to the agent as the person's own message. A waiting item that
-// offers choices is the same deck in the Needs you sheet. Over the `lapsed-question` scenario.
+// offers choices is the same deck in the panel. Over the `lapsed-question` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";

@@ -1,0 +1,126 @@
+/* A box with no height whose bottom edge is the composer's top edge. The trigger sits on that edge and the body opens beside it, with no gap:
+   the trigger, the body and the composer are drawn in one hue, which is what shows they are one object. */
+.armada-needs-panel {
+  --hue: var(--step-waiting);
+  position: absolute;
+  inset-block-end: 100%;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+/* The band puts the trigger nearest the box and the body above it. */
+.armada-needs-panel[data-take="band"] {
+  flex-direction: column-reverse;
+}
+
+.armada-needs-panel > * {
+  pointer-events: auto;
+}
+
+.armada-needs-panel__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--hue);
+  color: var(--fg-inverse);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* The tab is the folder tab of the panel: it keeps to the start, off the box's corner. */
+.armada-needs-panel[data-take="eyebrow"] .armada-needs-panel__trigger {
+  align-self: flex-start;
+  margin-inline-start: var(--space-3);
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__trigger {
+  padding: 0 var(--space-3);
+}
+
+/* Opened under the body, the band's top meets it square. */
+.armada-needs-panel[data-take="band"][data-open="true"] .armada-needs-panel__trigger {
+  border-radius: 0;
+}
+
+.armada-needs-panel__trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-needs-panel__label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-needs-panel__glyphs {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.armada-needs-panel[data-take="band"] .armada-needs-panel__fold {
+  margin-inline-start: auto;
+}
+
+/* The body covers the thread's foot, scrolls inside, and never moves the thread. Its bottom edge is the box's top edge, so it has none of its own. */
+.armada-needs-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  max-height: 60vh;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--hue);
+  border-block-end: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bg-raised);
+  overflow: auto;
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity var(--duration-base) var(--ease), translate var(--duration-base) var(--ease), display var(--duration-base) allow-discrete;
+}
+
+.armada-needs-panel__body[data-open="false"] {
+  display: none;
+  opacity: 0;
+  translate: 0 var(--space-3);
+}
+
+@starting-style {
+  .armada-needs-panel__body[data-open="true"] {
+    opacity: 0;
+    translate: 0 var(--space-3);
+  }
+}
+
+/* The question is the panel's own, not a card in a card. What waits follows it under a hairline. */
+.armada-needs-panel__question .armada-session-thread__ask {
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.armada-needs-panel__question + .armada-needs-panel__rows {
+  padding-block-start: var(--space-3);
+  border-block-start: var(--border-width) solid var(--border-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-needs-panel__body {
+    transition: none;
+  }
+}

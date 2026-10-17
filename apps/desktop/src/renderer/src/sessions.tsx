@@ -17,8 +17,7 @@ import {
   ForkedFrom,
   AskCards,
   askLabel,
-  ComposerPills,
-  type PillSheet,
+  NeedsYouPanel,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -110,6 +109,7 @@ import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 import { CallChip, callWord } from "./session-view/CallChip";
+import { needsTake } from "./session-view/needs-take";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, which the Cockpit holds. ⌘3 and a link to a Session still arrive there. */
@@ -696,8 +696,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [focusFor, setFocusFor] = useState<string | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
-  // Which of the pills over the composer has its sheet up, and for which Session.
-  const [sheet, setSheet] = useState<{ id: string; which: PillSheet } | undefined>();
+  // Whether the Needs you panel on the composer is up, and for which Session.
+  const [panel, setPanel] = useState<{ id: string; open: boolean } | undefined>();
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
@@ -828,9 +828,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     narrow
       ? () => {
           setLedgerOpen(false);
-          setSheet({ id: session.id, which: "question" });
+          setPanel({ id: session.id, open: true });
         }
-      : () => setSheet({ id: session.id, which: "question" }),
+      : () => setPanel({ id: session.id, open: true }),
     { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
@@ -847,7 +847,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const todos = todosOf(session);
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
-  // What the agent is held on, or asked and was not answered, is a pill over the composer and its sheet, not the thread's last card.
+  // What the agent is held on, or asked and was not answered, is the first thing in the Needs you panel on the composer, not the thread's last card.
   const asked: ComponentProps<typeof AskCards>["asked"] =
     session.asked === undefined
       ? undefined
@@ -878,8 +878,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       : {
           id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
           label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
-          children: <AskCards {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+          children: <AskCards flat {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
+  const panelOpen = panel?.id === session.id && panel.open && (needs.length > 0 || question !== undefined);
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
@@ -994,8 +995,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-pills={needs.length > 0 || question !== undefined ? "" : undefined}>
-          <ComposerPills rows={needs} open={sheet?.id === session.id ? sheet.which : undefined} onOpen={(which) => setSheet(which === undefined ? undefined : { id: session.id, which })} {...(question === undefined ? {} : { question })} />
+          <div className="sv-dock" data-needs={needs.length > 0 || question !== undefined ? "" : undefined} data-open={panelOpen} data-take={needsTake()}>
+          <NeedsYouPanel take={needsTake()} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} />
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}

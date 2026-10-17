@@ -14,7 +14,7 @@ const refreshPreviewOnSessions = walk("refresh-preview-on-sessions", [
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
   { look: preview, say: "In the thread the restart is one key, Refresh preview" },
   toSessions,
-  { press: inside(region("Work", { exact: true }), button(/Pin the store clock/)), say: "Opened, Needs you over the composer as it was left" },
+  { press: inside(region("Work", { exact: true }), button(/Pin the store clock/)), say: "Opened, the Needs you panel as it was left" },
   { look: preview, say: "The same item reads Refresh preview here too, with no command to copy" },
   { hover: preview, say: "Hovering names the command it stands for" },
   { look: tests, say: "An ordinary command beside it is still the command" },

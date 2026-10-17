@@ -28,7 +28,7 @@ const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { look: inside(row("Changelog script"), role("img", "Done")), say: "Done" },
   { press: inside(sessions, button(/Cache key/)), say: "Cache key opened" },
   { look: text(/Owner removed/), say: "The agent was told, with his reason" },
-  { press: inside(region("Needs you"), button(/^Needs you/)), say: "The second item, in the Needs you pill over the composer" },
+  { press: inside(region("Needs you"), button(/^Needs you/)), say: "The second item, in the Needs you panel on the composer" },
   { press: inside(region("Needs you"), button(/^Remove/)), say: "Remove on the row in the thread" },
   { type: "\n", into: reason, say: "Enter with no reason removes it" },
   { look: text(/Owner removed "Pick a name/), say: "The agent was told without one" },

@@ -1030,7 +1030,7 @@ export function askLabel({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "
 }
 
 /** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
-export function AskCards({ asked, askRef, onAnswer, lapsed }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed">) {
+export function AskCards({ asked, askRef, onAnswer, lapsed, flat }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true }) {
   return (
     <>
       {asked === undefined ? null : (
@@ -1060,6 +1060,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed }: Pick<SessionThread
           {asked.questions !== undefined && asked.questions.length > 0 ? (
             <QuestionDeck
               key={asked.command}
+              {...(flat === undefined ? {} : { flat })}
               questions={asked.questions}
               onAnswer={onAnswer}
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
@@ -1094,6 +1095,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed }: Pick<SessionThread
         <Card flat className="armada-session-thread__ask" role="article" aria-label="Unanswered">
           <QuestionDeck
             key={lapsed.id}
+            {...(flat === undefined ? {} : { flat })}
             questions={lapsed.questions}
             onAnswer={(answer, answers) => {
               if (answers !== undefined) lapsed.onAnswer(answers);

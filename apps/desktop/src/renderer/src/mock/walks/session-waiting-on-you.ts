@@ -1,6 +1,5 @@
-// A Session that waits on the person: its row has a hand, the tab on its composer
-// raises a sheet of the items, a press on the page item opens the window, and the question is on its own
-// card in the thread. Over the `session-waiting-on-you` scenario. Told twice: wide, and
+// A Session that waits on the person: its row has a hand, the Needs you panel on its
+// composer is up with the question and the items, a press on the page item opens the window, and the question is its first part. Over the `session-waiting-on-you` scenario. Told twice: wide, and
 // below the breakpoint.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
@@ -14,12 +13,10 @@ function steps(): Step[] {
   return [
     { hover: inside(sessions, role("img", /^Waiting on you/)), say: "A hand on its row, and on hover what it waits on" },
     { press: mine, say: "Opened" },
-    { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
     { press: inside(needs, button("Open Look at the findings page")), say: "The page item opens the window" },
     { look: dialog("Bridge's window on Pin the store clock"), say: "The window" },
     { press: button("Close window"), say: "Closed" },
-    { press: inside(needs, button("Clock", { exact: true })), say: "The question is a pill of its own, and its sheet swaps in" },
-    { look: role("article", "Waiting on you"), say: "The question is on its own card, and not in the Needs you sheet" },
+    { look: role("article", "Waiting on you"), say: "The question is the panel's first part, above the rows" },
   ];
 }
 
