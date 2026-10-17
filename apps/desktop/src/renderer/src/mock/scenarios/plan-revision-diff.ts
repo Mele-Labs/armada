@@ -1,6 +1,6 @@
 // A Job presenting plan v5 after a lot of v4 is built: two groups done, a third in progress with a task added and one renamed, and one task
 // taken out. The thread's card draws the revision as its diff. Over the `one-session-view` scenario, with one of its Sessions given the plan.
-// The walk `planRevisionDiff` plays it; `&take=folded` is the second take of the card.
+// The walk `planRevisionDiff` plays it.
 
 import type { Session, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 
@@ -67,7 +67,7 @@ const revised = (one: Session): Session => ({
 export const s274PlanRevisionDiff: Scenario = {
   ...base,
   name: "plan-revision-diff",
-  says: "A Job presenting plan v5 over a lot of finished v4 work: the card reads as what changed, and the rest folds",
+  says: "A Job presenting plan v5 over a lot of finished v4 work: the unchanged groups close to a line and the changed group shows its marks",
   draft: {
     ...base.draft,
     sessions: (control) => {

@@ -153,7 +153,7 @@ export type PlanApproval = {
   after?: string;
   /** What the agent changed since the plan before this one: what is added, renamed (and what it was) and removed. */
   changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
-  /** A later version drawn as its diff: what changed first, the rest folded. Absent, the card draws the plan whole. */
+  /** A later version drawn with what changed marked in place and the groups nothing touched closed to a line. Absent, the card draws the plan whole. */
   revision?: PlanRevision;
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
@@ -885,7 +885,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const stateSaid = approved ? "Plan approved" : "Plan waiting for approval";
   const StateGlyph = approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
-  // U opens the unchanged part of a revision, or folds it again, wherever focus is on the card.
+  // U opens the unchanged groups of a revision, or closes them all, wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
     if (!folded && event.key === "u" && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();

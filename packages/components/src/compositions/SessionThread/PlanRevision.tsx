@@ -22,45 +22,31 @@ export type RevisionGroup = {
 };
 
 /**
- * A plan that is a later version of one already worked, drawn as what changed. Two takes of it: `diff` leads with the changes under their
- * group and folds everything else into one Unchanged part at the end; `folded` keeps the plan in order, unchanged groups closed to a line each
- * and the changed group open with its changes marked in place.
+ * A plan that is a later version of one already worked, drawn in its order with what changed marked where it stands: a group nothing
+ * touched is closed to one line, and a group with a change is open, its added, renamed and removed tasks marked.
  */
-export type PlanRevision = { take: "diff" | "folded"; groups: readonly RevisionGroup[] };
+export type PlanRevision = { groups: readonly RevisionGroup[] };
 
 const changed = (group: RevisionGroup): boolean => group.since !== undefined || group.gone.length > 0 || group.tasks.some((task) => task.since !== undefined);
 
-/** Standing in the open set for the one Unchanged part the `diff` take has. */
-const ALL = "*";
-
-/** What the key and the presses open: the one Unchanged part of the `diff` take, or each unchanged group of the `folded` one. */
+/** Which unchanged groups are open. The key opens them all, or closes them all once every one is open. */
 export function useUnchanged(revision: PlanRevision | undefined) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const keys =
-    revision === undefined
-      ? []
-      : revision.take === "diff"
-        ? hasUnchanged(revision.groups)
-          ? [ALL]
-          : []
-        : revision.groups.filter((group) => !changed(group)).map((group) => group.id);
-  const every = keys.length > 0 && keys.every((key) => open.has(key));
+  const ids = revision === undefined ? [] : revision.groups.filter((group) => !changed(group)).map((group) => group.id);
+  const every = ids.length > 0 && ids.every((id) => open.has(id));
   return {
-    has: (key: string) => open.has(key),
-    toggle: (key: string) =>
+    has: (id: string) => open.has(id),
+    toggle: (id: string) =>
       setOpen((was) => {
         const next = new Set(was);
-        if (!next.delete(key)) next.add(key);
+        if (!next.delete(id)) next.add(id);
         return next;
       }),
-    /** Opens every unchanged part, or folds them all when all are open. */
-    toggleAll: () => setOpen(every ? new Set() : new Set(keys)),
+    toggleAll: () => setOpen(every ? new Set() : new Set(ids)),
   };
 }
 
 export type Unchanged = ReturnType<typeof useUnchanged>;
-
-const hasUnchanged = (groups: readonly RevisionGroup[]): boolean => groups.some((group) => !changed(group) || group.tasks.some((task) => task.since === undefined));
 
 const CHANGE: Record<"added" | "renamed" | "removed", { Glyph: LucideIcon; said: string }> = {
   added: { Glyph: Plus, said: "Added" },
@@ -104,13 +90,13 @@ function GroupTitle({ group }: { group: RevisionGroup }) {
   );
 }
 
-/** One task: the change it carries, its state, its text. `always` draws an open task's state; otherwise an open task leaves that cell empty. */
-function TaskLine({ task, always }: { task: RevisionTask; always: boolean }) {
+/** One task: the change it carries, its state, its text. */
+function TaskLine({ task }: { task: RevisionTask }) {
   const since = task.since;
   return (
     <li className="armada-plan-revision__task" data-kind={since?.kind}>
       {since === undefined ? <span aria-hidden /> : <ChangeMark kind={since.kind} />}
-      {always || task.state !== "open" ? <TaskMark state={task.state} /> : <span aria-hidden />}
+      <TaskMark state={task.state} />
       <span className="armada-plan-revision__text">
         {since?.kind === "renamed" ? <s>{since.from}</s> : null}
         <span>{task.text}</span>
@@ -131,80 +117,6 @@ function GoneLine({ text }: { text: string }) {
   );
 }
 
-const Marks = ({ tasks }: { tasks: readonly RevisionTask[] }) => (
-  <span className="armada-session-thread__marks">
-    {tasks.map((task) => (
-      <TaskMark key={task.id} state={task.state} />
-    ))}
-  </span>
-);
-
-/** The changes under their groups, then one Unchanged part: a line for each group nothing touched, and the other tasks of a group that changed. */
-function Diff({ groups, unchanged }: { groups: readonly RevisionGroup[]; unchanged: Unchanged }) {
-  const list = useId();
-  const open = unchanged.has(ALL);
-  const rest = groups.filter((group) => !changed(group) || group.tasks.some((task) => task.since === undefined));
-  return (
-    <div className="armada-plan-revision" data-take="diff">
-      <ul className="armada-plan-revision__groups" aria-label="Changed since the last plan">
-        {groups.filter(changed).map((group) => (
-          <li key={group.id} className="armada-plan-revision__group">
-            <div className="armada-plan-revision__head">
-              <GroupTitle group={group} />
-              <AgentChip agent={group.agent} />
-            </div>
-            <ul className="armada-plan-revision__tasks">
-              {group.tasks.filter((task) => task.since !== undefined).map((task) => (
-                <TaskLine key={task.id} task={task} always={false} />
-              ))}
-              {group.gone.map((text) => (
-                <GoneLine key={text} text={text} />
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-      {rest.length === 0 ? null : (
-        <div className="armada-plan-revision__unchanged">
-          <Tooltip asChild label={open ? "Hide unchanged" : "Show unchanged"} shortcut="U">
-            <button type="button" className="armada-plan-revision__fold" aria-expanded={open} {...(open ? { "aria-controls": list } : {})} onClick={() => unchanged.toggle(ALL)}>
-              {open ? <ChevronDown size={12} strokeWidth={2} aria-hidden /> : <ChevronRight size={12} strokeWidth={2} aria-hidden />}
-              <span>Unchanged</span>
-            </button>
-          </Tooltip>
-          {open ? (
-            <ul id={list} className="armada-plan-revision__groups" aria-label="Unchanged">
-              {rest.map((group) =>
-                changed(group) ? (
-                  <li key={group.id} className="armada-plan-revision__group">
-                    <div className="armada-plan-revision__head">
-                      <GroupTitle group={group} />
-                      <AgentChip agent={group.agent} />
-                    </div>
-                    <ul className="armada-plan-revision__tasks">
-                      {group.tasks.filter((task) => task.since === undefined).map((task) => (
-                        <TaskLine key={task.id} task={task} always />
-                      ))}
-                    </ul>
-                  </li>
-                ) : (
-                  <li key={group.id} className="armada-plan-revision__group">
-                    <div className="armada-plan-revision__head">
-                      <GroupTitle group={group} />
-                      <Marks tasks={group.tasks} />
-                      <AgentChip agent={group.agent} />
-                    </div>
-                  </li>
-                ),
-              )}
-            </ul>
-          ) : null}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** One unchanged group: a line that opens to its tasks. */
 function Quiet({ group, unchanged }: { group: RevisionGroup; unchanged: Unchanged }) {
   const list = useId();
@@ -219,14 +131,18 @@ function Quiet({ group, unchanged }: { group: RevisionGroup; unchanged: Unchange
               <span>{group.title}</span>
             </span>
           </span>
-          <Marks tasks={group.tasks} />
+          <span className="armada-session-thread__marks">
+            {group.tasks.map((task) => (
+              <TaskMark key={task.id} state={task.state} />
+            ))}
+          </span>
           <AgentChip agent={group.agent} />
         </button>
       </Tooltip>
       {open ? (
         <ul id={list} className="armada-plan-revision__tasks">
           {group.tasks.map((task) => (
-            <TaskLine key={task.id} task={task} always />
+            <TaskLine key={task.id} task={task} />
           ))}
         </ul>
       ) : null}
@@ -235,11 +151,11 @@ function Quiet({ group, unchanged }: { group: RevisionGroup; unchanged: Unchange
 }
 
 /** The plan in order: unchanged groups closed to a line, the changed group open with its changes marked where they stand. */
-function Folded({ groups, unchanged }: { groups: readonly RevisionGroup[]; unchanged: Unchanged }) {
+export function PlanRevisionView({ revision, unchanged }: { revision: PlanRevision; unchanged: Unchanged }) {
   return (
-    <div className="armada-plan-revision" data-take="folded">
+    <div className="armada-plan-revision">
       <ul className="armada-plan-revision__groups" aria-label="Plan">
-        {groups.map((group) =>
+        {revision.groups.map((group) =>
           changed(group) ? (
             <li key={group.id} className="armada-plan-revision__group">
               <div className="armada-plan-revision__head">
@@ -248,7 +164,7 @@ function Folded({ groups, unchanged }: { groups: readonly RevisionGroup[]; uncha
               </div>
               <ul className="armada-plan-revision__tasks">
                 {group.tasks.map((task) => (
-                  <TaskLine key={task.id} task={task} always />
+                  <TaskLine key={task.id} task={task} />
                 ))}
                 {group.gone.map((text) => (
                   <GoneLine key={text} text={text} />
@@ -262,8 +178,4 @@ function Folded({ groups, unchanged }: { groups: readonly RevisionGroup[]; uncha
       </ul>
     </div>
   );
-}
-
-export function PlanRevisionView({ revision, unchanged }: { revision: PlanRevision; unchanged: Unchanged }) {
-  return revision.take === "diff" ? <Diff groups={revision.groups} unchanged={unchanged} /> : <Folded groups={revision.groups} unchanged={unchanged} />;
 }

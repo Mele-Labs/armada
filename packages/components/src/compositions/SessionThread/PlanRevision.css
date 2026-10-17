@@ -103,14 +103,7 @@
   color: var(--step-failed);
 }
 
-/* The part that opens: one line, quiet until it is under the pointer or holds focus. */
-.armada-plan-revision__unchanged {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
+/* An unchanged group: one line, quiet until it is under the pointer or holds focus, and it opens to its tasks. */
 .armada-plan-revision__fold {
   display: inline-flex;
   align-items: center;
@@ -140,15 +133,14 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* An unchanged group of the folded take: its whole row presses. */
+/* The whole row presses. */
 .armada-plan-revision__fold.armada-plan-revision__head {
   align-self: stretch;
   width: calc(100% + var(--space-4));
   margin-inline-end: calc(var(--space-2) * -1);
 }
 
-/* Nothing changed in these: a group's line is plain and muted, not a heading. */
-.armada-plan-revision__unchanged .armada-plan-revision__title,
+/* Nothing changed here: the line is plain and muted, not a heading. */
 .armada-plan-revision__group[data-quiet] .armada-plan-revision__title {
   color: var(--fg-muted);
   font-weight: inherit;
