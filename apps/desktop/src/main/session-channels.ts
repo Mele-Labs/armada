@@ -12,6 +12,7 @@ import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
+import type { LoadoutItemAsk } from "@armada/screens/src/draft/sessions";
 
 type Hosts = {
   ipc: IpcMain;
@@ -33,6 +34,14 @@ const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as co
 // **A request main cannot read is not a lost connection**: an answer missing from a list here
 // was told to the owner as Fleet not connected, while it was (16 Oct 2026).
 const unread = { ok: false, outcome: { ok: false, why: "not_understood" } } as const;
+
+/** A Loadout row as the window sent it, its four fields text and nothing else; Fleet refuses a kind or a source it does not know. */
+function loadoutItemAsk(value: unknown): LoadoutItemAsk | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { kind, name, source, from } = value as Record<string, unknown>;
+  if (!text(kind) || !text(name) || !text(source) || (from !== undefined && !text(from))) return undefined;
+  return { kind: kind as LoadoutItemAsk["kind"], name, source: source as LoadoutItemAsk["source"], ...(from === undefined ? {} : { from }) };
+}
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter) => {
@@ -156,6 +165,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readSessionLoadout, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.loadout(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.readLoadoutItem, (_event, sessionId: string, item: unknown) => {
+    const asked = loadoutItemAsk(item);
+    return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;
+  });
   ipc.handle(CHANNELS.readSessionArtifact, (_event, sessionId: string, path: string) =>
     text(sessionId) && text(path) ? (connection()?.sessions.readArtifact(sessionId, path) ?? { ok: false, why: "not_addressable" }) : { ok: false, why: "not_addressable" },
   );

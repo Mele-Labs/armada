@@ -30,6 +30,8 @@ import type {
 } from "@armada/protocol";
 
 import { withThreadRow } from "@armada/screens/src/retro-row";
+import type { LoadoutItemBody } from "@armada/screens/src/draft/sessions";
+import { loadoutKeyOf } from "@armada/components";
 import { REACH_FOLDERS_KEY, reachFoldersOf } from "@armada/protocol";
 import { savedInto } from "@armada/settings/fake";
 
@@ -184,6 +186,10 @@ export class FakeSessionsFleet {
   subagents: Record<string, SessionSubagent> = {};
   /** Each Session's whole Loadout, by Session id, as `get_session_loadout` answers it. */
   loadouts: Record<string, SessionLoadout> = {};
+  /** What each Loadout item says, by Session id and then `loadoutKeyOf`, as `read_loadout_item` answers. An item not here was not found. */
+  loadoutItems: Record<string, Record<string, LoadoutItemBody>> = {};
+  /** Every Loadout item asked for, in order. */
+  readLoadoutItems: string[] = [];
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
@@ -400,6 +406,11 @@ export class FakeSessionsFleet {
           readSessionLoadout: async (sessionId) => {
             const loadout = this.loadouts[sessionId];
             return loadout === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: loadout };
+          },
+          readLoadoutItem: async (sessionId, item) => {
+            const key = loadoutKeyOf(item);
+            this.readLoadoutItems.push(key);
+            return { ok: true, value: this.loadoutItems[sessionId]?.[key] ?? { what: "not_read", why: "No file on this machine names this item." } };
           },
           readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),

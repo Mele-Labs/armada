@@ -29,7 +29,7 @@ import type { PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun,
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionLoadout, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
-import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
@@ -419,6 +419,7 @@ const api: BridgeApi = {
   readSessionSubagent: (sessionId: string, subagentId: string): Promise<SessionActed<SessionSubagent>> =>
     ipcRenderer.invoke(CHANNELS.readSessionSubagent, sessionId, subagentId),
   readSessionLoadout: (sessionId: string): Promise<SessionActed<SessionLoadout>> => ipcRenderer.invoke(CHANNELS.readSessionLoadout, sessionId),
+  readLoadoutItem: (sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> => ipcRenderer.invoke(CHANNELS.readLoadoutItem, sessionId, item),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>

@@ -60,3 +60,23 @@ export function turnSaid(at: string): string {
   const when = Date.parse(at);
   return Number.isNaN(when) ? at : CLOCK.format(when);
 }
+
+/** One Loadout row, from Knows, Told or a turn's uses: a use's `skill`, `tool` or `subagent` is the item of that kind. */
+export type LoadoutRef = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
+
+/** The item a row stands for, without what only Knows or a use carries. */
+export function loadoutRefOf(one: LoadoutRef): LoadoutRef {
+  return { kind: one.kind, name: one.name, source: one.source, ...(one.from === undefined ? {} : { from: one.from }) };
+}
+
+/** One identity for an item wherever it is listed, so a use and the item it used are the same row. */
+export function loadoutKeyOf(one: LoadoutRef): string {
+  return `${one.kind}:${one.source}:${one.from ?? ""}:${one.name}`;
+}
+
+/** The tools an MCP server gave, in the order the Loadout lists them: its own by `from`, or by the `mcp__<server>__` prefix. */
+export function toolsOf(server: LoadoutRef, items: readonly LoadoutItem[]): LoadoutItem[] {
+  const named = server.from ?? server.name;
+  const prefix = `mcp__${server.name}__`;
+  return items.filter((one) => one.kind === "tool" && (one.from === named || one.name.startsWith(prefix)));
+}

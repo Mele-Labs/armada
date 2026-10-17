@@ -2,6 +2,8 @@
 
 import type { LoadoutItem, LoadoutTurn, SessionLoadout } from "@armada/protocol";
 
+import type { LoadoutItemRead } from "./LoadoutItemPanel";
+
 const skill = (name: string, source: LoadoutItem["source"], from?: string): LoadoutItem => ({ kind: "skill", name, source, ...(from === undefined ? {} : { from }) });
 const tool = (name: string, source: LoadoutItem["source"], state: LoadoutItem["state"], from?: string): LoadoutItem => ({ kind: "tool", name, source, ...(state === undefined ? {} : { state }), ...(from === undefined ? {} : { from }) });
 
@@ -51,3 +53,19 @@ export const TURNS: LoadoutTurn[] = [
 export const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };
 
 export const SUMMARY = { knows: 19, told: 3, latest_turn: TURNS[TURNS.length - 1]! };
+
+/** What two items say, by `loadoutKeyOf`: a repository skill, and the session rules cut at the cap. */
+export const BODIES: Record<string, LoadoutItemRead> = {
+  "skill:repository::work-issue": {
+    state: "read",
+    path: ".claude/skills/work-issue/SKILL.md",
+    format: "markdown",
+    body: "---\nname: work-issue\ndescription: How to work one GitHub issue\n---\n\n# Work one GitHub issue\n\nCut a worktree, plan, implement, check, land.\n",
+  },
+  "rules:armada::Armada session rules": {
+    state: "read",
+    format: "text",
+    body: "You are a Session of Armada.\nRead the issue before the code.\n",
+    truncated: true,
+  },
+};

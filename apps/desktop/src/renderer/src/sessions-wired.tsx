@@ -618,6 +618,10 @@ export class WiredStore {
       const read = await this.api.readSessionLoadout(id);
       return read.ok ? read.value : undefined;
     },
+    loadoutItem: async (id, item) => {
+      const read = await this.api.readLoadoutItem(id, item);
+      return read.ok ? read.value : undefined;
+    },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
     releaseHolds: (id, to, rows) => this.releasing(id, to, rows),

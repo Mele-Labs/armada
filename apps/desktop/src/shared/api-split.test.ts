@@ -89,7 +89,7 @@ import type {
   ManifestFileRead,
   ManifestSaveAnswer,
 } from "@armada/screens/src/editing";
-import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -371,6 +371,7 @@ type OldBridgeApi = {
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+    readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     getSessionWindows: () => Promise<readonly string[]>;
@@ -606,6 +607,7 @@ const OLD_CHANNELS = {
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",
     readSessionLoadout: "bridge:read-session-loadout",
+    readLoadoutItem: "bridge:read-loadout-item",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
     getSessionWindows: "bridge:get-session-windows",

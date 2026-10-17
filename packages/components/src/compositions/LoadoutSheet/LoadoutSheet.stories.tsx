@@ -1,9 +1,10 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, screen, within } from "storybook/test";
+import { expect, fn, screen, waitFor, within } from "storybook/test";
 
-import { turnSaid } from "../../loadout";
-import { LoadoutSheet } from "./LoadoutSheet";
-import { LOADOUT, TURNS } from "./LoadoutSheet.fixtures";
+import { loadoutKeyOf, turnSaid, type LoadoutRef } from "../../loadout";
+import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
+import { BODIES, LOADOUT, TURNS } from "./LoadoutSheet.fixtures";
 
 /** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
@@ -61,3 +62,69 @@ export const Failed: Story = { args: { read: { state: "failed", latest: TURNS[1]
 
 /** A Session that reported an empty Loadout. */
 export const Empty: Story = { args: { read: { state: "read", loadout: { items: [], turns: [] } } } };
+
+/** The host's side of a press: the item opens at once and its read lands, an MCP server with no read at all. */
+function Opening(args: LoadoutSheetProps) {
+  const [opened, setOpened] = useState<LoadoutOpened | undefined>(args.opened);
+  const open = (item: LoadoutRef | null) => {
+    args.onOpenItem?.(item);
+    if (item === null) return setOpened(undefined);
+    if (item.kind === "mcp_server") return setOpened({ item });
+    setOpened({ item, read: BODIES[loadoutKeyOf(item)] ?? { state: "not_read", why: "Built into the harness. There is no file to read." } });
+  };
+  return <LoadoutSheet {...args} {...(opened === undefined ? {} : { opened })} onOpenItem={open} />;
+}
+
+/**
+ * Every row is a button. A press opens the item to the left, the row marked as the one open, and the same item in a
+ * turn's uses marked with it; another press replaces it. `Esc` closes that panel and leaves the Loadout open.
+ */
+export const OpensAnItem: Story = {
+  args: { onOpenItem: fn() },
+  render: (args) => <Opening {...args} />,
+  play: async ({ args, userEvent }) => {
+    const sheet = await screen.findByRole("dialog", { name: "Loadout" });
+    const knows = within(sheet).getByRole("region", { name: "Knows" });
+    const skill = within(within(knows).getByRole("region", { name: "Skills" })).getByRole("button", { name: /^work-issue/ });
+    await userEvent.click(skill);
+    const panel = await screen.findByRole("dialog", { name: "work-issue" });
+    await expect(panel).toHaveTextContent(".claude/skills/work-issue/SKILL.md");
+    await expect(within(panel).getByText("Work one GitHub issue")).toBeInTheDocument();
+    await expect(skill).toHaveAttribute("aria-current", "true");
+
+    await userEvent.click(within(within(sheet).getByRole("region", { name: "Told" })).getByRole("button", { name: /Armada session rules/ }));
+    const rules = await screen.findByRole("dialog", { name: "Armada session rules" });
+    await expect(screen.queryByRole("dialog", { name: "work-issue" })).not.toBeInTheDocument();
+    await expect(rules).toHaveTextContent("Only the start is shown.");
+    await expect(skill).not.toHaveAttribute("aria-current");
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Armada session rules" })).not.toBeInTheDocument());
+    await expect(screen.getByRole("dialog", { name: "Loadout" })).toBeInTheDocument();
+    await expect(args.onOpenItem).toHaveBeenLastCalledWith(null);
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+/** An MCP server reads nothing: its panel lists the tools the Loadout gave it, each with its state. */
+export const OpensAServer: Story = {
+  args: { onOpenItem: fn(), opened: { item: { kind: "mcp_server", name: "github", source: "mcp", from: "github" } } },
+  render: (args) => <Opening {...args} />,
+  play: async () => {
+    const panel = await screen.findByRole("dialog", { name: "github" });
+    const tools = within(panel).getByRole("region", { name: "Tools" });
+    await expect(within(tools).getByText("mcp__github__search_code").parentElement).toHaveTextContent("Deferred");
+    await expect(within(tools).queryByText("Read")).not.toBeInTheDocument();
+  },
+};
+
+/** A built in tool: Fleet says why there is nothing to read, and the panel says it plainly. */
+export const NotRead: Story = {
+  args: { onOpenItem: fn(), opened: { item: { kind: "tool", name: "Read", source: "built_in" }, read: { state: "not_read", why: "Built into the harness. There is no file to read." } } },
+  render: (args) => <Opening {...args} />,
+};
+
+/** While the read is out, the name and source are drawn and only the text stands in. */
+export const ItemReading: Story = {
+  args: { onOpenItem: fn(), opened: { item: { kind: "subagent", name: "armada:mechanic", source: "armada" }, read: { state: "reading" } } },
+};
