@@ -97,7 +97,7 @@
 /* What is open is lit: the accent's wash rising from the foot of the tile, and a hairline. */
 :root[data-take] :is(.deck-row[data-selected], .armada-settings-index__tab[aria-selected="true"]) {
   background:
-    linear-gradient(0deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 80%),
+    linear-gradient(0deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 80%),
     var(--accent-muted);
   box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--accent) 70%, transparent), inset 0 var(--border-width) 0 var(--tile-edge);
 }
