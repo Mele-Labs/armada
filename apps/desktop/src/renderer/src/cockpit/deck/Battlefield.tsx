@@ -32,11 +32,18 @@ import { sceneOf, type SceneIn } from "./mission";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
 import { TipLayer } from "./TipLayer";
-import { steadyTips } from "./tip-hover";
+import { steadyTips, type Waits } from "./tip-hover";
+
 import { clashLines, droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
+
+const cssMs = (name: string, fallback: number): number => {
+  const parsed = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue(name), 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+const SHARED_WAITS: Waits = { delay: () => cssMs("--tooltip-delay", 400), grace: () => cssMs("--tooltip-grace", 300) };
 
 export type BattlefieldProps = {
   repos: readonly RepoIn[];
@@ -164,7 +171,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const [hotTile, setHotTile] = useState<string>();
   // What the pointer is on is held here, apart from this component's state: a card that comes and goes redraws the card and nothing else, and
   // the drone or tile it lights moves only once the card has settled (`tip-hover.ts`).
-  const [tips] = useState(steadyTips);
+  const [tips] = useState(() => steadyTips(undefined, SHARED_WAITS));
   tips.onSettle((shown) => {
     setHot(shown?.hot);
     setHotTile(shown?.tile);

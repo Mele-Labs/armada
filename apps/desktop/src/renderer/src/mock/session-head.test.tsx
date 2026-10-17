@@ -91,8 +91,8 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
   await expect.element(model()).toHaveDisplayValue("sonnet");
 });
 
-/** Both cards hang from the trailing edge of the head's marks, so they open leftward inside the Session's panel; the frame clips what runs past it. */
-test("The context card and the fresh card open inside the Session's panel", async () => {
+/** Both cards are inspect cards: drawn above the page, so the frame cannot clip them, and kept inside the window by their placement. */
+test("The context card and the fresh card open whole", async () => {
   await page.viewport(1512, 949);
   onTestFinished(() => page.viewport(1440, 900));
   mount("session-head");
@@ -100,22 +100,24 @@ test("The context card and the fresh card open inside the Session's panel", asyn
   await open(/Cart totals rounding/);
 
   const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
-  const inside = (card: Element) => {
-    const edge = frame.element().getBoundingClientRect();
+  const whole = (card: Element) => {
     const box = card.getBoundingClientRect();
     expect(box.width).toBeGreaterThan(0);
-    expect(box.right).toBeLessThanOrEqual(edge.right);
-    expect(box.left).toBeGreaterThanOrEqual(edge.left);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
   };
 
   await userEvent.click(frame.getByRole("button", { name: /^Context/ }));
-  await expect.element(frame.getByRole("dialog", { name: "Context" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Context" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Context" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Context" }).element());
 
   await userEvent.click(frame.getByRole("button", { name: "Fresh start" }));
-  await expect.element(frame.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
-  inside(frame.getByRole("dialog", { name: "Fresh start" }).element());
+  await expect.element(page.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+  whole(page.getByRole("dialog", { name: "Fresh start" }).element());
 });
+
 
 test("A done Session's head draws End session in a glyph other than the Done mark's", async () => {
   mount("session-head");

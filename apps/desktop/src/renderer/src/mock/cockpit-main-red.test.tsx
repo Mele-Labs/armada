@@ -30,7 +30,9 @@ function standingAt(moment: number, sent: FixMain[] = []): Scenario {
 }
 
 const light = () => page.getByRole("button", { name: /^Main is red in/ });
+/** The inspect card: a tooltip while only hovered or focused, a dialog once a press has pinned it. */
 const card = () => page.getByRole("dialog", { name: /^Main is red in/ });
+const hovered = () => page.getByRole("tooltip");
 
 async function deck(scenario: Scenario) {
   mount(scenario);
@@ -40,12 +42,12 @@ async function deck(scenario: Scenario) {
 
 test("hovering the red light opens the card with the way to hand the red to a Session", async () => {
   await deck(standingAt(3));
-  expect(card().query()).toBeNull();
+  expect(hovered().query()).toBeNull();
   await light().hover();
-  await expect.element(card()).toBeVisible();
-  await expect.element(card().getByText("desktop_test")).toBeVisible();
-  await expect.element(card().getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
-  await expect.element(card().getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
+  await expect.element(hovered()).toBeVisible();
+  await expect.element(hovered().getByText("desktop_test")).toBeVisible();
+  await expect.element(hovered().getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
+  await expect.element(hovered().getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
 });
 
 test("the card's Dispatch a new Job sends the Merge line's own fix_main", async () => {
@@ -83,14 +85,14 @@ test("a press pins the card, and Esc puts it away", async () => {
 test("a Job on the red is named on the card, and no act to hand it on is offered", async () => {
   await deck(standingAt(4));
   await light().hover();
-  await expect.element(card().getByText("Debounce the Job Board's resize handler").last()).toBeVisible();
-  expect(card().getByRole("button", { name: "Dispatch a new Session" }).query()).toBeNull();
+  await expect.element(hovered().getByText("Debounce the Job Board's resize handler").last()).toBeVisible();
+  expect(hovered().getByRole("button", { name: "Dispatch a new Session" }).query()).toBeNull();
 });
 
 test("the light is reached by keyboard and opens the card on focus", async () => {
   await deck(standingAt(3));
   (light().element() as HTMLElement).focus();
-  await expect.element(card()).toBeVisible();
+  await expect.element(hovered()).toBeVisible();
 });
 
 test("a green main has no card", async () => {

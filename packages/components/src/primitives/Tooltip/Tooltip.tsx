@@ -63,9 +63,8 @@ export type TooltipProps = {
    * A value like a step's `not run` is answered by the commands that will run,
    * which is a reading and not a line of prose — so the bubble drops its own
    * surface and its prose width cap, and the card inside draws the floating
-   * surface itself (`PhaseCard`, the horizon's dot card, a Session ledger
-   * row's preview). **This is the one hover card**; a popover primitive of its
-   * own would be a second answer to the same question.
+   * surface itself. **A rich hover is an `Inspect` card, not this**: the one card with its head, state, facts
+   * and keys. This mode remains for the activity graph's Hour card, which the owner kept as it is.
    */
   card?: boolean;
   /**

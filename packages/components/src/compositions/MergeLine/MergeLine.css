@@ -248,50 +248,6 @@
   box-shadow: 0 0 var(--space-4) var(--status-completed-failed);
 }
 
-/* What main's light says on hover, on the tooltip's own bubble, as the cockpit's horizon cards do:
-   an overlay surface, its name, its state, then a fact a row. */
-.armada-merge-line__card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: calc(var(--space-12) * 4);
-  max-width: calc(var(--space-12) * 8);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  color: var(--fg-default);
-}
-
-.armada-merge-line__card-head {
-  font-weight: var(--weight-medium);
-}
-
-.armada-merge-line__card-state {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.armada-merge-line__card-state > svg {
-  flex: none;
-}
-
-/* Each fact's name, then its value, in two tracks so the values line up. */
-.armada-merge-line__card-rows {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--space-1) var(--space-3);
-  margin-top: var(--space-1);
-  color: var(--fg-muted);
-}
-
-.armada-merge-line__card-rows > :nth-child(even) {
-  color: var(--fg-default);
-  overflow-wrap: anywhere;
-}
-
 /* ---- The glass: a faint ruled grid, each column of the board standing on it ---------------------- */
 
 /* What is in line on the left and wider, what left the line beside it; stacked where the width does not hold both. */

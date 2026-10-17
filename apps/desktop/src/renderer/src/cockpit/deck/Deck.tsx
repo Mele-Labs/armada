@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -34,6 +34,7 @@ import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
+import { CallCard, SubjectCard } from "./inspect-cards";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
@@ -239,6 +240,7 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
     const hit = found?.get(one.key);
     return (
       <li key={one.key} className="deck-list__item">
+        <Inspect card={<SubjectCard one={one} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
           <Tooltip label={kindSaid}>
             <span className="deck-row__kind" role="img" aria-label={kindSaid}>
@@ -258,6 +260,7 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
           <Phase subject={one} builds={builds} jobs={jobs} />
           <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
+        </Inspect>
         {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
       </li>
     );
@@ -521,7 +524,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
     return (
       <li key={`${view.root}:${dot.key}`}>
-        <Tooltip label={chipPreview(dot)} card asChild>
+        <Inspect card={chipPreview(dot, pr !== undefined)} name={dot.tip} pin={false}>
           {pr === undefined ? (
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}
@@ -531,7 +534,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </button>
           )}
-        </Tooltip>
+        </Inspect>
       </li>
     );
   };
@@ -797,6 +800,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
           const Icon = item.icon;
           return (
             <li key={item.key}>
+              <Inspect card={<CallCard item={item} now={now} />} name={item.title} side="beside" pin={false}>
               <button type="button" className="deck-hail" data-hue={item.hue} data-first={at === 0 || undefined} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
                 <Tooltip label={item.kind}>
                   <span className="deck-hail__kind" role="img" aria-label={item.kind}>
@@ -806,6 +810,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
                 <span className="deck-hail__title">{item.title}</span>
                 <span className="deck-hail__age">{age(item.at, now)}</span>
               </button>
+              </Inspect>
             </li>
           );
         })}
