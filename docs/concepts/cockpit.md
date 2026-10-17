@@ -59,7 +59,7 @@ While a Session is open on the stage the tiles are that Session's, in the same b
 | `8` | Artifacts | Opens everything the Session made or used over the thread | A layer (*A Session open*). Always on |
 | `9` | Subagents | Opens every subagent the Session started | A layer. Off, with its reason, where it started none |
 | `0` | Checks | Opens the Checks the Session ran | A layer. Off where it ran none |
-| none | Slot | Opens the slot, bay and branch | A layer. **Lit in the stranded hue only when the slot is stranded, 20 or more commits behind its base, or in a write clash**, and off otherwise. It has no digit because the thread's call opens it |
+| none | Bays | Opens the Session's write clashes, then every bay the Session holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Session holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Sessions; the Session's header carries no clash notice. It has no digit because the thread's call opens it |
 
 A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening, except Report, which is off only where the Session's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
@@ -85,7 +85,7 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: the Work list, the thr
 | Ledger | Not drawn. Everything it held is in the Artifacts layer |
 | Progress | Status and the Plan as one panel under the Field. The workflow's steps are glyphs, each named by its hover card; the plan's groups and tasks are under it, each group handed to a Session carrying that Session's row |
 | Padding | The Session's card, its message column and its box are half as padded, here and not in the components |
-| The slot | Drawn only when something is wrong with it: a call in the thread and the Slot key lit |
+| The bays | Drawn only when something is wrong: the Bays key lit, the swords glyph on it for a write clash, and a call in the thread for each stranded bay. A bay behind its base and a write clash raise no call, since Fleet tells the agent |
 
 The right column rests wider for a Session, 8.5 `--space-12`, so the Field and Progress share it. Flight control's last four keys open a layer over the thread: *The Session's flight controls*, and `docs/concepts/session.md`, *A Session open*, for what each reads.
 

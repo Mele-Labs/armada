@@ -88,6 +88,33 @@ export const AFileOutsideTheDeclaredPlan: Story = {
 };
 
 /**
+ * A hunk that changes lines another change also changes, so a merge of the two would conflict on it. The other
+ * hunk is drawn plain.
+ */
+export const AHunkThatCollides: Story = {
+  args: {
+    emptyNote: "",
+    files: [
+      {
+        path: "crates/fleet/src/lease.rs",
+        lines: [
+          { kind: "hunk", text: "@@ -12,3 +12,4 @@ use crate::pool::Pool;" },
+          { kind: "context", text: " use crate::slots::Slot;" },
+          { kind: "added", text: "+use crate::clock::Backoff;" },
+          { kind: "context", text: "" },
+          { kind: "hunk", text: "@@ -41,4 +42,6 @@ impl Lease {", collides: "Collides with Rotate the audit log" },
+          { kind: "context", text: "     pub fn take(&self, pool: &Pool) -> Result<Slot, Contended> {" },
+          { kind: "removed", text: "-        pool.take_free()" },
+          { kind: "added", text: "+        let backoff = Backoff::new(self.tries);" },
+          { kind: "added", text: "+        pool.take_free().or_else(|_| backoff.retry(|| pool.take_free()))" },
+          { kind: "context", text: "     }" },
+        ],
+      },
+    ],
+  },
+};
+
+/**
  * The patch was longer than the bound and the rest is not on screen.
  *
  * **The loudest thing this component draws.** No virtualization library is
