@@ -46,7 +46,7 @@ export type SessionRetroRowProps = {
 
 const STAGE_SAID: Record<Exclude<RetroRowStage, "written" | "failed">, string> = {
   asking_agent: "Asking the agent what got in the way",
-  reading_record: "Reading what Fleet kept of the Session",
+  reading_record: "Reading what Fleet kept of the Job",
   writing: "Writing the retro",
 };
 

@@ -128,7 +128,7 @@ export function useTileManage({ row, onAct, onRescue, onClear, onRelease, onDele
           </p>
           {row.openSession === undefined || ownership === null ? null : (
             <Button variant="secondary" size="sm" onClick={() => ownership.open(row.openSession!)}>
-              Open Session
+              Open Job
             </Button>
           )}
         </>

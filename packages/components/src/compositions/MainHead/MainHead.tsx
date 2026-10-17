@@ -236,7 +236,7 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
           {!asks ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => void send({ kind: "newSession", request: briefOf(red) })}>
-                Dispatch a new Session
+                Dispatch a new Job
               </Button>
               {red.merge !== undefined ? null : (
                 <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
@@ -330,7 +330,7 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
                     <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
                   </span>
                 </Tooltip>
-                <OwnerLink kind="Session" Icon={SquareTerminal} one={takenBySession} open={onOpenSession} />
+                <OwnerLink kind="Job" Icon={SquareTerminal} one={takenBySession} open={onOpenSession} />
               </dd>
             </>
           )}
@@ -415,7 +415,7 @@ function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewher
  * opens it. Nobody known draws nothing.
  */
 function MergeOwner({ merge, onOpenSession }: { merge: NonNullable<MainRed["merge"]>; onOpenSession?: (sessionId: string) => void }) {
-  return merge.session === undefined ? null : <OwnerLink kind="Session" Icon={SquareTerminal} one={merge.session} open={onOpenSession} />;
+  return merge.session === undefined ? null : <OwnerLink kind="Job" Icon={SquareTerminal} one={merge.session} open={onOpenSession} />;
 }
 
 /** A Session by its registry icon and its title, which opens it where something listens. */
@@ -520,7 +520,7 @@ function FixDialog({
     >
       <Attached red={red} />
       {sessions.length === 0 ? null : (
-        <RadioGroup label="Sessions">
+        <RadioGroup label="Jobs">
           {sessions.map((one) => (
             <Radio key={one.id} name="main-fix-session" value={one.id} checked={picked === one.id} onChange={() => setPicked(one.id)}>
               <span className="armada-main-fix__job">

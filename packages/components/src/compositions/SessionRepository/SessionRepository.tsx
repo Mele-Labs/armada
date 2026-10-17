@@ -78,7 +78,7 @@ function MovePanel({ from, to, held, stays, ends, onMove, close }: { from: strin
           <Alert tone="caution" icon={<TriangleAlert size={16} strokeWidth={2} aria-hidden />}>
             <span className="armada-session-repository__warning">
               {stays === undefined ? null : <span>{files} stay in {from}</span>}
-              {ends ? <span>Ends this Session</span> : null}
+              {ends ? <span>Ends this Job</span> : null}
             </span>
           </Alert>
         )}

@@ -420,7 +420,7 @@ function LeftTile({ account, note }: { account: Account; note: NonNullable<Accou
 /** What signing in turns on, and what the machine holds of it once it has: three things, off then on. */
 const TURNS_ON: readonly { id: "claims" | "owners" | "home"; name: string; Glyph: typeof House; said: string }[] = [
   { id: "claims", name: "Red main claims", Glyph: Hammer, said: "See when your other machine is fixing a red main, and it sees yours" },
-  { id: "owners", name: "Pull request owners", Glyph: GitPullRequest, said: "See which Session or Job owned a pull request, from any machine" },
+  { id: "owners", name: "Pull request owners", Glyph: GitPullRequest, said: "See which Job owned a pull request, from any machine" },
   { id: "home", name: "Shared home", Glyph: House, said: "Sync skills, agents and instructions, per kind and per machine" },
 ];
 

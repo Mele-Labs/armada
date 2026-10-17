@@ -202,7 +202,7 @@ export function CaptureBar(props: CaptureBarProps) {
         <button
           type="button"
           className="armada-capture-bar__owner"
-          title={job === undefined ? "Open this Session in Bridge" : "Open this Job in Bridge"}
+          title={job === undefined ? "Open this Job in Bridge" : "Open this Job in Bridge"}
           onClick={props.onOpenOwner}
         >
           {owner}
@@ -275,7 +275,7 @@ export function CaptureBar(props: CaptureBarProps) {
         )}
         {panel === undefined ? null : (
           <Button variant="ghost" size="sm" aria-expanded={panel.open} onClick={() => panel.onToggle(!panel.open)}>
-            {`${panel.open ? "Hide" : "Show"} ${panel.kind === "session" ? "Session" : "Job"}`}
+            {`${panel.open ? "Hide" : "Show"} ${panel.kind === "session" ? "Job" : "Job"}`}
           </Button>
         )}
       </div>

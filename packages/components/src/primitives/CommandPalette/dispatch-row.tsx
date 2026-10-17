@@ -17,7 +17,7 @@ export type PaletteDispatch = {
   onDispatch: (words: string, kind: DispatchKind) => void;
 };
 
-const KIND: Record<DispatchKind, string> = { session: "Session", autopilot: "Autopilot" };
+const KIND: Record<DispatchKind, string> = { session: "Job", autopilot: "Autopilot" };
 
 /** The kind Tab steps to from this one, round the kinds offered. */
 export function nextKind(dispatch: PaletteDispatch): DispatchKind {
@@ -68,7 +68,7 @@ export function DispatchRow({
         <Plus size={16} strokeWidth={2} aria-hidden />
       </span>
       <span className="armada-palette__label">
-        {kind === "session" ? "Start a Session with " : "Start Autopilot with "}
+        {kind === "session" ? "Start a Job with " : "Start Autopilot with "}
         <span className="armada-palette__words">“{words}”</span>
       </span>
       <span className="armada-palette__keys">

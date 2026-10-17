@@ -23,7 +23,7 @@ export type WalkPanelProps = {
 };
 
 export function WalkPanel({ kind, title, status, onOpenInBridge, children }: WalkPanelProps) {
-  const named = kind === "session" ? "Session" : "Job";
+  const named = kind === "session" ? "Job" : "Job";
   return (
     <section className="armada-walk-panel" aria-label={`${named}: ${title}`}>
       <header className="armada-walk-panel__head">

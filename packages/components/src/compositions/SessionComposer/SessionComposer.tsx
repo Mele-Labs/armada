@@ -64,7 +64,7 @@ const NUMBERED_ROWS = 6;
 const LOOKUP_MS = 150;
 
 /** What each kind is called, on the glyph that leads a `#` row. */
-const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
+const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
 
 /**
  * The kinds `@` offers as chips, in the order it groups them, each named for the group's label. Files
@@ -72,7 +72,7 @@ const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", pul
  * ledger's, not `@`'s.
  */
 const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
-  { kind: "session", label: "Sessions" },
+  { kind: "session", label: "Jobs" },
 ];
 
 /** How many file rows `@` offers under the Sessions. */
@@ -569,7 +569,7 @@ export function SessionComposer({
   return (
     <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
+        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
           {token?.trigger === "/" || token?.trigger === "#"
             ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
             : [...TAG_KINDS.map(({ kind, label }) => ({ key: kind, label, rows: items.filter((one) => one.tag?.kind === kind) })), { key: "file", label: "Files", rows: items.filter((one) => one.file !== undefined) }].map(({ key, label, rows }) => {

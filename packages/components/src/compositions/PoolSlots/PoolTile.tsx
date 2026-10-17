@@ -138,7 +138,7 @@ function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob?: ((job
   const who = slot.stranded?.last_holder;
   if (who === undefined) return null;
   const job = who.kind === "job";
-  const kind = job ? "Job" : "Session";
+  const kind = job ? "Job" : "Job";
   const Glyph = job ? Box : SquareTerminal;
   const opens = job ? (onOpenJob === undefined ? undefined : () => onOpenJob(who.id)) : who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
   return (
@@ -164,7 +164,7 @@ function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob?: ((job
         </Mark>
       )}
       {who.open ? null : (
-        <Mark said={job ? "Job ended" : "Session closed"}>
+        <Mark said={job ? "Job ended" : "Job closed"}>
           <Unplug size={12} strokeWidth={2} aria-hidden />
         </Mark>
       )}

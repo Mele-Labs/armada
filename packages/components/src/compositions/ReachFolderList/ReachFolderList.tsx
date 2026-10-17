@@ -26,10 +26,10 @@ export function ReachFolderList({ allowed, blocked, onRemove, disabled }: ReachF
     ...allowed.map((folder) => ({ folder, state: "allowed" as const })),
   ];
   if (rows.length === 0) {
-    return <p className="armada-reach-folders__none">No folders. Always allow or Always block on a session's card adds one.</p>;
+    return <p className="armada-reach-folders__none">No folders. Always allow or Always block on a job's card adds one.</p>;
   }
   return (
-    <ul className="armada-reach-folders" aria-label="Folders sessions reach">
+    <ul className="armada-reach-folders" aria-label="Folders jobs reach">
       {rows.map(({ folder, state }) => {
         const { Mark, said } = STATE[state];
         return (

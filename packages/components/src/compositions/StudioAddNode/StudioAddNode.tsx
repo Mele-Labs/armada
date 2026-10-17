@@ -83,7 +83,7 @@ const ACT: Readonly<Record<StudioNodeByHandKind, string>> = {
 /** What the field is called, what it asks for, and how tall it is drawn. */
 const FIELD: Readonly<Record<StudioNodeWrittenKind, { label: string; asks: string; rows: number }>> = {
   note: { label: "Note", asks: "What you noticed", rows: 3 },
-  link: { label: "Link", asks: "A board, document, issue, page or session, as its address", rows: 0 },
+  link: { label: "Link", asks: "A board, document, issue, page or job, as its address", rows: 0 },
 };
 
 /** What the menu calls each kind, the Sketch it opens the pad on included. */

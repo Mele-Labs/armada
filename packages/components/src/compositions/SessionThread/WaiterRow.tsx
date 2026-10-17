@@ -13,7 +13,7 @@ const EYEBROW_WAITING = { waits: "Waits on", changed: "Condition changed", start
  */
 export function WaiterRow({ row, onOpen }: { row: Extract<SessionThreadRow, { kind: "waiter" }>; onOpen: (sessionId: string) => void }) {
   const eyebrow = row.waiting === true ? EYEBROW_WAITING : EYEBROW;
-  const mark = row.waiting === true ? "Waits on that Session" : "Waits on this Session";
+  const mark = row.waiting === true ? "Waits on that Job" : "Waits on this Job";
   const said = row.event === "changed" ? `${row.session.title}, condition changed` : `${row.session.title}, ${eyebrow[row.event].toLowerCase()}`;
   return (
     <li className="armada-session-waiter">

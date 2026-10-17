@@ -35,18 +35,18 @@ export function FreshNudge({ fresh }: { fresh: FreshStart }) {
           <InspectCard
             kind={{ Glyph: MoveRight, label: "Fresh start" }}
             where={`Started ${ageSaid(fresh.hours)} ago`}
-            title="Start a new Session"
+            title="Start a new Job"
             facts={[{ label: "Context", value: `${tokensSaid(fresh.tokens)} tokens`, mono: true }]}
             keys={[{ key: "Enter", verb: "Keep open" }]}
           >
             <span className="armada-session-frame__fresh-acts">
-              <Tooltip label="Start a new Session with a short handoff from this one">
+              <Tooltip label="Start a new Job with a short handoff from this one">
                 <Button variant="secondary" size="sm" disabled={fresh.busy === true} onClick={fresh.onFresh}>
-                  New Session
+                  New Job
                 </Button>
               </Tooltip>
               {fresh.onFork === undefined ? null : (
-                <Tooltip label="Start a new Session with this one's conversation">
+                <Tooltip label="Start a new Job with this one's conversation">
                   <Button variant="secondary" size="sm" onClick={fresh.onFork}>
                     Fork
                   </Button>
