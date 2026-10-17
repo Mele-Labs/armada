@@ -8,7 +8,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, rail, sheet, close, row, opened } = kit(narrow);
-  const owner = role("group", "Owned by Release notes script");
+  const owner = role("dialog", "Owned by Release notes script");
   const sessions = region("Sessions");
   return [
     ...viaPalette("Worktree Slots", "Cleanup holds the worktree slots"),

@@ -95,7 +95,7 @@ test("Pilot wired: the Board says which Session has the Job, and its card opens 
   await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: /^The retry loop/ }));
   await expect.element(page.getByRole("img", { name: "Piloted in The retry loop" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Job 52" }));
-  const card = page.getByRole("group", { name: "Owned by The retry loop" });
+  const card = page.getByRole("dialog", { name: "Owned by The retry loop" });
   await expect.element(card).toBeVisible();
   await userEvent.click(card.getByRole("button", { name: "Open Session" }));
   await expect.element(handoff()).toBeVisible();
