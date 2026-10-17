@@ -496,7 +496,7 @@ fixed capacity carrying every Job, so transcript rows at Drone speed would
 evict the state changes Bridge draws the Board from — and an eviction there is
 not a lost row but a `Missed` and a full resync of every Job, paid
 continuously. This is the one place a per-Job subscription is right, and
-`docs/concepts/observe.md` is why.
+the retired Observe concept is why.
 
 ## The run socket: one person's run
 
@@ -1453,7 +1453,7 @@ surface knows the field exists.
 
 **What travels is a name and a package, never a command.** Every way of running
 less than a whole Check is written once in that runner's own description rather
-than per Check — `docs/concepts/runner-adapter.md`. So this field does not grow
+than per Check — the retired Runner adapter concept. So this field does not grow
 when a shape is added to that schema, and a Bridge rendering it needs to know
 nothing about what any runner can do.
 
@@ -2177,7 +2177,7 @@ names the first three and not this one.
 **Fleet is a third author of `job.plan_changed`.** On a step declaring `drone_per_task`, Fleet
 marks each task itself, `actor` `fleet`: `working` when its Drone is spawned, `handed_in` at that
 Drone's `submit_evidence`, and `done` once the step's Checks pass. `update_task` still refuses
-`handed_in`, and a task's Drone is not offered it at all. `docs/concepts/plan.md`, *A Drone per
+`handed_in`, and a task's Drone is not offered it at all. the retired Plan concept, *A Drone per
 task*.
 
 **On the unmeasured risk above: worse, by a counted amount.** A task adds three
@@ -2253,7 +2253,7 @@ gate made the row, which means exactly that and never "unknown" (#1652). `JobPla
 **Fleet writes `failed`, and only once a group's retries run out** (answer 9). A red group goes
 round on its own, its tasks staying `handed_in`; the last red run fails every task in the group
 with a reason naming the group and the run. A Judge refusal stops the group for a person, as it
-stops a step (answer 3). `docs/concepts/plan.md`, *Groups*.
+stops a step (answer 3). the retired Plan concept, *Groups*.
 
 **Restart this task also answers a done task in a group the Judge refused** (2 Oct 2026), with
 no change to the wire: Bridge reads the group's last run, `verdict.trigger` `gate_failure` over
@@ -3193,7 +3193,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 ## Protocol 23.50: taking a Job over
 
-`docs/concepts/pilot.md`. *`take_over` and `get_handoff` are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
+the retired Pilot concept. *`take_over` and `get_handoff` are removed, see "Sessions absorb Jobs, group 1".* **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
@@ -3350,7 +3350,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 ## Protocol 23.68: a draft default for pull requests
 
-`docs/concepts/landing.md`, *What the landing rule carries*. **Additive only**: two optional fields and no operation.
+the retired Landing concept, *What the landing rule carries*. **Additive only**: two optional fields and no operation.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3701,7 +3701,7 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 
 ## A Job's Now: what runs, what is wrong, what it waits on
 
-`docs/concepts/job.md`, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/job-issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
+the retired Job concept, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/job-issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -4312,7 +4312,7 @@ Since 16 Oct 2026. `docs/concepts/sketch-pane.md`, *Screens*, and `docs/concepts
 
 ## Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire
 
-Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, `docs/concepts/pilot.md` and `docs/concepts/session.md`. **Removal only**: no field, operation or event kind is added, so every change below is a Bridge or Fleet that still sends or reads it. The protocol ID moves with the hash of `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. Where a wire type had a Job arm beside a Session arm, the Job arm is gone and Fleet stops producing the value.
+Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, the retired Pilot concept and `docs/concepts/session.md`. **Removal only**: no field, operation or event kind is added, so every change below is a Bridge or Fleet that still sends or reads it. The protocol ID moves with the hash of `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused. Where a wire type had a Job arm beside a Session arm, the Job arm is gone and Fleet stops producing the value.
 
 | Where | Side | Change |
 | --- | --- | --- |

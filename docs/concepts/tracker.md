@@ -1,45 +1,33 @@
 # Tracker
 
-**What it is:** The adapter through which Fleet reads a repository's open issues and writes back on the one a Job came from. Bridge lists the issues from Fleet, and a person dispatches one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
+**What it is:** The adapter through which Fleet reads a repository's open issues. Bridge lists the issues from Fleet, and a person starts a Session on one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
 
 ---
 
 **Kind:** Adapter. `#91`. The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`. There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira). *Choosing a tracker* says how.
 
-**An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project. `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, Autopilot's picker is offered and answers it, and a write-back goes by the address (`url`). Bridge draws the reference as it is.
+**An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project. `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, and Autopilot's picker is offered and answers it. Bridge draws the reference as it is.
 
-## Why Fleet reads it, and not a Drone
+## Why Fleet reads it, and not an agent
 
-Bridge talks to Fleet and nothing else, and a person choosing what to dispatch has no Drone running. So the backlog in Bridge needs Fleet itself to read the tracker. The credential stays where the forge CLI already keeps it, in the operator's own environment, and no Drone receives it.
+Bridge talks to Fleet and nothing else, and a person choosing what to start has no agent running. So the backlog in Bridge needs Fleet itself to read the tracker. The credential stays where the forge CLI already keeps it, in the operator's own environment, and no agent receives it.
 
 ## What it does
 
 | Act | When | Where |
 |---|---|---|
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
-| Comment that a Job started | The first pass after the Job leaves the queue | the `writing_back` module (deleted since) |
-| Comment the pull request's address | The first pass after the Job opens one, and again if it opens another | the same |
-| Put a label on | `armada: in progress` while it works; `armada: set aside` while it is escalated or its retries are spent | the same |
-| Take Armada's label off | When the Job ends, landed or not | the same |
-| Close the issue | Never directly. The pull request carries the tracker's closing, so merging it closes the issue: a closing line in the body, or a mark in the title where the tracker links by title | `closing_its_issue`, read by the `delivery` module (deleted since) |
+| Read one issue | By its reference | `read_issue` |
+
+**Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it. A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Session came from, and it is not built.
 
 ## Rules
 
-> **Rule.** The list is a view. Listing creates no Job and writes nothing on the tracker.
-> Why: the owner's call on `#91`, 11 Oct 2026. Nothing enters Armada until a person dispatches an issue or Autopilot picks one.
+> **Rule.** The list is a view. Listing creates no Session and writes nothing on the tracker.
+> Why: the owner's call on `#91`, 11 Oct 2026. Nothing enters Armada until a person starts a Session on an issue or Autopilot picks one.
 
-> **Rule.** Dispatching an issue is an ordinary dispatch whose request is the issue's address.
-> Why: the proposer already resolves an issue link and records the Job's `IssueSource` (`../concepts/job-proposer.md`). A second dispatch path would be a second way for a Job to name its issue.
-
-> **Rule.** A write-back never fails, holds or slows a Job.
-> Why: it runs in its own pass on the noticing interval, and nothing a Job does waits on it. A refused write is kept on the record, said on the Job's log, and tried again after ten minutes.
-
-> **Rule.** Nothing is said twice.
-> Why: a comment is not idempotent on the tracker. What has been said on each Job's issue is a row in `job_issue_writeback`, read before every write.
-
-**Only Armada's own two labels move**, and only the one Armada put on. A label of the same name that somebody set by hand is moved with it, which is the cost the owner accepted on `#91`.
-
-**A Job dispatched before this existed gets nothing written.** The migration marks every Job that already came from an issue as settled.
+> **Rule.** Starting a Session on an issue is an ordinary start whose request is the issue's address.
+> Why: a second path would be a second way for a Session to name its issue.
 
 ## Choosing a tracker
 
@@ -100,15 +88,11 @@ What to look for: each issue has `key` and `fields.summary` (or `summary`), `fie
 
 | Surface | What it draws |
 |---|---|
-| The composer | The repository's open issues under the request, newest edit first. Each has Dispatch, or *A job is on it* where a Job from it has not ended |
-| The issue | The two comments, Armada's label, and the closing on the pull request: its line in the body, or the key in its title |
+| The composer | The repository's open issues, newest edit first. `#` at the start of a word offers them by number, or by key where the tracker names issues by one |
 | Each row | The issue's reference as its tracker writes it: `#123`, `ABC-123`. Autopilot's Next up and its picks draw the same |
-| The Job's log | A warning when a write was refused, with the tracker's own words |
 
 ## What it does not do yet
 
 | Missing | Waiting on it |
 |---|---|
-| A label put on without a read | Until `--labels` is known to add rather than replace |
-| A Job's address outside Bridge | The started comment names the Job by number and title, since there is no link to give |
 | The Cockpit lane Autopilot chooses from | Autopilot's Bridge half, `#2092`. Its picker already reads this list, held the same five minutes: [autopilot.md](autopilot.md) |

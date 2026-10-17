@@ -421,7 +421,7 @@ four events are in it today, each with its argument in `xtask`'s protocol
 rule, which prints them on every run.
 
 **`pause_job` is not built, and the act it would have backed was retired
-2026-09-03** — see `docs/concepts/drone.md`. It carried no Intervention Ladder
+2026-09-03**. It carried no Intervention Ladder
 rung, so Helm never reached it directly.
 
 Pausing a Job is `park_job` and `resume_job`, a different act: the Job is kept
