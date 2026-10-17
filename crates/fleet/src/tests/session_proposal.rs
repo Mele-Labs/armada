@@ -20,7 +20,7 @@ use testkit::FakeJudge;
 use super::daemon::workflow_named;
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::judging::JudgeBudget;
-use crate::proposing::{Brief, NotProposed, SessionProposed};
+use crate::session_proposer::{NamesNoWorkflow, SessionBrief, SessionProposed};
 
 const REQUEST: &str = "the log reader drops the last line of every file";
 const ANSWER: &str =
@@ -38,9 +38,9 @@ fn models() -> Vec<String> {
     vec!["a-model".to_string(), "another-model".to_string()]
 }
 
-fn read(answer: &str) -> Result<SessionProposed, NotProposed> {
+fn read(answer: &str) -> Result<SessionProposed, NamesNoWorkflow> {
     let held = catalogue();
-    Brief::about_session(REQUEST, &held, &models()).read_session(answer, &held, &models())
+    SessionBrief::about(REQUEST, &held, &models()).read(answer, &held, &models())
 }
 
 /// A rig holding two workflows whose proposer answers `proposer`.
@@ -129,7 +129,7 @@ fn an_effort_the_cli_does_not_take_counts_as_none() {
 
 #[test]
 fn an_answer_with_no_workflow_line_is_unreadable() {
-    assert_eq!(read("this looks like a bug to me"), Err(NotProposed::NamesNoWorkflow));
+    assert_eq!(read("this looks like a bug to me"), Err(NamesNoWorkflow));
 }
 
 // ---- The call, off the press ----

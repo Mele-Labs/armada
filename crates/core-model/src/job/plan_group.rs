@@ -17,9 +17,9 @@ use core::fmt;
 use core::num::NonZeroU32;
 
 use crate::envelope::Timestamp;
-use crate::job::attempt::{Attempt, Spent};
+use crate::job::attempt::Attempt;
 use crate::job::escalation::{EscalationTrigger, StepLevelTrigger};
-use crate::job::ids::StepId;
+use crate::workflow::{Spent, StepId};
 use crate::job::step::StepVerdict;
 use crate::job::work_plan::TaskId;
 

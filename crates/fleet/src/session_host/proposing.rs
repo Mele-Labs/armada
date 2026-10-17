@@ -31,7 +31,7 @@ use super::serving::SESSION_COMMAND_REFUSED;
 use super::uploads::Kept;
 use crate::daemon::Fleet;
 use crate::judging::watched;
-use crate::proposing::{Brief, SessionProposed};
+use crate::session_proposer::{SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
@@ -200,7 +200,7 @@ where
             .map_err(|_| String::from("the repository is not served"))?;
         // With workflows off the proposer is shown none, so it never picks one.
         let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
-        let brief = Brief::about_session(request, &workflows, &proposing.choices);
+        let brief = SessionBrief::about(request, &workflows, &proposing.choices);
         let ask = Ask::put(
             proposing.model.clone(),
             brief.question(),
@@ -217,7 +217,7 @@ where
         .await
         .map_err(|why| why.to_string())?;
         brief
-            .read_session(&reply, &workflows, &proposing.choices)
+            .read(&reply, &workflows, &proposing.choices)
             .map_err(|why| why.to_string())
     }
 

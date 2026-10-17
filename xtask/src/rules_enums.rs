@@ -53,11 +53,11 @@ const ENUMS: &[EnumSource] = &[
     },
     EnumSource {
         name: "CheckOutcome",
-        path: "crates/core-model/src/job/check.rs",
+        path: "crates/core-model/src/workflow/check.rs",
     },
     EnumSource {
         name: "JudgeVerdict",
-        path: "crates/core-model/src/job/judge.rs",
+        path: "crates/core-model/src/workflow/judge.rs",
     },
     EnumSource {
         name: "QueuedReason",
@@ -85,15 +85,15 @@ const ENUMS: &[EnumSource] = &[
     },
     EnumSource {
         name: "GamingPattern",
-        path: "crates/core-model/src/job/gaming.rs",
+        path: "crates/core-model/src/workflow/gaming.rs",
     },
     EnumSource {
         name: "AdvanceGate",
-        path: "crates/core-model/src/job/declared.rs",
+        path: "crates/core-model/src/workflow/declared.rs",
     },
     EnumSource {
         name: "EvidenceType",
-        path: "crates/core-model/src/job/declared.rs",
+        path: "crates/core-model/src/workflow/declared.rs",
     },
     EnumSource {
         name: "TaskState",

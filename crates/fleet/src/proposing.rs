@@ -32,7 +32,7 @@ use core_model::{Ulid, Urgency, WorkflowId};
 use verification::field;
 
 use crate::judging::CallFailed;
-use crate::prompts::fill;
+use crate::session_proposer::{named_model, question_for, setting};
 
 /// The block an answer owes per Job, and the one word that declines.
 ///
@@ -109,61 +109,6 @@ pub(crate) fn shipped() -> String {
          The models this machine can run a worker on:\n\n{{models}}\n\n{ANSWER_FORMAT}"
     )
 }
-
-/// The block a Session's answer owes. **Three lines, once**: a Session is one conversation and
-/// is never split.
-///
-/// `none` for the workflow is a custom Session and a legitimate answer, not a failure: a
-/// Session started on a near miss would be held to steps that are not its work, so the format
-/// asks for the nearest fit to be refused exactly as the Job's does. A model is asked for by
-/// how hard the work reads, from the list the question carries.
-const SESSION_ANSWER_FORMAT: &str = "\
-Answer with nothing but the block below.
-
-    workflow: <the id, spelled exactly as it appears above, or `none`>
-    title: <what to call this Session, in a few of the words the request used>
-    settings: model=<one of the models listed above, spelled exactly>, \
-effort=<low, medium or high>
-
-Write the lines in the order above.
-
-Answer `workflow: none` where no workflow above fits the request. A Session with \
-no workflow works without steps laid out for it, and a near miss would hold it to \
-steps that are not its work.
-
-Pick the model and the effort by how hard the work reads. A small change to a \
-file the request names wants the lightest model and the lowest effort; work \
-across many files, a design or a hard diagnosis wants the strongest model and a \
-higher effort. Leave a pair out where you cannot tell.";
-
-/// The Session proposer's prompt as it ships. **Not an editable setting**: `prompts.proposer`
-/// is the Job's, and this reads the same three placeholders, so the one table that fills them
-/// serves both.
-pub(crate) fn session_shipped() -> String {
-    format!(
-        "You are deciding what kind of work a person just asked an agent to do, so \
-         that the agent starts on the right footing. Answer only the question at \
-         the end.\n\n\
-         The request, as the person wrote it:\n\n{{request}}\n\n\
-         The workflows this repository holds, and the steps each runs:\n\n{{workflows}}\n\n\
-         The models this machine can run the agent on:\n\n{{models}}\n\n{SESSION_ANSWER_FORMAT}"
-    )
-}
-
-/// What a Session's proposer picked. **Each field is absent where it picked nothing a Session
-/// can use**: a workflow nothing holds, a model this machine does not run and an effort the
-/// CLI does not take are all absent rather than refused, and an absent field is the machine's
-/// own default. No arm of this means "the usual workflow".
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SessionProposed {
-    pub title: Option<String>,
-    pub workflow: Option<WorkflowId>,
-    pub model: Option<String>,
-    pub effort: Option<String>,
-}
-
-/// The longest title a proposer may give a Session, in characters.
-const MOST_TITLE: usize = 80;
 
 /// One Job a reading proposed, before Fleet has minted anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -389,43 +334,6 @@ impl Brief {
         Brief::worded(&shipped(), request, workflows, models)
     }
 
-    /// The question for a Session: the same three inputs, a Session's answer format.
-    pub fn about_session(
-        request: &str,
-        workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
-        models: &[String],
-    ) -> Brief {
-        Brief::worded(&session_shipped(), request, workflows, models)
-    }
-
-    /// Read a Session's answer back. **Total except where it names no workflow line at all**,
-    /// which is an answer that did not follow the format and is `Err` for the caller to fall
-    /// back from. Everything else degrades one field at a time: `none`, a workflow this
-    /// repository does not hold, a model this machine does not run and an effort the CLI does
-    /// not take each leave that field absent.
-    pub fn read_session(
-        &self,
-        answer: &str,
-        held: &BTreeMap<WorkflowId, ResolvedWorkflow>,
-        models: &[String],
-    ) -> Result<SessionProposed, NotProposed> {
-        let Some(named) = field(answer, "workflow") else {
-            return Err(NotProposed::NamesNoWorkflow);
-        };
-        let workflow = Some(WorkflowId::carried(Ulid::carried(named)))
-            .filter(|id| held.contains_key(id));
-        Ok(SessionProposed {
-            title: field(answer, "title")
-                .map(|title| title.chars().take(MOST_TITLE).collect::<String>())
-                .filter(|title| !title.trim().is_empty()),
-            workflow,
-            model: named_model(answer).filter(|named| models.iter().any(|held| held == named)),
-            effort: setting(answer, "effort")
-                .map(|said| said.to_ascii_lowercase())
-                .filter(|said| core_model::Effort::from_wire(said).is_some()),
-        })
-    }
-
     /// The same question, in the words of `prompt`: `prompts.proposer` as it
     /// stands, its three placeholders filled with what only Fleet knows.
     pub fn worded(
@@ -434,55 +342,7 @@ impl Brief {
         workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
         models: &[String],
     ) -> Brief {
-        let mut held = String::new();
-        if workflows.is_empty() {
-            held.push_str("  (this repository holds none)\n");
-        }
-        for workflow in workflows.values() {
-            held.push_str(&format!(
-                "  {} — {}\n",
-                workflow.id().as_str(),
-                workflow.name()
-            ));
-            // **What it is for, where the definition says, and in the words a
-            // requester would use.** The steps below tell one workflow from
-            // its neighbours; they do not say whether a request is this kind
-            // of work at all. A milestone asked for by link was declined on
-            // 3 Sep 2026 while `epic` sat on this list, because nothing in
-            // `Plan the wave` is a word the request used. #424.
-            //
-            // Absent writes no line, so a definition that declares nothing is
-            // offered exactly as it was before the key existed.
-            if let Some(asked) = workflow.for_requests() {
-                held.push_str(&format!("    for: {asked}\n"));
-            }
-            // The steps are how a workflow is told apart from its five
-            // neighbours. A name alone separates `bug` from `revert` and does
-            // not separate `feature` from `refactor`.
-            let steps: Vec<&str> = workflow.steps().iter().map(|step| step.label()).collect();
-            held.push_str(&format!("    {}\n", steps.join(" -> ")));
-        }
-        // **The models this machine actually holds, so the settings line can
-        // name one rather than invent one.** The owner chose on 30 Sep 2026 to
-        // let this call pick the model, over the argument that a model choosing
-        // which model runs the work is a dial deciding every later cost — and
-        // the guard he took with it is that it picks from the list. A name that
-        // is not here is refused exactly as a workflow id that is not held is.
-        let mut runs = String::new();
-        if models.is_empty() {
-            runs.push_str("  (this machine has named none, so leave `model` out)\n");
-        }
-        for model in models {
-            runs.push_str(&format!("  {model}\n"));
-        }
-        let question = fill(
-            prompt,
-            &[
-                ("request", request),
-                ("workflows", held.trim_end_matches('\n')),
-                ("models", runs.trim_end_matches('\n')),
-            ],
-        );
+        let question = question_for(prompt, request, workflows, models);
         Brief {
             question,
             request: request.to_string(),
@@ -689,32 +549,9 @@ fn done_when(block: &str) -> Vec<String> {
         .collect()
 }
 
-/// One `key=value` pair off the `settings` line.
-///
-/// `key=value`, comma separated, so a second setting is a second pair rather
-/// than a second line — which is what keeps the four fields four.
-fn setting(block: &str, key: &str) -> Option<String> {
-    let said = field(block, "settings")?;
-    said.split(',')
-        .filter_map(|pair| pair.split_once('='))
-        .find(|(named, _)| named.trim().eq_ignore_ascii_case(key))
-        .map(|(_, value)| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
 /// What the `settings` line said about urgency, where it said anything.
 fn urgency(block: &str) -> Option<Urgency> {
     Urgency::from_wire(setting(block, "urgency")?.to_ascii_lowercase().as_str())
-}
-
-/// What the `settings` line named as the model, as it spelled it.
-///
-/// **Unchecked here.** Whether this machine holds it is the caller's, because
-/// the two callers answer differently: [`Brief::read`] refuses the plan and
-/// [`Settled`] simply does not settle the field — which is what the workflow id
-/// one line up already does in each of them.
-fn named_model(block: &str) -> Option<String> {
-    setting(block, "model")
 }
 
 /// What the proposer has settled, read off an answer that is still being
