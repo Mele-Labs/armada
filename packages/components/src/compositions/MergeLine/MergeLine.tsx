@@ -6,6 +6,7 @@ import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabu
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
+import { Inspect, InspectCard, type InspectFact } from "../../primitives/Inspect/Inspect";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GUIDE_MERGE_LINE } from "../../guides";
@@ -525,55 +526,23 @@ function MainLight({ main }: { main: MainState | undefined }) {
   const Icon = reading?.icon ?? null;
   const red = main?.state === "red" ? main : undefined;
   const failed = red === undefined ? [] : [red.red, ...(red.red.also ?? [])];
-  const card = (
-    <span className="armada-merge-line__card" data-state={main?.state}>
-      <span className="armada-merge-line__card-head mono">main</span>
-      <span className="armada-merge-line__card-state">
-        {Icon === null ? null : (
-          <Icon size={MARK} strokeWidth={STROKE} aria-hidden style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined} />
-        )}
-        {said}
-      </span>
-      {failed.length === 0 && red?.red.merge === undefined && red?.taken === undefined && red?.takenBySession === undefined && (main?.checking?.length ?? 0) === 0 ? null : (
-        <span className="armada-merge-line__card-rows">
-          {failed.map((one, at) => (
-            <Fragment key={`${one.check}:${at}`}>
-              <span>{one.unmapped === true ? "CI job" : "Check"}</span>
-              <span className="mono">{one.check}</span>
-              {one.test === undefined ? null : (
-                <>
-                  <span>Test</span>
-                  <span className="mono">{one.test}</span>
-                </>
-              )}
-            </Fragment>
-          ))}
-          {red?.red.merge === undefined ? null : (
-            <>
-              <span>Broke in</span>
-              <span className="mono">{[`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" ")}</span>
-            </>
-          )}
-          {red?.taken === undefined && red?.takenBySession === undefined ? null : (
-            <>
-              <span>Fixing</span>
-              <span>{(red.taken ?? red.takenBySession)!.title}</span>
-            </>
-          )}
-          {(main?.checking?.length ?? 0) === 0 ? null : (
-            <>
-              <span>Checking</span>
-              <span className="mono">{main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" ")}</span>
-            </>
-          )}
-        </span>
-      )}
-    </span>
-  );
+  const facts: InspectFact[] = [
+    ...failed.flatMap((one): InspectFact[] => [
+      { label: one.unmapped === true ? "CI job" : "Check", value: one.check, mono: true },
+      ...(one.test === undefined ? [] : [{ label: "Test", value: one.test, mono: true }]),
+    ]),
+    ...(red?.red.merge === undefined ? [] : [{ label: "Broke in", value: [`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" "), mono: true }]),
+    ...(red?.taken === undefined && red?.takenBySession === undefined ? [] : [{ label: "Fixing", value: (red.taken ?? red.takenBySession)!.title }]),
+    ...((main?.checking?.length ?? 0) === 0 ? [] : [{ label: "Checking", value: main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" "), mono: true }]),
+  ];
   return (
-    <Tooltip label={card} card asChild>
-      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} />
-    </Tooltip>
+    <Inspect
+      name={`main: ${said}`}
+      pin={false}
+      card={<InspectCard kind={{ Glyph: GitMerge, label: "Main" }} title="main" state={{ ...(Icon === null ? {} : { Glyph: Icon }), said, ...(reading?.statusToken ? { tone: `var(${reading.statusToken})` } : {}) }} facts={facts} />}
+    >
+      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} tabIndex={0} />
+    </Inspect>
   );
 }
 

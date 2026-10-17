@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -446,7 +446,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
     return (
       <li key={`${view.root}:${dot.key}`}>
-        <Tooltip label={chipPreview(dot)} card asChild>
+        <Inspect card={chipPreview(dot, pr !== undefined)} name={dot.tip} pin={false}>
           {pr === undefined ? (
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}
@@ -456,7 +456,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               {inside}
             </button>
           )}
-        </Tooltip>
+        </Inspect>
       </li>
     );
   };

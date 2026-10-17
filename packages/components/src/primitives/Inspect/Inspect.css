@@ -1,0 +1,156 @@
+/* The inspect card. One surface for every rich hover: the overlay ground, a border, the deepest shadow, one radius,
+ * and two widths. A thin top edge takes the item's status tone, and the state band is the only other place a tone
+ * is drawn. `--shadow-lifted` is the level this wants once it lands; until then it is `--shadow-overlay`. */
+
+/* The shell: where the card is, and nothing of how it looks. A popover, so it is in the top layer and clears every
+ * sheet; the UA's own box for one is reset here. */
+.armada-inspect {
+  position: fixed;
+  inset: auto;
+  z-index: var(--z-tooltip);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  overflow: visible;
+  width: max-content;
+  max-width: calc(100vw - var(--space-4) * 2);
+}
+
+@supports (anchor-name: --a) {
+  .armada-inspect {
+    /* Below, leading edges aligned; flipped to the other side or edge where there is no room. */
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+    margin-block-start: var(--space-1);
+  }
+
+  /* Beside the trigger, before it on the inline axis, for a row in a column. */
+  .armada-inspect[data-side="beside"] {
+    position-area: inline-start span-block-end;
+    margin-block-start: 0;
+    margin-inline-end: var(--space-2);
+  }
+
+  .armada-inspect[data-side="above"] {
+    position-area: block-start span-inline-end;
+    margin-block-start: 0;
+    margin-block-end: var(--space-1);
+  }
+}
+
+.armada-inspect-card {
+  --inspect-tone: transparent;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-top: calc(var(--border-width) * 2) solid var(--inspect-tone);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  /* Declared, never inherited: a card drawn over a mono row or a small-caps label must not take its type. */
+  font: var(--weight-body) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  white-space: normal;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.armada-inspect-card[data-width="narrow"] { width: calc(var(--space-12) * 5); }
+.armada-inspect-card[data-width="wide"] { width: var(--w-tooltip); }
+
+.armada-inspect[data-pinned] .armada-inspect-card { border-color: var(--border-strong); border-top-color: var(--inspect-tone); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .armada-inspect-card { animation: armada-inspect-in var(--duration-fast) var(--ease) backwards; }
+}
+
+@keyframes armada-inspect-in {
+  from { opacity: 0; translate: 0 calc(var(--space-1) * -1); }
+}
+
+.armada-inspect-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+}
+
+.armada-inspect-card__kind {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-inspect-card__where {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-inspect-card__title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+/* The one place colour carries meaning. */
+.armada-inspect-card__state {
+  --inspect-state: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--inspect-state) 14%, transparent);
+  color: var(--inspect-state);
+}
+
+.armada-inspect-card__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: calc(var(--border-width) * 2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-inspect-card__facts > div { display: contents; }
+.armada-inspect-card__facts dt { color: var(--fg-muted); }
+.armada-inspect-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.armada-inspect-card__facts dd[data-mono] { font-family: var(--font-mono); }
+
+.armada-inspect-card__heading { margin-top: var(--space-1); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+
+.armada-inspect-card__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+  list-style: none;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-inspect-card__key { display: inline-flex; align-items: center; gap: var(--space-1); }

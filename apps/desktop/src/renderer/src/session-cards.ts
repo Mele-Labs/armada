@@ -3,6 +3,7 @@
 
 import { JOB_STATUS } from "@armada/components";
 import type { SessionLedgerCard, SessionLedgerTone } from "@armada/components";
+import { GitMerge, GitPullRequest } from "lucide-react";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -41,14 +42,15 @@ const sentence = (said: string) => said.charAt(0).toUpperCase() + said.slice(1);
 /** A pull request's card: the ledger row's and the Sessions list chip's, so the two say the same. */
 export function pullRequestCardOf(one: Extract<SessionAttachment, { kind: "pull_request" }>): SessionLedgerCard {
   return {
-    title: `#${one.number} ${one.title}`,
+    title: one.title,
+    where: `#${one.number}`,
+    state: { said: [PR_STATE[one.state], ...factsOf(one).filter((fact) => fact !== "Draft")].join(", "), Glyph: one.state === "merged" ? GitMerge : GitPullRequest, ...(one.state === "merged" ? { tone: "passed" as const } : {}) },
     facts: [
       one.checks.state === "failed"
         ? { label: "Checks", value: `Failed: ${one.checks.failing}`, tone: "failed" }
         : one.checks.state === "pending"
           ? { label: "Checks", value: "Running", tone: "pending" }
           : { label: "Checks", value: "Passed", tone: "passed" },
-      { label: "State", value: [PR_STATE[one.state], ...factsOf(one).filter((fact) => fact !== "Draft")].join(", ") },
       { label: "Branch", value: one.branch, mono: true },
     ],
   };
@@ -64,9 +66,10 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       const status = row?.status ?? JOB_WIRE[one.state];
       const tone = JOB_TONE[status];
       return {
-        title: `${one.number} ${one.title}`,
+        title: one.title,
+        where: String(one.number),
+        state: { said: sentence(JOB_STATUS[status]?.verb ?? status.replaceAll("_", " ")), ...(tone === undefined ? {} : { tone }) },
         facts: [
-          { label: "State", value: sentence(JOB_STATUS[status]?.verb ?? status.replaceAll("_", " ")), ...(tone === undefined ? {} : { tone }) },
           ...(row?.current_step_id === undefined ? [] : [{ label: "Step", value: row.current_step_id, mono: true }]),
           { label: "Branch", value: one.branch, mono: true },
         ],

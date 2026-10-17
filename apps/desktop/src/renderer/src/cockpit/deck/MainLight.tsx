@@ -4,7 +4,7 @@
 // or a Session are one thing in both places. Under it is the checkout, while a served repository's is held behind main, and a green
 // main with one has a card too. #2301.
 
-import { FolderGit2, Unplug } from "lucide-react";
+import { CircleCheck, CircleX, FolderGit2, Unplug } from "lucide-react";
 import { MainRedBand, Tooltip } from "@armada/components";
 import { recentSessionsOf, type MergeLineView } from "@armada/screens";
 
@@ -66,6 +66,7 @@ export function MainLight({ props, ship, reds, held, said, forge, quiet }: { pro
       summoned={summoned}
       onSummoned={lightPinned}
       to=".deck-checkout"
+      state={reds.length > 0 ? { Glyph: CircleX, said: "Red", tone: "var(--status-completed-failed)" } : { Glyph: CircleCheck, said: "Green", tone: "var(--status-completed-success)" }}
       chip={
         <>
           <span className="deck-chip__dot" data-tone={reds.length > 0 ? "bad" : "calm"} data-stale={quiet !== undefined || undefined} aria-hidden="true" />
@@ -89,19 +90,12 @@ export function MainLight({ props, ship, reds, held, said, forge, quiet }: { pro
     >
       {(away) => (
         <>
-          {reds.length > 0 ? null : (
-            <div className="deck-main-card__state" role="status" aria-label="Main is green">
-              <span className="deck-chip__dot" data-tone="calm" aria-hidden="true" />
-              Main is green
-            </div>
-          )}
           {reds.map((red) => (
             <RedBand key={red.view.root} red={red} props={props} ship={ship} named={reds.length > 1} away={away} />
           ))}
           {held.map((one) => (
             <YourCheckout key={one.root} held={one} named={held.length > 1} />
           ))}
-          {/* The light's tooltip stands down while the card is open, so the card says what the tooltip would. */}
           {forge.readAt === undefined && quiet === undefined ? null : (
             <div className="deck-main-card__forge">
               {forge.readAt === undefined ? null : <span><ReadAgo at={forge.readAt} /></span>}
