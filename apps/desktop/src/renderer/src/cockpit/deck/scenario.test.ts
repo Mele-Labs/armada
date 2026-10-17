@@ -39,8 +39,8 @@ test("what a drone touches comes from its edits, in the spellings Fleet gives th
   expect(areas("session:r1")).toEqual(["crates/store"]);
   // From the home directory with `~`: three files in two areas.
   expect(areas("session:p1")).toEqual(["crates/gate", "crates/fleet"]);
-  // A Session's path that was already relative.
-  expect(areas("session:f1")).toEqual(["apps/desktop"]);
+  // A Session's paths that were already relative: two files in two areas.
+  expect(areas("session:f1")).toEqual(["apps/desktop", "crates/fleet"]);
   // Pocket's Session wrote under its own bay, in another repository.
   expect(areas("session:k1")).toEqual(["src/sw"]);
   // Migration notes only read.
@@ -65,8 +65,8 @@ test("the bays' history is the slot events: two rows where a holder was given ba
   const armada = slots[0]!.manifest_id;
   expect(history(armada, 1)).toHaveLength(2);
   expect(history(armada, 1)[1]).toEqual(["01SESSIONRELEASENOTES0001", "given back"]);
-  // A Job holds bay 2, and Fleet writes no event for a Job: no history.
-  expect(history(armada, 2)).toEqual([]);
+  // The asking Session holds bay 2, leased and not given back.
+  expect(history(armada, 2)).toEqual([["q1", "held"]]);
   // Free, and closed: no event, no history, and before now they are unknown rather than free.
   expect(history(armada, 5)).toEqual([]);
   const free = slotAt(armada, 5);
