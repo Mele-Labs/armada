@@ -38,6 +38,7 @@ mod places;
 mod process;
 pub(crate) mod proposing;
 pub mod queueing;
+pub(crate) mod slot_asking;
 pub(crate) mod releasing;
 mod rows;
 pub(crate) use rows::UserLine;
