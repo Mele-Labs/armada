@@ -225,6 +225,19 @@ pub struct StopSession {
     pub session_id: SessionId,
 }
 
+/// `pause_session`: end the turn, park the slot's work on the branch and give the slot back.
+/// Since 23.92.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PauseSession {
+    pub session_id: SessionId,
+}
+
+/// `resume_session`: take a slot again at the branch tip. Since 23.92.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResumeSession {
+    pub session_id: SessionId,
+}
+
 /// `release_session_holds`: the person gives back everything a Session holds on the ledger, or
 /// hands it to another live Session of the same repository. `docs/concepts/session.md`,
 /// *Releasing what a Session holds*.
@@ -325,6 +338,19 @@ pub struct HostedFacts {
     /// read, and a Fleet that has not run an agent yet gives none. Since 23.51.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<String>,
+    /// Set while the person has paused the session: its slot is given back and its work is on
+    /// its branch. `docs/concepts/session.md`, *Pausing a Session*. Since 23.92.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<SessionPaused>,
+}
+
+/// The marker on a paused hosted session. Not a state: the session stays live and `hosted.turn`
+/// reads as it does for any idle one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionPaused {
+    pub at: Instant,
+    /// A resume was asked and waits for a slot. The first one to free is the session's.
+    pub resuming: bool,
 }
 
 /// Who said a row.

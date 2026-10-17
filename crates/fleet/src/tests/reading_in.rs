@@ -163,6 +163,8 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             proposed: String::new(),
             turn_model: None,
             turn_effort: None,
+            paused_at: None,
+            paused_resuming: false,
         })
         .expect("a hosting");
     for (at_row, (from, text)) in said.iter().enumerate() {

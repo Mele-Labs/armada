@@ -27,6 +27,7 @@ pub(crate) mod linking;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
+mod pausing;
 mod pilot_words;
 mod reach_folders;
 mod piloting;

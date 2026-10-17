@@ -118,6 +118,8 @@ where
                     proposed: String::new(),
                     turn_model: None,
                     turn_effort: None,
+                    paused_at: None,
+                    paused_resuming: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // The Job the session is piloting, beside the slot and branch

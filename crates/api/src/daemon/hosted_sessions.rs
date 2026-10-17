@@ -148,6 +148,18 @@ pub trait HostedSessions: Send + Sync + 'static {
         stopped: StopSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `pause_session`: ends the turn, parks the slot's work on its branch and gives the slot back.
+    fn pause_session(
+        &self,
+        asked: ipc::PauseSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `resume_session`: takes a slot again at the branch tip, or waits for one.
+    fn resume_session(
+        &self,
+        asked: ipc::ResumeSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `set_session_workflow`: the person picked the Session's workflow in a panel, or cleared
     /// it. A Session that has run is told at once.
     fn set_session_workflow(

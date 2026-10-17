@@ -411,6 +411,14 @@ where
         self.published_hosted(&id).await
     }
 
+    async fn pause_session(&self, asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
+        self.session_paused(asked).await
+    }
+
+    async fn resume_session(&self, asked: ipc::ResumeSession) -> Result<SessionRecord, Refusal> {
+        self.session_resumed(asked).await
+    }
+
     async fn set_session_workflow(
         self: Arc<Self>,
         set: ipc::SetSessionWorkflow,
@@ -655,6 +663,8 @@ where
                     proposed: String::new(),
                     turn_model: None,
                     turn_effort: None,
+                    paused_at: None,
+                    paused_resuming: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
@@ -1162,6 +1172,10 @@ where
             } else {
                 state.commands.clone()
             },
+            paused: hosting.paused_at.as_deref().map(|at| ipc::SessionPaused {
+                at: ipc::Instant::carried(at),
+                resuming: hosting.paused_resuming,
+            }),
         }
     }
 
