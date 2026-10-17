@@ -59,7 +59,7 @@ While a Session is open on the stage the tiles are that Session's, in the same b
 | `8` | Artifacts | Opens everything the Session made or used over the thread | A layer (*A Session open*). Always on |
 | `9` | Subagents | Opens every subagent the Session started | A layer. Off, with its reason, where it started none |
 | `0` | Checks | Opens the Checks the Session ran | A layer. Off where it ran none |
-| none | Bays | Opens every bay the Session holds, each with its branch and state, and the Session's write clashes under them | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base, or the Session is in a write clash**, and off where the Session holds no bay. A write clash also puts the swords glyph in amber at the key's corner, named for the other Sessions; the Session's header carries no clash notice. It has no digit because the thread's call opens it |
+| none | Bays | Opens every bay the Session holds, each with its branch and state, and the Session's write clashes under them | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Session holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Sessions; the Session's header carries no clash notice. It has no digit because the thread's call opens it |
 
 A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening, except Report, which is off only where the Session's repository is not known. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 

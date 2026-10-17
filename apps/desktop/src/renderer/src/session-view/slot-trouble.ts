@@ -25,8 +25,8 @@ export type SessionBays = {
   clashes: readonly WriteClash[];
 };
 
-/** The Bays key is lit: a bay is wrong, or the Session is in a write clash. */
-export const baysLit = (held: SessionBays): boolean => held.clashes.length > 0 || held.bays.some((one) => one.wrong !== undefined);
+/** The Bays key is lit: a bay is wrong. A write clash is its glyph on the key, and does not light it. */
+export const baysLit = (held: SessionBays): boolean => held.bays.some((one) => one.wrong !== undefined);
 
 /** The slot numbers the Session names, from its slots and its branches. */
 function namedSlots(session: Session): Set<number> {

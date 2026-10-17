@@ -124,12 +124,13 @@ test("the Bays key is lit only when a bay is wrong, and then the thread has the 
   expect(layer.element().textContent).toContain("31 commits");
 });
 
-test("a write clash lights the Bays key and raises no call in the thread", async () => {
+test("a write clash puts its glyph on the Bays key, leaves the key unlit and raises no call in the thread", async () => {
   await page.viewport(1512, 900);
   mount("compact-slot-clash");
   await onScreen();
   await work().getByRole("button", { name: TITLE, exact: true }).click();
-  await expect.poll(() => tile("Bays").element().hasAttribute("data-lit")).toBe(true);
+  await expect.element(tile("Bays").getByRole("img", { name: "Write clash with Name the store migrations, Rotate the audit log" })).toBeVisible();
+  expect(tile("Bays").element().hasAttribute("data-lit")).toBe(false);
   await expect.poll(() => tail()).not.toBeNull();
   expect(tail()!.textContent).not.toContain("conflicts with another holder");
 });
