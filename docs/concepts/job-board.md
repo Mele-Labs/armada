@@ -34,7 +34,7 @@ The owner asked for a live view of what needs him now, with quick dispatch when 
 
 Work is dispatched from one sheet, centred across the window over one draft. `n`, or `⌘N` from anywhere, opens it directly, so does the Dispatch tile in the Cockpit's deck between Flight control and Autopilot, so does New Job on the Jobs page, and so does `⌘↵` on the palette's words. The Cockpit has no bar of its own (the owner, 13 Oct 2026). Tab chooses a Job, a Session or an Autopilot. The repositories are a row of chips, `⌥1` to `⌥9` choosing one, and the sheet reads the one the words name and asks on the row when there is none. See `../contracts/design-system.md`, Command palette.
 
-**The row's acts and marks moved into the Job's pane on the stage.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). On the deck's list j and k move and Enter opens; the acts that need a Job in hand, x to kill among them, are on the Job's page. n composes.
+**The row's acts and marks moved into the Job's pane on the stage.** Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main and alert marks sit beside the title (`JobMarks`). On the deck's list j and k move and Enter opens; the acts that need a Job in hand, x to kill among them, are on the Job's page. n composes.
 
 **Sessions and the merge line have their own pages for the whole list.** The Cockpit's merge queue is chips, and the merge line's page opens from the palette by name.
 
