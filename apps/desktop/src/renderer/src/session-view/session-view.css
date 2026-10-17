@@ -8,13 +8,13 @@
 .sv-slot { display: flex; min-width: 0; min-height: 0; }
 .sv-slot:empty { display: none; }
 .sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); flex-direction: column; min-width: calc(var(--space-12) * 7); }
-/* The right column's own children: Status, the Ledger at the size it has with a Session open and no workspace, then Incoming calls. */
+/* The right column's own children: the Ledger, Status, then the Plan. */
 .sv-side { display: contents; }
 
 /* Status takes what its content needs up to a cap and scrolls past it. The Ledger is a kept panel and does not shrink for it. */
 .sv-side > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
 .sv-side > .sv-panel[data-area="ledger"] { flex: 2 1 0; min-height: calc(var(--space-12) * 5); }
-/* The Plan stands in the right column where Incoming calls did, under the Ledger. */
+/* The Plan stands in the right column where Incoming calls did, under Status, where Incoming calls did. */
 .sv-side > .sv-panel[data-area="plan"] { flex: 3 1 0; min-height: calc(var(--space-12) * 3); }
 
 /* ---- A panel -------------------------------------------------------------------------------------------- */
