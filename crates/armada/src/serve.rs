@@ -401,6 +401,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::timeline::keep_timeline(Arc::clone(&fleet));
             // A Session's step, the nudge for one skipped, and the judge at a step's boundary.
             fleet::rail_watching::keep_the_rail(Arc::clone(&fleet));
+            // The parent of a Session its agent started is told when that one needs the owner, ends or merges.
+            fleet::linked_watching::keep_the_linked(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(

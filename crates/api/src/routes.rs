@@ -361,6 +361,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::start_session::<D>),
         )
         .route(
+            "/sessions/hand_to_session",
+            post(crate::hosted_sessions::hand_to_session::<D>),
+        )
+        .route(
             "/sessions/message",
             post(crate::hosted_sessions::send_session_message::<D>).layer(
                 axum::extract::DefaultBodyLimit::max(

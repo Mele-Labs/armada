@@ -17,6 +17,9 @@ import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } 
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
+/** What a Session that is followed did, for its parent's thread. */
+export type LinkedEvent = "needs" | "done" | "merged";
+
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */
 export type StartSession = {
   manifest_id: string;
@@ -328,6 +331,11 @@ export type SessionRow =
    * asked it to. Written in the starting session's thread; `session` is the new one.
    */
   | { kind: "started"; id: string; at: string; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session this one follows needs the person, ended, or had a pull request merged. Written in the followed
+   * Session's parent's thread where it happened, and the parent's agent is told the same moment; `session` is the linked one.
+   */
+  | { kind: "linked"; id: string; at: string; session: { id: string; title: string }; event: LinkedEvent }
   /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.

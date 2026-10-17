@@ -10,6 +10,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/start",
     },
     Route {
+        operation: "hand_to_session",
+        method: "POST",
+        path: "/sessions/hand_to_session",
+    },
+    Route {
         operation: "send_session_message",
         method: "POST",
         path: "/sessions/message",
