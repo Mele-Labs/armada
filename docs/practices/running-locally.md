@@ -135,7 +135,8 @@ roster and each Drone's Job rather than a status count — an escalated Job
 keeps its Drone alive and idle, and a count derived from statuses would either
 miss that Drone or refuse a restart nothing is using. A queued Job, a Job at a
 human gate, or one a person is piloting holds no process the restart would
-interrupt, so none of those refuse it.
+interrupt, so none of those refuse it. A Fleet that answers 404 for the roster
+runs no Drones, so none is working; any other failure to read it still refuses.
 
 **`--adopt` restarts anyway.** Fleet adopts a Drone that outlives it,
 so a working Drone is survivable. With `--adopt` the
@@ -351,6 +352,7 @@ leaves its slot, whether it merged or was abandoned. Use it, and land from the b
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved, with one exception below |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
+| A merge that does not build | Only with `--restart`, see below |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
 **The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, reset and cleaned between runs
@@ -363,6 +365,15 @@ it. `--restart` runs `scripts/restart --from .armada/preview` from the main
 checkout, so Fleet keeps serving that repository, and `--dry-run` goes through
 to it. Everything in *Restarting onto another tree* applies, including the
 migration guard and the snapshot.
+
+**`--restart` leaves out a branch that does not build, once.** Git merges a
+branch cut before a deletion without a word, and `cargo install` then fails
+(exit 101) on code that branch never saw. When the restart fails with compiler
+errors, `scripts/preview` reads the files they name (rustc's `-->` under an
+error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`), drops every merged
+branch that changed one, and merges and restarts again. The table says
+`skipped (does not build: <files>)`. If no merged branch touched a named file,
+or the second run fails too, the failure stands as it was.
 
 **A plain `scripts/restart` while the preview runs keeps the preview.** It
 sees `.armada/preview` in `Armada/restart-source` and runs
@@ -407,7 +418,10 @@ back**, in `~/Library/Application Support/Armada/`:
 | `restart-commit` | The commit it was built from | `scripts/restart`, once the new Fleet speaks the protocol its tree hashes to |
 | `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
 
-Its output is `~/Library/Logs/Armada/restart-build.log`. **A `libsqlite3-sys`
+Its output is `~/Library/Logs/Armada/restart-build.log`. The line of why is the
+compiler's first error of the last run with its file, else the last thing a
+script said other than preview's `restart exited N`, which names no cause.
+**A `libsqlite3-sys`
 build failure is run once more after `cargo clean -p libsqlite3-sys`** in the tree
 that was built. `main` is refused from a checkout that is not on `main`, which
 `scripts/restart` would otherwise build from whatever it holds.
