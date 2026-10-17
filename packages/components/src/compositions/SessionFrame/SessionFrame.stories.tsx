@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PowerOff } from "lucide-react";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, screen, waitFor, within } from "storybook/test";
 
 import { Button } from "../../primitives/Button/Button";
 import { SessionFrame } from "./SessionFrame";
@@ -109,10 +109,10 @@ export const ContextBreakdown: Story = {
   play: async ({ canvas, userEvent }) => {
     const figure = canvas.getByRole("button", { name: "Context 5%" });
     await expect(figure).toHaveTextContent("53.8k · 5%");
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(figure);
-    const card = canvas.getByRole("dialog", { name: "Context" });
+    const card = await screen.findByRole("tooltip");
     await expect(card).toHaveTextContent("5% used");
     await expect(card).toHaveTextContent("53.8k / 1M");
     await expect(within(card).getByText("System prompt")).toBeVisible();
@@ -124,9 +124,9 @@ export const ContextBreakdown: Story = {
 
     await userEvent.click(figure);
     await userEvent.unhover(figure);
-    await expect(canvas.getByRole("dialog", { name: "Context" })).toBeVisible();
+    await expect(screen.getByRole("dialog", { name: "Context" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
 };
 
@@ -198,16 +198,17 @@ export const FreshStart: Story = {
   },
   play: async ({ canvas, userEvent, args }) => {
     const mark = canvas.getByRole("button", { name: "Fresh start" });
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(mark);
-    const card = canvas.getByRole("dialog", { name: "Fresh start" });
-    await expect(card).toHaveTextContent("612k context");
-    await expect(card).toHaveTextContent("Started 2d ago");
+    const hovered = await screen.findByRole("tooltip");
+    await expect(hovered).toHaveTextContent("612k tokens");
+    await expect(hovered).toHaveTextContent("Started 2d ago");
 
     await userEvent.click(mark);
     await userEvent.unhover(mark);
-    await expect(canvas.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+    const card = screen.getByRole("dialog", { name: "Fresh start" });
+    await expect(card).toBeVisible();
 
     await userEvent.click(within(card).getByRole("button", { name: "New Session" }));
     await expect(args.fresh?.onFresh).toHaveBeenCalledOnce();
@@ -215,7 +216,7 @@ export const FreshStart: Story = {
     await expect(args.fresh?.onFork).toHaveBeenCalledOnce();
 
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
 };
 
@@ -231,7 +232,7 @@ export const FreshStartWaiting: Story = {
     const mark = canvas.getByRole("button", { name: "Fresh start" });
     await expect(mark).toHaveAttribute("aria-busy", "true");
     await userEvent.click(mark);
-    await expect(within(canvas.getByRole("dialog", { name: "Fresh start" })).getByRole("button", { name: "New Session" })).toBeDisabled();
+    await expect(within(await screen.findByRole("dialog", { name: "Fresh start" })).getByRole("button", { name: "New Session" })).toBeDisabled();
   },
 };
 
@@ -239,7 +240,7 @@ export const FreshStartWithoutFork: Story = {
   args: { state: "idle", said: "Idle", title: "Cart totals rounding", fresh: { tokens: 612_000, hours: 3, onFresh: fn() } },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Fresh start" }));
-    const card = canvas.getByRole("dialog", { name: "Fresh start" });
+    const card = await screen.findByRole("dialog", { name: "Fresh start" });
     await expect(within(card).getByRole("button", { name: "New Session" })).toBeEnabled();
     await expect(within(card).queryByRole("button", { name: "Fork" })).not.toBeInTheDocument();
   },

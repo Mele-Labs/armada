@@ -138,6 +138,29 @@ const working: Session = {
     tool("w1-t3", "14:17:02", "Grep crates/store -e pause_marker"),
   ],
   attachments: [],
+  context: { tokens: 612_000, window: 1_000_000 },
+  contextBreakdown: {
+    categories: [
+      { name: "System prompt", tokens: 3_100, kind: "used" },
+      { name: "System tools", tokens: 12_400, kind: "used" },
+      { name: "MCP tools", tokens: 8_200, kind: "used" },
+      { name: "Memory files", tokens: 4_600, kind: "used" },
+      { name: "Messages", tokens: 583_700, kind: "used" },
+      { name: "Free space", tokens: 238_000, kind: "free" },
+      { name: "Autocompact buffer", tokens: 150_000, kind: "buffer" },
+    ],
+    memoryFiles: [
+      { path: "NOTES.md", tokens: 2_100 },
+      { path: "apps/NOTES.md", tokens: 700 },
+    ],
+    mcpTools: [
+      { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },
+      { name: "query", server: "gitnexus", tokens: 1_500 },
+    ],
+    totalTokens: 612_000,
+    maxTokens: 1_000_000,
+    autocompactThreshold: 850_000,
+  },
 };
 
 /** Its turn is running and has said nothing for 25 minutes. In the pocket repository. */

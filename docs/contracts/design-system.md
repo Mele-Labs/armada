@@ -1027,7 +1027,7 @@ The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
 mapped, never chosen; see [Iconography](iconography.md).
 
-**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan ring's levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
+**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan ring's levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens an inspect card (hover or focus, kept by a press, closed by Esc or a press outside): kind `Context`, the tokens over the window, a state band `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
 
 **pid, port, protocol and uptime do not follow it.** They stay in the panel.
 A dot cannot carry a figure; Fleet's own figures are read in the panel.
@@ -1237,6 +1237,7 @@ measuring in JavaScript.
 | Dropdown menu | Below the trigger | Trailing edges flush, caller may set leading |
 | Popover | Below the trigger | Leading edges flush, caller may set trailing |
 | Tooltip | Below the element it wraps | Leading edges flush |
+| Inspect card | Below the trigger, or beside it for a row in a column | Leading edges flush; flips where there is no room |
 | Split-button menu | Below the whole control, not the caret | Leading edges flush |
 
 **Alignment is a preference, not a rule.** The trigger's edge is what the
@@ -1317,7 +1318,7 @@ order is the order a person meets them.
 | --- | --- | --- |
 | `--z-dock` | Helm's dock, and the workflow canvas's inspector | Over the content, under anything opened from inside it |
 | `--z-menu` | Dropdown, popover, split-button menu | Opens over the surface |
-| `--z-tooltip` | Tooltip | Explains the thing a menu is over |
+| `--z-tooltip` | Tooltip, inspect card | Explains the thing a menu is over |
 | `--z-modal` | Dialog, sheet | Interrupts both |
 | `--z-toast` | Toast | Over every panel, its scrim and every dialog, so a failure raised from inside one is pressable where it appears |
 | `--z-palette` | Command palette | The way out of anything |
@@ -2088,6 +2089,63 @@ word a reader sees. Two explanations of what a Check is would be two
 things that can disagree, which is the distinction the gate rests on.
 
 Placement, alignment and collision are under Floating layers.
+
+**The tooltip is for one line of words.** Anything with a head, a state
+and facts is an inspect card, below.
+
+### Inspect card
+
+**One card opens on every rich hover, the same over a Session as over a
+pull request.** A reader who has seen one has seen them all, and only what
+is said in it changes with the kind of thing. It is `Inspect` and
+`InspectCard` in `packages/components/src/primitives/Inspect/Inspect.tsx`. It replaced
+`StopCard`, the Session ledger's preview bubble, the owner chip's card, the
+merge queue light's card, the plan usage card and the map's callout, each
+of which drew its own surface and kept its own timing.
+
+```
+head     kind glyph · kind in small caps · item id or place, mono, trailing
+name     --text-sm · --weight-heading
+state    glyph + words in the item's status tone, on a 14% wash of it
+facts    label --fg-muted · value --fg-default, values right-aligned
+section  a muted heading over more facts, or the caller's own body
+keys     key chip + verb for each key that works on it now, ending in Esc
+```
+
+**The material is one solid surface.** `--bg-overlay`, a hairline
+`--border-default`, `--radius-lg`, `--shadow-overlay`, and a 2px top edge in
+the item's status tone. No glow, no blur and no translucency.
+
+**The state band is the only other place the tone is drawn**, and the tone
+is the status token the item already maps to, never a colour chosen for the
+card. A card with no state has a top edge of no colour.
+
+Facts are `--text-2xs` in tabular figures, so a column of figures lines up
+on the right edge, and a value the system made (a branch, a path, an id, a
+duration) is mono. The card is narrow or wide and nothing between.
+
+**One rule set opens, pins, closes and places every card.**
+
+| | |
+|---|---|
+| Opens | On hover after `--tooltip-delay`, and on keyboard focus. A press focuses a button too, and it is the press that decides then |
+| Switches | While one is open, or within `--tooltip-grace` of one closing, the next opens on arrival, and the first is put away. One card is open at a time |
+| Pointer | It can cross into the card; the card closes `150ms` after the pointer leaves both |
+| Pins | A press pins it, where the trigger's press is not already an act. A pinned card is a dialog named for the item, takes focus, can be pressed in, and stays when the pointer leaves. A row that opens on a press, or a chip that selects, does not pin (`pin={false}`) |
+| Closes | Esc, or a press outside. Esc on a card the reader holds is taken whole and returns focus to the trigger; on a card only hovered it goes on to whatever else answers it |
+| Placed | Below the trigger, or beside it on the inline-start side for a row in a column whose card below would cover the rows under it. Anchor positioning with a flip where there is no room, in the top layer, so it clears every sheet and is never clipped by what it hangs off |
+| Reads | Hovered it is a `tooltip` that describes its trigger; pinned it is a `dialog` |
+| Motion | It eases in for `--duration-fast` only where motion is allowed, and draws still under reduced motion |
+
+**The keys are read from the registry.** A key that works on the item is
+an action of the shortcut registry, so Settings → Keyboard moves it in the
+card too; a key only the browser answers, such as Enter on a focused
+button, is written by hand. The footer always ends in Esc.
+
+**The activity graph keeps its own `Hour` card, by the owner's choice
+(16 Oct 2026).** It is a `Tooltip` in `card` mode and the only one left.
+A new rich hover is an inspect card; a second card of its own would be a
+second answer to the same question.
 
 ### Prose — model-written markdown
 
@@ -2997,7 +3055,7 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — Fleet's
 panel carries neither, and nothing in the shell
-states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one hover card of both, each limit's name and percent on one line over when it resets.
+states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one inspect card of both, each limit's name and percent on one line over when it resets.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation

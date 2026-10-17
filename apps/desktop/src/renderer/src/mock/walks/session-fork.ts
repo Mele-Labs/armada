@@ -4,11 +4,11 @@
 // and the old one now links forward. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { deckRow, button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
-  const { message, thread, opened, row } = kit(narrow);
+  const { message, thread } = kit(narrow);
   const sessions = region("Work", { exact: true });
   const filter = inside(sessions, button(/^Filter/));
   const scope = (name: string) => role("menuitem", name, { exact: true });
@@ -35,12 +35,10 @@ function steps(narrow: boolean): Step[] {
     { look: role("group", "Forked from Why the reader drops lines"), say: "Its thread opens on one quiet row, closed" },
     { press: role("button", "Forked from Why the reader drops lines", { exact: true }), say: "Pressed, it opens onto the old conversation" },
     { look: inside(role("group", "Forked from Why the reader drops lines"), text("It splits on newlines")), say: "What was said before the fork, to read" },
-    ...opened([{ look: inside(role("region", "Forks"), text("Forked from Why the reader drops lines")), say: "Its ledger says where it came from" }]),
     { look: message, say: "And it takes a message" },
-    ...row("Open Forked from Why the reader drops lines", "The row opens the Session it came from"),
+    { press: deckRow("Why the reader drops lines"), say: "The Session it came from opens from the list" },
     { press: more, say: "Still dead, and still offers Fork" },
     { look: fork, say: "Fork" },
-    ...opened([{ look: inside(role("region", "Forks"), text("Forked to Why the reader drops lines")), say: "Its ledger now points forward" }]),
   ];
 }
 

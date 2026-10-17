@@ -1,0 +1,7 @@
+[icons.star]
+  means = "A five-pointed star: a favourite or a rating on a screen a sketch draws"
+  group = "Sketch screens"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A favourite or a rating on a wireframed screen of another product. Never rank, a pinned row or an important one in Armada's own surfaces: `compass` refused it as rank, `pin` pins and `flag` is reserved."
+  notes = "Added with the `screen` node. Starring and rating are the common ways a product marks one it wants back, and `bookmark` reads as saved for later."

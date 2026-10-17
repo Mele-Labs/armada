@@ -117,6 +117,13 @@ refuses if it cannot be. Two callers: an agent, through Bash, after a merge that
 Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
 (*Restarting from Bridge*, below).
 
+**Bridge is launched from a copy of Electron's app named Armada**, made under
+`node_modules/.cache/armada-bridge/` with a changed `Info.plist` and an ad hoc
+signature (no Apple certificate), and handed to `electron-vite preview` as
+`ELECTRON_EXEC_PATH`. That is what puts "Armada" in the menu bar, Dock and app
+switcher of an unpackaged Bridge. It is rebuilt only when Electron's version
+changes.
+
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
 `Armada/` touched). Sessions load the mod from there, so after a restart the
@@ -893,7 +900,7 @@ already a file read away.
 armada worktree lease <branch>      # a warm slot on the branch at its tip, or on a new one cut from the base; prints its path
 armada worktree lease --existing <branch>   # the same, refusing a name nothing has rather than cutting it
 armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
-armada worktree --status            # every slot, who holds it, and for how long
+armada worktree --status            # every slot, the branch checked out in it, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
 armada worktree remove <n>          # slot n gone, if it is free or not made
 armada worktree close <n>           # no lease takes slot n until it is opened

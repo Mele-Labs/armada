@@ -149,6 +149,21 @@ pub fn status(within: &Path) -> u8 {
     0
 }
 
+/// The branch a slot is on, as git has it checked out, which is where the work is. The lease
+/// records the branch the slot was cut for, and a session may have moved off it. Both are said
+/// where they differ; `detached` is a checkout on no branch.
+fn on_branch(slot: &Slot, leased: &str) -> String {
+    let head = match adapters::leasing::checked_out(&slot.path) {
+        Some(head) => head,
+        None if slot.path.join(".git").exists() => String::from("detached"),
+        None => return leased.to_string(),
+    };
+    match head == leased {
+        true => head,
+        false => format!("{head} (leased as {leased})"),
+    }
+}
+
 pub(crate) fn line(slot: &Slot, now: u64) -> String {
     let name = match slot.closed {
         true => format!("slot-{} closed", slot.number),
@@ -169,9 +184,10 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             kept: Some(why),
             ..
         } => format!(
-            "{name}  kept     {path}  {branch}  by {} for {}, which ended and could not give it back: {why}",
+            "{name}  kept     {path}  {on}  by {} for {}, which ended and could not give it back: {why}",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Held {
             branch,
@@ -180,9 +196,10 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             completed: true,
             ..
         } => format!(
-            "{name}  done     {path}  {branch}  by {} for {}, which is done and holds it until the Job is cleared",
+            "{name}  done     {path}  {on}  by {} for {}, which is done and holds it until the Job is cleared",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Held {
             branch,
@@ -190,17 +207,20 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
             since,
             ..
         } => format!(
-            "{name}  held     {path}  {branch}  by {} for {}",
+            "{name}  held     {path}  {on}  by {} for {}",
             holder.said(),
-            ago(now, *since)
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Abandoned { branch, since } => format!(
-            "{name}  free     {path}  {branch}'s holder is gone after {}, and nothing is unlanded",
-            ago(now, *since)
+            "{name}  free     {path}  {on}  the holder is gone after {}, and nothing is unlanded",
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
         SlotState::Stranded { branch, since, why } => format!(
-            "{name}  stranded {path}  {branch}'s holder is gone after {}, and it holds {why}",
-            ago(now, *since)
+            "{name}  stranded {path}  {on}  the holder is gone after {}, and it holds {why}",
+            ago(now, *since),
+            on = on_branch(slot, branch),
         ),
     }
 }

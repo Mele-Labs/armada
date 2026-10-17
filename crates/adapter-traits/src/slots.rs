@@ -93,6 +93,22 @@ pub enum SlotStanding {
     Gone,
 }
 
+/// What a slot still holds once the pull request from the branch it was leased on has merged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotAfterMerge {
+    /// Still on the merged branch, or detached on a commit the base has, with nothing uncommitted
+    /// and nothing the remote and the base lack: nothing there is new, and giving it back loses
+    /// none.
+    Idle,
+    /// Its holder cut another branch there, or checked out something else: new work, whose slot
+    /// is its holder's to give back.
+    Moved,
+    /// Files not committed, which a release would take with it. The paths, as `git status` says.
+    Dirty(Vec<String>),
+    /// Commits no remote and not the base has, on the merged branch or on a detached head.
+    Unpushed(usize),
+}
+
 /// One slot of the pool, as `armada worktree --status` reads it, with whether
 /// it is warm and how far it is behind the base.
 #[derive(Clone, Debug, PartialEq, Eq)]

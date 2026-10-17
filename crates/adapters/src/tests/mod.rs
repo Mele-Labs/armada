@@ -48,6 +48,7 @@ mod slot_watching;
 mod subagent_lines;
 mod leasing_last_session;
 mod leasing_parking;
+mod leasing_reclaiming;
 mod leasing_rescue;
 mod leasing_sessions;
 mod leasing_settled;

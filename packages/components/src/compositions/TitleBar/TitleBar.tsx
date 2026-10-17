@@ -1,4 +1,4 @@
-import { BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -10,7 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdBinding, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { useKeyBindings } from "../../keymap";
-import { useCardOpen, type StopCardRow } from "../StopCard/StopCard";
+import { Inspect, InspectCard } from "../../primitives/Inspect/Inspect";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 import { TitleMenu } from "./TitleMenu";
@@ -41,8 +41,11 @@ export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; 
  * buttons, and **`attention`, the words of the bell on the meter** while something waits on him. Absent
  * draws the card as it was.
  */
+/** One fact under a limit: its term, its value, and whether the value is a figure the system reported. */
+export type LimitFact = readonly [term: string, value: string, mono?: boolean];
+
 export type LimitOffer = {
-  facts?: readonly StopCardRow[];
+  facts?: readonly LimitFact[];
   acts?: readonly { label: string; onPress: () => void; /** Keeps the card open after, for an act whose result the card states. Closes it otherwise. */ stays?: boolean; primary?: boolean }[];
   attention?: string;
 };
@@ -69,7 +72,7 @@ function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
   const percent = Math.round(one.percentUsed);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
   const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
-  const rows: readonly StopCardRow[] = [...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])];
+  const rows: readonly LimitFact[] = [...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])];
   return (
     <section className="armada-title-bar__usage-limit" data-level={usageLevel(percent)} aria-label={limit.name}>
       <p className="armada-title-bar__usage-head">
@@ -113,7 +116,6 @@ function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
  * the outer ring and the second the inner, each arc in its level's tone.
  */
 function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
-  const { open, pinned, toggle, close, bind } = useCardOpen();
   const drawn: readonly Drawn[] = usage.flatMap((one) => {
     const limit = LIMITS[one.kind];
     return limit === undefined ? [] : [{ one, limit }];
@@ -121,41 +123,39 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   if (drawn.length === 0) return null;
   const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
   return (
-    <span className="armada-title-bar__usage" {...bind}>
-      <button
-        type="button"
-        className="armada-title-bar__usage-meter"
-        aria-label={drawn.map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`).join(", ")}
-        aria-expanded={open}
-        onClick={toggle}
-      >
-        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
-          {drawn.map(({ one }, i) => {
-            const percent = Math.min(100, Math.max(0, Math.round(one.percentUsed)));
-            const r = 9 - i * 4;
-            return (
-              <g key={one.kind} data-level={usageLevel(percent)}>
-                <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
-                <circle className="armada-title-bar__usage-ring-fill" cx="11" cy="11" r={r} pathLength={100} strokeDasharray={`${percent} 100`} transform="rotate(-90 11 11)" />
-              </g>
-            );
-          })}
-        </svg>
-        {attention === undefined ? null : (
-          <Tooltip label={attention} beside>
-            <span className="armada-title-bar__usage-attention" role="img" aria-label={attention}>
-              <BellRing size={12} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
+    <span className="armada-title-bar__usage">
+      <Inspect
+        name="Plan limits"
+        card={({ close }) => (
+          <InspectCard kind={{ Glyph: Activity, label: "Plan" }} title="Plan limits" keys={[{ key: "Enter", verb: "Keep open" }]} width="wide">
+            {drawn.map(({ one, limit }) => (
+              <LimitSection key={one.kind} one={one} limit={limit} close={close} />
+            ))}
+          </InspectCard>
         )}
-      </button>
-      {open ? (
-        <div className="armada-title-bar__usage-card" role="dialog" aria-label="Plan limits" data-pinned={pinned || undefined}>
-          {drawn.map(({ one, limit }) => (
-            <LimitSection key={one.kind} one={one} limit={limit} close={close} />
-          ))}
-        </div>
-      ) : null}
+      >
+        <button type="button" className="armada-title-bar__usage-meter" aria-label={drawn.map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`).join(", ")}>
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+            {drawn.map(({ one }, i) => {
+              const percent = Math.min(100, Math.max(0, Math.round(one.percentUsed)));
+              const r = 9 - i * 4;
+              return (
+                <g key={one.kind} data-level={usageLevel(percent)}>
+                  <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
+                  <circle className="armada-title-bar__usage-ring-fill" cx="11" cy="11" r={r} pathLength={100} strokeDasharray={`${percent} 100`} transform="rotate(-90 11 11)" />
+                </g>
+              );
+            })}
+          </svg>
+          {attention === undefined ? null : (
+            <Tooltip label={attention} beside>
+              <span className="armada-title-bar__usage-attention" role="img" aria-label={attention}>
+                <BellRing size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          )}
+        </button>
+      </Inspect>
     </span>
   );
 }

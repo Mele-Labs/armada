@@ -1102,6 +1102,10 @@ impl Vcs for FakeVcs {
         self.slots.standing(pool, slot, job_id)
     }
 
+    fn slot_after_merge(&self, _pool: &SlotPool, slot: u32, _merged: &str) -> adapter_traits::SlotAfterMerge {
+        self.slots.after_merge(slot)
+    }
+
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
         self.noted(self.slots.release(pool, slot, job_id))
     }

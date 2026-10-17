@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { SESSION_PAGE, SessionList, type SessionRowView } from "./SessionList";
 
@@ -91,9 +91,9 @@ export const PullRequestCard: Story = {
   },
   play: async ({ canvas, args }) => {
     await userEvent.hover(canvas.getByRole("img", { name: /^Pull request #1847/ }));
-    const title = await canvas.findByText("#1847 Release notes script");
+    const title = await screen.findByText("#1847 Release notes script");
     await waitFor(() => expect(title).toBeVisible());
-    await expect(canvas.getByText("armada/release-notes")).toBeVisible();
+    await expect(screen.getByText("armada/release-notes")).toBeVisible();
     await expect(args.onOpen).not.toHaveBeenCalled();
   },
 };

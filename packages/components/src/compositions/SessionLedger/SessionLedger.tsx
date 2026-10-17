@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { forgetKept, readKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
+import { Inspect, InspectCard, type InspectKey } from "../../primitives/Inspect/Inspect";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
@@ -48,6 +49,10 @@ export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "d
  */
 export type SessionLedgerCard = {
   title: string;
+  /** The item's id, as the card's head says it: `#2301`, a Job's number. */
+  where?: string;
+  /** Its state, where the host names the glyph; else a fact labelled State is drawn as the state band. */
+  state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
   /** `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes. */
   facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
 };
@@ -449,7 +454,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
           );
           return (
             <li key={row.key} className="armada-session-ledger__run" aria-label={row.name} data-removable={row.onRemove !== undefined || undefined}>
-              {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+              {row.card === undefined ? block : <Inspect card={<LedgerPreview card={row.card} kind={row.kind} keys={[]} />} name={row.card.title} side="beside" pin={false}>{block}</Inspect>}
               {removal(row)}
               {reasoning(row)}
             </li>
@@ -568,9 +573,9 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             {row.card === undefined ? (
               opener
             ) : (
-              <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>
+              <Inspect card={<LedgerPreview card={row.card} kind={row.kind} />} name={row.card.title} side="beside" pin={false}>
                 {opener}
-              </Tooltip>
+              </Inspect>
             )}
             {removal(row)}
             {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
@@ -623,20 +628,54 @@ function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<L
   );
 }
 
-/** A row's preview: its title, then one fact a line, each labelled. Spans, because it is drawn inside the row's press. */
-export function LedgerPreview({ card }: { card: SessionLedgerCard }) {
+const KIND: Record<LedgerKind, { Glyph: LucideIcon; label: string }> = {
+  waiting: { Glyph: BellRing, label: "Waiting" },
+  slot: { Glyph: KeyRound, label: "Slot" },
+  branch: { Glyph: GitBranch, label: "Branch" },
+  pull_request: { Glyph: GitPullRequest, label: "Pull request" },
+  job: { Glyph: Box, label: "Job" },
+  studio: { Glyph: Presentation, label: "Studio" },
+  sketch: { Glyph: PencilRuler, label: "Sketch" },
+  subagent: { Glyph: Split, label: "Subagent" },
+  background: { Glyph: SquareTerminal, label: "Background" },
+  artifact: { Glyph: Files, label: "Artifact" },
+  fork: { Glyph: MoveRight, label: "Fork" },
+  start: { Glyph: CornerUpRight, label: "Started" },
+  linked: { Glyph: Link, label: "Linked" },
+};
+
+/** The status token a card's tone draws in: the same ones a row's mark takes. */
+const TONE_COLOR: Record<SessionLedgerTone, string> = {
+  pending: "var(--status-awaiting-review)",
+  passed: "var(--status-completed-success)",
+  failed: "var(--status-completed-failed)",
+  running: "var(--status-running)",
+  piloted: "var(--status-running)",
+  escalated: "var(--status-escalated)",
+  done: "var(--fg-muted)",
+  stopped: "var(--fg-muted)",
+};
+
+/** What a row's card keys say: a row's press opens it. */
+const OPENS: readonly InspectKey[] = [{ key: "Enter", verb: "Open" }];
+
+/** A row's preview as the inspect card: its kind, its name, its state, then one fact a line. */
+export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedgerCard; kind: LedgerKind; keys?: readonly InspectKey[] }) {
+  const held = card.state ?? (() => {
+    const one = card.facts.find((fact) => fact.label === "State");
+    return one === undefined ? undefined : { said: one.value, ...(one.tone === undefined ? {} : { tone: one.tone }) };
+  })();
+  const Glyph = card.state?.Glyph ?? (held?.tone === undefined ? undefined : MARK[held.tone]);
   return (
-    <span className="armada-ledger-card">
-      <span className="armada-ledger-card__title">{card.title}</span>
-      {card.facts.map((fact) => (
-        <span key={fact.label} className="armada-ledger-card__fact" data-tone={fact.tone}>
-          <span className="armada-ledger-card__label">{fact.label}</span>
-          <span className="armada-ledger-card__value" data-mono={fact.mono || undefined}>
-            {fact.value}
-          </span>
-        </span>
-      ))}
-    </span>
+    <InspectCard
+      kind={KIND[kind]}
+      {...(card.where === undefined ? {} : { where: card.where })}
+      title={card.title}
+      {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
+      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: fact.value, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }) }))}
+      keys={keys}
+      width="wide"
+    />
   );
 }
 

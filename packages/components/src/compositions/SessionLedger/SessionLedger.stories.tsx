@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 
 import { BellRing } from "lucide-react";
 
@@ -428,12 +428,12 @@ export const PreviewCards: Story = {
   args: { entries: CARDS },
   play: async ({ canvas, userEvent }) => {
     const pr = canvas.getByRole("button", { name: "Open Pull request #2113, checks failed" });
-    await expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible();
+    await expect(screen.queryByText("Failed: store: 2 failed")).not.toBeInTheDocument();
     await userEvent.hover(pr);
-    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("Failed: store: 2 failed")).toBeVisible());
     await expect(pr).toHaveAccessibleDescription(/Checks Failed: store: 2 failed/);
     await userEvent.unhover(pr);
-    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible());
+    await waitFor(() => expect(screen.queryByText("Failed: store: 2 failed")).not.toBeInTheDocument());
     // By keyboard: one stop a row, so nothing inside the pull request's row took one.
     // The bar's buttons are stops before the rows; start from the last of them.
     canvas.getByRole("button", { name: "Pull requests" }).focus();
@@ -442,7 +442,7 @@ export const PreviewCards: Story = {
     await userEvent.tab();
     const job = canvas.getByRole("button", { name: "Open Job 52" });
     await expect(job).toHaveFocus();
-    await waitFor(() => expect(canvas.getByText("implement")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("implement")).toBeVisible());
     // The card does not take the press.
     await userEvent.keyboard("{Enter}");
     await expect(pressed).toHaveBeenCalledTimes(1);

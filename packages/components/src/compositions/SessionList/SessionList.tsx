@@ -11,6 +11,7 @@ import { useTileGrid } from "../../tile-grid";
 import { ClashMark } from "../ClashMark/ClashMark";
 import { Chip, type OwnerChipRef, type RedChecks } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
+import { Inspect } from "../../primitives/Inspect/Inspect";
 import { LedgerPreview, type SessionLedgerCard } from "../SessionLedger/SessionLedger";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
@@ -158,9 +159,9 @@ function OpenLine({ items }: { items: readonly Item[] }) {
           {one.card === undefined ? (
             one.node
           ) : (
-            <Tooltip label={<LedgerPreview card={one.card} />} card beside asChild>
+            <Inspect card={<LedgerPreview card={one.card} kind="pull_request" />} name={one.card.title} side="beside" pin={false}>
               {one.node}
-            </Tooltip>
+            </Inspect>
           )}
         </span>
       ))}
@@ -196,7 +197,7 @@ function itemsOf(row: SessionRowView): Item[] {
       fixed: false,
       label: `#${pr.number}`,
       node: (
-        <span className="armada-session-list__pr" data-checks={pr.checks}>
+        <span className="armada-session-list__pr" data-checks={pr.checks} tabIndex={pr.card === undefined ? undefined : 0}>
           <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
         </span>
       ),
