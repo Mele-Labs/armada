@@ -1,0 +1,82 @@
+// A Session's Field has a camera of its own. The window's kept camera is the Cockpit map's, laid on a plane of another size, and
+// held to this one it lands at the lower right corner; the Field opens on the whole floor, and keeps a zoom he makes until it is
+// given another `own`. Browser: the camera is read off the drawn transform.
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, expect, test } from "vitest";
+
+import { Battlefield } from "./Battlefield";
+import type { DroneIn, RepoIn } from "./layout";
+import { camera } from "./store";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const NONE = new Map();
+const repos: RepoIn[] = [{ root: "/r", name: "r", pads: [], goal: false, areas: [{ dir: "crates", kids: [["fleet", 40], ["store", 20]] }, { dir: "apps", kids: [["desktop", 60]] }] }];
+const drones: DroneIn[] = [{ key: "session:a", kind: "session", title: "a", root: "/r", said: "Working", hue: "calm", spin: false, hover: true, ping: false, stuck: false, flare: false, working: false, touches: [], shown: true }];
+
+const mounted: { root: Root; host: HTMLElement }[] = [];
+afterEach(() => {
+  for (const { root, host } of mounted.splice(0)) {
+    act(() => root.unmount());
+    host.remove();
+  }
+  camera.current = undefined;
+});
+
+function draw(own: string | undefined) {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 640px; height: 360px; position: relative";
+  document.body.append(host);
+  const root = createRoot(host);
+  const render = (key: string | undefined) =>
+    act(() =>
+      root.render(
+        <Battlefield repos={repos} drones={drones} pads={NONE} goals={NONE} prs={[]} trails={NONE} plays={[]} facts={NONE} calls={NONE} clashes={[]} selected={undefined} own={key} onSelect={() => undefined} onPad={() => undefined} onGoal={() => undefined} onPr={() => undefined} />,
+      ),
+    );
+  render(own);
+  mounted.push({ root, host });
+  return { host, render };
+}
+
+const seen = (host: HTMLElement) => host.querySelector<HTMLElement>(".bf-cam")!.style.transform;
+const settle = () => act(() => new Promise<void>((done) => window.setTimeout(done, 150)));
+
+test("a Field opens on the whole floor, whatever camera the window kept", async () => {
+  const fresh = draw("a");
+  await settle();
+  const whole = seen(fresh.host);
+
+  camera.current = { x: 9000, y: 9000, eye: 2.4, tilt: true };
+  const stale = draw("a");
+  await settle();
+  expect(seen(stale.host)).toBe(whole);
+
+  // The window's own map takes the kept camera, which is the cause: the same plane held to it lands elsewhere.
+  const map = draw(undefined);
+  await settle();
+  expect(seen(map.host)).not.toBe(whole);
+});
+
+test("a zoom stays until the Field is given another Session, and then it is the whole floor again", async () => {
+  const field = draw("a");
+  await settle();
+  const whole = seen(field.host);
+
+  act(() => {
+    field.host.querySelector(".bf")!.dispatchEvent(new WheelEvent("wheel", { deltaY: -240, ctrlKey: true, clientX: 320, clientY: 180, bubbles: true, cancelable: true }));
+  });
+  await settle();
+  const zoomed = seen(field.host);
+  expect(zoomed).not.toBe(whole);
+
+  field.render("a");
+  await settle();
+  expect(seen(field.host)).toBe(zoomed);
+
+  field.render("b");
+  await settle();
+  expect(seen(field.host)).toBe(whole);
+});

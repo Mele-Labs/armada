@@ -56,6 +56,8 @@ export type BattlefieldProps = {
   selected: string | undefined;
   /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
   scope?: string | undefined;
+  /** This map's camera is its own, not the window's: it opens on the whole field and goes back to it when this changes, and when the pane is resized or unfolded. A Session's Field. */
+  own?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
   /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
@@ -72,16 +74,27 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
+  // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
+  const [fresh, setFresh] = useState(0);
   useEffect(() => {
     const one = host.current;
     if (one === null) return;
+    let shown: string | undefined;
     const read = () => {
       const box = one.getBoundingClientRect();
-      if (box.width <= 0 || box.height <= 0) return;
+      if (box.width <= 0 || box.height <= 0) {
+        shown = undefined;
+        return;
+      }
+      const now = `${Math.round(box.width)}x${Math.round(box.height)}`;
+      if (now !== shown) {
+        shown = now;
+        setFresh((was) => was + 1);
+      }
       setMeasured(true);
       setSize((was) => (Math.round(box.width) === was.width && Math.round(box.height) === was.height ? was : { width: Math.round(box.width), height: Math.round(box.height) }));
     };
@@ -166,7 +179,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     home,
     pull,
     arriving: arrival.length > 0,
-    keep: scene === undefined,
+    keep: scene === undefined && own === undefined,
     locate: () => locateRef.current(),
     onHand: () => tips.clear(),
   });
@@ -183,7 +196,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const toSelection = () => (scene !== undefined ? toLive() : lock === undefined ? homeAgain() : go(lookingAt(lock, Math.max(latest.current.eye, LOCK_EYE)), "ease"));
   locateRef.current = toSelection;
   // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
-  const first = useRef(scene === undefined && kept.current !== undefined);
+  const first = useRef(scene === undefined && own === undefined && kept.current !== undefined);
   useEffect(() => {
     if (lock === undefined) return;
     if (first.current) {
@@ -194,7 +207,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   }, [selected, lock?.x, lock?.y]);
   // `w` named a drone to go to: the camera eases to it once the map is drawn.
   useEffect(() => {
-    const key = scene === undefined ? aimAt.key : undefined;
+    const key = scene === undefined && own === undefined ? aimAt.key : undefined;
     const at = key === undefined ? undefined : layout.at.get(key);
     if (at === undefined) return;
     aimAt.key = undefined;
@@ -209,6 +222,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     was.current = scope;
     if (scene === undefined) homeAgain();
   }, [scope]);
+
+  // An own camera is at the whole field for each `own` and each new size of the pane, and stays where he leaves it between those.
+  useEffect(() => {
+    if (own !== undefined) homeAgain();
+  }, [own, fresh]);
 
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
