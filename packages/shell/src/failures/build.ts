@@ -56,11 +56,12 @@ export function buildFailedFailure(failed: BuildFailed, bridge: BridgeIdentity):
   return {
     kind: "fault",
     headline,
-    next: `Fleet still runs on ${failed.running}. Dispatch a session to fix the build, or read the log.`,
+    next: `Fleet still runs on ${failed.running}.`,
     detailsLabel: "What failed",
     details,
     values: machineLog(bridge),
-    note: "Fleet reports one line. The log holds the rest of the output.",
+    // Nothing to add: the notice draws no note line for an empty one.
+    note: "",
     payload: {
       code: FLEET_BUILD_FAILED,
       message: headline,

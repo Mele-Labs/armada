@@ -35,3 +35,9 @@ test("the Session is told the build, the commit, the line and the log", () => {
 test("a build this window did not see start is not named in the fields", () => {
   expect(told(undefined).text).not.toMatch(/^ +build /m);
 });
+
+test("it says what still runs, and adds no note", () => {
+  const { failure } = told("preview");
+  expect(failure.next).toBe("Fleet still runs on main.");
+  expect(failure.note).toBe("");
+});
