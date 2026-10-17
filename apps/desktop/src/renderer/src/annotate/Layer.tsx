@@ -14,7 +14,6 @@ import {
 } from "react";
 import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
 
-import { openJobIn } from "@armada/jobs";
 
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
@@ -343,12 +342,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       } catch {
         context = undefined;
       }
-      const openJobId = openJobIn(document);
       const screenshot = await keepShot(begun.id, box);
       const note: Annotation = {
         ...begun,
         text: debugText(begun.screen),
-        ...(openJobId === undefined ? {} : { openJobId }),
         ...(context === undefined ? {} : { context }),
         ...(screenshot === null ? {} : { screenshot }),
       };
@@ -371,17 +368,13 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;
     savingRef.current = true;
-    // The Job whose detail is open as the note is saved, not as it was begun: the save is the act
-    // that says what it is about. Left out where none is, and never kept from an earlier save.
-    const { openJobId: _was, screenshot: _none, ...begun } = draft.note;
-    const openJobId = openJobIn(document);
+    const { screenshot: _none, ...begun } = draft.note;
     try {
       // Taken here, once: a draft is always a new note, and nothing rewrites a saved note's text.
       const screenshot = await keepShot(begun.id, draft.element.isConnected ? boxOf(draft.element) : draft.note.box, draft.png);
       const note: Annotation = {
         ...begun,
         text: draft.text.trim(),
-        ...(openJobId === undefined ? {} : { openJobId }),
         ...(screenshot === null ? {} : { screenshot }),
         updatedAt: new Date().toISOString(),
       };

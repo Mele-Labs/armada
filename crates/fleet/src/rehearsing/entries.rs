@@ -181,24 +181,6 @@ impl Listed {
             })
     }
 
-    /// Whether two listings would run the same things, **whatever each says
-    /// about where it came from**.
-    pub(crate) fn same_as(&self, other: &Listed) -> bool {
-        let plain = |entries: &[Entry]| -> Vec<Entry> {
-            entries
-                .iter()
-                .cloned()
-                .map(|mut entry| {
-                    entry.frozen = false;
-                    entry
-                })
-                .collect()
-        };
-        plain(&self.setup) == plain(&other.setup)
-            && plain(&self.checks) == plain(&other.checks)
-            && plain(&self.commands) == plain(&other.commands)
-    }
-
     /// The three groups as the sheet draws them, narrowed against `changed`.
     #[allow(clippy::type_complexity)]
     pub(crate) fn sheet(

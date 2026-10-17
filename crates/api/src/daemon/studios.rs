@@ -13,8 +13,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio,
-    DispatchStudioDraft, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
+    AddStudioNode, AskScout, CaptureStudioNote, CreateStudio, DecideStudioEdge, DeferOnStudio, EditStudioDraft, EditStudioLink, EditStudioSketch, GroupStudioNodes,
     ManifestId, MoveStudioNode, ProposeStudioEdge, ReadInLink, RemoveStudioNodes, RenameStudio,
     SettleContradiction, StartScout, StartStudioRun, StartStudioServer, StopScout, Studio,
     StudioDeleted, StudioId, StudioList, StudioNodeId, StudioRunStarted, StudioServerStarted,
@@ -283,15 +282,4 @@ pub trait Studios: Send + Sync + 'static {
         within: Option<ManifestId>,
     ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 
-    /// `dispatch_studio_draft` — the draft's text through the Job proposer,
-    /// answered with the Studio once every Job it became is a node on it.
-    /// **Reads the daemon by its `Arc`**, as the scout's asks do: the proposal
-    /// is a model call made while the caller waits.
-    fn dispatch_studio_draft(
-        self: Arc<Self>,
-        studio_id: StudioId,
-        dispatching: DispatchStudioDraft,
-        by: Redirector,
-        within: Option<ManifestId>,
-    ) -> impl Future<Output = Result<Studio, Refusal>> + Send;
 }

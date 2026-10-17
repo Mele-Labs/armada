@@ -1,7 +1,7 @@
 // Main's light on the merge queue, when a main is red: the same panel the Merge line draws for the red, on a card the light opens.
 // Hovering or focusing the light opens it, a press pins it, and Esc or a press outside puts it away. The card is the Merge line's
-// own band with the Merge line's own acts (`useFixChoice`), so who is fixing, who holds the claim and the ways to hand it to a Job
-// or a Session are one thing in both places. Under it is the checkout, while a served repository's is held behind main, and a green
+// own band with the Merge line's own acts (`useFixChoice`), so who is fixing, who holds the claim and the ways to hand it to a
+// Session are one thing in both places. Under it is the checkout, while a served repository's is held behind main, and a green
 // main with one has a card too. #2301.
 
 import { CircleCheck, CircleX, FolderGit2, Unplug } from "lucide-react";
@@ -24,11 +24,11 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
   const sessions = useSessions();
   const main = red.view.hub.main;
   const culprit = main?.state === "red" ? main.red.merge?.session : undefined;
-  const fix = useFixChoice(red.view.root, props.onFix, props.onSendToSession);
+  const fix = useFixChoice(red.view.root, props.onSendToSession);
   if (main?.state !== "red") return null;
-  // A Job or Session the deck lists opens on its stage; any other opens on its own page.
-  const open = (kind: "job" | "session", id: string, elsewhere: (id: string) => void) => {
-    const held = ship.subjects.find((one) => one.kind === kind && one.id === id);
+  // A Session the deck lists opens on its stage; any other opens on its own page.
+  const open = (id: string, elsewhere: (id: string) => void) => {
+    const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
     if (held === undefined) elsewhere(id);
     else select(selOfSubject(held));
   };
@@ -37,11 +37,9 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
       {named ? <h3 className="deck-main-card__name">{red.name}</h3> : null}
       <MainRedBand
         main={main}
-        recent={red.view.hub.recent}
         recentSessions={recentSessionsOf(sessions, culprit)}
         onOpenLink={props.onOpenLink}
-        onOpenJob={(id) => open("job", id, props.onOpen)}
-        onOpenSession={(id) => open("session", id, props.onOpenSession)}
+        onOpenSession={(id) => open(id, props.onOpenSession)}
         {...(fix === undefined
           ? {}
           : {

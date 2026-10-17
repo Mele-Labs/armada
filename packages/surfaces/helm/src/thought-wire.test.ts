@@ -37,9 +37,9 @@ describe("read_thought", () => {
       target: { kind: "session", id: "01S", title: "Sessions list views", manifest_id: "01M1", slot: 3 },
     });
 
-    const bare = decoded<ThoughtReading>('{"kind":"thought","target":{"kind":"job","id":"01J","title":"Retry charges"}}');
+    const bare = decoded<ThoughtReading>('{"kind":"thought","target":{"kind":"session","id":"01S","title":"Retry charges"}}');
     if (bare.kind !== "thought" || bare.target === undefined) throw new Error("a thought with a target");
-    expect(bare.target.kind).toBe("job");
+    expect(bare.target.kind).toBe("session");
     expect("manifest_id" in bare.target).toBe(false);
     expect("slot" in bare.target).toBe(false);
   });
@@ -47,10 +47,10 @@ describe("read_thought", () => {
 
 describe("record_thought_sent", () => {
   it("is said with the words and the target, a missing field left out and never null", () => {
-    const target: ThoughtTarget = { kind: "job", id: "01J", title: "Retry charges", manifest_id: "01M2" };
+    const target: ThoughtTarget = { kind: "session", id: "01S", title: "Retry charges", manifest_id: "01M2" };
     const body: ThoughtSent = { text: "back off longer", target };
     expect(JSON.stringify(body)).toBe(
-      '{"text":"back off longer","target":{"kind":"job","id":"01J","title":"Retry charges","manifest_id":"01M2"}}',
+      '{"text":"back off longer","target":{"kind":"session","id":"01S","title":"Retry charges","manifest_id":"01M2"}}',
     );
   });
 });

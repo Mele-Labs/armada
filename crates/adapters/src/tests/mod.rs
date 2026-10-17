@@ -22,7 +22,6 @@ mod clash;
 mod cloning;
 mod commit;
 mod concurrently;
-mod commanding;
 mod conversing;
 mod delivery;
 mod edited;

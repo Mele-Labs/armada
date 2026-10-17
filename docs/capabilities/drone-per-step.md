@@ -59,7 +59,7 @@ absence is the ordinary state between steps.
 
 ## What this rules out
 
-**A commit at every step boundary.** `crates/fleet/src/landing.rs` holds the
+**A commit at every step boundary.** The `landing` module (deleted since) holds the
 reasoning: a per-step commit puts commits on the branch of a Job that then
 failed, and uncommitted work is what makes a failed Job's branch unmistakably
 not mergeable. It would also change nothing the gate sees, because

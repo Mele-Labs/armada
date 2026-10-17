@@ -1,17 +1,16 @@
 // The Cockpit's other face: what Fleet did, newest first, one row per event, each naming what it happened
 // to. Three takes of it share one set of marks, Lanes first and his last pick kept: a feed of every
-// event, a lane for each Job and Session with its events along the last two hours,
-// and the lanes beside the feed. A pull request is no lane: its events are marks on the track of the Job
-// or Session that owns it, and one nobody owns is left out. The filter above narrows it as it narrows the
+// event, a lane for each Session with its events along the last two hours,
+// and the lanes beside the feed. A pull request is no lane: its events are marks on the track of the Session
+// that owns it, and one nobody owns is left out. The filter above narrows it as it narrows the
 // grid. What it draws is Fleet's timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { BellRing, Box, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
+import { BellRing, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
 import { Button, Inspect, InspectCard, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
-import type { JobSummary, TimelineKind } from "@armada/protocol";
+import type { TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
-import { titleOf as plainTitle } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
 import { stateOf } from "../session-state";
@@ -48,7 +47,7 @@ function useTake(): [Take, (take: Take) => void] {
 
 const TAKES = [
   { id: "feed", label: "Feed", hint: "One row for each event, newest first" },
-  { id: "lanes", label: "Lanes", hint: "A row for each Job and Session, its events along the last two hours" },
+  { id: "lanes", label: "Lanes", hint: "A row for each Session, its events along the last two hours" },
   { id: "split", label: "Split", hint: "Each subject, and its events beside it" },
 ];
 
@@ -73,8 +72,8 @@ const MINUTES = 120;
 const SHOWN = 60;
 const WINDOW = MINUTES * 60_000;
 
-const KIND: Record<Subject["kind"], string> = { job: "Job", session: "Session", main: "Main" };
-export const GLYPH = { job: Box, session: SquareTerminal, main: GitMerge };
+const KIND: Record<Subject["kind"], string> = { session: "Session", main: "Main" };
+export const GLYPH = { session: SquareTerminal, main: GitMerge };
 
 /** What an event's mark is shaped as: a pull request's keeps its own shape on its owner's track. */
 const shapeOf = (event: FleetEvent): string => (event.pull === undefined ? event.subject.kind : "pull_request");
@@ -83,7 +82,7 @@ export const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }
 const CLOCK = new Intl.DateTimeFormat([], { hour: "numeric", minute: "numeric", second: "numeric", hour12: false });
 const clock = (at: string) => CLOCK.format(new Date(at));
 
-/** Where a subject opens: the Job or the Session. Main opens nothing. */
+/** Where a subject opens: the Session. Main opens nothing. */
 type Open = (subject: Subject) => void;
 
 function Glyph({ subject }: { subject: Subject }) {
@@ -157,16 +156,14 @@ const bucketOf = (event: FleetEvent, now: number): string => {
 };
 
 /**
- * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session or a
- * Job's Drone, and a Session's subagents. A waiting, a resolution and a Session started by another keep the
+ * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session, and
+ * its subagents. A waiting, a resolution and a Session started by another keep the
  * Session's dot in their tone.
  */
 const KIND_MARK: Partial<Record<TimelineKind, { icon: typeof Clock; said: string }>> = {
   "session.read": { icon: ScrollText, said: "Read" },
   "session.edited": { icon: FilePenLine, said: "Edited" },
   "session.ran": { icon: Terminal, said: "Ran" },
-  "job.read": { icon: ScrollText, said: "Read" },
-  "job.ran": { icon: Terminal, said: "Ran" },
   "session.subagent": { icon: SplitLine, said: "Subagent" },
 };
 
@@ -185,7 +182,7 @@ function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
 }
 
 /** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
-const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" || event.kind === "job.ran" ? "commands" : "files");
+const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" ? "commands" : "files");
 
 function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
   const says = (
@@ -411,7 +408,7 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
  * `most` keeps the newest that many events **of the subjects `keep` and `of` leave**, before the lanes are read, so a narrowed feed is
  * never emptied by newer events of subjects it does not show.
  */
-export function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
+export function useLanes(now: number, views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
   const wire = useFleetEvents();
   const sessions = useSessions();
   const events = useMemo(() => {
@@ -419,16 +416,12 @@ export function useLanes(now: number, jobs: readonly JobSummary[], views: readon
     const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
     return wire.flatMap((one) => {
       const drawn = fromWire(one, {
-        job: (id) => {
-          const job = jobs.find((row) => row.id === id);
-          return job === undefined ? undefined : plainTitle(job);
-        },
         session: (id) => sessions.find((row) => row.id === id)?.title,
-        pull: (number) => timelineOwner(views, jobs, sessions, number, branches.get(number)),
+        pull: (number) => timelineOwner(views, sessions, number, branches.get(number)),
       });
       return drawn === undefined ? [] : [drawn];
     });
-  }, [wire, jobs, views, sessions]);
+  }, [wire, views, sessions]);
   return useMemo(() => {
     const drawn =
       most === undefined
@@ -437,11 +430,11 @@ export function useLanes(now: number, jobs: readonly JobSummary[], views: readon
             .filter((one) => (of !== undefined ? one.subject.kind === of.kind && "id" in one.subject && one.subject.id === of.id : keep === undefined || keep(one.subject)))
             .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
             .slice(0, most);
-    const all = lanesOf(drawn, now, (id) => {
+    const all = lanesOf(drawn, (id) => {
       const held = sessions.find((one) => one.id === id);
       return held === undefined ? undefined : stateOf(held).state;
     });
-    // One Job or Session picked: its lane alone, whatever its standing. A Session's subagents are events on its own lane.
+    // One Session picked: its lane alone, whatever its standing. A Session's subagents are events on its own lane.
     if (of !== undefined) return all.filter((lane) => lane.subject.kind === of.kind && lane.subject.id === of.id);
     return lanesFor(all, filter).filter((lane) => keep === undefined || keep(lane.subject));
   }, [events, now, filter, sessions, keep, of?.kind, of?.id, most]);
@@ -449,23 +442,19 @@ export function useLanes(now: number, jobs: readonly JobSummary[], views: readon
 
 const NO_VIEWS: readonly MergeLineView[] = [];
 
-/** The Job or Session the feed narrows to. */
-export type Of = { kind: "job" | "session"; id: string };
+/** The Session the feed narrows to. */
+export type Of = { kind: "session"; id: string };
 
 export function Timeline({
   now,
-  jobs,
   views = NO_VIEWS,
   filter,
   recessed,
   keep,
-  onOpenJob,
   onOpenSession,
   onOpenLink,
 }: {
   now: number;
-  /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
-  jobs: readonly JobSummary[];
   /** The merge lines, which say who a pull request belongs to. Without them a pull request's events have no owner. */
   views?: readonly MergeLineView[];
   /** The Cockpit's filter: what needs him, what is not over, what is. */
@@ -474,20 +463,18 @@ export function Timeline({
   recessed: boolean;
   /** Narrows the lanes to the subjects it keeps: the flight deck's own filters. Absent keeps every one. */
   keep?: (subject: Subject) => boolean;
-  onOpenJob: (id: string) => void;
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
 }) {
   const [take, setTake] = useTake();
-  const lanes = useLanes(now, jobs, views, filter, keep);
+  const lanes = useLanes(now, views, filter, keep);
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (take === "lanes" && body.current !== null) body.current.scrollLeft = body.current.scrollWidth;
   }, [take]);
   const open: Open = (subject) => {
-    if (subject.kind === "job") onOpenJob(subject.id);
-    else if (subject.kind === "session") onOpenSession(subject.id);
+    if (subject.kind === "session") onOpenSession(subject.id);
   };
   /** A pull request's mark opens the pull request; any other opens its subject. */
   const press = (event: FleetEvent) => (event.pull?.url === undefined ? open(event.subject) : onOpenLink(event.pull.url));

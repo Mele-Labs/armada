@@ -1,28 +1,24 @@
-//! An Autopilot as the store keeps it, gathered with what its Jobs say now, and as the wire
-//! carries it. **The figures are read, never kept**: what its Jobs spent and which hold a place
+//! An Autopilot as the store keeps it, gathered with what its Sessions say now, and as the wire
+//! carries it. **The figures are read, never kept**: what its Sessions spent and which hold a place
 //! change without Autopilot doing anything.
 
 use std::collections::BTreeMap;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{JobId, Timestamp, Ulid};
+use core_model::Timestamp;
 use store::{KeptAutopilot, KeptPick};
 
 use super::bounds::{room, Cap, Caps, PickState, Spent, Standing, State};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
-/// One Autopilot with this run's picks and what their Jobs say now.
+/// One Autopilot with this run's picks and what their Sessions say now.
 pub(crate) struct Gathered {
     pub kept: KeptAutopilot,
     pub picks: Vec<KeptPick>,
-    /// By pick id, for each started pick whose Job still loads.
+    /// By pick id, for each started pick whose Session still loads.
     pub standing: BTreeMap<String, Standing>,
     pub spent: Spent,
-}
-
-pub(crate) fn job_id(stored: &str) -> JobId {
-    JobId::carried(Ulid::carried(stored))
 }
 
 impl Gathered {
@@ -95,10 +91,7 @@ fn pick(kept: &KeptPick) -> Option<ipc::AutopilotPick> {
         issue_title: kept.issue_title.clone(),
         issue_url: kept.issue_url.clone(),
         workflow_id: kept.workflow_id.clone().map(ipc::WorkflowId::carried),
-        job_id: kept
-            .started_job
-            .as_deref()
-            .map(|id| ipc::JobId::from(&job_id(id))),
+        session_id: kept.started_session.as_deref().map(ipc::SessionId::carried),
         state,
         reason: kept.reason.clone(),
         at: ipc::Instant::carried(kept.at.clone()),
@@ -115,10 +108,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `kept`, with this run's picks and what each started Job says now.
+    /// `kept`, with this run's picks and what each started Session says now.
     ///
-    /// **Spend is each Job's own**, `crate::allowance`'s figure, summed. **Started counts a pick
-    /// that started a Job**, and a withdrawn one too: it was started, and the cap is on starts.
+    /// **Spend is each Session's own reported cost**, summed. **Started counts a pick that started
+    /// a Session**, and a withdrawn one too: it was started, and the cap is on starts.
     pub(crate) async fn autopilot_gathered(&self, kept: KeptAutopilot) -> Result<Gathered, Adrift> {
         let picks = self
             .store()
@@ -129,7 +122,7 @@ where
         let mut standing = BTreeMap::new();
         let mut spent = Spent::default();
         for one in &picks {
-            let Some(started) = one.started_job.as_deref() else {
+            let Some(started) = one.started_session.as_deref() else {
                 continue;
             };
             if matches!(
@@ -138,18 +131,12 @@ where
             ) {
                 spent.started += 1;
             }
-            let id = job_id(started);
-            spent.micros += self
-                .spend_of(&id)
-                .await
-                .map(|spend| spend.cost_micros)
-                .unwrap_or(0);
-            // A Job forgotten since it was picked is no longer anybody's to count.
-            let Ok(job) = self.load(&id).await else {
+            // A Session forgotten since it was picked is no longer anybody's to count.
+            let Some((cost, standing_now)) = self.pick_session_standing(started).await else {
                 continue;
             };
-            let ever_ran = self.job_started_at(&id).await.ok().flatten().is_some();
-            standing.insert(one.pick_id.clone(), Standing::of(&job, ever_ran));
+            spent.micros += cost;
+            standing.insert(one.pick_id.clone(), standing_now);
         }
         Ok(Gathered {
             kept,
@@ -157,5 +144,34 @@ where
             standing,
             spent,
         })
+    }
+
+    /// What the Session `id` has cost and how it stands, as room and Stop read it. `None` where the
+    /// ledger holds no such Session.
+    async fn pick_session_standing(&self, id: &str) -> Option<(u64, Standing)> {
+        let store = self.store().lock().await;
+        let session = store.session(id).ok().flatten()?;
+        let ever_ran = store
+            .hosting(id)
+            .ok()
+            .flatten()
+            .is_some_and(|hosting| hosting.ran);
+        let record = self.ledger_row(&store, &session).ok();
+        let waiting = record.as_ref().is_some_and(|record| !record.waiting_for.is_empty());
+        let working = record.as_ref().is_some_and(|record| {
+            matches!(
+                record.standing,
+                Some(ipc::SessionStanding::Working | ipc::SessionStanding::Stuck)
+            )
+        });
+        Some((
+            session.figures.cost_micros.unwrap_or(0),
+            Standing {
+                live: session.state == store::SessionState::Live,
+                waiting_on_a_person: waiting,
+                working,
+                ever_ran,
+            },
+        ))
     }
 }

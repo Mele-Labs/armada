@@ -521,6 +521,23 @@ pub(crate) async fn start_another_session<D: Sessions>(
     }
 }
 
+/// The agent of a Session, or the person, changes when a waiting Session starts. 200 with `SessionWait`;
+/// 422 for a Session that does not wait on the caller, an unplaced agent or a plan part nothing holds; 409
+/// where it has started.
+pub(crate) async fn change_waiting<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let change: ipc::ChangeWaiting = match ipc::decode("a change to a waiting session", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().change_waiting(crate::acting::asking(), change).await {
+        Ok(wait) => answer(StatusCode::OK, &wait, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A Session's agent forks its own conversation, held for the person. 200 with `SessionHeld`; 422 for a
 /// call that places no hosted Session, a blank title or message, or a message the conversation does not hold.
 pub(crate) async fn fork_this_session<D: Sessions>(

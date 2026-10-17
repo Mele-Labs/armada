@@ -3,7 +3,7 @@
 // that it is going, and Fleet's own row takes its place when it arrives. The claims are in `walks/session-message-sending.ts`,
 // and each wait stands until one of its steps lets Fleet go (`SessionsStore.delivery`).
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { gate } from "../cockpit-routes";
@@ -51,7 +51,7 @@ function build(): Scenario {
     later: [{}, {}, {}],
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [SESSION]);
+        const store = sessionsStore([none, none], none, control, [], [SESSION]);
         const delivery = { gate: gate(), outcomes: ["taken", "refused", "taken"] as ("taken" | "refused")[] };
         store.delivery = delivery;
         // The ship holds this Session alone; the mock's own first Session is spent.

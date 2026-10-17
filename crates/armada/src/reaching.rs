@@ -9,13 +9,13 @@ use verification::Exit;
 
 use crate::declared::Ran;
 
-/// How much of a Check was asked for. One value, so one test and a changed set
-/// cannot both be asked.
+/// How much of a Check was asked for. One value, so tests by name and a changed
+/// set cannot both be asked.
 #[derive(Clone, Copy, Debug)]
 pub enum Asked<'a> {
     Whole,
-    /// One test, through the Check's `one_test`.
-    OneTest(&'a str),
+    /// Tests by name, through the Check's `one_test`: one run, so one build.
+    Tests(&'a [&'a str]),
     /// What these changed paths reach, through the Check's `narrow` as the
     /// merge line reads it: [`checks_runner::narrowed_over`].
     Changed(&'a [String]),

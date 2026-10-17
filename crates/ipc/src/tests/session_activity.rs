@@ -41,6 +41,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }
 

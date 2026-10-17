@@ -166,8 +166,9 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
-Worktree Slots, Overview, Helm, Setup, Manifest and Jobs have moved both, and Settings its slice
-(it has no fleet). What stays in desktop is the composition: `scenario.ts`, the scenario rows,
+Worktree Slots, Overview, Helm, Setup and Manifest have moved both, and Settings its slice
+(it has no fleet). Jobs, the package, is gone: its `JobsApi` is `shared/api/jobs.ts` and its fleet
+`mock/jobs-fleet.ts`, which serve Fleet's Job routes until Fleet drops them. What stays in desktop is the composition: `scenario.ts`, the scenario rows,
 `holding.ts` and the Workflows and reports slices.
 
 A surface lives in its own package under the surfaces directory of `packages`,
@@ -222,7 +223,7 @@ What it settled for the next surface:
   `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Worktree Slots, Overview, Settings, Helm, Setup, Manifest and Jobs do.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Worktree Slots, Overview, Settings, Helm, Setup and Manifest do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
@@ -261,31 +262,14 @@ What it settled for the next surface:
 - **A rule that scans `packages/screens` must scan the surfaces.**
   `no_off_contract_design_value` read only `components` and `screens`, so the move
   would have unwatched Studios without a red.
-- **Jobs moved its screens first, in 144 files, 99 tests and 34 fixtures.** What stayed
-  is what a package that cannot import it reads: the files main imports, since the node
-  tsconfig has no DOM or JSX (`plan-edits`' type, `filling`); the reads and words other surfaces
-  import; and the fixtures their fakes and tests build on (`base`, `fixture`, `recorded`,
-  `harness`, `slots`, `run-sheet`, `board`, `merge-line`, and `running` and `terminal`, which a
-  Studios test builds with). Desktop reaches the rest by `@armada/jobs`, its `./draft/*` and its
-  `./fixtures/*` subpaths. **A shared package that named a surface's type takes it as a
-  parameter**: bridge-api's `Scenario` carried `ArcDraft`, so it is `Scenario<S, A, D = never>`
-  and `mock/moment.ts` is the one place that fixes `D`. **A rule that guards a directory the
-  move emptied must name where it went**: the main-process draft rule watches
-  `packages/surfaces/jobs/src/draft` beside the screens'.
-- **Jobs then took its slice, its fake and 51 whole-app tests, in three commits.** `JobsApi` (82
-  members, 19 state fields) is `@armada/jobs/api`, and `jobsApi(scenario, fleet)` answers its 91
-  members over a `JobsFleet` handle, as `cleanupApi` does. **A moment that writes state is generic
-  and names what it writes**: `fillingIn`, `walkedPrototype`, `writingLogs`,
-  `answeringTheHeldCommand` and `originsAndPanel` each take `S` and `A` bounded by the fields and
-  members they touch (`FillingInState`, `WalkedPrototypeApi`, ...) and cast the handle to that,
-  so `walkedPrototype`'s `openCaptureWindow` (Studios') is spelled in its bound and Studios is
-  never imported. There is no `mock/jobs-fake.ts`: `scenario.ts` calls them on its own scenarios and the generics are inferred. **A scenario row stays in desktop**: `scenarios/` is read as a glob
-  (`list-files.md`) and each row is built with `holding`, so the rows import their fixtures from
-  `@armada/jobs/fake` and Jobs' `depends_on` names the list, `scenarios/**` and `holding.ts`.
-  **A fleet that answers another slice stays**: `workflows-fleet` answers `WorkflowsApi`, which is
-  still desktop's, and `main-red-hub` and `merge-line-turn` draw main going red and the merge line,
-  not a Job's detail. **A package test types what it touches**: `JobsApi` and `JobsState` from
-  `./api`, and `Mounted["api"]` where it spies a member another slice owns (`tap`).
+- **Jobs left as a package.** The Jobs package moved its screens, fixtures and drafts
+  out to `packages/screens/src/` first, and was deleted with the Job page, the Job Board and the
+  Epic canvas once Sessions took the Cockpit. What outlived it: `JobsApi` and its state in
+  `apps/desktop/src/shared/api/jobs.ts`, `mock/jobs-fleet.ts` answering it, and
+  `mock/slices/jobs.ts`, each there because Fleet still serves Jobs. **A scenario row stays in
+  desktop**: `scenarios/` is read as a glob (`list-files.md`) and each row is built with
+  `holding`. **A fleet that answers another slice stays**: `workflows-fleet` answers
+  `WorkflowsApi`, and `main-red-hub` and `merge-line-turn` draw main going red and the merge line.
 - **Typecheck is the surface's own Check**, declared in its `armada.yml`; the root
   script does not need to name it.
 
@@ -323,14 +307,14 @@ whole state again with `syncState`.
 
 | Project | Holds | Check |
 |---|---|---|
-| `smoke`, `smoke (browser)` | Every test under `mock/` (they mount `App` on the mock Fleet, which composes every surface), `annotate/Layer.test.tsx` (`openJobIn` from Jobs) and `left-column.test.ts` (Overview's readings) | none: run by hand, `vitest run --project 'smoke*'` |
+| `smoke`, `smoke (browser)` | Every test under `mock/` (they mount `App` on the mock Fleet, which composes every surface), `annotate/Layer.test.tsx` and `left-column.test.ts` (Overview's readings) | none: run by hand, `vitest run --project 'smoke*'` |
 | `desktop`, `desktop (browser)` | The rest: `src/main`, `src/shared`, the renderer's own modules and five browser tests of them | `desktop_test` of `apps/desktop/unit` |
 
 **The line is what a test's imports reach, not what it is named for.** Bundling each file with esbuild on 6 Oct 2026 showed every `mock/` test reaching all eight surfaces, and the `desktop` project reaching a surface only as the types in each `api.ts`, which a bundler drops. **A new test goes to `desktop` unless it is under `mock/`**, so a test elsewhere that loads a surface runs on a surface change only if it is added to the `smoke` lists in `vitest.config.ts`.
 
 **`unit/` is a manifest of its own because `depends_on` is a manifest's.** `apps/desktop`'s lists every package, as its typecheck and build need, and nothing there narrows a Check's. `unit/armada.yml` lists what the `desktop` project reads, so a change to `packages/surfaces/studios/src` runs Studios and not it. The directory holds that file and a `package.json`, which Scan finds a workspace by, and its Check has no `runner:`: a Drone's narrowed run reads the paths the manifest owns, and it owns none of the tests.
 
-**`vitest.shard.ts` cuts a sharded run by weight.** Vitest slices by path hash, which put three of the four walks files in one shard. The weights are the measured seconds of the walks, `every-state` and `connection`. Nothing shards a run now.
+**`vitest.shard.ts` cuts a sharded run by weight.** Vitest slices by path hash, which put three of the four walks files in one shard. The weights are the measured seconds of the walks and `connection`. Nothing shards a run now.
 
 ## State and data flow
 

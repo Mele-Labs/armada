@@ -5,9 +5,12 @@
 import { describe, expect, it } from "vitest";
 import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
-import type { LessonSessionRead } from "@armada/jobs/session-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import type {
+  ChangeWaiting,
+  SessionWait,
+  WaitReading,
   ChosenHold,
   SessionHeld,
   SessionHoldsReleased,
@@ -187,7 +190,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
@@ -423,7 +426,7 @@ type OldBridgeApi = {
     frameStreamUrl: (jobId: string, kept: string) => string;
     readReports: (want: boolean) => Promise<void>;
     readHeld: (want: boolean) => Promise<void>;
-    watchStudios: (manifestId: string | null) => Promise<void>;
+    watchStudios: (manifestId: string | readonly string[] | null) => Promise<void>;
     watchStudio: (studioId: string | null) => Promise<void>;
     createStudio: (manifestId: string) => Promise<StudioAnswer>;
     renameStudio: (studioId: string, name: string) => Promise<Outcome>;
@@ -495,12 +498,14 @@ type OldBridgeApi = {
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
     startSession: (title?: string) => Promise<SessionActed>;
-    pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
     exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+    readSessionWait: (sessionId: string, request: string) => Promise<SessionActed<WaitReading>>;
+    changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
+    startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
@@ -849,7 +854,6 @@ const OLD_CHANNELS = {
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
-    pilotJob: "bridge:pilot-job",
     forkSession: "bridge:fork-session",
     forkSessionAt: "bridge:fork-session-at",
     exitPilot: "bridge:exit-pilot",
@@ -857,6 +861,9 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
     claimPullRequest: "bridge:claim-pull-request",
+    readSessionWait: "bridge:read-session-wait",
+    changeWaiting: "bridge:change-waiting",
+    startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",

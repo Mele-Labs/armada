@@ -325,24 +325,24 @@ export const MatchingNothing: Story = {
 
 /**
  * **The one bar: what is typed can be dispatched.** Words that match nothing
- * lead with the row that sends them, so ↵ dispatches; ⇥ switches to a Session
- * where Sessions are served (the owner, 10 Oct 2026).
+ * lead with the row that sends them, so ↵ dispatches; ⇥ switches to Autopilot
+ * where it is served (the owner, 10 Oct 2026).
  */
 export const NothingMatchesSoTheWorkLeads: Story = {
   args: {
     ...board,
     defaultQuery: "retire the sleep calls",
-    dispatch: { kind: "job", onDispatch: fn(), onKind: fn() },
+    dispatch: { kind: "session", kinds: ["session", "autopilot"], onDispatch: fn(), onKind: fn() },
   },
   play: async ({ args, canvas, userEvent }) => {
-    const row = canvas.getByRole("option", { name: /^Dispatch “retire the sleep calls” as a Job/ });
+    const row = canvas.getByRole("option", { name: /^Start a Session with “retire the sleep calls”/ });
     await expect(row).toHaveAttribute("aria-selected", "true");
     // The miss is still named, beside the row that sends the words.
     await expect(canvas.getByText(/Nothing matches “retire the sleep calls”/)).toBeVisible();
     await userEvent.keyboard("{Tab}");
-    await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
+    await expect(args.dispatch!.onKind).toHaveBeenCalledWith("autopilot");
     await userEvent.keyboard("{Enter}");
-    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("retire the sleep calls", "job");
+    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("retire the sleep calls", "session");
   },
 };
 
@@ -354,12 +354,12 @@ export const AMatchKeepsEnter: Story = {
   args: {
     ...board,
     defaultQuery: "kill",
-    dispatch: { kind: "job", onDispatch: fn() },
+    dispatch: { kind: "session", onDispatch: fn() },
   },
   play: async ({ canvas }) => {
     const options = canvas.getAllByRole("option");
     await expect(options[0]).toHaveAttribute("aria-selected", "true");
-    await expect(options[options.length - 1]).toHaveAccessibleName(/^Dispatch “kill” as a Job/);
+    await expect(options[options.length - 1]).toHaveAccessibleName(/^Start a Session with “kill”/);
   },
 };
 
@@ -368,9 +368,9 @@ export const AMatchKeepsEnter: Story = {
  * is pinned to the list's bottom edge, so it is in view before any scrolling.
  */
 export const TheDispatchRowStaysInView: Story = {
-  args: { ...board, defaultQuery: "e", dispatch: { kind: "job", onDispatch: fn() } },
+  args: { ...board, defaultQuery: "e", dispatch: { kind: "session", onDispatch: fn() } },
   play: async ({ canvas }) => {
-    const row = canvas.getByRole("option", { name: /^Dispatch “e” as a Job/ });
+    const row = canvas.getByRole("option", { name: /^Start a Session with “e”/ });
     const list = canvas.getByRole("listbox");
     await expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
     await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(list.getBoundingClientRect().bottom + 1);

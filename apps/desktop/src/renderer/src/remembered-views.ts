@@ -1,24 +1,21 @@
-// Which arrangement a Job's two graph destinations open in, remembered across
-// a restart — Plan's graph or list (owner, 25 Sep 2026).
+// Which arrangement a page opens in, remembered across a restart — Lessons' place and source,
+// the Cockpit's view, filters and scope (owner, 25 Sep 2026).
 //
-// **One module, because it is one mechanism.** Plan's toggle was asked for
-// after Workflow already had one, and a second way of remembering a way of
+// **One module, because it is one mechanism.** A second way of remembering a way of
 // reading is two places to keep in step.
 //
 // **`localStorage`, not a Fleet preference**, for `panel-open.ts`' own reason:
 // Fleet's preference set is closed (`fleet.unknown_preference`) and a SQL
 // `CHECK` constraint names every legal key, so a new one is a wire change in
-// five crates. These are ways of reading, not facts about the Job.
+// five crates. These are ways of reading, not facts about the work.
 
 import { useEffect, useState } from "react";
-import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
+import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, type LessonsTab } from "@armada/screens/src/lessons/retro";
 
 /** What a press tells the window, so two readers of one key stay in step. */
 const HEARD = "armada:remembered";
-const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 const LESSONS_SOURCE_KEY = "armada.bridge.lessons-source";
-const DISPATCH_KEY = "armada.bridge.dispatch-kind";
 
 /**
  * A remembered arrangement and the press that moves it, on whatever the
@@ -59,11 +56,6 @@ function remembered<T extends string>(key: string, named: (value: string | null)
   return [view, press];
 }
 
-/** Graph or list on Plan. Graph where nothing is stored. */
-export function usePlanView(): [PlanView, (view: PlanView) => void] {
-  return remembered(PLAN_KEY, planViewNamed);
-}
-
 /** Which place Lessons is narrowed to (owner, 3 Oct 2026). All where nothing is stored. */
 export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
   return remembered(LESSONS_KEY, lessonsTabNamed);
@@ -74,13 +66,6 @@ export function useLessonsSource(): [LessonsSource, (source: LessonsSource) => v
   return remembered(LESSONS_SOURCE_KEY, lessonsSourceNamed);
 }
 
-export type DispatchKind = "job" | "session";
-
-/** What the dispatch panel starts: the last choice, a Job where nothing is stored. */
-export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] {
-  return remembered(DISPATCH_KEY, (value): DispatchKind => (value === "session" ? "session" : "job"));
-}
-
 // ---- The flight deck's views, which live in a store and not in a component ---------------------------------------
 //
 // The deck keeps its state in a module so the top bar and the body, two trees, agree and a body that unmounts while a
@@ -88,8 +73,6 @@ export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] 
 // should survive a restart through the same keys and the same failed-read-is-the-default rule as the hooks above.
 
 export const DECK_VIEW_KEY = "armada.bridge.deck-view";
-export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
-export const DECK_ONLY_KEY = "armada.bridge.deck-only";
 export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
 /** Which Sessions the list holds besides the live ones: Active, Quiet, Ended or All. */
 export const DECK_SCOPE_KEY = "armada.bridge.deck-scope";

@@ -12,8 +12,6 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 
 **Milestone:** Throughput. The Studio half of it is Studio's.
 
-**Capability:** [`epic-as-one-job.md`](../capabilities/epic-as-one-job.md) covers approving one Job that decomposes. This document covers what happens before that Job exists.
-
 ## Flow
 
 1. **Bring the design in.** A written direction and a set of screens, made outside Armada or on a Studio.
@@ -23,7 +21,7 @@ Design fidelity: not set. Analysis: partial. UI/UX design: not started.
 5. **Revise the design.** The readers' findings and the answers go back to whoever drew it.
 6. **Read it again.** The second pass is against the decisions, not the first draft: what was fixed, what changed on purpose, what is new.
 7. **File the milestone.** One issue per piece of work, each naming the screens it builds and the decisions it obeys, in waves by what blocks what.
-8. **Dispatch the first wave.** From here it is `dispatch-a-milestone.md`.
+8. **Dispatch the first wave.** Each issue is dispatched as a Session.
 
 ## What a person is doing at each step, and what Armada does
 

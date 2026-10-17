@@ -1,4 +1,4 @@
-import { Box, SquareTerminal, X } from "lucide-react";
+import { SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
@@ -11,12 +11,12 @@ import { OwnerChip } from "../OwnerChip/OwnerChip";
  * the message box, where the dock's other asks are.
  *
  * **Two stages, one card.** While Helm reads where the words belong there is no card: the words are in
- * the thread, going. A match names the Session or Job and offers Send. Nothing matched, or No pressed, offers to start
- * a Session or a Job with the words. Every act is a button with its key on it, and the dock binds
+ * the thread, going. A match names the Session and offers Send. Nothing matched, or No pressed, offers to start
+ * a Session with the words. Every act is a button with its key on it, and the dock binds
  * the keys while the message box is empty.
  */
 export type ThoughtTarget = {
-  kind: "session" | "job";
+  kind: "session";
   title: string;
   /** The repository's name, as the picker draws it. */
   repository: string;
@@ -29,13 +29,12 @@ export type ThoughtCardProps = {
   words: string;
 } & (
   | { stage: "match"; target: ThoughtTarget; onSend: () => void; onNo: () => void; onAskHelm: () => void }
-  | { stage: "new"; onSession: () => void; onJob: () => void; onAskHelm: () => void; onDismiss: () => void }
+  | { stage: "new"; onSession: () => void; onAskHelm: () => void; onDismiss: () => void }
 );
 
-/** The kind's glyph and the word for it, which are the Session card's and the Job chip's own. */
+/** The kind's glyph and the word for it, which are the Session card's own. */
 export const THOUGHT_KIND = {
   session: { Glyph: SquareTerminal, said: "Session" },
-  job: { Glyph: Box, said: "Job" },
 } as const;
 
 /** Where a thought went or may go: the kind's glyph and the title, over the repository. */
@@ -111,7 +110,6 @@ export function ThoughtCard(props: ThoughtCardProps) {
       </div>
       <div className="armada-thought-card__acts" role="group" aria-label="Answers">
         <Act label="Session" keys={["S"]} onPress={props.onSession} />
-        <Act label="Job" keys={["J"]} onPress={props.onJob} />
         <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
       </div>
     </Card>

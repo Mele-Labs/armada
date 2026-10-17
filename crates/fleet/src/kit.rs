@@ -1,6 +1,6 @@
 //! Kit's MCP servers, resolved for one Manifest — `#1275`.
 //!
-//! `crate::permitting::repository` is the model: a rule a person set, kept in
+//! `crate::allowed::repository` is the model: a rule a person set, kept in
 //! Fleet's own store, read back by the surface that lists it and by the next
 //! spawn. This one is read by [`crate::spawning`], which writes what it returns
 //! into the document a Drone is started against.
@@ -17,7 +17,7 @@ use ipc::WireError;
 use crate::daemon::Fleet;
 
 /// Not job-scoped, so it earns its own code beside the refusals it raises —
-/// `crate::permitting::repository`'s reason.
+/// `crate::allowed::repository`'s reason.
 const KIT_REFUSED: &str = "fleet.kit_refused";
 
 /// What a change to Kit can refuse on.
@@ -98,19 +98,6 @@ where
                     .map(|(_, reach)| *reach);
                 (server, reach)
             })
-            .collect()
-    }
-
-    /// The servers a Drone dispatched against this Manifest is handed.
-    pub(crate) async fn servers_for_a_drone(
-        &self,
-        served: &crate::repositories::Served,
-    ) -> Vec<KitServer> {
-        self.kit_here(served)
-            .await
-            .into_iter()
-            .filter(|(server, reach)| a_drone_resolves(server, *reach))
-            .map(|(server, _)| server)
             .collect()
     }
 

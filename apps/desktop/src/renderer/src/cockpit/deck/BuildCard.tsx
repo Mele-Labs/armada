@@ -6,7 +6,7 @@ import { Tooltip } from "@armada/components";
 
 import type { BuildTip, Piece } from "./build";
 
-/** What a piece says of its task. A Job's tasks carry their own word (`said`), since a plan's states are not a Session's ticks. */
+/** What a piece says of its task. */
 export const SAID: Record<Piece, string> = { solid: "Done, edits seen", hollow: "Done, no edits seen", scaffold: "Open, edits seen", ghost: "Open" };
 
 export function BuildCard({ build }: { build: BuildTip }) {
@@ -25,8 +25,8 @@ export function BuildCard({ build }: { build: BuildTip }) {
         <ul className="bf-build__tasks">
           {build.tasks.map((task, i) => (
             <li key={i} className="bf-build__task" data-piece={task.piece}>
-              <Tooltip label={task.said ?? SAID[task.piece]} asChild>
-                <i className="bf-build__swatch" role="img" aria-label={task.said ?? SAID[task.piece]} />
+              <Tooltip label={SAID[task.piece]} asChild>
+                <i className="bf-build__swatch" role="img" aria-label={SAID[task.piece]} />
               </Tooltip>
               <span>{task.text}</span>
             </li>

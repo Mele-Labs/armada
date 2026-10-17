@@ -3,7 +3,7 @@
 // thread, and the timeline's entries for it. Report starts a Session beside it, as the wired draft does, and the walk lands on it.
 // The claims are in `walks/cockpit-report-session.ts`.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
@@ -79,7 +79,7 @@ function build(): Scenario {
     draft: {
       events: EVENTS,
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [REPORTED]);
+        const store = sessionsStore([none, none], none, control, [], [REPORTED]);
         // The ship holds this Session and the ones a report starts beside it, not the usual fixtures.
         const own = new Set([REPORTED.id]);
         // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.

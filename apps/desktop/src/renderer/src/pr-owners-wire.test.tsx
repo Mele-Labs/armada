@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 const A_SESSION: PullRequestOwner = { kind: "session", id: "s-a1b2", machine: "mac-a", this_machine: false };
-const A_JOB: PullRequestOwner = { kind: "job", id: "01JOB", machine: "mac-b", this_machine: true };
+const HERE: PullRequestOwner = { kind: "session", id: "s-here", machine: "mac-b", this_machine: true };
 
 const pull = (number: number, owner?: PullRequestOwner): HubPullRequest => ({
   number,
@@ -67,8 +67,8 @@ test("a pull request the wire names an owner for draws the chip, and one it does
 });
 
 test("a row written by this machine reads as this machine, and another's names its machine", () => {
-  const host = window(linesOf(pull(30, A_JOB), pull(31, A_SESSION)));
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job 01JOB, This machine");
+  const host = window(linesOf(pull(30, HERE), pull(31, A_SESSION)));
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-here, This machine");
   expect(chipOn(host, 30)?.querySelector("[data-here]")).not.toBeNull();
   expect(chipOn(host, 31)?.querySelector("[data-here]")).toBeNull();
 });
@@ -79,8 +79,8 @@ test("a Fleet that served no owners, or no lines, draws no chip", () => {
 });
 
 test("the panel's page names the owner of its own pull request over the lines", () => {
-  const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: A_JOB });
-  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Job 01JOB, This machine");
+  const host = window(linesOf(pull(30, A_SESSION)), { repository: "mele-labs/armada", number: 30, owner: HERE });
+  expect(chipOn(host, 30)?.getAttribute("aria-label")).toBe("Session s-here, This machine");
 });
 
 test("a page with no owner leaves the one the lines carry", () => {

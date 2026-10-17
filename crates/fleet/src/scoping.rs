@@ -3,7 +3,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{DroneList, JobId, ManifestId, ServerList, WorktreesHeld};
+use ipc::{JobId, ManifestId, ServerList, WorktreesHeld};
 
 use crate::daemon::Fleet;
 
@@ -32,18 +32,6 @@ where
         within.is_none_or(|named| {
             self.names().owner_of(&job.to_domain()).as_deref() == Some(named.as_str())
         })
-    }
-
-    pub(crate) async fn drones_within(
-        &self,
-        within: Option<ManifestId>,
-    ) -> Result<DroneList, Refusal> {
-        let within = self.scoped(within)?;
-        let mut listed = self.drone_list().await?;
-        listed
-            .drones
-            .retain(|drone| self.owns(within.as_ref(), &drone.job_id));
-        Ok(listed)
     }
 
     pub(crate) fn servers_within(&self, within: Option<ManifestId>) -> Result<ServerList, Refusal> {

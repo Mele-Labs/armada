@@ -83,6 +83,7 @@ export * from "./session-activity";
 export * from "./session-build";
 export * from "./session-plan";
 export * from "./session-rail";
+export * from "./session-waits";
 export * from "./plan-usage";
 export * from "./model-downshift";
 export * from "./sleep";

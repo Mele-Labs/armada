@@ -22,7 +22,6 @@
 //! which method a message is and what is answered; it never decides what a
 //! field means.
 mod ask;
-mod dispatch;
 mod fixing;
 mod needing;
 mod noting;
@@ -43,7 +42,6 @@ pub use ask::{
     AskQuestion, AskedDecision, AskedOption, ASK_FIELDS, ASK_TOOL, FEWEST_DECISIONS, FEWEST_OPTIONS,
     MOST_DECISIONS, MOST_OPTIONS,
 };
-pub use dispatch::{DispatchJob, DISPATCH_FIELDS, DISPATCH_TOOL};
 pub use fixing::{DraftFix, FIX_FIELDS, FIX_TOOL};
 pub use needing::{NeedClaim, NEED_FIELDS};
 pub use noting::{LeaveNote, MOST_NOTE_CHARS, NOTE_FIELDS, NOTE_TOOL};
@@ -150,14 +148,6 @@ pub enum Incoming {
         id: CallId,
         name: String,
     },
-    /// A call of the dispatch tool that read as one Job's worth of asking.
-    /// **Whether that Job may exist is the daemon's answer** — this module
-    /// reads five fields and knows nothing about who called or what they are
-    /// allowed to create.
-    Dispatch {
-        id: CallId,
-        dispatch: DispatchJob,
-    },
     /// A call of the scope-request tool that read as a request. Whether the
     /// task's scope may grow is the daemon's answer, not this module's.
     ///
@@ -232,10 +222,6 @@ pub enum Incoming {
 /// The receipt, as the daemon answers it. **One word**, and the type carries
 /// no room for a verdict — the outcome is not known when any of these calls
 /// returns.
-///
-/// The dispatch tool answers through it too, and the word is the id Fleet
-/// minted. That is the same shape and not a widening: an id is a fact about
-/// what was written down, in exactly the way `recorded` is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Receipt {
     pub word: String,
@@ -418,12 +404,6 @@ fn called(id: CallId, params: Option<&Value>) -> Incoming {
     if tool == SERVER_TOOL {
         return match serving::asked_for(arguments) {
             Ok(name) => Incoming::StartServer { id, name },
-            Err(why) => Incoming::NotASubmission { id, why },
-        };
-    }
-    if tool == DISPATCH_TOOL {
-        return match dispatch::dispatch(arguments) {
-            Ok(dispatch) => Incoming::Dispatch { id, dispatch },
             Err(why) => Incoming::NotASubmission { id, why },
         };
     }

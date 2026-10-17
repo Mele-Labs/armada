@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, JobId, ManifestId, WorkflowId};
+use crate::{Instant, ManifestId, SessionId, WorkflowId};
 
 /// Whether it picks. `stopped` is the end: a new start replaces it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,11 +27,11 @@ pub enum AutopilotCap {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AutopilotPickState {
-    /// A Job came of it: Autopilot was sure, or a person dispatched it from the pile.
+    /// A Session came of it: Autopilot was sure, or a person dispatched it from the pile.
     Started,
     /// Autopilot was unsure, and left it for a person with its reason.
     SetAside,
-    /// Its Job had not started when Autopilot was stopped, and was killed.
+    /// Its Session had not run when Autopilot was stopped, and was closed.
     Withdrawn,
     /// A person put it away from the pile.
     Dismissed,
@@ -48,7 +48,7 @@ pub struct AutopilotPick {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_id: Option<WorkflowId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub job_id: Option<JobId>,
+    pub session_id: Option<SessionId>,
     pub state: AutopilotPickState,
     /// The picker's reason, in its words.
     pub reason: String,
@@ -74,11 +74,12 @@ pub struct Autopilot {
     /// The cap that stopped it, where one did rather than a person.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capped_by: Option<AutopilotCap>,
-    /// What its Jobs have spent so far, summed from each Job's own spend.
+    /// What its Sessions have spent so far, summed from each Session's own cost.
     pub spent_micros: u64,
-    /// How many Jobs it has started, the count `job_cap` is held to.
+    /// How many Sessions it has started, the count `job_cap` is held to. **Named for the Jobs it once
+    /// started**; it counts Sessions.
     pub jobs_started: u32,
-    /// How many of its Jobs hold a place now: running or ready to run, and not waiting on a person.
+    /// How many of its Sessions hold a place now: live, at work, and not waiting on a person.
     pub at_work: u32,
     pub picks: Vec<AutopilotPick>,
     /// Why the last pass picked nothing, in Fleet's words: the tracker would not answer, or the

@@ -260,9 +260,9 @@ export function HelmDock({
       });
   }
 
-  function startNew(kind: "session" | "job", one: Thought): void {
+  function startNew(one: Thought): void {
     discard(one);
-    routing?.startNew(kind, one.text);
+    routing?.startNew(one.text);
   }
 
   /**
@@ -286,10 +286,8 @@ export function HelmDock({
                 ? () => change(thought.id, restaged(thought))
                 : undefined
             : key === "s"
-              ? () => startNew("session", thought)
-              : key === "j"
-                ? () => startNew("job", thought)
-                : undefined;
+              ? () => startNew(thought)
+              : undefined;
     if (act === undefined) return;
     event.preventDefault();
     event.stopPropagation();
@@ -327,8 +325,7 @@ export function HelmDock({
           key={thought.id}
           stage="new"
           words={thought.text}
-          onSession={() => startNew("session", thought)}
-          onJob={() => startNew("job", thought)}
+          onSession={() => startNew(thought)}
           onAskHelm={() => askHelm(thought)}
           onDismiss={() => discard(thought)}
         />

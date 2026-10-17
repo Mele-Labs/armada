@@ -2,6 +2,8 @@
 //! row it would make, and a read finds nothing. What the ledger keeps and
 //! matches is `fleet::sessioning`'s, against a real store.
 
+use std::sync::Arc;
+
 use ipc::{
     ManifestId, Owners, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
     SessionUsage,
@@ -50,6 +52,7 @@ impl Sessions for FakeDaemon {
             judging: false,
             judge: None,
             settled: Vec::new(),
+            waits: None,
         })
     }
 
@@ -146,6 +149,23 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn change_waiting(
+        self: Arc<Self>,
+        _caller: Option<crate::Caller>,
+        change: ipc::ChangeWaiting,
+    ) -> Result<ipc::SessionWait, Refusal> {
+        Ok(ipc::SessionWait {
+            on: ipc::SessionLink { id: ipc::SessionId::carried("on"), title: String::from("On") },
+            condition: change.condition.unwrap_or_default(),
+            base: change.base.unwrap_or_default(),
+            needs: String::new(),
+            brief: String::new(),
+            pull: None,
+            part_title: None,
+            by: ipc::WaitBy::You,
+        })
+    }
+
     async fn fork_this_session(
         &self,
         _caller: Option<crate::Caller>,
@@ -167,7 +187,6 @@ impl Sessions for FakeDaemon {
             number: claim.number,
             branch: String::new(),
             url: String::new(),
-            holder_kind: String::from("session"),
             holder_id: String::from("session"),
         })
     }

@@ -51,12 +51,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines/checks/observe",
     },
-    // Main's red handed to a Job, from the band on that line.
-    Route {
-        operation: "fix_main",
-        method: "POST",
-        path: "/merge_lines/fix",
-    },
     // One uncommitted file of a held checkout: the repository and the path are both asked for, so a query string.
     Route {
         operation: "checkout_diff",

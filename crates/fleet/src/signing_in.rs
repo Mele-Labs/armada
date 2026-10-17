@@ -40,8 +40,6 @@ use ipc::{
 };
 
 pub use enrolling::{Enrolling, OverHttp};
-#[cfg(test)]
-pub(crate) use serving::machine_name;
 pub(crate) use serving::this_machine;
 
 use crate::clock::Clock;

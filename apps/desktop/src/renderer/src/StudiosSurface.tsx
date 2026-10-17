@@ -1,8 +1,9 @@
 // The Studios surface, as the window mounts it — #1287. Out of `App.tsx`, which is near the length
 // the gate refuses: this holds the two reads open and answers the screen's presses.
 //
-// **A Studio belongs to one repository**, so on All repositories the surface asks for one first,
-// the Manifest surface's own ask, and a repository with no Manifest keeps none.
+// **A Studio belongs to one repository, and nothing asks which.** All repositories reads every
+// repository that has a Manifest and draws a panel for each that keeps Studios; a repository with
+// no Manifest keeps none.
 //
 // **A question nobody can answer is not asked.** The ask lists only a repository that has a
 // Manifest, so where none of them does it draws a picker with nothing pickable in it. That state
@@ -12,11 +13,9 @@
 import { useEffect } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { BoardEmptyState, Button } from "@armada/components";
-import { AskRepository } from "@armada/screens";
 import { Studios, type OpenStudio } from "@armada/studios";
-import { Boundary } from "@armada/shell";
+import { Boundary, repositoryLabel } from "@armada/shell";
 
-import type { Drawing } from "@armada/screens/src/draft/sketch";
 
 import type { BridgeState } from "../../shared/bridge";
 import {
@@ -51,7 +50,6 @@ export type StudiosSurfaceProps = {
   manifestId: string | undefined;
   /** All repositories, where Fleet serves any. */
   all: boolean;
-  onPick: (root: string) => void;
   /**
    * The way out of All repositories with nothing set up: the Manifest surface,
    * whose own ask picks a repository and opens Setup on one with no Manifest.
@@ -62,23 +60,23 @@ export type StudiosSurfaceProps = {
   onOpenChange: (open: OpenStudio | null) => void;
   selectedNode: string | null;
   onSelectNode: (nodeId: string | null) => void;
-  /** Open one Job whole — the Board's own press, reached from a Job node (#1379). */
-  onOpenJob: (jobId: string) => void;
-  /** The composer, with a Sketch's drawing on its pad — 1 Oct 2026. */
-  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
   /** The clock the window ticks on, for how long a server node has been up — #1345. */
   now: number;
   onCopied: (value: string) => void;
 };
 
 export function StudiosSurface(props: StudiosSurfaceProps) {
-  const { state, live, repositories, manifestId, all, onPick, open, onOpenChange, selectedNode, onSelectNode } = props;
+  const { state, live, repositories, manifestId, all, open, onOpenChange, selectedNode, onSelectNode } = props;
   const openId = open?.id ?? null;
 
+  // On All repositories every repository that has a Manifest is read. The ids are joined so the effect
+  // runs when the set changes and not on each new array.
+  const served = repositories.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
+  const reading = all ? served.join("\n") : null;
   useEffect(() => {
-    watchStudios(manifestId ?? null);
+    watchStudios(reading !== null ? (reading === "" ? [] : reading.split("\n")) : (manifestId ?? null));
     return () => watchStudios(null);
-  }, [manifestId]);
+  }, [manifestId, reading]);
 
   useEffect(() => {
     watchStudio(openId);
@@ -94,9 +92,9 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
   }, [openId]);
 
   if (all) {
-    // Nothing to pick from, so nothing is asked: one line saying what is true, and the one act
+    // Nothing set up, so nothing to read: one line saying what is true, and the one act
     // that changes it. No card and no glyph — `docs/contracts/design-system.md` on empty states.
-    if (!repositories.some((one) => one.manifest !== undefined)) {
+    if (served.length === 0) {
       return (
         <BoardEmptyState
           quiet
@@ -115,17 +113,8 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         </BoardEmptyState>
       );
     }
-    return (
-      <AskRepository
-        repositories={repositories}
-        title="Pick a repository to open its Studios"
-        next="A Studio belongs to one repository, and picking it focuses the Board there too."
-        onPick={onPick}
-        onlySetUp
-      />
-    );
   }
-  if (manifestId === undefined) {
+  if (!all && manifestId === undefined) {
     return <p className="text-fg-muted">This repository has no Manifest yet, so it keeps no Studios.</p>;
   }
 
@@ -145,8 +134,12 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
           onOpenChange({ id: studioId, editable: false });
         }}
         onContinue={() => open !== null && onOpenChange({ ...open, editable: true })}
-        onCreate={async () => {
-          const answer = await createStudio(manifestId);
+        nameOf={(id) => {
+          const one = repositories.find((repository) => repository.manifest?.id === id);
+          return one === undefined ? id : repositoryLabel(one, repositories);
+        }}
+        onCreate={async (inRepository) => {
+          const answer = await createStudio(inRepository ?? manifestId ?? "");
           // A Studio a person has just started is theirs to work in.
           if (answer.ok) onOpenChange({ id: answer.studio.id, editable: true });
           return answer;
@@ -157,7 +150,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
         onAddSketch={(drawing, position, within) => addStudioSketch(openId ?? "", drawing, position, within ?? null)}
         onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
-        onDispatchSketch={props.onDispatchSketch}
         onMoveNode={(nodeId, position, within) => moveStudioNode(openId ?? "", nodeId, position, within)}
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}
@@ -166,9 +158,6 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         // A node's own address, to the system browser through main — #1406.
         // Nothing opens inside Bridge: no surface navigates.
         onOpenAddress={openStudioNode}
-        // The Studio stays standing under the Job, so closing it comes back to
-        // the whiteboard with the node reading whatever the Job is doing now.
-        onOpenJob={props.onOpenJob}
         // What the checkout declares, what Fleet is holding, and the clock.
         // **The live holder, never a copy**: a Run node holding a server reads
         // its state off this list, so a Studio left open stays right — #1345.

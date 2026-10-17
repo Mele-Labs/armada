@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
+import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/screens/src/fixtures/walk-window";
 import { askToOpenSession } from "../../open-session";
 import { askToTell } from "../../tell";
 import { removedSaid } from "./removed";
@@ -15,7 +15,9 @@ import { FLOW_SCENE, FLOW_TITLE, MEMBERS_SCENE, MEMBERS_TITLE, OPEN_SCENE, OPEN_
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
 import type { WorktreesHeld } from "@armada/protocol";
-import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionWait, SessionsDraft, StartBase, StartWhen } from "@armada/screens/src/draft/sessions";
+import { conditionSaid, firstLineOf, startsFrom } from "@armada/screens/src/session-waits";
+import { readWait } from "./reads-waits";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
 export type SessionsStore = SessionsDraft & {
@@ -26,6 +28,13 @@ export type SessionsStore = SessionsDraft & {
   drop: (id: string, itemId: string, reason?: string) => void;
   /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
   edit: (id: string, change: (one: Session) => Session) => void;
+  /**
+   * The agent of the Session a waiting one waits on changes when it starts, as its tool call would: a tool row in its thread and a
+   * row that tells the change. `pull` names the pull request a `pushed` or `lands` condition waits on.
+   */
+  agentChanges: (id: string, change: { when: StartWhen; part?: { id: string; title: string }; pull?: { number: number; branch: string }; base?: StartBase }) => void;
+  /** A waiting Session's condition is met: it starts, its first message carries the handoff, and the Session it waited on is told. `met` is what happened. */
+  starts: (id: string, met: string) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
   /** How Fleet takes a message from the person: held until the walk lets it go, and refused where `outcomes` says so. Taken at once where absent. */
@@ -160,7 +169,7 @@ const VARIED = "Board layouts";
 /** Its takes: the mock itself on three scenarios, the way a Session would serve three branches of one page. */
 const takes = (): Variation[] =>
   [
-    { name: "Every state", scenario: "every-state" },
+    { name: "Every state", scenario: "default" },
     { name: "Needs you first", scenario: "dashboard-needs-you" },
     { name: "Sessions beside", scenario: "sessions" },
   ].map(({ name, scenario }) => {
@@ -183,9 +192,6 @@ const walkTakes = (): Variation[] =>
     url.search = `?walk=${walk}&walked`;
     return { name, url: url.toString() };
   });
-
-/** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
-export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
 
 /** What the mock Fleet lets a Session do to the Board: move a Job to another status, on the row and on its detail. */
 export type BoardControl = {
@@ -222,7 +228,6 @@ const RUN_DEFAULT = ["done"];
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
   review: DispatchedJob,
-  taggableJobs: readonly TaggableJob[],
   board: BoardControl,
   /** The Board rows the dispatching moment adds. */
   dispatchedRows: readonly unknown[] = [],
@@ -425,31 +430,6 @@ export function sessionsStore(
     });
   };
 
-  /** Looking at a Job somebody tagged: the agent reads it with the tools Fleet gives it, then says what it found. */
-  const investigating = (id: string, job: SessionTag & { job: NonNullable<SessionTag["job"]> }) => {
-    const n = job.job.number;
-    addTo(
-      id,
-      [
-        tool(`examine_job ${n}`),
-        tool(`get_job_log ${n}`),
-        tool(`get_check_output ${n} lint`),
-        tool(`get_diff ${n}`),
-        said(`Job ${n} stopped at its gate: the lint Check failed. The Drone added a retry loop with no cap, and clippy flags the loop at retry.rs:41. Capping it at five attempts would clear the Check.`),
-      ],
-    );
-    finishOf(id, "14:21");
-  };
-  const redirecting = (id: string, job: SessionTag & { job: NonNullable<SessionTag["job"]> }) => {
-    const n = job.job.number;
-    addTo(id, [tool(`redirect_drone ${n}: cap the retry loop at five attempts`), said(`Redirected the Drone on Job ${n}. It is running again.`)]);
-    edit(id, (one) => ({
-      ...one,
-      attachments: one.attachments.map((a) => (a.kind === "job" && a.id === job.id ? { ...a, state: "running" as const } : a)),
-    }));
-    finishOf(id, "14:23");
-  };
-
   const turns = [dispatching, opening, woken];
 
   const store: SessionsStore = {
@@ -458,10 +438,28 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag, root, _request, tuning) {
+    start(tag, root, request, tuning, after) {
       made += 1;
-      const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
+      const id = made === 1 && tag === undefined && after === undefined ? MINE : `s${7 + made}`;
       const manifestId = root === undefined ? undefined : owners.get(root);
+      if (after !== undefined) {
+        // Dispatched to wait: it holds its words and no slot, and the Session it waits on is told.
+        const brief = (request ?? "").trim();
+        const waiting: Session = {
+          id,
+          title: readWait(brief, now)?.title ?? firstLineOf(brief).split(/\s+/).slice(0, 4).join(" "),
+          ...(manifestId === undefined ? {} : { manifestId }),
+          attachments: [],
+          rows: [],
+          turn: idle,
+          standing: "idle",
+          ...(tuning?.model === undefined ? {} : { model: tuning.model }),
+          ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+          waits: { on: after.on, when: after.when, ...(after.part === undefined ? {} : { part: after.part }), base: after.base, needs: after.needs, brief, by: "you" },
+        };
+        set([waiting, ...now.map((one) => (one.id === after.on.id ? { ...one, rows: [...one.rows, row((rid, stamp): SessionRow => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title! }, event: "waits", says: after.needs === "" ? firstLineOf(brief) : after.needs }))] } : one))]);
+        return id;
+      }
       set([
         {
           id,
@@ -477,6 +475,7 @@ export function sessionsStore(
       ]);
       return id;
     },
+    readsWait: (words) => readWait(words, now),
     queued: () => queued,
     queue(idea) {
       queuing += 1;
@@ -496,67 +495,6 @@ export function sessionsStore(
       queued = queued.filter((one) => one.id !== id);
       set([...now]);
     },
-    taggable() {
-      const jobsOnBoard = taggableJobs.map((j): SessionTag => ({
-        kind: "job",
-        id: j.id,
-        title: `${j.number} ${j.title}`,
-        job: { number: j.number, branch: j.branch, slot: j.slot, state: j.state === "escalated" ? "escalated" : "review" },
-      }));
-      const dispatched = now.flatMap((one) =>
-        one.attachments.flatMap((a): SessionTag[] =>
-          a.kind === "job" && a.looking !== true && !taggableJobs.some((j) => j.id === a.id)
-            ? [{ kind: "job", id: a.id, title: `${a.number} ${a.title}`, job: { number: a.number, branch: a.branch, ...(a.slot === undefined ? {} : { slot: a.slot }), state: a.state === "escalated" ? "escalated" : "review" } }]
-            : [],
-        ),
-      );
-      return [...jobsOnBoard, ...dispatched];
-    },
-    pilot(jobId, outcome) {
-      void outcome;
-      const tag = store.taggable().find((one) => one.kind === "job" && one.id === jobId);
-      made += 1;
-      const id = `s${7 + made}`;
-      const n = tag?.job?.number ?? 0;
-      const branch = tag?.job?.branch ?? "";
-      const slot = tag?.job?.slot ?? 0;
-      const title = (tag?.title ?? "").replace(/^\d+ /, "");
-      board.setStatus(jobId, "piloted");
-      set([
-        {
-          id,
-          title,
-          turn: idle,
-          lastTurn: "14:30",
-          rows: [
-            {
-              id: `h${made}`,
-              at: at(),
-              kind: "handoff",
-              job: { number: n, title },
-              slot,
-              branch,
-              step: { id: "regression_verify", label: "Verify the fix" },
-              attempts: 3,
-              refusals: ["No test covers the retry cap, retry.rs:41", "The lint Check still fails on the loop at retry.rs:41"],
-              plan: { outside: ["crates/retry/src/loop.rs"], unwritten: ["crates/retry/tests/backoff.rs"] },
-              narrative: {
-                trying_to: "Cap the retry backoff at five attempts",
-                blocked_by: "The lint Check fails on the loop at retry.rs:41",
-                tried: ["Added a retry loop with exponential backoff", "Added a sleep between attempts", "Ran the Check after each"],
-              },
-            },
-          ],
-          attachments: [
-            { kind: "slot", slot, handed: { job: n } },
-            { kind: "branch", name: branch, slot, handed: { job: n } },
-            { kind: "job", id: jobId, number: n, title, state: "piloted", branch, slot },
-          ],
-        },
-        ...now,
-      ]);
-      return id;
-    },
     exit(jobId, how) {
       const holder = now.find((one) => one.attachments.some((a) => a.kind === "job" && a.id === jobId && a.state === "piloted"));
       if (holder === undefined) return;
@@ -565,9 +503,7 @@ export function sessionsStore(
         board.setStatus(jobId, status);
         edit(id, (one) => ({
           ...one,
-          // The worktree goes back with the Job: the Session no longer holds its slot or its branch.
           attachments: one.attachments
-            .filter((a) => !((a.kind === "slot" || a.kind === "branch") && a.handed !== undefined))
             .map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state, ...extra } : a)),
           rows: [...one.rows, row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "agent" }, text: said_ }))],
           turn: idle,
@@ -589,10 +525,21 @@ export function sessionsStore(
         settle("superseded", "superseded", "Closed as superseded. The Job record says the work landed outside it.");
       }
     },
+    startWhen(id, when, part) {
+      const waiting = now.find((one) => one.id === id);
+      if (waiting?.waits === undefined) return;
+      const was = waiting.waits;
+      const { part: _part, pull: _pull, ...rest } = was;
+      void _part;
+      void _pull;
+      const next: SessionWait = { ...rest, when, ...(part === undefined ? {} : { part }), ...(when === was.when && when !== "plan" && was.pull !== undefined ? { pull: was.pull } : {}), by: "you" };
+      edit(id, (one) => ({ ...one, waits: next }));
+      addTo(was.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "you" }))]);
+    },
+    startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
-      const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
         const { pendingTags, done, lapsed, standing, ...rest } = one;
         void pendingTags;
@@ -600,9 +547,6 @@ export function sessionsStore(
         void lapsed;
         // A message from the person ends the reply and the done Fleet read off the turn before it.
         void standing;
-        const looking = taggedJobs
-          .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
-          .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
         return {
           ...rest,
           ...(one.waitingFor === undefined ? {} : { waitingFor: one.waitingFor.filter((it) => it.source !== "replied" && it.source !== "done") }),
@@ -621,7 +565,7 @@ export function sessionsStore(
             })),
           ],
           // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
-          attachments: [...one.attachments, ...looking, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
+          attachments: [...one.attachments, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
           // A session in a terminal is not told to be working: Fleet reads its transcript and nothing else.
           turn: one.terminal === true ? one.turn : { state: "working" },
         };
@@ -703,26 +647,6 @@ export function sessionsStore(
       } else if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
-      } else if (now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "job" && a.state === "piloted" && a.looking !== true)) {
-        // A piloted Session: the person and the agent fix the Job's worktree together.
-        after(900, () => {
-          addTo(id, [
-            tool("Read crates/retry/src/loop.rs"),
-            tool("Edit crates/retry/src/loop.rs: stop after five attempts"),
-            tool("cargo clippy -p retry"),
-            said("The loop stops after five attempts and clippy is clean on the worktree."),
-          ]);
-          finishOf(id, "14:38");
-        });
-      } else if (id !== MINE) {
-        // A Session handed a Job: the first ask is read with the fleet tools, the next acts on what it found.
-        const had = asked.get(id) ?? 0;
-        const held = now.find((one) => one.id === id)?.attachments.find((a) => a.kind === "job" && a.looking === true);
-        if (held?.kind === "job") {
-          const job = { kind: "job", id: held.id, title: held.title, job: { number: held.number, branch: held.branch, ...(held.slot === undefined ? {} : { slot: held.slot }), state: held.state } } as const;
-          asked.set(id, had + 1);
-          after(900, () => (had === 0 ? investigating(id, job) : redirecting(id, job)));
-        }
       }
     },
     rename: (id, title) => edit(id, (one) => ({ ...one, title })),
@@ -887,6 +811,43 @@ export function sessionsStore(
     },
     attach: (id, attachment) => addTo(id, [], [attachment]),
     edit,
+    agentChanges(id, change) {
+      const waiting = now.find((one) => one.id === id);
+      if (waiting?.waits === undefined) return;
+      const was = waiting.waits;
+      const next: SessionWait = { on: was.on, when: change.when, ...(change.part === undefined ? {} : { part: change.part }), ...(change.pull === undefined ? {} : { pull: change.pull }), base: change.base ?? was.base, needs: was.needs, brief: was.brief, by: "agent" };
+      edit(id, (one) => ({ ...one, waits: next }));
+      addTo(was.on.id, [
+        tool(`set_start_condition ${JSON.stringify({ session: id, when: change.when, ...(change.part === undefined ? {} : { part: change.part.id }) })}`),
+        row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "agent" })),
+      ]);
+    },
+    starts(id, met) {
+      const waiting = now.find((one) => one.id === id);
+      const wait = waiting?.waits;
+      if (waiting === undefined || wait === undefined) return;
+      const other = now.find((one) => one.id === wait.on.id);
+      const last = [...(other?.rows ?? [])].reverse().find((one) => one.kind === "message" && one.from.kind === "agent");
+      const lines = [
+        `Handoff from ${wait.on.title}.`,
+        `${met}.`,
+        `You start from ${startsFrom(wait)}.`,
+        ...(last?.kind === "message" ? [`It last said: ${firstLineOf(last.text)}`] : []),
+        `Your brief: ${firstLineOf(wait.brief)}`,
+      ];
+      edit(id, (one) => {
+        const { waits: _waits, ...rest } = one;
+        void _waits;
+        return {
+          ...rest,
+          rows: [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "session", id: wait.on.id, title: wait.on.title }, text: lines.join("\n") }))],
+          turn: { state: "working" },
+          standing: "working",
+          lastTurnAt: new Date().toISOString(),
+        };
+      });
+      addTo(wait.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "started", says: `From ${startsFrom(wait)}` }))]);
+    },
     // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
     drop: (id, itemId, reason) => {
       const stated = now.find((one) => one.id === id)?.waitingFor?.find((it) => it.id === itemId && it.source === "agent");

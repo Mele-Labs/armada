@@ -1,8 +1,8 @@
-// What hovering or focusing a row of the deck's panels says: the inspect card, built from what the row already holds. A Job or Session of the
+// What hovering or focusing a row of the deck's panels says: the inspect card, built from what the row already holds. A Session of the
 // list, a bay, and an incoming call each say their kind, name, state, facts and the key that opens them, in the one card every hover
 // opens (`Inspect`). Nothing is read for a card, and none of these pins: the press on each is already an act.
 
-import { Box, GitPullRequest, KeyRound, SquareTerminal } from "lucide-react";
+import { GitPullRequest, KeyRound, SquareTerminal } from "lucide-react";
 import { InspectCard, type InspectFact, type InspectKey } from "@armada/components";
 
 import { age, type Item } from "../../Dashboard";
@@ -18,13 +18,12 @@ export const TONE_COLOR: Record<Tone, string> = { calm: "var(--fg-muted)", ask: 
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** A Job or Session of the list. `calling` names what a Session of the list is calling him for, in the call's own words. */
+/** A Session of the list. `calling` names what a Session of the list is calling him for, in the call's own words. */
 export function SubjectCard({ one, calling }: { one: Subject; calling?: string }) {
-  const kind = one.kind === "job" ? { Glyph: Box, label: "Job" } : one.kind === "session" ? { Glyph: SquareTerminal, label: "Session" } : { Glyph: GitPullRequest, label: "Pull request" };
+  const kind = one.kind === "session" ? { Glyph: SquareTerminal, label: "Session" } : { Glyph: GitPullRequest, label: "Pull request" };
   const facts: InspectFact[] = [
     ...(calling === undefined ? [] : [{ label: "Calling", value: calling }]),
     ...(one.slot === undefined ? [] : [{ label: "Bay", value: `slot-${one.slot}`, mono: true }]),
-    ...(one.step === undefined ? [] : [{ label: "Step", value: `${one.step.at} of ${one.step.of}, ${one.step.label}` }]),
     ...(one.pr === undefined ? [] : [{ label: "Pull request", value: `#${one.pr.number}`, mono: true }, { label: "Branch", value: one.pr.branch, mono: true }]),
     ...(one.since === undefined ? [] : [{ label: "Last", value: one.since, mono: true }]),
   ];
@@ -37,7 +36,7 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
   const stranded = view.state === "stranded";
   const facts: InspectFact[] = [
     { label: "Repository", value: repo },
-    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `${holder.kind === "job" ? "Job" : "Session"}, ${holder.title ?? holder.id}` }]),
+    ...(holder === undefined ? [] : [{ label: stranded ? "Last holder" : "Holder", value: `Session, ${holder.title ?? holder.id}` }]),
     ...(view.branch === undefined ? [] : [{ label: "Branch", value: view.branch, mono: true }]),
     ...(view.state === "leased" && view.heldFor !== undefined ? [{ label: "Held for", value: spanOf(view.heldFor), mono: true }] : []),
     ...((view.state === "free" || view.state === "closed") && view.freed !== undefined ? [{ label: "Given back", value: `${spanOf(view.freed)} ago`, mono: true }] : []),
@@ -45,7 +44,6 @@ export function BayCard({ view, repo }: { view: BayView; repo: string }) {
     ...((view.unpushed ?? 0) > 0 ? [{ label: "Not pushed", value: plural(view.unpushed!, "commit", "commits"), mono: true }] : []),
     ...(view.told === undefined ? [] : [{ label: "Holder told", value: clockOf(view.told), mono: true }]),
     ...(view.state === "free" || view.state === "closed" ? [{ label: "Checkout", value: view.warm ? "Warm" : "Cold" }] : []),
-    ...(view.kept === undefined ? [] : [{ label: "Kept", value: view.kept }]),
   ];
   const tone = stranded ? TONE_COLOR.ask : view.state === "leased" ? "var(--status-running)" : TONE_COLOR.calm;
   return <InspectCard kind={{ Glyph: KeyRound, label: "Bay" }} where={`slot-${view.slot.slot}`} title={holder?.title ?? `slot-${view.slot.slot}`} state={{ Glyph: view.Glyph, said: view.said ?? view.word, tone }} facts={facts} keys={OPENS} />;

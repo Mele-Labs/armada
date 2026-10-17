@@ -8,7 +8,7 @@
 //! keeps a Session's door.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Admitting, Caller, CommanderReach, HelmReach};
+use api::{Admitting, Caller, HelmReach};
 
 use super::{may, Authority};
 use crate::daemon::Fleet;
@@ -33,20 +33,6 @@ where
             |row| may(authority, row),
             otherwise(authority),
         ))
-    }
-
-    /// A connection is a Commander's where it is held by a process the host is
-    /// running for one, and **its reach is that Job's**: the process was started
-    /// for a Job, and the Job is not read from anything the call says.
-    /// Anything else is any agent's, a call that merely names a Commander
-    /// included. `#2166`.
-    fn commander_at(&self, caller: Caller) -> Option<CommanderReach> {
-        self.helm()
-            .host()
-            .running_commanders()
-            .into_iter()
-            .find(|(pid, _)| self.commander_holds(&caller, *pid))
-            .map(|(_, job)| CommanderReach::of_the_allowlist(ipc::JobId::carried(job)))
     }
 }
 

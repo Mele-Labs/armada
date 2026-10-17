@@ -161,6 +161,7 @@ fn a_helm_record() -> SessionRecord {
         judging: false,
         judge: None,
         settled: Vec::new(),
+        waits: None,
     }
 }
 
@@ -222,7 +223,7 @@ fn the_sent_row_round_trips_and_leaves_empty_lists_out() {
         text: "see this".into(),
         target,
         files: vec![crate::SentFile { id: "f1".into(), name: "shot.png".into(), media_type: "image/png".into() }],
-        tags: vec![SessionTag { kind: TagKind::Issue, id: "214".into(), title: "#214 The title".into(), job: None, url: None }],
+        tags: vec![SessionTag { kind: TagKind::Issue, id: "214".into(), title: "#214 The title".into(), url: None }],
     };
     let json = encode(&carrying).expect("plain data");
     assert!(json.contains(r#""files":[{"id":"f1""#) && json.contains(r#""tags":[{"kind":"issue""#), "{json}");

@@ -1,0 +1,85 @@
+/* A Session that waits on this one: the line a Session this one started is, in the same filled neutral, with the condition under it. */
+.armada-session-waiter {
+  display: flex;
+}
+
+.armada-session-waiter__press {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--fg-default);
+  color: var(--fg-inverse);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-waiter__press:hover {
+  background: var(--accent);
+}
+
+.armada-session-waiter__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-waiter__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-session-waiter__mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-session-waiter__eyebrow {
+  flex: none;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-waiter__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.armada-session-waiter__at {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-waiter__go {
+  flex: none;
+}
+
+.armada-session-waiter__press:hover .armada-session-waiter__go {
+  transform: translateX(var(--space-1));
+}
+
+.armada-session-waiter__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}

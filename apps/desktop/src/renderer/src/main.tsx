@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
+import "@armada/components/src/look";
 import { watchStill } from "./still";
 
 watchStill();

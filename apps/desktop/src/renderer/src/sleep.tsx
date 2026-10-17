@@ -6,8 +6,8 @@
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { TheShellProps } from "@armada/components";
 
-/** A question Sleep answered for the owner. `sessionId` is the Session it was decided in, `jobId` the Job, where it was one. */
-export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string; sessionId?: string; jobId?: string };
+/** A question Sleep answered for the owner. `sessionId` is the Session it was decided in. */
+export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string; sessionId?: string };
 
 /** Something only the owner can settle. */
 export type MorningBlocked = { id: string; who: string; text: string };

@@ -5,7 +5,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 
-import { Box, CircleDot, FolderGit2, Flag, GitMerge, KeyRound, Layers, ListChecks, Split, SquareTerminal, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CircleDot, FolderGit2, Flag, GitMerge, KeyRound, Layers, ListChecks, Split, SquareTerminal, TriangleAlert, type LucideIcon } from "lucide-react";
 import { InspectCard } from "@armada/components";
 
 import { AskUpdate } from "./AskUpdate";
@@ -14,10 +14,10 @@ import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
 
 /** The glyph of each kind of thing the map says something about. */
-const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Job: Box, Session: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
+const KIND_GLYPH: Record<string, LucideIcon | undefined> = { Session: SquareTerminal, Main: GitMerge, Bay: KeyRound, Task: ListChecks, Road: Flag, Phase: Layers, Subagent: Split, Repository: FolderGit2, "Write clash": TriangleAlert };
 
 /** The kinds a press on the focused thing opens. */
-const OPENS: ReadonlySet<string> = new Set(["Job", "Session", "Bay", "Main"]);
+const OPENS: ReadonlySet<string> = new Set(["Session", "Bay", "Main"]);
 
 /** The status token a state's tone is drawn in. */
 const STATE_TONE = { calm: "var(--fg-muted)", ask: "var(--status-awaiting-review)", bad: "var(--status-completed-failed)", good: "var(--status-completed-success)" } as const;

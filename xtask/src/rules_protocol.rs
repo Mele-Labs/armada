@@ -56,7 +56,6 @@ const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
 const SERVED_PARTS: &[&str] = &[
     "crates/api/src/routes/served/studios.rs",
     "crates/api/src/routes/served/events.rs",
-    "crates/api/src/routes/served/piloting.rs",
     "crates/api/src/routes/served/authoring.rs",
     "crates/api/src/routes/served/settings.rs",
     "crates/api/src/routes/served/outside.rs",

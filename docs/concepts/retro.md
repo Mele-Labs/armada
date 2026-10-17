@@ -237,7 +237,7 @@ detail stamps its Job's id on its own root, and the layer reads the page at the
 save, so a note begun on one Job and saved on another names the second. Job
 detail alone counts as open: a retro read on the Retros page is not that Job's
 detail, and a note left there names no Job. The key is left out, never null,
-where none is open. `packages/surfaces/jobs/src/open-job.ts`.
+where none is open. Job detail is deleted, so Bridge stamps no Job and a note names none; the key stays on the wire for a Job page that returns.
 
 ## Where Bridge draws it
 
@@ -327,7 +327,7 @@ Another repository pick starts its own review. The review says how old it is,
 again; it throws the held place and threads away and has no confirmation. Nothing
 is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
-as Retros opened. `packages/surfaces/jobs/src/LessonsReview.tsx`.
+as Retros opened. `packages/screens/src/lessons/LessonsReview.tsx`.
 
 ### A Session's retro, in its thread
 

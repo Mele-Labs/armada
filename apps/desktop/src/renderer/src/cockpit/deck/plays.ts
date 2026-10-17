@@ -20,7 +20,7 @@ export const STAGE_SAID: Record<Pr["stage"], string> = { checking: "Checks runni
  *  sweep    a radar cone turns on the drone that is running a Check
  *  payload  a pull request leaves its drone for the objective
  *  capture  the objective flashes: a merge landed
- *  tracer   a short light runs between a Session and its Job
+ *  tracer   a short light runs between a Session and what it answered
  *  blip     one ring goes out from the drone: something was said or decided
  *  flare    the objective's beacon flares: main went red or green
  */
@@ -39,23 +39,15 @@ export type Play = {
 };
 
 export const PLAYS: Partial<Record<TimelineKind, PlayKind>> = {
-  "job.created": "launch",
   "session.started": "launch",
   "slot.leased": "launch",
-  "job.check": "sweep",
-  "job.judged": "sweep",
   "pr.checks": "sweep",
   "pr.opened": "payload",
   "pr.queued": "payload",
   "pr.merged": "capture",
-  "job.landed": "capture",
   "session.turn": "tracer",
   "session.answered": "tracer",
   "session.asked": "blip",
-  "job.asked": "blip",
-  "job.answered": "blip",
-  "job.step": "blip",
-  "job.failed": "blip",
   "main.red": "flare",
   "main.green": "flare",
 };
@@ -70,7 +62,6 @@ export const MOST_PLAYING = 12;
 /** The key of the drone an event happened to, through the pull request's owner where it is one's. */
 export function droneOfEvent(event: TimelineEvent, ownerOf: (number: number) => string | undefined): string | undefined {
   const { subject } = event;
-  if (subject.kind === "job") return `job:${subject.id}`;
   if (subject.kind === "session") return `session:${subject.id}`;
   if (subject.kind === "pull_request") return ownerOf(subject.number);
   return undefined;
@@ -107,7 +98,7 @@ export function playsOf(events: readonly TimelineEvent[], now: number, ownerOf: 
 export function trailsOf(events: readonly TimelineEvent[], now: number, ownerOf: (number: number) => string | undefined): Map<string, number> {
   const trails = new Map<string, number>();
   for (const event of events) {
-    if (event.kind !== "job.created" && event.kind !== "job.started" && event.kind !== "session.started" && event.kind !== "slot.leased") continue;
+    if (event.kind !== "session.started" && event.kind !== "slot.leased") continue;
     const key = droneOfEvent(event, ownerOf);
     const age = now - Date.parse(event.at);
     if (key === undefined || age < 0 || age > TRAIL_MS) continue;

@@ -51,7 +51,7 @@ test("the first message has no standing answers", () => {
 });
 
 test("its card offers no answer and no reply box, and Enter opens the Session", () => {
-  const hosts = { onOpen: vi.fn(), onOpenSession: vi.fn(), onOpenLink: vi.fn() };
+  const hosts = { onOpenSession: vi.fn(), onOpenLink: vi.fn() };
   const card = answering(cardOf(FIRST), hosts).current!;
   expect(card.answers).toEqual([]);
   expect(card.reply).toBeUndefined();
@@ -62,6 +62,6 @@ test("its card offers no answer and no reply box, and Enter opens the Session", 
 
 test("a plain line from the agent, with no act, still takes a reply", () => {
   const plain: WaitingItem = { id: "a1", text: "Anything else?", since: FIRST.since, source: "agent" };
-  const card = answering(cardOf(plain), { onOpen: vi.fn(), onOpenSession: vi.fn(), onOpenLink: vi.fn() }).current!;
+  const card = answering(cardOf(plain), { onOpenSession: vi.fn(), onOpenLink: vi.fn() }).current!;
   expect(card.reply).toBeDefined();
 });

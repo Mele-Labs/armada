@@ -4,7 +4,7 @@
 // timeline's last event for the replied and the done is a live turn, the case that used to read as
 // moving and then as stuck. The walk `session-standing` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -157,7 +157,7 @@ function build(): Scenario {
     draft: {
       events: EVENTS,
       sessions: (control) => {
-        const store = sessionsStore([NONE, NONE], NONE, [], control, [], [terminal, replied, done, stuck, working, asking]);
+        const store = sessionsStore([NONE, NONE], NONE, control, [], [terminal, replied, done, stuck, working, asking]);
         return {
           ...store,
           // He answers Retry cap in its terminal: its turn begins again, and Fleet reads it working and drops the reply.

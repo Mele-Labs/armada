@@ -35,10 +35,9 @@ function palette(openSession: PaletteHands["openSession"]) {
       context="board"
       on={null}
       surfaces={[]}
-      jobs={[]}
       sessions={SESSIONS}
       settings={[]}
-      onChoose={(choice) => carryOut(choice, null, hands)}
+      onChoose={(choice) => carryOut(choice, hands)}
       onConfirmAct={() => {}}
     />,
   );

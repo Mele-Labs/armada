@@ -5,8 +5,7 @@
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/jobs/draft/now";
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { WriteClash } from "@armada/protocol";
 
@@ -25,12 +24,6 @@ function kept(fixture: JobFixture): JobFixture {
 const cap = kept(asRow(featureRunning(), 83, "dash-cap", "Cap the retry backoff"));
 const pin = kept(asRow(featureRunning(), 81, "dash-pin", "Pin the store clock"));
 
-const STEP = { id: "implement", name: "Implement" } as const;
-const DRONE = { key: "d", of: "drone", name: "Implement Drone", line: "Edit crates/fleet/src/retry.rs", step: STEP, tail: ["Read crates/fleet/src/retry.rs", "Edit crates/fleet/src/retry.rs"], state: "running" } as const;
-const now: Record<string, NowView> = {
-  [cap.job.id]: { running: [DRONE] },
-  [pin.job.id]: { running: [{ ...DRONE, key: "d2", line: "Edit crates/store/src/clock.rs" }] },
-};
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const quiet = { state: "idle" } as const;
@@ -114,9 +107,8 @@ function build(): Scenario {
     ...base,
     state: { ...base.state, repository: repository().root },
     draft: {
-      now,
       clashes: CLASHES,
-      sessions: (board) => sessionsStore([none, none], none, [], board, [], SESSIONS),
+      sessions: (board) => sessionsStore([none, none], none, board, [], SESSIONS),
     },
   };
 }

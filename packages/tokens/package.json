@@ -8,6 +8,7 @@
     "./tokens.theme.css": "./tokens.theme.css",
     "./tokens.json": "./tokens.json",
     "./base.css": "./src/base.css",
+    "./takes.css": "./takes.css",
     "./themes/*": "./themes/*"
   }
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ipc::{
     AddStudioNode, AskScout, CaptureStudioNote, CheckoutRunUnderway, ContradictionSettled,
-    CreateStudio, DecideStudioEdge, DeferOnStudio, DispatchStudioDraft, EditStudioDraft,
+    CreateStudio, DecideStudioEdge, DeferOnStudio, EditStudioDraft,
     EditStudioLink, EditStudioSketch, GroupStudioNodes, Instant, ManifestId, MoveStudioNode,
     ProposeStudioEdge, RemoveStudioNodes, RenameStudio, SettleContradiction, StartScout,
     StartStudioRun, StartStudioServer, StopScout, Studio, StudioDeleted, StudioEdge, StudioEdgeId,
@@ -726,24 +726,6 @@ impl Studios for FakeDaemon {
         })
     }
 
-    /// **No proposer runs in the fake**, so one Job node stands for the plan.
-    async fn dispatch_studio_draft(
-        self: Arc<Self>,
-        studio_id: StudioId,
-        dispatching: DispatchStudioDraft,
-        by: Redirector,
-        within: Option<ManifestId>,
-    ) -> Result<Studio, Refusal> {
-        self.added_by.lock().expect("not poisoned").push(by);
-        self.changing(&studio_id, within, |studio| {
-            let job = StudioNodeContent::Job {
-                job_id: ipc::JobId::carried("01JOB"),
-            };
-            let id = added(studio, job, dispatching.position);
-            produced(studio, dispatching.node_id, id);
-            Ok(studio.clone())
-        })
-    }
 }
 
 /// A node on the fake's Studio, by the next id, and what it was given.

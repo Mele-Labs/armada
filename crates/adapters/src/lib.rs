@@ -51,7 +51,6 @@ mod cloning;
 mod commit;
 mod concurrently;
 /// A Helm conversation's process: one message, resumed by id.
-mod commanding;
 mod conversing;
 mod delivery;
 mod error;
@@ -136,7 +135,6 @@ pub use annotations::annotation_places;
 pub use build_standing::{branch_in_build, fetch_branch, fetch_main, position_against_main, BranchInBuild};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
-pub use commanding::{denied_to_a_commander, Commanding};
 pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
     CHANGES_THE_CHECKOUT,
@@ -145,7 +143,7 @@ pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{linked_in, remote_of, ForgeAddress};
 pub use harness::{
-    ask_tool, checks_tool, dispatch_tool, evidence_server, evidence_tool, fix_tool, note_tool,
+    ask_tool, checks_tool, evidence_server, evidence_tool, fix_tool, note_tool,
     permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,
 };
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};

@@ -18,11 +18,10 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Redirector, Refusal};
 use core_model::{
     ContradictionOutcome, NotRewritable, StudioEdge, StudioEdgeId, StudioGraph, StudioNode,
-    StudioNodeContent, StudioNodeId, StudioNodeKind, StudioPosition, StudioRelation, ToItself,
-    TopLevelOrigin,
+    StudioNodeContent, StudioNodeId, StudioNodeKind, StudioRelation, ToItself,
 };
 use ipc::{
-    ContradictionSettled, DeferOnStudio, DispatchStudioDraft, EditStudioDraft, EditStudioLink,
+    ContradictionSettled, DeferOnStudio, EditStudioDraft, EditStudioLink,
     GroupStudioNodes, HelmStudioAct, ManifestId, SettleContradiction, WriteUpStudioNode,
 };
 
@@ -59,31 +58,6 @@ pub(crate) const NOT_A_SKETCH: &str = "fleet.studio_not_a_sketch";
 /// An outcome asked of a node that is not a Contradiction. A 422.
 const NOT_A_CONTRADICTION: &str = "fleet.studio_not_a_contradiction";
 
-/// The request a node dispatches as, and `None` on a node that dispatches
-/// nothing — `#1379`, `#1394`.
-///
-/// **An Issue draft sends its own words and the three forge kinds send their
-/// address**, whole either way: the first is text nobody has filed, the second
-/// names something already on the forge, and the [Job
-/// proposer](../../../docs/concepts/job-proposer.md) has taken such a link as a
-/// request since it shipped. A Link is an address nothing recognised — a board,
-/// a page, a session — so there is nothing filed to dispatch against.
-///
-/// **Read off the kind; no address is read here.** Which host is the forge was
-/// `crates/adapters`' answer when the node was made, and asking again would be
-/// a second answer the day the first changed. Which workflow each of the three
-/// runs under is the proposer's, off each definition's `for_requests` line.
-fn dispatched_as(content: &StudioNodeContent) -> Option<String> {
-    if let Some(request) = content.dispatched_as() {
-        return Some(request);
-    }
-    matches!(
-        content.kind(),
-        StudioNodeKind::Issue | StudioNodeKind::PullRequest | StudioNodeKind::Epic
-    )
-    .then(|| content.address().map(String::from))
-    .flatten()
-}
 /// A Contradiction ended twice. A 409.
 const CONTRADICTION_SETTLED: &str = "fleet.studio_contradiction_settled";
 /// The kinds a rung writes up: what a person said, what they grouped, and
@@ -95,25 +69,6 @@ const WRITABLE_UP: &[StudioNodeKind] = &[
     StudioNodeKind::Contradiction,
     StudioNodeKind::Outline,
 ];
-
-/// How far apart two Jobs from one proposal are placed, in canvas units — one
-/// node's height and a gap, so a split reads as a column.
-const JOB_APART: i64 = 200;
-
-/// The origin a Job dispatched from a Studio carries: **where from, and who
-/// pressed it**. `crates/core-model/domain/enum-verbs.toml` renders these as
-/// *From a Studio, by you* and *From a Studio, via Helm* —
-/// one value carrying both clauses, because one column answers one question
-/// and the row has to keep answering both. `#1362`.
-///
-/// *Which* Studio is not here and is not a column: the `produced` edge from
-/// the Issue draft records it, and `store::studio::tracing` reads it back.
-fn pressed(by: Redirector) -> TopLevelOrigin {
-    match by {
-        Redirector::Person => TopLevelOrigin::StudioDispatched,
-        Redirector::Helm => TopLevelOrigin::StudioHelmDrafted,
-    }
-}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -499,115 +454,6 @@ where
             store.keep_rewritten(id, &settled, &at)
         })
         .await
-    }
-
-    /// `dispatch_studio_draft`: what the node dispatches as — an Issue draft's
-    /// text, or the address of a Link naming an issue — through the Job
-    /// proposer to the dispatch gate, and a Job node for each Job it became.
-    ///
-    /// **Two kinds and one path.** A draft is Armada's own unfiled words and a
-    /// Link naming an issue is one already on the forge, which the proposer
-    /// already takes as a request; nothing is filed either way and the gate is
-    /// the same. `#1379`.
-    ///
-    /// **The proposal runs outside the store's lock.** It is a model call, and
-    /// holding the Studios' lock across one would stop every other Studio
-    /// write for as long as a vendor takes to answer.
-    pub(crate) async fn draft_dispatched(
-        &self,
-        studio_id: ipc::StudioId,
-        dispatching: DispatchStudioDraft,
-        by: Redirector,
-        within: Option<ManifestId>,
-    ) -> Result<ipc::Studio, Refusal> {
-        let node_id = dispatching.node_id.to_domain();
-        let graph = {
-            let store = self.store().lock().await;
-            self.studio_held(&store, &studio_id.to_domain(), within.as_ref())?
-        };
-        let draft = self.node_on(&graph, &node_id)?;
-        let Some(request) = dispatched_as(draft.content()) else {
-            return Err(self.studio_unacceptable(
-                NOT_A_DRAFT,
-                match draft.content().address() {
-                    // A Link is dispatchable or it is not, and which it is is
-                    // the address's doing rather than the kind's — so the
-                    // refusal names the address rather than saying *a link is
-                    // not dispatched*, which is untrue of the next one.
-                    Some(address) => format!(
-                        "`{address}` names no issue on this repository's forge, so there is \
-                         nothing filed to dispatch against. Write the work up as an Issue \
-                         draft and dispatch that"
-                    ),
-                    None => format!(
-                        "a {} is not dispatched: an Issue draft is, and so is a Link naming \
-                         an issue on this repository's forge",
-                        draft.kind().as_wire()
-                    ),
-                },
-            ));
-        };
-        let served = self.served_named(Some(&ManifestId::from(&graph.studio.manifest_id)))?;
-        // The draft's own text, verbatim, with nothing to point at: filing the
-        // issue anywhere is optional and a person's own act. A Link sends its
-        // address and nothing else, because the issue is already filed and
-        // Fleet reads a ticket link in a request the way it always has.
-        //
-        // **The origin is who pressed it, and where from.** A composer
-        // request says *Dispatched by you* or *Drafted in Helm*
-        // (`proposal::requested`); a Studio dispatch says the same and that it
-        // came off a Studio, so the row keeps both clauses.
-        let made = self
-            .propose_from_with_attachments(&request, None, Vec::new(), &served, by, pressed(by))
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let at = self.now();
-        let placed = dispatching.position.to_domain();
-        let jobs: Vec<(StudioNode, StudioEdgeId)> = made
-            .iter()
-            .enumerate()
-            .map(|(row, job)| {
-                let node = StudioNode::added(
-                    StudioNodeId::carried(self.mint().ulid()),
-                    StudioNodeContent::Job {
-                        job_id: job.id().clone(),
-                    },
-                    StudioPosition {
-                        x: placed.x,
-                        y: placed.y + JOB_APART * row as i64,
-                    },
-                    at.clone(),
-                    author(by),
-                );
-                (node, StudioEdgeId::carried(self.mint().ulid()))
-            })
-            .collect();
-        let node_ids = jobs
-            .iter()
-            .map(|(node, _)| ipc::StudioNodeId::from(node.id()))
-            .collect();
-        let studio = self
-            .written(&studio_id, within, |store, id| {
-                for (node, edge) in &jobs {
-                    store.add_studio_node_produced_by(
-                        id,
-                        node,
-                        &[(&node_id, edge.clone())],
-                        &at,
-                    )?;
-                }
-                Ok(())
-            })
-            .await?;
-        self.published_as_helms(
-            by,
-            &studio,
-            HelmStudioAct::Dispatched {
-                from: dispatching.node_id,
-                node_ids,
-            },
-        );
-        Ok(studio)
     }
 
     /// Refuse a field left blank, naming which — `add_studio_node`'s rule, on

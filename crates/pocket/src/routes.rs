@@ -10,7 +10,6 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::actions::{self, Act};
 use crate::{admin, fleet_client, pair_routes, push, reads, session_routes, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
@@ -62,19 +61,10 @@ pub fn router(gateway: Gateway) -> Router {
         // GET is the app's own Pair page, which Bridge's QR opens; POST is the claim.
         .route("/pair", get(stat::serve).post(pair_routes::claim))
         .route("/api/needs", get(reads::needs))
-        .route("/api/jobs", get(reads::jobs).post(session_routes::dispatch))
-        .route("/api/jobs/:id", get(reads::job))
         .route("/api/live", get(reads::live))
         .route("/api/push/subscribe", post(push::subscribe))
         .route("/api/push/key", get(push::key))
-        .route("/api/jobs/:id/approve", actions::route(Act::Approve))
-        .route("/api/jobs/:id/redirect", actions::route(Act::Redirect))
-        .route("/api/jobs/:id/restart_step", actions::route(Act::RestartStep))
-        .route("/api/jobs/:id/kill", actions::route(Act::Kill))
-        .route("/api/jobs/:id/redispatch", actions::route(Act::Redispatch))
-        .route("/api/jobs/:id/approve_review", actions::route(Act::ApproveReview))
-        .route("/api/jobs/:id/request_changes", actions::route(Act::RequestChanges))
-        .route("/api/sessions", get(session_routes::sessions))
+        .route("/api/sessions", get(session_routes::sessions).post(session_routes::dispatch))
         .route("/api/repositories", get(session_routes::repository_labels))
         .route("/api/sessions/answer", post(session_routes::answer))
         .layer(from_fn_with_state(gateway.pairing.clone(), signing::signed))

@@ -105,11 +105,6 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/studios/:studio_id/settle",
     },
     Route {
-        operation: "dispatch_studio_draft",
-        method: "POST",
-        path: "/studios/:studio_id/dispatch_draft",
-    },
-    Route {
         operation: "ask_scout",
         method: "POST",
         path: "/studios/:studio_id/ask_scout",

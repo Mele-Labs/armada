@@ -24,7 +24,7 @@ import type {
   LessonAsk,
   LessonReview,
   LessonReviewRead,
-} from "@armada/jobs/review-wire";
+} from "@armada/screens/src/lessons/review-wire";
 import type { ServerList } from "@armada/protocol";
 import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";

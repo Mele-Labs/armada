@@ -1,57 +1,32 @@
-//! What pushes: Fleet's `/events`, narrowed to Jobs that stopped.
+//! What pushes: Fleet's `/events`, narrowed to Sessions that went quiet.
 //!
-//! **Only Blocked.** "Escalations interrupt, approvals queue": an approval, a
-//! review or a Session question is a decision waiting, and none of them is
-//! here, so no event of theirs can reach a phone as a push.
+//! **Only Stuck.** "Escalations interrupt, approvals queue": a Session question
+//! or a plan to approve is a decision waiting, and neither is here, so no event
+//! of theirs can reach a phone as a push.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::Duration;
 
-use ipc::{Event, JobDetail, StreamMessage};
+use ipc::{Event, SessionState, SessionStanding, StreamMessage};
 use serde::Serialize;
 
 use crate::fleet_events::Messages;
-use crate::phone::PhoneJob;
 use crate::webpush::{deliver, Delivery};
 use crate::{fleet_client, Gateway};
 
-/// The escalation reasons that mean work stopped, each with the words
-/// `enum-verbs.toml` gives it. Nothing else pushes.
-const BLOCKED: [(&str, &str); 6] = [
-    ("stalled", "stalled"),
-    // Rendered "stalled" in the registry too, so a Job the owner sees as stalled buzzes.
-    ("silent", "stalled"),
-    ("hatch_unbidden", "stalled"),
-    ("thrashing", "churning"),
-    ("fan_out", "hit the sub-dispatch cap"),
-    ("interrupted", "interrupted"),
-];
-
-fn verb(reason: &str) -> Option<&'static str> {
-    BLOCKED.iter().find(|(name, _)| *name == reason).map(|(_, verb)| *verb)
-}
-
-#[derive(Serialize)]
-struct At {
-    at: usize,
-    of: usize,
-}
-
-/// The whole payload. The phone's service worker opens `/jobs/<job_id>`.
+/// The whole payload. Tapping it opens the app's home.
 #[derive(Serialize)]
 struct Alert {
-    job_id: String,
+    session_id: String,
     title: String,
     reason: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    step: Option<At>,
 }
 
 pub struct Watch {
     gateway: Gateway,
-    /// The reason each Job is held for and has already been pushed for. A Job
-    /// leaves when it moves on, so the next time it stops it pushes again.
-    sent: HashMap<String, &'static str>,
+    /// The Sessions already pushed for. A Session leaves when it moves on, so
+    /// the next time it goes quiet it pushes again.
+    sent: HashSet<String>,
     /// How long to wait before each retry of a push that failed.
     pub(crate) retries: Vec<Duration>,
     pushes: tokio::task::JoinSet<()>,
@@ -61,7 +36,7 @@ impl Watch {
     pub fn new(gateway: Gateway) -> Watch {
         Watch {
             gateway,
-            sent: HashMap::new(),
+            sent: HashSet::new(),
             pushes: tokio::task::JoinSet::new(),
             retries: vec![Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)],
         }
@@ -72,33 +47,18 @@ impl Watch {
         let Ok(StreamMessage::Event(delivered)) = ipc::decode::<StreamMessage>("a stream message", text.as_bytes()) else {
             return;
         };
-        match delivered.event {
-            Event::JobStateChanged(change) => {
-                let id = change.job_id.as_str().to_string();
-                let held = (change.to.domain() == core_model::JobStatus::Escalated)
-                    .then(|| change.reason.and_then(|reason| reason.named))
-                    .flatten()
-                    .and_then(|name| verb(&name));
-                match held {
-                    Some(reason) if self.sent.get(&id) != Some(&reason) => {
-                        // Marked in flight now, so a repeat of this event sends nothing
-                        // while the push retries on its own task.
-                        self.sent.insert(id.clone(), reason);
-                        self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), id, reason));
-                    }
-                    Some(_) => {}
-                    None => {
-                        self.sent.remove(&id);
-                    }
-                }
+        if let Event::SessionChanged(record) = delivered.event {
+            let id = record.id.as_str().to_string();
+            let quiet = record.state == SessionState::Live && record.standing == Some(SessionStanding::Stuck);
+            if !quiet {
+                self.sent.remove(&id);
+            } else if self.sent.insert(id.clone()) {
+                // Marked in flight now, so a repeat of this event sends nothing
+                // while the push retries on its own task.
+                let title = record.title.unwrap_or_else(|| id.clone());
+                let alert = Alert { session_id: id, title, reason: "stalled" };
+                self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), alert));
             }
-            Event::JobLanded(event) => {
-                self.sent.remove(event.job.id.as_str());
-            }
-            Event::JobForgotten(event) => {
-                self.sent.remove(event.job_id.as_str());
-            }
-            _ => {}
         }
     }
 
@@ -110,25 +70,10 @@ impl Watch {
     }
 }
 
-async fn alert(gateway: &Gateway, id: &str, reason: &'static str) -> Alert {
-    let read = async {
-        let port = (gateway.fleet)().ok()?;
-        let answer = fleet_client::send(port, "GET", &format!("/jobs/{id}"), None).await.ok()?;
-        ipc::decode::<JobDetail>("a job", &answer.body).ok()
-    };
-    let phone = read.await.map(|detail| PhoneJob::of_detail(&detail, None));
-    Alert {
-        job_id: id.to_string(),
-        title: phone.as_ref().map_or_else(|| id.to_string(), |job| job.title.clone()),
-        reason,
-        step: phone.and_then(|job| job.step).map(|step| At { at: step.at, of: step.of }),
-    }
-}
-
-/// One Job's push to every subscription, each on its own task so a phone that
-/// is failing does not hold up another.
-async fn push(gateway: Gateway, retries: Vec<Duration>, id: String, reason: &'static str) {
-    let Ok(payload) = ipc::encode(&alert(&gateway, &id, reason).await) else {
+/// One Session's push to every subscription, each on its own task so a phone
+/// that is failing does not hold up another.
+async fn push(gateway: Gateway, retries: Vec<Duration>, alert: Alert) {
+    let Ok(payload) = ipc::encode(&alert) else {
         return;
     };
     let subs = gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap_or_default();

@@ -24,22 +24,14 @@ use tokio::sync::Mutex;
 
 use super::Fleet;
 use crate::allowance::Allowance;
-use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
-use crate::converging::StepNorms;
-use crate::evidence::EvidenceInbox;
-use crate::gate::CheckBudget;
 use crate::headroom::{Headroom, Machine, Polling};
 use crate::holding::Reclaiming;
-use crate::judging::{Aloft, JudgeBudget};
+use crate::judging::JudgeBudget;
 use crate::limits::Limits;
 use crate::mint::Mint;
-use crate::noticing::{Noticing, Sweep};
-use crate::peer::{Drones, PeerOf};
-use crate::proposals::Proposals;
-use crate::silence::Liveness;
-use crate::slots::{Concurrency, Slots};
-use crate::underway::Underway;
+use crate::peer::PeerOf;
+use crate::slots::Concurrency;
 
 /// What Fleet knows about the machine it runs on.
 ///
@@ -52,7 +44,7 @@ use crate::underway::Underway;
 /// Public fields and no `Default`, so a caller writes each one out.
 #[derive(Clone, Debug)]
 pub struct Host {
-    /// What a Drone's `PATH` is set to. Fleet's choice, not Fleet's own.
+    /// What an agent's `PATH` is set to. Fleet's choice, not Fleet's own.
     pub path: String,
     /// The home directory the agent CLI reads its credentials from. **The
     /// confinement's known floor** — see `crate::drone::HostPaths`.
@@ -60,7 +52,7 @@ pub struct Host {
     /// Who the operator is. The agent CLI will not authenticate without it,
     /// however readable its credentials are — see `crate::drone::environment`.
     pub user: String,
-    /// The strict MCP configuration a Drone is bound to.
+    /// The strict MCP configuration an agent is bound to.
     pub mcp_config: String,
     /// The headless agent CLI's program, resolved once by the composition
     /// root's `AGENT_BINARY` override or its default. **Held here for Helm's
@@ -72,10 +64,9 @@ pub struct Host {
     pub agent_binary: String,
     /// The loopback port Fleet is listening on.
     ///
-    /// **Held because a connection to it is what names a Drone** — see
-    /// `crate::peer`, which matches a caller's port against this one as a pair.
-    /// It is the same number `mcp_config` points at, resolved once by the
-    /// composition root from the listener it actually bound.
+    /// **Held because a connection to it is what names a Session** — see
+    /// `crate::peer`, which matches a caller's port against this one as a pair. Resolved once by
+    /// the composition root from the listener it actually bound.
     pub port: u16,
     /// Where Fleet keeps its own copy of a Job's attachments, outside every
     /// worktree. `drafted()` writes under `<attachments_dir>/<job_id>/`, and
@@ -88,10 +79,6 @@ pub struct Host {
     /// rather than in the database — `#1290`. One directory per Studio under
     /// this, and a Note names the file inside it.
     pub studio_frames_dir: String,
-    /// Where Fleet keeps a walk note's frame: one directory per Job under
-    /// this, outside every worktree, so a frame outlives the checkout it was
-    /// taken of. Since protocol 23.16.
-    pub walk_frames_dir: String,
     /// Kit's home, `~/.armada`, where Kit's own allowlist is kept as a plain
     /// file a person can edit. Since protocol 23.35.
     pub kit_home: String,
@@ -114,12 +101,10 @@ pub(crate) struct Local {
     pub(crate) path: String,
     pub(crate) home: String,
     pub(crate) user: String,
-    pub(crate) mcp_config: String,
     pub(crate) port: u16,
     pub(crate) attachments_dir: String,
     pub(crate) keepers_dir: String,
     pub(crate) studio_frames_dir: String,
-    pub(crate) walk_frames_dir: String,
     pub(crate) kit_home: String,
     pub(crate) mods_dir: String,
 }
@@ -177,9 +162,6 @@ pub struct Fittings<H, V, W> {
     /// `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only`,
     /// resolved here like every other Machine setting. `#943`.
     pub helm_authority: crate::helm::Authority,
-    /// `settings.helm-session-retention-expiry`, resolved here for
-    /// `run_log_retention`'s reason. `#943`.
-    pub helm_session_retention: std::time::Duration,
     /// How long one Helm call is held open for a person before Fleet answers
     /// `deny` for them. `#1389`, and `crate::helm::HelmAskHold` says why it is
     /// a fitting.
@@ -199,9 +181,6 @@ pub struct Fittings<H, V, W> {
     /// [`TheMachine`](crate::headroom::TheMachine) and a fixture has no machine
     /// it can hold still.
     pub machine: Arc<dyn Machine>,
-    /// Cloning a seed into a worktree. **A seam for `machine`'s reason** — the
-    /// shipped answer is [`TheVolume`](crate::seeding::TheVolume). #1064.
-    pub copy_on_write: Arc<dyn crate::seeding::CopyOnWrite>,
     /// How much memory and disk must be free before another Drone starts,
     /// **where nobody has saved another**. The
     /// `settings.cpu-mem-headroom-threshold-for-spawning` and
@@ -220,81 +199,44 @@ pub struct Fittings<H, V, W> {
     /// `settings.fleet-health-check-resource-poll-interval` row** — see
     /// [`Polling`] for why it is a freshness bound rather than a second timer.
     pub polling: Polling,
-    /// How often the forge is asked what became of one pull request. See
-    /// [`Noticing`], and `crate::noticing` for why it is one Job a sweep rather
-    /// than every Job a turn.
-    pub noticing: Noticing,
+    /// How often the forge is asked about one pull request. **The
+    /// `settings.merge-notice-interval` row** — `crate::noticing`.
+    pub noticing: crate::noticing::Noticing,
     /// How often Fleet asks what disk it could give back. See
     /// [`Reclaiming`], and `crate::holding` for what makes a worktree one it
     /// may take without asking anybody.
     pub reclaiming: Reclaiming,
-    /// What one Job may spend before Fleet stops starting Drones on it. **The
-    /// `settings.budget-cost-cap-per-job` and `settings.budget-turn-cap-per-job`
-    /// rows, enforced** — see [`Allowance`], which has no default for
-    /// [`Concurrency`]'s reason, and `crate::allowance` for what a cap can and
-    /// cannot do about a Drone already spending.
+    /// What one Job may spend, as the Manifest proposal states it. See [`Allowance`], which has no
+    /// default for [`Concurrency`]'s reason.
     pub allowance: Allowance,
-    pub budget: CheckBudget,
-    /// What a step is expected to cost before the thrashing chain looks at it.
-    /// See [`StepNorms`] for why it has no default.
-    pub norms: StepNorms,
-    /// How long a Drone may say nothing before Fleet asks, and how many times
-    /// it asks. Its own value rather than a fourth `StepNorms` number: what it
-    /// bounds is the Drone being there at all, and nothing about it is measured
-    /// against a step's work. See [`Liveness`].
-    pub liveness: Liveness,
-    /// How many times one step may ask Fleet to run its Checks. Its own value
-    /// for [`Liveness`]'s reason: what it bounds is money spent answering the
-    /// Drone rather than anything about the step's work. See
-    /// [`AskedRuns`](crate::AskedRuns).
-    pub asked_runs: AskedRuns,
-    /// How many fixes one step may ask for. See [`Fixes`](crate::fixing::Fixes). #999.
-    pub fixes: crate::fixing::Fixes,
     /// What makes a Judge call. **A pointer rather than a type parameter**: the
     /// seam renders and cannot fail, so nothing about it needs to be generic.
     pub judge: Arc<dyn ModelClient + Send + Sync>,
     /// How long one Judge call may take. See [`JudgeBudget`] for why it has no
     /// default.
     pub judge_budget: JudgeBudget,
-    /// How long one Job proposer call may take. **Not `judge_budget`** — the
-    /// call is the same call and the wait is not: a Judge's is the only thing
-    /// that can end a call nobody is watching, and a proposal has somebody who
-    /// can end it themselves.
+    /// How long one proposer or pull request review call may take. **Not `judge_budget`** — the
+    /// call is the same call and the wait is not: a Judge's is the only thing that can end a
+    /// call nobody is watching, and a proposal has somebody who can end it themselves.
     pub proposer_budget: JudgeBudget,
     /// How long a plain command may take before Fleet answers a refusal in
     /// its own words. See [`crate::budget::CommandBudget`], which has no
     /// default for [`JudgeBudget`]'s reason.
     pub command_budget: crate::budget::CommandBudget,
-    /// How long one permission question is held open inside the Drone's call
-    /// before the Drone is told to wait for the answer as a turn. See
-    /// [`crate::permitting::PermissionHold`], which has no default for
-    /// [`JudgeBudget`]'s reason — and which the composition root writes as the
-    /// harness-derived [`crate::permitting::HOLD`].
-    pub permission_hold: crate::permitting::PermissionHold,
-    /// How long a permission ask may go unanswered before Fleet ends the
-    /// Drone and escalates the Job, reclaiming its concurrency slot. See
-    /// [`crate::permitting::UnansweredAskLimit`], which has no default for
-    /// [`JudgeBudget`]'s reason. `#801`.
-    pub unanswered_ask_limit: crate::permitting::UnansweredAskLimit,
+    /// How long one Check may run. See [`crate::budget::CheckBudget`].
+    pub budget: crate::budget::CheckBudget,
     /// What a step naming no model of its own is judged by. **Resolved by the
     /// composition root**, like every other input here — which model is cheap
     /// is a vendor's fact, and nothing below Fleet may spell one.
     pub judge_model: Model,
-    /// What a judged gaming flag is read a second time on. **Resolved by the
-    /// composition root**, for `judge_model`'s reason.
-    pub second_opinion_model: Model,
-    /// What a dispatch request is read by. **Its own dial and not the Judge's**
-    /// — this call fires on every dispatch rather than on every criterion, so
-    /// the two are raised for different reasons and at different prices.
+    /// What a Session's request is read by. **Its own dial and not the Judge's** — this call
+    /// fires on every dispatch rather than on every criterion, so the two are raised for
+    /// different reasons and at different prices.
     pub proposer_model: Model,
     /// What a Job's retro is written on. **Its own dial**: a retro is one call
     /// per ended Job, read by a person, and raised for neither of the others'
     /// reasons.
     pub retro_model: Model,
-    /// What a Job's Commander runs on when the Job names none. **Its own dial**:
-    /// it reads a whole Job and acts on it, and is raised for neither of the
-    /// others' reasons.
-    pub commander_model: Model,
     /// The tracker a repository's open issues are read from and written back
     /// on, and what a request's own link in it resolves to before it becomes a
     /// Job's `facts`; asked per repository with what its Manifest chose.
@@ -355,10 +297,7 @@ where
         // Jobs bound moves it for them at the next start.
         let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
         let run = fittings.mint.ulid();
-        let helm = crate::helm::Conversations::hosted_by(
-            Arc::new(crate::helm::ProcessHost::on_this_machine(&fittings.host, width)),
-            fittings.helm_ask_hold,
-        );
+        let helm = crate::helm::Conversations::holding_for(fittings.helm_ask_hold);
         let sessions = crate::session_host::Hosts::hosted_by(
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
                 &fittings.host,
@@ -372,7 +311,6 @@ where
         ));
         let shipped_tuning = fittings.shipped_tuning();
         let tuning = shipped_tuning.overlaid_by(&settings_now);
-        let turns = api::Turns::new();
         let timeline = crate::timeline::Timeline::new(Arc::clone(&fittings.clock));
         Fleet {
             store: crate::store_lock::StoreLock::new(fittings.store),
@@ -397,12 +335,10 @@ where
                 path: fittings.host.path,
                 home: fittings.host.home,
                 user: fittings.host.user,
-                mcp_config: fittings.host.mcp_config,
                 port: fittings.host.port,
                 attachments_dir: fittings.host.attachments_dir,
                 keepers_dir: fittings.host.keepers_dir.clone(),
                 studio_frames_dir: fittings.host.studio_frames_dir,
-                walk_frames_dir: fittings.host.walk_frames_dir,
                 kit_home: fittings.host.kit_home,
                 mods_dir: fittings.host.mods_dir,
             },
@@ -413,79 +349,42 @@ where
             signing_in: fittings.signing_in,
             reaching: fittings.reaching,
             judge: fittings.judge,
-            permission_hold: fittings.permission_hold,
-            aloft: Aloft::default(),
-            underway: Underway::default(),
-            proposals: Proposals::new(),
             trackers: fittings.trackers,
             tracking: crate::tracking::Tracking::new(),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
             downshift: Default::default(),
             events: fittings.events,
-            turns: turns.clone(),
             helm,
             sessions,
             session_runs: Default::default(),
             session_check_live: Default::default(),
             window_sign_ins: Default::default(),
             scouts,
-            inbox: EvidenceInbox::new(),
-            delivered: Mutex::new(BTreeMap::new()),
-            slots: Mutex::new(Slots::bounded_by(in_force.concurrency, turns)),
             names: Arc::new(crate::naming::Names::new()),
             timeline,
             machine: fittings.machine,
-            copy_on_write: fittings.copy_on_write,
-            seeds: Arc::new(std::sync::Mutex::new(crate::seeding::Seeds::default())),
-            base_preparing: Arc::new(tokio::sync::Mutex::new(())),
             headroom: std::sync::Mutex::new(in_force.headroom),
+            concurrency: std::sync::Mutex::new(in_force.concurrency),
             places: crate::places::Places::on_the_machine(
                 in_force.checks_at_once,
                 width,
                 fittings.check_slots,
             ),
             shipped,
-            swept: Mutex::new(None),
             kept: crate::worktrees_kept::Kept::default(),
-            sweeping: Mutex::new(Sweep::default()),
-            issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
-            cut_from: crate::approved::CutFrom::default(),
-            peering: Mutex::new(crate::peers::Peering::default()),
+            sweeping: Mutex::new(crate::noticing::Sweep::default()),
             writes: Arc::default(),
             territory: Arc::default(),
-            proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
-            fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
-            heals: std::sync::Mutex::default(),
-            repairing: crate::repair_hold::Underway::default(),
-            stirred: std::sync::Mutex::default(),
-            trigger_repairs: std::sync::Mutex::default(),
-            owner_runs: std::sync::Mutex::default(),
-            pressing: crate::showing_again::Pressing::default(),
-            rechecking: crate::rechecking::Rechecking::default(),
-            lines: crate::taking_turns::Lines::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
-            sizes: crate::resources::Sizes::default(),
-            polled: Mutex::new(None),
-            drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,
-            spared: Default::default(),
-            told: Default::default(),
             merge_end: Mutex::new(()),
-            reflecting: crate::retro::Reflecting::default(),
             building: crate::building::Building::default(),
             mods: crate::mods::Told::default(),
             run,
         }
-    }
-
-    /// The same Fleet with Helm's messages carried by `host` — a stand-in in a
-    /// test, or a host somewhere other than a process Fleet starts.
-    pub fn hosting_helm_on(mut self, host: Arc<dyn crate::helm::Hosting>) -> Fleet<H, V, W> {
-        self.helm = crate::helm::Conversations::hosted_by(host, self.helm.hold());
-        self
     }
 
     /// The same Fleet with its scouts started by `host` — a stand-in agent in

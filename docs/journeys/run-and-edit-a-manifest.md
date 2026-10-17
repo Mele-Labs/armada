@@ -145,7 +145,7 @@ Each run writes its log under `./.armada` like every other ad-hoc run here, with
 > Why: nothing in a Manifest says in advance which Commands write, and a Check's `requires` can name one that does.
 
 > **Rule.** Undo restores a snapshot of the worktree taken just before the run, and is not offered while a Drone is working.
-> Why: Fleet commits a Job's work only when it delivers, per `crates/fleet/src/landing.rs`, so a plain discard would take the Drone's uncommitted work with it.
+> Why: Fleet commits a Job's work only when it delivers, per the `landing` module (deleted since), so a plain discard would take the Drone's uncommitted work with it.
 
 ## Editing
 

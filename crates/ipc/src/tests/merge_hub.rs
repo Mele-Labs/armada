@@ -1,6 +1,6 @@
 use crate::{
     decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, CheckoutPullRequest, CheckoutSentAsPullRequest,
-    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
+    CheckoutToPullRequest, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -22,10 +22,6 @@ fn a_red_hub() -> MergeLineHub {
                 number: 1812,
                 url: Some("https://forge.invalid/pull/1812".to_string()),
                 branch: Some("armada/cache".to_string()),
-                job: Some(HubJob {
-                    id: JobId::carried("01JOB"),
-                    title: "Cache the manifest read".to_string(),
-                }),
                 session: None,
             }),
             red_commit: Some("a".repeat(40)),
@@ -35,7 +31,6 @@ fn a_red_hub() -> MergeLineHub {
                     number: 1852,
                     url: None,
                     branch: Some("fleet/flaky".to_string()),
-                    job: None,
                     session: Some(HubSession {
                         id: "c279e883-d316-4202-8134-76ea8b531835".to_string(),
                         title: Some("Session Messages Fail to Send".to_string()),
@@ -50,7 +45,6 @@ fn a_red_hub() -> MergeLineHub {
             url: "https://forge.invalid/pull/1816".to_string(),
             author: Some("nick".to_string()),
             ci: Some(HubPullCi::WaitingOnMain),
-            job: None,
             queue: Some(HubQueue {
                 state: HubQueueState::Queued,
                 position: Some(2),
@@ -74,21 +68,16 @@ fn a_red_hub() -> MergeLineHub {
             author: Some("nick".to_string()),
             merged_at: Instant::carried("2026-10-06T09:50:00Z"),
             commit: Some("c".repeat(40)),
-            job: None,
             main_run: Some(MainRun {
                 state: MainRunState::Failed,
                 failed: vec!["ci".to_string()],
             }),
         }],
-        fixing: Some(HubJob {
-            id: JobId::carried("01FIX"),
-            title: "Fix test on main".to_string(),
-        }),
         fixing_session: None,
         fixing_elsewhere: Some(FixingElsewhere {
             machine: "mac-a".to_string(),
             holder: ClaimHolder {
-                kind: HolderKind::Job,
+                kind: HolderKind::Session,
                 id: "01OTHER".to_string(),
             },
             since: Instant::carried("2026-10-06T09:40:00Z"),
@@ -125,7 +114,7 @@ fn a_hub_survives_the_wire_and_the_strict_sets_spell_snake_case() {
         "{spelled}"
     );
     assert!(
-        spelled.contains(r#""fixing_elsewhere":{"machine":"mac-a","holder":{"kind":"job","id":"01OTHER"},"since":"2026-10-06T09:40:00Z"}"#),
+        spelled.contains(r#""fixing_elsewhere":{"machine":"mac-a","holder":{"kind":"session","id":"01OTHER"},"since":"2026-10-06T09:40:00Z"}"#),
         "{spelled}"
     );
     for pull_fact in [
@@ -144,9 +133,8 @@ fn a_hub_survives_the_wire_and_the_strict_sets_spell_snake_case() {
 }
 
 #[test]
-fn a_session_holding_the_red_is_spelled_beside_the_job_field_and_survives_the_wire() {
+fn a_session_holding_the_red_is_spelled_and_survives_the_wire() {
     let line = a_line(Some(MergeLineHub {
-        fixing: None,
         fixing_session: Some(HubSession {
             id: "aaaa-1111".to_string(),
             title: Some("Fix main after #1815".to_string()),
@@ -178,7 +166,6 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         }),
         pull_requests: Vec::new(),
         merged: Vec::new(),
-        fixing: None,
         fixing_session: None,
         fixing_elsewhere: None,
         checkout: None,
@@ -193,7 +180,6 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         "merge",
         "red_since",
         "pull_requests",
-        "fixing",
         "fixing_session",
         "merged",
         "red_commit",
@@ -217,9 +203,9 @@ fn a_line_from_a_fleet_before_the_hub_still_reads_and_a_newer_field_does_not_bre
     let hub = read.hub.unwrap();
     assert!(hub.main.unwrap().checking.is_empty() && hub.merged[0].main_run.is_none());
     let newer = r#"{"root":"/srv/shop","line":[],"off":[],"landed":[],"sent_back":[],
-        "hub":{"fixing":{"id":"01JOB","title":"x"},"since":"later"}}"#;
+        "hub":{"since":"later"}}"#;
     let read: MergeLine = decode("a merge line", newer.as_bytes()).expect("reads");
-    assert_eq!(read.hub.unwrap().fixing.unwrap().title, "x");
+    assert!(read.hub.is_some());
 }
 
 #[test]

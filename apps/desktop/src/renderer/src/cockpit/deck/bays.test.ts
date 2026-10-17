@@ -10,22 +10,22 @@ const at = (minute: number) => Date.parse("2026-10-14T10:00:00Z") + minute * 60_
 const NOW = at(120);
 
 let count = 0;
-const event = (kind: "slot.leased" | "slot.released", holder: { kind: "job" | "session"; id: string }, minute: number, slot = 3, extra: Partial<TimelineEvent> = {}): TimelineEvent => {
+const event = (kind: "slot.leased" | "slot.released", holder: { kind: "session"; id: string }, minute: number, slot = 3, extra: Partial<TimelineEvent> = {}): TimelineEvent => {
   count += 1;
   return { id: count, at: new Date(at(minute)).toISOString(), kind, subject: holder, tone: "idle", says: kind, detail: `slot-${slot}`, manifest_id: "m1", ...extra };
 };
 const s1 = { kind: "session", id: "s1" } as const;
-const j1 = { kind: "job", id: "j1" } as const;
+const s3 = { kind: "session", id: "s3" } as const;
 
 const slot = (extra: Partial<WorktreeSlot> = {}): WorktreeSlot => ({ manifest_id: "m1", slot: 3, path: "/p/slot-3", held: { state: "free" }, base: "main", warm: true, ...extra });
 const heldBy = (id: string, since?: string): Partial<WorktreeSlot> => ({ held: { state: "hosted_session", session_id: id, session_title: id }, branch: "feature/now", ...(since === undefined ? {} : { since }) });
 
 test("the history is the leases the slot events name, newest first, with no end reason and no branch", () => {
-  const events = [event("slot.leased", s1, 10), event("slot.released", s1, 40), event("slot.leased", j1, 45), event("slot.released", j1, 70)];
+  const events = [event("slot.leased", s1, 10), event("slot.released", s1, 40), event("slot.leased", s3, 45), event("slot.released", s3, 70)];
   const { leases } = ledgerOf(slot(), events);
 
   expect(leases.map((one) => [one.holder.kind, one.holder.id, one.from, one.to])).toEqual([
-    ["job", "j1", at(45), at(70)],
+    ["session", "s3", at(45), at(70)],
     ["session", "s1", at(10), at(40)],
   ]);
   for (const lease of leases) expect(Object.keys(lease).sort()).toEqual(["from", "holder", "to"]);
@@ -47,11 +47,11 @@ test("the slot completes the history: the holder it has now, from its own record
   ]);
 
   const stranded = ledgerOf(
-    slot({ held: { state: "stranded", why: "uncommitted work" }, stranded: { uncommitted: ["a.rs"], commits: [], unpushed: 0, last_holder: { kind: "job", id: "j9", title: "Nine", open: false } } }),
+    slot({ held: { state: "stranded", why: "uncommitted work" }, stranded: { uncommitted: ["a.rs"], commits: [], unpushed: 0, last_holder: { kind: "session", id: "s9", title: "Nine", open: false } } }),
     [event("slot.leased", s1, 10), event("slot.released", s1, 40)],
   );
   // Its last holder has no time the events know, so it is a row without one, first as the newest.
-  expect(stranded.leases[0]).toEqual({ holder: { kind: "job", id: "j9", title: "Nine" } });
+  expect(stranded.leases[0]).toEqual({ holder: { kind: "session", id: "s9", title: "Nine" } });
   expect(stranded.leases).toHaveLength(2);
 });
 
@@ -61,8 +61,8 @@ test("a lease the events opened and never closed is kept only for the holder the
   // The slot is free now and no release was recorded: when it ended is not known, so the row is not made up.
   expect(ledgerOf(slot(), open).leases).toEqual([]);
   // A new holder means the last one is over.
-  expect(ledgerOf(slot(heldBy("j1")), [event("slot.leased", s1, 10), event("slot.leased", j1, 30)]).leases.map((one) => [one.holder.id, one.to])).toEqual([
-    ["j1", undefined],
+  expect(ledgerOf(slot(heldBy("s3")), [event("slot.leased", s1, 10), event("slot.leased", s3, 30)]).leases.map((one) => [one.holder.id, one.to])).toEqual([
+    ["s3", undefined],
     ["s1", at(30)],
   ]);
 });
@@ -94,7 +94,8 @@ test("now is the pool's own reading, with the branch the slot is on and no ledge
 
 test("a slot a Session takes after the deck is drawn gets its drone, and a released slot loses it", () => {
   const drawn = [slot({ slot: 1, held: { state: "job", job_id: "j1" } }), slot({ slot: 4, held: { state: "free" } })];
-  expect([...holdersOf(drawn).keys()]).toEqual(["job:j1"]);
+  // A slot an old Job holds draws no holder: only hosted Sessions hold a bay.
+  expect([...holdersOf(drawn).keys()]).toEqual([]);
 
   // Slot 4 as `list_worktrees` returns it once the Session's first write has leased it.
   const leased = drawn.map((one) => (one.slot === 4 ? slot({ slot: 4, ...heldBy("d02bc3e3-94ce-4972-896c-9df4056ecf28", "2026-10-15T12:05:12Z") }) : one));

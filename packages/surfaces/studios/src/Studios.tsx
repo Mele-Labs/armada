@@ -184,8 +184,10 @@ export type StudiosProps = {
   onSelectNode: (nodeId: string | null) => void;
   onOpen: (studioId: string) => void;
   onContinue: () => void;
-  /** Start an untitled Studio in this repository. */
-  onCreate: () => Promise<StudioAnswer>;
+  /** Start an untitled Studio in this repository, or in the one a panel of All repositories names. */
+  onCreate: (manifestId?: string) => Promise<StudioAnswer>;
+  /** What a repository is called, by its Manifest id: the heading of its panel on All repositories. */
+  nameOf?: (manifestId: string) => string;
   /** Name a Studio, or name it again. Reaches the list's rows and the open Studio alike. */
   onRename: (studioId: string, name: string) => Promise<Outcome>;
   /**
@@ -207,9 +209,9 @@ export type StudiosProps = {
   /**
    * Open the composer with a Sketch's drawing on its pad, made from that node —
    * the owner's call of 1 Oct 2026. **The pictures are copies the composer
-   * owns**, so leaving the Studio does not take them off its pad.
+   * owns**, so leaving the Studio does not take them off its pad. Absent draws no Dispatch.
    */
-  onDispatchSketch: (nodeId: string, drawing: Drawing) => void;
+  onDispatchSketch?: (nodeId: string, drawing: Drawing) => void;
   /** Where a person put a node down: its spot from the corner of the frame it landed in, `null` the board. */
   onMoveNode: (nodeId: string, position: { x: number; y: number }, within: string | null) => Promise<Outcome>;
   /**
@@ -225,10 +227,9 @@ export type StudiosProps = {
   /** One rung of promotion — cluster, outline, defer, write up, edit, settle, dispatch. */
   onPromote: (promotion: StudioPromotion) => Promise<Outcome>;
   /**
-   * Read one Job whole, which is what a Board row's press does — #1379. The
-   * Studio stays open underneath it, so closing the Job comes back here.
+   * Read one Job whole — #1379. The Studio stays open underneath it. Absent draws no Open Job.
    */
-  onOpenJob: (jobId: string) => void;
+  onOpenJob?: (jobId: string) => void;
   /**
    * Hand one node's own address to the system browser — #1406. **A Studio and a
    * node, never an address**: main reads it off the record it published, so no
@@ -276,7 +277,54 @@ export function Studios(props: StudiosProps) {
   return props.open === null ? <StudioList {...props} /> : <OpenedStudio {...props} open={props.open} />;
 }
 
-function StudioList({ studios, live, onOpen, onCreate, onRename }: StudiosProps) {
+function StudioList({ studios, live, onOpen, onCreate, onRename, nameOf }: StudiosProps) {
+  if (studios.state !== "many") {
+    return (
+      <div className="armada-screen__pane armada-studios-page">
+        <h1 className="armada-page__title">Studios</h1>
+        <StudiosPanel title={studios.state === "none" ? "Studios" : (nameOf?.(studios.manifestId) ?? "Studios")} studios={studios} live={live} onOpen={onOpen} onCreate={() => onCreate()} onRename={onRename} />
+      </div>
+    );
+  }
+  // All repositories: a panel for each repository that keeps any, in name order. One that keeps none draws none.
+  const panels = studios.reads
+    .filter((one) => one.state === "failed" || (one.state === "read" && one.list.studios.length > 0))
+    .map((one) => ({ one, name: nameOf?.(one.manifestId) ?? one.manifestId }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+  return (
+    <div className="armada-screen__pane armada-studios-page">
+      <h1 className="armada-page__title">Studios</h1>
+      {panels.map(({ one, name }) => (
+        <StudiosPanel
+          key={one.manifestId}
+          title={name}
+          studios={one}
+          live={live}
+          onOpen={onOpen}
+          onCreate={() => onCreate(one.manifestId)}
+          onRename={onRename}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One repository's Studios in one panel: its list, and New Studio. */
+function StudiosPanel({
+  title,
+  studios,
+  live,
+  onOpen,
+  onCreate,
+  onRename,
+}: {
+  title: string;
+  studios: StudiosRead;
+  live: boolean;
+  onOpen: (studioId: string) => void;
+  onCreate: () => Promise<StudioAnswer>;
+  onRename: (studioId: string, name: string) => Promise<Outcome>;
+}) {
   const [creating, setCreating] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
@@ -300,24 +348,22 @@ function StudioList({ studios, live, onOpen, onCreate, onRename }: StudiosProps)
   }
 
   return (
-    <div className="armada-screen__pane">
-      <Card>
-        <CardHeader className="armada-studio__head">
-          <CardTitle>Studios</CardTitle>
-          <Button variant="primary" size="sm" pending={creating} disabled={!live} onClick={create}>
-            {creating ? "Starting a Studio" : "New Studio"}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {refused === null ? null : (
-            <Alert tone="escalated" title="Fleet did not take that">
-              {refused}
-            </Alert>
-          )}
-          <ListBody studios={studios} live={live} naming={naming} onOpen={onOpen} onRename={rename} />
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardHeader className="armada-studio__head">
+        <CardTitle>{title}</CardTitle>
+        <Button variant="primary" size="sm" pending={creating} disabled={!live} onClick={create}>
+          {creating ? "Starting a Studio" : "New Studio"}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {refused === null ? null : (
+          <Alert tone="escalated" title="Fleet did not take that">
+            {refused}
+          </Alert>
+        )}
+        <ListBody studios={studios} live={live} naming={naming} onOpen={onOpen} onRename={rename} />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -662,7 +708,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected?.kind === "sketch"
       ? [
           { id: "sketch", label: "Open", press: () => sketch.opened(selected) },
-          ...(live
+          ...(live && props.onDispatchSketch !== undefined
             ? [{ id: "sketch-dispatch", label: "Dispatch", press: () => dispatchSketch(selected) }]
             : []),
         ]
@@ -670,9 +716,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
       ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
       : []),
-    ...(openable === undefined
+    ...(openable === undefined || props.onOpenJob === undefined
       ? []
-      : [{ id: "job", label: "Open Job", press: () => props.onOpenJob(openable.id) }]),
+      : [{ id: "job", label: "Open Job", press: () => props.onOpenJob?.(openable.id) }]),
     // **A server's links and its Stop are acts on the node**, for the reason
     // every act here is: the board is a drag surface, and a button inside a card
     // is a press fighting a drag — #1345, and `StudioNode`'s own rule.
@@ -733,7 +779,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
         const src = read.ok ? URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })) : "";
         return { ...one, src };
       }),
-    ).then((pictures) => props.onDispatchSketch(node.id, { ...drawing, pictures }));
+    ).then((pictures) => props.onDispatchSketch?.(node.id, { ...drawing, pictures }));
   }
 
   /** Hand the node's address to whatever browses the web here — #1406. */

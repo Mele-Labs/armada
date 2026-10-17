@@ -177,6 +177,7 @@ export * from "./concepts";
 export * from "./actions";
 // The keys each act answers now, with a person's own bindings laid over the registry's.
 export * from "./keymap";
+export * from "./since";
 export * from "./tile-grid";
 
 // Whether Cmd is held, for a control that carries a Global-tier binding to
@@ -475,7 +476,6 @@ export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/LinkedSession/LinkedSession";
 export * from "./compositions/StepsPanel/StepsPanel";
-export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/PullRequestPanel/PullRequestPanel";

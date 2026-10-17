@@ -8,6 +8,8 @@
 
 The citable source for the mechanism. The flow lives on the Take Over a Job user journey.
 
+**Taking a Job over from a Session is gone (17 Oct 2026).** Sessions absorb Jobs (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, group 1). `take_over`, `get_handoff`, `start_session`'s `pilot`, the Session's `handoff` row and the `piloting` hold on a Session are removed from Fleet, the wire and Bridge, and a Session's view draws no Job. What stays is a Job already `piloted`: `JobSummary.piloted`, and its three exits, `submit_for_verification`, `attest_complete` and `close_as_superseded`, from Job detail. The rest of this page describes the mechanism as it was built and is kept until Jobs are deleted.
+
 The problem it solves: a Drone runs on a deliberately narrow toolset to stay focused. An engineer taking over needs the opposite. Without a handoff, the engineer abandons the Job and opens a fresh session by hand, losing the Drone's context along with it.
 
 **Pilot is not [Observe](observe.md).** Pilot ends autonomous execution and gives the worktree to a person; Observe reads a running Drone's turns and changes nothing about the Job. Wanting to see what a Drone is doing is Observe's question, and answering it with Pilot costs the Job its Drone.
@@ -79,7 +81,7 @@ Fleet assembles this. The Drone supplies one field of it.
 | Evidence collected so far, and the gate that failed | Job record |
 | Narrative of what it is stuck on | Drone, as the argument to `escape_hatch`, where it gave one |
 
-**The Drone's transcript is not in the bundle.** A transcript has no bound, and the bundle is a first message; it stays where `get_job_log` reads it. The bundle is the query `get_handoff`, served for as long as the Job has a pilot on record, so it is still there once the pilot ended.
+**The Drone's transcript is not in the bundle.** A transcript has no bound, and the bundle is a first message; it stays where `get_job_log` reads it. The bundle was the query `get_handoff`, served for as long as the Job had a pilot on record; the query is removed (17 Oct 2026).
 The narrative carries three named fields: `trying_to`, what the step was meant to produce; `blocked_by`, the specific thing preventing it, such as a denied command or a missing credential; `tried`, what was attempted and what each attempt produced.
 
 **The narrative is not Evidence.** Why: Evidence is proof tied to an advance gate, and this states that no proof is coming.
@@ -98,7 +100,7 @@ Fleet then adds what it knows and the Drone does not: sibling workspaces, and th
 - **Fleet stops scheduling against the Job** for as long as it is piloted. The Job stays on the Board and leaves the scheduler.
 - **Worktree ownership transfers.** Fleet must not reclaim, clean or garbage-collect a piloted worktree.
 
-**The three exits live in two places**: on the piloting Session's ledger row for the Job, and on Job detail. Armada says nothing inside a terminal, so a way back cannot live there, and a person is as likely to be looking at the Session as at the Job. Submit for verification, Attest complete and Close as superseded render in both, and either one ends the pilot. Submitting returns the Job to `running` with no Drone assigned.
+**The three exits live on Job detail.** Armada says nothing inside a terminal, so a way back cannot live there. The piloting Session's ledger no longer draws the Job (17 Oct 2026: a Session's view shows nothing about Jobs), so the exits are not offered there. Submit for verification, Attest complete and Close as superseded end the pilot. Submitting returns the Job to `running` with no Drone assigned.
 
 ## Job state
 

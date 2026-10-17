@@ -65,6 +65,6 @@ if (root !== null && picker !== null) {
 }
 
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
-// frame, and not inside `prototype-walked`'s stand-in window (`?walked`), whose own capture takes
+// frame, and not inside a walk window's stand-in (`?walked`), whose own capture takes
 // ⌥⌘A there as main's walk window does.
 if (!framing && !query.has("walked") && !annotatesWith(scenario.name)) void import("../annotate/mount").then(({ mount }) => mount());

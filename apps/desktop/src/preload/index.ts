@@ -3,8 +3,8 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import { sketchSharePreload } from "./sketch-share";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
-import type { LessonSessionRead } from "@armada/jobs/session-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
@@ -36,7 +36,7 @@ import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadRes
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, SessionWait, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -776,8 +776,10 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning),
-  pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning, after),
+  readSessionWait: (sessionId: string, request: string): Promise<SessionActed<WaitReading>> => ipcRenderer.invoke(CHANNELS.readSessionWait, sessionId, request),
+  changeWaiting: (change: ChangeWaiting): Promise<SessionActed<SessionWait>> => ipcRenderer.invoke(CHANNELS.changeWaiting, change),
+  startWaitingNow: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startWaitingNow, sessionId),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
@@ -894,7 +896,7 @@ const api: BridgeApi = {
 
   // A repository's Studios, and one open — #1287. Two reads a surface holds, four acts, each one
   // operation with its own ids: nothing here names a route or reaches a node on another Studio.
-  watchStudios: (manifestId: string | null): Promise<void> =>
+  watchStudios: (manifestId: string | readonly string[] | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.watchStudios, manifestId),
   watchStudio: (studioId: string | null): Promise<void> => ipcRenderer.invoke(CHANNELS.watchStudio, studioId),
   createStudio: (manifestId: string): Promise<StudioAnswer> =>

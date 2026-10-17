@@ -23,7 +23,6 @@ Read the journey that covers what you are about to design or build, before you b
 | [Take Over a Job](take-over-a-job.md) | Design or build Pilot's confirmation modal, or the flow for taking a stuck Job away from its Drone |
 | [Read a failed Job](read-a-failed-job.md) | Design or build what M1 shows when a Job reaches a terminal failed state |
 | [Read the work and merge by hand](read-the-work-and-merge-by-hand.md) | Design or build what M1 shows when a Job reaches `completed_success` and there is still no auto-merge, no PR, and no push |
-| [Dispatch a milestone](dispatch-a-milestone.md) | Design or build approving one Job that names a milestone, and what a person sees while it decomposes into Jobs |
 | [Take a design to a milestone](take-a-design-to-a-milestone.md) | Design or build what turns a finished design into a milestone of Jobs — reading it against the code, keeping the answers it forced, and filing the work it implies |
 
 ## Both ways

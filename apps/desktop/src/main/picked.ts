@@ -8,7 +8,7 @@
 // **All repositories is a pick of none.** Bridge opens on it, and on it every builder below
 // answers `null`: a surface that needs one repository asks which before anything is sent.
 
-import type { RepositorySummary, StartSession } from "@armada/protocol";
+import type { RepositorySummary, StartAfter, StartSession } from "@armada/protocol";
 
 /**
  * The repository a new Session starts on. **A named root wins over the pick**, which the annotation
@@ -24,13 +24,15 @@ export function repositoryToStart(served: readonly RepositorySummary[], picked: 
  * The start a Session on `repository` sends, or `null` where it has no Manifest to start on. **A root
  * named for a repository with no Manifest is Setup's**: the Session runs in that root to write one.
  */
-export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }): StartSession | null {
+export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter): StartSession | null {
   const given = {
     ...(title === undefined ? {} : { title }),
     ...(request === undefined ? {} : { request }),
     // Only what the person picked: Fleet's proposer fills in what a start leaves unset.
     ...(tuning?.model === undefined ? {} : { model: tuning.model }),
     ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+    // The Session it waits on: `request` is then the brief it starts on.
+    ...(after === undefined ? {} : { after }),
   };
   if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...given };
   return root === undefined ? null : { manifest_id: "", root: repository.root, ...given };

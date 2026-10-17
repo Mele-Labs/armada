@@ -25,7 +25,7 @@ export function Doings({ layout, frame, plays, droneBy, loops, focus }: { layout
             </div>
           );
         }
-        if (play.kind === "blip" || (play.kind === "tracer" && (drone.parent === undefined || layout.at.get(drone.parent) === undefined))) {
+        if (play.kind === "blip" || play.kind === "tracer") {
           return (
             <div key={play.id} className="bf-at" style={place} aria-hidden="true">
               <i className="bf-ripple" style={{ animationDelay: `${play.delay}ms` }} />

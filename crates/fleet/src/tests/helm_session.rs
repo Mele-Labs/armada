@@ -389,15 +389,14 @@ async fn its_door_is_a_sessions_plus_helms_extras_and_another_sessions_is_not() 
 
     let reach = rig.fleet.helm_at(caller(52000)).expect("Helm's connection");
     assert!(!reach.is_a_hosted_session(), "its acts are Helm's, as they were");
-    for extra in ["tell_session", "ask_person_to_approve", "kill_job", "ask_the_person", "list_sessions"] {
+    for extra in ["tell_session", "ask_the_person", "list_sessions"] {
         assert!(reach.may(extra), "`{extra}` is Helm's");
     }
-    assert!(!reach.may("undo_run"), "the one act that stays a person's");
 
     let session = rig.fleet.helm_at(caller(52001)).expect("a Session's connection");
     assert!(session.is_a_hosted_session());
     assert!(session.may("list_sessions") && session.may("ask_the_person"));
-    assert!(!session.may("tell_session") && !session.may("ask_person_to_approve"));
+    assert!(!session.may("tell_session"));
     drop(helm);
 }
 

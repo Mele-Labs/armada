@@ -16,20 +16,19 @@ const slotAt = (manifest: string, number: number) => slots.find((one) => one.man
 /** What the Cockpit will do: a drone's checkouts are the paths of the bays it holds. */
 const holders = new Map<string, string[]>();
 for (const slot of slots) {
-  const holder = slot.held.state === "hosted_session" ? `session:${slot.held.session_id}` : slot.held.state === "job" ? `job:${slot.held.job_id}` : undefined;
+  const holder = slot.held.state === "hosted_session" ? `session:${slot.held.session_id}` : undefined;
   if (holder !== undefined) holders.set(holder, [...(holders.get(holder) ?? []), slot.path]);
 }
-const keyOf = (event: TimelineEvent) => (event.subject.kind === "session" || event.subject.kind === "job" ? `${event.subject.kind}:${event.subject.id}` : undefined);
+const keyOf = (event: TimelineEvent) => (event.subject.kind === "session" ? `session:${event.subject.id}` : undefined);
 
-test("every tool burst carries its items, newest first, and a Job's files event names one file", () => {
-  const bursts = events.filter((one) => ["session.read", "session.edited", "session.ran", "job.read", "job.ran"].includes(one.kind));
+test("every tool burst carries its items, newest first", () => {
+  const bursts = events.filter((one) => ["session.read", "session.edited", "session.ran"].includes(one.kind));
   expect(bursts.length).toBeGreaterThan(0);
   for (const one of bursts) {
     expect(one.items?.length, one.kind).toBeGreaterThan(0);
     expect(one.detail).toBe(one.items![0]);
     expect(one.items!.length).toBeLessThanOrEqual(25);
   }
-  for (const one of events.filter((it) => it.kind === "job.files")) expect(one.items).toBeUndefined();
 });
 
 test("what a drone touches comes from its edits, in the spellings Fleet gives them, and a drone that edited nothing touches nothing", () => {
@@ -40,10 +39,8 @@ test("what a drone touches comes from its edits, in the spellings Fleet gives th
   expect(areas("session:r1")).toEqual(["crates/store"]);
   // From the home directory with `~`: three files in two areas.
   expect(areas("session:p1")).toEqual(["crates/gate", "crates/fleet"]);
-  // A Job's one file, and a Session's path that was already relative.
-  const cache = ship.state.jobs.find((one) => one.title.startsWith("Cache the manifest"))!;
-  expect(areas(`job:${cache.id}`)).toEqual(["crates/fleet"]);
-  expect(areas("session:f1")).toEqual(["apps/desktop"]);
+  // A Session's paths that were already relative: two files in two areas.
+  expect(areas("session:f1")).toEqual(["apps/desktop", "crates/fleet"]);
   // Pocket's Session wrote under its own bay, in another repository.
   expect(areas("session:k1")).toEqual(["src/sw"]);
   // Migration notes only read.
@@ -68,7 +65,8 @@ test("the bays' history is the slot events: two rows where a holder was given ba
   const armada = slots[0]!.manifest_id;
   expect(history(armada, 1)).toHaveLength(2);
   expect(history(armada, 1)[1]).toEqual(["01SESSIONRELEASENOTES0001", "given back"]);
-  expect(history(armada, 2)).toHaveLength(2);
+  // The asking Session holds bay 2, leased and not given back.
+  expect(history(armada, 2)).toEqual([["q1", "held"]]);
   // Free, and closed: no event, no history, and before now they are unknown rather than free.
   expect(history(armada, 5)).toEqual([]);
   const free = slotAt(armada, 5);

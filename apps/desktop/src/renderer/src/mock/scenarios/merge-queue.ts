@@ -5,7 +5,7 @@
 
 import type { MergeLine } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { review } from "@armada/jobs/fixtures/build/index";
+import { review } from "@armada/screens/src/fixtures/build/index";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { asRow } from "../holding";

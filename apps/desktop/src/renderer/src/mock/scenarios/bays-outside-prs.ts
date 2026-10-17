@@ -6,7 +6,7 @@
 import type { MergeLines } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
-import { review } from "@armada/jobs/fixtures/build/index";
+import { review } from "@armada/screens/src/fixtures/build/index";
 
 import { asRow } from "../holding";
 import type { Scenario } from "../moment";
@@ -96,7 +96,7 @@ function build(): Scenario {
     state: { ...base.state, jobs, mergeLines: withOutside(base.state.mergeLines!) },
     reads: { ...base.reads, [asking.job.id]: asking },
     later: [],
-    draft: { ...base.draft!, sessions: (control) => sessionsStore([none, none], none, [], control, [], sessions) },
+    draft: { ...base.draft!, sessions: (control) => sessionsStore([none, none], none, control, [], sessions) },
   };
 }
 

@@ -13,10 +13,9 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    ManifestCheckLog, ManifestCheckRow, SessionCheckAct, SessionCheckAnswer, SessionCheckCall,
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall,
     SessionCheckState, SessionCheckStop, WireError,
 };
-use store::KeptSessionCheck;
 
 use crate::check_output::{windowed, A_READING, MOST};
 use crate::daemon::Fleet;
@@ -29,33 +28,6 @@ const NO_SUCH_RUN: &str = "fleet.session_check_unknown";
 const NOT_RUNNING: &str = "fleet.session_check_not_running";
 /// A call that cannot be a run's start or end.
 const UNNAMED: &str = "fleet.session_check_unnamed";
-
-/// The Checks page's rows for these runs: no Job, the Session in its place.
-pub(crate) fn rows_of(runs: &[KeptSessionCheck]) -> Vec<ManifestCheckRow> {
-    runs.iter()
-        .map(|run| ManifestCheckRow {
-            source: ipc::SOURCE_ASKED_RUN.to_string(),
-            requester: ipc::Requester::session(&run.session_id, run.slot),
-            job_id: None,
-            job_handle: None,
-            job_title: None,
-            step: None,
-            session_id: Some(run.session_id.clone()),
-            attempt: 1,
-            group: None,
-            name: run.name.clone(),
-            state: run.state.clone(),
-            started_at: Some(ipc::Instant::carried(&run.started_at)),
-            ended_at: run.ended_at.as_deref().map(ipc::Instant::carried),
-            took_ms: run.took_ms,
-            logs: vec![ManifestCheckLog {
-                check: run.name.clone(),
-                kept: format!("session.{}.{}.log", run.session_id, run.id),
-            }],
-            asked_run_id: Some(run.id),
-        })
-        .collect()
-}
 
 /// The tail of `log` that fits one read, cut at a character.
 fn tail(log: &str) -> &str {
@@ -301,17 +273,4 @@ where
         Ok(SessionCheckAnswer { run: Some(run), stop })
     }
 
-    /// The Sessions' runs for the Checks page, narrowed to the named repository's.
-    pub(crate) async fn session_check_rows(
-        &self,
-        manifest: Option<&str>,
-    ) -> Result<Vec<ManifestCheckRow>, Refusal> {
-        let runs = self
-            .store()
-            .lock()
-            .await
-            .session_checks(manifest, ipc::ManifestChecks::MOST as u32)
-            .map_err(|why| self.ledger_fault(why))?;
-        Ok(rows_of(&runs))
-    }
 }

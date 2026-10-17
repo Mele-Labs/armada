@@ -514,11 +514,12 @@ Rules that follow:
 - **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.
+- **Several names are one run**: `armada check test a b c` puts them into `{}` as one alternation and compiles every member that holds any of them, with one Check slot and one row in a Session's thread. One name no member declares refuses the whole run. Decided 17 Oct 2026, after a Session's agent ran `armada check test <name>` once per name for ten minutes, a build and a queue turn each, at machine load 20.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` drops it for the reason it drops `narrow`.
 
 ### Confirming a red
 
-**Before a red Check at the gate is ruled against the step, Fleet asks whether it is the work's or the machine's.** Each failing test runs alone by `one_test`, one at a time; where every one passes, the whole Check runs again alone and the step is ruled on that run. `crates/fleet/src/confirming.rs`.
+**Before a red Check at the gate is ruled against the step, Fleet asks whether it is the work's or the machine's.** Each failing test runs alone by `one_test`, one at a time; where every one passes, the whole Check runs again alone and the step is ruled on that run. The `confirming` module (deleted since).
 
 Decided 3 Oct 2026, from Job 3 (`3-make-branch-inputs-searchable-comboboxes-w`). Its `implement` step failed `desktop_test` on all three attempts with 41 to 45 failing tests each, every one a timeout, a different set each time, in files its diff never touched, and the Job stopped out of retries over work that was fine. The gate then ran a step's Checks up to `checks-at-once` at a time (one at a time since 4 Oct, under *How many Checks run at once*), and that `desktop_test` ran beside the step's own `components_test` and full Rust `test`: 376 s against the merge line's 59 s in the same minutes. Its failing tests passed alone, and plain `main` failed the same way under the same load. Nothing told a red the gate's own contention made from a regression, so each was handed to the Drone as its own.
 
@@ -612,7 +613,7 @@ evidence:
 
 ### One run, in the Job's own worktree
 
-Fleet runs `run` once, against the Job's own worktree, and reads `frames` after — there is no comparison against a checkout of the base commit. An earlier design served the base and shot the same spec at it so a reviewer saw before and after, but the pairing only worked where Armada could serve the old code on a port, which ruled out exactly the repositories `serve` and `ready` are now optional for. That code stays on `main` — `crates/fleet/src/basing.rs`, and the base-run method `crates/fleet/src/showing.rs` no longer calls — reachable by nothing, so it returns once something can tell `run` which tree it is aimed at, which is a design of its own.
+Fleet runs `run` once, against the Job's own worktree, and reads `frames` after — there is no comparison against a checkout of the base commit. An earlier design served the base and shot the same spec at it so a reviewer saw before and after, but the pairing only worked where Armada could serve the old code on a port, which ruled out exactly the repositories `serve` and `ready` are now optional for. That code stays on `main` — `crates/fleet/src/basing.rs`, and the base-run method the `showing` module (deleted since) no longer calls — reachable by nothing, so it returns once something can tell `run` which tree it is aimed at, which is a design of its own.
 
 **A spec captures and never compares.** `run` writes frames into the directory `frames` names and Fleet is what keeps them. A spec that reaches instead for its own runner's snapshot comparison — Playwright's `toHaveScreenshot()` and its kin — keeps baselines of its own and fails on a first run and on any difference, which answers a different question than the one a step whose evidence is what it looks like asks.
 

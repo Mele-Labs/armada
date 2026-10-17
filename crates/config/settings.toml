@@ -763,23 +763,6 @@ notes = """
 Helm sits outside hard budget gating (visibility only); this sets the usage level at which a soft warning surfaces. Decided with the owner 13 Sep 2026 (`#943`): stays unset and unread until a value is chosen. Cost shows on each reply instead, which is what a person reads today in place of a threshold crossing.
 """
 
-[settings.helm-session-retention-expiry]
-name = "Helm session retention / expiry"
-scope = "Machine"
-default = "30 days"
-lifetime = "Daemon start"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet, store"
-notes = """
-**Since 13 Oct 2026 this sweeps a Job's Commander conversation alone**: a repository's Helm Session is a hosted Session and stays until Start fresh (`docs/concepts/helm.md`). Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
-
-Read from `#943`: resolved once at daemon start (`retention.helmSessionDays` in settings.json, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
-
-**The value lives in settings.json under `retention.helmSessionDays`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
 [settings.job-detail-where-things-are-open]
 name = "Job detail: Where things are open"
 scope = "Machine"
@@ -1073,27 +1056,6 @@ The model is a stronger writer, and the prompt does the rest: it names no cause 
 Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and above the Judge's. The call goes through the Judge's client and budget, so it counts against nothing: an unwatched call emits no cost readout, which is why judge-cost-cap-per-check is open, and it is not part of a Job's spend. It is one call per Job that had a Drone, made after the Job ended, so no Job waits on it.
 
 **The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
-"""
-
-[settings.commander-model]
-name = "Commander model"
-scope = "Machine"
-default = "opus"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "Member of the Kit set"
-owner = "Fleet"
-read_by = "adapters, fleet"
-notes = """
-DECIDED 12 Oct 2026 (owner): opus. A Job's Commander reads a whole Job and acts on it with nobody watching, so it runs on the strongest tier on the roster and not the Drone's. Its own row rather than a second reading of the default model: a machine that raised the Commander by raising every Drone would pay the raise on every step of every Job, and the Commander is woken only on trouble.
-
-**Effort follows the same pattern**, in `effort.commander` beside it. A Job may name its own model and its own effort, and the Job's value wins over the Machine's; the per-Job override is carried on the Job and not here.
-
-**Its spend is the Job's and not the Job's cap's.** What a Commander turn costs is recorded against the Job and shown in its cost, and it is never counted against the Job's cost cap: a cap that a Commander's own thinking could spend would stop the agent that raises it. `docs/concepts/commander.md`.
-
-Overridden by ARMADA_COMMANDER_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and to its strongest end.
-
-**The value lives in settings.json under `models.commander`** (live; `ARMADA_COMMANDER_MODEL` still wins).
 """
 
 [settings.plan-downshift-line]

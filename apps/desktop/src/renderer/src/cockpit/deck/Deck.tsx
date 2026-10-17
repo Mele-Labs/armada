@@ -1,17 +1,18 @@
-// The Cockpit as a flight deck. A left column of the repository and every Job and Session with the feed under it; a stage
-// that is the timeline until something is picked and then that thing (a Job's canvas, a Session's thread, a bay, a pull
+// The Cockpit as a flight deck. A left column of the repository and every Session with the feed under it; a stage
+// that is the timeline until something is picked and then that thing (a Session's thread, a bay, a pull
 // request, a call, Autopilot's lane); the merge queue under it; the bays and the incoming calls on the right; and along the
 // foot the flight controls and Autopilot. Esc returns the stage to what it was. The state is held in `store.ts`, so the top bar,
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
+import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, Trash2, Unplug, UserCheck, type LucideIcon } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
-import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
-import { age, useCursor, type Item } from "../../Dashboard";
+import { age, type Item } from "../../Dashboard";
+import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { slotTroubleOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
@@ -36,7 +37,7 @@ import { Bays } from "./BayRows";
 import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
 import { CallCard, SubjectCard } from "./inspect-cards";
-import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
+import { glyphOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
@@ -44,8 +45,8 @@ import { useCollapse } from "./collapse";
 import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
-import { JobMission, MapView } from "./MapPane";
-import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
+import { MapView } from "./MapPane";
+import { CallPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
@@ -56,8 +57,8 @@ import type { Found } from "./find";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
-import { useShip, type Pr, type Ship, type Subject } from "./ship";
+import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
 import "./deck.css";
@@ -73,7 +74,6 @@ const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => pro
 
 /** The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue, as the title row's picker does. */
 function RepositoryScope({ props }: { props: CockpitProps }) {
-  const [recent] = useRecentRepositories();
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
   const add = props.onAddRepository;
@@ -81,18 +81,11 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   return (
     <div className="deck-scope">
       {repositories.length === 0 || pick === undefined ? null : (
-        <DropdownMenu
-          align="start"
-          portal
-          triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
-          triggerAriaLabel="Repository"
-          searchLabel={FIND_A_REPOSITORY}
-          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", add: add !== undefined, recent })}
-          onSelect={(chosen) => {
-            if (chosen === ADD) return add?.();
-            const root = rootOf(chosen);
-            pick(root === ALL ? null : root);
-          }}
+        <RepositoryCombobox
+          repositories={repositories}
+          picked={props.picked}
+          onPick={(root) => pick(root)}
+          onAdd={add}
         />
       )}
       {props.onGoTo === undefined ? null : (
@@ -106,12 +99,11 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   );
 }
 
-/** Where a Session or Job is in its build, as the one glyph of its phase. A Session with no build and a Job with no plan have an empty cell. */
-function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[] }) {
+/** Where a Session is in its build, as the one glyph of its phase. A Session with no build has an empty cell. */
+function Phase({ subject, builds }: { subject: Subject; builds: ReadonlyMap<string, BuildIn> }) {
   const build = subject.kind === "session" ? builds.get(subject.key) : undefined;
-  const phase = subject.kind === "job" ? jobPhaseOf(jobs.find((one) => one.id === subject.id)?.tasks) : undefined;
-  const Glyph = build !== undefined ? glyphOf(build) : phase === undefined ? undefined : PHASE_GLYPH[phase];
-  const word = build !== undefined ? wordOf(build) : phase === undefined ? undefined : PHASE_WORD[phase];
+  const Glyph = build !== undefined ? glyphOf(build) : undefined;
+  const word = build !== undefined ? wordOf(build) : undefined;
   if (Glyph === undefined || word === undefined) return <span className="deck-row__phase" />;
   return (
     <Tooltip label={word}>
@@ -224,6 +216,9 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   );
 }
 
+/** What a linked Session's link glyph is called: the plan group it was handed, where it was. */
+const linkedSaid = (linked: { group?: string }) => (linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${linked.group}`);
+
 /** What each thing a Session waits on is called, by the item's source. */
 const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
 
@@ -234,7 +229,7 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-function List({ subjects, calling, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
+function List({ subjects, calling, banding, selected, builds, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
@@ -243,9 +238,7 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   const row = (one: Subject) => {
-    const Kind = one.kind === "job" ? Box : one.linked !== undefined ? Link : SquareTerminal;
-    const kindSaid = one.kind === "job" ? "Job" : one.linked !== undefined ? (one.linked.group === undefined ? "Linked Session" : `Linked Session, handed from ${one.linked.group}`) : "Session";
-    const quiet = one.since ?? one.step?.label ?? "";
+    const quiet = one.since ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
     const hit = found?.get(one.key);
@@ -254,13 +247,23 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
     return (
       <li key={one.key} className="deck-list__item">
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
-          <Tooltip label={kindSaid}>
-            <span className="deck-row__kind" role="img" aria-label={kindSaid}>
-              <Kind size={14} aria-hidden="true" />
-            </span>
-          </Tooltip>
-          <span className="deck-row__title">{one.title}</span>
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
+          <span className="deck-row__title">
+            {one.linked === undefined ? null : (
+              <Tooltip label={linkedSaid(one.linked)}>
+                <span className="deck-row__link" role="img" aria-label={linkedSaid(one.linked)}>
+                  <Link size={12} aria-hidden="true" />
+                </span>
+              </Tooltip>
+            )}
+            {one.title}
+          </span>
+          <span className="deck-row__marks">
+            <span className="deck-row__clash-slot" aria-hidden="true" />
+            <Phase subject={one} builds={builds} />
+            <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
+          </span>
+          <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
           {hit === undefined || hit.short === "" ? (
             <span className="deck-row__said">{said}</span>
           ) : (
@@ -270,11 +273,13 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
               </span>
             </Tooltip>
           )}
-          <Phase subject={one} builds={builds} jobs={jobs} />
-          <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
         </Inspect>
-        {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+        {one.kind === "pr" ? null : (
+          <span className="deck-row__clash">
+            <ClashMark kind={one.kind} id={one.id} />
+          </span>
+        )}
       </li>
     );
   };
@@ -330,7 +335,6 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
  * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
  */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
-  const only = useDeck((deck) => deck.only);
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);
   const sel = useDeck((deck) => deck.sel);
@@ -339,11 +343,11 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const scope = useDeck((deck) => deck.scope);
   const query = useDeck((deck) => deck.query);
-  const keep = useMemo(() => keepOf(listed, { only, needs, checks, scope, query }), [listed, only, needs, checks, scope, query]);
+  const keep = useMemo(() => keepOf(listed, { needs, checks, scope, query }), [listed, needs, checks, scope, query]);
   // The event held lit: the one picked, or the one the playhead has last passed. Its column is marked.
   const events = useFleetEvents();
-  // A Job or Session open on the stage is the only one the graph tells of.
-  const open = sel?.kind === "job" || sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind) : undefined;
+  // A Session open on the stage is the only one the graph tells of.
+  const open = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind) : undefined;
   const of = useMemo(() => (open === undefined || open.kind === "pr" ? undefined : { kind: open.kind, id: open.id }), [open?.kind, open?.id]);
   const lit = useMemo(() => {
     if (replay === undefined) return focus;
@@ -355,7 +359,6 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
       <header className="deck-band">Activity</header>
       <ActivityGraph
         now={props.now}
-        jobs={props.state.jobs}
         views={views}
         filter="running"
         keep={keep as never}
@@ -372,12 +375,11 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
 /** The timeline, the stage's rest. It keeps the same filters as the list. */
 function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
   const views = useMemo(() => viewsOf(props.state), [props.state]);
-  const only = useDeck((deck) => deck.only);
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);
   const scope = useDeck((deck) => deck.scope);
   const query = useDeck((deck) => deck.query);
-  const keep = useMemo(() => keepOf(listed, { only, needs, checks, scope, query }), [listed, only, needs, checks, scope, query]);
+  const keep = useMemo(() => keepOf(listed, { needs, checks, scope, query }), [listed, needs, checks, scope, query]);
   const pick = (key: string) => {
     const subject = ship.subjects.find((one) => one.key === key);
     if (subject !== undefined && subject.kind !== "pr") select(selOfSubject(subject));
@@ -391,12 +393,10 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
       <div className="deck-timeline">
         <Timeline
           now={props.now}
-          jobs={props.state.jobs}
           views={views}
           filter="running"
           recessed={false}
           keep={keep as never}
-          onOpenJob={(id) => pick(`job:${id}`)}
           onOpenSession={(id) => pick(`session:${id}`)}
           onOpenLink={(address) => {
             const pr = ship.prs.find((one) => one.url === address);
@@ -418,27 +418,22 @@ function useBayViews(props: CockpitProps) {
 
 function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null; hosts: Hosts | undefined }) {
   const sel = useDeck((deck) => deck.sel);
-  const held = useDeck((deck) => deck.held);
   const view = useDeck((deck) => deck.view);
-  const acts = useShipActs(props, { onMergeJob: props.onMergeJob });
+  const acts = useShipActs(props);
   const subject = sel === undefined ? undefined : ship.subjects.find((one) => one.key === sel.key && one.kind !== "pr");
   const slot = sel?.kind === "slot" ? slotsOf(props).find((one) => slotKey(one) === sel.key) : undefined;
   const bays = useBayViews(props);
   const pr = sel?.kind === "pr" ? ship.prs.find((one) => one.key === sel.key) : undefined;
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
-  // What was picked is gone (a Job ended, a call was answered elsewhere): back to the timeline.
+  // What was picked is gone (a Session ended, a call was answered elsewhere): back to the timeline.
   const lane = sel?.kind === "autopilot";
   const gone = sel !== undefined && !lane && subject === undefined && slot === undefined && pr === undefined && call === undefined;
   useEffect(() => {
     if (gone) select(undefined);
   }, [gone]);
-  const onPr = (one: Pr) => select(selOfPr(one));
   // A move makes its Session a moment before it opens it, so the ship is read as it stands then and not as it stood when pressed.
   const latest = useRef(ship);
   latest.current = ship;
-  const owed = subject === undefined ? undefined : callOfSubject(subject, held);
-  const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
-  if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   // A Session this ship does not hold opens on its own page, as a link to one does.
   const openSession = (id: string) => {
     const held = latest.current.subjects.find((one) => one.kind === "session" && one.id === id);
@@ -457,14 +452,14 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 
 // ---- The merge queue ----------------------------------------------------------------------------------
 
-/** The repository a Job, a Session, a pull request or a bay open on the stage belongs to, by the root its line is served under. */
+/** The repository a Session, a pull request or a bay open on the stage belongs to, by the root its line is served under. */
 function queueRootOf(sel: DeckState["sel"], ship: Ship, repositories: readonly RepositorySummary[]): string | undefined {
   if (sel?.kind === "slot") {
     const manifest = sel.key.slice("slot:".length, sel.key.lastIndexOf("/"));
     return repositories.find((one) => one.manifest?.id === manifest)?.root;
   }
   if (sel?.kind === "pr") return ship.prs.find((one) => one.key === sel.key)?.root;
-  if (sel?.kind === "job" || sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
+  if (sel?.kind === "session") return ship.subjects.find((one) => one.key === sel.key && one.kind === sel.kind)?.root;
   return undefined;
 }
 
@@ -480,7 +475,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (served.length === 0 || !shown) return null;
-  // On All with several repositories served, the queue is the open Job's, Session's or pull request's repository, and nobody's with none.
+  // On All with several repositories served, the queue is the open Session's or pull request's repository, and nobody's with none.
   const wide = props.picked === null && served.length > 1;
   const root = wide ? queueRootOf(sel, ship, props.state.holds.repositories ?? []) : undefined;
   const views = wide ? served.filter((view) => view.root === root) : served;
@@ -513,7 +508,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   const forge = forgeOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
   const quiet = quietSaid(forge, views.length > 1);
   const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
-  // While a Session is open its pull requests are framed in the line; with none open, or a Job or a pull request, none are.
+  // While a Session is open its pull requests are framed in the line; with none open, or a pull request, none are.
   const viewed = sel?.kind === "session" ? sessions.find((one) => `session:${one.id}` === sel.key) : undefined;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
     const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
@@ -553,7 +548,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
   const marks = views.flatMap((view, at) => {
-    const dots = dotsOf(view, props.state.mergeLines, views, sessions);
+    const dots = dotsOf(view, props.state.mergeLines, sessions);
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
     const open = dots.filter((dot) => !dot.queued);
     return [
@@ -610,7 +605,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 
 // ---- The right column, and the foot -------------------------------------------------------------------
 
-/** A Job or Session picked in the list narrows the bays to those it holds, or held last where stranded. Nothing picked, every bay. */
+/** A Session picked in the list narrows the bays to those it holds, or held last where stranded. Nothing picked, every bay. */
 function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; ship: Ship; selected: string | undefined; picked: string | undefined }) {
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
@@ -634,13 +629,11 @@ function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) 
   );
 }
 
-type Deck = Pick<DeckState, "only" | "checks" | "needs" | "sel" | "view">;
-type Tile = { label: string; tip?: string; text: string; Glyph: typeof Box; pressed: (deck: Deck) => boolean; press: () => void };
+type Deck = Pick<DeckState, "checks" | "needs" | "sel" | "view">;
+type Tile = { label: string; tip?: string; text: string; Glyph: LucideIcon; pressed: (deck: Deck) => boolean; press: () => void };
 
-/** The six tiles in the order their keys, `1` to `6`, press them. Jobs only, Sessions only, Checks and Calls are plain filters; Map and Timeline are the stage's one switch. */
+/** The four tiles in the order their keys, `1` to `4`, press them. Checks and Calls are plain filters; Map and Timeline are the stage's one switch. */
 export const TILES: readonly Tile[] = [
-  { label: "Jobs only", text: "Jobs", Glyph: Box, pressed: (deck) => deck.only === "jobs", press: () => toggleOnly("jobs") },
-  { label: "Sessions only", text: "Sessions", Glyph: SquareTerminal, pressed: (deck) => deck.only === "sessions", press: () => toggleOnly("sessions") },
   { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, pressed: (deck) => deck.checks, press: toggleChecks },
   { label: "Needs me", text: "Calls", Glyph: Megaphone, pressed: (deck) => deck.needs, press: toggleNeeds },
   { label: "Map", text: "Map", Glyph: Orbit, pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
@@ -648,17 +641,16 @@ export const TILES: readonly Tile[] = [
 ];
 
 /**
- * The four filters and the view switch: one row of six equal tiles. **While a Session is open on the stage they are that
- * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
+ * The two filters and the view switch: one row of four equal tiles. **While a Session is open on the stage they are that
+ * Session's** (`SessionTiles`), in the same block and under the same keys, and the four return when it closes.
  */
 function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const folded = useCollapse("controls");
-  const only = useDeck((deck) => deck.only);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
   const sel = useDeck((deck) => deck.sel);
   const view = useDeck((deck) => deck.view);
-  const deck: Deck = { only, checks, needs, sel, view };
+  const deck: Deck = { checks, needs, sel, view };
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const open = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === "session") : undefined;
@@ -802,7 +794,7 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   );
 }
 
-function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
+function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpenSession"> }) {
   const folded = useCollapse("calls");
   return (
     <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
@@ -868,17 +860,6 @@ function AutopilotAsked({ control }: { control: ReturnType<typeof useAutopilotLa
   return null;
 }
 
-/** Helm's footer reads the Job the cursor is on. Apart from the body, which the cursor's every move would draw. */
-function CursorJob({ listed, jobs, onCursor }: { listed: readonly Subject[]; jobs: CockpitProps["state"]["jobs"]; onCursor: CockpitProps["onCursor"] }) {
-  const cursor = useDeck((deck) => deck.cursor);
-  const job = useMemo(() => {
-    const at = listed.find((one) => one.key === cursor);
-    return at?.kind === "job" ? jobs.find((one) => one.id === at.id) : undefined;
-  }, [listed, cursor, jobs]);
-  useCursor(job, onCursor);
-  return null;
-}
-
 /** The replay's driver and its keys, apart from the body: they read the events by a five-second clock, and the body is handed the minute. */
 function ReplayHost({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const replaying = useDeck((deck) => deck.replay !== undefined);
@@ -924,7 +905,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
   const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
-  const { listed, found } = useListed(ship, props.state.jobs, banding);
+  const { listed, found } = useListed(ship, banding);
   // The selected Session's own calls are cards in its thread, so Incoming calls leaves them out and nothing shows twice.
   const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
@@ -950,13 +931,12 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
-    <CursorJob listed={listed} jobs={props.state.jobs} onCursor={props.onCursor} />
     <AutopilotAsked control={autopilot.control} />
     <div ref={deckMarks} className="armada-cockpit deck">
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
+          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
           {unified ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
@@ -980,7 +960,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
             </>
-          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} />}
+          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "session" ? selected : undefined} />}
           {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>
         {splits}

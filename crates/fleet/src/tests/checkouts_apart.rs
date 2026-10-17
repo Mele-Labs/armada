@@ -10,7 +10,7 @@ use axum::http::StatusCode;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
-use crate::gate::CheckBudget;
+use crate::CheckBudget;
 use crate::ports::PortRange;
 use crate::repositories::{Located, Served, SetUp};
 use crate::tests::daemon::fittings;

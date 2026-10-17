@@ -15,12 +15,10 @@
 //! below are a pair of statuses handed to it.
 
 mod gating;
-mod killing;
-mod proposing;
 mod recovering;
 
 use ipc::{
-    ChangesRequested, JobExamined, JobForgotten, JobId, JobSummary, ProposeJob, Redispatched,
+    JobForgotten, JobId, JobSummary,
     WorktreeReclaimed,
 };
 
@@ -28,32 +26,7 @@ use super::FakeDaemon;
 use crate::{Commands, Refusal};
 
 impl FakeDaemon {
-    /// The Job with its pause marker set or lifted, **status untouched**, as a
-    /// gate Job's is.
-    fn pause_marked(&self, job_id: &JobId, paused: bool) -> Result<JobSummary, Refusal> {
-        let mut jobs = self.jobs.lock().expect("not poisoned");
-        let job = jobs
-            .iter_mut()
-            .find(|job| job.id == *job_id)
-            .ok_or_else(|| self.no_such_job(job_id))?;
-        job.paused = paused.then(|| ipc::Paused {
-            by: String::from("person"),
-            at: ipc::Instant::carried("2026-10-06T09:00:00.000Z"),
-            resuming: false,
-            until: None,
-        });
-        Ok(job.clone())
-    }
 
-    /// The Job as it stands, or the 404 every fake command gives an id that
-    /// names nothing.
-    fn unmoved(&self, job_id: &JobId) -> Result<JobSummary, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        jobs.iter()
-            .find(|job| job.id == *job_id)
-            .cloned()
-            .ok_or_else(|| self.no_such_job(job_id))
-    }
 
     fn no_such_workspace(&self, dir: &str) -> Refusal {
         let said = format!("the fake holds no proposal for `{dir}`");
@@ -66,183 +39,6 @@ impl FakeDaemon {
 }
 
 impl Commands for FakeDaemon {
-    async fn propose_from_request(
-        self: std::sync::Arc<Self>,
-        request: ipc::JobRequest,
-        _manifest_id: Option<ipc::ManifestId>,
-        by: crate::Redirector,
-    ) -> Result<ipc::ProposedPlan, Refusal> {
-        self.fake_propose_from_request(request, by).await
-    }
-    async fn propose_job(
-        self: std::sync::Arc<Self>,
-        proposal: ProposeJob,
-        by: crate::Redirector,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_propose_job(proposal, by).await
-    }
-    async fn stop_proposal(
-        &self,
-        _proposal_id: ipc::ProposalId,
-    ) -> Result<ipc::ProposalStopped, Refusal> {
-        self.fake_stop_proposal(_proposal_id).await
-    }
-    async fn examine_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobExamined, Refusal> {
-        self.fake_examine_job(job_id).await
-    }
-    async fn approve_dispatch(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _left: Option<ipc::ApproveDispatch>,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_approve_dispatch(job_id).await
-    }
-    async fn edit_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _edit: ipc::EditJob,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn approve_wave(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _wave: ipc::ApproveWave,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn approve_review(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_approve_review(job_id).await
-    }
-    async fn merge_pull_request(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.fake_merge_pull_request(job_id).await
-    }
-    async fn enable_job_auto_merge(&self, job_id: JobId) -> Result<ipc::PullRequestState, Refusal> {
-        self.unmoved(&job_id)?;
-        Ok(ipc::PullRequestState {
-            manifest_id: ipc::ManifestId::carried("fake".to_string()),
-            number: 1,
-            state: ipc::PullRequestStanding::Open,
-            auto_merge: true,
-            queued: false,
-            checks: ipc::ForgeChecks::Pending,
-            title: "A pull request".to_string(),
-            branch: "fake/branch".to_string(),
-            address: "https://forge.invalid/armada/pull/1".to_string(),
-            body: None,
-        })
-    }
-    async fn rerun_failed_checks(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn investigate_failed_checks(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn queue_after_finding(
-        &self,
-        job_id: JobId,
-        _queued: ipc::FindingQueued,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn file_finding_issue(
-        &self,
-        job_id: JobId,
-        _filed: ipc::IssueFiled,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn request_changes(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        note: ChangesRequested,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_request_changes(job_id, note).await
-    }
-    async fn take_up_remarks(
-        &self,
-        job_id: JobId,
-        picked: ipc::RemarksTakenUp,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_take_up_remarks(job_id, picked).await
-    }
-    async fn dismiss_finding(
-        &self,
-        job_id: JobId,
-        dismissed: ipc::FindingDismissed,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_dismiss_finding(job_id, dismissed).await
-    }
-    /// Keeps nothing: answers with the one note just captured, so a route test
-    /// can read the shape back. A real Fleet's keeping is `fleet`'s to test.
-    async fn capture_walk_note(
-        &self,
-        job_id: JobId,
-        capture: ipc::CaptureWalkNote,
-    ) -> Result<ipc::WalkNotes, Refusal> {
-        self.unmoved(&job_id)?;
-        Ok(ipc::WalkNotes {
-            notes: vec![ipc::WalkNote {
-                id: "01WALKNOTE".to_string(),
-                said: capture.said,
-                at: ipc::Instant::carried("2026-10-04T10:00:00.000Z"),
-                element: capture.capture.element.tag,
-                selector: capture.capture.selector,
-                location: capture.capture.location,
-                served: capture.capture.served,
-                frame: None,
-                sent: false,
-            }],
-        })
-    }
-    async fn remove_walk_note(
-        &self,
-        job_id: JobId,
-        _remove: ipc::RemoveWalkNote,
-    ) -> Result<ipc::WalkNotes, Refusal> {
-        self.unmoved(&job_id)?;
-        Ok(ipc::WalkNotes { notes: Vec::new() })
-    }
-    async fn walk_failed(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _failed: ipc::WalkFailed,
-    ) -> Result<ipc::WalkTold, Refusal> {
-        self.unmoved(&job_id)?;
-        Ok(ipc::WalkTold { told: true })
-    }
-    async fn reject_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.fake_reject_job(job_id).await
-    }
-    async fn override_verdict(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        overruling: ipc::Overruled,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_override_verdict(job_id, overruling).await
-    }
-    async fn rerun_gate(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.fake_rerun_gate(job_id).await
-    }
-    async fn rerun_checks(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_rerun_checks(job_id).await
-    }
-    async fn show_again(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        picked: Option<String>,
-    ) -> Result<ipc::ShownAgain, Refusal> {
-        self.fake_show_again(job_id, picked).await
-    }
     /// The bytes echoed back as a path so a route test can tell the body
     /// arrived. Nothing is written: what a save does to a file is
     /// `fleet::editing`'s and is tested there against a real one.
@@ -458,22 +254,6 @@ impl Commands for FakeDaemon {
             crate::tests::shapes::run_id(),
         )))
     }
-    async fn raise_cost_cap(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        raise: ipc::CapRaise,
-        by: ipc::RaisedBy,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_raise_cost_cap(job_id, raise, by).await
-    }
-    async fn raise_turn_cap(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        raise: ipc::TurnRaise,
-        by: ipc::RaisedBy,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_raise_turn_cap(job_id, raise, by).await
-    }
     async fn file_report(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -481,24 +261,8 @@ impl Commands for FakeDaemon {
     ) -> Result<ipc::Report, Refusal> {
         self.fake_file_report(job_id, filing).await
     }
-    async fn kill_drone(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.fake_kill_drone(job_id).await
-    }
     async fn kill_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_kill_job(job_id).await
-    }
-    async fn park_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.pause_marked(&job_id, true)
-    }
-    async fn fix_main(
-        self: std::sync::Arc<Self>,
-        fix: ipc::FixMain,
-    ) -> Result<JobSummary, Refusal> {
-        Err(Refusal::IllegalMove(ipc::WireError::raised(
-            "fleet.main_not_red",
-            format!("the fake has no red main at {}", fix.root),
-            crate::tests::shapes::run_id(),
-        )))
     }
     async fn catch_up_checkout(
         &self,
@@ -519,58 +283,6 @@ impl Commands for FakeDaemon {
             format!("the fake holds no checkout for {}", asked.manifest_id.as_str()),
             crate::tests::shapes::run_id(),
         )))
-    }
-    async fn resume_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
-        self.pause_marked(&job_id, false)
-    }
-    async fn kill_process(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        pid: u32,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_kill_process(job_id, pid).await
-    }
-    async fn kill_one_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        drone_id: ipc::DroneId,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_one_drone(job_id, drone_id, true).await
-    }
-    async fn redirect_one_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        drone_id: ipc::DroneId,
-        _instruction: ipc::Redirection,
-        _by: crate::Steerer,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_one_drone(job_id, drone_id, false).await
-    }
-    async fn retry_check(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _named: ipc::CheckNamed,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_check_act(job_id)
-    }
-    async fn skip_check(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _named: ipc::CheckNamed,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_check_act(job_id)
-    }
-    async fn skip_checks(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_check_act(job_id)
-    }
-    async fn kill_processes(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_kill_processes(job_id).await
     }
     async fn forget_job(
         self: std::sync::Arc<Self>,
@@ -612,160 +324,6 @@ impl Commands for FakeDaemon {
         asked: ipc::DeleteBranch,
     ) -> Result<ipc::BranchDeleted, Refusal> {
         self.fake_delete_branch(job_id, asked).await
-    }
-    async fn redirect_drone(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _instruction: ipc::Redirection,
-        by: crate::Steerer,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_redirect_drone(job_id, _instruction, by).await
-    }
-    async fn add_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _add: ipc::AddTask,
-        by: crate::Steerer,
-    ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id, by).await
-    }
-    async fn drop_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _drop: ipc::DropTask,
-        by: crate::Steerer,
-    ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id, by).await
-    }
-    async fn restart_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _task: String,
-        _restart: ipc::RestartTask,
-        by: crate::Steerer,
-    ) -> Result<JobSummary, Refusal> {
-        self.plan_changed_by.lock().expect("not poisoned").push(by);
-        self.fake_restart_step(job_id, None).await
-    }
-    async fn move_plan(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _move_plan: ipc::MovePlan,
-        by: crate::Steerer,
-    ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id, by).await
-    }
-    async fn edit_task(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _task: String,
-        _edit: ipc::EditTask,
-        by: crate::Steerer,
-    ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id, by).await
-    }
-    async fn answer_question(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _answer: ipc::ChosenAnswer,
-    ) -> Result<JobSummary, Refusal> {
-        self.fake_answer_question(job_id, _answer).await
-    }
-    /// The Job back, unmoved: what an answer does is Fleet's slot and store,
-    /// and a router test's question is whether the body arrived.
-    async fn answer_command(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _answer: ipc::AnswerCommand,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_when_blocked(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _setting: ipc::SetWhenBlocked,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn answer_judge(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _answered: ipc::JudgeAnswered,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_when_refused(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _setting: ipc::SetWhenRefused,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _choice: ipc::SetModel,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_review_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _choice: ipc::SetModel,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_commander_model(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _choice: ipc::SetCommanderModel,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn set_tiers(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _tiers: ipc::SetTiers,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn to_proposer(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _note: ipc::ToProposer,
-    ) -> Result<ipc::ProposedPlan, Refusal> {
-        Ok(ipc::ProposedPlan {
-            jobs: vec![self.unmoved(&job_id)?],
-        })
-    }
-    async fn set_landing_target(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _target: ipc::SetLandingTarget,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn remove_allowed_command(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        _removing: ipc::RemoveAllowedCommand,
-    ) -> Result<JobSummary, Refusal> {
-        self.unmoved(&job_id)
-    }
-    async fn restart_step(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        note: Option<ipc::RestartRequested>,
-        by: crate::Steerer,
-    ) -> Result<JobSummary, Refusal> {
-        self.restarted_by.lock().expect("not poisoned").push(by);
-        self.fake_restart_step(job_id, note).await
-    }
-    async fn redispatch_job(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-    ) -> Result<Redispatched, Refusal> {
-        self.fake_redispatch_job(job_id).await
     }
 }
 

@@ -2,7 +2,7 @@
 // as `LedgerEntry` rows that know where each press goes) and from the thread: the files its drones touched, the commits and the commands it ran.
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
-import { Box, GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
+import { GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
 import { ARTIFACT, BACKGROUND, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
@@ -45,7 +45,7 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 };
 
 /** A Session's state as the ledger's marks say it. */
-const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending" };
+const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending" };
 
 /** The other Sessions in the window, for the ones this Session handed a plan group to, and how to open one. */
 export type Beside = { sessions: readonly Session[]; open: (id: string) => void };
@@ -121,11 +121,6 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
         }),
   );
 
-  add(
-    "job",
-    "Jobs",
-    newest(attachmentsOf(session, "job")).map((one) => ({ key: `job:${one.id}`, Glyph: Box, said: "Job", title: `#${one.number} ${one.title}`, sub: one.branch, ...open(entryOf(entries, "job", one.id)) })),
-  );
   add(
     "studio",
     "Studios",

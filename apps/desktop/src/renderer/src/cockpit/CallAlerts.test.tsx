@@ -2,8 +2,7 @@
 // it, and it says nothing for what was already waiting, for what the cockpit is already showing, or for
 // what has been dealt with by the time it would have stood.
 
-import { featureRunning } from "@armada/jobs/fake";
-import type { JobSummary } from "@armada/protocol";
+import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -11,8 +10,8 @@ import { page } from "vitest/browser";
 
 import "../styles/index.css";
 import type { BridgeState } from "../../../shared/bridge";
-import { asRow } from "../mock/holding";
 import { connected } from "../mock/moment";
+import { SessionsFrom } from "../sessions-draft";
 import { ALERT_MS, CallAlerts, settle } from "./CallAlerts";
 import { forgetDismissals } from "./dismissed";
 
@@ -34,19 +33,34 @@ afterEach(() => {
   }
 });
 
-const waiting = (n: number, title: string): JobSummary => {
-  const { reclaimed_at: _cleared, ...job } = { ...asRow(featureRunning(), 90 + n, `alert-${n}`, title).job, status: "awaiting_review" as const };
-  return job as JobSummary;
-};
-const read = (jobs: JobSummary[]): BridgeState => ({ ...connected(jobs, [], []), readAt: Date.now() });
+/** A Session with one question standing on it since `since`. */
+const waiting = (n: number, title: string, since = "2026-10-10T09:00:00Z"): Session =>
+  ({
+    id: `s${n}`,
+    title,
+    turn: { state: "idle" },
+    lastTurnAt: since,
+    rows: [],
+    attachments: [],
+    waitingFor: [{ id: `q${n}`, text: "Which one?", since, source: "agent" }],
+  }) as unknown as Session;
+const read: BridgeState = { ...connected([], [], []), readAt: Date.now() };
 
-function draw(initial: JobSummary[], onShow = vi.fn(), onCockpit = false) {
+function draw(initial: Session[], onShow = vi.fn(), onCockpit = false) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   roots.push({ root, host });
-  const show = (jobs: JobSummary[], atCockpit = onCockpit) =>
-    act(() => root.render(<CallAlerts state={read(jobs)} picked={null} nowViews={undefined} onCockpit={atCockpit} onShow={onShow} />));
+  const show = (sessions: Session[], atCockpit = onCockpit) => {
+    const held = { get: () => sessions, subscribe: () => () => undefined } as unknown as SessionsDraft;
+    return act(() =>
+      root.render(
+        <SessionsFrom held={held}>
+          <CallAlerts state={read} picked={null} onCockpit={atCockpit} onShow={onShow} />
+        </SessionsFrom>,
+      ),
+    );
+  };
   show(initial);
   return { show, onShow };
 }
@@ -55,10 +69,10 @@ const alert = (name: string | RegExp) => page.getByRole("button", { name });
 
 test("a call that comes names itself, and pressing it takes the owner to that call", async () => {
   const { show, onShow } = draw([]);
-  const job = waiting(1, "Fix the login");
-  await show([job]);
+  const session = waiting(1, "Fix the login");
+  await show([session]);
   await alert("“Fix the login” needs you.").click();
-  expect(onShow).toHaveBeenCalledWith(job.id);
+  expect(onShow).toHaveBeenCalledWith("session:s1:q1");
   await expect.poll(() => alert(/needs you/).query()).toBeNull();
 });
 
@@ -70,11 +84,9 @@ test("a call that was already waiting when Bridge read is not news", async () =>
 
 test("several that come together are one alert, landing on the one that has waited longest", async () => {
   const { show, onShow } = draw([]);
-  const first = { ...waiting(1, "First"), started_at: "2026-10-10T09:00:00Z" };
-  const second = { ...waiting(2, "Second"), started_at: "2026-10-10T08:00:00Z" };
-  await show([first, second]);
+  await show([waiting(1, "First", "2026-10-10T09:00:00Z"), waiting(2, "Second", "2026-10-10T08:00:00Z")]);
   await alert("2 calls need you.").click();
-  expect(onShow).toHaveBeenCalledWith(second.id);
+  expect(onShow).toHaveBeenCalledWith("session:s2:q2");
 });
 
 test("says nothing while the cockpit is what is on screen, because its card is already in front", async () => {
@@ -85,15 +97,15 @@ test("says nothing while the cockpit is what is on screen, because its card is a
 
 test("goes when the call is dealt with elsewhere, and when it has stood unpressed long enough", async () => {
   const { show } = draw([]);
-  const job = waiting(1, "Fix the login");
-  await show([job]);
+  const session = waiting(1, "Fix the login");
+  await show([session]);
   await expect.element(alert(/needs you/)).toBeVisible();
   await show([]);
   expect(alert(/needs you/).query()).toBeNull();
 
   vi.useFakeTimers();
-  await show([job]);
-  await show([job, waiting(2, "Tidy the retry cap")]);
+  await show([session]);
+  await show([session, waiting(2, "Tidy the retry cap")]);
   await act(() => vi.advanceTimersByTime(ALERT_MS + 50));
   expect(alert(/needs you/).query()).toBeNull();
 });

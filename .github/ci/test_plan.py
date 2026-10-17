@@ -61,6 +61,16 @@ class Planning(unittest.TestCase):
         self.assertEqual(rows["apps/desktop:typecheck"], "false")
         self.assertEqual(rows["packages/components:storybook"], "true")
 
+    def test_a_quick_plan_runs_what_compiles_and_names_the_rest_for_the_queue(self):
+        answer = plan(KEYS + ["test"], quick=True)
+        self.assertEqual(answer["checks"], ["build", "typecheck", "apps/desktop:typecheck", "apps/desktop:bridge_build"])
+        self.assertEqual([row["key"] for row in answer["matrix"]["include"]], ["apps/desktop:typecheck", "apps/desktop:bridge_build"])
+        self.assertIn("test", answer["queued"])
+        self.assertIn("apps/desktop/unit:desktop_test", answer["queued"])
+
+    def test_a_quick_plan_still_reports_a_key_nothing_runs(self):
+        self.assertEqual(plan(["packages/x:lint"], quick=True)["unrun"], ["packages/x:lint"])
+
 
 if __name__ == "__main__":
     unittest.main()

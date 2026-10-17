@@ -1,7 +1,7 @@
 // A write clash on the flight deck, through `App` on the ship scenario: both parties of a clash carry the mark on their list rows,
-// on their drone, and on the head of a Job's pane, where a Session's pane names the Job in its Write clash bar instead. The mark names the
+// on their drone, and where a Session's pane names the other in its Write clash bar. The mark names the
 // other party and opens it on the deck, and nothing is marked
-// where Fleet reports no clash. The ship holds a Job and a Session in one file, and a Session against a main that moved.
+// where Fleet reports no clash. The ship holds two Sessions in one file, and a Session against a main that moved.
 // Hand-run with the rest of `mock/`.
 
 import { expect, test } from "vitest";
@@ -12,16 +12,16 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const JOB = "Shorten the reconnect wait";
+const ASKING = "Cache key";
 const SESSION = "Fix the reconnect wait";
 const AGAINST_MAIN = "Pin the store clock";
-const QUIET = "Cache the manifest read between dispatches";
+const QUIET = "Changelog script";
 const FILE = "apps/desktop/src/renderer/src/cockpit/reconnect.ts";
 const MAIN_SAID = "Conflicts with main · crates/store/tests/clock.rs";
 
 const list = () => page.getByRole("region", { name: "Work", exact: true });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
-const pane = (kind: "Job" | "Session", title: string) => page.getByRole("region", { name: `${kind}: ${title}` });
+const pane = (title: string) => page.getByRole("region", { name: `Session: ${title}` });
 
 /** The marks beside a row's button, the one named by its title. */
 const rowMarks = (title: string) =>
@@ -50,19 +50,25 @@ async function map(scenario: Parameters<typeof mount>[0] = ship) {
 
 test("a row of each party to a clash carries the mark, and the mark names the other party and opens it", async () => {
   await deck();
-  expect(said(rowMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
-  expect(said(rowMarks(SESSION))).toEqual([`Conflicts with ${JOB} · ${FILE}`]);
+  expect(said(rowMarks(ASKING))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
+  expect(said(rowMarks(SESSION))).toEqual([`Conflicts with ${ASKING} · ${FILE}`]);
 
-  // Pressed on the Job's row it opens the Session on the deck, whose Write clash bar names the Job. The bar is a line of chips while it is
-  // folded, and the chip for the Job opens the Job's pane.
-  rowMarks(JOB)[0]!.click();
-  await expect.element(pane("Session", SESSION)).toBeVisible();
-  const bar = pane("Session", SESSION).getByRole("region", { name: "Write clash" });
-  await expect.element(bar).toHaveTextContent(JOB);
-  // The first is the chip: the closed list of clashes under the chips names the Job again.
-  await bar.getByRole("button", { name: `Open ${JOB}` }).first().click();
-  await expect.element(pane("Job", JOB)).toBeVisible();
-  expect(said(headMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
+  // Pressed on one's row it opens the other on the deck, whose Write clash bar names the first. The bar is a line of chips while it is
+  // folded, and the chip opens that Session's pane.
+  rowMarks(ASKING)[0]!.click();
+  await expect.element(pane(SESSION)).toBeVisible();
+  const bar = pane(SESSION).getByRole("region", { name: "Write clash" });
+  await expect.element(bar).toHaveTextContent(ASKING);
+  // The first is the chip: the closed list of clashes under the chips names it again.
+  await bar.getByRole("button", { name: `Open ${ASKING}` }).first().click();
+  await expect.element(pane(ASKING)).toBeVisible();
+});
+
+test("a marked row keeps the list's width, less the mark", async () => {
+  await deck();
+  const width = (title: string) => document.querySelector(`.deck-list .deck-row[aria-label="${title}"]`)!.getBoundingClientRect().width;
+  // Only the mark and its gap come off: the mark's own wrapper does not take a share of the row.
+  expect(width(QUIET) - width(SESSION)).toBeLessThan(32);
 });
 
 test("a clash against main marks the one party, as a picture with nothing to open", async () => {
@@ -75,12 +81,12 @@ test("a clash against main marks the one party, as a picture with nothing to ope
 
 test("a drone of each party carries it, and pressing it opens the other party", async () => {
   await map();
-  expect(said(droneMarks(JOB))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
-  expect(said(droneMarks(SESSION))).toEqual([`Conflicts with ${JOB} · ${FILE}`]);
+  expect(said(droneMarks(ASKING))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
+  expect(said(droneMarks(SESSION))).toEqual([`Conflicts with ${ASKING} · ${FILE}`]);
   expect(said(droneMarks(AGAINST_MAIN))).toEqual([MAIN_SAID]);
 
-  droneMarks(JOB)[0]!.click();
-  await expect.element(pane("Session", SESSION)).toBeVisible();
+  droneMarks(ASKING)[0]!.click();
+  await expect.element(pane(SESSION)).toBeVisible();
 });
 
 test("no mark where no clash is reported", async () => {
@@ -89,10 +95,10 @@ test("no mark where no clash is reported", async () => {
   const marked = [...document.querySelectorAll(".deck-list .deck-row")]
     .filter((row) => (row.parentElement?.querySelectorAll(".armada-clash-mark").length ?? 0) > 0)
     .map((row) => row.getAttribute("aria-label"));
-  expect(marked.sort()).toEqual([AGAINST_MAIN, JOB, SESSION].sort());
+  expect(marked.sort()).toEqual([AGAINST_MAIN, ASKING, SESSION].sort());
   expect(rowMarks(QUIET)).toEqual([]);
   await list().getByRole("button", { name: QUIET, exact: true }).click();
-  await expect.element(pane("Job", QUIET)).toBeVisible();
+  await expect.element(pane(QUIET)).toBeVisible();
   expect(headMarks(QUIET)).toEqual([]);
 });
 

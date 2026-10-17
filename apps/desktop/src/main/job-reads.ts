@@ -10,7 +10,7 @@ import type { BriefRead, CheckOutputRead, FrameRead, LessonsRead, Outcome, Retro
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf, sessionCheckOutputOf, stopSessionCheck } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";

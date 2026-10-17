@@ -201,3 +201,105 @@ it("reads a queue it cannot make sense of as an empty one", () => {
   storage.kept.set(QUEUED_KEY, JSON.stringify([{ id: "q1" }, { id: "q2", ...IDEA }]));
   expect(new WiredStore({} as BridgeApi).draft.queued!().map((one) => one.id)).toEqual(["q2"]);
 });
+
+// ---- A Session that waits on another -----------------------------------------------------------------------
+
+const PLAN = {
+  version: 1,
+  recorded_at: AT,
+  approved: true,
+  scope: [],
+  groups: [{ id: "g1", agent: "rust-engineer", title: "Schema", paths: [], tasks: [{ id: "t1", text: "Add the column", state: "open" as const }] }],
+};
+const WAIT = { on: { id: "a", title: "Retry loop" }, condition: { kind: "ends" as const }, base: "main" as const, brief: "Write the docs", by: "you" as const };
+
+/** A window holding the Session `@Retry loop` names, with a plan, and a Session that waits on it; Fleet answers as the arguments say. */
+async function waiting(reading: { condition: object; base: string; needs?: string } = { condition: { kind: "pr_lands" }, base: "main", needs: "the schema" }) {
+  const readSessionWait = vi.fn(async () => ({ ok: true as const, value: reading }));
+  const startSession = vi.fn(async () => ({ ok: true as const, value: { ...record("w"), waits: WAIT } }));
+  const changeWaiting = vi.fn(async () => ({ ok: true as const, value: WAIT }));
+  const startWaitingNow = vi.fn(async () => ({ ok: true as const, value: record("w") }));
+  let wire: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof wire) => ((wire = on), () => undefined), readSessionWait, startSession, changeWaiting, startWaitingNow } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  wire({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), title: "Retry loop", plan: PLAN }, { ...record("w"), title: "Docs", waits: WAIT }] } }), seq: 0 });
+  return { store, readSessionWait, startSession, changeWaiting, startWaitingNow };
+}
+
+it("reads a brief that tags no Session as no wait, and asks Fleet nothing", async () => {
+  const { store, readSessionWait } = await waiting();
+  expect(store.draft.readsWait!("Write the docs")).toBeUndefined();
+  expect(await store.draft.settlesWait!("Write the docs")).toBeUndefined();
+  expect(readSessionWait).not.toHaveBeenCalled();
+});
+
+it("draws the defaults for a tagged brief at once, asks the proposer once the words pause, and draws its reading when it answers", async () => {
+  const { store, readSessionWait } = await waiting();
+  const told = vi.fn();
+  store.draft.subscribe(told);
+  const words = "Write the docs once @Retry loop lands, so the schema is in";
+
+  expect(store.draft.readsWait!(words)).toMatchObject({ on: { id: "a", title: "Retry loop" }, when: "ends", base: "main", needs: "" });
+  expect(readSessionWait).not.toHaveBeenCalled();
+
+  await vi.waitFor(() => expect(readSessionWait).toHaveBeenCalledTimes(1));
+  expect(readSessionWait).toHaveBeenCalledWith("a", words);
+  await vi.waitFor(() => expect(told).toHaveBeenCalled());
+  expect(store.draft.readsWait!(words)).toMatchObject({ on: { id: "a" }, when: "lands", base: "main", needs: "the schema" });
+  expect(readSessionWait).toHaveBeenCalledTimes(1);
+});
+
+it("asks about the words last typed and not the ones typed over", async () => {
+  const { store, readSessionWait } = await waiting();
+  store.draft.readsWait!("Docs after @Retry");
+  store.draft.readsWait!("Docs after @Retry loop");
+  store.draft.readsWait!("Docs after @Retry loop lands");
+  await vi.waitFor(() => expect(readSessionWait).toHaveBeenCalledTimes(1));
+  await new Promise((done) => setTimeout(done, 600));
+  expect(readSessionWait).toHaveBeenCalledTimes(1);
+  expect(readSessionWait).toHaveBeenCalledWith("a", "Docs after @Retry loop lands");
+});
+
+it("settles a send on the proposer's answer without waiting for the words to pause", async () => {
+  const { store, readSessionWait } = await waiting({ condition: { kind: "group_done", group: "g1" }, base: "branch" });
+  const reading = await store.draft.settlesWait!("Docs when @Retry loop has the schema done");
+  expect(readSessionWait).toHaveBeenCalledTimes(1);
+  expect(reading).toMatchObject({ on: { id: "a" }, when: "plan", part: { id: "g1", title: "Schema" }, base: "branch" });
+});
+
+it("starts on the defaults when the proposer could not read the brief", async () => {
+  const { store, readSessionWait } = await waiting();
+  readSessionWait.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "not_connected" } } as never);
+  expect(await store.draft.settlesWait!("Docs after @Retry loop")).toMatchObject({ when: "ends", base: "main", needs: "" });
+});
+
+it("sends the wait with the start: the Session, the condition as a group or task, where from and what it needs", async () => {
+  const { store, startSession } = await waiting();
+  const on = { id: "a", title: "Retry loop" };
+  await store.draft.start(undefined, "/code/armada", "Docs", undefined, { on, when: "plan", part: { id: "g1", title: "Schema" }, base: "main", needs: "the schema" });
+  expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "Docs", undefined, { session: "a", condition: { kind: "group_done", group: "g1" }, base: "main", needs: "the schema" });
+
+  await store.draft.start(undefined, "/code/armada", "Docs", undefined, { on, when: "plan", part: { id: "t1", title: "Add the column" }, base: "main", needs: "" });
+  expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "Docs", undefined, { session: "a", condition: { kind: "task_done", task: "t1" }, base: "main" });
+
+  await store.draft.start(undefined, "/code/armada", "Docs", undefined, { on, when: "pushed", base: "branch", needs: "" });
+  expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "Docs", undefined, { session: "a", condition: { kind: "pr_pushed" }, base: "branch" });
+});
+
+it("draws a Session that waits with its wait, and changes the condition through Fleet", async () => {
+  const { store, changeWaiting } = await waiting();
+  expect(store.draft.get().find((one) => one.id === "w")?.waits).toMatchObject({ on: { id: "a" }, when: "ends", brief: "Write the docs" });
+
+  store.draft.startWhen!("w", "plan", { id: "t1", title: "Add the column" });
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenCalledWith({ waiting_session: "w", condition: { kind: "task_done", task: "t1" } }));
+  store.draft.startWhen!("w", "lands");
+  await vi.waitFor(() => expect(changeWaiting).toHaveBeenLastCalledWith({ waiting_session: "w", condition: { kind: "pr_lands" } }));
+});
+
+it("starts a waiting Session now through Fleet", async () => {
+  const { store, startWaitingNow } = await waiting();
+  store.draft.startNow!("w");
+  await vi.waitFor(() => expect(startWaitingNow).toHaveBeenCalledWith("w"));
+});

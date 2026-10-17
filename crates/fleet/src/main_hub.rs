@@ -21,7 +21,7 @@ use adapter_traits::{
 use core_model::JobId;
 use core_model::Timestamp;
 use ipc::{
-    HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview,
+    HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview,
     HubSession, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
 };
 use store::{MainCi, MainState};
@@ -52,11 +52,10 @@ impl api::Follow for HeldLog {
     }
 }
 
-/// An open pull request as last read, with the Job of ours that opened it.
+/// An open pull request as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct OpenPulled {
     pub(crate) pull: OpenPull,
-    pub(crate) job: Option<JobId>,
     /// Who registered it in the central store. Absent where nobody did, the switch is off or
     /// the store did not answer. `crate::pull_registry`.
     pub(crate) owner: Option<PullOwner>,
@@ -64,12 +63,10 @@ pub(crate) struct OpenPulled {
     pub(crate) mine: bool,
 }
 
-/// A recently merged pull request as last read, with the Job of ours that
-/// opened it.
+/// A recently merged pull request as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct MergedPulled {
     pub(crate) pull: RecentlyMerged,
-    pub(crate) job: Option<JobId>,
 }
 
 /// How many merged pull requests the hub carries.
@@ -153,18 +150,14 @@ where
         self.owners_deleted(served.root(), left).await;
         let mut owners = self.owners_read(served.root(), numbers).await;
         let mine = self.mine_in(served.root()).await;
-        let read: Vec<OpenPulled> = {
-            let store = self.store().lock().await;
-            listed
-                .into_iter()
-                .map(|pull| OpenPulled {
-                    job: self.job_of_pull(&store, served, pull.number),
-                    owner: owners.remove(&pull.number),
-                    mine: mine.owns(pull.author.as_ref().map(|it| it.as_written())),
-                    pull,
-                })
-                .collect()
-        };
+        let read: Vec<OpenPulled> = listed
+            .into_iter()
+            .map(|pull| OpenPulled {
+                owner: owners.remove(&pull.number),
+                mine: mine.owns(pull.author.as_ref().map(|it| it.as_written())),
+                pull,
+            })
+            .collect();
         self.sweeping()
             .lock()
             .await
@@ -207,16 +200,7 @@ where
             })
             .await;
         let Some(listed) = listed else { return false };
-        let read: Vec<MergedPulled> = {
-            let store = self.store().lock().await;
-            listed
-                .into_iter()
-                .map(|pull| MergedPulled {
-                    job: self.job_of_pull(&store, served, pull.number),
-                    pull,
-                })
-                .collect()
-        };
+        let read: Vec<MergedPulled> = listed.into_iter().map(|pull| MergedPulled { pull }).collect();
         self.sweeping()
             .lock()
             .await
@@ -320,7 +304,7 @@ where
                 .collect();
             let may_start = runs.is_empty()
                 && merged_at.is_some_and(|at| {
-                    crate::converging::elapsed(&Timestamp::from_rfc3339(at), &now) < RUN_MAY_START
+                    crate::clock::elapsed(&Timestamp::from_rfc3339(at), &now) < RUN_MAY_START
                 });
             let run = match (failed.is_empty(), unfinished, runs.is_empty()) {
                 (_, _, true) => None,
@@ -516,12 +500,6 @@ where
                 .flatten()
                 .and_then(|found| found.title),
         };
-        let titled = |job: &JobId| {
-            store.load_job(job).ok().map(|found| HubJob {
-                id: ipc::JobId::from(job),
-                title: found.title().as_str().to_string(),
-            })
-        };
         roots
             .into_iter()
             .filter_map(|root| {
@@ -532,7 +510,6 @@ where
                     merged.get(&root),
                     runs.get(&root),
                     queues.get(&root),
-                    &titled,
                     &session_titled,
                 )
                 // A held checkout, and a forge that has never answered, are said before main's CI was ever read.
@@ -541,9 +518,8 @@ where
                     (held_back.contains_key(&root) || quiet).then(MergeLineHub::default)
                 })?;
                 let fixing = main.as_ref().and_then(|main| self.fixing_of(&store, main));
-                hub.fixing = fixing.as_ref().and_then(|by| by.job()).and_then(titled);
                 hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
-                hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
+                hub.fixing_elsewhere = elsewhere.get(&root).and_then(fixing_elsewhere);
                 hub.checkout = held_back.get(&root).map(|held| held_checkout(held, checkout_sent.get(&root).copied()));
                 let instant = |at: &core_model::Timestamp| ipc::Instant::carried(at.as_str());
                 hub.forge_read_at = visits.get(&root).and_then(|it| it.read_at.as_ref()).map(instant);
@@ -578,19 +554,17 @@ fn held_checkout(held: &adapter_traits::HeldBack, pull_request: Option<ipc::Chec
     }
 }
 
-/// Another machine's claim as the hub draws it.
-fn fixing_elsewhere(holder: &adapter_traits::Holder) -> ipc::FixingElsewhere {
-    ipc::FixingElsewhere {
+/// Another machine's claim as the hub draws it. **A Job's claim is not drawn.**
+fn fixing_elsewhere(holder: &adapter_traits::Holder) -> Option<ipc::FixingElsewhere> {
+    let kind = match holder.kind {
+        adapter_traits::HolderKind::Session => ipc::HolderKind::Session,
+        adapter_traits::HolderKind::Job => return None,
+    };
+    Some(ipc::FixingElsewhere {
         machine: holder.machine.clone(),
-        holder: ipc::ClaimHolder {
-            kind: match holder.kind {
-                adapter_traits::HolderKind::Session => ipc::HolderKind::Session,
-                adapter_traits::HolderKind::Job => ipc::HolderKind::Job,
-            },
-            id: holder.id.clone(),
-        },
+        holder: ipc::ClaimHolder { kind, id: holder.id.clone() },
         since: ipc::Instant::carried(crate::clock::rfc3339_utc(holder.since * 1000)),
-    }
+    })
 }
 
 /// The hub for one repository, or `None` where there is nothing to say.
@@ -600,7 +574,6 @@ pub(crate) fn hub_of(
     merged: Option<&Vec<MergedPulled>>,
     runs: Option<&BTreeMap<String, MergedRun>>,
     queue: Option<&Vec<QueueEntry>>,
-    titled: &dyn Fn(&JobId) -> Option<HubJob>,
     session_titled: &dyn Fn(&str) -> HubSession,
 ) -> Option<MergeLineHub> {
     let no_runs = BTreeMap::new();
@@ -621,7 +594,6 @@ pub(crate) fn hub_of(
                 red,
                 merged.map_or(&[][..], Vec::as_slice),
                 runs,
-                titled,
                 session_titled,
             )
         }),
@@ -633,7 +605,6 @@ pub(crate) fn hub_of(
                             one,
                             &failing_on_main,
                             queue.map_or(&[][..], Vec::as_slice),
-                            titled,
                         )
                     })
                     .collect()
@@ -643,11 +614,10 @@ pub(crate) fn hub_of(
             .map(|read| {
                 read.iter()
                     .take(MERGED_SHOWN)
-                    .map(|one| merged_of(one, runs, titled))
+                    .map(|one| merged_of(one, runs))
                     .collect()
             })
             .unwrap_or_default(),
-        fixing: None,
         fixing_session: None,
         fixing_elsewhere: None,
         checkout: None,
@@ -661,7 +631,6 @@ fn standing(
     red: bool,
     merged: &[MergedPulled],
     runs: &BTreeMap<String, MergedRun>,
-    titled: &dyn Fn(&JobId) -> Option<HubJob>,
     session_titled: &dyn Fn(&str) -> HubSession,
 ) -> MainStanding {
     MainStanding {
@@ -693,7 +662,6 @@ fn standing(
             number: merge.number,
             url: merge.url.clone(),
             branch: merge.branch.clone(),
-            job: merge.job.as_ref().and_then(titled),
             session: merge.session.as_deref().map(session_titled),
         }),
         red_commit: main
@@ -701,7 +669,7 @@ fn standing(
             .clone()
             .or_else(|| (red && main.state == MainState::Red).then(|| main.commit.clone())),
         checking: match main.newer_running > 0 && (red || main.state == MainState::Green) {
-            true => checking(main, merged, runs, titled),
+            true => checking(main, merged, runs),
             false => Vec::new(),
         },
     }
@@ -714,7 +682,6 @@ fn checking(
     main: &MainCi,
     merged: &[MergedPulled],
     runs: &BTreeMap<String, MergedRun>,
-    titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> Vec<MainChecking> {
     fn commit_of(one: &MergedPulled) -> Option<&str> {
         one.pull.commit.as_ref().map(|it| it.as_written())
@@ -729,7 +696,6 @@ fn checking(
         number: one.pull.number,
         url: Some(one.pull.url.as_written().to_string()),
         branch: Some(one.pull.branch.as_written().to_string()),
-        job: one.job.as_ref().and_then(titled),
         session: None,
     };
     let head = (main.commit != decided && running(&main.commit)).then(|| MainChecking {
@@ -755,7 +721,6 @@ fn request(
     one: &OpenPulled,
     failing_on_main: &[&str],
     queue: &[QueueEntry],
-    titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> HubPullRequest {
     let pull = &one.pull;
     let own_failure = pull
@@ -774,7 +739,6 @@ fn request(
             CiState::Failed if !pull.failing.is_empty() && !own_failure => HubPullCi::WaitingOnMain,
             CiState::Failed => HubPullCi::Failed,
         }),
-        job: one.job.as_ref().and_then(titled),
         queue: queue_of(pull, queue),
         opened_at: pull
             .facts
@@ -800,7 +764,7 @@ fn request(
         }),
         additions: pull.facts.additions,
         deletions: pull.facts.deletions,
-        owner: one.owner.as_ref().map(PullOwner::on_the_wire),
+        owner: one.owner.as_ref().and_then(PullOwner::on_the_wire),
         merge_by_hand: false,
         mine: one.mine,
     }
@@ -830,7 +794,6 @@ fn queue_of(pull: &OpenPull, queue: &[QueueEntry]) -> Option<HubQueue> {
 fn merged_of(
     one: &MergedPulled,
     runs: &BTreeMap<String, MergedRun>,
-    titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> HubMerged {
     let pull = &one.pull;
     HubMerged {
@@ -841,7 +804,6 @@ fn merged_of(
         author: pull.author.as_ref().map(|it| it.as_written().to_string()),
         merged_at: ipc::Instant::carried(pull.merged_at.as_written()),
         commit: pull.commit.as_ref().map(|it| it.as_written().to_string()),
-        job: one.job.as_ref().and_then(titled),
         main_run: pull
             .commit
             .as_ref()

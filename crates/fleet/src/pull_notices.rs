@@ -6,9 +6,8 @@
 //! that fails anew. **A job that hung is not a failure**: one cancelled after about the whole
 //! time a job is given is started again once, through the forge adapter, and nothing is said.
 //!
-//! A Session is sent a message from Fleet that wakes it. A Job at its review gate takes the
-//! failure as a requested change, an ended one is redispatched as the red-main path does, and a
-//! merge is a note in its log. **A recipient that cannot be told now is asked again next
+//! A Session is sent a message from Fleet that wakes it. A merge is a note in an old Job's log, and
+//! a failure is told to no Job. **A recipient that cannot be told now is asked again next
 //! reading**, with nothing kept. Who owns a pull request is `crate::pull_owners`.
 
 use std::sync::Arc;
@@ -16,18 +15,13 @@ use std::sync::Arc;
 use adapter_traits::{
     AgentHarness, CiState, Delivery, PullQueue, Vcs, WatchedCheck, WatchedPull, WorkProduct,
 };
-use core_model::{
-    AcceptanceCriterion, Actor, Component, CriterionId, CriterionOrigin, CriterionSource, Envelope,
-    Facts, FieldValue, JobId, JobStatus, Level,
-};
+use core_model::{Component, Envelope, FieldValue, JobId, Level};
 
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::my_pulls::Mine;
 use crate::pull_owners::Owner;
-use crate::redispatch::Carrying;
 use crate::repositories::Served;
-use crate::resume::Redirection;
 
 /// How many lines of a failing job's log go in the message.
 const TAIL_LINES: usize = 15;
@@ -372,12 +366,7 @@ where
                 head: "",
                 base,
             };
-            let mut owners = self.owners_of(served, one.pull.number, branch, true).await;
-            if let Some(job) = one.job {
-                if !owners.contains(&Owner::Job(job.clone())) {
-                    owners.push(Owner::Job(job));
-                }
-            }
+            let owners = self.owners_of(served, one.pull.number, branch, true).await;
             for owner in owners {
                 let mut none = None;
                 self.told(
@@ -447,34 +436,15 @@ where
         done
     }
 
-    /// Cut the replacement's worktree from the pull request's own branch and aim its pull request
-    /// there, so the fix lands in the same pull request. **Only where the repository still holds
-    /// the branch**: a branch that is gone leaves the Job on a fresh branch from the base.
-    async fn cut_from_the_pull_request(&self, served: &Served, job: &JobId, branch: &str) {
-        let held = self
-            .vcs()
-            .branches(served.root(), served.manifest().base())
-            .is_ok_and(|held| held.iter().any(|one| one.name == branch));
-        let Some(named) = core_model::branch_named(Some(branch)).filter(|_| held) else {
-            return;
-        };
-        let landing = core_model::Landing {
-            from_ref: Some(named.clone()),
-            target: Some(named),
-            ..core_model::Landing::as_ever()
-        };
-        let _ = self.store().lock().await.set_landing(job, &landing);
-    }
-
-    /// A Job's part: a merge is a note in its log, and a failure sends the work back the way a
-    /// red main does. **A Job still working is left to its Drone** and asked again.
+    /// A Job's part: a merge is a note in its log. **A failure is told to nobody**: a Job no longer
+    /// works, so there is no one to send it back to.
     async fn job_told(
         &self,
         served: &Served,
         id: &JobId,
         about: &About<'_>,
         cause: Cause,
-        text: &str,
+        _text: &str,
     ) -> bool {
         let Ok(job) = self.load(id).await else {
             return true;
@@ -494,38 +464,8 @@ where
             );
             return true;
         }
-        let sent = match job.status() {
-            JobStatus::AwaitingReview => match Redirection::saying(text) {
-                Some(note) => self.request_changes(id, &note).await.is_ok(),
-                None => true,
-            },
-            JobStatus::CompletedSuccess | JobStatus::CompletedFailed | JobStatus::Killed => {
-                let carrying = Carrying {
-                    facts: Facts::new(text.to_string()),
-                    criteria: vec![AcceptanceCriterion {
-                        criterion_id: CriterionId::new("c1"),
-                        text: format!("#{} passes its checks and merges cleanly.", about.number),
-                        source: CriterionSource::Judge,
-                        origin: CriterionOrigin::Unsaid,
-                    }],
-                };
-                match self
-                    .mint_replacement(&job, Some(carrying), Actor::Fleet)
-                    .await
-                {
-                    Ok(minted) if minted.status() == JobStatus::AwaitingApproval => {
-                        self.cut_from_the_pull_request(served, minted.id(), about.branch)
-                            .await;
-                        self.approve(minted.id()).await.is_ok()
-                    }
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
-            }
-            JobStatus::Rejected => true,
-            _ => false,
-        };
-        let _ = served;
-        sent
+        // A Job no longer works, so a failure has nobody to be sent back to.
+        let _ = (served, job);
+        true
     }
 }

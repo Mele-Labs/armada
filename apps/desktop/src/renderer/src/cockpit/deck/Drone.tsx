@@ -1,4 +1,4 @@
-// One drone on the map: a Job the large X quad and a Session the small plus quad, flying at altitude on a vertical beam from its
+// One drone on the map: a Session, the small plus quad, flying at altitude on a vertical beam from its
 // shadow. State is the drone and its frame, never words: rotors turn while it works, one that is idle or done is low with its rotors
 // still, a beacon pings from one that holds a call, an amber ring breathes round one that is stuck, a red flare burns on one whose Check
 // fails. A drone that holds a call he has not opened carries a marker over it (a pillar of light and a badge). Ported from
@@ -30,24 +30,6 @@ function Rotor({ x, y, r }: { x: number; y: number; r: number }) {
       </g>
       <circle className="bf-hub" cx={x} cy={y} r={2} />
     </>
-  );
-}
-
-/** A Job: the large X quad. Its camera nose is toward the viewer. */
-function JobGlyph() {
-  return (
-    <g className="bf-glyph" data-kind="job">
-      <path className="bf-arm" d="M-17,-7 L-4,-1 M17,-7 L4,-1 M-15,9 L-4,2 M15,9 L4,2" />
-      <Rotor x={-21} y={-8} r={11} />
-      <Rotor x={21} y={-8} r={11} />
-      <path className="bf-leg" d="M-7,6 V11 M7,6 V11" />
-      <rect className="bf-hull" x={-10} y={-6.5} width={20} height={13} rx={5} />
-      <rect className="bf-plate" x={-5.5} y={-3.6} width={11} height={5} rx={2} />
-      <circle className="bf-lens" cx={0} cy={7.6} r={2.7} />
-      <circle className="bf-led" cx={0} cy={-0.8} r={1.5} />
-      <Rotor x={-17} y={10} r={12} />
-      <Rotor x={17} y={10} r={12} />
-    </g>
   );
 }
 
@@ -102,8 +84,8 @@ export type DroneProps = {
 };
 
 export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, labelled, muted, away, focused, dim, play, facts, loop, alive, call, leaving, onSelect, onTip }: DroneProps) {
-  const wide = drone.kind === "job" ? 26 : 20;
-  const said = `${drone.kind === "job" ? "Job" : "Session"}, ${drone.said}`;
+  const wide = 20;
+  const said = `Session, ${drone.said}`;
   const show = (event: { currentTarget: Element }) => onTip(droneTip(drone, facts, ShieldCheck), event.currentTarget);
   const launching = play?.kind === "launch" && from !== undefined;
   // Fleet's clashes are between parties, so a drone with no path under it carries its mark as much as one over a plot.
@@ -239,7 +221,7 @@ export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, 
                 <path d="M-9,-16 L-13,-27 M0,-19 L0,-33 M9,-16 L13,-27" />
               </g>
             ) : null}
-            {drone.kind === "job" ? <JobGlyph /> : <SessionGlyph />}
+            <SessionGlyph />
             {drone.ping ? (
               <g className="bf-mast">
                 <line x1={0} y1={-7} x2={0} y2={-20} />

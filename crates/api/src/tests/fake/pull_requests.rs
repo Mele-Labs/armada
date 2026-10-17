@@ -4,11 +4,10 @@
 
 use ipc::{
     ForgeChecks, ManifestId, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
-    PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest, WritePullRequest,
+    PullRequestStanding, PullRequestState, WritePullRequest,
 };
 
 use super::FakeDaemon;
-use crate::daemon::Redirector;
 use crate::{PullRequestPanel, PullRequests, Refusal};
 
 fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
@@ -65,18 +64,6 @@ impl PullRequests for FakeDaemon {
         })
     }
 
-    async fn review_pull_request(
-        &self,
-        _manifest_id: ManifestId,
-        review: ReviewPullRequest,
-        _by: Redirector,
-    ) -> Result<ReviewDispatched, Refusal> {
-        Ok(ReviewDispatched {
-            job_id: ipc::JobId::carried("01FAKEREVIEWJOB"),
-            address: review.pull_request,
-            session_id: review.session_id,
-        })
-    }
 }
 
 fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {

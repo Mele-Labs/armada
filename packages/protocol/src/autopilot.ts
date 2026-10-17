@@ -12,7 +12,7 @@ export type AutopilotState = "running" | "paused" | "stopped";
  */
 export type AutopilotCap = "until" | "spend" | "jobs";
 
-/** What became of one pick. `withdrawn`: its Job had not started when Autopilot was stopped. */
+/** What became of one pick. `withdrawn`: its Session had not run when Autopilot was stopped. */
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
 
 /** One pick. `workflow_id` is absent where the picker was unsure of that too. */
@@ -23,7 +23,8 @@ export type AutopilotPick = {
   issue_title: string;
   issue_url: string;
   workflow_id?: string;
-  job_id?: string;
+  /** The Session the pick started. Absent on a pick that started none. */
+  session_id?: string;
   state: AutopilotPickState;
   /** The picker's reason, in its words. */
   reason: string;
@@ -32,8 +33,8 @@ export type AutopilotPick = {
 
 /**
  * One repository's Autopilot, whole: `GET /autopilots/:repository`, every act's answer, and
- * `autopilot.changed`. `at_work` is how many of its Jobs hold a place now; a Job waiting on a
- * person holds none.
+ * `autopilot.changed`. `at_work` is how many of its Sessions hold a place now; a Session waiting on a
+ * person, or ended, holds none.
  */
 export type Autopilot = {
   manifest_id: string;
@@ -48,6 +49,7 @@ export type Autopilot = {
   /** Where a cap rather than a person paused it. Cleared by Resume. */
   capped_by?: AutopilotCap;
   spent_micros: number;
+  /** How many Sessions it has started, which `job_cap` is held to. Named for the Jobs it once started. */
   jobs_started: number;
   at_work: number;
   picks: AutopilotPick[];

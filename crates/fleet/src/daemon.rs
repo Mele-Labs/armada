@@ -1,51 +1,31 @@
 //! The daemon core: the [`Fleet`] a process is. It is assembled from
 //! [`mod@fittings`], answers through [`mod@answering`], and hands what it holds
-//! to the crate around it through [`mod@seams`]. A slot's contents are
-//! [`working`](mod@crate::working), an invariant kept away from the logic that
-//! moves it, and [`dispatch`](mod@crate::dispatch) is what moves it.
-//!
-//! **The queue is not a list.** [`Fleet`] holds a [`Slots`] roster, one slot per
-//! Job being worked and bounded by [`Concurrency`](crate::slots::Concurrency),
-//! and a Job approved while the bound is spent stays at `queued` — a status the
-//! registry already has and the store already persists. So there is no queue
-//! object here, and no ordering in memory a restart could lose or disagree with
-//! the log: `#50` added the second slot rather than a scheduler over it. **The
-//! bound is on Drones, never on approvals.**
+//! to the crate around it through [`mod@seams`].
 //!
 //! **A refused transition is not survivable.** Every move goes through
 //! `Job::transition` or `Job::transition_step`, and no arm below logs an
 //! `Adrift::IllegalMove` or `Adrift::IllegalStepMove` and continues: a refusal
 //! means Fleet asked for what the edge table says cannot happen, a bug in Fleet.
 //!
-//! **Three locks — the roster, one Job's slot, the store — taken in that order
-//! and in no other**, with [`crate::slots`] holding the argument. The gate
-//! holds none of them across a Check or a Judge call, so a quarter-hour run
-//! holds up nothing — including the reads a surface makes of that same Job.
-//! [`Fleet::merge_end`] is a fourth and sits outside the order, for the reason
-//! its field gives.
+//! **The store is behind one lock**, [`crate::store_lock`], taken for as short a
+//! time as a read or a write takes and never across a Check or a Judge call.
+//! [`Fleet::merge_end`] is a second and sits outside it, for the reason its
+//! field gives.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{CiConfiguration, ModelClient, Trackers};
-use core_model::{JobId, Ulid};
+use core_model::Ulid;
 use tokio::sync::Mutex;
 
-use crate::admitting::Polled;
 use crate::clock::Clock;
-use crate::delivery::Delivered;
-use crate::evidence::EvidenceInbox;
 use crate::headroom::{Headroom, Machine};
-use crate::judging::Aloft;
 use crate::mint::Mint;
 use crate::naming::Names;
-use crate::noticing::Sweep;
-use crate::peer::{Drones, PeerOf};
-use crate::proposals::Proposals;
-use crate::slots::Slots;
-use crate::underway::Underway;
+use crate::peer::PeerOf;
 
 mod answering;
+pub use answering::Reconciled;
 mod fittings;
 mod rereading;
 mod seams;
@@ -87,22 +67,6 @@ pub struct Fleet<H, V, W> {
     /// store a profile is enrolled with. See [`crate::red_claim`].
     reaching: Arc<dyn crate::red_claim::Reaching>,
     judge: Arc<dyn ModelClient + Send + Sync>,
-    /// How long a permission question is held inside the Drone's call before
-    /// the Drone is told to wait for a turn. See
-    /// [`crate::permitting::PermissionHold`].
-    permission_hold: crate::permitting::PermissionHold,
-    /// The Judge call that is out right now, or none. **The one piece of Fleet
-    /// state that is only ever true for as long as it takes** — it is never
-    /// written down, because a record of it would outlive the fact.
-    aloft: Aloft,
-    /// Each Job's gate that is running Checks right now, for `aloft`'s reason
-    /// one tier along — and, like it, never written down.
-    underway: Underway,
-    /// Every proposal in flight, for the reason `aloft` exists one Job along:
-    /// a call somebody could be waiting on has to be nameable while it is out.
-    /// **Minted here, not a fitting** — nothing outside this crate holds one,
-    /// and it is empty after a restart because a proposal is not a record.
-    proposals: Proposals,
     trackers: Arc<dyn Trackers + Send + Sync>,
     /// The tracker, the issue lists last read from it, and when Fleet last
     /// wrote back. Never written down but for what was said — `crate::tracking`.
@@ -112,11 +76,6 @@ pub struct Fleet<H, V, W> {
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,
-    /// Every Job somebody could be watching. **Minted here, not a fitting** —
-    /// nothing outside this crate holds one, because a viewer reaches it
-    /// through `api::Queries::observe_job` rather than through the composition
-    /// root.
-    turns: api::Turns,
     /// Every Helm conversation, one per repository, and the host that carries
     /// their messages. See [`crate::helm`].
     helm: crate::helm::Conversations,
@@ -131,18 +90,6 @@ pub struct Fleet<H, V, W> {
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,
-    inbox: EvidenceInbox,
-    /// What each finished Job's delivery came to, waiting for the turn that
-    /// reports it. **Drained, not read** — a second turn must not report a
-    /// push that happened before it.
-    ///
-    /// **Keyed by Job**, unlike the single value it was: two Jobs can reach
-    /// their branch in one turn, and one slot for both would have the second
-    /// one's push overwrite the first's before anybody was told about it.
-    delivered: Mutex<BTreeMap<JobId, Delivered>>,
-    /// Which Jobs are being worked and how many may be. See [`crate::slots`]
-    /// for the two locks and the order they are taken in.
-    slots: Mutex<Slots>,
     /// What each Job is called on disk. **Minted here, not a fitting** — it is
     /// filled from the boot read and from every insert, so nothing outside this
     /// crate could hand one over already true. See [`mod@crate::naming`].
@@ -155,35 +102,20 @@ pub struct Fleet<H, V, W> {
     /// for `drones`' reason — never held across an `.await`. See
     /// [`crate::limits`], which is the only writer.
     headroom: std::sync::Mutex<Headroom>,
+    /// The bound a person saved, which the width of a build is read off. See [`crate::limits`].
+    concurrency: std::sync::Mutex<crate::slots::Concurrency>,
     /// The machine's places for Checks, and the limit in force: shipped, or what
     /// a person saved. One line for every Job and repository — `crate::places`.
     places: crate::places::Places,
     /// What the composition root handed in, kept so a save can say what
     /// shipped and an omitted field can fall back to it.
     shipped: crate::limits::Limits,
-    /// When the reclaim sweep last ran. **Never written down**, for
-    /// `sweeping`'s reason: what it decides is re-derived from git and the
-    /// board every time, so a stamp that outlived the process would only make
-    /// the first sweep after a restart come later than it should.
-    swept: Mutex<Option<core_model::Timestamp>>,
     /// The last `GET /worktrees`, served from memory. See [`crate::worktrees_kept`].
     kept: crate::worktrees_kept::Kept,
-    /// Where the pull-request rotation stands, and when it last ran. **Never
-    /// written down**, for `polled`'s reason: a cursor that outlived the
-    /// process would name a position in a list that has since changed, and the
-    /// answers it produces are on the record already.
-    sweeping: Mutex<Sweep>,
-    /// Where the issue rotation stands: its own cursor on the pull-request
-    /// rotation's interval (spike 022, answer 5). Never written down, for
-    /// `sweeping`'s reason — `crate::issue_noticing`.
-    issue_sweeping: Mutex<crate::issue_noticing::IssueSweep>,
-    /// Which branch each Job's worktree was cut from, where a person chose one
-    /// at approval — what its work is measured against. `crate::approving`.
-    cut_from: crate::approved::CutFrom,
-    /// What each Job is owed about other Jobs writing where it writes, and when
-    /// its Drone was last told. Never written down, for `sweeping`'s reason —
-    /// `crate::peers`.
-    peering: Mutex<crate::peers::Peering>,
+    /// What the forge-reading loops last saw. **Never written down**: what each decides is
+    /// re-derived from the forge and the store every time, so a cursor that outlived the process
+    /// would name a position in a list that has since changed.
+    sweeping: Mutex<crate::noticing::Sweep>,
     /// Which files each live Job and Session has written, and the clashes found between them.
     /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
     /// `crate::clashing`.
@@ -191,45 +123,10 @@ pub struct Fleet<H, V, W> {
     /// What each repository holds and what each slot's holder changed, kept a while. Never written
     /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
     territory: Arc<crate::territory::Territory>,
-    /// Which commit is being proved and what came back. Never written down, for
-    /// `sweeping`'s reason; an `Arc` because the run is spawned — `crate::proving`.
-    proving: Arc<Mutex<crate::proving::Proving>>,
-    /// The repositories whose checkout of main is running a Drone's one test,
-    /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
-    fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
     /// The agent runs about pull requests that are going right now, by key. Never written down:
     /// a row the store says is going that is not here died with the process that held it
     /// (`crate::review_runs`).
     review_going: Mutex<std::collections::BTreeSet<String>>,
-    heals: std::sync::Mutex<crate::healing::Heals>,
-    /// The Jobs a Commander's repair Drone is on. Never written down — `crate::job_repair`.
-    repairing: crate::repair_hold::Underway,
-    /// What a turn is to wake a Commander for that happened outside it.
-    /// Never written down — `crate::commanding_wakes`.
-    stirred: std::sync::Mutex<crate::commanding_wakes::Stirred>,
-    /// Failed Triggers waiting for a repair Drone. Never written down, for
-    /// `heals`' reason — `crate::trigger_repair`.
-    trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,
-    /// The firings whose destructive Command the owner's Run is executing, by
-    /// firing id, so a second Run is refused and not a second run. Never
-    /// written down: a restart leaves the firing asking, and he answers again.
-    owner_runs: std::sync::Mutex<std::collections::BTreeSet<crate::trigger_repair::Subject>>,
-    /// Which seed is warming and which warm-up failed. Never written down, for
-    /// `proving`'s reason; an `Arc` because the warm-up is spawned — `crate::seeding`.
-    seeds: Arc<std::sync::Mutex<crate::seeding::Seeds>>,
-    /// Held while a base checkout runs `setup.requires`, which a before run and
-    /// the seed's warm-up can both reach — `crate::basing`.
-    base_preparing: Arc<tokio::sync::Mutex<()>>,
-    copy_on_write: Arc<dyn crate::seeding::CopyOnWrite>,
-    /// Which Jobs have a person's press out. Never written down, for
-    /// `proving`'s reason; shared because the press's own task gives it back.
-    pressing: crate::showing_again::Pressing,
-    /// Which Jobs have their Checks running again. Never written down, for
-    /// `pressing`'s reason — `crate::rechecking`.
-    rechecking: crate::rechecking::Rechecking,
-    /// The merge lines' in-memory guard and the base's answers: what the line
-    /// keeps nowhere but here, and loses at no cost — `crate::taking_turns`.
-    lines: crate::taking_turns::Lines,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,
@@ -237,27 +134,7 @@ pub struct Fleet<H, V, W> {
     /// of each that ended. Never written down, for `rehearsals`' reason —
     /// `crate::servers`.
     servers: crate::servers::Servers,
-    /// The last size each Job's worktree walked to. Never written down, for
-    /// `servers`' reason — `crate::resources`.
-    sizes: crate::resources::Sizes,
-    /// The last machine reading, and when it was taken. **Never written down**
-    /// — headroom frees on its own, so a reading that outlived the process
-    /// would be a reason that was already wrong when it was read back.
-    ///
-    /// Taken after the roster and never before it, which is the order
-    /// `crate::slots` states. Nothing is held while this one is.
-    polled: Mutex<Option<Polled>>,
-    /// Which process is working which Job. See [`Drones`], which argues why
-    /// this is not the same fact as the pid inside the slot.
-    ///
-    /// A `std::sync::Mutex` rather than tokio's: it is never held across an
-    /// `.await`, and what it guards is a map of a handful of integers.
-    drones: std::sync::Mutex<Drones>,
     peers: Arc<dyn PeerOf>,
-    /// Jobs `crate::releasing` leaves alone, and since when.
-    spared: crate::releasing::Spared,
-    /// When each Job's Drone was last told something. See [`crate::resume::Told`].
-    told: crate::resume::Told,
     /// The rebase-and-push tail, held by one Job at a time.
     ///
     /// **Every worktree is cut from one `.git`**, and whether two of them can
@@ -271,9 +148,6 @@ pub struct Fleet<H, V, W> {
     /// one is taken when a Job's branch is touched and released when it has
     /// been.
     merge_end: Mutex<()>,
-    /// Whether a Job's retro is being written. Never written down, for
-    /// `proving`'s reason — `crate::retro`.
-    reflecting: crate::retro::Reflecting,
     /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
     /// of the build is held: the files `scripts/restart` leaves are the record.
     building: crate::building::Building,

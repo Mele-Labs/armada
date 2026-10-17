@@ -1,8 +1,8 @@
-// What each Session and Job is changing, read from what Fleet observed and never from a table.
+// What each Session is changing, read from what Fleet observed and never from a table.
 //
 // **Four feeds, each real and each partial.** A Session's `session.edited` bursts carry the paths it wrote, newest first
-// and at most 25 of them. A Job's `job.files` event names its first file only, and its `JobFootprint` names every file but
-// only once the Job has stopped, so a running Job has one path at most. Fleet's `list_slot_touches` is its own git read of
+// and at most 25 of them.
+// Fleet's `list_slot_touches` is its own git read of
 // what each held slot changed since it met the base, and is the last resort for a drone no burst places. Write clashes come
 // from Fleet's read of the held slots too. A drone with none of these touches nothing, and the battlefield leaves it at its
 // pad. #2301.
@@ -32,10 +32,9 @@ function rolled(paths: readonly string[]): Touch[] {
   return [...counts].map(([path, w]) => ({ path, w })).sort(byWeight);
 }
 
-/** The paths a burst wrote: a Session's items, a Job's items or the one file its event names. */
+/** The paths a burst wrote: a Session's items. */
 function writtenBy(event: TimelineEvent): readonly string[] {
   if (event.kind === "session.edited") return event.items ?? [];
-  if (event.kind === "job.files") return event.items ?? (event.detail === undefined ? [] : [event.detail]);
   return [];
 }
 
@@ -62,9 +61,6 @@ export function touchesFromEvents(
   }
   return touched;
 }
-
-/** The areas a stopped Job's footprint names. Its paths are repository-relative already. */
-export const touchesOfFootprint = (files: readonly { path: string }[]): Touch[] => rolled(files.map((file) => file.path));
 
 /**
  * The areas each holder of a slot has changed in it, by its key, from Fleet's read of the slots against the base. The

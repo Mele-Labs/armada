@@ -92,12 +92,12 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: Some(ForkFrom {
                     session_id: SessionId::carried(id),
                     at: at.map(str::to_string),
                 }),
                 request: None,
+                after: None,
             })
             .await
     }
@@ -148,9 +148,9 @@ impl Rig {
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
+                after: None,
             })
             .await
             .expect("started");
@@ -293,9 +293,9 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
             effort: None,
             mode: None,
             root: None,
-            pilot: None,
             fork: None,
             request: None,
+            after: None,
         })
         .await
         .expect("started");

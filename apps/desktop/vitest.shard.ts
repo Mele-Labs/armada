@@ -12,7 +12,6 @@ import type { TestSpecification } from "vitest/node";
 
 const HEAVY: [RegExp, number][] = [
   [/walks-\d+of\d+\.test\.tsx$/, 50],
-  [/every-state\.test\.tsx$/, 20],
   [/src\/main\/connection\.test\.ts$/, 15],
 ];
 

@@ -7,7 +7,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { ComposerFile, ComposerTag, ThoughtTarget } from "@armada/components";
 
 /**
- * The Session or Job a thought may go to. `id` is what the acts below take, and `manifestId` the
+ * The Session a thought may go to. `id` is what the acts below take, and `manifestId` the
  * repository Fleet placed it in, which the wire's target is built back from.
  */
 export type RouteTarget = ThoughtTarget & { id: string; manifestId?: string };
@@ -41,16 +41,16 @@ export type ThoughtRouting = {
   /** Fleet's reading of the words. **A read that failed is a question**, so the words are never lost. */
   read: (text: string) => Promise<ThoughtReading>;
   /**
-   * Delivers the words: a Session gets a message, a Job a redirect to its Drone. Resolves to whether
+   * Delivers the words: a Session gets a message. Resolves to whether
    * they arrived. A refusal is already said, in Fleet's words, and no row is recorded for it; one
    * that arrived is recorded, and the thread then carries it as a row of its own. **A Session gets
-   * what went with the words; a Job's Drone is redirected with the words alone.**
+   * what went with the words.**
    */
   send: (target: RouteTarget, text: string, carry?: ThoughtCarry) => Promise<boolean>;
-  /** Opens the Session or Job. */
+  /** Opens the Session. */
   open: (target: RouteTarget) => void;
-  /** Opens the Dispatch panel holding the words, with this kind picked. */
-  startNew: (kind: "session" | "job", text: string) => void;
+  /** Opens the Dispatch panel holding the words, on a Session. */
+  startNew: (text: string) => void;
 };
 
 /** A repository's name as the picker draws it, or its id where the repository is not one Fleet serves. */

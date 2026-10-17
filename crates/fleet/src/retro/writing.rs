@@ -12,154 +12,9 @@
 //! delivered by the time one is owed.
 
 use std::collections::BTreeSet;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
-use config::settings::{
-    PROMPT_RETRO_HOW_TO_WRITE, PROMPT_RETRO_JOB, PROMPT_RETRO_WHERE_FIXES_LAND,
-};
-use core_model::JobId;
-use ipc::{LinkedAnnotation, RetroRecord, RetroWritten};
-use serde::Serialize;
-use store::{Reflected, RetroLine};
-
-use super::gathering::Gathered;
-use super::record::cites;
-use crate::adrift::Adrift;
-use crate::daemon::Fleet;
-use crate::prompts::{fill, Prompts};
-
-/// Start the next owed retro, unless one is being written. Never waits.
-pub(crate) fn reflected<H, V, W>(fleet: &Arc<Fleet<H, V, W>>)
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    let busy = Arc::clone(&fleet.reflecting().0);
-    if busy.swap(true, Ordering::AcqRel) {
-        return;
-    }
-    let fleet = Arc::clone(fleet);
-    tokio::spawn(async move {
-        // Given back however the task ends, a panic included.
-        let _free = Free(busy);
-        // A Session that ended is owed one once no Job is.
-        if !matches!(fleet.reflect_next().await, Ok(Some(_))) {
-            let _ = fleet.reflect_next_session().await;
-        }
-    });
-}
-
-struct Free(Arc<std::sync::atomic::AtomicBool>);
-
-impl Drop for Free {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
-}
-
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    /// Write the retro of the Job that has been owed one longest, and say
-    /// which. `None` where none is owed.
-    pub(crate) async fn reflect_next(&self) -> Result<Option<JobId>, Adrift> {
-        let owed = self
-            .store()
-            .lock()
-            .await
-            .retros_owed()
-            .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
-        let Some(job_id) = owed.into_iter().next() else {
-            return Ok(None);
-        };
-        let reflected = self.reflected_on(&job_id).await;
-        self.store()
-            .lock()
-            .await
-            .record_retro(&job_id, &reflected, &self.now())
-            .map_err(Adrift::Writing)?;
-        Ok(Some(job_id))
-    }
-
-    async fn reflected_on(&self, job_id: &JobId) -> Reflected {
-        let gathered = match self.retro_record(job_id).await {
-            Ok(gathered) => gathered,
-            Err(refused) => {
-                return Reflected::Failed {
-                    why: format!("its record would not read: {}", refused.error().message),
-                }
-            }
-        };
-        if !gathered.had_a_drone {
-            return Reflected::Skipped {
-                why: "no Drone ran on it".to_string(),
-            };
-        }
-        let Ok(explaining) = self.writing_retros() else {
-            return failed("the call could not be put together on this machine");
-        };
-        let question = match question(&self.prompts(), &gathered) {
-            Some(question) => question,
-            None => return failed("its record would not encode"),
-        };
-        let Ok(ask) = Ask::put(explaining.model.clone(), &question, explaining.environment) else {
-            return failed("the call could not be put together");
-        };
-        let said =
-            match crate::judging::said(explaining.client.as_ref(), &ask, explaining.budget).await {
-                Ok(said) => said,
-                Err(why) => return failed(&format!("the call failed: {why}")),
-            };
-        let mut known = cites(&gathered.record);
-        known.extend((0..gathered.annotations.len()).map(annotation_cite));
-        match read(&said, &known, &gathered.record.refusals) {
-            Ok(items) => Reflected::Written {
-                model: ask.model().as_str().to_string(),
-                items,
-            },
-            Err(why) => failed(&format!("the answer would not read: {why}")),
-        }
-    }
-}
-
-fn failed(why: &str) -> Reflected {
-    Reflected::Failed {
-        why: why.to_string(),
-    }
-}
-
-fn annotation_cite(n: usize) -> String {
-    format!("annotation:{}", n + 1)
-}
-
-/// What the call is handed: the record, and the owner's notes beside it.
-#[derive(Serialize)]
-struct Handed<'a> {
-    record: &'a RetroRecord,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    annotations: Vec<Cited<'a>>,
-}
-
-#[derive(Serialize)]
-struct Cited<'a> {
-    cite: String,
-    #[serde(flatten)]
-    annotation: &'a LinkedAnnotation,
-}
+use ipc::RetroWritten;
+use store::RetroLine;
 
 /// Where a fix lands, in the words both calls are given: what ships as
 /// `prompts.retroWhereFixesLand`.
@@ -251,34 +106,6 @@ pub(crate) const QUESTION: &str =
          {\"items\":[{\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"...\",\
          \"what\":\"...\",\"fix\":\"...\",\"evidence\":[\"check:1\"]}]}";
 
-/// The question, with the record fenced as data.
-fn question(prompts: &Prompts, gathered: &Gathered) -> Option<String> {
-    let handed = Handed {
-        record: &gathered.record,
-        annotations: gathered
-            .annotations
-            .iter()
-            .enumerate()
-            .map(|(n, annotation)| Cited {
-                cite: annotation_cite(n),
-                annotation,
-            })
-            .collect(),
-    };
-    let data = ipc::encode(&handed).ok()?;
-    Some(fill(
-        prompts.get(PROMPT_RETRO_JOB),
-        &[
-            (
-                "where_fixes_land",
-                prompts.get(PROMPT_RETRO_WHERE_FIXES_LAND),
-            ),
-            ("how_to_write", prompts.get(PROMPT_RETRO_HOW_TO_WRITE)),
-            ("record", &data),
-        ],
-    ))
-}
-
 /// Whether a text holds a dash: an em dash, an en dash, a spaced hyphen or a
 /// double hyphen. **The owner's rule for what a retro says**, and a hyphen
 /// inside a word is not one.
@@ -297,7 +124,6 @@ fn dashed(text: &str) -> bool {
 pub(crate) fn read(
     said: &str,
     known: &BTreeSet<String>,
-    refusals: &[ipc::RecordRefusal],
 ) -> Result<Vec<RetroLine>, String> {
     let from = said.find('{').ok_or("there is no JSON object in it")?;
     let to = said
@@ -322,10 +148,8 @@ pub(crate) fn read(
             let written = [&title, &what, &fix]
                 .iter()
                 .all(|text| !text.is_empty() && !dashed(text));
-            let change =
-                super::changing::held_to_the_record(item.change, lands_in.domain(), refusals);
             (!evidence.is_empty() && written).then(|| RetroLine {
-                change,
+                change: None,
                 whose: item.who.domain(),
                 title: Some(title),
                 said: what.clone(),

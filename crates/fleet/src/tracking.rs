@@ -19,7 +19,7 @@ use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{Instant, IssueList, IssueRead, IssueState, JobId, ManifestId, TrackedIssue, WireError};
 
-use crate::converging::elapsed;
+use crate::clock::elapsed;
 use crate::daemon::Fleet;
 
 /// How long a list read from the tracker is answered again without asking.
@@ -31,12 +31,10 @@ const UNREADABLE: &str = "fleet.issues_unreadable";
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
-/// What was last read from each repository's tracker, and when Fleet last
-/// wrote back. **In memory**: a list is the tracker's, and is read again after
+/// What was last read from each repository's tracker. **In memory**: a list is the tracker's, and is read again after
 /// a restart; what was *said* on an issue is the store's.
 pub(crate) struct Tracking {
     lists: std::sync::Mutex<BTreeMap<String, Held>>,
-    pub(crate) written_back: tokio::sync::Mutex<Option<Timestamp>>,
     /// What Autopilot's pass remembers about these lists between intervals. #2092.
     pub(crate) autopilot: crate::autopilot::Remembered,
 }
@@ -51,7 +49,6 @@ impl Tracking {
     pub(crate) fn new() -> Tracking {
         Tracking {
             lists: std::sync::Mutex::new(BTreeMap::new()),
-            written_back: tokio::sync::Mutex::new(None),
             autopilot: crate::autopilot::Remembered::default(),
         }
     }

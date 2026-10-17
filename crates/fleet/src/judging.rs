@@ -1,57 +1,32 @@
-//! Making the Judge's calls, and folding the answers into a veto.
-//!
-//! **Nothing here can advance a step.** [`judged`] answers `Option<Refusals>`:
-//! refused, or declined to refuse. No value means "approved", so all the gate
-//! can do with it is `Verdict::but_for`, which narrows.
+//! Making a model call and reading what it said.
 //!
 //! **A call that could not be made is not an answer.** A missing program, a
 //! non-zero exit, a signal, an expired budget, an empty answer, prose instead of
 //! a verdict — each is a [`CallFailed`]. A machine that cannot answer must not
 //! produce one, in either direction.
 //!
-//! # Four, and the line is not a line count
-//!
-//! `marking` names no question and reads no answer: it holds which call is out
-//! and takes the mark down however that call ends. `running` names no
-//! criterion: it is a child process, a pipe and a budget. `looks` and
-//! `flagging` know what is being asked and what the answer means, and are the
-//! only ones that cost money; `flagging` is the gaming look, apart because it
-//! is the one look that asks twice.
-//!
-//! What all three share stays here: the budget, what a pass is configured with,
-//! which of the five looks is out, and every way a call can fail. [`CallFailed`]
-//! in particular belongs to no one half — `looks` and `flagging` raise four of its variants
-//! and `running` the other five.
+//! `running` names no criterion: it is a child process, a pipe and a budget, and
+//! it is what every call Fleet makes of a model goes through. What is shared
+//! stays here: the budget, the standing rules a brief carries, and every way a
+//! call can fail.
 
-mod agreeing;
-mod flagging;
-mod looks;
-mod marking;
 mod running;
 
-pub(crate) use flagging::gaming;
-pub(crate) use looks::{converging, judged, widening, JudgeFold};
-pub use marking::{Aloft, Marking};
 pub(crate) use running::{said, watched};
 
 use std::fmt;
-use std::num::NonZeroU8;
-use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{Ask, Environment, Model, ModelClient, Reading, SpawnConfigRefused};
-use verification::{NothingToJudge, Standing, Unreadable, Wording};
+use std::sync::Arc;
 
-use crate::asked::Asked;
+use adapter_traits::{Environment, Model, ModelClient};
+use verification::{NothingToJudge, Standing, Unreadable};
 
 /// How long one Judge call may take before it is a failed call.
 ///
-/// A newtype with one constructor and **no `Default`**, for [`CheckBudget`]'s
-/// reason: `crates/config/settings.toml` names no Judge latency budget, so
-/// there is no value to read and one invented here would be a threshold nobody
-/// could find.
-///
-/// [`CheckBudget`]: crate::CheckBudget
+/// A newtype with one constructor and **no `Default`**: `crates/config/settings.toml`
+/// names no Judge latency budget, so there is no value to read and one invented
+/// here would be a threshold nobody could find.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct JudgeBudget(Duration);
 
@@ -65,81 +40,20 @@ impl JudgeBudget {
     }
 }
 
-/// Everything one pass over a step needs in order to ask.
+/// Everything one plain model call needs in order to ask.
 ///
-/// **The default model is a value rather than a literal.** Which model is
-/// cheap is a vendor's fact and lives in `adapters`; what arrives here is a
-/// name the composition root resolved.
+/// One client, one budget, Fleet's own environment, and a model that is a value
+/// rather than a literal: a Session's judge, a retro and a reading of a command
+/// are all this call, and differ only in the dial the model comes off.
 #[derive(Clone)]
-pub struct Judging {
-    /// What renders a call. A pointer rather than a type parameter: the seam
-    /// renders and cannot fail, so nothing about it needs to be generic.
+pub struct Explaining {
     pub client: Arc<dyn ModelClient + Send + Sync>,
     pub budget: JudgeBudget,
-    /// What a step naming no model of its own is judged by.
-    pub default_model: Model,
-    /// What a judged gaming flag is read a second time on, whatever the step
-    /// names: the step's dial is for the looks it declared. Resolved by the
-    /// composition root, for `default_model`'s reason.
-    pub second_opinion_model: Model,
-    /// What the call's process holds. Fleet's own, because a Judge call
-    /// authenticates as Fleet — the one place it differs from a Drone.
+    /// What the call is read by. Resolved by the composition root — nothing
+    /// below Fleet may spell a vendor's model name.
+    pub model: Model,
+    /// Fleet's own, because the call authenticates as Fleet.
     pub environment: Environment,
-    /// Where a call that is out is written down while it is out, and who is
-    /// told. Bound to one Job, because a wait that cannot name its Job is a
-    /// fact no surface can place.
-    pub marking: Marking,
-    /// Where the question itself is written down, so a verdict can be re-read
-    /// against what it was answering. Bound to one Job for `marking`'s reason —
-    /// the path is a function of the Job.
-    pub asked: Asked,
-    /// What the repository requires of every change, which every look's brief
-    /// carries. Read from the repository's checkout, never a Job's worktree.
-    pub standing: Standing,
-    /// The checkout every look's call may read, or `None` for a call that
-    /// reaches nothing. **The repository's own checkout and never a Job's
-    /// worktree**, for `standing`'s reason: a Drone must not be able to rewrite
-    /// what its Judge reads. [`reading`] is the one place it is built.
-    pub reading: Option<Reading>,
-    /// The words each brief is laid in: settings.json's Judge prompts, read
-    /// when this was put together. `verification` knows no settings.
-    pub wording: Wording,
-}
-
-/// How many turns a Judge's call may take, its reads and its answer together,
-/// as it ships. `limits.judgeReadTurns` in settings.json moves it.
-pub(crate) const JUDGE_READ_TURNS: NonZeroU8 = NonZeroU8::new(16).expect("sixteen is not zero");
-
-/// What a Judge may read: the repository's checkout at `root`, for `turns`.
-///
-/// **`root` is `Served::root`**, the same path [`standing`] reads the named
-/// file from, and never a Job's worktree.
-pub(crate) fn reading(root: &str, turns: NonZeroU8) -> Result<Reading, SpawnConfigRefused> {
-    Reading::checkout(root, turns)
-}
-
-impl Judging {
-    /// One question to `model`, able to read what [`Judging::reading`] names.
-    /// **Every look asks through here**, so none of them can be the one that
-    /// was left blind.
-    pub(crate) fn ask(&self, model: &Model, question: &str) -> Result<Ask, SpawnConfigRefused> {
-        let ask = Ask::put(model.clone(), question, self.environment.clone())?;
-        Ok(match &self.reading {
-            Some(reading) => ask.reading(reading.clone()),
-            None => ask,
-        })
-    }
-
-    /// What every look's brief carries of the repository: the named file, and
-    /// that the call may read the checkout where it may. **Read off
-    /// [`Judging::reading`]**, so a brief never says a call can read when it
-    /// cannot, or the reverse.
-    pub(crate) fn told(&self) -> Standing {
-        match self.reading {
-            Some(_) => self.standing.clone().readable(),
-            None => self.standing.clone(),
-        }
-    }
 }
 
 /// The file `armada.yml`'s `standing_rules` names, read from `root`.
@@ -153,56 +67,6 @@ pub(crate) fn standing(manifest: &config::Manifest, root: &str, cap: usize) -> S
     match std::fs::read_to_string(std::path::Path::new(root).join(path)) {
         Ok(text) => Standing::read_within(path, &text, cap),
         Err(_) => Standing::unreadable(path),
-    }
-}
-
-/// Which of Fleet's five Judge calls is out.
-///
-/// **Not a registry vocabulary, and deliberately not one.** `enum-verbs.toml`
-/// and `crates/core-model/domain/` own the words for what a Job or a step *is*
-/// — states, statuses, verdicts, triggers — every one of which is written down
-/// and read back. A look is something Fleet *does* for as long as it takes and
-/// then stops doing: nothing stores one, no transition names one, and a row in
-/// a registry of stored vocabularies would claim otherwise. The set is decided
-/// by the five call sites below, which is why it is spelled here and crosses as
-/// a string, under the rule `ipc::Verdict::named` and `DeclaredCheck::kind`
-/// already cross under.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Look {
-    /// A criterion the step itself declared. The tier that gates.
-    Criterion,
-    /// The mandatory drift look, which fires on a step that declared no
-    /// criterion of its own.
-    Drift,
-    /// The second look, asking whether the evidence was gamed. It does not
-    /// gate.
-    Gaming,
-    /// The look at a request for more scope, asking whether the paths belong
-    /// to the step. **The only one made about a plan rather than about work**,
-    /// and the only one a Drone asks for: the other four are Fleet's own. It
-    /// is marked like every other call, so a person watching sees the wait
-    /// rather than a Drone that went quiet mid-step.
-    Widening,
-    /// The mid-step look, asking whether the work is going anywhere.
-    ///
-    /// It neither gates nor judges — and it is here because it is a model call
-    /// with money on it, made while a person is watching a step that appears to
-    /// be doing nothing. That is the case that prompted the question, and a
-    /// representation that covered the gate and not this one would answer it
-    /// wrongly on exactly the turn it matters.
-    Convergence,
-}
-
-impl Look {
-    /// The wire value.
-    pub fn as_wire(&self) -> &'static str {
-        match self {
-            Look::Criterion => "criterion",
-            Look::Drift => "drift",
-            Look::Gaming => "gaming",
-            Look::Widening => "widening",
-            Look::Convergence => "convergence",
-        }
     }
 }
 

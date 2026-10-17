@@ -19,8 +19,7 @@
 //! fails there rather than passing here.
 
 use core_model::{Branch, DroneStanding, Job, Refusals, Standing, Stuck, TransitionReason};
-use fleet::Ruling;
-use ipc::{CheckRun, Flagged, JobDelivery, JobDetail, JobList, Judged, StepFacts};
+use ipc::{JobDelivery, JobDetail, JobList, StepFacts};
 
 use super::Run;
 
@@ -35,82 +34,6 @@ pub fn on_its_branch(run: &mut Run) {
     run.job = run.job.on_branch(branch);
 }
 
-/// What Fleet knows about each of a Job's steps beyond its `job_steps` row,
-/// assembled from the rulings the gate actually returned.
-///
-/// The per-field conversions are `ipc`'s. What is written here is which
-/// ruling belongs to which step. See the module header.
-///
-/// **`declares` is `None` on every step, and that is a gap rather than a
-/// choice.** The conversion from a step's frozen Checks to `ipc::DeclaredCheck`
-/// is `fleet::wire::declared_check`, which is `pub(crate)`; writing a second
-/// one here would be a second vocabulary for the same mapping, which is the
-/// defect this workspace names. So `board.rs` asserts what each Check *did* and
-/// not what each step declared, and says so in its header.
-///
-/// `deliverables`, `frames`, `attempts`, `verdicts` and `judging` are empty on
-/// every step: the first is read off the filesystem, the second off a table
-/// only a real harness run writes, the third and fourth are folded from the
-/// store's log, and the fifth is a live slot — this bench holds none of the
-/// five.
-pub fn step_facts(job: &Job, ruled: &[(&str, &Ruling)]) -> Vec<StepFacts> {
-    job.steps()
-        .iter()
-        .map(|step| {
-            let ruling = ruled
-                .iter()
-                .find(|(at, _)| *at == step.step_id().as_str())
-                .map(|(_, ruling)| *ruling);
-            let declared = job.workflow().step(step.step_id());
-            StepFacts {
-                step_id: step.step_id().into(),
-                label: declared.map(|step| step.label().to_string()),
-                declares: None,
-                held_for_handoff: Vec::new(),
-                // The bench holds no real attempt history, so every ruling
-                // here is stamped as the first and only run — see the header
-                // on `attempts` below.
-                ran: ruling
-                    .map(|ruling| {
-                        ruling
-                            .checks()
-                            .iter()
-                            .map(|check| CheckRun::of(1, check))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                judged: ruling
-                    .map(|ruling| {
-                        ruling
-                            .judged()
-                            .iter()
-                            .map(|answer| Judged::of(1, answer))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                flagged: ruling
-                    .and_then(Ruling::flagged)
-                    .map(|found| {
-                        found
-                            .cited()
-                            .iter()
-                            .map(|flag| Flagged::of(1, flag))
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                deliverables: Vec::new(),
-                frames: Vec::new(),
-                attempts: Vec::new(),
-                verdicts: Vec::new(),
-                judging: None,
-                checking: None,
-                asked_run: None,
-                returns: 0,
-                asked_runs: Vec::new(),
-            }
-        })
-        .collect()
-}
 
 /// The four facts a stopped Job is classified against.
 ///

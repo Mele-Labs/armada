@@ -24,10 +24,9 @@ use adapter_traits::{
     AgentHarness, Delivery, FailureWeight, NotMerged, PullRequestStanding as Forge, Vcs,
     WhatTheForgeRan, WorkProduct,
 };
-use api::{PullRequests, Redirector, Refusal, Sessions};
+use api::{PullRequests, Refusal};
 use ipc::{
-    AttachmentReport, ForgeChecks, ManifestId, PullRequestStanding, PullRequestState,
-    ReviewDispatched, ReviewPullRequest, SessionFact, SessionReport, WireError,
+    ForgeChecks, ManifestId, PullRequestStanding, PullRequestState, WireError,
 };
 use store::HolderKind;
 
@@ -41,8 +40,6 @@ use crate::refusing::{
 /// no such number, or a state this build has no word for. A 500, because
 /// asking again is reasonable.
 pub(crate) const UNREADABLE: &str = "fleet.pull_request_unreadable";
-/// Something that is neither a number nor a pull request's address. A 422.
-const UNNAMED: &str = "fleet.pull_request_unnamed";
 /// A draft cannot be merged, or have auto-merge asked of it. A 409.
 const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
 /// Taking out of draft what is not one. A 409.
@@ -54,16 +51,13 @@ const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
 /// A review pressed from a Session the ledger has never heard of. A 422.
 pub(crate) const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 
-/// The workflow a review runs on, named here and never left to the proposer.
-const CODE_REVIEW: &str = "code_review";
-
 /// The ledger's kind for a pull request a Session holds, and the kind its owners are read under.
 pub(crate) const PR: &str = "pr";
 
 /// What a pull request was named as.
 enum Named {
     Number(u64),
-    Address { number: u64, address: String },
+    Address { number: u64 },
 }
 
 /// A number, or an address ending `/pull/<number>`.
@@ -74,10 +68,7 @@ fn named(said: &str) -> Option<Named> {
     }
     let (before, last) = said.rsplit_once('/')?;
     let number = last.parse().ok()?;
-    (before.ends_with("/pull") && before.starts_with("http")).then(|| Named::Address {
-        number,
-        address: said.to_string(),
-    })
+    (before.ends_with("/pull") && before.starts_with("http")).then_some(Named::Address { number })
 }
 
 /// The number a pull request's address ends in.
@@ -477,96 +468,6 @@ where
         Ok(state)
     }
 
-    async fn review_pull_request(
-        &self,
-        manifest_id: ManifestId,
-        review: ReviewPullRequest,
-        by: Redirector,
-    ) -> Result<ReviewDispatched, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
-        let Some(asked) = named(&review.pull_request) else {
-            return Err(Refusal::Unacceptable(self.pr_refusal(
-                UNNAMED,
-                format!(
-                    "`{}` is neither a pull request's number nor its address",
-                    review.pull_request
-                ),
-            )));
-        };
-        // Before the Job exists, so a Session nobody has heard of leaves
-        // nothing behind to explain.
-        let holder = match &review.session_id {
-            None => None,
-            Some(id) => {
-                let kept = self
-                    .store()
-                    .lock()
-                    .await
-                    .session(id.as_str())
-                    .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))?;
-                let Some(kept) = kept else {
-                    return Err(Refusal::Unacceptable(self.pr_refusal(
-                        SESSION_UNKNOWN,
-                        format!("no session `{}` has reported to Fleet", id.as_str()),
-                    )));
-                };
-                Some(kept.harness)
-            }
-        };
-        let (number, address) = match asked {
-            Named::Address { number, address } => (number, address),
-            Named::Number(number) => {
-                let read = self.pull_request_read(&manifest_id, served.root(), number)?;
-                (number, read.address)
-            }
-        };
-        let proposal = ipc::ProposeJob {
-            title: format!("Review pull request {number}"),
-            // **Named here.** The proposer's reading of a link is the guess this
-            // act exists to remove.
-            workflow_id: ipc::WorkflowId::carried(CODE_REVIEW),
-            owner_manifest_id: manifest_id,
-            origin: core_model::TopLevelOrigin::SessionDispatched.into(),
-            urgency: ipc::Urgency::from_wire("normal").expect("`normal` is an urgency"),
-            atomic: false,
-            model: None,
-            acceptance_criteria: Vec::new(),
-            subject: Some(ipc::Subject {
-                kind: "pull_request".to_string(),
-                reference: address.clone(),
-            }),
-            facts: String::new(),
-            write_targets: None,
-            dependencies: Vec::new(),
-            attachments: Vec::new(),
-            continue_from: None,
-        };
-        let job = self
-            .propose_as(proposal, by)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        if let (Some(id), Some(harness)) = (&review.session_id, holder) {
-            let origin = format!("dispatched from Session {}", id.as_str());
-            let _ = self
-                .report_session(SessionReport {
-                    harness,
-                    session_id: id.clone(),
-                    fact: SessionFact::Attached {
-                        attachment: AttachmentReport {
-                            kind: "job".to_string(),
-                            target: job.id().as_str().to_string(),
-                            detail: BTreeMap::from([("origin".to_string(), origin)]),
-                        },
-                    },
-                })
-                .await;
-        }
-        Ok(ReviewDispatched {
-            job_id: ipc::JobId::from(job.id()),
-            address,
-            session_id: review.session_id,
-        })
-    }
 }
 
 #[cfg(test)]
@@ -576,18 +477,6 @@ mod named_as {
     #[test]
     fn a_number_is_a_number() {
         assert!(matches!(named(" 1843 "), Some(Named::Number(1843))));
-    }
-
-    #[test]
-    fn an_address_ending_in_pull_and_a_number_is_one() {
-        let said = "https://forge.invalid/armada/pull/1843/";
-        match named(said) {
-            Some(Named::Address { number, address }) => {
-                assert_eq!(number, 1843);
-                assert_eq!(address, "https://forge.invalid/armada/pull/1843");
-            }
-            _ => panic!("an address"),
-        }
     }
 
     #[test]

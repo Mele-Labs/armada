@@ -25,7 +25,7 @@ export type SlotPoolsProps = {
   /** The board's Jobs, read for the handle that names a worktree outside the pool. */
   jobs?: readonly JobSummary[];
   now: number;
-  onOpenJob: (jobId: string) => void;
+  onOpenJob?: ((jobId: string) => void) | undefined;
   /** Change one repository's pool. Absent draws the pool with no acts. */
   onChange?: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   /** Rescue a stranded slot of one repository's pool. Absent draws none of its acts. */

@@ -11,7 +11,7 @@ widening it writes spellings into `job_events` that an older Fleet's `from_wire`
 refuses when `crates/store/src/fold.rs` folds the history back.
 
 **One claim in the drafts is wrong and it is load-bearing.**
-`packages/surfaces/jobs/src/draft/words.ts` says four of the five task states "are
+`packages/screens/src/draft/words.ts` says four of the five task states "are
 rendered from the generated vocabulary as before". There is no `task_state`
 vocabulary: `crates/core-model/domain/enum-verbs.toml` declares no table for it
 and `packages/components/src/generated/vocabulary.ts` exports no `TASK_STATE`.
@@ -86,7 +86,7 @@ as "you" costs nothing and renaming it costs a migration** — the registry's ve
 layer is where a spelling becomes a word, and `Actor` has nowhere to put one
 yet.
 
-`contributor` is the third addition, and `packages/surfaces/jobs/src/draft/ledger.ts`
+`contributor` is the third addition, and `packages/screens/src/draft/ledger.ts`
 already records that nothing derives one: it needs the store between Armada
 instances that #1530 files separately.
 
@@ -124,7 +124,7 @@ with two spellings, which this repository has removed before.
 `crates/ipc/src/job.rs` line 628 says why: the id is minted with the Job because
 a Judge citation references a criterion by its frozen position.
 
-`packages/surfaces/jobs/src/draft/criterion.ts` makes it optional for a criterion read
+`packages/screens/src/draft/criterion.ts` makes it optional for a criterion read
 out of an issue before approval. **A criterion with no id is a criterion no
 Judge can cite** — the id has to be minted at the moment the list freezes,
 whichever moment that is.
@@ -162,7 +162,7 @@ totals a Job's Drones and a Job has one Drone at a time, so a per-task figure
 exists only once a Drone per task does.
 
 `model` is resolved from the tier map. `ResolvedStep.model`
-(`crates/core-model/src/job/workflow.rs` line 344) is the nearest thing served:
+(the `workflow` module (deleted since) line 344) is the nearest thing served:
 a per-**step** model the workflow declares, absent meaning the Job's own stands.
 
 ### `group` — `GroupView`
@@ -260,7 +260,7 @@ reads one.
 | Cost | A per-Job override reverses a stated decision |
 
 **The four gate states are already on the wire.** `AdvanceGate`
-(`crates/core-model/src/job/declared.rs` line 54) carries `auto`,
+(the `declared` module (deleted since) line 54) carries `auto`,
 `auto_if_judge_passes`, `human_always` and two `manifest_rule:` keys, and
 `gateViewOf` reads all of them with no wire change.
 
@@ -270,7 +270,7 @@ the Job, so asking for Checks on a step that declares none runs nothing — and
 reads on the wire exactly like a step that does. `unmeantOf` is Bridge saying so.
 
 **A per-Job override of `review_gate` reverses a decision with reasoning on it.**
-`crates/core-model/src/job/declared.rs` line 79 freezes that variant unresolved
+The `declared` module (deleted since) line 79 freezes that variant unresolved
 because both policies are `Live` in `crates/config/settings.toml`, so a Manifest
 saved mid-Job moves them. Nothing says which wins if the repository's policy
 moves after the press.

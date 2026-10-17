@@ -5,7 +5,6 @@
 // What each kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { WorktreesHeld } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -23,30 +22,12 @@ import { onTimePassing } from "./time-passes";
 /** Which surfaces a fake answers for. Core is always among them. */
 export type FakeOptions = { slices?: readonly SliceName[] };
 
-/** A fake's draft as it stands, and a way to hear it change. */
-export type LiveDraft = {
-  current: () => ArcDraft | undefined;
-  subscribe: (onDraft: () => void) => () => void;
-};
-
-/**
- * Each fake's own draft, by the api it answers as. **Beside `BridgeApi` rather
- * than on it**: the draft is the mock's stand-in for reads Fleet does not serve
- * (`moment.ts`' `draft`), and the preload has no such member to type it by.
- */
-const DRAFTS = new WeakMap<BridgeApi, LiveDraft>();
-
 /** The Sessions a window was mounted holding, by the api it talks to. */
 const SESSIONS = new WeakMap<BridgeApi, SessionsStore>();
 
 /** The Sessions `api`'s fake holds, where it holds any. `mount.tsx` hands them to the window. */
 export function heldSessions(api: BridgeApi): SessionsStore | undefined {
   return SESSIONS.get(api);
-}
-
-/** The draft `api`'s fake holds, where `api` is one. `mount.tsx` draws from it. */
-export function liveDraft(api: BridgeApi): LiveDraft | undefined {
-  return DRAFTS.get(api);
 }
 
 /**
@@ -93,32 +74,25 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
     },
   };
   const sessions = scenario.draft?.sessions?.(board);
-  const commanding = scenario.draft?.commanding?.(fleet);
-  if (commanding !== undefined) {
-    fake.askCommander = async (jobId, text) => commanding.ask(jobId, text);
-    fake.answerCommanderCard = async (jobId, card, option) => commanding.answer(jobId, card, option);
-  }
   onTimePassing(
-    scenario.later === undefined && sessions === undefined && commanding === undefined
+    scenario.later === undefined && sessions === undefined
       ? undefined
       : () => {
           const change = scenario.later?.[passed++];
           if (change !== undefined) fleet.publish(change);
           sessions?.later();
-          commanding?.later();
         },
   );
   if (sessions !== undefined) {
     SESSIONS.set(fake, sessions);
     // The Cockpit's two session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
     if (kept.some((one) => one.name === "sessions")) {
-      const served = cockpitRoutes(sessions, fleet.state, fleet.publish);
+      const served = cockpitRoutes(sessions, fleet.state);
       if (own?.answerWaiting === undefined) fake.answerWaiting = served.answerWaiting;
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
       if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
     }
   }
-  DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });
   return fake;
 }
 

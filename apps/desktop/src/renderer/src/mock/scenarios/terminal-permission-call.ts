@@ -2,7 +2,7 @@
 // terminal to answer. Its mod put the prompt to Fleet, so it is a call in the Cockpit, answered from
 // Bridge as a hosted Session's is: ▶ on its command is Allow once. The walk `terminalPermissionCall` plays it.
 
-import { featureRunning } from "@armada/jobs/fake";
+import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -47,7 +47,7 @@ function build(): Scenario {
   return {
     ...base,
     state: { ...base.state, repository: repository().root, jobs: [running.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, [], board, [], [SESSION]) },
+    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], [SESSION]) },
   };
 }
 

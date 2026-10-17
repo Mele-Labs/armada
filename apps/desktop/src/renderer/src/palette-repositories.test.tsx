@@ -36,11 +36,10 @@ function palette(picked: string | null, pickRepository: PaletteHands["pickReposi
       context="board"
       on={null}
       surfaces={[]}
-      jobs={[]}
       settings={[]}
       repositories={repositories}
       picked={picked}
-      onChoose={(choice) => carryOut(choice, null, hands)}
+      onChoose={(choice) => carryOut(choice, hands)}
       onConfirmAct={() => {}}
     />,
   );

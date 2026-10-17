@@ -70,12 +70,6 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
         "clonefile(2) over a seed's build directory — the one call that clones copy-on-write \
          and refuses on a volume that cannot, where std::fs::copy silently copies gigabytes",
     ),
-    (
-        "crates/fleet/src/tests/adopting.rs",
-        "waitpid on the pid a case deliberately outlived a Fleet with — a real OS child of \
-         the test binary the whole time, so this collects it directly instead of polling \
-         kill -0 until it stops answering, which is a timer wait in a different shape",
-    ),
 ];
 
 /// What counts as speaking it. `unsafe_code` in a comment or an attribute name

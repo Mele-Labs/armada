@@ -3,7 +3,7 @@
 //! **This crate does not depend on `fleet`**, which is what makes the daemon
 //! core drivable in tests with zero network. The two run as one process and
 //! talk over an in-process channel; the seam is real even though the process
-//! boundary is not. [`Queries`], [`Commands`] and [`Tools`] are stated here and
+//! boundary is not. [`Queries`] and [`Commands`] are stated here and
 //! implemented in `fleet`, so the dependency points one way and
 //! `cargo tree -p api` names no `fleet`; [`Daemon`] is the three together and
 //! the bound [`router`] takes. They speak `ipc` DTOs and nothing else: **no
@@ -20,16 +20,13 @@
 //! **A subset of the inventory, and a stream.** [`SERVED`] is the operations M1
 //! needs, named with `crates/ipc/operations/`'s own keys. The rest of the
 //! inventory, the `/v0` lifeboat and version-skew handling belong to Ship and
-//! are neither built nor stubbed here. [`MCP_PATH`] is on the listener and on
-//! neither seam above: a Drone's Evidence tool, deliberately absent from
-//! [`SERVED`]. See `mcp`.
+//! are neither built nor stubbed here.
 
 /// A form's edits to `armada.yml`, as edits rather than as a file.
 /// Which door a request came through, named before a handler sees it.
 mod acting;
 /// The account a machine is signed in to: its profiles, signing in and out.
 mod accounting;
-mod added_steps;
 mod amending;
 mod answers;
 /// The four reads that narrow the Board rather than drawing it.
@@ -38,7 +35,7 @@ mod attention;
 /// handler runs. **The seam's one rule about callers**, and `#1460`.
 mod callers;
 mod commands;
-/// One repository's Helm conversation, on a socket of its own — never `/events`.
+/// One repository's Helm: its Session found, spoken into and started over.
 mod conversing;
 mod daemon;
 /// The agent's door: the HTTP surface, spoken as MCP. **Who may open it is
@@ -71,18 +68,10 @@ mod mcp;
 /// Mods: folders on this machine that change how Bridge looks.
 mod mods;
 mod needs;
-mod observing;
-/// A message or a stop addressed to one Drone of a Job. #1666.
-mod one_drone;
-/// A person's skip or retry on the Checks a gate is running.
-mod check_acts;
-mod piloting;
 mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
-/// Pulse's kills: one process of a Job, and every one.
-mod processes;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -118,8 +107,6 @@ mod studios;
 mod timeline;
 /// One slot's leases and checkouts, for the Cockpit's Bay pane.
 mod bay_history;
-/// A Job's walk notes, captured and taken back. Since 23.18.
-mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.
 mod watching_run;
 mod watching_session_run;
@@ -128,21 +115,16 @@ mod watching_session_run;
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
-pub use conversing::{
-    CommanderFeed, CommanderWatch, ConversationFeed, ConversationSeen, ConversationWatch,
-    ObservedCommander, Spoken, HELM_BACKLOG,
-};
 pub use daemon::{
-    offerable, offerable_to_a_commander, Accounts, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
+    offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
+    Autopilots, HelmReach, HostedSessions, Issues, Mods, Needs,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
-    StoredFile, Studios, Tools, COMMANDER_ALLOWED,
+    StoredFile, Studios,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput, SessionCheckLive};
 pub use journal::{Journal, Reading, Window, FOLLOW};
-pub use mcp::{Caller, MCP_PATH};
-pub use observing::{Channel, Feed, Observed, Seen, Turns, Watch, WATCHING};
+pub use mcp::Caller;
 pub use reconciling::Reconciliation;
 pub use reference::Resolved;
 pub use routes::{router, Route, SERVED};

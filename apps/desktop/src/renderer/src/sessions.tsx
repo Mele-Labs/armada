@@ -1,5 +1,5 @@
-// Sessions, as the window draws them: a rail surface, a panel on Overview, and
-// who owns a chip anywhere. Apart from `App.tsx`, which is at its length.
+// Sessions, as the window draws them: one Session open in the Cockpit, and who owns
+// a chip anywhere. Apart from `App.tsx`, which is at its length.
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
@@ -15,10 +15,7 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
-  OpenInSession,
   PilotAct,
-  PilotConfirm,
-  PilotExits,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -27,7 +24,6 @@ import {
   SessionFrame,
   type DropdownMenuEntry,
   SessionLedger,
-  SessionList,
   SessionThread,
   SketchPad,
   SketchPreview,
@@ -35,7 +31,6 @@ import {
   StepsPanel,
   SubagentMarks,
   TileSheet,
-  pressedSlot,
   useCodeRun,
   useKept,
   useTerminalDock,
@@ -44,24 +39,19 @@ import type {
   ProseTerminalValue,
   ChipOwnershipValue,
   FreshStart,
-  OpenInSessionValue,
   PilotValue,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
-  SessionBand,
-  SessionGroup,
-  SessionRowView,
   SketchBox,
   SketchLine,
   SketchPicture,
   SketchStroke,
-  SessionState,
   SessionThreadRow,
   StepsPanelProps,
   RetroRowItem,
 } from "@armada/components";
-import { sessionOf } from "@armada/jobs";
+import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { handoffOf } from "./session-handoff";
 import { readRetro, searchFiles } from "./commands";
@@ -77,7 +67,7 @@ import { showLayer } from "./session-view/layers";
 import { slotTroubleOf } from "./session-view/slot-trouble";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, ownerOf, owesOf } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -93,15 +83,13 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, JobSummary, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
+import type { HeldWorktrees, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
-import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
-import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, pullRequestCardOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { SessionRepositoryOf } from "./session-move";
@@ -109,8 +97,7 @@ import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { bangOf, runnerOf } from "./session-runner";
-import { nowOf, todosOf } from "./session-activity";
-import { useViewedVersion, useViewing } from "./cockpit/viewed";
+import { todosOf } from "./session-activity";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -148,7 +135,7 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    jobs: attachmentsOf(session, "job").filter((one) => one.looking !== true).map((one) => ({ id: one.id, number: one.number })),
+    jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
 }
@@ -172,7 +159,7 @@ async function startFreshFrom(draft: SessionsDraft, session: Session, text: stri
   return fresh;
 }
 
-/** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
+/** Who owns each chip, for every chip in the window, and the exits of a piloted Job. */
 export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: string) => void; children: ReactNode }) {
   const sessions = useSessions();
   const draft = useSessionsDraft();
@@ -186,143 +173,25 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
     }),
     [sessions, onOpen],
   );
-  const talk = useMemo<OpenInSessionValue | null>(() => {
-    if (draft === undefined) return null;
-    return {
-      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true && one.dead === undefined).map((one) => ({ id: one.id, title: one.title! })),
-      open: (jobId, sessionId) => {
-        const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
-        if (tag === undefined) return;
-        if (sessionId === undefined) opening(draft.start(tag), onOpen);
-        else {
-          const had = sessions.find((one) => one.id === sessionId)?.pendingTags ?? [];
-          draft.setTags(sessionId, [...had, tag]);
-          onOpen(sessionId);
-        }
-      },
-    };
-  }, [draft, sessions, onOpen]);
-  const [asking, setAsking] = useState<string | null>(null);
-  /** Which act Fleet's last refusal answered, so a take over's is said in its confirmation and an exit's under the exits, and neither under the other. */
-  const [last, setLast] = useState<"take" | "exit" | null>(null);
-  const [starting, setStarting] = useState(false);
+  /** Whether the last act Fleet refused was an exit, so its refusal is said under the exits and nowhere else. */
+  const [exited, setExited] = useState(false);
   const said = useSessionsSaid();
   const pilot = useMemo<PilotValue | null>(() => {
-    // With nothing to take a Job over, no chip offers it.
-    if (draft?.pilot === undefined || draft.exit === undefined) return null;
+    if (draft?.exit === undefined) return null;
     const { exit } = draft;
     return {
-      ask: setAsking,
-      pilotedBy: (jobId) => {
-        for (const one of sessions) {
-          const held = one.attachments.find((a) => a.kind === "job" && a.id === jobId && a.state === "piloted" && a.pilotedElsewhere !== true);
-          if (held?.kind === "job") return { id: one.id, title: one.title ?? one.id, number: held.number };
-        }
-        return undefined;
-      },
       exit: (jobId, way) => {
-        setLast("exit");
+        setExited(true);
         exit(jobId, way);
       },
-      open: onOpen,
-      said: last === "exit" ? said : undefined,
+      said: exited ? said : undefined,
     };
-  }, [draft, sessions, onOpen, last, said]);
-  const asked = asking === null || draft === undefined ? undefined : draft.taggable().find((one) => one.kind === "job" && one.id === asking);
+  }, [draft, exited, said]);
   return (
     <ChipOwnership.Provider value={value}>
-      <OpenInSession.Provider value={talk}>
-        <PilotAct.Provider value={pilot}>
-          {children}
-          <PilotConfirm
-            open={asked !== undefined}
-            title={asked?.title ?? ""}
-            said={last === "take" ? said : undefined}
-            onCancel={() => setAsking(null)}
-            onConfirm={(outcome) => {
-              if (asking === null || draft?.pilot === undefined || starting) return;
-              setLast("take");
-              const started = draft.pilot(asking, outcome);
-              // Fleet answers before the confirmation goes: a refusal is said in it, and nothing opens.
-              if (typeof started === "string") {
-                setAsking(null);
-                onOpen(started);
-                return;
-              }
-              setStarting(true);
-              void started.then((id) => {
-                setStarting(false);
-                if (id === undefined) return;
-                setAsking(null);
-                onOpen(id);
-              });
-            }}
-          />
-        </PilotAct.Provider>
-      </OpenInSession.Provider>
+      <PilotAct.Provider value={pilot}>{children}</PilotAct.Provider>
     </ChipOwnership.Provider>
   );
-}
-
-function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
-  switch (attachment.kind) {
-    case "pull_request":
-      return { kind: "pull_request", number: attachment.number };
-    case "branch":
-      return { kind: "branch", name: attachment.name };
-    case "slot":
-      return { kind: "slot", slot: attachment.slot };
-    case "job":
-      return { kind: "job", id: attachment.id, number: attachment.number };
-    default:
-      return undefined;
-  }
-}
-
-/** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
-const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "done" },
-  { label: "Running", has: (state) => state === "working" || state === "stuck" || state === "limited" },
-  // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
-  // A reply stays here too, with its unread mark until he has opened the Session: it asks nothing of him.
-  { label: "Idle", has: (state) => state === "idle" || state === "failing" || state === "replied" },
-  { label: "Not started", has: (state) => state === "blank" },
-  { label: "Quiet", has: (state) => state === "quiet" },
-  { label: "Ended", has: (state) => state === "ended" },
-];
-
-/** The views of the list, and the headings each holds. Active on opening. */
-const VIEWS = [
-  { id: "active", label: "Active", headings: ["Needs you", "Running", "Idle", "Not started"] },
-  { id: "quiet", label: "Quiet", headings: ["Quiet"] },
-  { id: "ended", label: "Ended", headings: ["Ended"] },
-  { id: "all", label: "All", headings: HEADINGS.map((one) => one.label) },
-] as const;
-
-type ViewId = (typeof VIEWS)[number]["id"];
-
-const VIEW_KEY = "armada.bridge.sessions-view";
-
-/** Which view the viewer chose. A viewer's convenience, so a blocked store only forgets it. */
-function useView(): [ViewId, (next: ViewId) => void] {
-  const [view, set] = useState<ViewId>(() => {
-    try {
-      return VIEWS.find((one) => one.id === localStorage.getItem(VIEW_KEY))?.id ?? "active";
-    } catch {
-      return "active";
-    }
-  });
-  return [
-    view,
-    (next) => {
-      set(next);
-      try {
-        localStorage.setItem(VIEW_KEY, next);
-      } catch {
-        // Not kept: the view is as it was left until the window closes.
-      }
-    },
-  ];
 }
 
 /** What Fleet refused the last act on a Session, in the words it gave. */
@@ -428,68 +297,8 @@ function useOpenRetro(session: Session): (retro: number) => void {
   return useCallback((n) => askToOpenRetro({ id, n, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) }), [id, title]);
 }
 
-/** A repository a band is drawn for, by the Manifest id its Sessions carry. */
-export type BandBy = { manifestId: string; name: string };
-
-/** The band for a Session whose repository is not one of those listed, or that has none. */
-const OTHER_BAND = "Other";
-
-/** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
-export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[]; bandsBy?: readonly BandBy[] }) {
-  const draft = useSessionsDraft();
-  const sessions = useSessions();
-  const [query, setQuery] = useState("");
-  const [view, setView] = useView();
-  const retro = useRetroPress();
-  // A reply reads as unread until he has been in its Session, so the rows are read again as he goes.
-  useViewedVersion();
-  if (draft === undefined) return null;
-  const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
-    const { state, said } = stateOf(session);
-    const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
-    const doing = { now: nowOf(session) };
-    return {
-      id: session.id,
-      ...(session.address === undefined ? {} : { address: session.address }),
-      ...(session.title === undefined ? {} : { title: session.title }),
-      state,
-      said,
-      slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state, card: pullRequestCardOf(one) })),
-      ...(chip === undefined ? {} : { matched: chip }),
-      ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
-      ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
-      ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
-      ...(owesOf(session).length > 0 ? { waiting: owesOf(session).map((one) => one.text) } : {}),
-      ...(doing.now === undefined ? {} : { now: doing.now }),
-      ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
-      ...(session.helm === true ? { helm: true } : {}),
-    };
-  });
-  const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
-  const groupsOf = (rows: readonly SessionRowView[]): SessionGroup[] => HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: rows.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
-  const groups = groupsOf(views);
-  // On All, a band for each repository in the listing's order, and a last one for Sessions with no listed repository.
-  const repositoryOf = new Map(sessions.map((one) => [one.id, one.manifestId]));
-  const known = new Set((bandsBy ?? []).map((one) => one.manifestId));
-  const bands: SessionBand[] | undefined =
-    bandsBy === undefined
-      ? undefined
-      : [
-          ...bandsBy.map((one) => ({ label: one.name, groups: groupsOf(views.filter((row) => repositoryOf.get(row.id) === one.manifestId)) })),
-          { label: OTHER_BAND, groups: groupsOf(views.filter((row) => !known.has(repositoryOf.get(row.id) ?? ""))) },
-        ].filter((band) => band.groups.length > 0);
-  return (
-    <>
-      <Refused />
-      <SessionList groups={groups} {...(bands === undefined ? {} : { bands })} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
-    </>
-  );
-}
-
 /** Where a ledger row goes: the surface that already shows the thing. */
 export type LedgerGoes = {
-  onOpenJob: (jobId: string) => void;
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
@@ -771,7 +580,8 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
+  // A Job a Session once held is not drawn: a Session shows nothing about Jobs.
+  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "job" }> => one.kind !== "job" && (one.kind !== "slot" || !carried.has(one.slot)));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {
@@ -780,7 +590,7 @@ export function entriesOf(
     }),
   ];
 
-  function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
+  function entryOf(one: (typeof drawn)[number]): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "started_to": {
         const child = one.group === undefined ? undefined : sessions.find((other) => other.id === one.id);
@@ -800,7 +610,6 @@ export function entriesOf(
           kind: "slot",
           name: `Worktree slot ${one.slot}`,
           text: <code>{one.slot}</code>,
-          ...(one.handed === undefined ? {} : { handed: `Handed over with Job ${one.handed.job}, not leased` }),
           onOpen: () => slot(one.slot),
         };
       case "branch":
@@ -809,7 +618,6 @@ export function entriesOf(
           kind: "branch",
           name: `Branch ${one.name}`,
           text: <code>{one.name}</code>,
-          ...(one.handed === undefined ? {} : { handed: `Handed over with Job ${one.handed.job}, not created here` }),
           ...(one.slot === 0 ? {} : { slot: one.slot }),
           onOpen: () => slot(one.slot),
         };
@@ -827,30 +635,6 @@ export function entriesOf(
           pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) },
           ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
-        };
-      case "job":
-        return {
-          key: one.id,
-          kind: "job",
-          name: `Job ${one.number}${one.state === "escalated" ? ", needs you" : one.state === "piloted" ? ", piloted" : ""}`,
-          text: (
-            <>
-              <code>{one.number}</code> {one.title}
-            </>
-          ),
-          ...(one.state === "escalated"
-            ? { mark: { glyph: "escalated" as const, said: "Needs you" } }
-            : one.state === "running"
-              ? { mark: { glyph: "running" as const, said: "Running" } }
-              : one.state === "piloted" && one.pilotedElsewhere !== true
-                ? { mark: { glyph: "piloted" as const, said: "Piloted: its Drone is stopped and you are working it here" }, exits: <PilotExits jobId={one.id} compact /> }
-                : one.attested === true
-                  ? { mark: { glyph: "done" as const, said: "Closed by your word, not verified" } }
-                  : {}),
-          ...(one.looking === true ? { looking: true } : {}),
-          ...(one.slot === undefined ? {} : { slot: one.slot }),
-          ...(one.state === "landed" || one.state === "superseded" ? { finished: true } : {}),
-          onOpen: () => goes.onOpenJob(one.id),
         };
       case "studio":
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
@@ -905,12 +689,11 @@ export type DeckSession = {
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
-const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
 const NO_REPOSITORIES: readonly RepositorySummary[] = [];
 
-export function SessionView({ session, goes, onOpen, held, board, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
+export function SessionView({ session, goes, onOpen, held, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const clashes = useWriteClashes();
@@ -1052,7 +835,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
       : [{ key: "waiting-slot", kind: "waiting" as const, name: trouble.said, text: trouble.said, onOpen: () => showLayer(session.id, "slot") }]),
     ...entriesOf(
     released.shown,
-    narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
+    narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
@@ -1065,7 +848,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
-    { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
+    { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
     released.rowOf,
@@ -1244,10 +1027,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
               {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
               compact={narrow}
-              taggable={[
-                ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
-                ...draft.taggable(),
-              ]}
+              taggable={sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! }))}
               searchFiles={(query) => searchFiles(query, session.manifestId)}
               {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
@@ -1300,10 +1080,6 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {
           const done = draft.act(session.id, number, act);
-          // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
-          // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
-          const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
-          if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
           // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
           const asked = (session.waitingFor ?? []).find(
             (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
@@ -1323,7 +1099,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
       </ProseTerminal.Provider>
     </SessionRefs>
   );
@@ -1423,70 +1199,6 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
         />
       </div>
       <SessionBox session={session} onOpen={onOpen} />
-    </div>
-  );
-}
-
-/** The rail surface: the list, or the Session open on it. */
-/** Sessions in the order the list draws them: under each heading in turn. */
-export function listed(sessions: readonly Session[]): string[] {
-  // Helm's Session opens the dock and no page, so j and k pass it by.
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true && one.helm !== true).map((one) => one.id));
-}
-
-/** Whether a key press belongs to a field, which j and k must leave alone. */
-const typing = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-
-export function SessionsSurface({
-  openId,
-  onOpen,
-  goes,
-  held,
-  board = NO_JOBS,
-  lines = null,
-  settings = null,
-  startIn,
-  bandsBy,
-  repositories,
-}: {
-  openId: string | null;
-  onOpen: (id: string) => void;
-  goes: LedgerGoes;
-  held: HeldReads;
-  /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
-  board?: readonly JobSummary[];
-  lines?: MergeLines | null;
-  settings?: SettingsList | null;
-  /** Where New Session may start, on All: it asks which. */
-  startIn?: readonly { root: string; name: string }[];
-  /** On All with more than one repository: the list is drawn in a band for each, in this order. */
-  bandsBy?: readonly BandBy[];
-  /** Every repository Fleet serves, for the one a Session is in and where it can be moved. */
-  repositories?: readonly RepositorySummary[];
-}) {
-  const sessions = useSessions();
-  const open = sessions.find((one) => one.id === openId);
-  useViewing(open?.id);
-  // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
-  useEffect(() => {
-    const press = (event: KeyboardEvent) => {
-      // `move_focus`' first two slots, down and up, as this person has them.
-      const slot = pressedSlot("move_focus", event);
-      if ((slot !== 0 && slot !== 1) || event.defaultPrevented || typing(event.target)) return;
-      const ids = listed(sessions);
-      const at = openId === null ? -1 : ids.indexOf(openId);
-      const next = ids[slot === 0 ? at + 1 : at - 1];
-      if (next === undefined || (at === -1 && slot === 1)) return;
-      event.preventDefault();
-      onOpen(next);
-    };
-    window.addEventListener("keydown", press);
-    return () => window.removeEventListener("keydown", press);
-  }, [sessions, openId, onOpen]);
-  return (
-    <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} {...(repositories === undefined ? {} : { repositories })} />}
     </div>
   );
 }

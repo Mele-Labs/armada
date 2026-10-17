@@ -173,10 +173,6 @@ fn every_reserved_act_is_an_operation_the_door_offers() {
 /// allowed every row of it and a read-only one none. `#941`.
 #[test]
 fn drafting_is_an_acting_helms_and_never_a_read_only_ones() {
-    assert!(
-        !DRAFTING.is_empty(),
-        "the inventory has rows reading `Drafts only`"
-    );
     for row in DRAFTING {
         assert!(may(Authority::Acting, row), "`{}`", row.operation);
         assert!(!may(Authority::ReadOnly, row), "`{}`", row.operation);
@@ -220,35 +216,6 @@ fn the_permission_tool_is_offered_however_far_this_machine_lets_helm_act() {
     assert!(may(Authority::ReadOnly, tool));
 }
 
-/// `#1041`. Helm's approval-card ask is one of its acts, and it moves nothing:
-/// there is no daemon method behind it to call, only `Resolved`'s own read of
-/// the Job named — the door route answers off the id and handle alone.
-#[test]
-fn a_helm_session_may_ask_for_approval() {
-    let row = DRAFTING
-        .iter()
-        .find(|row| row.operation == "ask_person_to_approve")
-        .expect("`ask_person_to_approve` reads `Drafts only` in the inventory");
-    assert_eq!(row.kind, "command");
-    assert!(may(Authority::Acting, row));
-    assert!(!may(Authority::ReadOnly, row));
-}
-
-/// `REACHABLE` is what the door offers any agent on the machine; `DRAFTING` is
-/// Helm's alone (`#941`). The approval ask names a person's own approval, so it
-/// must never reach the first list.
-#[test]
-fn no_other_agent_is_offered_the_approval_ask() {
-    assert!(
-        !REACHABLE
-            .iter()
-            .any(|row| row.operation == "ask_person_to_approve"),
-        "`ask_person_to_approve` must read `Drafts only`, never `Yes`"
-    );
-    assert!(DRAFTING
-        .iter()
-        .any(|row| row.operation == "ask_person_to_approve"));
-}
 
 #[test]
 fn a_read_only_helm_may_read_and_nothing_else() {
@@ -346,29 +313,6 @@ fn helm_reads_the_checkout_runs_it_can_start() {
     }
 }
 
-/// **Helm kills a Job's processes as it kills its Drone**, the owner's
-/// decision of 2 Oct 2026: both rows are offered to a Helm session alone, an
-/// acting Helm may call them and a read-only one may not, exactly as
-/// `kill_drone`.
-#[test]
-fn helm_kills_one_process_or_every_one_with_kill_drones_reach() {
-    for act in ["kill_drone", "kill_process", "kill_processes"] {
-        let row = HELM_ONLY
-            .iter()
-            .find(|row| row.operation == act)
-            .unwrap_or_else(|| panic!("`{act}` does not read `Helm only`"));
-        assert_eq!(row.kind, "command", "`{act}`");
-        assert!(may(Authority::Acting, row), "`{act}`");
-        assert!(!may(Authority::ReadOnly, row), "`{act}`");
-        assert!(
-            !REACHABLE
-                .iter()
-                .chain(DRAFTING)
-                .any(|row| row.operation == act),
-            "`{act}` reaches an agent that is not Helm"
-        );
-    }
-}
 
 /// **Helm passes words to a live Session on the person's ask.** `tell_session` is offered to a Helm
 /// session alone, an acting Helm may call it and a read-only one may not, and the acting note

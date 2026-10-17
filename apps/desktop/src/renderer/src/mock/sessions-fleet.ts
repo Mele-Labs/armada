@@ -9,6 +9,7 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  ChangeWaiting,
   DismissWaiting,
   Attachment,
   ClaimPullRequest,
@@ -23,7 +24,9 @@ import type {
   PartialRetroItem,
   RenameSession,
   SessionSubagent,
+  StartAfter,
   TuneSession,
+  WaitReading,
 } from "@armada/protocol";
 
 import { withThreadRow } from "@armada/screens/src/retro-row";
@@ -104,7 +107,13 @@ export type Calls = {
   started: number;
   /** The repository root each start named, in order; absent where the window named none. */
   startedIn: (string | undefined)[];
-  piloted: { jobId: string; outcome: string }[];
+  /** The wait each start carried, in order: `after` as the window sent it. */
+  startedAfter: StartAfter[];
+  /** The briefs read for a wait, and the Session each tagged. */
+  readWaits: { sessionId: string; request: string }[];
+  changedWaits: ChangeWaiting[];
+  /** The waiting Sessions started now. */
+  startedNow: string[];
   exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
@@ -139,11 +148,13 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
+  reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
-  /** The Board's rows, which a take over and an exit change as Fleet does. */
+  /** The Board's rows, which an exit changes as Fleet does. */
   private jobs: JobSummary[] = [];
   private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
@@ -207,54 +218,35 @@ export class FakeSessionsFleet {
         // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
         if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
-          startSession: async (_title, root) => {
+          startSession: async (_title, root, request, _tuning, after) => {
             this.calls.started += 1;
             this.calls.startedIn.push(root);
+            if (after !== undefined) this.calls.startedAfter.push(after);
             // Fleet records the Manifest of the repository a Session starts in, and the window narrows by it.
             const manifest_id = this.repositories.find((one) => one.root === root)?.manifest?.id;
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }) });
+            const waits =
+              after === undefined
+                ? undefined
+                : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, ...(after.needs === undefined ? {} : { needs: after.needs }) };
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },
-          pilotJob: async (jobId, outcome) => {
-            this.calls.piloted.push({ jobId, outcome });
-            const refused = this.refusal();
-            if (refused !== undefined) return refused;
-            const job = this.jobs.find((row) => row.id === jobId)!;
-            const id = `01PILOT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const number = Number(/^(\d+)-/.exec(job.handle)?.[1] ?? 0);
-            const record = hosted(id, {
-              title: job.title,
-              attachments: [
-                held("slot", "3", { handed: `job ${jobId}` }),
-                held("branch", job.branch ?? "", { handed: `job ${jobId}` }),
-                held("job", jobId),
-              ],
-            });
-            this.threads = {
-              ...this.threads,
-              [id]: [
-                {
-                  kind: "handoff",
-                  id: "handoff1",
-                  at: AT,
-                  job_id: jobId,
-                  number,
-                  title: job.title,
-                  reason: outcome,
-                  slot: 3,
-                  branch: job.branch ?? "",
-                  step: { id: "regression_verify", label: "Verify the fix" },
-                  attempts: 3,
-                  refusals: ["No test covers the retry cap, retry.rs:41"],
-                  plan: { declared: true, outside: ["crates/retry/src/loop.rs"] },
-                },
-              ],
-            };
-            this.setJobs(this.jobs.map((row) => (row.id === jobId ? { ...row, status: "piloted", piloted: { reason: outcome, session_id: id, since: AT } } : row)));
-            this.set([record, ...this.records]);
-            this.publishThreads();
-            return { ok: true, value: record };
+          readSessionWait: async (sessionId, request) => {
+            this.calls.readWaits.push({ sessionId, request });
+            return { ok: true, value: this.reading };
+          },
+          changeWaiting: async (change) => {
+            this.calls.changedWaits.push(change);
+            const found = this.records.find((one) => one.id === change.waiting_session)?.waits;
+            if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            const waits = { ...found, ...(change.condition === undefined ? {} : { condition: change.condition }), ...(change.base === undefined ? {} : { base: change.base }) };
+            this.change(change.waiting_session, (one) => ({ ...one, waits }));
+            return { ok: true, value: waits };
+          },
+          startWaitingNow: async (sessionId) => {
+            this.calls.startedNow.push(sessionId);
+            return this.change(sessionId, ({ waits: _waits, ...one }) => one);
           },
           exitPilot: async (jobId, exit, note) => {
             this.calls.exited.push({ jobId, exit, ...(note === undefined ? {} : { note }) });
@@ -315,7 +307,7 @@ export class FakeSessionsFleet {
           },
           claimPullRequest: async (claim) => {
             this.calls.claimed.push(claim);
-            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_kind: claim.job_id === undefined ? "session" : "job", holder_id: claim.job_id ?? claim.session_id ?? "" } };
+            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_id: claim.session_id ?? "" } };
           },
           dismissWaiting: async (dismiss) => {
             this.calls.dismissed.push(dismiss);

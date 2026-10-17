@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use core_model::Narrowing;
 
 use crate::holding::holders;
-use crate::named::{one_test_in, touched_run, OneTestRefused, TouchedRun};
+use crate::named::{one_test_in, tests_in, touched_run, OneTestRefused, TouchedRun};
 use crate::narrow::one_test;
 use crate::touched::touched;
 
@@ -140,6 +140,43 @@ fn one_test_names_the_members_it_compiles() {
     );
 }
 
+/// Several names are one command, so one build: one alternation, and every
+/// member holding any of them.
+#[test]
+fn several_names_are_one_run_over_every_member_holding_one() {
+    let workspace = a_workspace();
+    assert_eq!(
+        tests_in(
+            workspace.path(),
+            RUN,
+            Some(&by_package()),
+            &["stops", "every_operation_the_door_offers_is_tagged", "session_stop"],
+        ),
+        Ok("cargo nextest run -E \
+            test(/(^|::)(?:stops|every_operation_the_door_offers_is_tagged|session_stop)(::|$)/) \
+            -p fleet -p ipc"
+            .to_string())
+    );
+}
+
+/// One name nothing holds refuses the run and is the one named.
+#[test]
+fn one_unheld_name_among_several_refuses_the_run() {
+    let workspace = a_workspace();
+    assert_eq!(
+        tests_in(workspace.path(), RUN, Some(&by_package()), &["stops", "no_such_test"]),
+        Err(OneTestRefused::NoMember {
+            test: "no_such_test".to_string(),
+            under: "crates".to_string(),
+            excepted: Vec::new(),
+        })
+    );
+    assert_eq!(
+        tests_in(workspace.path(), RUN, Some(&by_package()), &[]),
+        Err(OneTestRefused::Blank)
+    );
+}
+
 /// What the whole run excludes is not named by one test either, and is said.
 #[test]
 fn a_test_only_an_excluded_member_declares_is_refused_with_why() {
@@ -147,6 +184,7 @@ fn a_test_only_an_excluded_member_declares_is_refused_with_why() {
     assert_eq!(
         one_test_in(workspace.path(), RUN, Some(&by_package()), "the_board"),
         Err(OneTestRefused::NoMember {
+            test: "the_board".to_string(),
             under: "crates".to_string(),
             excepted: paths(&["acceptance"]),
         })
@@ -160,6 +198,7 @@ fn a_name_nothing_declares_is_refused_and_never_widened() {
     assert_eq!(
         one_test_in(workspace.path(), RUN, Some(&by_package()), "no_such_test"),
         Err(OneTestRefused::NoMember {
+            test: "no_such_test".to_string(),
             under: "crates".to_string(),
             excepted: Vec::new(),
         })

@@ -40,6 +40,36 @@ pub(crate) async fn hand_to_session<D: HostedSessions>(
     }
 }
 
+/// The proposer reads a brief that tags a Session for the wait it names. 200 with `WaitReading`.
+pub(crate) async fn read_session_wait<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let read: ipc::ReadSessionWait = match ipc::decode("a brief to read for a wait", &body) {
+        Ok(read) => read,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().read_session_wait(read).await {
+        Ok(reading) => answer(StatusCode::OK, &reading, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person starts a waiting Session at once. 200 with the `SessionRecord`.
+pub(crate) async fn start_waiting_now<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartWaitingNow = match ipc::decode("a waiting session to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_waiting_now(start).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The most a message may weigh. Its pictures and files ride inside it as base64, and one
 /// Retina screenshot is past axum's 2 MB default on its own.
 pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;

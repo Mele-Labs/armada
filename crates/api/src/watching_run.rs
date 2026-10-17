@@ -16,7 +16,7 @@
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
     CheckoutRunMessage, CheckoutRunOpened, JobId, Missed, OutputClosed, OutputEnded, OutputLines,
-    ProtocolId, RunMessage, RunOpened, ServerMessage, ServerOpened,
+    ProtocolId, RunMessage, ServerMessage, ServerOpened,
 };
 use serde::Serialize;
 use tokio::sync::broadcast;
@@ -197,26 +197,6 @@ impl Spoken for ServerMessage {
     }
 }
 
-/// Serve one viewer of a run: the log so far, then what the run prints, then
-/// why it stopped. The socket is never read from; dropping it is unsubscribing.
-pub(crate) async fn relay(socket: WebSocket, observed: ObservedRun) {
-    let opened = RunMessage::Opened(RunOpened {
-        protocol_id: ProtocolId::current(),
-        job_id: observed.job_id,
-        id: observed.id,
-        name: observed.name,
-        path: observed.path,
-        live: observed.live.is_some(),
-        skipped: observed.skipped,
-    });
-    let tail = Tail {
-        live: observed.live,
-        history: observed.history,
-        read_to: observed.read_to,
-        unreadable: observed.unreadable,
-    };
-    relayed(socket, opened, tail).await;
-}
 
 /// Serve one viewer of a run in the main checkout, [`relay`]'s way.
 pub(crate) async fn relay_checkout(socket: WebSocket, observed: ObservedCheckoutRun) {

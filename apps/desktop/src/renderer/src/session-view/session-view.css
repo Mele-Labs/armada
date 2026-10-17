@@ -282,8 +282,6 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .deck-row[data-calling]::before { content: ""; position: absolute; inset-block: var(--space-1); inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
 @keyframes deck-call-pulse { 50% { opacity: 0.2; } }
 @media (prefers-reduced-motion: reduce) { .deck-row[data-calling]::before { animation: none; } }
-.deck-list__item > .armada-tooltip { flex: 1 1 0; min-width: 0; }
-.deck-list__item > .armada-tooltip > .deck-row { flex: 1 1 0; }
 
 /* ---- A Session's card, half as padded ---------------------------------------------------------------------------- */
 

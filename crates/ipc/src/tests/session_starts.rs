@@ -50,7 +50,7 @@ fn the_answer_the_row_and_the_item_round_trip() {
 
 #[test]
 fn a_group_is_optional_on_a_start_and_written_only_when_set() {
-    let plain = StartAnotherSession { manifest_id: crate::ManifestId::carried("armada"), title: "t".into(), message: "m".into(), group: None };
+    let plain = StartAnotherSession { manifest_id: crate::ManifestId::carried("armada"), title: "t".into(), message: "m".into(), group: None, after: None };
     assert_eq!(serde_json::to_value(&plain).unwrap(), json!({"manifest_id":"armada","title":"t","message":"m"}));
     let grouped: StartAnotherSession =
         crate::decode("a session to start", br#"{"manifest_id":"armada","title":"t","message":"m","group":"g2"}"#).unwrap();
