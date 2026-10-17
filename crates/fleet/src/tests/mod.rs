@@ -266,6 +266,8 @@ mod session_proposal;
 mod session_rail;
 mod session_setup;
 mod session_queue;
+mod session_slot_asking;
+mod session_slot_choice;
 mod session_question;
 mod session_retro;
 mod session_standing;

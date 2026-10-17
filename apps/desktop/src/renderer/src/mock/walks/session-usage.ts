@@ -4,11 +4,11 @@
 // A Session or a Job held for the plan limit wears a battery-low mark with when it resumes, on its row and, for
 // a Session, in its header. Over the `session-usage` scenario.
 
-import { dialog, inside, place, region, role, walk } from "../walk";
+import { dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const limits = role("button", "5-hour limit");
 const card = dialog("Plan limits");
 const limitMark = role("img", "Limit reached");
@@ -35,11 +35,8 @@ const usage = walk("session-usage", [
   { later: limits, say: "Later in the week" },
   { look: limits, say: "Amber from 80%, red from 95%" },
   { hover: limits, say: "The figures in the card take the same tones" },
-  { press: place("Jobs"), say: "A Job's row, on the Jobs page" },
-  { look: limitMark, say: "A Job held for the limit wears this beside its status" },
-  { hover: limitMark, say: "Hover for when it resumes" },
   toSessions,
-  { look: inside(sessions, limitMark), say: "A Session held for the limit, in place of its live mark" },
+  { look: inside(sessions, limitMark), say: "A Job or a Session held for the limit wears this on its row" },
   { hover: inside(sessions, limitMark), say: "Hover for when it resumes" },
   { press: inside(sessions, role("button", /Invoice PDF layout/)), say: "Invoice PDF layout" },
   { look: inside(region("Session s-01CTXLIM"), limitMark), say: "The same mark in its header" },

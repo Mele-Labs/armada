@@ -167,10 +167,13 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
  * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
- * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card. `replied` is no longer served: a reply is the
+ * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
+ * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
+ * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
+ * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `replied` is no longer served: a reply is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -474,6 +477,19 @@ export type SessionCheckCall = {
   /** All of it on `end`; what is new since the last one on `chunk`. */
   log?: string;
 };
+
+/**
+ * `ask_for_slot` (`POST /sessions/slot_wanted`): a Session's `armada worktree lease` found every slot
+ * held (`ask`, repeated about once a second as its heartbeat) or is done waiting (`done`). Bridge never
+ * sends it; it is here so the wire reads whole. The call it raises is the Session's `slot_choice` item.
+ */
+export type AskForSlot = { act: "ask" | "done"; session_id: string };
+
+/**
+ * What it answers: `asking` the call is on the list, `waiting` he chose to wait, `added` a slot was
+ * made and is held for the command for about thirty seconds, `unasked` Fleet does not host the Session.
+ */
+export type SlotAsked = { standing: "asking" | "waiting" | "added" | "unasked" };
 
 /** How a person asked a running Check to stop: `SIGTERM` to its group, or `SIGKILL`. */
 export type SessionCheckStop = "graceful" | "force";

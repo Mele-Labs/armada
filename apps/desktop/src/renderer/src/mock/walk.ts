@@ -70,7 +70,7 @@ export const tab = (name: Name, options?: { exact?: boolean }) => role("tab", na
 export const button = (name: Name, options?: { exact?: boolean }) => role("button", name, options);
 export const dialog = (name: Name) => role("dialog", name);
 export const row = (name: Name) => role("row", name);
-export const region = (name: Name) => role("region", name);
+export const region = (name: Name, options?: { exact?: boolean }) => role("region", name, options);
 
 /** Words on screen: the smallest element that draws them. */
 export function text(words: Name): Target {
@@ -96,7 +96,7 @@ export function inside(scope: Target, target: Target): Target {
 export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
 
 /** A row of the Cockpit's list of Jobs and Sessions, by its title. */
-export const deckRow = (title: Name): Target => inside(region("Jobs and Sessions"), button(title));
+export const deckRow = (title: Name): Target => inside(region("Work", { exact: true }), button(title));
 
 /** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
 export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));

@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import { DONE_ITEM, REPLIED_ITEM } from "./needs-me-ids";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 beforeEach(forgetDismissals);
@@ -17,16 +17,11 @@ const FIRST = "Confirm the old fixture can go";
 const SECOND = "Pick a name for the cache table";
 
 const rail = () => page.getByRole("complementary");
-const sessions = () => page.getByRole("region", { name: "Sessions" });
-const filed = (heading: string, title: string) => sessions().getByRole("group", { name: heading }).getByRole("listitem", { name: title });
+const work = () => page.getByRole("region", { name: "Work", exact: true });
+const filed = (title: string) => work().getByRole("button", { name: title, exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const reason = (item: string) => page.getByRole("textbox", { name: `Reason for removing ${item}` });
 const remove = (item: string) => page.getByRole("button", { name: `Remove ${item}`, exact: true });
-
-async function toSessions(): Promise<void> {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
-  await expect.element(sessions()).toBeVisible();
-}
 
 /** The Cockpit, with the dispatch bar it opens in left so the keys reach the card. */
 async function cockpit() {
@@ -40,30 +35,26 @@ async function cockpit() {
 async function band() {
   const app = mount("needs-me-replied-and-delete");
   await onScreen();
-  await toSessions();
-  await userEvent.click(sessions().getByRole("button", { name: /Cache key/ }));
+  await toSession(/Cache key/);
   const held = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(held.getByRole("button", { name: /^Needs you/ }));
   await expect.element(remove(FIRST)).toBeVisible();
   return { app, held };
 }
 
-test("a reply is under Idle with the unread mark and a done stays under Needs you, and the mark goes once the Session is opened", async () => {
+test("a reply has the unread mark and a done is marked Done, and the mark goes once the Session is opened", async () => {
   mount("needs-me-replied-and-delete");
   await onScreen();
-  await toSessions();
+  await expect.element(work()).toBeVisible();
 
-  await expect.element(filed("Idle", "Pin the store clock")).toBeVisible();
-  await expect.element(filed("Idle", "Pin the store clock").getByRole("img", { name: "Unread reply" })).toBeVisible();
-  await expect.element(sessions().getByRole("group", { name: "Needs you" }).getByRole("listitem", { name: "Pin the store clock" })).not.toBeInTheDocument();
-  await expect.element(filed("Needs you", "Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
-  await expect.element(filed("Needs you", "Cache key")).toBeVisible();
+  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Unread reply" })).toBeVisible();
+  await expect.element(filed("Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
+  await expect.element(filed("Cache key")).toBeVisible();
 
-  await userEvent.click(sessions().getByRole("button", { name: /Pin the store clock/ }));
-  await toSessions();
-  await expect.element(filed("Idle", "Pin the store clock").getByRole("img", { name: "Idle" })).toBeVisible();
-  await expect.element(filed("Idle", "Pin the store clock").getByRole("img", { name: "Unread reply" })).not.toBeInTheDocument();
-  await expect.element(filed("Needs you", "Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
+  await toSession(/Pin the store clock/);
+  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Idle" })).toBeVisible();
+  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Unread reply" })).not.toBeInTheDocument();
+  await expect.element(filed("Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
 });
 
 test("a reply raises no call, and the done and the agent's items do", async () => {
@@ -112,22 +103,20 @@ test("a reply or a done dismissed posts nothing to its agent", async () => {
   const app = mount("needs-me-replied-and-delete");
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
   await onScreen();
-  await toSessions();
-  await expect.element(filed("Idle", "Pin the store clock").getByRole("img", { name: "Unread reply" })).toBeVisible();
-  await expect.element(filed("Needs you", "Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
+  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Unread reply" })).toBeVisible();
+  await expect.element(filed("Changelog script").getByRole("img", { name: "Done" })).toBeVisible();
 
   // Nothing in the window dismisses either any more, so Fleet is asked as another window or the phone would.
   expect((await app.api.dismissWaiting({ session_id: "r1", item_id: REPLIED_ITEM })).ok).toBe(true);
   expect((await app.api.dismissWaiting({ session_id: "d1", item_id: DONE_ITEM })).ok).toBe(true);
   expect(dismiss).toHaveBeenCalledTimes(2);
   // Each is settled when its Session reads as idle, which is also when anything it was going to say would be in the thread.
-  await expect.element(filed("Idle", "Pin the store clock").getByRole("img", { name: "Idle" })).toBeVisible();
-  await expect.element(filed("Idle", "Changelog script").getByRole("img", { name: "Idle" })).toBeVisible();
+  await expect.element(filed("Pin the store clock").getByRole("img", { name: "Idle" })).toBeVisible();
+  await expect.element(filed("Changelog script").getByRole("img", { name: "Idle" })).toBeVisible();
   for (const [title, said] of [["Pin the store clock", /The clock is pinned in all four store tests/], ["Changelog script", /The script is merged/]] as const) {
-    await userEvent.click(sessions().getByRole("button", { name: new RegExp(title) }));
+    await toSession(new RegExp(title));
     await expect.element(thread().getByText(said).first()).toBeVisible();
     expect(thread().getByText(/Owner removed/).query()).toBeNull();
-    await toSessions();
   }
 });
 
@@ -162,8 +151,7 @@ test("the call card removes an item the agent stated, with a reason or without, 
   expect(page.getByRole("button", { name: /^Remove/ }).query()).toBeNull();
   await expect.element(rail().getByRole("button", { name: /Dismiss/ })).toBeVisible();
 
-  await toSessions();
-  await userEvent.click(sessions().getByRole("button", { name: /Cache key/ }));
+  await toSession(/Cache key/);
   await expect.element(thread().getByText(`Owner removed "${one}": The cache tests still read it.`, { exact: true })).toBeVisible();
   await expect.element(thread().getByText(`Owner removed "${other}"`, { exact: true })).toBeVisible();
 });

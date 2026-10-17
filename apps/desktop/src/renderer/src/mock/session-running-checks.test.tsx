@@ -4,15 +4,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 async function openSession() {
   mount("session-running-checks");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "Session running checks" }));
+  await toSession("Session running checks");
 }
 
 test("the header counts the running checks, and the one that passed is not among them", async () => {

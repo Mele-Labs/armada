@@ -16,7 +16,7 @@ const following = (model: string) => role("option", `${model} · default`);
 /** To the Session whose model list shows the default, and past 80%. */
 const crossing: Step[] = [
   toSessions,
-  { press: inside(region("Sessions"), button(/Cart totals rounding/)), say: "A Session with no model chosen" },
+  { press: inside(region("Work", { exact: true }), button(/Cart totals rounding/)), say: "A Session with no model chosen" },
   { look: following("opus"), say: "Its model list shows the default" },
   { look: weekly, say: "The weekly limit at 75%: nothing offered" },
   { later: weekly, say: "The week passes 80%" },
@@ -49,7 +49,7 @@ const planDownshiftChoosing = walk("plan-downshift", [
   { type: "haiku", into: role("textbox", "Session model", { exact: true }), say: "Set it by hand" },
   { press: button("Save Session model"), say: "Save" },
   toSessions,
-  { press: inside(region("Sessions"), button(/Cart totals rounding/)), say: "The Session" },
+  { press: inside(region("Work", { exact: true }), button(/Cart totals rounding/)), say: "The Session" },
   { look: following("haiku"), say: "Its model list follows" },
 ]);
 

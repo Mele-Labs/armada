@@ -6,15 +6,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, toSystemPage, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 test("Reach outside: the card's folder picker, Always allow, and the list in Settings", async () => {
   mount("session-reach-outside");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Custom margins/ }));
+  await toSession(/Custom margins/);
 
   const card = page.getByRole("article", { name: "Waiting on you" });
   const answers = card.getByRole("group", { name: "Answers" });
@@ -30,8 +29,7 @@ test("Reach outside: the card's folder picker, Always allow, and the list in Set
   await userEvent.click(answers.getByRole("button", { name: "Always allow Documents", exact: true }));
   await expect.element(card).not.toBeInTheDocument();
 
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Release notes/ }));
+  await toSession(/Release notes/);
   await expect.element(card.getByText("Permission to write", { exact: true })).toBeVisible();
   await expect.element(card.getByText("Always applies to writes to", { exact: true })).toBeVisible();
   await userEvent.click(answers.getByRole("button", { name: "Always allow for this session notes.md", exact: true }));

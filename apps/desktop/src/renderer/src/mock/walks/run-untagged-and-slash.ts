@@ -7,7 +7,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const { thread } = kit(false);
-const sessions = region("Sessions");
+const sessions = region("Work", { exact: true });
 const chain = inside(thread, role("group", /^cd ~\/Development\/armada/));
 const snippet = inside(thread, text(/const rows = items\.filter/));
 const diagram = inside(thread, text(/│ Bridge │/));

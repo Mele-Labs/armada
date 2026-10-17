@@ -1,7 +1,7 @@
 // A terminal Session's message box and its mod. `/re` lists only the commands that start with it,
 // then the ones that hold it, one row each in a column that scrolls; a send the terminal is not
 // listening for is a toast that stays; and a Session whose mod is older than the repository's is
-// marked on its row and in its header. Told twice: wide, and below the breakpoint.
+// marked in its header. Told twice: wide, and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";
@@ -11,11 +11,10 @@ const MOD = "Mod out of date: run /reload-plugins";
 
 function steps(narrow: boolean): Step[] {
   const { message } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const header = role("region", /^Session s4/);
   return [
-    { look: inside(sessions, role("img", MOD)), say: "A Session whose mod is older than the repository's is marked on its row" },
-    { press: inside(sessions, button("CI timeout hunt")), say: "Opened" },
+    { press: inside(sessions, button("CI timeout hunt")), say: "A Session whose mod is older than the repository's" },
     { hover: inside(header, role("img", MOD)), say: "And in its header, where the mark says what to run" },
     { type: "/re", into: message, say: "A slash and two letters" },
     { look: role("listbox", "Skills and commands"), say: "Only what starts with them, then what holds them: one row each, and the list scrolls" },

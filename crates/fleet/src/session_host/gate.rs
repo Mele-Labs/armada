@@ -21,6 +21,7 @@ use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting};
 
 use super::following::Standing;
+use super::queueing::Choice;
 use super::places::{normalised, place_of, run_from, worked_in, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
@@ -105,7 +106,7 @@ where
         let own = hosting.lease_slot;
         // A slot it came by some other way ends its wait.
         if own.is_some() {
-            self.hosts().slot_queue().leave(&id);
+            self.line_left(&id).await;
         }
         let directory = Self::directory_of(&served, &hosting);
         let held = |slot: u32| {
@@ -259,25 +260,25 @@ where
     async fn leased(&self, id: &str, served: &Served) -> GateAnswer {
         let queue = self.hosts().slot_queue();
         let manifest = served.manifest().id().as_str();
+        // A slot added for a command that is asking is its own until it leases it.
+        let held_back = queue.reserved(manifest, Some(id), std::time::Instant::now());
         let taken = match queue.ahead_of(manifest, id) {
-            0 => self.take_lease(id, served).await,
+            0 if !held_back => self.take_lease(id, served).await,
             _ => Taken::Full,
         };
         match taken {
             Taken::Gone => GateAnswer::pass(),
             Taken::Held { slot, directory } => {
-                queue.leave(id);
+                self.line_left(id).await;
                 GateAnswer::deny(waiting_to_move(slot, &directory))
             }
             Taken::Refused(why) => GateAnswer::deny(why),
             Taken::Full => {
-                let ahead = queue.join(manifest, id);
-                // A slot may have been given back between the lease and the join.
-                queue.freed();
-                GateAnswer::deny(queued(ahead))
+                let ahead = self.line_joined(manifest, id).await;
+                GateAnswer::deny(queued(ahead, queue.chosen(id)))
             }
             Taken::Moving(moving) => {
-                queue.leave(id);
+                self.line_left(id).await;
                 GateAnswer::deny(format!(
                     "This session writes only inside a worktree leased for it, and it had none \
                      until this write. Slot {} is leased on branch {} at {}, and Fleet is \
@@ -300,25 +301,45 @@ where
         hosting: &KeptHosting,
     ) -> KeptHosting {
         let id = hosting.session_id.as_str();
+        let manifest = served.manifest().id().as_str();
         let queue = self.hosts().slot_queue();
-        let unleased = hosting.lease_slot.is_none()
-            && !hosting.helm
-            && mode_of(&hosting.mode) != SessionMode::Plan
-            && queue.ahead_of(served.manifest().id().as_str(), id) == 0;
+        let unleased = hosting.lease_slot.is_none() && !hosting.helm && mode_of(&hosting.mode) != SessionMode::Plan;
         if !unleased {
+            return hosting.clone();
+        }
+        // Behind a line already: the call is raised now, and the first write queues as before.
+        if queue.ahead_of(manifest, id) != 0 {
+            self.line_joined(manifest, id).await;
             return hosting.clone();
         }
         match self.take_lease(id, served).await {
             // No process runs yet, so there is nothing to move.
             Taken::Moving(_) => self.hosts().of(id).state().moving = None,
             Taken::Held { .. } => {}
-            Taken::Full | Taken::Refused(_) | Taken::Gone => return hosting.clone(),
+            Taken::Full => {
+                self.line_joined(manifest, id).await;
+                return hosting.clone();
+            }
+            Taken::Refused(_) | Taken::Gone => return hosting.clone(),
         }
-        queue.leave(id);
+        self.line_left(id).await;
         match self.session_and_hosting(id).await {
             Ok((_, leased)) => leased,
             Err(_) => hosting.clone(),
         }
+    }
+
+    /// The session is in the repository's line for a slot, and the person has been asked what to
+    /// do about it if this is its first time there. How many are ahead of it.
+    async fn line_joined(&self, manifest: &str, id: &str) -> usize {
+        let queue = self.hosts().slot_queue();
+        let (ahead, fresh) = queue.join(manifest, id, &self.instant());
+        if fresh {
+            let _ = self.published_hosted(id).await;
+        }
+        // A slot may have been given back between the lease and the join.
+        queue.freed();
+        ahead
     }
 
     /// Lease a slot for the session and cut its branch. **One at a time**, so
@@ -495,15 +516,20 @@ fn not_held(path: &str, slot: u32) -> String {
     )
 }
 
-fn queued(ahead: usize) -> String {
+fn queued(ahead: usize, chosen: Option<Choice>) -> String {
     let place = match ahead {
         0 => String::from("first in the queue"),
         n => format!("{n} ahead of it in the queue"),
     };
+    let owner = match chosen {
+        Some(Choice::Waiting) => "The owner chose to wait for a slot to free.",
+        Some(Choice::Adding) => "The owner chose to add a slot.",
+        _ => "The owner is being asked whether this session waits for a slot to free or Fleet adds one.",
+    };
     format!(
         "Every worktree slot is in use, so this session cannot write yet. It is {place} for \
-         one. Stop here: make no more tool calls and write nothing more this turn. Fleet leases \
-         a slot for it when one frees, moves the session there and tells it, and then it repeats \
+         one. {owner} Stop here: make no more tool calls and write nothing more this turn. \
+         Fleet leases a slot for it, moves the session there and tells it, and then it repeats \
          this write."
     )
 }

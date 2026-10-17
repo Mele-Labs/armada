@@ -8,7 +8,7 @@ import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, rail } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const section = (name: string) => inside(ledger, region(name));
   const choice = (name: string, one: "Open" | "All") => inside(section(name), role("radio", one, { exact: true }));
   return [

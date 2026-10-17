@@ -679,6 +679,18 @@ destructive = false
 confirms = false
 notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. `m` shows the map."
 
+[actions.deck_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Search the list"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Opens the Work list's Filter menu with its search field focused, from anywhere on the deck outside a text box. ↑ from the list's first row does the same. `/` is `review_search` on the Reviews tab: a different scope, so neither is the other's conflict."
+
 [actions.deck_page]
 kind = "Action"
 tier = "Contextual"

@@ -58,6 +58,11 @@ const WARM: &[&str] = &["target", "node_modules", ".gitnexus"];
 /// How often a waiting lease looks again.
 const LOOK_AGAIN: Duration = Duration::from_millis(200);
 
+/// How many looks a lease that is not waiting for anyone to give a slot back makes while the pool
+/// reads full only for a moment, and how far apart.
+const SETTLE_LOOKS: usize = 10;
+const SETTLE_EVERY: Duration = Duration::from_millis(20);
+
 /// Copies a warm build directory into a new slot, copy-on-write. Injected,
 /// because the clone is a system call this crate is not allowed to make.
 pub type Seed<'a> = &'a dyn Fn(&Path, &Path) -> Result<(), String>;
@@ -216,7 +221,8 @@ impl Pool {
         loop {
             match self.take(Onto::New, branch, holder, since, seed)? {
                 Leased::Took(lease) => return Ok(lease),
-                Leased::Full(full) => waiting(&full),
+                Leased::Full(full) if full.settled() => waiting(&full),
+                Leased::Full(_) => {}
             }
             std::thread::sleep(LOOK_AGAIN);
         }
@@ -233,7 +239,24 @@ impl Pool {
         if let Some(own) = self.handed_back(holder) {
             return Ok(Leased::Took(own));
         }
-        self.take(Onto::New, branch, holder, since, seed)
+        self.looked_until_settled(|| self.take(Onto::New, branch, holder, since, seed))
+    }
+
+    /// `look`, again a few times while the pool reads full only because a slot is locked or not
+    /// made for a moment ([`Full::settled`]). **Whoever hears a pool is full acts on it**: Fleet
+    /// queues a session and asks the person, so a look that was wrong for a few milliseconds is
+    /// not the answer.
+    pub(super) fn looked_until_settled(
+        &self,
+        look: impl Fn() -> Result<Leased, LeaseRefused>,
+    ) -> Result<Leased, LeaseRefused> {
+        for _ in 1..SETTLE_LOOKS {
+            match look()? {
+                Leased::Full(full) if !full.settled() => std::thread::sleep(SETTLE_EVERY),
+                answer => return Ok(answer),
+            }
+        }
+        look()
     }
 
     /// A Job asking again is handed its own slot as it stands: resetting it
