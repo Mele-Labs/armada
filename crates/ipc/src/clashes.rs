@@ -45,3 +45,17 @@ pub struct WriteClash {
 pub struct WriteClashes {
     pub clashes: Vec<WriteClash>,
 }
+
+/// `read_clash_file`: one file of a standing clash, as each side changed it.
+/// `GET /clashes/file?session_id=&other_kind=&other_id=&path=`.
+///
+/// Both are what `git diff` prints for that one path, from the commit where the two sides split,
+/// with its `diff --git` header and `@@` hunks. A side that left the file as it was has an empty
+/// string.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClashFile {
+    /// The asking Session's change to the file.
+    pub ours: String,
+    /// The other holder's. For `main`, what main changed since the Session's branch met it.
+    pub theirs: String,
+}

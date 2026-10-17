@@ -9,7 +9,7 @@ import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened } from "@armada/protocol";
+import type { CaptureOpened, ClashSide } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -39,7 +39,7 @@ import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
-import type { WriteClashesRead } from "../shared/api/clashes";
+import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
 import type { ReviewActed } from "../shared/api/reviews";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
@@ -350,6 +350,8 @@ const api: BridgeApi = {
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
+  readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string): Promise<ClashFileAnswer> =>
+    ipcRenderer.invoke(CHANNELS.readClashFile, sessionId, other, path),
   getReviewLists: (): Promise<ReviewActed<PullReviewLists>> => ipcRenderer.invoke(CHANNELS.getReviewLists),
   readReviewPage: (manifestId: string, number: number): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.readReviewPage, manifestId, number),
   readReviewFile: (manifestId: string, number: number, path: string): Promise<ReviewActed<PullRequestFilePatch>> => ipcRenderer.invoke(CHANNELS.readReviewFile, manifestId, number, path),
