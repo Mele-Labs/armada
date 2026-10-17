@@ -104,7 +104,7 @@ pub use setup::{
     StyleFrom, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    BranchKept, CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
+    BranchKept, CommitHome, RescueRefused, ReviewBay, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
     SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
     SlotStanding, StrandedWork, WorkShown,
 };
@@ -491,6 +491,29 @@ pub trait Vcs {
     /// the tree holds anything uncommitted, or commits its branch, the remote
     /// and the base all lack. Refused, the slot stays held and says why.
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept>;
+
+    /// Lease a slot for `holder` to read pull request `pull_request` in: its head fetched from the
+    /// forge and checked out there, on a branch of the pool's own that only this lease uses.
+    /// **For a read and nothing else**: no work is expected in the slot, and none is kept when it
+    /// is given back. [`ReviewBay::Full`] is every slot held; it waits. `Err` is the sentence for
+    /// a head the forge would not give. A build with no slots to lease says so.
+    fn lease_review_bay(
+        &self,
+        pool: &SlotPool,
+        pull_request: u64,
+        holder: &str,
+    ) -> Result<ReviewBay, alloc::string::String> {
+        let _ = (pool, pull_request, holder);
+        Err(alloc::string::String::from("this build has no slot to read a pull request in"))
+    }
+
+    /// Give back a slot [`lease_review_bay`](Vcs::lease_review_bay) leased, **whatever a read left
+    /// in it**, and delete the branch the lease cut. Refused only where the slot is no longer
+    /// `holder`'s, or git would not move it.
+    fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), alloc::string::String> {
+        let _ = (pool, slot, holder);
+        Ok(())
+    }
 
     /// Delete the local branch a repair Drone wrote on, once its fix is merged
     /// onto the Job's branch or the repair ended failed. **Handed the spec the

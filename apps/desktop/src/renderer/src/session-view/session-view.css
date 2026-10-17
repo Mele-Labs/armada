@@ -130,6 +130,8 @@
 .sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
 .sv-group__title { overflow-wrap: anywhere; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
 .sv-group__marks { display: flex; gap: var(--space-1); }
+/* The Session a group was handed to: its row, under the group's own and set off by a rule. */
+.sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
 .sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }

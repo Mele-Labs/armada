@@ -25,6 +25,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { LinkedRow } from "./LinkedRow";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -112,6 +113,8 @@ export type SessionThreadRow =
    * changed it), or started (`says` is where from). A press opens it.
    */
   | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
+  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: "needs" | "done" | "merged" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
@@ -734,6 +737,7 @@ function Row({
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (
       <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>

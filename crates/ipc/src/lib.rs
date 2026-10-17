@@ -196,6 +196,8 @@ mod requester;
 /// What one Job holds on this machine, and what came of asking whether it is
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
+/// What an agent says about one pull request, and the review tools it is asked with.
+mod review_runs;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
@@ -378,7 +380,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
     RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
     SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
@@ -487,6 +489,12 @@ pub use repositories::{
     AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use review_runs::{
+    PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace, ReviewResult,
+    ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity, ReviewStep,
+    ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewToolScope,
+    ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+};
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
     Look, WorktreeOnDisk,
@@ -521,7 +529,7 @@ pub use session_checks::{
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
-pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_starts::{ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession};
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,

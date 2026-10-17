@@ -205,3 +205,18 @@ test("a narrowed scope or a search keeps main's events off the feed and the stag
   expect(keepOf(listed, { ...deckNow(), query: "x" })({ kind: "main" })).toBe(false);
   expect(keepOf(listed, { ...deckNow(), scope: "active", query: " " })({ kind: "main" })).toBe(true);
 });
+
+// ---- Linked Sessions, in Work --------------------------------------------------------------------------
+
+test("a Session started from another stands right under its parent, whether or not it was handed a plan group", () => {
+  const child = (id: string, linked: Subject["linked"]): Subject => ({ ...subject("session", id), linked });
+  const all = [subject("session", "p"), subject("job", "j"), child("grouped", { parent: "session:p", group: "Names" }), child("plain", { parent: "session:p" })];
+  const listed = listOf({ subjects: all, running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key)).toEqual(["session:p", "session:grouped", "session:plain", "job:j"]);
+});
+
+test("a linked Session whose parent is not listed stands in the list where it would", () => {
+  const orphan: Subject = { ...subject("session", "c"), linked: { parent: "session:gone" } };
+  const listed = listOf({ subjects: [subject("job", "j"), orphan], running: new Set() } as unknown as Ship, deckNow());
+  expect(listed.map((one) => one.key).sort()).toEqual(["job:j", "session:c"]);
+});

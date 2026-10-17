@@ -108,9 +108,13 @@ export type SessionAttachment =
    * `moved` is the repository the Session was moved from and `branch` the branch it left there, comma-separated.
    */
   | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
-  /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
-  | { kind: "started_to"; id: string }
-  | { kind: "started_by"; id: string };
+  /**
+   * A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's.
+   * `group` is the plan group it was handed from, which makes it a linked Session drawn on that group and in the Ledger's Linked section (`linkedOf`).
+   * Every Session started from another stands under it in Work, group or none.
+   */
+  | { kind: "started_to"; id: string; group?: string }
+  | { kind: "started_by"; id: string; group?: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -250,6 +254,9 @@ export type SessionVoice =
   | { kind: "agent" }
   | { kind: "session"; id: string; title: string };
 
+/** What a followed Session did that its parent is told of. */
+export type LinkedEvent = "needs" | "done" | "merged";
+
 export type SessionRow =
   | {
       id: string;
@@ -330,6 +337,8 @@ export type SessionRow =
    * or its condition was met and it started. `by` is who changed the condition. **A mock's row**: nothing in Fleet carries it yet.
    */
   | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
+  /** A Session this one follows needs the person, finished, or merged its pull request. The agent was told in the same moment. */
+  | { id: string; at: string; kind: "linked"; session: { id: string; title: string }; event: LinkedEvent }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
@@ -608,6 +617,11 @@ export type SessionsDraft = {
    */
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
   /**
+   * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
+   * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.
+   */
+  handOff?: (id: string, group: string) => string | Promise<string | undefined> | undefined;
+  /**
    * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.
    */
@@ -813,6 +827,15 @@ export type ChipRef =
 /** Whether a Session has leased anything yet. A blank one has no slot and no branch. */
 export function isBlank(session: Session): boolean {
   return session.blank ?? (session.attachments.length === 0 && session.rows.length === 0);
+}
+
+/** The Sessions a parent follows: those its plan groups were handed to, with the group each came from. */
+export function linkedOf(sessions: readonly Session[], parent: Session): { session: Session; group: string }[] {
+  return parent.attachments.flatMap((one) => {
+    if (one.kind !== "started_to" || one.group === undefined) return [];
+    const session = sessions.find((other) => other.id === one.id);
+    return session === undefined ? [] : [{ session, group: one.group }];
+  });
 }
 
 export function attachmentsOf<K extends SessionAttachmentKind>(

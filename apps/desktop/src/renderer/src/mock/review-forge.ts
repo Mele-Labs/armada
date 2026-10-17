@@ -1,14 +1,20 @@
 // The mock Fleet's answers to the Reviews tab: the same shapes the real one serves (`PullReviewLists`, `PullRequestPage`
 // with its threads, a file's patch, a posted review, a resolved thread), built from the mock forge's pull requests
 // (`pr-review-pages.ts`). **A thread the fixture put on a hunk line is served by its place in the file**, and a draft
-// posted comes back the same way, so the Bridge store meets nothing a real Fleet would not send. State is per window.
+// posted comes back the same way, so the Bridge store meets nothing a real Fleet would not send. **An agent run is served as Fleet
+// serves it**: started at once, moving on `review_run.changed`, kept for the commit it ran on and read again by `getReviewRuns`.
+// What it comes to is the fixture of the pull request, converted (`review-run-fixtures.ts`). State is per window.
 
-import { refusedWith, type PullRequestEntry, type PullRequestFilePatch, type PullRequestPage, type PullReviewLists, type PullReviewRow, type PullReviewThread, type PullThreadResolved, type ResolvePullThread, type WritePullRequest } from "@armada/protocol";
+import { refusedWith, type PullRequestEntry, type PullRequestFilePatch, type PullRequestPage, type PullReviewLists, type PullReviewRow, type PullReviewThread, type PullThreadResolved, type ResolvePullThread, type ReviewResult, type ReviewRun, type ReviewTool, type ReviewTools, type WritePullRequest } from "@armada/protocol";
 
 import type { ReviewsApi } from "../../../shared/api/reviews";
-import type { AgentFixtures, MockPr, PrList, ReviewSeed, Thread } from "../pr-review/model";
+import type { PrList, SearchFixtures, Thread, ToolDef } from "../pr-review/model";
 import { patchOfLines, placeOfLine } from "../pr-review/patch";
+import { AGENT_MS } from "../pr-review/store-agent";
+import { idOfName } from "../pr-review/tools";
 import { unanswered } from "./moment";
+import { accountResult, answerResult, findingsResult, themesOf } from "./review-run-fixtures";
+import type { MockPr, ReviewSeed } from "./review-seed";
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -36,20 +42,28 @@ function wireThread(pr: MockPr, one: MockPr["threads"][number]): Thread {
   };
 }
 
-/** What the agent half of the store is driven by: the seed's tools and results, and what each pull request's agent would say. */
-export const agentOf = (seed: ReviewSeed): AgentFixtures => ({
-  built: true,
-  tools: seed.tools,
-  results: seed.results,
-  finds: seed.finds,
-  prs: Object.fromEntries(
-    seed.prs.map((pr) => [pr.key, { explanation: pr.explanation, explainedBy: pr.explainedBy, accounts: pr.accounts, answers: pr.answers, asked: pr.asked, ...(pr.holder === undefined ? {} : { holder: pr.holder }) }]),
-  ),
-});
+/** What Natural Search is driven by: the seed's finds. The only fixture the store still reads. */
+export const searchOf = (seed: ReviewSeed): SearchFixtures => ({ built: true, finds: seed.finds });
+
+/** Three places merged by id, the most specific winning, as Fleet's `list_review_tools` merges them. */
+function resolved(layers: readonly (readonly ToolDef[])[]): ReviewTool[] {
+  const merged: ReviewTool[] = [];
+  for (const layer of layers) {
+    for (const def of layer) {
+      const tool: ReviewTool = { id: def.id, kind: def.kind, name: def.name, prompt: def.checks, source: def.source };
+      const at = merged.findIndex((one) => one.id === tool.id);
+      if (at < 0) merged.push(tool);
+      else merged[at] = { ...tool, replaces: merged[at]!.source };
+    }
+  }
+  return merged;
+}
 
 export type MockForge = ReviewsApi & {
   /** The next write is refused, in the forge's own sentence. */
   refuseNextWrite: (said: string) => void;
+  /** The next run started fails, with this reason. */
+  failNextRun: (said: string) => void;
 };
 
 export function createMockForge(seed: ReviewSeed): MockForge {
@@ -58,8 +72,39 @@ export function createMockForge(seed: ReviewSeed): MockForge {
   );
   let reads = 0;
   let refusal: string | undefined;
+  let failure: string | undefined;
   let ids = 0;
   const find = (manifestId: string, number: number) => held.get(`${manifestId}#${number}`);
+
+  const kit: ToolDef[] = [...seed.tools.kit];
+  const repository: Record<string, ToolDef[]> = Object.fromEntries(Object.entries(seed.tools.repository).map(([id, defs]) => [id, [...defs]]));
+  const toolsOf = (manifestId: string): ReviewTools => {
+    const left = seed.tools.leftOut?.[manifestId] ?? [];
+    return { tools: resolved([seed.tools.armada, kit, repository[manifestId] ?? []]), ...(left.length === 0 ? {} : { left_out: left.map((one) => ({ file: one.file, source: one.source, said: one.said })) }) };
+  };
+
+  const listeners = new Set<(run: ReviewRun) => void>();
+  const told = (run: ReviewRun) => listeners.forEach((one) => one({ ...run }));
+  /** Every run kept or going, by pull request. A session's how it works and why, and the questions already asked, are kept from the start. */
+  const runs = new Map<string, ReviewRun[]>();
+  const keptAt = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  for (const pr of seed.prs) {
+    const base = { manifest_id: pr.manifestId, number: pr.number, head: pr.head, state: "done", started_at: keptAt(30), finished_at: keptAt(29) } as const;
+    const kept: ReviewRun[] = [];
+    if (pr.explainedBy === "session") {
+      kept.push({ ...base, kind: "explanation", name: "how-it-works", result: themesOf(pr) });
+      if (pr.accounts.why !== undefined) kept.push({ ...base, kind: "explanation", name: "why", result: accountResult(pr.accounts.why) });
+    }
+    for (const words of pr.asked) kept.push({ ...base, kind: "ask", name: words, result: answerResult(pr, words) });
+    runs.set(`${pr.manifestId}#${pr.number}`, kept);
+  }
+
+  /** What a run comes to: the fixture of its pull request, in the shape its kind has. */
+  const resultOf = (pr: MockPr, kind: ReviewRun["kind"], name: string): ReviewResult => {
+    if (kind === "ask") return answerResult(pr, name);
+    if (kind === "tool") return findingsResult(pr, seed.results[pr.key]?.[name] ?? []);
+    return name === "how-it-works" ? themesOf(pr) : accountResult(pr.accounts[name]);
+  };
 
   const rowOf = (one: Held, team: boolean): PullReviewRow => ({
     manifest_id: one.pr.manifestId,
@@ -75,6 +120,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
     author: one.pr.page.author ?? "",
     updated_at: one.pr.updatedAt,
     ...(team && one.pr.team !== undefined ? { team: one.pr.team } : {}),
+    ...(one.pr.holder === undefined ? {} : { holder: one.pr.holder }),
   });
 
   const pageOf = (one: Held): PullRequestPage => ({
@@ -146,8 +192,64 @@ export function createMockForge(seed: ReviewSeed): MockForge {
       const value: PullThreadResolved = { thread: resolve.thread, resolved: resolve.resolved };
       return { ok: true, value };
     },
+    listReviewTools: async (manifestId) => ({ ok: true, value: toolsOf(manifestId) }),
+    saveReviewTool: async (manifestId, save) => {
+      const id = idOfName(save.name);
+      const path = `/review_tools/${manifestId}`;
+      const refuse = (code: string, message: string) => ({ ok: false, outcome: refusedWith(422, JSON.stringify({ code, message }), { method: "POST", path }) }) as const;
+      if (save.name.trim() === "" || save.prompt.trim() === "") return refuse("fleet.review_tool_blank", "A tool needs a name and a prompt");
+      if (id === "") return refuse("fleet.review_tool_not_a_name", `${save.name.trim()} is no words`);
+      const layer = save.scope === "kit" ? kit : (repository[manifestId] ??= []);
+      const at = layer.findIndex((one) => one.id === id);
+      if (at >= 0 && save.overwrite !== true) return refuse("fleet.review_tool_exists", `${id}.md is already in ${save.scope === "kit" ? "the Kit" : "this repository"}`);
+      const def: ToolDef = { id, kind: save.kind, name: save.name.trim(), source: save.scope, mark: "custom", checks: save.prompt.trim(), agent: true };
+      if (at >= 0) layer[at] = def;
+      else layer.push(def);
+      return { ok: true, value: toolsOf(manifestId) };
+    },
+    startReviewRun: async (manifestId, start) => {
+      const one = find(manifestId, start.number);
+      if (one === undefined) return { ok: false, outcome: unanswered(`/review_runs/${manifestId}`) };
+      const key = `${manifestId}#${start.number}`;
+      const mine = runs.get(key) ?? [];
+      const kept = mine.find((it) => it.kind === start.kind && it.name === start.name);
+      // A run going is answered, not started twice; a kept result is answered as it stands unless he asked for another.
+      if (kept !== undefined && (kept.state === "queued" || kept.state === "running" || (kept.state === "done" && start.again !== true))) return { ok: true, value: { ...kept } };
+      const run: ReviewRun = { manifest_id: manifestId, number: start.number, kind: start.kind, name: start.name, head: one.head, state: "queued", started_at: new Date().toISOString() };
+      runs.set(key, [run, ...mine.filter((it) => it !== kept)]);
+      const reason = failure;
+      failure = undefined;
+      globalThis.setTimeout(() => {
+        run.state = "running";
+        told(run);
+      }, 0);
+      globalThis.setTimeout(() => {
+        run.finished_at = new Date().toISOString();
+        if (reason === undefined) {
+          run.state = "done";
+          run.result = resultOf(one.pr, start.kind, start.name);
+        } else {
+          run.state = "failed";
+          run.failed = reason;
+        }
+        told(run);
+      }, AGENT_MS);
+      return { ok: true, value: { ...run } };
+    },
+    getReviewRuns: async (manifestId, number) => {
+      if (find(manifestId, number) === undefined) return { ok: false, outcome: unanswered(`/review_runs/${manifestId}/${number}`) };
+      const mine = [...(runs.get(`${manifestId}#${number}`) ?? [])].sort((a, b) => b.started_at.localeCompare(a.started_at));
+      return { ok: true, value: { runs: mine.map((run) => ({ ...run })) } };
+    },
+    onReviewRun: (onRun) => {
+      listeners.add(onRun);
+      return () => listeners.delete(onRun);
+    },
     refuseNextWrite: (said) => {
       refusal = said;
+    },
+    failNextRun: (said) => {
+      failure = said;
     },
   };
 }
@@ -159,4 +261,9 @@ export const NO_FORGE: ReviewsApi = {
   readReviewFile: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/pull_request_files/${manifestId}/${number}`) }),
   writeReview: async (manifestId) => ({ ok: false, outcome: unanswered(`/pull_request_writes/${manifestId}`) }),
   resolveReviewThread: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_threads/${manifestId}`) }),
+  listReviewTools: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_tools/${manifestId}`) }),
+  saveReviewTool: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_tools/${manifestId}`) }),
+  startReviewRun: async (manifestId) => ({ ok: false, outcome: unanswered(`/review_runs/${manifestId}`) }),
+  getReviewRuns: async (manifestId, number) => ({ ok: false, outcome: unanswered(`/review_runs/${manifestId}/${number}`) }),
+  onReviewRun: () => () => undefined,
 };

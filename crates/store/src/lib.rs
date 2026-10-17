@@ -146,6 +146,8 @@ mod proposing;
 /// What a repository's Checks said about a commit — **the one per-Check record
 /// here that is not keyed by a Job.**
 mod proving;
+/// What Fleet told a Session about one it follows, so it is told once.
+mod linked_told;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.
@@ -176,6 +178,8 @@ mod review_dismissals;
 mod review_followups;
 mod review_model;
 mod review_record;
+/// What an agent said about one pull request, kept for the commit it read.
+mod review_runs;
 mod review_view;
 mod revision;
 mod row;
@@ -276,6 +280,7 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use review_runs::KeptReviewRun;
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,

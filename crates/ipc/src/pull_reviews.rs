@@ -59,6 +59,10 @@ pub struct PullReviewRow {
     /// The team asked, as the forge names it, on the `team` list only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<String>,
+    /// The Session of the person's that holds the pull request, from the ledger Fleet already
+    /// keeps of who owns one. Absent where none does, and then a note on it stays in Armada.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holder: Option<crate::review_runs::PullReviewHolder>,
 }
 
 /// `get_review_lists`: the four lists, one forge call each, at most [`MOST_PER_LIST`] a list

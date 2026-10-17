@@ -86,6 +86,8 @@ export type Subject = {
   older?: true;
   /** When it last took a turn, in ms, for the order a past list reads in. */
   at?: number;
+  /** A Session another Session started: that Session's key, and the title of the plan group it was handed where it was handed one. The list draws it under its parent. */
+  linked?: { parent: string; group?: string };
 };
 
 export type Main = {
@@ -298,6 +300,8 @@ export function shipOf(input: Inputs): Ship {
     const slot = slots.find((one) => one.held.state === "hosted_session" && one.held.session_id === session.id)?.slot ?? attachmentsOf(session, "branch")[0]?.slot;
     const root = rootOf(session.manifestId);
     const call = callOf((item) => sessionIdOf(item.key) === session.id);
+    const handed = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "started_by" }> => one.kind === "started_by");
+    const parent = handed === undefined ? undefined : sessions.find((one) => one.id === handed.id);
     subjects.push({
       key: `session:${session.id}`,
       kind: "session",
@@ -318,6 +322,7 @@ export function shipOf(input: Inputs): Ship {
       repliable: session.waits === undefined,
       mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
       ...(ageOf(session.lastTurnAt, now) === undefined ? {} : { since: ageOf(session.lastTurnAt, now)! }),
+      ...(handed === undefined || parent === undefined ? {} : { linked: { parent: `session:${parent.id}`, ...(handed.group === undefined ? {} : { group: parent.work?.plan?.groups.find((one) => one.id === handed.group)?.title ?? handed.group }) } }),
     });
   }
 
