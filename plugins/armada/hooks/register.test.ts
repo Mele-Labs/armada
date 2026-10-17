@@ -1618,6 +1618,7 @@ test('the Loadout is told at the start as names and where each came from, never 
       { kind: 'tool', name: 'mcp__github__get_pr', source: 'mcp', from: 'github', state: 'loaded', tokens: 31 },
       { kind: 'memory_file', name: '~/.claude/CLAUDE.md', source: 'kit', tokens: 40 },
       { kind: 'memory_file', name: 'CLAUDE.md', source: 'repository', tokens: 800 },
+      { kind: 'memory_file', name: '/etc/claude-code/CLAUDE.md', source: 'managed', tokens: 9 },
       { kind: 'rules', name: 'Armada session rules', source: 'armada' },
       { kind: 'injection', name: 'armadaSession', source: 'armada' },
     ],

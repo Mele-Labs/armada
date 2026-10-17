@@ -762,8 +762,8 @@ export function agentItemsIn(thread: string): WaitingItem[] | undefined {
 // The Loadout: what a session's agent knows, was told and used, each with where it came from.
 // `crates/ipc/src/sessions.rs`. **Names, sources and counts only**, never a body or a text.
 
-/** Where an item came from. `kit` is the person's harness home, `~/.claude`. */
-export type LoadoutSource = 'kit' | 'armada' | 'repository' | 'plugin' | 'mcp' | 'built_in'
+/** Where an item came from. `kit` is the person's harness home, `~/.claude`; `managed` an organisation's settings. */
+export type LoadoutSource = 'kit' | 'armada' | 'repository' | 'plugin' | 'mcp' | 'built_in' | 'managed'
 
 export type LoadoutKind = 'skill' | 'subagent' | 'mcp_server' | 'tool' | 'memory_file' | 'output_style' | 'rules' | 'injection'
 
@@ -812,8 +812,9 @@ function prefixOf(name: string): string | undefined {
 
 /** A skill's source by the engine's word for it (`SkillSource`); nothing for one Armada has no word for. */
 export function skillOrigin(source: string, name: string, plugin?: string): Origin | undefined {
-  if (source === 'userSettings') return { source: 'kit' }
+  if (source === 'userSettings' || source === 'syncedSkills') return { source: 'kit' }
   if (source === 'projectSettings') return { source: 'repository' }
+  if (source === 'policySettings') return { source: 'managed' }
   if (source === 'plugin') return pluginOrigin(plugin ?? prefixOf(name))
   if (source === 'built-in' || source === 'bundled') return { source: 'built_in' }
   if (source === 'mcp') {
@@ -827,6 +828,7 @@ export function skillOrigin(source: string, name: string, plugin?: string): Orig
 export function agentOrigin(source: string, type: string): Origin | undefined {
   if (source === 'userSettings') return { source: 'kit' }
   if (source === 'projectSettings' || source === 'localSettings') return { source: 'repository' }
+  if (source === 'policySettings' || source === 'flagSettings') return { source: 'managed' }
   if (source === 'plugin') return pluginOrigin(prefixOf(type))
   if (source === 'built-in') return { source: 'built_in' }
   return undefined
@@ -834,7 +836,7 @@ export function agentOrigin(source: string, type: string): Origin | undefined {
 
 /**
  * A memory file's source and the name it goes by: under `~/.claude` the person's, under the session's
- * root the repository's, relative to it. Elsewhere the engine's label decides, and a managed file has no source.
+ * root the repository's, relative to it. Elsewhere the engine's label decides.
  */
 export function memoryItem(path: string, type: string, home: string, root: string): { name: string; source: LoadoutSource } | undefined {
   const kit = `${home.replace(/\/$/, '')}/.claude/`
@@ -843,7 +845,19 @@ export function memoryItem(path: string, type: string, home: string, root: strin
   if (path.startsWith(repository)) return { name: path.slice(repository.length), source: 'repository' }
   if (type === 'Project' || type === 'Local') return { name: path, source: 'repository' }
   if (type === 'User' || type === 'AutoMem') return { name: path, source: 'kit' }
+  if (type === 'Managed') return { name: path, source: 'managed' }
   return undefined
+}
+
+/**
+ * An MCP server's name and source. A plugin's server is listed as `plugin:<plugin>:<server>` and is
+ * that plugin's; any other is its own.
+ */
+export function serverItem(listed: string): { name: string; source: LoadoutSource; from: string } {
+  const parts = /^plugin:([^:]+):(.+)$/.exec(listed)
+  if (parts === null) return { name: listed, source: 'mcp', from: listed }
+  const [, plugin = '', name = ''] = parts
+  return { name, source: plugin === ARMADA_PLUGIN ? 'armada' : 'plugin', from: plugin }
 }
 
 /** The server an `mcp__<server>__<tool>` name names, as the tool name spells it. */
@@ -906,7 +920,7 @@ export function loadoutOf(equipment: Equipment): LoadoutItem[] {
   // A server whose tools the window lists is connected, whatever was said of it before.
   for (const tool of mcpTools) servers.set(tool.serverName, 'connected')
   for (const [name, state] of [...servers].sort(([a], [b]) => a.localeCompare(b))) {
-    items.push({ kind: 'mcp_server', name, source: 'mcp', from: name, state })
+    items.push({ kind: 'mcp_server', ...serverItem(name), state })
   }
   const loaded = new Set(equipment.loaded)
   for (const tool of mcpTools) {
