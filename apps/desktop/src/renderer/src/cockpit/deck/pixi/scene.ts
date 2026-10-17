@@ -7,6 +7,9 @@ import type { Frame } from "../frame";
 import type { CallTone } from "../field";
 import { ROUTE } from "../geometry";
 import { ALONG, type Play } from "../plays";
+import { FRESH_LAND_MS } from "../Builds";
+import { askedOf, seatOf } from "../build";
+import { MOST_LOOPS } from "../doing";
 import { FLAT, alongOf, type DroneIn, type Layout, type P3, type Point, type PrIn, type Size, type Tile } from "../layout";
 import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../Builds";
@@ -27,6 +30,29 @@ export type Crate = {
   dim: boolean;
   /** It is on its way: a hop along an arc from where it was, and how long it waits to start. Landing hops, then goes. */
   hop: { id: string; from: P3; delay: number; landing: boolean } | undefined;
+};
+
+/** A plot's name, written on it: the directory shortened to what the plot has room for. */
+export type PlotName = { tile: Tile; text: string; /** Two drones are writing it: the name is amber. */ clash: boolean };
+
+/** A subagent that circles the ring of the Session that sent it, or stands still by the pieces it wrote. */
+export type WorkerSpec = {
+  key: string;
+  /** What it was asked. */
+  detail: string;
+  /** The ring it circles, on the plane, and the plot under that. */
+  anchor: Point;
+  tile: string | undefined;
+  /** Its place among the Session's subagents: the further out and higher the later it is. */
+  i: number;
+  radius: number;
+  /** How long a lap takes, and how far round it is at the start, in laps. */
+  period: number;
+  phase: number;
+  /** It laps, rather than standing at its phase. */
+  loop: boolean;
+  /** It laps the other way round. */
+  rev: boolean;
 };
 
 /** A plot a play lifts: the play that does it, how long after it begins, and how far. */
@@ -82,6 +108,13 @@ export type PixiSceneIn = {
   plane: Size;
   big: number;
   heights: ReadonlyMap<string, number>;
+  /** The plot and the part (a pad, a flag, a crate or a pin, by `pad:<key>`, `goal:<root>`, `crate:<key>` or `pin:<id>`) under the pointer or focus. */
+  hotTile: string | undefined;
+  hotPart: string | undefined;
+  /** The names written on the plots. */
+  names: readonly PlotName[];
+  /** The subagents round the rings. */
+  workers: readonly WorkerSpec[];
   /** The plots a working drone is over, and those Fleet says two are writing. */
   lit: ReadonlySet<string>;
   clashing: ReadonlySet<string>;
@@ -120,6 +153,9 @@ export type SceneInputs = {
   builds: readonly Placed[];
   selected: string | undefined;
   hot: string | undefined;
+  hotTile: string | undefined;
+  hotPart: string | undefined;
+  names: readonly PlotName[];
   focus: string | undefined;
   /** The drones whose name is drawn. */
   labels: ReadonlySet<string>;
@@ -224,6 +260,22 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
   return out;
 }
 
+/** The subagents round each ring. They take the loops the drones leave, so the field never loops more than `MOST_LOOPS` things at once. */
+function workersOf(i: SceneInputs): WorkerSpec[] {
+  let spare = Math.max(0, MOST_LOOPS - i.loops.size);
+  return i.builds.flatMap(({ build, anchor, tile }) => {
+    // A landed ring is cleared a quarter hour on, and its subagents with it.
+    if (build.landedAt !== undefined && build.now - build.landedAt > FRESH_LAND_MS) return [];
+    return build.workers.map((label, k): WorkerSpec => {
+      // One that wrote pieces sits by them and does not lap, so it spends no loop.
+      const seat = seatOf(build.tasks, label);
+      const loop = seat === undefined && spare > 0;
+      if (loop) spare -= 1;
+      return { key: `${build.key}/${label}`, detail: askedOf(label), anchor: onPlane(anchor), tile, i: k, radius: (34 + 9 * k) * i.big, period: (8 + k * 2) * 1000, phase: seat === undefined ? k * 0.27 : (seat / 360 + 1) % 1, loop, rev: k % 2 === 1 };
+    });
+  });
+}
+
 /** The plots that rise when something touches them: a Check, a turn or a launch under a drone, and the wave a merge sends over its territory. */
 function bumpsOf(i: SceneInputs): Map<string, Bump> {
   const bump = new Map<string, Bump>();
@@ -250,6 +302,10 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
   return {
     layout: i.layout,
     world: i.world,
+    hotTile: i.hotTile,
+    hotPart: i.hotPart,
+    names: i.names,
+    workers: workersOf(i),
     plane: { width: i.world.width, height: i.world.height * FLAT },
     big: i.big,
     heights: i.frame.heights,

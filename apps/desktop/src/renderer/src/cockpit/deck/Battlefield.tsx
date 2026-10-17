@@ -29,10 +29,10 @@ import { onPlane, px, vars } from "./bf-parts";
 import { LOCK_EYE, MISSION_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
 import { loopsOf, type CallTone } from "./field";
 import { frameOf } from "./frame";
-import { COS, FOOT, MARGIN, ROUTE, SIN, liftOf } from "./geometry";
+import { COS, FOOT, MARGIN, ROUTE, SIN, liftOf, short } from "./geometry";
 import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import { ALONG, type Play } from "./plays";
-import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size } from "./layout";
+import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size, type Tile } from "./layout";
 import { sceneOf, type SceneIn } from "./mission";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
@@ -155,12 +155,14 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const canvas = mapRenderer() === "pixi";
   const [hot, setHot] = useState<string>();
   const [hotTile, setHotTile] = useState<string>();
+  const [hotPart, setHotPart] = useState<string>();
   // What the pointer is on is held here, apart from this component's state: a card that comes and goes redraws the card and nothing else, and
   // the drone or tile it lights moves only once the card has settled (`tip-hover.ts`).
   const [tips] = useState(steadyTips);
   tips.onSettle((shown) => {
     setHot(shown?.hot);
     setHotTile(shown?.tile);
+    setHotPart(shown?.part);
   });
   useEffect(() => tips.cancel, [tips]);
   const locateRef = useRef<() => void>(() => undefined);
@@ -250,7 +252,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const alive = loopsOf(drones.filter((one) => one.hover), { focus, selected, hot });
   const writing = new Map<string, "loop" | "still">();
   for (const one of doers) if (one.doing === "write") writing.set(aimOf(one)!.path, loops.has(one.key) || writing.get(aimOf(one)!.path) === "loop" ? "loop" : "still");
-  const showTip = (next: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string }) => {
+  const showTip = (next: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string; part?: string }) => {
     if (next === undefined || target === undefined) return tips.leave();
     tips.show({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) }, ...lit });
   };
@@ -273,7 +275,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
       setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
     },
     tip: showTip,
-    pinTip: (next, target) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target)),
+    pinTip: (next, target, _at, lit) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target, undefined, lit)),
   };
   // Esc puts the callout away; it comes back when the pointer or focus comes to something again. A card pressed open goes first, and is the whole of that Esc.
   useEffect(() => {
@@ -329,6 +331,13 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   // Zoomed out to the whole field the type is too small to read: a name is dropped rather than drawn unreadable, and the callout says it.
   const readable = eff.eye >= READABLE;
   const { labels, taken } = labelsOf({ drones, place, bodies, big, readable, selected, hot });
+  // A plot's name is written on it where it has room and meets no body or name; the pointer on the plot always names it.
+  const plotShown = (tile: Tile) => {
+    const room = Math.max(4, Math.floor((tile.rect.w - 12) / 6.3));
+    const there = (heights.get(tile.path) ?? 0) * SIN;
+    const box = { l: tile.rect.x + 5, r: tile.rect.x + 9 + Math.min(room, tile.path.length) * 6.4, t: tile.rect.y - there - 16, b: tile.rect.y - there };
+    return { room, show: plotNamed({ box, wanted: named.has(tile.path), readable, hot: hotTile === tile.path, bodies, taken }) };
+  };
   // The slabs that rise when something touches them: a Check, a turn, a launch under a drone; and the wave a merge sends over its territory.
   const bump = new Map<string, { wait: number; amp: number }>();
   for (const play of plays) {
@@ -352,9 +361,13 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const labelKey = [...labels].sort().join("|");
   const heldLoops = useMemo(() => loops, [loopKey]);
   const heldLabels = useMemo(() => labels, [labelKey]);
+  // The names written on the plots, as the CSS map writes them where a plot is wider than a name can start in.
+  const names = canvas ? layout.territories.flatMap((one) => one.tiles.flatMap((tile) => { const { room, show } = plotShown(tile); return show && tile.rect.w > 44 ? [{ tile, text: short(tile.path, room), clash: clashAt.has(tile.path) }] : []; })) : [];
+  const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
+  const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
-    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
+    () => (canvas ? pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, route: built?.route, pinned: pinned?.id, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt }) : undefined),
+    [canvas, layout, world, big, frame, drones, pads, goals, prs, plays, built, pinned?.id, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails],
   );
   const transform = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, ${px(0)})`;
   const locateWord = scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection";
@@ -431,10 +444,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
             {/* The slabs. */}
             {layout.territories.map((one) =>
               one.tiles.map((tile) => {
-                const room = Math.max(4, Math.floor((tile.rect.w - 12) / 6.3));
-                const there = (heights.get(tile.path) ?? 0) * SIN;
-                const box = { l: tile.rect.x + 5, r: tile.rect.x + 9 + Math.min(room, tile.path.length) * 6.4, t: tile.rect.y - there - 16, b: tile.rect.y - there };
-                const show = plotNamed({ box, wanted: named.has(tile.path), readable, hot: hotTile === tile.path, bodies, taken });
+                const { room, show } = plotShown(tile);
                 const clash = clashAt.get(tile.path);
                 return (
                   <Slab

@@ -31,12 +31,12 @@ function rotor(g: Graphics, x: number, y: number, r: number, spin: boolean, p: P
   g.circle(x, y, 2).fill(colour(mix(p.base, p.fg, 0.45))).stroke({ ...colour(p.base), width: 0.8 });
 }
 
-function body(s: DroneSpec, hue: Rgba, p: Palette): Graphics {
+/** The quad itself: a Job the large X, a Session the small plus. A subagent is drawn as the small one. */
+export function body(kind: "job" | "session", spin: boolean, hue: Rgba, p: Palette): Graphics {
   const g = new Graphics();
-  const spin = s.drone.spin;
-  const arm = { ...colour(p.muted), width: s.drone.kind === "job" ? 2.6 : 2, cap: "round" as const };
+  const arm = { ...colour(p.muted), width: kind === "job" ? 2.6 : 2, cap: "round" as const };
   const hull = { ...colour(mix(p.muted, hue, 0.7)), width: 1.2 };
-  if (s.drone.kind === "job") {
+  if (kind === "job") {
     g.moveTo(-17, -7).lineTo(-4, -1).moveTo(17, -7).lineTo(4, -1).moveTo(-15, 9).lineTo(-4, 2).moveTo(15, 9).lineTo(4, 2).stroke(arm);
     rotor(g, -21, -8, 11, spin, p);
     rotor(g, 21, -8, 11, spin, p);
@@ -152,7 +152,7 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   // The light a drone gives off: stronger where it is calling or failing, and where it is at work.
   const stands = d.hue !== "calm" || d.spin;
   if (stands || s.selected) shell.addChild(glowSprite(d.kind === "job" ? 40 : 30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
-  shell.addChild(body(s, hue, p), marks(s, wide, hue, p));
+  shell.addChild(body(d.kind, d.spin, hue, p), marks(s, wide, hue, p));
   if (d.ping || d.flare) {
     const lamp = glowSprite(10, d.flare ? p.bad : hue, 0.9);
     lamp.position.set(0, d.flare ? -22 : -21.5);

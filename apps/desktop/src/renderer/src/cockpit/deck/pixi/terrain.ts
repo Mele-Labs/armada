@@ -70,19 +70,19 @@ function drawBase(b: PlaneBuilder, one: Territory, p: Palette): void {
 }
 
 /** A bay's landing pad: dim where free, lit where leased, amber where stranded, dark where closed. */
-function drawPad(b: PlaneBuilder, pad: PadIn, at: P3, p: Palette): void {
+function drawPad(b: PlaneBuilder, pad: PadIn, at: P3, hot: boolean, p: Palette): void {
   const bay = pad.bay;
   const lit = bay === "held" || bay === "kept" || bay === "busy" || bay === "leased";
   const stranded = bay === "stranded";
   const closed = bay === "closed";
   const tone = stranded ? p.ask : p.accent;
   const hold = bay === "free" ? 0.55 : closed ? 0.75 : 1;
-  const ring: Rgba = lit || stranded ? tone : fade(p.subtle, 0.7);
+  const ring: Rgba = hot ? p.fg : lit || stranded ? tone : fade(p.subtle, 0.7);
   const plate: Rgba = lit ? fade(p.accent, 0.16) : stranded ? fade(p.ask, 0.18) : closed ? fade(mix(p.base, [0, 0, 0, 1], 0.85), 0.9) : fade(p.fg, 0.04);
   if (lit || stranded) b.halo(at.x, at.y, 13, 30, fade(tone, 0.3 * hold), fade(tone, 0), 0);
   b.disc(at.x, at.y, 13, fade(plate, hold), 0);
   const outline = PlaneBuilder.arc(at.x, at.y, 13, 0, Math.PI * 2, 0, 28);
-  b.stroke(outline, lit || stranded ? 1 : 0.7, fade(ring, hold * (closed ? 0.6 : 1)), { closed: true, ...(bay === "ghost" ? { dash: [2, 3] as const } : {}) });
+  b.stroke(outline, lit || stranded ? 1 : 0.7, fade(ring, hot ? 1 : hold * (closed ? 0.6 : 1)), { closed: true, ...(bay === "ghost" ? { dash: [2, 3] as const } : {}) });
   const core = PlaneBuilder.arc(at.x, at.y, 6.5, 0, Math.PI * 2, 0, 20);
   if (lit || stranded) b.disc(at.x, at.y, 6.5, fade(tone, hold), 0);
   else b.stroke(core, 0.5, fade(p.subtle, (closed ? 0.3 : 0.4) * hold), { closed: true });
@@ -101,7 +101,7 @@ function drawGoal(b: PlaneBuilder, at: P3, red: boolean, p: Palette): void {
 const PIN_TONE: Record<PinState, (p: Palette) => Rgba> = { done: (p) => p.good, live: (p) => p.hot, next: (p) => p.dormant, failed: (p) => p.bad, ask: (p) => p.ask };
 
 /** The disc a pin stands on, lying on the plot. */
-function drawPinDisc(b: PlaneBuilder, at: P3, state: PinState, pinned: boolean, p: Palette): void {
+function drawPinDisc(b: PlaneBuilder, at: P3, state: PinState, pinned: boolean, hot: boolean, p: Palette): void {
   const tone = PIN_TONE[state](p);
   const r = 26;
   if (state === "done") {
@@ -116,7 +116,7 @@ function drawPinDisc(b: PlaneBuilder, at: P3, state: PinState, pinned: boolean, 
     // Rings going out, held at one radius: the beacon's motion belongs to the effects.
     b.stroke(PlaneBuilder.arc(at.x, at.y, r * 1.5, 0, Math.PI * 2, 1, 48), 1, fade(tone, 0.5), { closed: true });
   } else b.disc(at.x, at.y, r, fade(tone, 0.1), 1);
-  b.stroke(PlaneBuilder.arc(at.x, at.y, r, 0, Math.PI * 2, 1, 40), 0.8, fade(pinned ? p.fg : tone, 0.7 + (pinned ? 0.3 : 0)), { closed: true, ...(state === "next" ? { dash: [4, 3] as const } : {}) });
+  b.stroke(PlaneBuilder.arc(at.x, at.y, r, 0, Math.PI * 2, 1, 40), 0.8, fade(pinned || hot ? p.fg : tone, 0.7 + (pinned || hot ? 0.3 : 0)), { closed: true, ...(state === "next" ? { dash: [4, 3] as const } : {}) });
   if (pinned) b.stroke(PlaneBuilder.arc(at.x, at.y, r + 3, 0, Math.PI * 2, 1, 40), 1, p.accent, { closed: true });
 }
 
@@ -140,7 +140,7 @@ export function drawTerrain(b: PlaneBuilder, s: PixiSceneIn, p: Palette): void {
     drawBase(b, one, p);
     for (const pad of one.pads) {
       const info = s.pads.get(pad.key);
-      if (info !== undefined) drawPad(b, info, flatAt(pad), p);
+      if (info !== undefined) drawPad(b, info, flatAt(pad), s.hotPart === `pad:${pad.key}`, p);
     }
     const goal = s.goals.get(one.root);
     if (goal !== undefined && one.goal !== undefined) drawGoal(b, flatAt(one.goal), goal.red, p);
@@ -152,5 +152,5 @@ export function drawTerrain(b: PlaneBuilder, s: PixiSceneIn, p: Palette): void {
     if (leg.back) b.stroke(path, 0.8, fade(p.accent, 0.75), { dash: [5, 6] });
     else b.stroke(path, 1.1, leg.done ? fade(p.good, 0.85) : fade(p.subtle, 0.6), { dash: [2.4, 5.6] });
   }
-  for (const pin of route.pins) drawPinDisc(b, flatAt(pin.at, 0), pin.state, s.pinned === pin.id, p);
+  for (const pin of route.pins) drawPinDisc(b, flatAt(pin.at, 0), pin.state, s.pinned === pin.id, s.hotPart === `pin:${pin.id}`, p);
 }

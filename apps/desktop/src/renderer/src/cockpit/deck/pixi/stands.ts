@@ -18,6 +18,8 @@ export type StandSpec = {
   at: P3;
   /** Held to a readable size as the field is zoomed out: a name, and not a picture. */
   counter?: boolean;
+  /** The plot it lies on: it stands at that plot's height as it is now, not where the scene says it is going. */
+  onTile?: string;
   /** A pull request on its way: where it hops from, along an arc, to `at`; landing, it goes once it has arrived. */
   hop?: { id: string; from: P3; delay: number; landing: boolean };
   make: (p: Palette) => Container;
@@ -51,14 +53,14 @@ function hangar(p: Palette): Container {
   return out;
 }
 
-function flag(red: boolean, p: Palette): Container {
+function flag(red: boolean, hot: boolean, p: Palette): Container {
   const tone = red ? p.bad : p.good;
   const out = new Container();
   const g = new Graphics();
   // A soft light round the head of the pole.
   for (const [r, a] of [[26, 0.05], [18, 0.08], [11, 0.12]] as const) g.circle(0, -73, r).fill(colour(fade(tone, a)));
   g.moveTo(0, 0).lineTo(0, -52).stroke({ ...colour(tone), width: 2, cap: "round" });
-  g.poly([0, -52, 26, -45, 0, -37]).fill(colour(fade(tone, 0.9)));
+  g.poly([0, -52, 26, -45, 0, -37]).fill(colour(fade(tone, hot ? 1 : 0.9)));
   g.circle(0, -54, 2.6).fill(colour(tone));
   g.scale.set(1.35);
   out.addChild(g);
@@ -70,14 +72,14 @@ function flag(red: boolean, p: Palette): Container {
 
 const PIN_TONE: Record<PinState, (p: Palette) => Rgba> = { done: (p) => p.good, live: (p) => p.hot, next: (p) => p.dormant, failed: (p) => p.bad, ask: (p) => p.ask };
 
-function pin(state: PinState, label: string | undefined, bright: boolean, pinned: boolean, p: Palette): Container {
+function pin(state: PinState, label: string | undefined, bright: boolean, pinned: boolean, hot: boolean, p: Palette): Container {
   const tone = PIN_TONE[state](p);
   const body = state === "next" ? mix(tone, p.base, 0.45) : tone;
   const out = new Container();
   const g = new Graphics();
   if (state === "failed") g.moveTo(-9, -44).lineTo(-13, -55).moveTo(0, -47).lineTo(0, -61).moveTo(9, -44).lineTo(13, -55).stroke({ ...colour(p.bad), width: 1.7, cap: "round" });
   g.moveTo(0, 0).bezierCurveTo(-3, -8, -12, -15, -12, -25).arc(0, -25, 12, Math.PI, 0).bezierCurveTo(12, -15, 3, -8, 0, 0).closePath();
-  g.fill(colour(body)).stroke({ ...colour(pinned ? p.fg : p.base), width: 1.6, join: "round" });
+  g.fill(colour(body)).stroke({ ...colour(pinned || hot ? p.fg : p.base), width: 1.6, join: "round" });
   const ink = { ...colour(p.base), width: 2.6, cap: "round" as const, join: "round" as const };
   if (state === "done") g.moveTo(-5, -26).lineTo(-1.5, -22.5).lineTo(5, -30).stroke(ink);
   else if (state === "failed") g.moveTo(-4.5, -29.5).lineTo(4.5, -20.5).moveTo(4.5, -29.5).lineTo(-4.5, -20.5).stroke(ink);
@@ -94,11 +96,11 @@ function pin(state: PinState, label: string | undefined, bright: boolean, pinned
   return out;
 }
 
-function crate(stage: Crate["pr"]["stage"], dim: boolean, p: Palette): Container {
+function crate(stage: Crate["pr"]["stage"], dim: boolean, hot: boolean, p: Palette): Container {
   const solid = stage === "ready" || stage === "queued" || stage === "landed";
   const red = stage === "red";
   const fill = red ? mix(p.base, p.bad, 0.28) : solid ? p.fg : p.base;
-  const edge = red ? p.bad : solid ? p.fg : p.muted;
+  const edge = hot ? p.fg : red ? p.bad : solid ? p.fg : p.muted;
   const dot = red ? p.bad : solid ? p.base : p.muted;
   const g = new Graphics();
   g.poly([0, -6.5, 7.5, 0, 0, 6.5, -7.5, 0]).fill(colour(fill)).stroke({ ...colour(edge), width: 1.5, join: "round" });
@@ -135,20 +137,40 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
       return c;
     } });
     const goal = s.goals.get(one.root);
-    if (goal !== undefined && one.goal !== undefined) out.push({ key: `flag:${one.root}`, sig: `flag:${goal.red}`, at: { ...onPlane(one.goal), z: 1 }, make: (q) => flag(goal.red, q) });
+    const hot = s.hotPart === `goal:${one.root}`;
+    if (goal !== undefined && one.goal !== undefined) out.push({ key: `flag:${one.root}`, sig: `flag:${goal.red}:${hot}`, at: { ...onPlane(one.goal), z: 1 }, make: (q) => flag(goal.red, hot, q) });
   }
   for (const at of s.route?.pins ?? []) {
     const state = at.state;
     const bright = state === "live" || state === "ask" || state === "failed" || s.pinned === at.id;
+    const hot = s.hotPart === `pin:${at.id}`;
     out.push({
       key: `pin:${at.id}`,
-      sig: `pin:${state}:${s.readable ? at.label : ""}:${bright}:${s.pinned === at.id}`,
+      sig: `pin:${state}:${s.readable ? at.label : ""}:${bright}:${s.pinned === at.id}:${hot}`,
       at: { ...onPlane(at.at), z: 0 },
-      make: (q) => pin(state, s.readable ? at.label : undefined, bright, s.pinned === at.id, q),
+      make: (q) => pin(state, s.readable ? at.label : undefined, bright, s.pinned === at.id, hot, q),
     });
   }
   for (const one of s.crates) {
-    out.push({ key: `crate:${one.pr.key}`, sig: `crate:${one.pr.stage}:${one.dim}`, at: one.at, ...(one.hop === undefined ? {} : { hop: one.hop }), make: (q) => crate(one.pr.stage, one.dim, q) });
+    const hot = s.hotPart === `crate:${one.pr.key}`;
+    out.push({ key: `crate:${one.pr.key}`, sig: `crate:${one.pr.stage}:${one.dim}:${hot}`, at: one.at, ...(one.hop === undefined ? {} : { hop: one.hop }), make: (q) => crate(one.pr.stage, one.dim, hot, q) });
+  }
+  // A plot's name lies on it, at its near corner, and rises with it.
+  for (const one of s.names) {
+    const { rect } = one.tile;
+    out.push({
+      key: `plot:${one.tile.path}`,
+      sig: `plot:${one.text}:${one.clash}`,
+      at: { x: rect.x + 6, y: rect.y * FLAT + 5, z: s.heights.get(one.tile.path) ?? 0 },
+      onTile: one.tile.path,
+      make: (q) => {
+        const c = new Container();
+        const text = name(one.text, q, one.clash ? q.ask : q.muted, { x: 0, y: 1 });
+        text.position.set(0, -1);
+        c.addChild(text);
+        return c;
+      },
+    });
   }
   for (const placed of s.builds) {
     const anchor = onPlane(placed.anchor);

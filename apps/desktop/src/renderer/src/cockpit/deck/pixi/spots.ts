@@ -6,7 +6,8 @@ import type { P3, Point } from "../layout";
 import { onPlane } from "../bf-parts";
 import type { PinIn } from "../mission";
 import { project, type View } from "./project";
-import type { DroneSpec, Placed } from "./scene";
+import type { DroneSpec, Placed, WorkerSpec } from "./scene";
+import { workerAt } from "./workers";
 
 /** A box in the pane, and where it is narrower than its box, the outline inside it (an SVG path in the box's own pixels). */
 export type Spot = { x: number; y: number; w: number; h: number; shape?: string };
@@ -78,6 +79,12 @@ export function crateSpot(view: View, at: P3): Spot | undefined {
 export function pinSpot(view: View, pin: PinIn): Spot | undefined {
   const here = project(view, { ...onPlane(pin.at), z: 0 });
   return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -20, -51, 20, 7);
+}
+
+/** A subagent, wherever its lap has taken it: the CSS map's box round the small drone, which the zoom scales and the Session's size does not. */
+export function workerSpot(view: View, w: WorkerSpec, floor: number, now: number | undefined): Spot | undefined {
+  const here = project(view, workerAt(w, floor, now));
+  return here.scale <= 0 ? undefined : beside(here, view.eye * here.scale, -14, -12, 14, 8);
 }
 
 // ---- A ring ------------------------------------------------------------------------------------------------

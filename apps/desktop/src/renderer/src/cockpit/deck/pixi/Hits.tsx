@@ -20,12 +20,12 @@ import { goalSaid, goalTip, payloadSaid, payloadTip } from "../Scene";
 import { clashLines, clashTip, droneTip, padTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
-import type { Crate, DroneSpec, PixiSceneIn, Placed } from "./scene";
-import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, padSpot, pieceSpot, pinSpot, type Spot } from "./spots";
+import type { Crate, DroneSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
+import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, padSpot, pieceSpot, pinSpot, workerSpot, type Spot } from "./spots";
 import type { Stage } from "./stage";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, where the pointer was if it is too large to have a middle, and what it lights. */
-export type ShowTip = (tip: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string }) => void;
+export type ShowTip = (tip: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string; part?: string }) => void;
 
 /** What a press does, and where a card goes: the page's, read when it is wanted so the layer need not be drawn again for a new one. */
 export type HitActs = {
@@ -44,14 +44,22 @@ export type HitActs = {
 class Placer {
   view: View | undefined;
   private readonly spots = new Map<HTMLElement, (view: View) => Spot | undefined>();
+  /** Those that move on their own, a subagent on its lap, and so are put again at each step of the clock and not only as the view moves. */
+  private readonly moving = new Set<HTMLElement>();
 
-  add(el: HTMLElement, spot: (view: View) => Spot | undefined): void {
+  add(el: HTMLElement, spot: (view: View) => Spot | undefined, moving: boolean): void {
     this.spots.set(el, spot);
+    if (moving) this.moving.add(el);
     this.put(el);
   }
 
   remove(el: HTMLElement): void {
     this.spots.delete(el);
+    this.moving.delete(el);
+  }
+
+  step(): void {
+    for (const el of this.moving) this.put(el);
   }
 
   run(view: View): void {
@@ -76,16 +84,16 @@ class Placer {
 const PlacerContext = createContext<Placer | undefined>(undefined);
 
 /** An element that stands over the canvas where `spot` says. It is put there again whenever its component is drawn, and by the stage as the view moves. */
-function usePlaced<T extends HTMLElement>(spot: (view: View) => Spot | undefined) {
+function usePlaced<T extends HTMLElement>(spot: (view: View) => Spot | undefined, moving = false) {
   const placer = useContext(PlacerContext)!;
   const el = useRef<T>(null);
   const latest = useRef(spot);
   latest.current = spot;
   useLayoutEffect(() => {
     const node = el.current!;
-    placer.add(node, (view) => latest.current(view));
+    placer.add(node, (view) => latest.current(view), moving);
     return () => placer.remove(node);
-  }, [placer]);
+  }, [placer, moving]);
   useLayoutEffect(() => placer.put(el.current!));
   return el;
 }
@@ -210,7 +218,7 @@ function Pad({ pad, at, acts }: { pad: PadIn; at: Point; acts: MutableRefObject<
       data-bay={pad.bay}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(padTip(pad), target), () => acts.current.tip(undefined))}
+      {...speaking((target) => acts.current.tip(padTip(pad), target, undefined, { part: `pad:${pad.key}` }), () => acts.current.tip(undefined))}
     />
   );
 }
@@ -231,7 +239,7 @@ function Goal({ root, repo, goal, at, acts }: { root: string; repo: string; goal
       data-red={goal.red || undefined}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(goalTip(goal, repo), target), () => acts.current.tip(undefined))}
+      {...speaking((target) => acts.current.tip(goalTip(goal, repo), target, undefined, { part: `goal:${root}` }), () => acts.current.tip(undefined))}
     />
   );
 }
@@ -252,7 +260,7 @@ function Payload({ crate, acts }: { crate: Crate; acts: MutableRefObject<HitActs
       data-stage={crate.pr.stage}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(payloadTip(crate.pr), target), () => acts.current.tip(undefined))}
+      {...speaking((target) => acts.current.tip(payloadTip(crate.pr), target, undefined, { part: `crate:${crate.pr.key}` }), () => acts.current.tip(undefined))}
     />
   );
 }
@@ -275,7 +283,7 @@ function Pin({ pin, pinned, acts }: { pin: PinIn; pinned: boolean; acts: Mutable
       data-pinned={pinned || undefined}
       onClick={(event) => acts.current.pin(pin, event.currentTarget)}
       onKeyDown={(event) => keyed(event, () => acts.current.pin(pin, event.currentTarget))}
-      {...speaking((target) => acts.current.pinTip(tipOf(pin), target), () => acts.current.pinTip(undefined))}
+      {...speaking((target) => acts.current.pinTip(tipOf(pin), target, undefined, { part: `pin:${pin.id}` }), () => acts.current.pinTip(undefined))}
     />
   );
 }
@@ -322,6 +330,24 @@ function Ring({ one, heights, big, acts }: { one: Placed; heights: ReadonlyMap<s
             return said === undefined ? null : <RingPart key={`${build.key}:road:${k}`} kind="road" said={said} spot={(view) => arcSpot(view, one, heights, k, m, big)} acts={acts} />;
           })}
     </>
+  );
+}
+
+/** A subagent circling a ring, or standing by the pieces it wrote. It is put again at each step of the clock while it laps. */
+function Worker({ worker, stage, acts }: { worker: WorkerSpec; stage: Stage; acts: MutableRefObject<HitActs> }) {
+  const ref = usePlaced<HTMLDivElement>((view) => workerSpot(view, worker, stage.floorOf(worker.tile), stage.now()), worker.loop);
+  const tip: Tip = { label: "Subagent", title: worker.detail, hue: "quiet" };
+  return (
+    <div
+      ref={ref}
+      className="bf-hits__item"
+      role="option"
+      tabIndex={0}
+      aria-selected={false}
+      aria-label={`Subagent, ${worker.detail}`}
+      data-hit="worker"
+      {...speaking((target) => acts.current.tip(tip, target), () => acts.current.tip(undefined))}
+    />
   );
 }
 
@@ -409,7 +435,8 @@ function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
   const placer = useRef(new Placer()).current;
   useLayoutEffect(() => {
     placer.run(stage.shown);
-    return stage.onView((view) => placer.run(view));
+    const off = [stage.onView((view) => placer.run(view)), stage.onTick(() => placer.step())];
+    return () => off.forEach((one) => one());
   }, [stage, placer]);
   usePlates(layer, stage, scene, acts);
   const drones = [...scene.drones].sort((a, b) => a.at.y - b.at.y);
@@ -434,6 +461,9 @@ function HitLayer({ stage, scene, label, facts, acts }: HitLayerProps) {
         ))}
         {scene.builds.map((one) => (
           <Ring key={one.build.key} one={one} heights={scene.heights} big={scene.big} acts={acts} />
+        ))}
+        {scene.workers.map((one) => (
+          <Worker key={one.key} worker={one} stage={stage} acts={acts} />
         ))}
         {scene.clashLines.map((one) => {
           const clash = scene.layout.clashes.find((c) => `${c.root}:${c.path}` === one.key);

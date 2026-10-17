@@ -31,6 +31,8 @@ function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p
   b.fan([{ x: x0, y: y0, z }, { x: x1, y: y0, z }, { x: x1, y: y1, z }, { x: x0, y: y1, z }], top);
   const edge = clash ? fade(p.ask, 0.75) : fade(p.fg, lit ? 0.34 : 0.18);
   b.stroke([{ x: x0, y: y0, z }, { x: x1, y: y0, z }, { x: x1, y: y1, z }, { x: x0, y: y1, z }], clash ? 0.9 : 0.55, edge, { closed: true });
+  // Under the pointer, the top is ringed just inside its edge.
+  if (s.hotTile === tile.path) b.stroke([{ x: x0 + 0.5, y: y0 + 0.5, z: z + 0.1 }, { x: x1 - 0.5, y: y0 + 0.5, z: z + 0.1 }, { x: x1 - 0.5, y: y1 - 0.5, z: z + 0.1 }, { x: x0 + 0.5, y: y1 - 0.5, z: z + 0.1 }], 0.7, fade(p.fg, 0.38), { closed: true });
   // The lip toward the viewer catches the light.
   b.stroke([{ x: x0, y: y1, z }, { x: x1, y: y1, z }], 0.6, fade(p.fg, clash ? 0.5 : 0.28));
   const inset = Math.min(rect.w, rect.h * FLAT);

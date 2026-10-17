@@ -17,6 +17,7 @@ import { drawAir } from "./air";
 import { over, type Clock } from "./clock";
 import { Beams, drawDoings } from "./doings";
 import { Fliers } from "./fliers";
+import { Workers } from "./workers";
 import { drawGround } from "./ground";
 import { drawLifted } from "./lifted";
 import { drawPlays } from "./motion";
@@ -53,6 +54,7 @@ export class Stage {
   private lines: PlaneLayer | undefined;
   private linesGlow: PlaneLayer | undefined;
   private fliers: Fliers | undefined;
+  private workers: Workers | undefined;
   private beams: Beams | undefined;
   private readonly playStart = new Map<string, number>();
   private palette: Palette | undefined;
@@ -69,6 +71,7 @@ export class Stage {
   private landed = new Map<string, number>();
   private stood = new Map<string, Stood>();
   private readonly listeners = new Set<(view: View) => void>();
+  private readonly ticks = new Set<() => void>();
   private fonts = 0;
   private themed: MutationObserver | undefined;
   private still: MediaQueryList | undefined;
@@ -124,6 +127,7 @@ export class Stage {
     this.lines = new PlaneLayer(this.planeView);
     this.linesGlow = new PlaneLayer(this.planeView, true);
     this.fliers = new Fliers(this.drones);
+    this.workers = new Workers(this.drones);
     this.beams = new Beams(this.effects);
     this.stands.sortableChildren = true;
     app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
@@ -190,10 +194,22 @@ export class Stage {
     return () => this.listeners.delete(listener);
   }
 
+  /** Called after each step of whatever eases, for what is placed over the canvas and moves with it (a subagent on its lap). */
+  onTick(listener: () => void): () => void {
+    this.ticks.add(listener);
+    return () => this.ticks.delete(listener);
+  }
+
+  /** The time a lap is told by, or nothing where motion is turned off and a subagent stands still. */
+  now(): number | undefined {
+    return (this.palette?.pulseMs ?? 0) > 0 ? performance.now() : undefined;
+  }
+
   destroy(): void {
     this.gone = true;
     cancelAnimationFrame(this.frame);
     this.listeners.clear();
+    this.ticks.clear();
     this.themed?.disconnect();
     this.still?.removeEventListener("change", this.restyle);
     const app = this.app;
@@ -202,6 +218,7 @@ export class Stage {
     app.ticker.remove(this.tick);
     app.ticker.stop();
     this.fliers?.destroy();
+    this.workers?.destroy();
     this.beams?.destroy();
     this.terrain?.destroy();
     this.tiles?.destroy();
@@ -221,11 +238,12 @@ export class Stage {
     if (app === undefined || palette === undefined || scene === undefined) return;
     const was = this.drawn;
     this.drawn = scene;
-    const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.route !== scene.route || was.pinned !== scene.pinned || was.world !== scene.world;
+    const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.route !== scene.route || was.pinned !== scene.pinned || was.hotPart !== scene.hotPart || was.world !== scene.world;
     if (ground) this.build(this.terrain!, (b) => drawTerrain(b, scene, palette));
     this.restand(scene, palette);
     this.noticePlays(scene);
     this.fliers?.sync(scene, palette, this.fonts);
+    this.workers?.sync(scene, palette, this.fonts);
     if (force || was === undefined || was.crates !== scene.crates) this.build(this.air!, (b) => drawAir(b, scene, palette));
     this.noticeLandings(scene, was === undefined);
     const toward = scene.heights;
@@ -260,7 +278,7 @@ export class Stage {
   }
 
   /** The height a plot stands at as it is drawn now, which is not where it is going while it eases. */
-  private floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.risen.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
+  readonly floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.risen.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
 
   /** A plot a play touches rises and settles: up over the first 38% of 0.9 of a pulse, and down over the rest. */
   private liftOf(path: string, clock: Clock): number {
@@ -300,6 +318,7 @@ export class Stage {
   private placeFliers(): void {
     const clock = this.clock();
     this.fliers?.place(this.shown, this.floorOf, clock);
+    this.workers?.place(this.shown, this.floorOf, clock);
     if (this.scene !== undefined && this.palette !== undefined) this.beams?.update(this.scene, this.palette, this.shown, this.floorOf, clock);
   }
 
@@ -363,7 +382,8 @@ export class Stage {
     const focus = Math.min(1.7, Math.max(1, 0.72 / this.shown.eye));
     const clock = this.clock();
     for (const { spec, node } of this.stood.values()) {
-      let where = spec.at;
+      // A name lying on a plot rides it as it rises.
+      let where = spec.onTile === undefined ? spec.at : { ...spec.at, z: this.floorOf(spec.onTile) };
       node.alpha = 1;
       const hop = spec.hop;
       if (hop !== undefined && clock.pulse > 0) {
@@ -404,7 +424,7 @@ export class Stage {
     const pulse = this.palette?.pulseMs ?? 0;
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
-    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+    return scene.drones.some((one) => one.loop && one.aim !== undefined) || scene.workers.some((one) => one.loop) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
   }
 
   private get easing(): boolean {
@@ -451,6 +471,7 @@ export class Stage {
     this.rebuildFx();
     this.placeStands();
     this.placeFliers();
+    for (const listener of this.ticks) listener();
     if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();
   };
