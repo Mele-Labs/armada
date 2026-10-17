@@ -10,7 +10,7 @@ export const GUIDE_WORKTREE_SIZE: Guide = {
   group: "machine",
   title: "How much disk is this using?",
   piece: "pulse.worktree-size",
-  concept: "docs/concepts/job.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "Each checkout this job holds carries its own size.",
     "There is no total under them.",

@@ -13,7 +13,7 @@ export const GUIDE_DRONE: Guide = {
   group: "run",
   title: "What is a drone?",
   piece: "run.drone",
-  concept: "docs/concepts/drone.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "A Drone is one agent working one step of one job.",
     "It runs in the job's own checkout, with the tools Armada gives it.",

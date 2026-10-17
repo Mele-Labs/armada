@@ -13,7 +13,7 @@ export const GUIDE_MEMBER_LINK: Guide = {
   group: "job",
   title: "How do jobs land in order?",
   piece: "members.link",
-  concept: "docs/concepts/landing.md",
+  concept: "docs/concepts/fleet.md",
   steps: [
     "Several pull requests landing in order are one job with members.",
     "Each member is a job of its own, and their order is why they were dispatched together.",
