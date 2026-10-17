@@ -1,74 +1,48 @@
-// The Status area: where the Session's progress is read, in the place the status ring had. The workflow as a picker, changeable at any time,
-// over its steps down a column so a workflow of twelve reads as well as one of four, with the step the
-// Session is at lit and kept in view. Soft: the steps show where the Session is and block nothing. The plan is a panel of its own.
+// The workflow in Progress: a picker, changeable at any time, and its steps as one line of glyphs, the one the Session is at lit. Soft: the
+// steps show where the Session is and block nothing.
 
-import { useEffect, useRef } from "react";
 import { CircleCheck, CircleDashed, CircleDot, Lightbulb } from "lucide-react";
-import { Select, Tooltip } from "@armada/components";
+import { Inspect, InspectCard, Select, Tooltip } from "@armada/components";
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
-import { SvPanel } from "./SvPanel";
-
-const MARK = {
+export const MARK = {
   done: { Glyph: CircleCheck, said: "Done" },
   now: { Glyph: CircleDot, said: "Now" },
   next: { Glyph: CircleDashed, said: "Next" },
 } as const;
 
 // With no step named every step is a step to come: none is lit.
-const stateOf = (i: number, at: number | undefined) => (at === undefined || i > at ? "next" : i < at ? "done" : "now");
+export const stateOf = (i: number, at: number | undefined) => (at === undefined || i > at ? "next" : i < at ? "done" : "now");
 
-function StepMark({ state }: { state: keyof typeof MARK }) {
-  const { Glyph, said } = MARK[state];
+/** What a step reads as in its hover card: "Build · current". */
+const WORD = { done: "done", now: "current", next: "next" } as const;
+
+/** The workflow's steps as one line of glyphs joined by a hairline; the current one is the dotted circle. Hovering or focusing a step names it and its state. */
+export function StepRail({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
   return (
-    <Tooltip label={said}>
-      <span className="sv-step__mark" role="img" aria-label={said}>
-        <Glyph size={16} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
-
-/** Keeps the step the Session is at in view: a long workflow scrolls to it and the steps far from it stay out of sight. */
-function useKeepNow(at: number | undefined) {
-  const list = useRef<HTMLOListElement>(null);
-  useEffect(() => {
-    const now = list.current?.querySelector<HTMLElement>('[data-state="now"]');
-    const scroller = now?.closest<HTMLElement>(".sv-steps, .sv-panel__body");
-    if (now === null || now === undefined || scroller === null || scroller === undefined) return;
-    // Two rows above the lit one are kept, from a whole row: the list never rests with its first row cut off under the band.
-    const lead = now.previousElementSibling?.previousElementSibling ?? now.previousElementSibling ?? now;
-    scroller.scrollTop += lead.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  }, [at]);
-  return list;
-}
-
-/** The steps as a list, scrolling to the lit one. */
-function Steps({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
-  const list = useKeepNow(at);
-  return (
-    <div className="sv-steps">
-      <ol ref={list} className="sv-outline" aria-label="Workflow">
-        {steps.map((step, i) => {
-          const state = stateOf(i, at);
-          return (
-            <li key={step} className="sv-step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-              <div className="sv-step__row">
-                <StepMark state={state} />
-                <span className="sv-step__name">{step}</span>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+    <ol className="sv-rail" aria-label="Workflow">
+      {steps.map((step, i) => {
+        const state = stateOf(i, at);
+        const { Glyph } = MARK[state];
+        const said = `${step} · ${WORD[state]}`;
+        return (
+          <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
+            <Inspect card={<InspectCard kind={{ Glyph, label: "Step" }} title={step} state={{ said: WORD[state].charAt(0).toUpperCase() + WORD[state].slice(1) }} />} name={said} side="below" pin={false}>
+              <span className="sv-rail__mark" role="img" aria-label={said}>
+                <Glyph size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Inspect>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
 const NONE = "none";
 
 /** The workflow as a picker, and None is a custom Session with no steps. A change applies from the next turn. */
-function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
+export function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
   const proposal = work.proposal;
   if (proposal === undefined || acts === undefined) {
     return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;
@@ -93,14 +67,5 @@ function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: Session
         </Tooltip>
       ) : null}
     </div>
-  );
-}
-
-export function StatusPanel({ work, place, id, manifestId, acts }: { work: SessionWork; place: "side" | "left"; id: string; manifestId?: string | undefined; acts: SessionWorkActs | undefined }) {
-  return (
-    <SvPanel label="Status" area="status" place={place}>
-      <Flow work={work} acts={acts} id={id} manifestId={manifestId} />
-      {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
-    </SvPanel>
   );
 }

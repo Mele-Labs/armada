@@ -18,10 +18,11 @@ export const TONE_COLOR: Record<Tone, string> = { calm: "var(--fg-muted)", ask: 
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** A Job or Session of the list. */
-export function SubjectCard({ one }: { one: Subject }) {
+/** A Job or Session of the list. `calling` names what a Session of the list is calling him for, in the call's own words. */
+export function SubjectCard({ one, calling }: { one: Subject; calling?: string }) {
   const kind = one.kind === "job" ? { Glyph: Box, label: "Job" } : one.kind === "session" ? { Glyph: SquareTerminal, label: "Session" } : { Glyph: GitPullRequest, label: "Pull request" };
   const facts: InspectFact[] = [
+    ...(calling === undefined ? [] : [{ label: "Calling", value: calling }]),
     ...(one.slot === undefined ? [] : [{ label: "Bay", value: `slot-${one.slot}`, mono: true }]),
     ...(one.step === undefined ? [] : [{ label: "Step", value: `${one.step.at} of ${one.step.of}, ${one.step.label}` }]),
     ...(one.pr === undefined ? [] : [{ label: "Pull request", value: `#${one.pr.number}`, mono: true }, { label: "Branch", value: one.pr.branch, mono: true }]),

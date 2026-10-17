@@ -13,6 +13,7 @@ import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf
 
 import { age, useCursor, type Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
+import { slotTroubleOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
@@ -55,7 +56,7 @@ import type { Found } from "./find";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { callOfSubject, callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, openSubject, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -223,7 +224,17 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   );
 }
 
-function List({ subjects, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
+/** What each thing a Session waits on is called, by the item's source. */
+const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
+
+/** What a call says, as the tooltip on its row: what it is, then its words. */
+const callLabel = (call: Item): string => {
+  const kind = call.kind.replace(/^Session ?/, "");
+  const word = CALL_WORD[call.waiting?.item.source ?? ""] ?? (kind === "" ? "Waiting" : kind.charAt(0).toUpperCase() + kind.slice(1));
+  return call.fact === "" ? word : `${word}: ${call.fact}`;
+};
+
+function List({ subjects, calling, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
@@ -238,10 +249,12 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
     const hit = found?.get(one.key);
+    // A Session calling him: its row pulses a bar, and its tooltip names the call.
+    const call = calling?.get(one.key);
     return (
       <li key={one.key} className="deck-list__item">
-        <Inspect card={<SubjectCard one={one} />} name={one.title} side="beside" pin={false}>
-        <button type="button" className="deck-row" data-row={one.key} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
+        <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-linked={one.linked !== undefined || undefined} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
           <Tooltip label={kindSaid}>
             <span className="deck-row__kind" role="img" aria-label={kindSaid}>
               <Kind size={14} aria-hidden="true" />
@@ -654,6 +667,8 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
+  const clashes = useWriteClashes();
+  const trouble = session === undefined ? undefined : slotTroubleOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
@@ -661,7 +676,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} {...(startIn === undefined ? {} : { startIn })} />
+        <SessionTiles session={session} draft={draft} repository={repository} trouble={trouble} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (
@@ -918,8 +933,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const sessions = useSessions();
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
-  const [footHost, setFootHost] = useState<HTMLElement | null>(null);
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
+  // With a Session open its calling neighbours pulse on their rows, in place of a panel of calls.
+  const calling = useMemo(() => (unified ? new Map(incoming.map((one) => [callOwnerOf(one), one] as const)) : undefined), [unified, incoming]);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost } : undefined), [unified, sideHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const deckMarks = useMarking(DECK_MARKS);
@@ -940,8 +956,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} />
+          {unified ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
@@ -952,7 +968,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
             {unified ? null : <DispatchDeck />}
-            {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
+            {unified ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
           </div>
         </div>
         <div className="deck-right">
