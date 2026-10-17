@@ -23,6 +23,9 @@ import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PREVIEW = os.path.join(HERE, "scripts", "preview")
+_preview_loader = importlib.machinery.SourceFileLoader("preview_script", PREVIEW)
+PREVIEW_MODULE = importlib.util.module_from_spec(importlib.util.spec_from_loader("preview_script", _preview_loader))
+_preview_loader.exec_module(PREVIEW_MODULE)
 
 STUB_ARMADA = """#!/bin/sh
 case "$1 $2" in
@@ -295,6 +298,77 @@ class Preview(unittest.TestCase):
                 self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--adopt"])
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
+
+    def failing_restart(self, named, always=False):
+        """A restart script that fails with a compiler error naming `named` while `bad.rs` is
+        in the tree it is told to build, and records each run. `always` fails whatever the tree."""
+        runs = os.path.join(self.dir, "restart-runs")
+        script = os.path.join(self.dir, "restart")
+        broken = "true" if always else '[ -f "$2/bad.rs" ]'
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho run >> "{runs}"\n'
+                    f'if {broken}; then\n'
+                    f'  echo "warning: unused" >&2; echo " --> good.txt:1:1" >&2\n'
+                    f'  echo "error[E0432]: unresolved import" >&2; echo " --> {named}:12:5" >&2\n'
+                    f'  echo "error: could not compile" >&2; exit 101\nfi\n')
+        os.chmod(script, 0o755)
+        return script, runs
+
+    def preview_restart(self, script):
+        env = {**os.environ, "HOME": self.home, "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
+               "STUB_DIR": self.stub, "ARMADA_PREVIEW_RESTART": script}
+        return subprocess.run([sys.executable, PREVIEW, "--restart"], cwd=self.repo,
+                              capture_output=True, text=True, env=env)
+
+    def count(self, runs):
+        with open(runs) as f:
+            return len(f.read().split())
+
+    def test_a_branch_that_does_not_build_is_left_out_and_the_restart_run_once_more(self):
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/bad", "feat/good")
+        script, runs = self.failing_restart("bad.rs")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("error[E0432]: unresolved import", done.stderr)
+        self.assertIn("feat/bad   skipped (does not build: bad.rs)", done.stdout)
+        with open(os.path.join(self.wt, "PREVIEW.txt")) as f:
+            self.assertIn("feat/bad   skipped (does not build: bad.rs)", f.read())
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "bad.rs")))
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_errors_that_name_no_merged_branchs_file_are_not_guessed_at(self):
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        script, runs = self.failing_restart("elsewhere.rs")
+        # `elsewhere.rs` is nobody's, and a warning's `good.txt` is not an error's.
+        self.branch("feat/other", {"good.txt": "g\n"})
+        self.hold("feat/bad", "feat/other")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 1)
+        self.assertNotIn("does not build", done.stdout)
+
+    def test_the_retry_is_once_and_a_second_failure_is_reported(self):
+        self.branch("feat/bad", {"bad.rs": "x\n"})
+        self.hold("feat/bad")
+        script, runs = self.failing_restart("bad.rs", always=True)
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+
+    def test_error_paths_are_the_errors_not_the_warnings(self):
+        wt = os.path.join(self.dir, "wt")
+        output = (
+            "warning: unused\n --> w/warn.rs:1:1\n"
+            "\x1b[31merror[E0432]\x1b[0m: unresolved\n --> crates/x/src/y.rs:12:5\n"
+            " --> /Users/someone/.cargo/registry/dep.rs:3:3\n"
+            "apps/desktop/src/a.ts(12,5): error TS2304: Cannot find name 'x'.\n"
+            f"error during build:\n{wt}/apps/desktop/src/b.tsx:3:4\n"
+        )
+        self.assertEqual(PREVIEW_MODULE.error_paths(output, wt),
+                         ["crates/x/src/y.rs", "apps/desktop/src/a.ts", "apps/desktop/src/b.tsx"])
 
     def test_a_kept_slot_and_a_stopped_jobs_slot_are_left_out_and_named(self):
         for name in ("feat/live", "feat/kept", "feat/dead", "feat/orphan", "feat/review"):
