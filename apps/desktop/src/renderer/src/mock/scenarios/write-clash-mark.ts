@@ -103,6 +103,8 @@ const CLASHES: readonly WriteClash[] = [
   { one: holder("session", "s41", "Migration notes"), other: holder("session", "s42", "Release script"), paths: ["crates/store/src/clock.rs"], since: ago(6) },
   { one: holder("job", cap.job.id, "Cap the retry backoff"), other: holder("session", "s43", "Retry tuning"), paths: ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"], since: ago(4) },
   { one: holder("session", "s44", "Lint sweep"), other: MAIN, paths: ["crates/store/src/open.rs"], since: ago(9) },
+  // A second clash for Migration notes: its row keeps one mark, and the card names both.
+  { one: holder("session", "s41", "Migration notes"), other: holder("session", "s43", "Retry tuning"), paths: ["crates/fleet/src/retry.rs"], since: ago(3) },
 ];
 
 function build(): Scenario {

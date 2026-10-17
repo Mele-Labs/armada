@@ -53,11 +53,33 @@ export function useOpenClash(): (holder: ClashHolderRef) => void {
 /** What the mark's tooltip says. */
 export const clashSaid = (clash: ClashView): string => `Conflicts with ${clash.with.label} · ${clash.paths.join(", ")}`;
 
-/** The marks for a holder, one a clash; nothing where it has none. */
+/**
+ * The mark for a holder, one however many clashes it is in; nothing where it has none. In one clash a press opens
+ * the other holder. In several the card names each with its paths, and a press is the row's own: the open
+ * Session's bar links every holder.
+ */
 export function ClashMark({ kind, id, size = 12 }: { kind: "job" | "session"; id: string | undefined; size?: 12 | 16 }) {
   const held = useContext(Held);
   const clashes = useClashesOf(kind, id);
   if (clashes.length === 0) return null;
+  if (clashes.length > 1) {
+    const said = `Conflicts with ${clashes.map((clash) => clash.with.label).join(", ")}`;
+    const card = (
+      <span className="armada-clash-mark__card">
+        <span>Conflicts with</span>
+        {clashes.map((clash) => (
+          <span key={`${clash.with.kind}:${clash.with.id}`}>{`${clash.with.label} · ${clash.paths.join(", ")}`}</span>
+        ))}
+      </span>
+    );
+    return (
+      <Tooltip label={card}>
+        <span className="armada-clash-mark" role="img" aria-label={said}>
+          <Swords size={size} strokeWidth={2} aria-hidden="true" />
+        </span>
+      </Tooltip>
+    );
+  }
   return (
     <>
       {clashes.map((clash) => {
