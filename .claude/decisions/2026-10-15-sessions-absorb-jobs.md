@@ -65,14 +65,14 @@ model by difficulty, and the effort.
 ## Rulings made while deleting Jobs, 17 Oct 2026
 
 Made in the pull requests that deleted the Job code (#2495, #2497, #2498,
-#2499, #2500, #2502), where the plan above did not say. He has not ruled on
-these. One is waiting on his answer, in the first table.
+#2499, #2500, #2502), where the plan above did not say. The pull requests
+chose these. One row waits on his answer.
 
 | Asked | Ruled | The cost |
 |---|---|---|
 | Autopilot, when a pick's Session replies or goes idle (#2497) | The Session gives its place back and stays open. A Session counts against the cap while it works or has not run yet, and does not while it waits on the person. The spend and Sessions-started caps count Sessions | A Session that replied once no longer holds Autopilot's place, so Autopilot can start another beside it |
 | Autopilot, which issues are "already taken" (#2497) | Every pick's issue, from any run, whose Session is still live | A Session that ended frees its issue to be picked again |
-| Autopilot, what Stop does (#2497) | It closes a picked Session whose agent never ran, and leaves the others | A Session already working is his to stop |
+| Autopilot, what Stop does (#2497) | It closes a picked Session whose agent never ran, and leaves the others | A Session already working keeps running after Stop |
 | Autopilot, issue write-back (#91) | **Lost for now.** It was keyed on Jobs, so a landed pick no longer writes back to the tracker. **Waiting on his answer** whether it is keyed on Sessions or dropped | An issue Autopilot finished is not marked on the tracker |
 | Pocket, which acts stay (#2498) | Needs you, Running and Done list Sessions from the routes Bridge reads. Dispatch starts a Session, and the phone answers a Session's ask. A stuck Session pushes once | The seven Job acts are lost on the phone: approve, redirect, restart a step, kill, redispatch, approve a review and request changes. So are the Job and Review screens |
 | A bay held by an old Job (#2500) | Drawn without a holder | The bay does not say who has it |
@@ -81,4 +81,4 @@ these. One is waiting on his answer, in the first table.
 | Rehearsals (#2502) | `start_run`, `stop_run` and `undo_run` went with Jobs. They ran a Check or Command in a Job's worktree | There is no rehearsal in a Job's worktree. A Session runs `armada check` itself |
 | The Epic workflow (#2499) | Inert once Job dispatch went, and removed with #30 | Epics are Sessions linked to a parent, as decided above |
 | The Helm session retention setting (#2499) | `retention.helmSessionDays` went with the Commander. After the Commander left, the only conversation it swept was the Commander's | None |
-| What else left with Job dispatch (#2502) | `dispatch_studio_draft`, the retro `agree_lesson` op and the seed warm-up. Copy-on-write cloning stays. Triggers stay as saved definitions, with no firing, holds, repair or added steps | A Studio draft starts a Session, as does a retro item |
+| What else left with Job dispatch (#2502) | `dispatch_studio_draft`, the retro `agree_lesson` op and the seed warm-up. Copy-on-write cloning stays. Triggers stay as saved definitions, with no firing, holds, repair or added steps | A retro item starts a Session with Start Session |
