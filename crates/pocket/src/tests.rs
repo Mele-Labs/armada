@@ -45,7 +45,7 @@ async fn a_route_not_on_the_list_is_404() {
 #[tokio::test]
 async fn a_listed_api_route_without_a_signature_is_401() {
     assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::UNAUTHORIZED);
-    assert_eq!(status(Method::DELETE, "/api/sessions/1", &[]).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(status(Method::DELETE, "/api/sessions/answer", &[]).await, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
