@@ -559,7 +559,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   };
   // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
   const marks = views.flatMap((view, at) => {
-    const dots = dotsOf(view, props.state.mergeLines, views, sessions);
+    const dots = dotsOf(view, props.state.mergeLines, sessions);
     const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
     const open = dots.filter((dot) => !dot.queued);
     return [

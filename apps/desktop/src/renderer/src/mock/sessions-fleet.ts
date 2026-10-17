@@ -114,7 +114,6 @@ export type Calls = {
   changedWaits: ChangeWaiting[];
   /** The waiting Sessions started now. */
   startedNow: string[];
-  piloted: { jobId: string; outcome: string }[];
   exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
@@ -149,13 +148,13 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
-  /** The Board's rows, which a take over and an exit change as Fleet does. */
+  /** The Board's rows, which an exit changes as Fleet does. */
   private jobs: JobSummary[] = [];
   private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
@@ -249,46 +248,6 @@ export class FakeSessionsFleet {
             this.calls.startedNow.push(sessionId);
             return this.change(sessionId, ({ waits: _waits, ...one }) => one);
           },
-          pilotJob: async (jobId, outcome) => {
-            this.calls.piloted.push({ jobId, outcome });
-            const refused = this.refusal();
-            if (refused !== undefined) return refused;
-            const job = this.jobs.find((row) => row.id === jobId)!;
-            const id = `01PILOT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const number = Number(/^(\d+)-/.exec(job.handle)?.[1] ?? 0);
-            const record = hosted(id, {
-              title: job.title,
-              attachments: [
-                held("slot", "3", { handed: `job ${jobId}` }),
-                held("branch", job.branch ?? "", { handed: `job ${jobId}` }),
-                held("job", jobId),
-              ],
-            });
-            this.threads = {
-              ...this.threads,
-              [id]: [
-                {
-                  kind: "handoff",
-                  id: "handoff1",
-                  at: AT,
-                  job_id: jobId,
-                  number,
-                  title: job.title,
-                  reason: outcome,
-                  slot: 3,
-                  branch: job.branch ?? "",
-                  step: { id: "regression_verify", label: "Verify the fix" },
-                  attempts: 3,
-                  refusals: ["No test covers the retry cap, retry.rs:41"],
-                  plan: { declared: true, outside: ["crates/retry/src/loop.rs"] },
-                },
-              ],
-            };
-            this.setJobs(this.jobs.map((row) => (row.id === jobId ? { ...row, status: "piloted", piloted: { reason: outcome, session_id: id, since: AT } } : row)));
-            this.set([record, ...this.records]);
-            this.publishThreads();
-            return { ok: true, value: record };
-          },
           exitPilot: async (jobId, exit, note) => {
             this.calls.exited.push({ jobId, exit, ...(note === undefined ? {} : { note }) });
             const refused = this.refusal();
@@ -348,7 +307,7 @@ export class FakeSessionsFleet {
           },
           claimPullRequest: async (claim) => {
             this.calls.claimed.push(claim);
-            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_kind: claim.job_id === undefined ? "session" : "job", holder_id: claim.job_id ?? claim.session_id ?? "" } };
+            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_id: claim.session_id ?? "" } };
           },
           dismissWaiting: async (dismiss) => {
             this.calls.dismissed.push(dismiss);

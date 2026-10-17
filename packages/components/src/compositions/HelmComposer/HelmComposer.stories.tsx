@@ -367,7 +367,6 @@ const FULL: Partial<HelmBox> = {
   ],
   taggable: [
     { kind: "session", id: "s2", title: "Release notes script" },
-    { kind: "job", id: "j55", title: "55 Cap the retry backoff" },
   ],
   numbered: {
     open: [

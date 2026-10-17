@@ -131,13 +131,6 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                     tag.title, tag.id
                 ),
             },
-            TagKind::Job => match &tag.job {
-                Some(job) => format!(
-                    "Job {} \"{}\" (id {}, branch {}, slot {}, {})",
-                    job.number, tag.title, tag.id, job.branch, job.slot, job.state
-                ),
-                None => format!("Job \"{}\" (id {})", tag.title, tag.id),
-            },
             TagKind::PullRequest => format!(
                 "pull request #{} \"{}\"{}",
                 tag.id,

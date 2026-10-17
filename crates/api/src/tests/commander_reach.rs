@@ -111,7 +111,6 @@ const THE_JOBS_LIFE: &[&str] = &[
     "resume_interrupted_job",
     "redispatch_job",
     "forget_job",
-    "take_over",
     "edit_job",
     "to_proposer",
     "stop_proposal",

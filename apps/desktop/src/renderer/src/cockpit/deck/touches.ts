@@ -32,10 +32,9 @@ function rolled(paths: readonly string[]): Touch[] {
   return [...counts].map(([path, w]) => ({ path, w })).sort(byWeight);
 }
 
-/** The paths a burst wrote: a Session's items, a Job's items or the one file its event names. */
+/** The paths a burst wrote: a Session's items. */
 function writtenBy(event: TimelineEvent): readonly string[] {
   if (event.kind === "session.edited") return event.items ?? [];
-  if (event.kind === "job.files") return event.items ?? (event.detail === undefined ? [] : [event.detail]);
   return [];
 }
 

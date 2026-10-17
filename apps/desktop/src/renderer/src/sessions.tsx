@@ -15,9 +15,7 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
-  OpenInSession,
   PilotAct,
-  PilotConfirm,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -41,7 +39,6 @@ import type {
   ProseTerminalValue,
   ChipOwnershipValue,
   FreshStart,
-  OpenInSessionValue,
   PilotValue,
   LedgerEntry,
   OwnerChipRef,
@@ -139,7 +136,7 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    jobs: attachmentsOf(session, "job").filter((one) => one.looking !== true).map((one) => ({ id: one.id, number: one.number })),
+    jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
 }
@@ -163,7 +160,7 @@ async function startFreshFrom(draft: SessionsDraft, session: Session, text: stri
   return fresh;
 }
 
-/** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
+/** Who owns each chip, for every chip in the window, and the exits of a piloted Job. */
 export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: string) => void; children: ReactNode }) {
   const sessions = useSessions();
   const draft = useSessionsDraft();
@@ -177,80 +174,23 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
     }),
     [sessions, onOpen],
   );
-  const talk = useMemo<OpenInSessionValue | null>(() => {
-    if (draft === undefined) return null;
-    return {
-      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true && one.dead === undefined).map((one) => ({ id: one.id, title: one.title! })),
-      open: (jobId, sessionId) => {
-        const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
-        if (tag === undefined) return;
-        if (sessionId === undefined) opening(draft.start(tag), onOpen);
-        else {
-          const had = sessions.find((one) => one.id === sessionId)?.pendingTags ?? [];
-          draft.setTags(sessionId, [...had, tag]);
-          onOpen(sessionId);
-        }
-      },
-    };
-  }, [draft, sessions, onOpen]);
-  const [asking, setAsking] = useState<string | null>(null);
-  /** Which act Fleet's last refusal answered, so a take over's is said in its confirmation and an exit's under the exits, and neither under the other. */
-  const [last, setLast] = useState<"take" | "exit" | null>(null);
-  const [starting, setStarting] = useState(false);
+  /** Whether the last act Fleet refused was an exit, so its refusal is said under the exits and nowhere else. */
+  const [exited, setExited] = useState(false);
   const said = useSessionsSaid();
   const pilot = useMemo<PilotValue | null>(() => {
-    // With nothing to take a Job over, no chip offers it.
-    if (draft?.pilot === undefined || draft.exit === undefined) return null;
+    if (draft?.exit === undefined) return null;
     const { exit } = draft;
     return {
-      ask: setAsking,
-      pilotedBy: (jobId) => {
-        for (const one of sessions) {
-          const held = one.attachments.find((a) => a.kind === "job" && a.id === jobId && a.state === "piloted" && a.pilotedElsewhere !== true);
-          if (held?.kind === "job") return { id: one.id, title: one.title ?? one.id, number: held.number };
-        }
-        return undefined;
-      },
       exit: (jobId, way) => {
-        setLast("exit");
+        setExited(true);
         exit(jobId, way);
       },
-      open: onOpen,
-      said: last === "exit" ? said : undefined,
+      said: exited ? said : undefined,
     };
-  }, [draft, sessions, onOpen, last, said]);
-  const asked = asking === null || draft === undefined ? undefined : draft.taggable().find((one) => one.kind === "job" && one.id === asking);
+  }, [draft, exited, said]);
   return (
     <ChipOwnership.Provider value={value}>
-      <OpenInSession.Provider value={talk}>
-        <PilotAct.Provider value={pilot}>
-          {children}
-          <PilotConfirm
-            open={asked !== undefined}
-            title={asked?.title ?? ""}
-            said={last === "take" ? said : undefined}
-            onCancel={() => setAsking(null)}
-            onConfirm={(outcome) => {
-              if (asking === null || draft?.pilot === undefined || starting) return;
-              setLast("take");
-              const started = draft.pilot(asking, outcome);
-              // Fleet answers before the confirmation goes: a refusal is said in it, and nothing opens.
-              if (typeof started === "string") {
-                setAsking(null);
-                onOpen(started);
-                return;
-              }
-              setStarting(true);
-              void started.then((id) => {
-                setStarting(false);
-                if (id === undefined) return;
-                setAsking(null);
-                onOpen(id);
-              });
-            }}
-          />
-        </PilotAct.Provider>
-      </OpenInSession.Provider>
+      <PilotAct.Provider value={pilot}>{children}</PilotAct.Provider>
     </ChipOwnership.Provider>
   );
 }
@@ -1089,10 +1029,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
               {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
               compact={narrow}
-              taggable={[
-                ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
-                ...draft.taggable().filter((one) => one.kind !== "job"),
-              ]}
+              taggable={sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! }))}
               searchFiles={(query) => searchFiles(query, session.manifestId)}
               {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}

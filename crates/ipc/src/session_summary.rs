@@ -74,9 +74,6 @@ pub struct SessionSummary {
     pub branch: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_requests: Vec<HeldPullRequest>,
-    /// The Jobs it holds that have not finished, by id.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub jobs: Vec<String>,
 }
 
 /// `list_sessions` with `view=summary`: the most recently seen first.
@@ -119,7 +116,6 @@ impl SessionSummary {
                     })
                 })
                 .collect(),
-            jobs: standing("job").map(|one| one.target.clone()).collect(),
         }
     }
 }

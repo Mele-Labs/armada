@@ -26,9 +26,9 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
   const culprit = main?.state === "red" ? main.red.merge?.session : undefined;
   const fix = useFixChoice(red.view.root, props.onFix, props.onSendToSession);
   if (main?.state !== "red") return null;
-  // A Job or Session the deck lists opens on its stage; any other opens on its own page.
-  const open = (kind: "job" | "session", id: string, elsewhere: (id: string) => void) => {
-    const held = ship.subjects.find((one) => one.kind === kind && one.id === id);
+  // A Session the deck lists opens on its stage; any other opens on its own page.
+  const open = (id: string, elsewhere: (id: string) => void) => {
+    const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
     if (held === undefined) elsewhere(id);
     else select(selOfSubject(held));
   };
@@ -40,8 +40,7 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
         recent={red.view.hub.recent}
         recentSessions={recentSessionsOf(sessions, culprit)}
         onOpenLink={props.onOpenLink}
-        onOpenJob={(id) => open("job", id, props.onOpen)}
-        onOpenSession={(id) => open("session", id, props.onOpenSession)}
+        onOpenSession={(id) => open(id, props.onOpenSession)}
         {...(fix === undefined
           ? {}
           : {

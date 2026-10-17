@@ -5,7 +5,7 @@
 //! Helm's box and answers whether they are a question for Helm or a thought for other running
 //! work, and which. `record_thought_sent` is said after Bridge delivered the words to that work: Fleet
 //! keeps a `sent` row in the Helm Session's thread (`SessionRow::Sent`) and publishes
-//! `helm.thought_routed`. Neither sends anything to a Session, a Job or Helm's own process:
+//! `helm.thought_routed`. Neither sends anything to a Session or Helm's own process:
 //! delivery is the acts that already exist. `tell_session` is Helm's own delivery to a live
 //! Session, for the words that reach Helm as a request, and it keeps the same row and the same
 //! event itself.
@@ -27,21 +27,20 @@ pub struct ReadThought {
 #[serde(rename_all = "snake_case")]
 pub enum ThoughtKind {
     Session,
-    Job,
 }
 
-/// The Session or Job a thought goes to, named so a person can tell which.
+/// The Session a thought goes to, named so a person can tell which.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThoughtTarget {
     pub kind: ThoughtKind,
-    /// A Session's id, or a Job's.
+    /// A Session's id.
     pub id: String,
     /// What a person calls it.
     pub title: String,
     /// The repository it belongs to. Absent for a Session Fleet places in none it serves.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
-    /// The slot a Session holds, where it holds one.
+    /// The slot it holds, where it holds one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
 }
@@ -70,7 +69,7 @@ pub struct ThoughtSent {
     /// uploads, as a message's, so the row can draw it after a restart.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<SessionUpload>,
-    /// The Sessions, Jobs, pull requests, issues and branches the words named.
+    /// The Sessions, pull requests, issues and branches the words named.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
 }
@@ -94,7 +93,7 @@ pub struct HelmThoughtRouted {
     /// The Helm Session whose thread holds the words, by its repository.
     pub manifest_id: ManifestId,
     pub to: ThoughtKind,
-    /// The Session's id, or the Job's.
+    /// The Session's id.
     pub id: String,
     pub at: Instant,
 }

@@ -67,9 +67,7 @@ where
     /// only when the ledger changed**, so a Fleet restart that reads the same slots again says
     /// nothing.
     pub(crate) async fn job_holds_slot(&self, job: &Job, slot: u32) {
-        if self.job_took(job, SLOT, slot.to_string()).await {
-            self.job_slot(job, slot, true);
-        }
+        self.job_took(job, SLOT, slot.to_string()).await;
         // Whether or not the ledger changed: the stint is idempotent, and a row
         // that stood before the history existed is seeded by its migration.
         let now = self.now().as_str().to_string();
@@ -111,12 +109,7 @@ where
             );
         }
         match gave {
-            Ok(true) => {
-                if let Some(slot) = job.worktree_slot() {
-                    self.job_slot(job, slot, false);
-                }
-            }
-            Ok(false) => {}
+            Ok(_) => {}
             Err(why) => self.said_about_the_ledger(
                 job.id(),
                 Level::Warn,

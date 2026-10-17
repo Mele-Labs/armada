@@ -105,14 +105,13 @@ export type PullBlock = PullFacts & {
 export function pullBlocks(
   view: Pick<MergeLineView, "root" | "hub">,
   lines: MergeLines | null,
-  views: readonly Pick<MergeLineView, "root" | "hub">[],
   sessions: readonly Session[],
 ): readonly PullBlock[] {
   const wire = lines?.lines.find((one) => one.root === view.root)?.hub?.pull_requests ?? [];
   return (view.hub?.pulls ?? []).map((pull) => {
     const reading = pull.queue === undefined ? (pull.ci === undefined ? undefined : CI[pull.ci]) : QUEUE[pull.queue.state];
     const state = reading?.state ?? "open";
-    const owner = pullOwner(views, sessions, pull.number, pull.branch);
+    const owner = pullOwner(sessions, pull.number, pull.branch);
     const row = wire.find((one) => one.number === pull.number);
     const title = row?.title;
     const position = pull.queue?.position;
@@ -221,12 +220,11 @@ export function landingDots(line: MergeLineView["line"]): readonly Dot[] {
 export function dotsOf(
   view: Pick<MergeLineView, "root" | "hub" | "line">,
   lines: MergeLines | null,
-  views: readonly Pick<MergeLineView, "root" | "hub">[],
   sessions: readonly Session[],
 ): readonly Dot[] {
   return [
     ...landingDots(view.line),
-    ...pullBlocks(view, lines, views, sessions).map(
+    ...pullBlocks(view, lines, sessions).map(
       (pull): Dot => ({
         key: `pull:${pull.number}`,
         state: pull.state,

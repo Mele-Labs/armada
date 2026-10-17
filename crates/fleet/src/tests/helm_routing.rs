@@ -86,13 +86,13 @@ async fn a_thought_naming_a_live_session_answers_that_session() {
     );
 }
 
-/// Every candidate reached the model: the live Session and the running Job, whatever repository
-/// Helm points at, and the Job with what it must meet. An ended Session did not.
+/// Every candidate reached the model: the live Session, whatever repository Helm points at. An
+/// ended Session did not.
 #[tokio::test]
-async fn the_model_is_shown_every_live_session_and_running_job_and_no_ended_one() {
+async fn the_model_is_shown_every_live_session_and_no_ended_one() {
     let home = TempDir::new();
     let judge = Arc::new(FakeJudge::saying(r#"{"kind":"thought"}"#));
-    let (fleet, app, job) = running(&home, Arc::clone(&judge)).await;
+    let (fleet, app, _job) = running(&home, Arc::clone(&judge)).await;
     session(&fleet, "01LIVEAAAAAAAAAAAAAAAAAAAA", "Release notes script").await;
     session(&fleet, "01ENDEDBBBBBBBBBBBBBBBBBBB", "Store migration spike").await;
     fleet
@@ -112,9 +112,6 @@ async fn the_model_is_shown_every_live_session_and_running_job_and_no_ended_one(
     for shown in [
         "Release notes script",
         "01LIVEAAAAAAAAAAAAAAAAAAAA",
-        "fix the off-by-one in the log reader",
-        job.as_str(),
-        "the symptom is gone",
     ] {
         assert!(question.contains(shown), "{shown}: {question}");
     }
@@ -210,18 +207,33 @@ fn the_read_waits_for_a_slow_cli_start() {
     assert_eq!(READ_BUDGET, Duration::from_secs(20));
 }
 
+fn a_live_record(id: &str, title: &str, manifest: &str, branch: Option<&str>) -> SessionRecord {
+    let attachments = branch
+        .map(|branch| {
+            format!(r#"{{"kind":"branch","target":"{branch}","state":"standing","since":"2026-10-12T09:00:00.000Z","changed_at":"2026-10-12T09:00:00.000Z"}}"#)
+        })
+        .unwrap_or_default();
+    let json = format!(
+        r#"{{"id":"{id}","harness":"a-harness","origin":"bridge","manifest_id":"{manifest}","cwd":"/work",
+        "title":"{title}","state":"live","started_at":"2026-10-12T09:00:00.000Z",
+        "last_seen_at":"2026-10-12T09:40:00.000Z","usage":{{}},"attachments":[{attachments}],"waiting_for":[]}}"#
+    );
+    ipc::decode("a record", json.as_bytes()).expect("a SessionRecord")
+}
+
 fn candidates() -> Vec<Candidate> {
     vec![
-        Candidate::job(
-            "01JOBAAAAAAAAAAAAAAAAAAAAA",
+        a_live_record(
+            "01SESSAAAAAAAAAAAAAAAAAAAA",
             "Retry failed invoice charges with backoff",
             "billing",
             Some("armada/54-retry"),
-            &["A failed charge is retried three times"],
-            Some("Add a retry queue"),
         ),
-        Candidate::job("01JOBBBBBBBBBBBBBBBBBBBBBB", "Pin the clock", "armada", None, &[], None),
+        a_live_record("01SESSBBBBBBBBBBBBBBBBBBBB", "Pin the clock", "armada", None),
     ]
+    .iter()
+    .filter_map(Candidate::session)
+    .collect()
 }
 
 #[test]
@@ -229,9 +241,9 @@ fn an_answer_is_held_to_the_candidates() {
     let named = |id: &str| format!(r#"{{"kind":"thought","id":"{id}"}}"#);
     let ThoughtReading::Thought {
         target: Some(target),
-    } = reading_of(&named("01JOBAAAAAAAAAAAAAAAAAAAAA"), &candidates())
+    } = reading_of(&named("01SESSAAAAAAAAAAAAAAAAAAAA"), &candidates())
     else {
-        panic!("the first Job");
+        panic!("the first Session");
     };
     assert_eq!(target.title, "Retry failed invoice charges with backoff");
     assert_eq!(
@@ -243,7 +255,7 @@ fn an_answer_is_held_to_the_candidates() {
         ThoughtReading::Thought { target: None }
     );
     assert_eq!(
-        reading_of(&named("01JOBAAAAAAAAAAAAAAAAAAAAA"), &[]),
+        reading_of(&named("01SESSAAAAAAAAAAAAAAAAAAAA"), &[]),
         ThoughtReading::Thought { target: None },
         "nothing running offers nothing to name"
     );
@@ -259,7 +271,7 @@ fn an_answer_with_prose_around_the_json_still_reads_and_anything_else_is_a_quest
         "",
         "thought",
         "{\"kind\":\"banana\"}",
-        "{\"id\":\"01JOBAAAAAAAAAAAAAAAAAAAAA\"}",
+        "{\"id\":\"01SESSAAAAAAAAAAAAAAAAAAAA\"}",
         "} {",
     ] {
         assert_eq!(
@@ -355,8 +367,8 @@ async fn the_row_is_still_there_after_a_restart() {
             ThoughtSent {
                 text: "back off longer".into(),
                 target: ThoughtTarget {
-                    kind: ThoughtKind::Job,
-                    id: "01JOBAAAAAAAAAAAAAAAAAAAAA".into(),
+                    kind: ThoughtKind::Session,
+                    id: "01SESSAAAAAAAAAAAAAAAAAAAA".into(),
                     title: "Retry failed invoice charges".into(),
                     manifest_id: None,
                     slot: None,
@@ -396,9 +408,9 @@ async fn the_helm_session_is_no_candidate_for_a_thought() {
             ThoughtSent {
                 text: "x".into(),
                 target: ThoughtTarget {
-                    kind: ThoughtKind::Job,
-                    id: "01JOB".into(),
-                    title: "A Job".into(),
+                    kind: ThoughtKind::Session,
+                    id: "01SESSION".into(),
+                    title: "A Session".into(),
                     manifest_id: None,
                     slot: None,
                 },

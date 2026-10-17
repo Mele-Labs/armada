@@ -1,7 +1,6 @@
 // A Session: a raw conversation with a hosted agent, beside Helm, with Armada's
 // features hooked in. This walk is the Session itself, from a blank start. The
-// other two are the surfaces that lead into one: `worktree-to-sessions`
-// and `job-to-sessions`. Drawn in Bridge over a mock Fleet, ahead of
+// other is the surface that leads into one: `worktree-to-sessions`. Drawn in Bridge over a mock Fleet, ahead of
 // any Fleet work: what Fleet would owe is listed in
 // `packages/screens/src/draft/sessions.ts`. Told twice: wide, and below the
 // breakpoint.

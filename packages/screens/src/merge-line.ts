@@ -83,10 +83,10 @@ export function mergeLineViews(
     line: inOrder(one.line).map((row) => owned(entryOf(row, (one as NoticedLine).notice?.kind === "main"))),
     // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
     // files only from a Fleet before 23.42, or one whose forge said none.
-    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map((pull) => owned(mergedEntryOf(pull))) : one.landed.map((row) => owned(entryOf(row))),
+    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => owned(entryOf(row))),
     sentBack: one.sent_back.map((row) => owned(entryOf(row))),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
-    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs), owners) }),
+    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs)) }),
   }));
 }
 
@@ -124,7 +124,6 @@ function ownersOf(jobs: readonly JobSummary[]): Map<string, { id: string; title:
 function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
     branch: pull.branch,
-    ...(pull.job === undefined ? {} : { job: { id: pull.job.id, title: pull.job.title } }),
     pr: { number: pull.number, url: pull.url },
     state: "landed",
     ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
@@ -154,7 +153,7 @@ function recentOf(jobs: readonly JobSummary[]): readonly RecentJob[] {
  * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for. A red
  * with newer commits running is held, and the panel draws it as such.
  */
-function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<string, { id: string; title: string }>): MergeLineHub {
+function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
   const main = mainOf(hub);
   return {
     ...(main === undefined ? {} : { main }),
@@ -172,7 +171,6 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
       ...(pull.deletions === undefined ? {} : { deletions: pull.deletions }),
       ...(pull.merge_by_hand === true ? { mergeByHand: true as const } : {}),
       ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
-      ...((pull.job ?? owners.get(pull.branch)) === undefined ? {} : { job: pull.job ?? owners.get(pull.branch)! }),
       ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
     recent,
@@ -212,7 +210,7 @@ function queueFirst<T extends { queue?: { state: string; position?: number } }>(
     .map(({ pull }) => pull);
 }
 
-function mainOf({ main, fixing, fixing_session, fixing_elsewhere }: WireHub): MainState | undefined {
+function mainOf({ main, fixing_session, fixing_elsewhere }: WireHub): MainState | undefined {
   if (main === undefined) return undefined;
   const checking = (main.checking ?? []).map((one) => ({
     commit: one.commit,
@@ -221,7 +219,7 @@ function mainOf({ main, fixing, fixing_session, fixing_elsewhere }: WireHub): Ma
   if (main.state === "green") return { state: "green", ...(checking.length === 0 ? {} : { checking }) };
   const red = main.state === "red" ? redOf(main) : undefined;
   if (red === undefined) return undefined;
-  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }), ...(fixing_session === undefined ? {} : { takenBySession: { id: fixing_session.id, title: fixing_session.title ?? fixing_session.id } }), ...(fixing_elsewhere === undefined ? {} : { elsewhere: fixing_elsewhere }), ...(checking.length === 0 ? {} : { checking }) };
+  return { state: "red", red, ...(fixing_session === undefined ? {} : { takenBySession: { id: fixing_session.id, title: fixing_session.title ?? fixing_session.id } }), ...(fixing_elsewhere === undefined ? {} : { elsewhere: fixing_elsewhere }), ...(checking.length === 0 ? {} : { checking }) };
 }
 
 /** What failed: a Manifest Check where the CI job maps to one, otherwise the job's own name. */
@@ -250,7 +248,6 @@ function redOf(main: MainStanding): MainRed | undefined {
             number: merge.number,
             ...(merge.url === undefined ? {} : { url: merge.url }),
             ...(merge.branch === undefined ? {} : { branch: merge.branch }),
-            ...(merge.job === undefined ? {} : { job: merge.job }),
             ...(merge.session === undefined ? {} : { session: { id: merge.session.id, title: merge.session.title ?? merge.branch ?? merge.session.id } }),
           },
         }),

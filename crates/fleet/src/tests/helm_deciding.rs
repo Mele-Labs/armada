@@ -251,7 +251,6 @@ fn the_doors_reads_run_and_only_some_of_its_acts_ask() {
         ("merge_pull_request", Because::PushesToShared),
         ("submit_for_verification", Because::PushesToShared),
         ("attest_complete", Because::PushesToShared),
-        ("take_over", Because::Destructive),
         ("close_as_superseded", Because::Destructive),
         ("merge_pull_request_by_number", Because::PushesToShared),
         ("ready_pull_request", Because::PushesToShared),

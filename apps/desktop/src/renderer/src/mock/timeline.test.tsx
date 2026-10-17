@@ -84,12 +84,12 @@ test.skip("the filter narrows it as it narrows the grid: Your move keeps what ne
   await timeline();
   const subject = (name: RegExp) => page.getByRole("button", { name });
 
-  await expect.element(subject(/^Job: Cache the manifest read/)).toBeVisible();
-  await expect.element(subject(/^Job: Fold the two notification routes/)).not.toBeInTheDocument();
+  await expect.element(subject(/^Session: Cache the manifest read/)).toBeVisible();
+  await expect.element(subject(/^Session: Fold the two notification routes/)).not.toBeInTheDocument();
 
   await page.getByRole("tab", { name: "Done" }).click();
-  await expect.element(subject(/^Job: Fold the two notification routes/)).toBeVisible();
-  await expect.element(subject(/^Job: Cache the manifest read/)).not.toBeInTheDocument();
+  await expect.element(subject(/^Session: Fold the two notification routes/)).toBeVisible();
+  await expect.element(subject(/^Session: Cache the manifest read/)).not.toBeInTheDocument();
 });
 
 // Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
@@ -115,13 +115,13 @@ test.skip("a pull request is marks on the track of the Job or Session that owns 
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
 
   // #1890 opened on the Job's branch; #1896 on the branch a Session works on.
-  const job = laneOf(/^Job: Debounce the Job Board/);
+  const job = laneOf(/^Session: Debounce the Job Board/);
   const queued = pipIn(job, /^Queued, place 1/);
   expect(queued?.getAttribute("data-shape")).toBe("pull_request");
   const session = laneOf(/^Session: Flaky store test/);
   expect(pipIn(session, /^Check store passed/)?.getAttribute("data-shape")).toBe("pull_request");
   // The Job's own marks keep the Job's shape.
-  expect(pipIn(job, /^Check lint failed/)?.getAttribute("data-shape")).toBe("job");
+  expect(pipIn(job, /^Check lint failed/)?.getAttribute("data-shape")).toBe("session");
 
   // No row, lane or Split entry is a pull request, whoever owns it.
   expect(page.getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
@@ -149,8 +149,8 @@ test.skip("a pull request nobody owns draws nothing, in any take", async () => {
 const entry = (id: number, says: string, over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   id,
   at: new Date().toISOString(),
-  kind: "job.step",
-  subject: { kind: "job", id: "job-live" },
+  kind: "session.step",
+  subject: { kind: "session", id: "s-live-entry" },
   title: "Order the store migrations",
   tone: "run",
   says,
@@ -184,7 +184,7 @@ test("an entry Fleet appends is drawn at once, in the lane of its subject, and a
   expect(page.getByRole("button", { name: /^Implement started/ }).query()).toBeNull();
   expect(page.getByText("Pin the clock").query()).toBeNull();
 
-  held = [...held, entry(2, "Implement started"), entry(3, "Dispatched", { kind: "job.created", subject: { kind: "job", id: "job-new" }, title: "Pin the clock" })];
+  held = [...held, entry(2, "Implement started"), entry(3, "Dispatched", { kind: "session.started", subject: { kind: "session", id: "s-new" }, title: "Pin the clock" })];
   listeners.forEach((on) => on());
 
   await expect.element(page.getByRole("button", { name: /^Implement started/ })).toBeVisible();
@@ -195,7 +195,7 @@ test("a burst opens to the files or commands Fleet kept for it, and one kept non
   const session = { kind: "session", id: "s-live" } as const;
   const held: readonly TimelineEvent[] = [
     entry(1, "Read 3 files", { kind: "session.read", subject: session, title: "Flaky store", detail: "src/c.rs", items: ["src/c.rs", "src/b.rs", "src/a.rs"] }),
-    entry(2, "Ran 2 commands", { kind: "job.ran", detail: "cargo test", items: ["cargo test", "cargo build"] }),
+    entry(2, "Ran 2 commands", { kind: "session.ran", detail: "cargo test", items: ["cargo test", "cargo build"] }),
     entry(3, "Edited 4 files", { kind: "session.edited", subject: session, title: "Flaky store", detail: "src/d.rs" }),
   ];
   const host = document.createElement("div");

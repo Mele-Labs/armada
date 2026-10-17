@@ -16,7 +16,7 @@ const none = () => undefined;
 
 test("a lease launches a drone from its bay, and the tool bursts are not plays", () => {
   expect(PLAYS["slot.leased"]).toBe("launch");
-  for (const kind of ["session.read", "session.edited", "session.ran", "job.read", "job.ran"] as const) expect(PLAYS[kind]).toBeUndefined();
+  for (const kind of ["session.read", "session.edited", "session.ran"] as const) expect(PLAYS[kind]).toBeUndefined();
 });
 
 test("only events within six minutes play, newest first, spaced apart and no more than a dozen", () => {

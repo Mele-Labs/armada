@@ -292,7 +292,7 @@ fn session_fact(fact: ipc::SessionFact) -> ipc::SessionReport {
 async fn a_job_and_a_session_stand_in_one_order() {
     let home = TempDir::new();
     let fleet = holding_under(&home, "forge");
-    let (job, job_branch) = at_the_gate(&fleet, &home).await;
+    let (job, _job_branch) = at_the_gate(&fleet, &home).await;
 
     // The session declared first, through the intake the mod reports on.
     fleet
@@ -325,7 +325,7 @@ async fn a_job_and_a_session_stand_in_one_order() {
         "{said}"
     );
 
-    // And both are in the one listing, in the order they declared.
+    // And both stand in the one ledger, in the order they declared. The wire lists the Session's alone.
     assert_eq!(
         line(&fleet, PATH).await,
         [Holder::session("a-session"), Holder::job(job.as_str())]
@@ -336,7 +336,7 @@ async fn a_job_and_a_session_stand_in_one_order() {
         .iter()
         .map(|need| need.held_by.as_str())
         .collect();
-    assert_eq!(names, ["the session", job_branch.as_str()]);
+    assert_eq!(names, ["the session"]);
 
     // The session ending gives its need back, which frees the Job.
     fleet

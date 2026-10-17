@@ -87,7 +87,7 @@ async fn a_terminals_need_holds_a_job_behind_it_until_it_is_given_back_or_its_br
 async fn the_route_answers_who_is_ahead_and_refuses_what_it_cannot_keep() {
     let home = TempDir::new();
     let fleet = holding_under(&home, "forge");
-    let (job, job_branch) = at_the_gate(&fleet, &home).await;
+    let (_job, job_branch) = at_the_gate(&fleet, &home).await;
     git(home.path(), &["branch", "terminal"]);
 
     // A Job's own branch declares as the Job.
@@ -95,11 +95,7 @@ async fn the_route_answers_who_is_ahead_and_refuses_what_it_cannot_keep() {
         .act_on_need(call(NeedAct::Declare, &job_branch, Some("a minor"), None))
         .await
         .expect("declared");
-    let holder = one.mine.expect("its need").holder;
-    assert_eq!(
-        (holder.kind, holder.id.as_str()),
-        (ipc::HolderKind::Job, job.as_str())
-    );
+    assert!(one.mine.is_none(), "a Job's own need is not drawn on the wire");
     fleet
         .act_on_need(call(NeedAct::Took, &job_branch, None, Some("23.41")))
         .await
@@ -109,9 +105,7 @@ async fn the_route_answers_who_is_ahead_and_refuses_what_it_cannot_keep() {
         .act_on_need(call(NeedAct::Declare, "terminal", Some("a minor"), None))
         .await
         .expect("declared");
-    assert_eq!(two.ahead.len(), 1);
-    assert_eq!(two.ahead[0].took.as_deref(), Some("23.41"));
-    assert_eq!(two.ahead[0].held_by, job_branch);
+    assert!(two.ahead.is_empty(), "nor is a Job's need ahead of it");
     let again = fleet
         .act_on_need(call(NeedAct::Declare, "terminal", Some("a minor"), None))
         .await
@@ -196,9 +190,7 @@ async fn a_job_holds_its_branch_and_slot_on_the_ledger_until_it_ends() {
         .who_owns("branch".into(), branch.clone(), None)
         .await
         .expect("who owns");
-    assert_eq!(owners.holders.len(), 1, "{owners:?}");
-    assert_eq!(owners.holders[0].holder.kind, ipc::HolderKind::Job);
-    assert_eq!(owners.holders[0].holder.id, job.as_str());
+    assert!(owners.holders.is_empty(), "the wire names a Session's hold only: {owners:?}");
     let held = fleet
         .store()
         .lock()

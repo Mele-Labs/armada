@@ -55,12 +55,8 @@ export type SessionAttachment =
       branch: string;
       /** Absent where the Job's own slot is not known: Fleet holds it on the Job, not on the Session. */
       slot?: number;
-      /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
-      looking?: true;
       /** Closed by a person's word and not by its gates. */
       attested?: true;
-      /** The Job is piloted, but from another Session: this one's ledger offers no exit on it. Absent is this Session's own. */
-      pilotedElsewhere?: true;
     }
   | { kind: "studio"; id: string; title: string }
   /**
@@ -299,23 +295,6 @@ export type SessionRow =
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation: not the person's words. */
   | { id: string; at: string; kind: "compaction"; text: string }
-  /**
-   * What a piloted Session starts with: the Job's own worktree, handed over,
-   * and what Fleet knew when its Drone stopped. Structured, never prose.
-   */
-  | {
-      id: string;
-      at: string;
-      kind: "handoff";
-      job: { number: number; title: string };
-      slot: number;
-      branch: string;
-      step?: { id: string; label: string };
-      attempts: number;
-      refusals: readonly string[];
-      plan: { outside: readonly string[]; unwritten: readonly string[] };
-      narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
-    }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
@@ -501,17 +480,14 @@ export type Session = {
 
 /**
  * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
- * is meant: another Session, a Job, a pull request, a branch or an issue. A Job carries what the ledger
- * needs to hold it as one the Session is looking at.
+ * is meant: another Session, a pull request, a branch or an issue.
  */
 export type SessionTag = {
-  kind: "session" | "job" | "pull_request" | "branch" | "issue";
+  kind: "session" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
   /** The forge's address of an issue or a pull request. */
   url?: string;
-  /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
-  job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };
 
 /** What a message carries: its words, and what was attached to it. */
@@ -611,18 +587,12 @@ export type SessionsDraft = {
   helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
-   * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real
-   * Fleet**, one call that takes the Job over and starts the Session; one Fleet refused says why in
-   * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
-   */
-  pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
-  /**
    * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
    * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.
    */
   handOff?: (id: string, group: string) => string | Promise<string | undefined> | undefined;
   /**
-   * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
+   * Starts a new Session as a copy of a dead one's conversation and returns its id.
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.
    */
   fork?: (id: string) => string | Promise<string | undefined>;
@@ -639,7 +609,7 @@ export type SessionsDraft = {
    * moved. Absent where nothing serves it, and the repository is not drawn as a control.
    */
   move?: (id: string, manifestId: string) => Promise<string | undefined>;
-  /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
+  /** One of the three ways out of a pilot. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
@@ -734,8 +704,6 @@ export type SessionsDraft = {
   writePullRequest?: (id: string, number: number, write: Pick<WritePullRequest, "kind" | "body">) => Promise<PullRequestPageRead>;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
   said?: () => string | undefined;
-  /** What `@` offers beyond other Sessions: the Jobs. */
-  taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;
   /**
@@ -870,7 +838,7 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "branch":
       return (
         (attachment.kind === "branch" && attachment.name === ref.name) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.branch === ref.name) ||
+        (attachment.kind === "job" && attachment.branch === ref.name) ||
         (attachment.kind === "pull_request" && attachment.branch === ref.name)
       );
     case "pull_request":
@@ -878,10 +846,10 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "slot":
       return (
         (attachment.kind === "slot" && attachment.slot === ref.slot) ||
-        (attachment.kind === "job" && attachment.looking !== true && attachment.slot === ref.slot)
+        (attachment.kind === "job" && attachment.slot === ref.slot)
       );
     case "job":
-      return attachment.kind === "job" && attachment.looking !== true && attachment.id === ref.id;
+      return attachment.kind === "job" && attachment.id === ref.id;
   }
 }
 

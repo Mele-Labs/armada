@@ -475,10 +475,9 @@ export function App({ draft }: AppProps = {}) {
     lines: state.mergeLines,
     settings: state.settings,
     openSession,
-    openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
     words: helmBox.words,
   });
-  const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
+  const routing = useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const nowing = useNowActs({ live, active: state.active, jobs: state.jobs, draft, commands, onConfirm: setConfirming, onOpen: setOpenJob }); // Every active Job's Now, for the Cockpit and the Dashboard.
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.

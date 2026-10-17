@@ -53,7 +53,6 @@ const args = {
   recent: RECENT,
   onOpenLink: fn(),
   onOpenCheck: fn(),
-  onOpenJob: fn(),
   onOpenSession: fn(),
   onFix: fn(),
 };
@@ -85,18 +84,18 @@ export const RedWithNobodyOnIt: Story = {
   },
 };
 
-/** A Job has it: the two ways are gone, and the Job is a link. Nobody is asked anything. */
-export const RedWithAJobOnIt: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } }, taken: JOB } },
+/** A Session has it: the two ways are gone, and the Session is a link. Nobody is asked anything. */
+export const RedWithASessionOnIt: Story = {
+  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, session: SESSION } }, takenBySession: SESSION } },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Working on it" })).toBeVisible();
-    // The Job is named twice: as the merge's owner, and as the one fixing.
-    const named = canvas.getAllByRole("button", { name: JOB.title });
+    // The Session is named twice: as the merge's owner, and as the one fixing.
+    const named = canvas.getAllByRole("button", { name: SESSION.title });
     await expect(named).toHaveLength(2);
     await userEvent.click(named[1]!);
-    await expect(args.onOpenJob).toHaveBeenCalledWith("job-1");
+    await expect(args.onOpenSession).toHaveBeenCalledWith("session-1");
   },
 };
 
@@ -115,25 +114,6 @@ export const DispatchANewJob: Story = {
     await expect(args.onFix).toHaveBeenCalledWith({ kind: "new", request: expect.stringContaining("screens_test fails on main.") });
     // Sent: the dialog is put away.
     await expect(within(document.body).queryByRole("dialog")).toBeNull();
-  },
-};
-
-/**
- * The work goes back to an earlier Job. The culprit's own comes first wherever it is among the
- * recent, and is chosen before the owner looks.
- */
-export const SendBackToAJob: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } } } },
-  play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
-    const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
-    const jobs = within(dialog).getAllByRole("radio");
-    await expect(jobs[0]).toHaveAccessibleName(/^Cache the manifest read between dispatches/);
-    await expect(within(dialog).getByRole("img", { name: "Merged #1812" })).toBeVisible();
-    await expect(jobs[0]).toBeChecked();
-    await expect(within(dialog).queryByRole("textbox", { name: "Message" })).toBeNull();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Send back" }));
-    await expect(args.onFix).toHaveBeenCalledWith({ kind: "back", job: "job-1" });
   },
 };
 
@@ -305,7 +285,7 @@ export const GreenWhileChecksRun: Story = {
 
 const NOW = Date.parse("2026-10-14T21:30:00Z");
 const MINUTES = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
-const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "job", id: "7be40d15" }, since: MINUTES(12) } as const;
+const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "session", id: "7be40d15" }, since: MINUTES(12) } as const;
 
 /**
  * Another machine holds the red: its chip, with `monitor` naming the machine, and the claim's age.
@@ -314,7 +294,7 @@ const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "job", id: "7be40d
 export const HeldElsewhere: Story = {
   args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: ELSEWHERE } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("group", { name: "Job 7be40d15, work-mac-mini" })).toBeVisible();
+    await expect(canvas.getByRole("group", { name: "Session 7be40d15, work-mac-mini" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "work-mac-mini" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Claimed 12m ago" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Take over" })).toBeVisible();

@@ -41,8 +41,8 @@ fn a_repository_with(branches: &[&str]) -> TempDir {
 fn line(held_by: &str, what: &str, took: Option<&str>) -> NeedLine {
     NeedLine {
         holder: Holder {
-            kind: HolderKind::Job,
-            id: format!("job-{held_by}"),
+            kind: HolderKind::Session,
+            id: format!("session-{held_by}"),
         },
         held_by: held_by.to_string(),
         path: PATH.to_string(),

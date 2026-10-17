@@ -139,7 +139,6 @@ where
                 effort: None,
                 mode: None,
                 root: None,
-                pilot: None,
                 fork: None,
                 request: None,
                 after: None,

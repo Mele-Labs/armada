@@ -1,4 +1,4 @@
-//! `take_over`, `get_handoff` and the three exits. Since 23.50.
+//! The three exits from a pilot. Since 23.50.
 //! `docs/concepts/pilot.md`.
 
 use axum::body::Bytes;
@@ -10,39 +10,6 @@ use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Piloting;
 use crate::reference::Resolved;
 use crate::served::Served;
-
-/// An empty body is a take over with no Session named.
-pub(crate) async fn take_over<D: Piloting>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    body: Bytes,
-) -> Response {
-    let request = if body.is_empty() {
-        ipc::TakeOver {
-            outcome: ipc::PilotOutcome::TakeOver,
-            session_id: None,
-        }
-    } else {
-        match ipc::decode("a take over", &body) {
-            Ok(request) => request,
-            Err(why) => return undecodable(&why.to_string(), served.run_id()),
-        }
-    };
-    match served.shared().take_over(job.id(), request).await {
-        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-pub(crate) async fn get_handoff<D: Piloting>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_handoff(job.id()).await {
-        Ok(bundle) => answer(StatusCode::OK, &bundle, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 pub(crate) async fn submit_for_verification<D: Piloting>(
     State(served): State<Served<D>>,

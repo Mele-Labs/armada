@@ -31,16 +31,18 @@ pub(crate) struct PullOwner {
 }
 
 impl PullOwner {
-    pub(crate) fn on_the_wire(&self) -> ipc::PullRequestOwner {
-        ipc::PullRequestOwner {
-            kind: match self.holder.kind {
-                HolderKind::Session => ipc::HolderKind::Session,
-                HolderKind::Job => ipc::HolderKind::Job,
-            },
+    /// **A Job's claim is left out**: the wire names no Job as an owner.
+    pub(crate) fn on_the_wire(&self) -> Option<ipc::PullRequestOwner> {
+        let kind = match self.holder.kind {
+            HolderKind::Session => ipc::HolderKind::Session,
+            HolderKind::Job => return None,
+        };
+        Some(ipc::PullRequestOwner {
+            kind,
             id: self.holder.id.clone(),
             machine: self.holder.machine.clone(),
             this_machine: self.here,
-        }
+        })
     }
 }
 
@@ -178,6 +180,6 @@ where
             .find(|one| one.pull.number == number)?
             .owner
             .as_ref()
-            .map(PullOwner::on_the_wire)
+            .and_then(PullOwner::on_the_wire)
     }
 }

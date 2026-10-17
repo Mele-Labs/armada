@@ -23,7 +23,7 @@ export type Subject = { kind: "job"; id: string; title: string } | { kind: "sess
 export type Pull = { number: number; title: string; url?: string };
 
 /** The coalesced kinds: a burst of work Fleet counted into one row. They draw quieter than a turn, an ask or a pull request. */
-export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>(["session.read", "session.edited", "session.ran", "job.read", "job.ran"]);
+export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>(["session.read", "session.edited", "session.ran"]);
 
 export type FleetEvent = {
   id: string;
@@ -86,8 +86,7 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
   const { subject } = event;
   let pull: Pull | undefined;
   let drawn: Subject;
-  if (subject.kind === "job") drawn = { kind: "job", id: subject.id, title: event.title ?? names.job(subject.id) ?? "Job" };
-  else if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" };
+  if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" };
   else if (subject.kind === "pull_request") {
     const owner = names.pull(subject.number);
     if (owner === undefined) return undefined;

@@ -27,7 +27,6 @@ fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: Start
         model: None,
         effort: None,
         mode: None,
-        pilot: None,
         fork: None,
         root: None,
         request: Some(BRIEF.into()),

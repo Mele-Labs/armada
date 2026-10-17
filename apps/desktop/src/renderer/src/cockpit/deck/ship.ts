@@ -8,7 +8,7 @@
 import { useEffect, useMemo } from "react";
 import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
 import { sessionGlyphOf, since } from "@armada/components";
-import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import type { HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ofPicked } from "@armada/screens";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 import type { NowView } from "@armada/screens/src/draft/now";
@@ -193,11 +193,11 @@ export function shipOf(input: Inputs): Ship {
   // Pull requests, every one the forge lists, open first and then the newest landed.
   const prs: Pr[] = [];
   const owners = {
-    byJob: (pull: { number: number; branch: string; job?: HubJob }) => (pull.job ?? jobs.filter((job) => job.branch === pull.branch).map((job) => ({ id: job.id, title: job.title }))[0]),
+    byJob: (pull: { number: number; branch: string }) => jobs.filter((job) => job.branch === pull.branch).map((job) => ({ id: job.id, title: job.title }))[0],
     bySession: (pull: { number: number; branch: string }) =>
       sessions.find((one) => one.dead === undefined && one.attachments.some((a) => (a.kind === "pull_request" && (a.number === pull.number || a.branch === pull.branch)) || (a.kind === "branch" && a.name === pull.branch))),
   };
-  const ownerOf = (pull: { number: number; branch: string; job?: HubJob }): Pr["owner"] => {
+  const ownerOf = (pull: { number: number; branch: string }): Pr["owner"] => {
     const job = owners.byJob(pull);
     if (job !== undefined) return { kind: "job", id: job.id, title: job.title };
     const session = owners.bySession(pull);
@@ -357,7 +357,7 @@ export function shipOf(input: Inputs): Ship {
     const red = main.state === "red";
     const first = main.failed?.[0];
     const merge = main.merge;
-    const fixing = red && (line.hub?.fixing !== undefined || line.hub?.fixing_session !== undefined);
+    const fixing = red && line.hub?.fixing_session !== undefined;
     return [
       {
         root: line.root,
@@ -366,7 +366,7 @@ export function shipOf(input: Inputs): Ship {
         ...(first === undefined ? {} : { check: first.check ?? first.name }),
         ...(first?.tests?.[0] === undefined ? {} : { test: first.tests[0] }),
         ...(merge === undefined ? {} : { broke: { number: merge.number, title: prs.find((one) => one.number === merge.number)?.title ?? merge.branch ?? "" } }),
-        ...(merge?.session === undefined ? merge?.job === undefined ? {} : { by: { kind: "job" as const, id: merge.job.id, title: merge.job.title } } : { by: { kind: "session" as const, id: merge.session.id, title: merge.session.title ?? merge.session.id } }),
+        ...(merge?.session === undefined ? {} : { by: { kind: "session" as const, id: merge.session.id, title: merge.session.title ?? merge.session.id } }),
         fixing,
       },
     ];

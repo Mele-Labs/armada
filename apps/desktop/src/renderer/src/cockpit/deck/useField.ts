@@ -87,7 +87,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const touched = useMemo(
     () =>
       touchesFromEvents(events, {
-        keyOf: (event) => (event.subject.kind === "job" || event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
+        keyOf: (event) => (event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
         rootsOf: (key) => {
           const slot = holder.get(key);
           return slot === undefined ? [] : [slot.path];
@@ -99,7 +99,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const drones = useMemo(() => {
     const has = new Set(all.map((one) => one.key));
     return all.map((one) => {
-      const attached = one.kind === "session" ? sessions.find((row) => row.id === one.id)?.attachments.find((a) => a.kind === "job" && a.looking !== true) : undefined;
+      const attached = one.kind === "session" ? sessions.find((row) => row.id === one.id)?.attachments.find((a) => a.kind === "job") : undefined;
       const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
       const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
       const slot = holder.get(one.key);
