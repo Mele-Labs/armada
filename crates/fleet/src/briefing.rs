@@ -42,7 +42,7 @@ use crate::prompts::Prompts;
 
 mod words;
 use crate::review_term::Reviewing;
-use crate::terms::{Capturing, Checking, Declaring, Delivering, RecordingThePlan, Splitting};
+use crate::terms::{Capturing, Checking, Declaring, Delivering, RecordingThePlan};
 pub(crate) use words::*;
 
 /// Layer 1, verbatim from the Agent Prompt Contract's M1 rendering: **mechanics,
@@ -722,12 +722,6 @@ fn assemble(
     if let Some(answered) = crossed.answered() {
         blocks.headed(&answered.text(prompts), ipc::BlockKind::AboutThisJob);
     }
-    // **Before the step block, with the other things the boundary carried.**
-    // It is what the part is about rather than a footnote to it: a Drone after
-    // a dispatch has no other way to learn that the Jobs exist.
-    if let Some(dispatched) = crossed.dispatched() {
-        blocks.headed(&dispatched.text(prompts), ipc::BlockKind::AboutThisJob);
-    }
     // **After the instruction and before the step.** It is not something the
     // person asked for, so it does not come first; it is something about the
     // base this part starts from, so a Drone that reads the step without it
@@ -767,12 +761,6 @@ fn assemble(
         // is not captured.
         if let Some(capturing) = Capturing::at(prompts, step) {
             blocks.headed(capturing.text(), ipc::BlockKind::Standing);
-        }
-        // **Before the file the part delivers**, on the one workflow where
-        // both appear: what the part is for decides what goes in the file, and
-        // a Drone reading the path first has already started writing.
-        if let Some(splitting) = Splitting::at(prompts, workflow, at) {
-            blocks.headed(splitting.text(), ipc::BlockKind::Standing);
         }
         if let Some(delivers) = Delivering::at(prompts, step) {
             blocks.headed(delivers.text(), ipc::BlockKind::AboutThisJob);

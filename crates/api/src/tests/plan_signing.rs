@@ -1,9 +1,9 @@
 //! Who a plan act is signed as is the connection's word. `#2168`.
 //!
-//! The five acts that change a plan, each from the three callers the daemon
-//! can place: Bridge's own request, a Helm session at the door, and a
-//! Commander at the door. **A body that names a signer is ignored**, so the
-//! same bytes from a connection nobody placed are a person's.
+//! The five acts that change a plan, each from the callers the daemon can
+//! place: Bridge's own request and a Helm session at the door. **A body that
+//! names a signer is ignored**, so the same bytes from a connection nobody
+//! placed are a person's.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -19,14 +19,12 @@ use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served, Steerer, DOOR_PATH};
 
 const HELM: u16 = 52000;
-const COMMANDER: u16 = 52010;
 const ANYONE: u16 = 52011;
 
-fn a_helm_and_a_commander_on_one_job() -> Arc<FakeDaemon> {
+fn a_helm_on_one_job() -> Arc<FakeDaemon> {
     let daemon = FakeDaemon::new(Broadcaster::new());
     running(&daemon, "01JOB");
     *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, |_| true));
-    *daemon.commander_on.lock().expect("not poisoned") = Some((COMMANDER, ipc::JobId::carried("01JOB")));
     Arc::new(daemon)
 }
 
@@ -91,19 +89,8 @@ fn signed(daemon: &FakeDaemon) -> Vec<Steerer> {
 }
 
 #[tokio::test]
-async fn a_commander_signs_all_five_plan_acts_as_the_commander() {
-    let daemon = a_helm_and_a_commander_on_one_job();
-    let app = shared(&daemon);
-    for (tool, arguments) in THE_ACTS {
-        let body = at_the_door(&app, COMMANDER, tool, arguments).await;
-        assert!(body.contains("\"isError\":false"), "{tool}: {body}");
-    }
-    assert_eq!(signed(&daemon), vec![Steerer::Commander; 5]);
-}
-
-#[tokio::test]
 async fn a_helm_session_signs_all_five_plan_acts_as_helm() {
-    let daemon = a_helm_and_a_commander_on_one_job();
+    let daemon = a_helm_on_one_job();
     let app = shared(&daemon);
     for (tool, arguments) in THE_ACTS {
         let body = at_the_door(&app, HELM, tool, arguments).await;
@@ -112,11 +99,11 @@ async fn a_helm_session_signs_all_five_plan_acts_as_helm() {
     assert_eq!(signed(&daemon), vec![Steerer::Helm; 5]);
 }
 
-/// Bridge's request carries no mark, and a body claiming the Commander's
-/// signature changes nothing: there is no field for it to land in.
+/// Bridge's request carries no mark, and a body claiming another signature
+/// changes nothing: there is no field for it to land in.
 #[tokio::test]
 async fn bridge_signs_all_five_plan_acts_as_a_person_whatever_the_body_claims() {
-    let daemon = a_helm_and_a_commander_on_one_job();
+    let daemon = a_helm_on_one_job();
     let app = shared(&daemon);
     let [add, drop, edit, moving, _] = THE_ACTS.map(|(_, arguments)| arguments);
     let body_of = |arguments: &str| {
@@ -133,14 +120,14 @@ async fn bridge_signs_all_five_plan_acts_as_a_person_whatever_the_body_claims() 
     assert_eq!(signed(&daemon), vec![Steerer::Person; 5]);
 }
 
-/// A connection nobody placed, calling at the door with the Commander's name
-/// in a header and in every body, is a person's agent session.
+/// A connection nobody placed, calling at the door with a signer's name in
+/// every body, is a person's agent session.
 #[tokio::test]
-async fn an_unplaced_caller_at_the_door_is_not_a_commander_for_saying_so() {
-    let daemon = a_helm_and_a_commander_on_one_job();
+async fn an_unplaced_caller_at_the_door_is_not_a_signer_for_saying_so() {
+    let daemon = a_helm_on_one_job();
     let app = shared(&daemon);
-    // `ANYONE` is offered neither Helm's rows nor a Commander's, so the call
-    // is refused and nothing is signed at all.
+    // `ANYONE` is not offered Helm's rows, so the call is refused and nothing
+    // is signed at all.
     for (tool, arguments) in THE_ACTS {
         let body = at_the_door(&app, ANYONE, tool, arguments).await;
         assert!(body.contains("\"isError\":true"), "{tool}: {body}");

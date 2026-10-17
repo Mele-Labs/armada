@@ -185,40 +185,6 @@ impl Allowance {
         }
         None
     }
-
-    /// Each ceiling this spend has used [`NEARLY_PERCENT`] of, or more, and by
-    /// how much. **Both are asked and both may answer**, where
-    /// [`exceeded_by`](Allowance::exceeded_by) names the first it finds,
-    /// because the Commander is woken per cap and a Job near both has two
-    /// things to be told.
-    ///
-    /// A cap of nought answers nothing: it holds a Job back at admission, so no
-    /// Drone has spent against it and there is no share to take.
-    pub fn nearly_spent_by(&self, spent: &Spend) -> Vec<Nearly> {
-        let mut near = Vec::new();
-        for (cap, used, of) in [
-            (Overspent::Cost, spent.cost_micros, self.cost.count()),
-            (Overspent::Turns, spent.turns, self.turns),
-        ] {
-            if of > 0 && u128::from(used) * 100 >= u128::from(of) * u128::from(NEARLY_PERCENT) {
-                near.push(Nearly { cap, used, of });
-            }
-        }
-        near
-    }
-}
-
-/// How much of a cap is spent before the Job's Commander is woken to look.
-pub const NEARLY_PERCENT: u64 = 80;
-
-/// A cap a Job has used [`NEARLY_PERCENT`] of, or more. `used` and `of` are in
-/// the cap's own unit: millionths of a dollar for [`Overspent::Cost`], turns
-/// for [`Overspent::Turns`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Nearly {
-    pub cap: Overspent,
-    pub used: u64,
-    pub of: u64,
 }
 
 /// What one Drone's stream came to, folded once.
@@ -349,7 +315,6 @@ where
             .await
             .record_drone_spend(job, drone, spend)
             .map_err(Adrift::Writing)?;
-        self.stirred_by_spend(job);
         Ok(())
     }
 

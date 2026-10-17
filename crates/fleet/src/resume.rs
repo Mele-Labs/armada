@@ -119,7 +119,7 @@ where
     /// written down, and the note written down is `request_changes`.
     ///
     /// `by` is who is recorded as having moved the Job: a person, a Helm
-    /// session the agent door placed (`#941`), or the Job's Commander (`#2164`).
+    /// session the agent door placed (`#941`).
     pub async fn redirect(
         &self,
         job_id: &JobId,
@@ -129,7 +129,6 @@ where
         let by = match by {
             api::Steerer::Person => Actor::Human,
             api::Steerer::Helm => Actor::Helm,
-            api::Steerer::Commander => Actor::Commander,
         };
         self.steer(job_id, Steer::Words(instruction, by)).await
     }
@@ -394,13 +393,6 @@ where
         ending: Ending,
         by: Actor,
     ) -> Result<Job, Adrift> {
-        // A repair Drone is writing in this worktree, and the step restarts over
-        // what it wrote when it hands in: `crate::job_repair`.
-        if self.repairing().holds(job_id) {
-            return Err(Adrift::RepairUnderway {
-                job: job_id.clone(),
-            });
-        }
         // Looked up rather than opened: this act starts nothing, so it needs no
         // place in the roster. What it wants the slot for is the one question
         // only the slot can answer — whether a Drone is still standing here —

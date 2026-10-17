@@ -129,21 +129,6 @@ where
         self.summarised(&job).await
     }
 
-    /// Approve an Epic's plan and release its wave. `waving` has it.
-    async fn approve_wave(
-        self: Arc<Self>,
-        job_id: JobId,
-        wave: ipc::ApproveWave,
-    ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move { Fleet::approve_wave(&fleet, &job_id.to_domain(), &wave).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
-    }
-
     /// The person takes the work, and the Job goes on or is finished.
     /// **Included even though the last step's answer commits and delivers the
     /// branch inside it.** [`CommandBudget`] is sized to cover an ordinary
@@ -233,14 +218,6 @@ where
 
     async fn remove_walk_note(&self, id: JobId, r: RemoveWalkNote) -> Result<WalkNotes, Refusal> {
         self.removing_walk_note(id, r).await
-    }
-
-    async fn walk_failed(
-        self: Arc<Self>,
-        id: JobId,
-        failed: ipc::WalkFailed,
-    ) -> Result<ipc::WalkTold, Refusal> {
-        self.walk_failed_told(id, failed).await
     }
 
     async fn queue_after_finding(
@@ -883,15 +860,6 @@ where
         choice: ipc::SetModel,
     ) -> Result<JobSummary, Refusal> {
         self.review_model_set(job_id, choice).await
-    }
-
-    /// The model and effort this Job's Commander runs on. `job_settings` has it. #2166.
-    async fn set_commander_model(
-        self: Arc<Self>,
-        job_id: JobId,
-        choice: ipc::SetCommanderModel,
-    ) -> Result<JobSummary, Refusal> {
-        self.commander_model_chosen(job_id, choice).await
     }
 
     /// Which model each tier of this Job's tasks runs on. `task_edits` has it.

@@ -109,17 +109,3 @@ fn stopping_at_the_branch_and_auto_merge_are_kept_with_the_landing() {
         assert_eq!(store.landing(job.id()).expect("read"), Some(landing));
     }
 }
-
-#[test]
-fn a_step_nothing_returned_to_is_on_its_first_pass() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    let job = crate::tests::top_level("01FIRSTPASS");
-    store.insert_job(&job, &created_at()).expect("inserted");
-    assert_eq!(
-        store
-            .pass_over(job.id(), &StepId::new("plan"))
-            .expect("counted"),
-        1
-    );
-}

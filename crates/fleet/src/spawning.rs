@@ -133,9 +133,6 @@ where
         // And so does a `step_starts` one that has just failed.
         self.stopped_for_a_hold(job).await?;
         self.sent_out_on_entry(job, step, &worktree).await;
-        // A step that proposes Jobs, starting again, proposes again: what its
-        // last attempt proposed and nobody released goes first. `crate::waving`.
-        self.proposals_withdrawn(job, step).await?;
         // What a landed fix held is free once this copy has it, and the news
         // rides the peer block below. #1673.
         self.holds_caught_up(&job_id, moved.as_ref()).await;
@@ -606,7 +603,7 @@ where
     /// What the Drone may call: the Evidence tool, its own worktree, the git
     /// verbs that cannot change a repository, each **non-destructive** command
     /// the Manifest declares, every rule a person always-allowed for the
-    /// repository, and — on one step of one workflow — the dispatch tool.
+    /// repository.
     ///
     /// **The read-only git grant is unconditional, like the worktree grant
     /// beside it** — not read off a person's own settings file, and not one a
@@ -614,12 +611,6 @@ where
     ///
     /// A destructive command is withheld: granting one to an unattended
     /// process is the opposite of what `commands.<name>.destructive` is for.
-    ///
-    /// **The dispatch grant is per step**, which is why this takes one. The
-    /// capability it carries is *other Jobs existing*, and a Job-wide grant
-    /// would hand it to the Drone writing the plan — the one Drone that must
-    /// not have it. `Dispatching::at` is the same predicate the tool call is
-    /// refused by, so a Drone's allowlist and Fleet's answer cannot disagree.
     ///
     /// **Off `crate::snapshotting::effective_manifest`, never Fleet's live
     /// Manifest** — a Drone that could write itself a Command could grant
@@ -648,13 +639,6 @@ where
         for allowed in self.repository_allowed_commands(&served).await {
             belt = belt.and(Grant::RunADeclaredCommand(allowed.run));
         }
-        // **Read off the step Fleet is about to put a Drone on, not off the
-        // Job's current step.** They are the same on every path that reaches
-        // here, and asking the one being spawned onto is what keeps that true
-        // if a path ever arrives where they are not.
-        if dispatches(job, step) {
-            belt = belt.and(Grant::DispatchAJob);
-        }
         // Denied at launch as well as refused at declaration. #1673.
         for path in self.held_off(job.id()).await.paths() {
             belt = belt.holding_off(path.as_str());
@@ -670,21 +654,6 @@ where
         }
         belt
     }
-}
-
-/// Whether a Drone spawned on this step of this Job may create Jobs.
-///
-/// A free function so that the answer is one expression read in two places —
-/// here, where the allowlist is rendered, and `crate::sub_dispatch`, where a
-/// call of the tool is refused. It is the same shape `Dispatching::at` asks,
-/// minus the parent it borrows, because a toolbelt is built before there is a
-/// call to authorise.
-fn dispatches(job: &Job, step: &StepId) -> bool {
-    job.origin().top_level().is_some()
-        && job
-            .workflow()
-            .step(step)
-            .is_some_and(core_model::ResolvedStep::may_dispatch_jobs)
 }
 
 impl<H, V, W> Fleet<H, V, W>

@@ -9,7 +9,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::Manifest;
-use core_model::{Actor, Component, Envelope, FieldValue, Job, JobId, Level, ManifestId, StepId};
+use core_model::{Actor, Component, Envelope, FieldValue, Job, JobId, Level, ManifestId};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -65,17 +65,14 @@ where
     }
 
     /// Whether the Job stands its Drone down at this boundary rather than start
-    /// the next step: its children are still going, or a freeze holds it.
-    pub(crate) async fn stands_down_after(&self, job: &Job, step: &StepId) -> Result<bool, Adrift> {
-        if self.dispatched_and_waits(job, step).await? {
-            return Ok(true);
-        }
+    /// the next step: a freeze holds it.
+    pub(crate) fn stands_down_after(&self, job: &Job) -> bool {
         let frozen = self.frozen_by(job);
         if frozen.is_empty() {
-            return Ok(false);
+            return false;
         }
         self.noted_frozen(job.id(), &frozen);
-        Ok(true)
+        true
     }
 
     /// The Job's own log is where a person looks for why it stopped moving.

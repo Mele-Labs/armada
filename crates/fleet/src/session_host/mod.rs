@@ -37,7 +37,6 @@ pub mod queueing;
 pub(crate) mod slot_asking;
 pub(crate) mod releasing;
 mod rows;
-pub(crate) use rows::UserLine;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 /// A judge reading a Session's work, and sending or dismissing what it raised.

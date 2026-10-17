@@ -105,20 +105,9 @@ A Job marked `urgency: incident` has its approval surfaced sooner — it interru
 
 Sub-dispatches inside an already-approved Job need no separate approval — see [Workflow](workflow.md), Dispatch Approval, Two Levels. Away-from-desk pre-authorized batches are supported.
 
-#### Sub-dispatch and the Job proposer are two routes, and they do not converge
+#### Sub-dispatch is gone
 
-Both turn one thing into several Jobs, and the difference between them is the approval gate — which is why folding them together was rejected rather than deferred.
-
-| | Job proposer | Sub-dispatch |
-|---|---|---|
-| Who asks | A person describing work | The Drone of an approved Job, on its dispatching step |
-| What comes back | Top-level Jobs at `awaiting_approval` | Children at `awaiting_approval`, stamped with the pass that proposed them |
-| Who approves | A person, **each Job in turn** | A person, **once, on the plan**, with every child it proposed — `approve_wave` |
-| What was read | The request, as it was typed | The children themselves, and the plan under `.armada/artifacts/` they came from |
-
-**Neither path gets past the gate any more.** Until spike 022's slice 6 the sub-dispatched case was the one exemption from it: a child entered `queued` because a person had approved the plan it came out of. Now a child waits at `awaiting_approval` like any proposal, and what differs is the act that releases it: one press of the parent's plan releases the whole wave, and a child is never approved alone (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`). They still reach different constructors — `create_top_level` and `create_proposed_member` — and neither takes a status.
-
-**The saving that would have justified converging them is not there.** What the two share is drafting a proposal into a Job, and they already share it: both go through the same refusals for a blank title, a workflow nothing holds and a Manifest that is not this one. What differs is everything about who decided and what they read.
+A Drone no longer creates Jobs, and a plan no longer proposes a wave for one press to release: the `dispatch_job` tool, `approve_wave` and the wait a parent held on its children were deleted from Fleet (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`). Every Job is proposed by a person or by the Job proposer and approved at its own gate.
 
 ### Concurrency gating (resources)
 
@@ -748,7 +737,7 @@ one bulk act, and nothing on a screen reaches for it.
 | Clear | The reclaim, where the worktree is on disk and the Job has ended. **Uncommitted files are committed first**, untracked in and ignored out, to the Job's branch as a WIP commit naming the Job, and never pushed. **On a bay it then releases the slot**: HEAD is detached and the directory stays. **Outside the pool it then runs `git worktree remove`**, which is safe because the files are on the branch. A branch holding that commit is kept; one with nothing uncommitted is deleted only where the base has all its commits. The confirm lists the commit, the files, the release or removal and the kept branch, with no counts, and the receipt reads *Committed to X, slot released*. A worktree on the base or on no branch gets a `kept/job-<id>` branch for its files, and one on another branch than the lease names has them committed there; a busy slot keeps the refusal, said in git words; a locked worktree and a Job that has not ended are refused as before. The Job's own Clear says the same | A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
 | Delete branch | Only once the worktree is gone, because Fleet refuses it with a 409 while the directory stands. The confirm names the branch, its tip and the commits not on the base, which stay reachable only from that tip, and the tip is what is sent |
 | Forget Job | Only once the worktree and the branch are gone, and with a confirm: the record has no undo, and the worktree and branch are not touched |
-| Release | On a slot an agent session holds, which offered only Close slot before. The confirm names the holder, with its pid on a tooltip, and the branch, then does what Clear does for a Job's: commit the uncommitted files to the branch as a WIP commit, release the slot, keep the branch (a detached or base checkout gets a `kept/` one, and the receipt names it). The holder shown is sent, and a slot re-leased since is refused with `fleet.slot_holder_changed`. The session's process is not touched. **A bay a Session Fleet hosts holds is released the same way, with the Session's id as the holder** (`HostedSession` in the bay's reading): Fleet parks it as a close does, which ends everything still running in the slot, so a Session whose turn is running is refused with `fleet.slot_session_working` (*Pull Request Panel Design is working*) and nothing is ended. An idle Session's process is let go as a tune lets it go, its slot and branch rows on the ledger are given back, and its next message resumes it without a bay. A Commander, or a Session Fleet does not host, is not this path |
+| Release | On a slot an agent session holds, which offered only Close slot before. The confirm names the holder, with its pid on a tooltip, and the branch, then does what Clear does for a Job's: commit the uncommitted files to the branch as a WIP commit, release the slot, keep the branch (a detached or base checkout gets a `kept/` one, and the receipt names it). The holder shown is sent, and a slot re-leased since is refused with `fleet.slot_holder_changed`. The session's process is not touched. **A bay a Session Fleet hosts holds is released the same way, with the Session's id as the holder** (`HostedSession` in the bay's reading): Fleet parks it as a close does, which ends everything still running in the slot, so a Session whose turn is running is refused with `fleet.slot_session_working` (*Pull Request Panel Design is working*) and nothing is ended. An idle Session's process is let go as a tune lets it go, its slot and branch rows on the ledger are given back, and its next message resumes it without a bay. A Session Fleet does not host is not this path |
 | Close, Reopen, Remove, Rescue | A bay's own, as above. Its Finding, and Scrap, Stash and Pick up, are in the same panel |
 
 **What an act did, and what Fleet refused, is said in the panel and never on the tile.**
@@ -782,8 +771,8 @@ cannot name, as a terminal Fleet does not host, leaves none.
 
 **Gone is every holder that is not an open Session.** That is a Session that
 ended, a Job that ended, a Session Fleet no longer holds and a slot with no
-last holder. An open Job is neither told nor read over. A Commander is in no Session ledger,
-so it is never told, and a Session Fleet cannot reach counts as gone.
+last holder. An open Job is neither told nor read over. A Session Fleet cannot reach
+counts as gone.
 
 > **Rule.** Fleet acts on a stranding once, and a Fleet restart does not repeat
 > it.

@@ -4,8 +4,8 @@
 //! issue's row in the spike's milestone table. Asserted: 0b's per-minute event
 //! tally (`api::stream`), 1a's signers, 1b's plan worked a Drone per task,
 //! 2's red group going round on its own before its tasks fail, 3's model per
-//! task, 4's proposal running as a person approved it, 5's tasks at once, in
-//! [`at_once`], and 6's Epic wave, in [`waves`].
+//! task, 4's proposal running as a person approved it, and 5's tasks at once, in
+//! [`at_once`].
 //!
 //! | Not proved here | Why not |
 //! |---|---|
@@ -25,9 +25,6 @@
 mod at_once;
 #[allow(dead_code)]
 mod bench;
-/// Slice 6's claim, in a module of its own for the same reason.
-#[path = "drone_per_task/waves.rs"]
-mod waves;
 
 use core_model::{Actor, JobEvent, JobStatus, StepId, Target, TaskId, TaskState};
 use core_model::{AdvanceGate, AutoMerge, CriterionOrigin, CriterionSource, ReviewGate, Timestamp};
@@ -1100,7 +1097,7 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
     );
 
     // ------------------------------------- what the lock refuses to pretend
-    // `all_members_landed` is slice 6's to honour, and `waves` asserts it.
+    // `all_members_landed` is kept as a value; nothing waits on members now.
     for refused in ["pr_merged", "pr_opened"] {
         let body = APPROVED.replace(
             r#""complete_when": "delivered""#,

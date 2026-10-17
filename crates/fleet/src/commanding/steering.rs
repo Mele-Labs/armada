@@ -130,7 +130,7 @@ where
             let fleet = Arc::clone(&self);
             async move {
                 // Signed as the caller the transport placed, `restart_task`'s
-                // mapping: a person's, Helm's or a Commander's.
+                // mapping: a person's or Helm's.
                 let (signed, _) = crate::work_plan::signed(by);
                 Fleet::restart_step_by(
                     &fleet,

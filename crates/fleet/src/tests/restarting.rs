@@ -588,14 +588,13 @@ async fn a_blank_note_is_refused_and_an_absent_one_restarts() {
 }
 
 /// **A restart is signed as whoever asked for it**, as a plan act is: the
-/// caller the transport placed, so a Commander's restart reads as the
-/// Commander's in the Job's log and a person's as a person's. `#2166`.
+/// caller the transport placed, so Helm's restart reads as Helm's in the
+/// Job's log and a person's as a person's. `#2166`.
 #[tokio::test]
 async fn a_restart_is_signed_as_the_caller_who_asked_for_it() {
     for (by, signed) in [
         (api::Steerer::Person, "human"),
         (api::Steerer::Helm, "helm"),
-        (api::Steerer::Commander, "commander"),
     ] {
         let home = TempDir::new();
         let fleet = Arc::new(a_fleet_with(&home, a_drone_that_leaves(), FakeVcs::new()));

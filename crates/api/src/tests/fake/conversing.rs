@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use ipc::{
-    AskHelm, HelmAsked, HelmSession, Instant, ManifestId, ReadThought, SessionRecord, TellSession,
+    AskHelm, HelmSession, Instant, ManifestId, ReadThought, SessionRecord, TellSession,
     ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
@@ -41,11 +41,6 @@ impl crate::Admitting for FakeDaemon {
         let (port, may) = planted?;
         (caller.port() == Some(port)).then(|| crate::HelmReach::deciding(may, "a test withheld it"))
     }
-
-    fn commander_at(&self, caller: crate::Caller) -> Option<crate::CommanderReach> {
-        let (port, job) = self.commander_on.lock().expect("not poisoned").clone()?;
-        (caller.port() == Some(port)).then(|| crate::CommanderReach::of_the_allowlist(job))
-    }
 }
 
 impl Conversations for FakeDaemon {
@@ -63,93 +58,6 @@ impl Conversations for FakeDaemon {
                 rows: Vec::new(),
             }),
             manifest_id,
-        })
-    }
-
-    async fn observe_commander(
-        &self,
-        job: crate::reference::Resolved,
-    ) -> Result<crate::ObservedCommander, Refusal> {
-        Ok(crate::ObservedCommander {
-            job_id: job.id(),
-            replying: false,
-            live: self.commander.watch(),
-            history: self.commander_thread.lock().expect("not poisoned").clone(),
-            skipped: 0,
-        })
-    }
-
-    async fn ask_the_owner(
-        self: Arc<Self>,
-        job: crate::reference::Resolved,
-        asked: ipc::AskTheOwner,
-    ) -> Result<ipc::CommanderCard, Refusal> {
-        Ok(ipc::CommanderCard {
-            card_id: ipc::CardId::carried("01CARD"),
-            job_id: job.id(),
-            by: ipc::CardBy::Commander,
-            raised_at: Instant::carried("2026-10-13T09:00:00.000Z"),
-            text: asked.text.as_str().to_string(),
-            reach: asked.reach.as_str().to_string(),
-            question: asked.question.as_str().to_string(),
-            options: asked
-                .options
-                .labels()
-                .iter()
-                .enumerate()
-                .map(|(at, label)| ipc::CardOption {
-                    id: (at + 1).to_string(),
-                    label: label.clone(),
-                })
-                .collect(),
-        })
-    }
-
-    async fn send_repair_drone(
-        self: Arc<Self>,
-        job: crate::reference::Resolved,
-        sending: ipc::SendRepairDrone,
-    ) -> Result<ipc::RepairSent, Refusal> {
-        self.repairs_sent
-            .lock()
-            .expect("not poisoned")
-            .push((job.id(), sending.broke));
-        Ok(ipc::RepairSent {
-            job_id: job.id(),
-            step_id: ipc::StepId::carried("implement"),
-            drone_id: ipc::DroneId::carried("01DRONE"),
-            broke: sending.broke,
-        })
-    }
-
-    async fn answer_commander_card(
-        self: Arc<Self>,
-        job: crate::reference::Resolved,
-        answered: ipc::AnswerCommanderCard,
-    ) -> Result<ipc::CommanderCardAnswered, Refusal> {
-        Ok(ipc::CommanderCardAnswered {
-            job_id: job.id(),
-            card_id: answered.card_id,
-            option_id: answered.option_id,
-            woke: true,
-        })
-    }
-
-    async fn ask_commander(
-        self: Arc<Self>,
-        job: crate::reference::Resolved,
-        asked: ipc::AskCommander,
-    ) -> Result<ipc::CommanderConversation, Refusal> {
-        self.commander.offer(ipc::CommanderMessage::Asked(HelmAsked {
-            ts: Instant::carried("2026-10-12T09:00:00.000Z"),
-            text: String::from(asked.text),
-            files: Vec::new(),
-            tags: Vec::new(),
-        }));
-        Ok(ipc::CommanderConversation {
-            job_id: job.id(),
-            replying: true,
-            resumes: false,
         })
     }
 

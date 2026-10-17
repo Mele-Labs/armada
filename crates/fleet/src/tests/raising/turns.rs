@@ -184,34 +184,6 @@ async fn helm_may_double_the_inherited_turn_cap_and_no_more() {
         .expect("exactly the ceiling is the ceiling reached, not passed");
 }
 
-/// **The Commander reaches three times what the Job would inherit**, on the
-/// same `Ceiling` as the dollars. `#2165`.
-#[tokio::test]
-async fn the_commander_may_triple_the_inherited_turn_cap_and_no_more() {
-    let home = TempDir::new();
-    let fleet = capped(&home);
-    let job = approved(&fleet, &home, "a change its Commander is steering").await;
-
-    let refused = fleet
-        .raise_turn_cap(&job, &turns_to(901), RaisedBy::Commander)
-        .await
-        .expect_err("three times three hundred is nine hundred, and one more is past it");
-    assert!(
-        refused.to_string().contains("900"),
-        "the refusal names the ceiling: {refused}"
-    );
-
-    fleet
-        .raise_turn_cap(&job, &turns_to(900), RaisedBy::Commander)
-        .await
-        .expect("exactly the ceiling is the ceiling reached, not passed");
-    let again = fleet
-        .raise_turn_cap(&job, &turns_to(2_700), RaisedBy::Commander)
-        .await
-        .expect_err("and a second raise does not compound it");
-    assert!(again.to_string().contains("900"), "{again}");
-}
-
 /// **The figure is written down and read back off the column**, not folded from
 /// a log nothing writes a ceiling into.
 #[tokio::test]

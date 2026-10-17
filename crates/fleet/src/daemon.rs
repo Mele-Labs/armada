@@ -202,11 +202,6 @@ pub struct Fleet<H, V, W> {
     /// (`crate::review_runs`).
     review_going: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
-    /// The Jobs a Commander's repair Drone is on. Never written down — `crate::job_repair`.
-    repairing: crate::repair_hold::Underway,
-    /// What a turn is to wake a Commander for that happened outside it.
-    /// Never written down — `crate::commanding_wakes`.
-    stirred: std::sync::Mutex<crate::commanding_wakes::Stirred>,
     /// Failed Triggers waiting for a repair Drone. Never written down, for
     /// `heals`' reason — `crate::trigger_repair`.
     trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,

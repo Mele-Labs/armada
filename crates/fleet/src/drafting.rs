@@ -54,15 +54,9 @@ pub(crate) enum StatedBy {
     /// `#943`: `propose_job` is now reachable by either, and entry zero's
     /// `approved_by` is where the Job's own record says which.
     AHelmSession,
-    /// The Drone of the Job this one is a child of, on the step a person
-    /// cleared the plan of. **`Actor::Fleet`, like the proposer** — the
-    /// vocabulary has three values and none of them is "a Drone", and the act
-    /// that matters for evaluating the call afterwards is that this scope was
-    /// stated by the machine rather than typed.
-    TheSplit { parent: core_model::JobId },
     /// The Drone of another Job, for a test Fleet ran against main and saw
-    /// fail. **`Actor::Fleet`, like the split**, for its reason: the scope was
-    /// stated by the machine rather than typed. #999.
+    /// fail. **`Actor::Fleet`, like the proposer**: the scope was stated by
+    /// the machine rather than typed. #999.
     TheFix { reported_by: core_model::JobId },
     /// A Job carried on for main's red, by a person's press or by Fleet
     /// itself where the Job's own pull request turned main red.
@@ -72,9 +66,7 @@ pub(crate) enum StatedBy {
 impl StatedBy {
     fn actor(&self) -> Actor {
         match self {
-            StatedBy::TheProposer { .. } | StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } => {
-                Actor::Fleet
-            }
+            StatedBy::TheProposer { .. } | StatedBy::TheFix { .. } => Actor::Fleet,
             StatedBy::APerson => Actor::Human,
             StatedBy::AHelmSession => Actor::Helm,
             StatedBy::MainsRed { by } => *by,
@@ -94,7 +86,7 @@ impl StatedBy {
             } => core_model::CriterionOrigin::Issue,
             StatedBy::TheProposer { .. } => core_model::CriterionOrigin::Prompt,
             StatedBy::APerson | StatedBy::AHelmSession => core_model::CriterionOrigin::Person,
-            StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } | StatedBy::MainsRed { .. } => {
+            StatedBy::TheFix { .. } | StatedBy::MainsRed { .. } => {
                 core_model::CriterionOrigin::Unsaid
             }
         }
@@ -107,10 +99,6 @@ impl StatedBy {
             StatedBy::AHelmSession => {
                 String::from("hand-entered at the dispatch form, through a Helm session")
             }
-            StatedBy::TheSplit { parent } => format!(
-                "dispatched by {} as one piece of the split a person approved",
-                parent.as_str()
-            ),
             StatedBy::TheFix { reported_by } => format!(
                 "drafted by the Drone of {} for a test that failed on main when Fleet ran it",
                 reported_by.as_str()

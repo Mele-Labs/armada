@@ -42,7 +42,7 @@ pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 use std::sync::atomic::AtomicU64;
 use std::sync::Mutex;
 
-use ipc::mcp::{DeclareScope, DispatchJob, NotRecorded, SubmitEvidence};
+use ipc::mcp::{DeclareScope, NotRecorded, SubmitEvidence};
 use ipc::{Actor, Event, Instant, JobId, JobStateChanged, JobSummary, UnreadableJob};
 
 use super::shapes;
@@ -74,7 +74,6 @@ pub struct FakeDaemon {
     /// Every question taken, in arrival order.
     pub asked: Mutex<Vec<ipc::mcp::AskQuestion>>,
     /// Every Job a Drone asked to have created, in arrival order.
-    pub dispatched: Mutex<Vec<DispatchJob>>,
     /// How many asked runs were asked for, so a test can assert that a refused
     /// call ran nothing.
     pub checked: AtomicU64,
@@ -116,10 +115,6 @@ pub struct FakeDaemon {
     pub helm_asked: Mutex<Vec<ipc::AskHelm>>,
     /// What `tell_session` and `record_thought_sent` were given, in order, as the words and where.
     pub helm_sent: Mutex<Vec<(String, ipc::ThoughtTarget)>>,
-    /// The Commander conversations' channel, which a test can offer into.
-    pub commander: crate::CommanderFeed,
-    /// What `observe_commander` answers with as the thread. Set by a test.
-    pub commander_thread: Mutex<Vec<ipc::CommanderMessage>>,
     /// Every permission question the door put to this daemon, in order.
     pub asked_to_run: Mutex<Vec<ipc::AskingToRun>>,
     /// What a Helm session's last poll was answered, as the door told this
@@ -143,10 +138,6 @@ pub struct FakeDaemon {
     pub plan_changed_by: Mutex<Vec<crate::Steerer>>,
     /// The door each redirect arrived through, as `crate::via` said it.
     pub redirected_via: Mutex<Vec<Option<ipc::Via>>>,
-    /// The port a planted Commander calls from. `#2164`.
-    pub commander_on: Mutex<Option<(u16, ipc::JobId)>>,
-    /// The repairs a Commander sent, by Job.
-    pub repairs_sent: Mutex<Vec<(ipc::JobId, ipc::Breakage)>>,
     /// Who each proposal that reached this daemon was recorded against.
     /// `#943`.
     pub proposed_by: Mutex<Vec<crate::Redirector>>,
@@ -182,7 +173,6 @@ impl FakeDaemon {
             declared: Mutex::new(Vec::new()),
             requested: Mutex::new(Vec::new()),
             asked: Mutex::new(Vec::new()),
-            dispatched: Mutex::new(Vec::new()),
             checked: AtomicU64::new(0),
             reports: Mutex::new(Vec::new()),
             held: Mutex::new(Vec::new()),
@@ -199,8 +189,6 @@ impl FakeDaemon {
             kit_servers: Mutex::new(Vec::new()),
             helm_asked: Mutex::new(Vec::new()),
             helm_sent: Mutex::new(Vec::new()),
-            commander: crate::CommanderFeed::new(),
-            commander_thread: Mutex::new(Vec::new()),
             asked_to_run: Mutex::new(Vec::new()),
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),
@@ -210,8 +198,6 @@ impl FakeDaemon {
             redirected_by: Mutex::new(Vec::new()),
             plan_changed_by: Mutex::new(Vec::new()),
             redirected_via: Mutex::new(Vec::new()),
-            commander_on: Mutex::new(None),
-            repairs_sent: Mutex::new(Vec::new()),
             proposed_by: Mutex::new(Vec::new()),
             raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),

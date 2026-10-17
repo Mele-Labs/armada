@@ -188,15 +188,15 @@ sample = "../../../.armada/workflows/epic.json"
 status = "Shipped"
 steps = 2
 gate_profile = "A person reads each wave's plan and the Jobs it proposed, and releases them in one press. `plan` is human_always and proposes the wave; `roll_up` is human_always and is where the loop turns."
-what_it_exercises = "The only workflow whose product is other Jobs. Sole holder of `may_dispatch_jobs`, on the step a person answers: what it proposes waits at `awaiting_approval` for `approve_wave` (spike 022, slice 6)."
+what_it_exercises = "The only workflow whose product is other Jobs. Sole holder of `may_dispatch_jobs`, on the step a person answers: what it proposed waited at `awaiting_approval` for `approve_wave`, which is gone (spike 022, slice 6)."
 notes = """
-Designed here rather than carried across, so this row records the decision instead of restating one. #215, and `docs/capabilities/epic-as-one-job.md` is the reasoning at length.
+Designed here rather than carried across, so this row records the decision instead of restating one. #215. The wave it proposed and the `dispatch_job` tool that created it are gone from Fleet (`.claude/decisions/2026-10-15-sessions-absorb-jobs.md`); the definition stays until the Job workflows are deleted.
 
 Drawn shape: `plan -> dispatch -> roll_up`, with `request_changes` on `roll_up` looping back to `plan` and an iteration cap of five. A milestone plan is a hypothesis, so the slate is not written at the start: each wave is planned against what the last one actually did.
 
 **The gate is on `plan` and not on `dispatch`, and the placement is forced.** An `advance_gate` is read after a step's Drone submits, so `human_always` on the step holding the tool would be a person approving Jobs that already exist and are already spending. On the step before it the approval is what advances into the tool, which is what makes one approval the dispatch rather than a plan followed by a second act.
 
-`roll_up` is the step `docs/capabilities/epic-as-one-job.md` drew as `assess`. It is not called `converge`: `crates/fleet/src/converging.rs` owns that word for a Drone that is working and getting nowhere.
+`roll_up` was drawn as `assess`. It is not called `converge`: `crates/fleet/src/converging.rs` owns that word for a Drone that is working and getting nowhere.
 
 What is not settled here is whether a person reads every plan or only a flagged one. Today it is fixed in this definition; the shape it wants is a gate read per Job, which is #264.
 """

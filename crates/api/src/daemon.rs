@@ -27,7 +27,6 @@
 mod accounts;
 mod admitting;
 mod authoring;
-mod commander;
 mod commands;
 mod conversing;
 mod hosted_sessions;
@@ -46,8 +45,7 @@ mod studios;
 mod tools;
 
 pub use accounts::Accounts;
-pub use admitting::{offerable, offerable_to_a_commander, Admitting, HelmReach, Redirector, Steerer};
-pub use commander::{CommanderReach, ALLOWED as COMMANDER_ALLOWED};
+pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;

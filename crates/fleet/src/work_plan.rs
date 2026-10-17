@@ -278,12 +278,11 @@ impl PlanChanged {
 
 /// How the caller the transport placed signs what it does to a plan: the actor
 /// the event names, and the hand the record keeps. **One mapping for every plan
-/// act**, so a person, Helm and the Commander cannot come out as one another.
+/// act**, so a person and Helm cannot come out as one another.
 pub(crate) fn signed(by: api::Steerer) -> (Actor, PlanHand<'static>) {
     match by {
         api::Steerer::Person => (Actor::Human, PlanHand::Person),
         api::Steerer::Helm => (Actor::Helm, PlanHand::Helm),
-        api::Steerer::Commander => (Actor::Commander, PlanHand::Commander),
     }
 }
 
@@ -388,7 +387,7 @@ where
         Ok(plan)
     }
 
-    /// A person, Helm or the Commander adds a task to the Job's plan. `#897`.
+    /// A person or Helm adds a task to the Job's plan. `#897`.
     /// **`by` is the transport's word, never the body's**, and signs the add.
     ///
     /// **Refused by name**: an empty title, or an `after` naming nothing the
@@ -418,7 +417,7 @@ where
         Ok((&plan).into())
     }
 
-    /// A person, Helm or the Commander drops a task from the Job's plan, with a
+    /// A person or Helm drops a task from the Job's plan, with a
     /// reason. `#897`.
     ///
     /// **Refused by name**: an empty reason, or a task the plan does not
