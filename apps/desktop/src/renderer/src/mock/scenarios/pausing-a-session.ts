@@ -1,16 +1,15 @@
 // Pausing a Session from Flight control and from its row. Pause stops the running turn, commits the work to the branch and gives the slot
 // back; the Session stays listed, marked paused. Resume, or a message, takes a slot again. The claims are in `walks/pausing-a-session.ts`.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { asRow, holding, servedFrom } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
-const migrate = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
-const OWNER = migrate.manifests[0]!.id;
-const ROOT = servedFrom(migrate.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 const RUNNING: Session = {
   id: "7c3d9a10-2b45-4e6f-8a91-0d1e2f3a4b5c",
@@ -27,15 +26,13 @@ const RUNNING: Session = {
 };
 
 function build(): Scenario {
-  const board = [{ ...migrate, job: { ...migrate.job, owner_manifest_id: OWNER } }];
-  const base = holding("pausing-a-session", "The flight deck with one working Session holding a slot and a branch", board);
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
+  const base = holding("pausing-a-session", "The flight deck with one working Session holding a slot and a branch");
   return {
     ...base,
-    state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
+    state: { ...base.state, repository: null },
     draft: {
-      sessions: (control) => {
-        const store = sessionsStore([none, none], none, control, [], [RUNNING]);
+      sessions: () => {
+        const store = sessionsStore([RUNNING]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
         const closed = new Set<string>();

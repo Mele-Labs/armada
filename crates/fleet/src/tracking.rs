@@ -5,7 +5,7 @@
 //! while Bridge is not showing it, so a timer would spend the forge's rate
 //! limit on nothing; a person who wants it newer presses refresh.
 //!
-//! **A view.** Listing makes no Job and writes nothing; the owner's call of
+//! **A view.** Listing makes no Session and writes nothing; the owner's call of
 //! 11 Oct 2026. What is written back on an issue is `crate::writing_back`.
 
 use std::collections::BTreeMap;
@@ -17,7 +17,7 @@ use adapter_traits::{
 };
 use api::{Issues, Refusal};
 use core_model::Timestamp;
-use ipc::{Instant, IssueList, IssueRead, IssueState, JobId, ManifestId, TrackedIssue, WireError};
+use ipc::{Instant, IssueList, IssueRead, IssueState, ManifestId, TrackedIssue, WireError};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -78,13 +78,12 @@ fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
     }
 }
 
-/// One issue on the wire, with the Job still going that came from it.
-fn tracked(issue: &OpenIssue, going: &BTreeMap<String, JobId>) -> TrackedIssue {
+/// One issue on the wire.
+fn tracked(issue: &OpenIssue) -> TrackedIssue {
     let url = issue.url.as_written().to_string();
     TrackedIssue {
         reference: issue.reference.clone(),
         title: issue.title.as_written().to_string(),
-        job_id: going.get(&url).cloned(),
         url,
         labels: issue.labels.iter().map(|one| one.as_written().to_string()).collect(),
         assignees: issue
@@ -119,33 +118,17 @@ where
         self.trackers().links(&choice_of(served.manifest()))
     }
 
-    /// The list as the wire carries it: each issue with the Job dispatched from
-    /// it, where one has not ended.
+    /// The list as the wire carries it.
     async fn issue_list(
         &self,
         manifest_id: ManifestId,
         held: Held,
         stale: Option<String>,
     ) -> Result<IssueList, Refusal> {
-        let going: BTreeMap<String, JobId> = self
-            .store()
-            .lock()
-            .await
-            .issue_sources_in_flight()
-            .map_err(|why| {
-                Refusal::Fault(WireError::raised(
-                    UNREADABLE,
-                    format!("the Jobs that came from issues would not read: {why:?}"),
-                    self.run_id(),
-                ))
-            })?
-            .into_iter()
-            .map(|(job, source)| (source.url, JobId::from(&job)))
-            .collect();
         Ok(IssueList {
             manifest_id,
             fetched_at: Instant::carried(held.fetched_at.as_str()),
-            issues: held.issues.iter().map(|one| tracked(one, &going)).collect(),
+            issues: held.issues.iter().map(tracked).collect(),
             stale,
         })
     }
@@ -195,7 +178,7 @@ where
                     false => IssueState::Open,
                 },
             }),
-            Ok(None) => Err(Refusal::NoSuchJob(WireError::raised(
+            Ok(None) => Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_ISSUE,
                 format!("The tracker has no issue {reference}"),
                 self.run_id(),

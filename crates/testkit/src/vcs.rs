@@ -962,6 +962,16 @@ impl Vcs for FakeVcs {
         self.noted(self.leased(pool, spec, job_id))
     }
 
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        let leased = self.slots.lease_existing(pool, branch, job_id);
+        self.noted(Ok(leased))
+    }
+
     fn park_slot(
         &self,
         pool: &SlotPool,
@@ -1044,15 +1054,6 @@ impl Vcs for FakeVcs {
         self.noted(self.slots.hand(pool, slot, from, to_session))
     }
 
-    fn lease_existing_slot(
-        &self,
-        pool: &SlotPool,
-        branch: &str,
-        job_id: &str,
-    ) -> Result<SlotLeased, Self::Error> {
-        self.noted(self.leased_existing(pool, branch, job_id))
-    }
-
     fn lease_review_bay(
         &self,
         pool: &SlotPool,
@@ -1090,10 +1091,6 @@ impl Vcs for FakeVcs {
         self.noted(self.slots.release(pool, slot, holder).map_err(|kept| kept.0))
     }
 
-    fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
-        self.slots.open(pool, job_id)
-    }
-
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding {
         self.slots.standing(pool, slot, job_id)
     }
@@ -1104,11 +1101,6 @@ impl Vcs for FakeVcs {
 
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
         self.noted(self.slots.release(pool, slot, job_id))
-    }
-
-    fn mark_slot_completed(&self, _pool: &SlotPool, slot: u32, job_id: &str) {
-        self.slots.completed(slot, job_id);
-        self.noted(());
     }
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {

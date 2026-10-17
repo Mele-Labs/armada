@@ -8,10 +8,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ChipOwnership } from "../OwnerChip/OwnerChip";
 import { ScrapConfirm, SlotFinding } from "./SlotFinding";
 import { TileActs, rescuable, rescueTipsOf } from "./TileActs";
-import type { Confirming } from "./TileActs";
 import { ReleaseConfirm } from "./ReleaseConfirm";
-import { TileConfirm } from "./TileConfirm";
-import { TileHolds } from "./TileHolds";
 import type { TileRow } from "./tiles";
 
 /** What managing one tile sends, each only where the caller can send it. */
@@ -21,18 +18,8 @@ export type TileManageProps = {
   onAct?: ((act: SlotAct, slot?: number) => void) | undefined;
   /** Absent draws none of the rescue acts. */
   onRescue?: ((act: RescueAct, slot: number) => void) | undefined;
-  /** Absent draws no Clear. */
-  onClear?: ((jobId: string) => void) | undefined;
   /** Release a slot an agent session holds, for the holder it showed. */
   onRelease?: ((slot: number, holder: string) => void) | undefined;
-  /** Absent draws no Delete branch. Sends the tip the person confirmed. */
-  onDeleteBranch?: ((jobId: string, tip: string) => void) | undefined;
-  /** Absent draws no Forget Job. */
-  onForget?: ((jobId: string) => void) | undefined;
-  /** Absent draws no Pause. Sent from its confirm. */
-  onPause?: ((jobId: string) => void) | undefined;
-  /** Absent draws no Resume. */
-  onResume?: ((jobId: string) => void) | undefined;
 };
 
 /**
@@ -42,48 +29,38 @@ export type TileManageProps = {
  * Finding: the sheet puts them in its footer and the pane under the body. `reading` is a Scout reading now, whose Stop the
  * acts already carry.
  */
-export function useTileManage({ row, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onPause, onResume }: TileManageProps): {
+export function useTileManage({ row, onAct, onRescue, onRelease }: TileManageProps): {
   body: ReactNode;
   foot: ReactNode | undefined;
   reading: boolean;
 } {
-  const { slot, held } = row;
-  /** The confirm open on this tile, if one is. */
-  const [confirming, setConfirming] = useState<Confirming | null>(null);
+  const { slot } = row;
+  /** Release's confirm is open. */
+  const [releasing, setReleasing] = useState(false);
   /** Where a Session is opened from, when the window serves any. */
   const ownership = useContext(ChipOwnership);
   /** The Scrap's confirm is open. */
   const [scrapping, setScrapping] = useState(false);
-  const waiting = row.acting === true || confirming !== null || scrapping;
-  const rescue = slot !== undefined && rescuable(slot) ? slot.rescue : undefined;
+  const waiting = row.acting === true || releasing || scrapping;
+  const rescue = rescuable(slot) ? slot.rescue : undefined;
   const reading = rescue?.state === "reading";
   const toContinue =
     rescue?.verdict === "unfinished" ||
     (rescue?.verdict === undefined && (rescue?.summary !== undefined || (rescue?.items ?? []).length > 0));
-  const unmerged = held?.held.find((reason) => reason.why === "unmerged");
 
   const send = () => {
-    const which = confirming;
-    setConfirming(null);
-    if (which === "release") {
-      const holder = slot === undefined ? undefined : releaseHolder(slot);
-      if (slot !== undefined && holder !== undefined) onRelease?.(slot.slot, holder);
-      return;
-    }
-    if (held === undefined) return;
-    if (which === "pause") onPause?.(held.job_id);
-    else if (which === "clear") onClear?.(held.job_id);
-    else if (which === "branch" && unmerged !== undefined) onDeleteBranch?.(held.job_id, unmerged.tip);
-    else if (which === "forget") onForget?.(held.job_id);
+    setReleasing(false);
+    const holder = releaseHolder(slot);
+    if (holder !== undefined) onRelease?.(slot.slot, holder);
   };
   const rescued = (which: RescueAct) => {
     setScrapping(false);
-    if (slot !== undefined) onRescue?.(which, slot.slot);
+    onRescue?.(which, slot.slot);
   };
 
   const tips = rescueTipsOf(row);
   const foot =
-    onRescue === undefined || slot === undefined || rescue === undefined || scrapping || confirming !== null ? undefined : reading ? (
+    onRescue === undefined || rescue === undefined || scrapping || releasing ? undefined : reading ? (
       <Tooltip label={tips.stop}>
         <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stop")}>
           Stop
@@ -118,8 +95,7 @@ export function useTileManage({ row, onAct, onRescue, onClear, onRelease, onDele
         waiting={waiting}
         onAct={onAct}
         onRescue={onRescue}
-        onResume={held === undefined || onResume === undefined ? undefined : () => onResume(held.job_id)}
-        onConfirm={held === undefined && !(slot !== undefined && releasable(slot) && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
+        onRelease={releasable(slot) && onRelease !== undefined ? () => setReleasing(true) : undefined}
       />
       {row.refused === undefined ? null : (
         <>
@@ -133,20 +109,14 @@ export function useTileManage({ row, onAct, onRescue, onClear, onRelease, onDele
           )}
         </>
       )}
-      {row.said === undefined && row.receipt === undefined ? null : (
+      {row.said === undefined ? null : (
         <ul className="armada-tile-sheet__said" role="status">
-          {[...(row.said === undefined ? [] : [row.said]), ...(row.receipt ?? [])].map((one) => (
-            <li key={one}>{one}</li>
-          ))}
+          <li>{row.said}</li>
         </ul>
       )}
-      {confirming === "release" ? <ReleaseConfirm row={row} onSend={send} onCancel={() => setConfirming(null)} /> : null}
-      {confirming === null || confirming === "release" || held === undefined ? null : (
-        <TileConfirm which={confirming} row={row} cost={row.cost ?? { files: [] }} onSend={send} onCancel={() => setConfirming(null)} />
-      )}
-      {held === undefined ? null : <TileHolds reasons={held.held} sat={row.sat} status={held.status} job={row.job} />}
-      {slot === undefined || rescue === undefined ? null : <SlotFinding slot={slot} />}
-      {scrapping && slot !== undefined ? <ScrapConfirm slot={slot} onScrap={() => rescued("scrap")} onCancel={() => setScrapping(false)} /> : null}
+      {releasing ? <ReleaseConfirm row={row} onSend={send} onCancel={() => setReleasing(false)} /> : null}
+      {rescue === undefined ? null : <SlotFinding slot={slot} />}
+      {scrapping ? <ScrapConfirm slot={slot} onScrap={() => rescued("scrap")} onCancel={() => setScrapping(false)} /> : null}
     </>
   );
 

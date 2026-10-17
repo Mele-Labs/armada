@@ -1,5 +1,4 @@
-// Start and stop a server the Manifest declares — for a Job's worktree, or,
-// with no Job, the main checkout. `docs/concepts/fleet.md`, *Servers*.
+// Start and stop a server the Manifest declares, in the main checkout. `docs/concepts/fleet.md`, *Servers*.
 //
 // Beside `connection.ts` rather than inside it, `rehearsal.ts`'s reason: a
 // POST is none of the socket, the runtime file or the state machine. The
@@ -16,7 +15,7 @@ import { ask, NOT_SET_UP } from "./request";
 
 export type ServerBoard = {
   port: () => number | null;
-  /** Which main checkout a server with no Job starts in. */
+  /** Which main checkout a server starts in. */
   picked: Picked;
 };
 
@@ -28,7 +27,7 @@ export class ServerCommands {
   }
 
   /**
-   * Start a declared server, for a Job's worktree or the main checkout.
+   * Start a declared server in the main checkout.
    * **Answers at once, `starting`** — `server.serving` and `server.exited`
    * follow on `/events`, which is what keeps the list current without a
    * second read here.
@@ -36,12 +35,11 @@ export class ServerCommands {
    * `picked` is the calling window's own — `main/index.ts` names it; `this.board.picked` only
    * where a caller (`picked.test.ts`) supplies none.
    */
-  async startServer(name: string, jobId?: string, picked: Picked = this.board.picked): Promise<Outcome> {
+  async startServer(name: string, picked: Picked = this.board.picked): Promise<Outcome> {
     const port = this.board.port();
     if (port === null) return { ok: false, why: "not_connected" };
-    const body: StartServer = jobId === undefined ? { name } : { name, job_id: jobId };
-    // A Job names its own repository; the main checkout is the picked one's.
-    const path = jobId === undefined ? picked.manifest("/servers/start") : "/servers/start";
+    const body: StartServer = { name };
+    const path = picked.manifest("/servers/start");
     if (path === null) return NOT_SET_UP;
     const answer = await ask(port, "POST", path, body);
     return answer.ok === true ? { ok: true } : answer.outcome;

@@ -21,7 +21,7 @@ use std::path::Path;
 
 use adapter_traits::{
     DroneEvent, DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt,
-    SpawnConfigRefused, Toolbelt, Worktree,
+    SpawnConfigRefused, Worktree,
 };
 use serde::{Deserialize, Serialize};
 
@@ -134,7 +134,6 @@ impl HeadlessAgent {
             scouting.model.clone(),
             Prompt::assembled("carried on stdin").map_err(ScoutRefused::Unassembled)?,
             scouting.servers.clone(),
-            Toolbelt::evidence_only(),
             scouting.environment.clone(),
         );
         Ok(Launch::rendered(&borrowed, self.program(), args).unattended())

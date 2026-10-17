@@ -48,13 +48,6 @@ pub enum Unservable {
     IsACommand {
         name: String,
     },
-    NoWorktree,
-    JobEnded,
-    /// `destructive: true`, asked for by a Drone. A person's start needs no
-    /// second approval; a Drone's has nobody to ask inside a tool call.
-    NeedsAPerson {
-        name: String,
-    },
     NoSuchServer {
         id: String,
     },
@@ -75,9 +68,7 @@ impl Unservable {
         match self {
             NotAServer { .. } | IsACommand { .. } => (NOT_A_SERVER, Refusal::Unacceptable),
             NoSuchServer { .. } => (NO_SUCH_SERVER, Refusal::Unacceptable),
-            NoWorktree | JobEnded | NeedsAPerson { .. } | NotRunning { .. } => {
-                (CANNOT_SERVE_HERE, Refusal::IllegalMove)
-            }
+            NotRunning { .. } => (CANNOT_SERVE_HERE, Refusal::IllegalMove),
             NotKept { .. } => (SERVER_FAULT, Refusal::Fault),
         }
     }
@@ -115,15 +106,6 @@ impl fmt::Display for Unservable {
                 out,
                 "`{name}` declares no `serve`: it is a Command that runs and exits, so there \
                  is nothing to keep running"
-            ),
-            NoWorktree => out.write_str(
-                "this Job's worktree is no longer on disk, so there is nowhere to serve from",
-            ),
-            JobEnded => out.write_str("this Job has ended, and its servers stopped with it"),
-            NeedsAPerson { name } => write!(
-                out,
-                "`{name}` is declared `destructive: true`, so a person starts it. Ask them \
-                 to start it from the run sheet"
             ),
             NoSuchServer { id } => write!(out, "no server Fleet holds is called `{id}`"),
             NotRunning { id } => write!(

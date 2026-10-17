@@ -12,7 +12,7 @@ export const GUIDE_PLAN: Guide = {
   group: "plan",
   title: "What is a plan?",
   piece: "plan.what",
-  concept: "docs/concepts/plan.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "A plan is a job's own record of how it means to do the work.",
     "It holds an approach in a paragraph, and an ordered list of tasks.",

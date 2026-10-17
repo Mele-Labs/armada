@@ -62,17 +62,16 @@ where
             .filter(|facts| matches!(facts.standing, PullRequestStanding::Open | PullRequestStanding::Draft))
             .map(|facts| (facts.branch, facts.url))
             .ok_or_else(|| refuse(format!("#{number} is not an open pull request here")))?;
-        for owner in self.owners_of(&served, number, &branch, false).await {
-            if owner == me {
-                continue;
-            }
-            // A Job that held it is gone from every surface; only a Session still working keeps it.
-            if matches!(owner, Owner::Session(_)) {
-                return Err(refuse(format!(
-                    "#{number} is held by {}, who is still working",
-                    owner.key()
-                )));
-            }
+        if let Some(owner) = self
+            .owners_of(&served, number, &branch, false)
+            .await
+            .into_iter()
+            .find(|owner| *owner != me)
+        {
+            return Err(refuse(format!(
+                "#{number} is held by {}, who is still working",
+                owner.key()
+            )));
         }
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();

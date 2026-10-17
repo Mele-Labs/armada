@@ -1,4 +1,4 @@
-// Which arrangement a page opens in, remembered across a restart — Lessons' place and source,
+// Which arrangement a page opens in, remembered across a restart — Lessons' place,
 // the Cockpit's view, filters and scope (owner, 25 Sep 2026).
 //
 // **One module, because it is one mechanism.** A second way of remembering a way of
@@ -10,12 +10,11 @@
 // five crates. These are ways of reading, not facts about the work.
 
 import { useEffect, useState } from "react";
-import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, type LessonsTab } from "@armada/screens/src/lessons/retro";
+import { lessonsTabNamed, type LessonsTab } from "@armada/screens/src/lessons/retro";
 
 /** What a press tells the window, so two readers of one key stay in step. */
 const HEARD = "armada:remembered";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
-const LESSONS_SOURCE_KEY = "armada.bridge.lessons-source";
 
 /**
  * A remembered arrangement and the press that moves it, on whatever the
@@ -59,11 +58,6 @@ function remembered<T extends string>(key: string, named: (value: string | null)
 /** Which place Lessons is narrowed to (owner, 3 Oct 2026). All where nothing is stored. */
 export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
   return remembered(LESSONS_KEY, lessonsTabNamed);
-}
-
-/** Whose retros Lessons lists, Sessions' or Jobs'. All where nothing is stored. */
-export function useLessonsSource(): [LessonsSource, (source: LessonsSource) => void] {
-  return remembered(LESSONS_SOURCE_KEY, lessonsSourceNamed);
 }
 
 // ---- The flight deck's views, which live in a store and not in a component ---------------------------------------

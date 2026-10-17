@@ -1,30 +1,17 @@
-//! Studio's apparatus: a Studio with two Notes on it, the text an Issue draft
-//! would hold, the catalogue a proposer reads it against, and the round trip a
-//! request and a record make. It asserts nothing.
+//! Studio's apparatus: a Studio with two Notes on it and the round trip a
+//! record makes. It asserts nothing.
 //!
 //! **The record is `core_model`'s and its wire form is `ipc`'s.** What this
 //! file adds is the assembly — which Notes, where a person left them, and the
 //! Same as edge proposed between them — built through the constructors `store`
 //! reads a row back with, so nothing here is a second vocabulary for a node.
-//!
-//! **The draft is read off an Issue draft node, never written out beside
-//! one.** `#1291` builds the Studio a person promoted — the Cluster, the draft
-//! and the Job — and the text a dispatch sends is that node's own, through
-//! `StudioNodeContent::dispatched_as`. A constant here would be a second
-//! statement of what Fleet composes.
 
-use std::collections::BTreeMap;
-
-use config::ResolvedWorkflow;
 use core_model::{
     ManifestId, ScoutCheckout, ScoutEnded, ScoutLook, ScoutOutcome, ScoutSource, ScoutSourceKind,
     Studio, StudioAuthor, StudioEdge, StudioEdgeId, StudioFinding, StudioGraph, StudioId,
     StudioName, StudioNode, StudioNodeContent, StudioNodeId, StudioPosition, StudioRelation,
-    Timestamp, Ulid, WorkflowId,
+    Timestamp, Ulid,
 };
-use ipc::JobRequest;
-
-use super::bug_workflow_with_the_fix_judged;
 
 /// What a person pointed at on Bridge and said, the first time.
 pub const FIRST_NOTE: &str = "The Board's filter chip keeps its count after the filter is cleared";
@@ -34,59 +21,6 @@ pub const SECOND_NOTE: &str = "Overview still says three waiting after I answere
 
 /// The Issue draft's title, as a person would write it up.
 pub const DRAFT_TITLE: &str = "Counts go stale after the thing they count changes";
-
-/// The Issue draft's body, as a person edited it before dispatching.
-///
-/// **Both Notes' words are in it**, because a write-up is made from the Notes
-/// feeding it, and what the proposer and then the Drone are told has to be
-/// what the person actually saw rather than a summary of it.
-pub const DRAFT_BODY: &str = concat!(
-    "Two places show a count that does not move when what it counts does.\n\n",
-    "- The Board's filter chip keeps its count after the filter is cleared\n",
-    "- Overview still says three waiting after I answered one\n"
-);
-
-/// The text a dispatch sends: **read off the Issue draft node on the Studio a
-/// person promoted**, not written out beside it. `#1291` composes it in one
-/// place and this is that place's answer.
-pub fn an_issue_draft() -> String {
-    let promoted = a_studio_promoted_to_a_job();
-    promoted
-        .nodes
-        .iter()
-        .find_map(|node| node.content().dispatched_as())
-        .expect("the Issue draft the Cluster was written up as")
-}
-
-/// The request as Fleet receives it: encoded, sent, and read back.
-///
-/// **No `client_ref` and no attachments.** A draft is dispatched from its text
-/// alone, and nothing here names a filed issue — filing one is optional
-/// and a person's own act.
-pub fn received_request(draft: &str) -> JobRequest {
-    let sent = JobRequest {
-        request: draft.to_string(),
-        client_ref: None,
-        attachments: Vec::new(),
-        settings: None,
-    };
-    let body = ipc::encode(&sent).expect("a request that serialises");
-    ipc::decode("a Job request", body.as_bytes()).expect("a request that reads back")
-}
-
-/// The workflows the proposer is offered: one, the bench's Bug.
-pub fn held() -> BTreeMap<WorkflowId, ResolvedWorkflow> {
-    let bug = bug_workflow_with_the_fix_judged();
-    BTreeMap::from([(bug.id().clone(), bug)])
-}
-
-/// A proposer's answer naming one Job under `workflow`, titled as the draft is.
-pub fn one_job_under(workflow: &WorkflowId) -> String {
-    format!(
-        "workflow: {}\ntitle: {DRAFT_TITLE}\nbecause: a fault in what two screens draw",
-        workflow.as_str()
-    )
-}
 
 /// The repository the bench's Studio belongs to.
 pub const REPOSITORY: &str = "01FIXTUREMANIFEST";
@@ -517,7 +451,6 @@ pub fn a_server_that_fell_over() -> ipc::ServerState {
     ipc::ServerState {
         id: THE_SERVER.to_string(),
         name: String::from("storybook_dev"),
-        job_id: None,
         manifest_id: None,
         checkout: ipc::ServerCheckout {
             path: String::from("/repos/armada"),
@@ -536,7 +469,6 @@ pub fn a_server_that_fell_over() -> ipc::ServerState {
             name: Some(String::from("Storybook")),
         }],
         started_by: ipc::StartedBy::Person,
-        for_review: false,
         started_at: ipc::Instant::carried("2026-09-17T09:01:00.000Z"),
         serving_since: Some(ipc::Instant::carried("2026-09-17T09:01:12.000Z")),
         ended_at: Some(ipc::Instant::carried("2026-09-17T09:05:00.000Z")),
@@ -692,80 +624,4 @@ pub fn a_studio_with_a_captured_note() -> StudioGraph {
         nodes: vec![note],
         edges: Vec::new(),
     }
-}
-
-/// The Studio after `#1291`'s own rungs: both Notes accepted as one **Cluster**
-/// with a `Produced` edge from each, the Cluster written up as an **Issue
-/// draft** a person edited, and the draft dispatched to a **Job** node.
-///
-/// **Built through the constructors alone**, so every edge here is one the
-/// Studio draws itself and nothing sets a state by hand.
-pub fn a_studio_promoted_to_a_job() -> StudioGraph {
-    let mut graph = a_studio_with_two_notes();
-    let notes: Vec<StudioNodeId> = graph.nodes.iter().map(|node| node.id().clone()).collect();
-    let made = |graph: &mut StudioGraph,
-                id: &str,
-                edge: &str,
-                content: StudioNodeContent,
-                from: &[StudioNodeId],
-                at_minute: u32,
-                x: i64| {
-        let node = StudioNode::added(
-            StudioNodeId::carried(Ulid::carried(id)),
-            content,
-            StudioPosition { x, y: 240 },
-            at(at_minute),
-            StudioAuthor::Person,
-        );
-        for (nth, source) in from.iter().enumerate() {
-            let produced = StudioEdge::produced(
-                StudioEdgeId::carried(Ulid::carried(format!("{edge}{nth}"))),
-                source.clone(),
-                node.id().clone(),
-                at(at_minute),
-                StudioAuthor::Person,
-            )
-            .expect("two different nodes");
-            graph.edges.push(produced);
-        }
-        let id = node.id().clone();
-        graph.nodes.push(node);
-        id
-    };
-
-    let cluster = made(
-        &mut graph,
-        "01CLUSTER",
-        "01EDGECLUSTER",
-        StudioNodeContent::Cluster {
-            title: String::from("Counts go stale"),
-        },
-        &notes,
-        5,
-        0,
-    );
-    let draft = made(
-        &mut graph,
-        "01DRAFT",
-        "01EDGEDRAFT",
-        StudioNodeContent::IssueDraft {
-            title: DRAFT_TITLE.to_string(),
-            body: DRAFT_BODY.to_string(),
-        },
-        &[cluster],
-        6,
-        240,
-    );
-    made(
-        &mut graph,
-        "01JOBNODE",
-        "01EDGEJOB",
-        StudioNodeContent::Job {
-            job_id: core_model::JobId::carried(Ulid::carried("01JOBATTHEGATE")),
-        },
-        &[draft],
-        7,
-        480,
-    );
-    graph
 }

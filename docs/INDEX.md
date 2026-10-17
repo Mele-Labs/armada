@@ -57,6 +57,9 @@ Each ends with the questions it found and did not answer.
   queue and on `main`, how `armada covers` chooses, how foundations is read
   against `main`, the names a ruleset will require, what is not in CI, and what
   is owed at the cutover
+- [`practices/subagents.md`](practices/subagents.md) — which subagent type a
+  session dispatches, from which of three places, and on which model: the mod's
+  portable fleet and Armada's own
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see
@@ -124,7 +127,7 @@ approximations.
 
 ## Concepts
 
-- [`concepts/`](concepts/) — what each thing in Armada is: Job, Drone, Fleet,
+- [`concepts/`](concepts/) — what each thing in Armada is: Session, Fleet,
   Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
   in its own `INDEX.md`. The state machine and the schemas they describe are
   data in `crates/core-model/domain/`.
@@ -294,8 +297,7 @@ can find them.
 | Writing a commit message | `commit-message` |
 | Writing anything a person reads on a surface | `armada-voice` |
 | Starting, checking or cleaning up a local Fleet | `armada-local` |
-| Starting a Fleet of your own, to read or record a Job without the owner's | `dev-fleet` |
-| Finding out what a Job did and why it stopped | `what-happened-to-a-job` |
+| Starting a Fleet of your own, to read or record a Session without the owner's | `dev-fleet` |
 | Reporting something Armada got wrong | `armada-bug` |
 | Filing what the owner finds while he walks the app | `app-walkthrough` |
 | Working through the notes the owner left on Bridge with the annotation layer | `annotations` |

@@ -3,7 +3,7 @@
 // (`docs/concepts/retro.md`, *Reviewing*).
 //
 // **It answers nothing of its own.** The card's buttons are `useAnswers`', so
-// Create Job, Update Kit, Accept and Reject change read and act as they do on
+// Start Session, Update Kit, Accept and Reject change read and act as they do on
 // the list, and a refusal (`fleet.kit_change_refused`) draws the card's alert.
 // What this adds is the order, Skip and Back, a thread of questions per item,
 // and the items the review set aside.
@@ -32,7 +32,7 @@ import {
   lessonRowsOf,
   retroSubjectOf,
   useAnswers,
-  useJobRetros,
+  useRetros,
   type AnswerLesson,
   type ListedRow,
   type ReadRetro,
@@ -57,10 +57,9 @@ export type LessonsReviewProps = {
   onReadRetro: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
-  /** Start Session beside Create Job, as the list has it. */
+  /** Start Session, as the list has it. */
   sessions?: SessionStarts;
-  onOpenJob?: (jobId: string) => void;
-  /** A press on the Job a card came from. The page opens that retro over itself. */
+  /** A press on the Session a card came from. The page opens that retro over itself. */
   onOpenRetro: (subject: RetroSubject, label: string) => void;
   /** Back to the list. */
   onList: () => void;
@@ -82,7 +81,6 @@ export function LessonsReview({
   onAgreeLesson,
   onDisagreeLesson,
   sessions,
-  onOpenJob,
   onOpenRetro,
   onList,
   paused = false,
@@ -142,8 +140,8 @@ export function LessonsReview({
     setTwinsFailure(refused[0]);
     return answer;
   };
-  const answered = useAnswers(onAgreeLesson, disagree, onOpenJob, sessions);
-  const retros = useJobRetros(onReadRetro);
+  const answered = useAnswers(onAgreeLesson, disagree, sessions);
+  const retros = useRetros(onReadRetro);
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
 
   /** A card's row with its answers and the Evidence control, as the list draws it. */
@@ -256,7 +254,7 @@ export function LessonsReview({
         {...(twins.length === 0
           ? {}
           : {
-              merged: lessonRowsOf(twins).map((one) => ({ id: one.id, label: one.job, title: one.title ?? one.statement })),
+              merged: lessonRowsOf(twins).map((one) => ({ id: one.id, label: one.session, title: one.title ?? one.statement })),
               duplicates: {
                 checked: also.has(id),
                 onChange: (on: boolean) =>
@@ -282,7 +280,7 @@ export function LessonsReview({
               ...(current.shown.view.answers === undefined ? {} : { answers: current.shown.view.answers }),
             },
           ]}
-          onOpen={() => onOpenRetro(retroSubjectOf(current.entry.lesson), current.shown.row.job)}
+          onOpen={() => onOpenRetro(retroSubjectOf(current.entry.lesson), current.shown.row.session)}
         />
       </LessonReviewStep>
       {setAsideList}
@@ -290,11 +288,11 @@ export function LessonsReview({
   );
 }
 
-/** The list's Evidence rule for one card: the rows the item cites, read once per Job on the first press. */
+/** The list's Evidence rule for one card: the rows the item cites, read once per retro on the first press. */
 function withEvidence(
   row: ListedRow,
   lesson: Lesson,
-  retros: ReturnType<typeof useJobRetros>,
+  retros: ReturnType<typeof useRetros>,
   pressed: ReadonlySet<string>,
   setPressed: (next: (was: ReadonlySet<string>) => ReadonlySet<string>) => void,
 ): LessonRow {

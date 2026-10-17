@@ -4,7 +4,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { diff, type StateChange } from "../../shared/state-change";
 import { stateOf } from "./state-feed";
 
-const held = (jobs: { id: string; n: number }[], other = { x: 1 }) => ({ jobs, other }) as unknown as BridgeState;
+const held = (rows: { id: string; n: number }[], other = { x: 1 }) => ({ rows, other }) as unknown as BridgeState;
 
 function wire(first: StateChange<BridgeState>) {
   let send: (change: StateChange<BridgeState>) => void = () => undefined;
@@ -29,7 +29,8 @@ it("folds a patch onto what it holds and keeps what the patch left alone as the 
   send({ patch: diff(one, two)!, from: 1, to: 2 });
   expect(heard).toHaveLength(1);
   expect(heard[0]).toEqual(two);
-  expect(heard[0]!.jobs[0]).toBe(one.jobs[0]);
+  const rowOf = (state: BridgeState) => (state as unknown as { rows: unknown[] }).rows[0];
+  expect(rowOf(heard[0]!)).toBe(rowOf(one));
   expect((heard[0] as unknown as { other: unknown }).other).toBe((one as unknown as { other: unknown }).other);
 });
 

@@ -4,23 +4,21 @@ issue: 1059
 milestone: Throughput
 ---
 
-# A Job or a Session says what it needs, and Armada keeps one log
+# A Session says what it needs, and Armada keeps one log
 
 Two agents both mean to bump the protocol minor. Today the second one finds out
 when its merge fails and it renumbers. A need is how the second one hears, while
 it is still working, that the first is already ahead and what it took.
 
-This page is where the need moves once Jobs and Sessions share one ledger. What
-is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
-(*Declared needs*).
+A need is a row on the ledger every Session shares. What is built, and why, is
+`merge-line.md` (*Needs*) and `docs/concepts/fleet.md` (*Declared needs*).
 
 ## Where it stands
 
 | Part | State |
 | --- | --- |
-| The row, and the one order a Job and a Session share | Built, protocol 23.46 |
+| The row, and the one order every holder shares | Built, protocol 23.46 |
 | `armada need` asking Fleet (`act_on_need`, `list_needs`) | Built; where Fleet is not running it says so and records nothing |
-| A Job's own slot and branch as rows | Built |
 | Converting a clone's files | Built, read once at first start, files left on disk |
 | The `needs` status on a pull request | Built: Fleet publishes it, 23.46 unchanged. Making it required in the ruleset is the owner's and is not done |
 | The `armada` mod reporting a need from a terminal Session | Built: a declare, a took and a release, from the Bash command |
@@ -32,9 +30,9 @@ is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 - **One list of what is wanted and by whom**, in Bridge beside the ledger of
   slots, branches and pull requests: the file or resource, what was said, who holds
   it, who is waiting behind, and what was taken.
-- **A Job or a Session that declares a need on something another holds is told
-  at once**, as a message that wakes a Session and as the peer turn for a Job. It
-  hears who is ahead and what that one took.
+- **A Session that declares a need on something another holds is told at
+  once**, as a message that wakes it. It hears who is ahead and what that one
+  took.
 - **A pull request waits its turn.** Fleet puts a commit status, context `needs`,
   on the head of every open pull request in a repository it serves. It reads
   pending while a need ahead has not merged, naming the path, who is ahead and
@@ -50,7 +48,7 @@ or a pull request. The kind column is open text, so a need adds no migration.
 
 | Column | For a need |
 | --- | --- |
-| `holder_kind`, `holder_id` | `session` or `job`, and its id. A Job holds a need as a Job does a slot |
+| `holder_kind`, `holder_id` | `session`, and its id |
 | `kind` | `need` |
 | `manifest_id` | The repository the path belongs to |
 | `target` | The file or resource, repository-relative: `Cargo.lock` |
@@ -61,18 +59,17 @@ or a pull request. The kind column is open text, so a need adds no migration.
 **The order is `since`, then the holder id.** A need is **not exclusive**: the
 ledger's exclusive attach gives back a holder's other standing rows of one kind
 and repository, which is right for a slot and a branch and wrong here, because
-one Job may wait on a protocol minor and on a second path at once.
+one Session may wait on a protocol minor and on a second path at once.
 
 **Reading it.** `who_owns` (`GET /sessions/owner?kind=need&target=&manifest_id=`)
 returns standing holders first, so *who is ahead on this path* is that answer
 minus the asker. `list_needs` (`GET /needs`) is the same rows for one repository
 in the order they are served, each holder named as a person would. A Session declares through the intake
 (`POST /sessions/report`, fact `attached` with `{kind: need, target, detail}`),
-and gives one back or spends it with fact `settled`. A Job's needs are written by
-Fleet, from `declare_scope`, a plan's task and `add_task`, on the same table.
-**`armada need` names a branch and Fleet finds the holder**: the Job whose branch
-it is, else a Session standing on it, else the branch alone, held as a `session`
-row with the id `branch:<name>`. A need held by a branch alone is given back when
+and gives one back or spends it with fact `settled`.
+**`armada need` names a branch and Fleet finds the holder**: the Session
+standing on it, else the branch alone, held as a `session` row with the id
+`branch:<name>`. A need held by a branch alone is given back when
 git no longer has the branch.
 
 **The status.** The pull request's branch is resolved to a holder the way
@@ -80,7 +77,7 @@ git no longer has the branch.
 reads. It is published when a need is declared, given back or spent, and on the
 sweep that lists open pull requests, so a change nobody announced heals. It is
 sent only when its state or description differs from what Fleet last put on that
-commit. A forge or token that refuses is a line in the owning Job's log, once;
+commit. A forge or token that refuses is a line on Fleet's log, once;
 nothing else fails. A pull request opened by a terminal session Fleet does not
 know about reads success, since no needs are known for it.
 
@@ -92,8 +89,8 @@ know about reads success, since no needs are known for it.
   pull request's status reads Fleet's order; `fleet.merge_waiting_behind` refuses
   Fleet's own press the same way.
 - **Nothing expires by time.** A person gives a stalled one back.
-- **A holder that is gone gives its needs back**: a Job dropped, a Session
-  ended, a branch deleted.
+- **A holder that is gone gives its needs back**: a Session ended, a branch
+  deleted.
 - **A late declarer is told to search for the number it already used**, when its
   branch already changes the path.
 
@@ -103,13 +100,12 @@ know about reads success, since no needs are known for it.
 | --- | --- |
 | One JSON file per need under `.git/armada-needs/`, one clone | A table in Fleet's store, one row per need |
 | `armada need` writes the files | `armada need` asks Fleet, from any session or machine |
-| A Job declares through `declare_scope`, `record_plan`, `add_task` | Unchanged for the Job; Fleet writes the ledger row |
 | `armada land` holds a branch behind its needs | The pull request's required status, published by Fleet |
 | A terminal Session cannot declare | The `armada` mod reports the need through the ledger channel (built) |
 
 **Converting what exists.** On the first start with the table, Fleet reads each
-clone's `armada-needs/` files into rows, with the branch name resolved to the Job
-that owns it where there is a live one, else held by the branch alone, in the
+clone's `armada-needs/` files into rows, with the branch name resolved to the
+Session standing on it where there is a live one, else held by the branch alone, in the
 order the clone had, then stops reading the files. A row of kind `needs_files`
 records that it was done. Nothing is deleted until a person has seen the list in
 Bridge. A repository added after Fleet started is converted on the next start.

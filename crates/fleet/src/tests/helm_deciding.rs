@@ -221,24 +221,14 @@ fn a_risky_word_inside_a_longer_one_is_not_that_word() {
 }
 
 /// Armada's own door: **every read runs**, and only the acts in one of the
-/// three classes ask. The Job control a person asks Helm for — pause, add a
-/// task, redirect a Drone — is none of them.
+/// three classes ask.
 #[test]
 fn the_doors_reads_run_and_only_some_of_its_acts_ask() {
     for operation in [
-        "get_job",
         "get_check_output",
         "get_diff",
-        "list_jobs",
-        "get_job_log",
-        "park_job",
-        "resume_job",
-        "add_task",
-        "redirect_drone",
         "add_studio_node",
         "start_run",
-        "propose_job",
-        "restart_step",
         "review_pull_request",
         "get_pull_request",
         "get_pull_request_detail",
@@ -249,16 +239,10 @@ fn the_doors_reads_run_and_only_some_of_its_acts_ask() {
     }
     for (operation, why) in [
         ("merge_pull_request", Because::PushesToShared),
-        ("submit_for_verification", Because::PushesToShared),
-        ("attest_complete", Because::PushesToShared),
-        ("close_as_superseded", Because::Destructive),
         ("merge_pull_request_by_number", Because::PushesToShared),
         ("ready_pull_request", Because::PushesToShared),
         ("enable_auto_merge", Because::PushesToShared),
         ("write_pull_request", Because::PushesToShared),
-        ("approve_dispatch", Because::PushesToShared),
-        ("kill_job", Because::Destructive),
-        ("kill_drone", Because::Destructive),
         ("kill_process", Because::Destructive),
         ("kill_processes", Because::Destructive),
         ("delete_branch", Because::Destructive),

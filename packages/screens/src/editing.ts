@@ -16,7 +16,6 @@ import type {
   ManifestFile,
   ManifestReading,
   ManifestSaved,
-  ManifestSpend,
   Outcome,
   SaveManifestFile,
 } from "@armada/protocol";
@@ -52,9 +51,6 @@ export type ManifestEditAnswer =
   | { state: "moved"; onDisk: string | null }
   | { state: "refused"; saying: string; faults: { key: string; fault: string }[] }
   | { state: "failed"; outcome: Outcome };
-
-/** `GET /manifest/spend`, read into the app. */
-export type ManifestSpendRead = { ok: true; spend: ManifestSpend } | { ok: false; outcome: Outcome };
 
 /**
  * Which of the surface's views is showing: running, the forms, or the file.

@@ -1,13 +1,12 @@
 ---
 name: armada-local
-description: Running the armada binary in this repository as an agent — what is yours to run, and how to look at Bridge without stranding it on the owner's screen. Load before starting a Fleet, launching Bridge, or cleaning up after Jobs.
+description: Running the armada binary in this repository as an agent — what is yours to run, and how to look at Bridge without stranding it on the owner's screen. Load before starting a Fleet, launching Bridge, or cleaning up after Sessions.
 ---
 
 # Running Armada in this repository
 
 **`docs/practices/running-locally.md` owns the mechanics** — what a healthy
-start prints, what Fleet refuses, version skew, what a finished Job leaves
-behind, and what `armada clean` will and will not delete. Read it for any of
+start prints, what Fleet refuses, version skew, and what `armada clean` will and will not delete. Read it for any of
 that. This file is only what is different about being an agent here.
 
 **Work from the built binary, not an installed one.** `cargo build --workspace`
@@ -21,7 +20,7 @@ it for free.
 
 **A Fleet of your own is `scripts/dev-fleet`, not a second `serve`.** The store
 is found through `HOME`, so a second `serve` on another port still shares the
-owner's, and its boot escalates his running Jobs. `.claude/skills/dev-fleet/`.
+owner's, and its boot reconciles his running work. `.claude/skills/dev-fleet/`.
 
 **Run `serve` in the background and keep the handle.** It runs until it is
 signalled, and SIGTERM is what it waits for.
@@ -126,26 +125,18 @@ always loads the built renderer rather than a dev server. Bridge finds Fleet
 through the runtime file, so nothing here needs a port.
 
 **Moving the owner's own Fleet onto a merged fix is `scripts/restart`, not
-either of the above.** It refuses while a Drone is working, naming the Job,
-and runs under launchd so it outlives the session that called it.
+either of the above.** It runs under launchd so it outlives the session that called it.
 `.claude/skills/restart-app/SKILL.md` says when, and why it is never on an
 allow list.
-
-## Asking what one Job did
-
-**`./scripts/job <job-id>` prints the whole record of one Job** — its
-transitions, each step's verdict, what its Drone was refused, and how the run
-ended. Reach for it before opening anything under `.armada/` by hand.
-`.claude/skills/what-happened-to-a-job/SKILL.md` is how to read what it prints.
 
 ## Prefer the Manifest over the command it wraps
 
 **Run a Check through `armada check`, not by retyping what it declares.** That
-is the point of the Manifest: the Check a person runs is the Check a Drone is
-measured by.
+is the point of the Manifest: the Check a person runs is the Check the merge line
+runs.
 
 ```sh
-./target/debug/armada check test    # a Check — gates advancement
+./target/debug/armada check test    # a Check — the merge line runs it
 ./target/debug/armada run fmt       # a Command — gates nothing
 ```
 
@@ -157,7 +148,7 @@ measured by.
 | Leave a dialog up in anything you launched | Dismiss it or quit the app. An agent that cannot dismiss its own modal has taken the screen and not given it back |
 | Run `pnpm dev` or `scripts/dev` | It is the owner's loop: it reinstalls `armada` and kills the Fleet he is using. Start Bridge on its own, or run `scripts/restart` |
 | Discard what `armada clean` printed | The commit each deleted branch pointed at is the only thing that makes it recoverable |
-| `git branch -D` over the `armada/` namespace | `armada clean` derives what it deletes. A glob does not, and one destroyed nine unmerged branches belonging to no Job |
+| `git branch -D` over the `armada/` namespace | `armada clean` derives what it deletes. A glob does not, and one destroyed nine unmerged branches belonging to no Session |
 | `rm -rf` an Armada worktree | Git keeps a record that outlives the directory and refuses the branch delete afterwards. `armada clean` does it in the order git needs |
 | Detach a process with `nohup`, `setsid` or `(cmd &)` | It outlives the session and nothing reaps it. Use `run_in_background`, or kill it in the call that started it |
 | Raise CPU load and not kill it | One flaky-test hunt left 276 processes at load average 433 for three hours. Keep the PIDs, `trap 'kill 0' EXIT`, and bound it with `timeout` |

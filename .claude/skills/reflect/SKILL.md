@@ -131,7 +131,7 @@ merge of `protocol-version.toml` is a collision**, and no Check reads it as one.
 is the step this skill owns. Never land past a failing gate, a real conflict,
 or an unresolved question, and never land a branch this session did not produce.
 
-**A Job's work is a pull request on a branch.** Check the branch out in a
+**A Session's work is a pull request on a branch.** Check the branch out in a
 worktree and land it through the line like any other; the push of `main`
 closes the pull request as merged.
 

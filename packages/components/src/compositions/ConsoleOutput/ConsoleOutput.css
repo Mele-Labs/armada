@@ -310,3 +310,36 @@
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
+
+/* The mark on a log something has open: the running hue, a ring that holds still and a dot that pulses, opacity and
+   scale only, at --duration-pulse. */
+.armada-console__writing {
+  justify-self: center;
+  display: inline-flex;
+  color: var(--status-running);
+}
+
+.armada-console__writing > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-console-writing var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-console-writing {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+/* The pulse stops; the mark and its hue still say the file is held open. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-console__writing > svg > circle + circle {
+    animation: none;
+  }
+}

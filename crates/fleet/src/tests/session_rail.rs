@@ -174,7 +174,7 @@ fn workflow() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
         - id: plan\n    label: \"Plan the change\"\n    evidence: {submitted: {type: plan}}\n    \
         mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
-        - id: implement\n    label: \"Implement\"\n    follows_plan: true\n    drone_per_task: true\n    retry_limit: 2\n    \
+        - id: implement\n    label: \"Implement\"\n    follows_plan: true\n    retry_limit: 2\n    \
         evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: false\n    \
         advance_gate: auto_if_judge_passes\n    judge_checks:\n      -\n        criteria:\n          \
         - criterion_id: c1\n            question: \"Does the reader stop at the end?\"\n            on_refusal: refuse\n  \

@@ -36,30 +36,15 @@ export const FLEET_DOWN = "Fleet is not connected";
 /** What the palette says of Debug Bridge where the annotation layer is not loaded, as in a packaged app. */
 const NOT_DEV = "needs Bridge under pnpm dev";
 
-/** The acts on one Job, or on a Job's page, which nothing in Bridge reads any more. */
-const ON_ONE_JOB = [
-  "open",
-  "review",
-  "attest",
-  "redirect",
-  "kill",
-  "redispatch",
-  "restart_step",
-  "close",
-  "report_job",
-  "observe",
-  "submit_for_verification",
-  "open_diff",
-  "open_stage",
-  "move_in_plan",
-] as const;
+/** The acts the palette never offers: they act on a focused row, which it has none of. */
+const ON_A_ROW = ["open", "close"] as const;
 
 /**
- * The acts the palette leaves out rather than dims: an act on one Job; and Copy debug info with no
+ * The acts the palette leaves out rather than dims: an act on a focused row; and Copy debug info with no
  * failure on screen, which the owner had out of the way on 12 Oct 2026 so that "debug" ↵ is Debug Bridge.
  */
 export function absentIn(where: { failing?: boolean }): readonly string[] {
-  return where.failing === false ? [...ON_ONE_JOB, "copy_debug_info"] : ON_ONE_JOB;
+  return where.failing === false ? [...ON_A_ROW, "copy_debug_info"] : ON_A_ROW;
 }
 
 /**
@@ -164,8 +149,6 @@ export type PaletteHands = {
   debugBridge: () => void;
   /** Re-read everything Fleet holds — `⇧⌘R`'s act. */
   refresh: () => void;
-  /** A row about the window as a whole, by the id `PaletteBoardRow` was given. */
-  board: (id: string) => void;
   /** Pick a repository, as the title row's picker does; `null` is All repositories. */
   pickRepository: (root: string | null) => void;
   /** Open the open Studio's Run menu on its rail, as a press on Run does. */
@@ -203,9 +186,6 @@ export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
       return;
     case "setting":
       hands.openSetting(choice.id);
-      return;
-    case "board":
-      hands.board(choice.id);
       return;
     case "repository":
       hands.pickRepository(choice.root);

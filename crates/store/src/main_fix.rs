@@ -1,30 +1,29 @@
-//! Which Job or Session is working on a repository's red main, and which Job fixed it.
+//! Which Session is working on a repository's red main, and which Session fixed it.
 //! `docs/concepts/fleet.md`, *When main goes red*.
 //!
 //! **One row a taker per red**, keyed by the red's `red_at`, which a red keeps
 //! until a green. The key is what makes taking a red once-only: a second take
-//! of the same red by the same Job or Session is refused by the insert.
+//! of the same red by the same Session is refused by the insert.
 //!
-//! **The taker is plain text and no foreign key**, as in `main_ci`: a Job
-//! `armada clean` forgets leaves its row, and a reader that cannot load it
-//! passes over it. **`job_id` holds a Session's id too**, told apart by
-//! `holder_kind`: the table's key could not change under an additive
-//! migration, and the two id spaces never meet.
+//! **The taker is plain text and no foreign key**, as in `main_ci`.
+//! **`job_id` holds a Session's id**, told apart from the rows an earlier build
+//! wrote for a Job by `holder_kind`, which readers filter on: the table's key
+//! could not change under an additive migration.
 
-use core_model::{JobId, Timestamp, Ulid};
+use core_model::Timestamp;
 
-use crate::error::{fault, DatabaseFault, LoadJobError, RowError, WriteError};
+use crate::error::{fault, DatabaseFault, ReadError, RowError, WriteError};
 use crate::open::Store;
 
-/// How a Job or a Session came to take a red.
+/// How a Session came to take a red.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TakenHow {
-    /// The Job or Session whose pull request turned main red, sent back by Fleet, or a Session
+    /// The Session whose pull request turned main red, sent back by Fleet, or a Session
     /// that took the red for itself.
     Took,
-    /// A new Job a person dispatched for it, or a Session Fleet forked for it.
+    /// A Session a person dispatched for it, or one Fleet forked for it.
     Dispatched,
-    /// An earlier Job a person sent the work back to.
+    /// An earlier Session a person sent the work back to.
     SentBack,
 }
 
@@ -44,44 +43,33 @@ impl TakenHow {
     }
 }
 
-/// Who took a red: a Job, or a Session by its id.
+/// Who took a red: a Session by its id.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TakenBy {
-    Job(JobId),
     Session(String),
 }
 
 impl TakenBy {
     fn kind(&self) -> &'static str {
         match self {
-            TakenBy::Job(_) => "job",
             TakenBy::Session(_) => "session",
         }
     }
 
     pub fn id(&self) -> &str {
         match self {
-            TakenBy::Job(job) => job.as_str(),
             TakenBy::Session(id) => id,
         }
     }
 
-    pub fn job(&self) -> Option<&JobId> {
+    pub fn session(&self) -> &str {
         match self {
-            TakenBy::Job(job) => Some(job),
-            TakenBy::Session(_) => None,
-        }
-    }
-
-    pub fn session(&self) -> Option<&str> {
-        match self {
-            TakenBy::Job(_) => None,
-            TakenBy::Session(id) => Some(id),
+            TakenBy::Session(id) => id,
         }
     }
 }
 
-/// One Job's or Session's part in one red.
+/// One Session's part in one red.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MainFix {
     pub repository: String,
@@ -100,7 +88,7 @@ pub struct MainFix {
     pub taken_at: Timestamp,
     /// When main went green, or the red otherwise ended. `None` while it is on.
     pub ended_at: Option<Timestamp>,
-    /// The pull request of this Job that put main green. Only the Job that did.
+    /// The pull request of this Session that put main green. Only the Session that did.
     pub fixed_in: Option<u64>,
 }
 
@@ -110,10 +98,7 @@ const COLUMNS: &str = "repository, red_at, job_id, how, check_name, test, merge_
 fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<MainFix> {
     let how: String = row.get(3)?;
     let id: String = row.get(2)?;
-    let by = match row.get::<_, String>(10)?.as_str() {
-        "session" => TakenBy::Session(id),
-        _ => TakenBy::Job(JobId::carried(Ulid::carried(id))),
-    };
+    let by = TakenBy::Session(id);
     Ok(MainFix {
         repository: row.get(0)?,
         red_at: Timestamp::from_rfc3339(row.get::<_, String>(1)?),
@@ -138,7 +123,7 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<MainFix> {
 }
 
 impl Store {
-    /// Keep a Job's or a Session's take of a red. **`false` where it already took this
+    /// Keep a Session's take of a red. **`false` where it already took this
     /// red**, and nothing is written.
     pub fn keep_main_fix(&mut self, fix: &MainFix) -> Result<bool, WriteError> {
         let kept = self
@@ -170,52 +155,32 @@ impl Store {
         &self,
         repository: &str,
         red_at: &Timestamp,
-    ) -> Result<Vec<MainFix>, LoadJobError> {
+    ) -> Result<Vec<MainFix>, ReadError> {
         self.fixes_where(
-            "WHERE repository = ?1 AND red_at = ?2 ORDER BY taken_at DESC, job_id DESC",
+            "WHERE repository = ?1 AND red_at = ?2 AND holder_kind = 'session' \
+             ORDER BY taken_at DESC, job_id DESC",
             &[&repository, &red_at.as_str()],
         )
     }
 
-    /// The newest take this Job has made of any red.
-    pub fn main_fix_of_job(&self, job: &JobId) -> Result<Option<MainFix>, LoadJobError> {
-        Ok(self
-            .fixes_where(
-                "WHERE job_id = ?1 AND holder_kind = 'job' ORDER BY taken_at DESC LIMIT 1",
-                &[&job.as_str()],
-            )?
-            .into_iter()
-            .next())
-    }
-
-    /// Whether this Job has a take still on, of any red.
-    pub fn is_fixing_main(&self, job: &JobId) -> Result<bool, LoadJobError> {
-        Ok(!self
-            .fixes_where(
-                "WHERE job_id = ?1 AND holder_kind = 'job' AND ended_at IS NULL LIMIT 1",
-                &[&job.as_str()],
-            )?
-            .is_empty())
-    }
-
     /// End every take still on in a repository, because main went green.
-    /// `fixed` is the Job whose pull request put it there and that pull
+    /// `fixed` is the Session whose pull request put it there and that pull
     /// request's number, where there was one: only its row says it fixed main.
     pub fn end_main_fixes(
         &mut self,
         repository: &str,
         at: &Timestamp,
-        fixed: Option<(&JobId, u64)>,
+        fixed: Option<(&str, u64)>,
     ) -> Result<(), WriteError> {
         let tx = self
             .conn
             .transaction()
             .map_err(fault("ending takes of main's red"))?;
-        if let Some((job, number)) = fixed {
+        if let Some((session, number)) = fixed {
             tx.execute(
                 "UPDATE main_ci_fixes SET fixed_in = ?3 \
-                 WHERE repository = ?1 AND job_id = ?2 AND holder_kind = 'job' AND ended_at IS NULL",
-                (repository, job.as_str(), number as i64),
+                 WHERE repository = ?1 AND job_id = ?2 AND holder_kind = 'session' AND ended_at IS NULL",
+                (repository, session, number as i64),
             )
             .map_err(fault("ending takes of main's red"))?;
         }
@@ -232,7 +197,7 @@ impl Store {
         &self,
         clause: &str,
         params: &[&dyn rusqlite::ToSql],
-    ) -> Result<Vec<MainFix>, LoadJobError> {
+    ) -> Result<Vec<MainFix>, ReadError> {
         let mut asking = self
             .conn
             .prepare(&format!("SELECT {COLUMNS} FROM main_ci_fixes {clause}"))
@@ -247,6 +212,6 @@ impl Store {
     }
 }
 
-fn database(cause: DatabaseFault) -> LoadJobError {
-    LoadJobError::Unreadable(RowError::Database(cause))
+fn database(cause: DatabaseFault) -> ReadError {
+    ReadError::Unreadable(RowError::Database(cause))
 }

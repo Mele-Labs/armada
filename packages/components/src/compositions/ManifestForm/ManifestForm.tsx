@@ -104,8 +104,6 @@ export type ManifestFormProps = {
   reviewGateWords: string[];
   /** What keeps Save back, keyed as the file spells where — `checks.lint.run`. */
   problems: Record<string, string>;
-  /** Where a cap is below what a past Job here cost. */
-  budgetWarnings: string[];
   /** `id` and `version`, shown and never edited. Absent where Fleet did not say. */
   identity?: { id: string; version: number };
   /** Whether the draft would send any edit. Save is offered only then. */

@@ -22,8 +22,6 @@ function sessionFound(hit: ReturnType<typeof sessionsMatching>[number]): Found {
       return { short: matched.name, whole: `Branch ${matched.name}` };
     case "slot":
       return { short: `slot ${matched.slot}`, whole: `Worktree slot ${matched.slot}` };
-    case "job":
-      return { short: `job ${matched.number}`, whole: `Job ${matched.number}, ${matched.title}` };
     default:
       return NONE;
   }

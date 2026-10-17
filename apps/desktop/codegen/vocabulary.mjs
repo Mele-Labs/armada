@@ -1,8 +1,8 @@
 // The vocabulary Bridge renders with, emitted from the files that own it.
 //
 // `crates/core-model/domain/enum-verbs.toml` is the authority on how a variant
-// reads, `job-statuses.toml` on whether a Job is over, what it is doing and who
-// it waits on, and `actions.toml` on what every act is called and bound to.
+// reads, `check-outcomes.toml` on whether a Check outcome advances a step, and
+// `actions.toml` on what every act is called and bound to.
 // All of them are read here and written into TypeScript, because the
 // alternative — a verb list, a glyph map or a literal typed into a component —
 // is the second
@@ -32,118 +32,43 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..", "..");
 const VERBS = join(repo, "crates", "core-model", "domain", "enum-verbs.toml");
-const FIELDS = join(repo, "crates", "core-model", "domain", "job-fields.toml");
-const STATUSES = join(repo, "crates", "core-model", "domain", "job-statuses.toml");
 const OUTCOMES = join(repo, "crates", "core-model", "domain", "check-outcomes.toml");
 const ACTS = join(repo, "crates", "core-model", "domain", "actions.toml");
 // The vocabulary is a rendering and not a wire type: it carries the glyph each
 // variant draws as, so it imports `lucide-react`. It belongs with the
 // components that render it, and `@armada/protocol` stays dependency-free.
 const OUT = join(repo, "packages", "components", "src", "generated", "vocabulary.ts");
-// Beside the vocabulary and not inside it: a variant is a state a Job is in and
-// an act is something a person does to one, and the two are separate registries
+// Beside the vocabulary and not inside it: a variant is a state something is in and
+// an act is something a person does to it, and the two are separate registries
 // with separate gates. They share a destination for the same reason the
 // vocabulary is there at all — an act draws a glyph, and a glyph is React.
 const OUT_ACTIONS = join(repo, "packages", "components", "src", "generated", "actions.ts");
 
-// The vocabularies a surface renders. `criterion_verdict_attested` is left out
-// because nothing serves an attestation.
-//
-// `criterion_verdict_judge` is here because job detail draws a Judge's citation
-// beneath the step it judged. Both its rows carry a verb and a glyph and
-// neither carries a status token: the hue is `--verdict-met` and
-// `--verdict-not-met`, which are their own axis in `tokens/status.css` and not
-// a Job status. So both land in `GAPS` as missing a token, which is accurate —
-// there is no `--status-` stem to give `Badge`, and a criterion row is not a
-// badge.
-//
-// `criterion_verdict_check` is here for one variant. The rail says `not reached`
-// beside a declared Check the gate has not run, and `check_outcome` has no such
-// row — its five are what a Check that *ran* did. `icons/` already calls
-// "not reached" a Check state and reserves `shield-minus` to it, so the word and
-// the glyph are the registry's. Reported: the variant belongs under
-// `check_outcome` too.
+// The vocabularies a surface renders. `criterion_verdict_*` and `evidence_type` are
+// not: a Check's verdict and a step's evidence were a Job's rail, and no surface
+// draws them now.
 //
 // `step_state` and `advance_gate` were wanted here before either had a row, on
 // purpose: asking for a vocabulary is what puts the gap in this script's own
 // output — `advance_gate (no rows in enum-verbs.toml)` — rather than leaving a
-// renderer to write the missing words itself. Both have rows now, and the
-// mechanism is why the omission was visible for long enough to fix.
-//
-// The five below them arrived the same way and are drawn on four surfaces
-// nobody had a word for: the changed-files list, the evidence trail, the
-// transition history's kind and subject columns, and the observe pane's note
-// when the transcript socket closes. Each was rendering the wire spelling in
-// mono at a person.
+// renderer to write the missing words itself.
 const WANTED = [
-  "job_status",
   "queued_reason",
-  "admission_hold",
-  "budget_hold",
-  "resumption",
-  "escalation_reason",
   "check_outcome",
-  "criterion_verdict_check",
-  "criterion_verdict_judge",
   "step_state",
-  // A task of a Job's plan, promoted from `TASK_STATE_WORDS` in
-  // `packages/screens/src/draft/words.ts` at protocol 22.0 with its glyphs.
+  // A task of a plan.
   "task_state",
-  // A group of a Job's plan, between a step and a task. Wanted here with no
-  // enum and no registry file behind it, which is the case `advance_gate` and
-  // `gaming_pattern` already are: `enum-verbs.toml`'s header says why, and its
-  // glyphs are the step's borrowed one level further down. It replaces
-  // `GROUP_STATE_WORDS` in `packages/screens/src/draft/words.ts`, which held
-  // the words but could carry no glyph — a draft value has no registry row to
-  // attach one to, which is that file's own stated reason for withholding it.
+  // A group of a plan, between a step and a task. It has no enum behind it;
+  // `enum-verbs.toml`'s header says why, and its glyphs are the step's borrowed
+  // one level further down.
   "group_state",
   // A branch on the merge line, as Bridge's Overview draws it.
   "land_state",
   "advance_gate",
   // The Setup sheet and the Manifest form both offer its three words, and both showed the file's.
   "auto_merge",
-  "gaming_pattern",
-  "evidence_type",
   "change_kind",
-  "movement_kind",
-  "drone_presence",
-  "silence",
-  // Job detail's facts line names who or what dispatched a Job — #1115.
-  // `Row.tsx` documents the gap this closes: the table was already complete in
-  // `enum-verbs.toml`, but nothing asked for it, so `ORIGIN` did not exist for
-  // a screen to read. Every row renders as plain text rather than a badge —
-  // `enum-verbs.toml`'s own note on the vocabulary — so all six land in `GAPS`
-  // as missing an icon and a token, which is accurate rather than a gap left
-  // open: a fact run carries no glyphs and the badge hue does not apply to it.
-  "origin",
 ];
-
-// `admission_hold` is here because the status bar says which of the three things
-// is holding the next drone back, and every one of them folds to
-// `queued_reason.waiting_on_resources` on a Board row. Its rows carry a
-// verb and a token and no glyph, so all of them land in `GAPS` as missing one —
-// which is accurate: the status bar carries no icons, and `cpu` is reserved to
-// `queued_reason` in `packages/icons/icons/`. Nothing renders a glyph for
-// these today and nothing should invent one. It is the one table whose rows
-// also carry `hint`: the verb alone names which of the four is held and gives
-// no reasoning, and a tooltip on the status bar's held-reason item reads the
-// sentence instead.
-//
-// **It is the one vocabulary Fleet may widen without a protocol bump.** The map
-// below is keyed by the wire value with an `undefined` answer for a key this
-// build has never heard of, which is exactly what makes that safe — see
-// `crates/ipc/src/capacity.rs`.
-
-// `budget_hold` is here for the reason `admission_hold` is: a Job held on turns
-// and a Job held on money both fold to `queued_reason.over_budget`, and only one
-// of the two is cleared by raising a cost cap. Its two rows carry a verb, a
-// token and a hint and no glyph — nothing in the registry depicts money.
-
-// `resumption` is here because a queued row says which act a person took to put
-// it back, and that word is the registry's. Its three rows carry a verb and a
-// token and no glyph, which is accurate rather than a gap left open: the verb
-// renders as a suffix on the row's headline — where a recurrence count already
-// goes, per `Job row (stacked)`'s own story — and a headline carries no glyphs.
 
 // A glyph the registry names and this lucide-react version does not export.
 // Carried as data rather than fixed by a rename, because the rename is the
@@ -210,68 +135,6 @@ function quoted(value) {
 
 const verbs = tables(readFileSync(VERBS, "utf8"), "enum-verbs.toml");
 
-// `job-fields.toml` carries multi-line strings the parser above deliberately
-// does not read, and one value set the create form needs: the urgency row types
-// itself `enum{normal, incident}`. Read exactly that, and stop if the row stops
-// spelling its values — a picker that silently loses a variant is worse than a
-// build that fails.
-const urgencyRow = /\[fields\.urgency\][\s\S]*?type = "enum\{([^}]*)\}"/.exec(
-  readFileSync(FIELDS, "utf8"),
-);
-if (urgencyRow === null) throw new Error("job-fields.toml — [fields.urgency] names no value set");
-const urgencies = urgencyRow[1].split(",").map((value) => value.trim()).filter(Boolean);
-
-// `terminal`, `mode` and `who_is_acting` per Job status. Read with a scan of its
-// own rather than through `tables` above, because job-statuses.toml carries
-// arrays and prose that parser deliberately does not read — and a surface
-// choosing which detail screen a Job takes needs to know whether the Job is
-// over, not how it reads.
-//
-// **`who_is_acting` is emitted because a surface groups statuses by it.** The
-// Board's `Needs you` tab is defined as "the statuses that stop until a person
-// reads them", which is this field and nothing else. Without it Bridge reached
-// that set by subtracting the ones it could name — membership derived from the
-// absence of a rule rather than from the rule, which drifts silently the first
-// time a status is added.
-const ACTORS = new Set(["Person", "Drone", "None"]);
-const lifecycles = [];
-{
-  let current = null;
-  for (const raw of readFileSync(STATUSES, "utf8").split("\n")) {
-    const line = raw.trim();
-    const header = /^\[statuses\.([a-z_]+)\]$/.exec(line);
-    if (header !== null) {
-      current = { status: header[1], terminal: null, mode: null, acting: null };
-      lifecycles.push(current);
-      continue;
-    }
-    if (current === null) continue;
-    const terminal = /^terminal = (true|false)$/.exec(line);
-    if (terminal !== null) current.terminal = terminal[1] === "true";
-    const mode = /^mode = "([^"]*)"$/.exec(line);
-    if (mode !== null) current.mode = mode[1];
-    const acting = /^who_is_acting = "([^"]*)"$/.exec(line);
-    if (acting !== null) current.acting = acting[1];
-  }
-}
-for (const row of lifecycles) {
-  if (row.terminal === null || row.mode === null || row.acting === null) {
-    throw new Error(
-      `job-statuses.toml — [statuses.${row.status}] names no terminal, no mode or no who_is_acting`,
-    );
-  }
-  // The declared domain, from the field list at the head of job-statuses.toml.
-  // A fourth value means the registry moved, and stopping here is better than
-  // emitting a string every reader would fall through: the Board would put the
-  // status under no tab at all and nobody would be told why.
-  if (!ACTORS.has(row.acting)) {
-    throw new Error(
-      `job-statuses.toml — [statuses.${row.status}] has who_is_acting = "${row.acting}", ` +
-        `and the declared domain is Person | Drone | None`,
-    );
-  }
-}
-
 // `advances` per Check outcome, from the registry that owns the set.
 //
 // Emitted because a surface has to tell a Check that stopped a step from one
@@ -303,9 +166,6 @@ for (const [outcome, flag] of advances) {
 const vocabularies = new Map(WANTED.map((name) => [name, []]));
 const gaps = [];
 const glyphs = new Set();
-// What each gaming pattern says happened, for the lead and the card a flag
-// holds a step with. #1672.
-const headlines = [];
 
 for (const [header, table] of verbs) {
   const parts = header.split(".");
@@ -325,15 +185,6 @@ for (const [header, table] of verbs) {
   const icon = table.icon ?? "";
   const token = table.status_token ?? "";
   const hint = table.hint ?? "";
-  // A flag stops a step and the lead names it by what happened, so all nine
-  // carry one or the build stops.
-  if (vocabulary === "gaming_pattern") {
-    const headline = table.headline ?? "";
-    if (headline === "") {
-      throw new Error(`enum-verbs.toml — [verbs.gaming_pattern.${variant}] names no headline`);
-    }
-    headlines.push({ variant, headline });
-  }
   const missing = [];
   if (verb === "") missing.push("verb");
   if (icon === "") missing.push("icon");
@@ -356,10 +207,9 @@ const lines = [];
 lines.push("// GENERATED by `pnpm --filter @armada/desktop codegen`. Do not hand-edit.");
 lines.push("//");
 lines.push("// The verb, the glyph and the status token each variant renders as, from");
-lines.push("// `crates/core-model/domain/enum-verbs.toml`; whether a status is terminal,");
-lines.push("// what it is doing and who it waits on, from `job-statuses.toml`; whether a");
-lines.push("// Check outcome advances a step, from `check-outcomes.toml`. Nothing here is written by");
-lines.push("// hand, which is the point: a status label typed into a component is a");
+lines.push("// `crates/core-model/domain/enum-verbs.toml`; whether a Check outcome");
+lines.push("// advances a step, from `check-outcomes.toml`. Nothing here is written by");
+lines.push("// hand, which is the point: a state label typed into a component is a");
 lines.push("// second vocabulary.");
 lines.push("//");
 lines.push("// A `null` verb, glyph or token is a gap in the registry, not a default. Every");
@@ -411,19 +261,7 @@ lines.push(`export const ${constant}: Readonly<Record<string, Rendering | undefi
   lines.push("");
 }
 
-// The two files have to name the same twelve statuses. They are separate
-// registries and nothing else joins them, so a status added to one and not the
-// other would render with a verb and no lifecycle, or the reverse.
-const rendered = new Set((vocabularies.get("job_status") ?? []).map((row) => row.variant));
-const lived = new Set(lifecycles.map((row) => row.status));
-for (const status of rendered) {
-  if (!lived.has(status)) throw new Error(`job-statuses.toml has no [statuses.${status}]`);
-}
-for (const status of lived) {
-  if (!rendered.has(status)) throw new Error(`enum-verbs.toml has no [verbs.job_status.${status}]`);
-}
-
-// The same join `job_status` gets, for the same reason: an outcome in one
+// An outcome in one
 // registry and not the other renders with a verb and no rule, or the reverse.
 const drawn = new Set((vocabularies.get("check_outcome") ?? []).map((row) => row.variant));
 for (const outcome of drawn) {
@@ -435,58 +273,6 @@ for (const outcome of advances.keys()) {
   }
 }
 
-lines.push("/**");
-lines.push(" * What a gaming flag says happened, in the past tense, for the lead and the card");
-lines.push(" * a flag holds a step with. From `enum-verbs.toml`, beside the verb. #1672.");
-lines.push(" */");
-lines.push("export const GAMING_PATTERN_HEADLINE: Readonly<Record<string, string | undefined>> = {");
-for (const row of headlines) lines.push(`  ${JSON.stringify(row.variant)}: ${JSON.stringify(row.headline)},`);
-lines.push("};");
-lines.push("");
-lines.push("/** Where a Job is in its life, from `job-statuses.toml`. Not a rendering. */");
-lines.push("export type Lifecycle = {");
-lines.push("  /** Whether the Job is over here. */");
-lines.push("  readonly terminal: boolean;");
-lines.push("  /** `Working`, `Waited on` or `N/A` — what the Job is doing. */");
-lines.push("  readonly mode: string;");
-lines.push("  /**");
-lines.push("   * `Person`, `Drone` or `None` — who the Job is waiting on.");
-lines.push("   *");
-lines.push("   * **Not the same question as `mode`.** `piloted` is `Working` and its");
-lines.push("   * actor is a person; `queued` is `Waited on` and its actor is a drone. A");
-lines.push("   * surface grouping the statuses that stop until somebody reads them wants");
-lines.push("   * this field, and answers wrongly with either half of it alone.");
-lines.push("   */");
-lines.push("  readonly whoIsActing: string;");
-lines.push("};");
-lines.push("");
-lines.push("/** `job_status`, keyed by the wire value. What the status *is*, not how it reads. */");
-lines.push("export const JOB_LIFECYCLE: Readonly<Record<string, Lifecycle | undefined>> = {");
-for (const row of lifecycles) {
-  lines.push(
-    `  ${JSON.stringify(row.status)}: { terminal: ${row.terminal}, ` +
-      `mode: ${JSON.stringify(row.mode)}, whoIsActing: ${JSON.stringify(row.acting)} },`,
-  );
-}
-lines.push("};");
-lines.push("");
-lines.push("/**");
-lines.push(" * Whether a step may advance past one Check outcome, from");
-lines.push(" * `check-outcomes.toml`. **Not the same question as passed** — `skipped`");
-lines.push(" * advances and measured nothing, and a surface that read the status token");
-lines.push(" * instead would draw it identically to `never_ran`, which is a failure.");
-lines.push(" */");
-lines.push("export const CHECK_ADVANCES: Readonly<Record<string, boolean | undefined>> = {");
-for (const [outcome, flag] of advances) {
-  lines.push(`  ${JSON.stringify(outcome)}: ${flag},`);
-}
-lines.push("};");
-lines.push("");
-lines.push("/** What a Job's urgency may be, from `job-fields.toml`. Not a scale. */");
-lines.push(
-  `export const URGENCIES: readonly string[] = [${urgencies.map((u) => JSON.stringify(u)).join(", ")}];`,
-);
-lines.push("");
 lines.push("/** A variant the registry has no sanctioned copy, glyph or hue for. */");
 lines.push("export type Gap = {");
 lines.push("  readonly vocabulary: string;");

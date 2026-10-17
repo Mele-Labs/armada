@@ -1,4 +1,4 @@
-// A note just saved stays up on the page, and its card has the panel row's acts: Dispatch job, Start
+// A note just saved stays up on the page, and its card has the panel row's acts: Start
 // session with its caret, Mark done and Delete. A note sent to a Session opens that Session on the
 // Cockpit, not on the Sessions page. Told twice, wide and below the breakpoint. The layer is the mock's
 // own (`../annotating.tsx`).
@@ -15,8 +15,7 @@ function steps(narrow: boolean): Step[] {
     { type: "The row should say which step it is on", into: inside(dialog("New note"), role("textbox", "Note")), say: "What is wrong with it" },
     { press: button("Save note"), say: "Saved" },
     { look: inside(card, text("The row should say which step it is on")), say: "The note stays up where it was left" },
-    { look: inside(card, button("Dispatch job")), say: "With the acts the notes panel has" },
-    { look: inside(card, button("Mark done")), say: "Mark done and Delete too" },
+    { look: inside(card, button("Mark done")), say: "With the acts the notes panel has: Mark done and Delete" },
     { press: inside(card, button("Send to a Session")), say: "The caret lists the live Sessions" },
     { press: role("menuitem", "Fix the flaky store test"), say: "A pick sends the note to that Session" },
     { look: region("Session: Fix the flaky store test"), say: "The Session opens on the Cockpit" },

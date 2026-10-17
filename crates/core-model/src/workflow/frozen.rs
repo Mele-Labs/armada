@@ -35,10 +35,8 @@ use alloc::vec::Vec;
 use core::num::NonZeroU32;
 
 use crate::workflow::PrMode;
-use crate::workflow::{Iteration, Spent};
 use crate::workflow::covers::Covers;
 use crate::workflow::declared::{AdvanceGate, EvidenceType};
-use crate::workflow::gaming::GamingCheck;
 use crate::workflow::ids::{ModelName, StepId, WorkflowId};
 use crate::workflow::judge::JudgeCheck;
 use crate::workflow::narrowing::Narrowing;
@@ -47,7 +45,7 @@ use crate::workflow::prerequisite::Prerequisite;
 use crate::workflow::runs_at::RunsAt;
 use crate::workflow::scope::EvidenceScope;
 use crate::workflow::source::WorkflowSource;
-use crate::workflow::tuning::{Effort, StepTuning};
+use crate::workflow::tuning::Effort;
 use crate::workflow::verdict::GateVerdict;
 use crate::workflow::Runner;
 
@@ -239,13 +237,6 @@ impl ResolvedCheck {
         Covers::reach(self.when(), changed)
     }
 
-    /// Whether deciding to run this Check needs the step's changed paths read.
-    /// **False on every Check that declares no `when`**, which is what keeps
-    /// the reading off the gate of a step that would not use it.
-    pub fn needs_changed_paths(&self) -> bool {
-        self.when().is_some()
-    }
-
     /// How this Check is run against a subset of the tree, where the Manifest
     /// says. **`None` on a built-in and on a Check that declares no `narrow`**,
     /// which is the same answer: it runs whole.
@@ -383,9 +374,6 @@ pub struct ResolvedStep {
     /// workflow whose steps all restated the fallback would be a second place
     /// the fallback is written down.
     model: Option<ModelName>,
-    /// Whether a Drone on this step is given the tool that creates Jobs.
-    /// **False on every step that does not say otherwise.**
-    may_dispatch_jobs: bool,
     /// Whether Fleet runs the repository's own `evidence:` harness for this
     /// step and keeps what it produced.
     ///
@@ -498,11 +486,6 @@ pub struct ResolvedStep {
     /// `update_task`. **False on every step that does not say so**, and on
     /// every row frozen before a step could.
     follows_plan: bool,
-    /// Whether this step works the plan's tasks one at a time, each by a Drone
-    /// of its own. **Not `follows_plan`**, which is set on steps where one
-    /// Drone works the whole plan (spike 022, *which step runs a Drone per
-    /// task*). False on every row frozen before the key existed.
-    drone_per_task: bool,
     /// Which phase of the run the step declared itself in. **`None` is a step
     /// declaring none**, read through [`phase`](Self::phase)'s fallback, and
     /// every row frozen before the key existed.
@@ -557,7 +540,6 @@ impl ResolvedStep {
             // every linear workflow, and the last two a `None` about a dial
             // almost no step touches.
             about: None,
-            may_dispatch_jobs: false,
             delivers: false,
             draft_pr: None,
             captured: false,
@@ -568,7 +550,6 @@ impl ResolvedStep {
             quiet_after_seconds: None,
             poke_limit: None,
             follows_plan: false,
-            drone_per_task: false,
             phase: None,
             effort: None,
             context: None,
@@ -593,19 +574,6 @@ impl ResolvedStep {
     /// that does not also work a Drone per task.
     pub fn follows_plan(&self) -> bool {
         self.follows_plan
-    }
-
-    /// Whether this step's tasks are worked a Drone each, for
-    /// [`following_plan`](Self::following_plan)'s reason.
-    pub fn a_drone_per_task(mut self, each: bool) -> ResolvedStep {
-        self.drone_per_task = each;
-        self
-    }
-
-    /// **The one thing that puts a Drone on each task**, in plan order. Its
-    /// Drones are given neither plan tool: Fleet marks their tasks.
-    pub fn drone_per_task(&self) -> bool {
-        self.drone_per_task
     }
 
     /// The phase the step declared, for [`following_plan`](Self::following_plan)'s reason.
@@ -658,13 +626,6 @@ impl ResolvedStep {
         self.about.as_deref()
     }
 
-    /// The dispatch grant, for the reason [`frozen`](Self::frozen) is not
-    /// given it.
-    pub fn dispatching(mut self, may: bool) -> ResolvedStep {
-        self.may_dispatch_jobs = may;
-        self
-    }
-
     /// Whether entering this step sends the work out, for the reason
     /// [`frozen`](Self::frozen) is not given it: one step of a workflow
     /// declares it and every other step would be restating a `false`.
@@ -710,52 +671,6 @@ impl ResolvedStep {
         if !judge {
             self.judge_checks.clear();
         }
-        self
-    }
-
-    /// This step as a person tuned it at the approval press, read against the
-    /// step by `fleet::approving`. **Like a gate box, `checks_off` only takes a
-    /// Manifest Check away**, never one of Fleet's own looks.
-    pub fn tuned_by_person(mut self, tuning: &StepTuning) -> ResolvedStep {
-        if let Some(model) = &tuning.model {
-            self.model = Some(model.clone());
-        }
-        if tuning.effort.is_some() {
-            self.effort = tuning.effort;
-        }
-        if let Some(context) = &tuning.context {
-            self.context = Some(context.clone());
-        }
-        if let Some(judges) = tuning.judges {
-            self.judge_checks = core::mem::take(&mut self.judge_checks)
-                .into_iter()
-                .map(|judge| judge.with_panel(judges))
-                .collect();
-        }
-        let held = self.checks.len();
-        self.checks.retain(|check| {
-            check.kind() != MANIFEST_CHECK
-                || !tuning.checks_off.iter().any(|off| off == check.label())
-        });
-        // Every Check turned off is `gated_by_person`'s `checks: false`; a
-        // step whose repository declared none keeps saying it asked.
-        let turned_off = self.checks.len() < held;
-        if turned_off
-            && !self
-                .checks
-                .iter()
-                .any(|check| check.kind() == MANIFEST_CHECK)
-        {
-            self.gates_on_every_check = false;
-        }
-        self
-    }
-
-    /// The effort and the words a stored row held, for
-    /// [`following_plan`](Self::following_plan)'s reason.
-    pub fn as_tuned(mut self, effort: Option<Effort>, context: Option<String>) -> ResolvedStep {
-        self.effort = effort;
-        self.context = context;
         self
     }
 
@@ -889,16 +804,6 @@ impl ResolvedStep {
         self
     }
 
-    /// The Checks a Drone's own run asks, in the step's order: every one
-    /// declared [`RunsAt::Everywhere`]. The gate still runs the rest. #849.
-    pub fn mid_step_checks(&self) -> Vec<ResolvedCheck> {
-        self.checks
-            .iter()
-            .filter(|check| check.runs_at().mid_step())
-            .cloned()
-            .collect()
-    }
-
     /// Whether the definition asked for every Check its repository declares,
     /// rather than naming them.
     ///
@@ -922,23 +827,6 @@ impl ResolvedStep {
         &self.judge_checks
     }
 
-    /// Whether the Judge fires on this step at all. The cold-by-default switch:
-    /// a step declaring no criterion and no gaming pattern spends nothing.
-    pub fn asks_the_judge(&self) -> bool {
-        self.judge_checks.iter().any(JudgeCheck::fires)
-    }
-
-    /// Whether this step declares a gaming check that fires. Asked separately
-    /// from [`asks_the_judge`](ResolvedStep::asks_the_judge) because the two
-    /// look at different moments: the criteria decide whether the step
-    /// advances, and this decides whether the evidence is trusted.
-    pub fn asks_about_gaming(&self) -> bool {
-        self.judge_checks
-            .iter()
-            .filter_map(JudgeCheck::gaming)
-            .any(GamingCheck::fires)
-    }
-
     /// What this step's evidence is scoped to. **`None` is the common case**,
     /// and a step carrying none is neither watched nor asked for a declaration.
     pub fn evidence_scope(&self) -> Option<&EvidenceScope> {
@@ -950,25 +838,6 @@ impl ResolvedStep {
     /// step did before a budget existed: the first failure is the last.
     pub fn retry_limit(&self) -> u32 {
         self.retry_limit
-    }
-
-    /// Whether a failure on the run `spent` may be handed back for another one.
-    ///
-    /// **The arithmetic is here and nowhere else.** `retry_limit` counts
-    /// hand-backs, not attempts, so a step with a limit of two is worked
-    /// three times: the first run plus two. A caller comparing the two
-    /// itself would be a second place the off-by-one lives.
-    ///
-    /// [`Spent`] is the parameter rather than a bare number because there is
-    /// no constructor that invents one — derived from the step's own log —
-    /// so a caller cannot hand this a run count that disagrees with the
-    /// history. **It is `Spent` rather than [`Attempt`], the defect #263
-    /// closes**: an `Attempt` climbs across a loop return, so a looping step
-    /// arrived here with an earlier pass's runs charged against a budget
-    /// nothing had failed against. `retry_limit` resets on a return, so the
-    /// two types make asking with the wrong one a compile error.
-    pub fn may_hand_back(&self, spent: Spent) -> bool {
-        spent.number() <= self.retry_limit
     }
 
     /// How many passes a loop may make over this step. **Zero on every step of
@@ -992,51 +861,12 @@ impl ResolvedStep {
         self.verdict_routing.get(&verdict)
     }
 
-    /// Whether this step closes a loop at all — whether anything it can answer
-    /// routes backwards.
-    ///
-    /// Asked separately from [`iteration_cap`](ResolvedStep::iteration_cap)
-    /// because a cap of zero is a real declaration on a real loop (*"the first
-    /// `request_changes` is the last"*) and reads identically to no loop when
-    /// only the number is looked at.
-    pub fn closes_a_loop(&self) -> bool {
-        !self.verdict_routing.is_empty()
-    }
-
-    /// Whether the pass `now` may be redone once more, or the cap is spent.
-    ///
-    /// **The arithmetic is here and nowhere else**, for
-    /// [`may_hand_back`](ResolvedStep::may_hand_back)'s reason — and it is a
-    /// *different* arithmetic, which is why they are two calls taking two
-    /// types. `retry_limit` counts hand-backs; `iteration_cap` counts passes,
-    /// so a cap of five makes the fifth pass the last. See
-    /// `workflowdef-fields.toml`, which said "returns" until #263 and does not
-    /// now: `attempt_cap: 15` is `retry_limit × iteration_cap` at 3 × 5 only on
-    /// the passes reading, and "iteration 3 of 5" renders the same way.
-    ///
-    /// [`Iteration`] is the parameter for [`Attempt`]'s reason: nothing invents
-    /// one, so no caller can pass a count the step's log does not support.
-    ///
-    /// **A spent cap is not a failure.** Nothing went wrong and the loop did
-    /// not converge, so the step stops under
-    /// [`EscalationTrigger::LoopCap`](crate::EscalationTrigger) — raised by
-    /// `fleet::gate`, exactly as it raises `gate_failure` off the other call.
-    pub fn may_return(&self, now: Iteration) -> bool {
-        now.number() < self.iteration_cap
-    }
-
     /// What this step asked to be run as. **`None` on most steps**, and on
     /// every step written before a step could name one — see
     /// [`Job::model_at`](crate::Job::model_at), which is the only place the
     /// fallback to the Job's is spelled.
     pub fn model(&self) -> Option<&ModelName> {
         self.model.as_ref()
-    }
-
-    /// **The one thing that grants the dispatch tool** — read where a
-    /// toolbelt is built, and again where a call of it arrives.
-    pub fn may_dispatch_jobs(&self) -> bool {
-        self.may_dispatch_jobs
     }
 
     /// **The one thing that sends a Job's work out** — read where a step is
@@ -1073,12 +903,6 @@ impl ResolvedStep {
         self.poke_limit
     }
 
-    /// How many model calls one pass over this step makes. Latency rather than
-    /// money is what this counts — every call sits at a gate a person is
-    /// waiting behind.
-    pub fn judge_calls(&self) -> u32 {
-        self.judge_checks.iter().map(JudgeCheck::calls).sum()
-    }
 }
 
 /// The WorkflowDef a Job follows, as it stood when the Job was created.
@@ -1171,10 +995,6 @@ impl FrozenWorkflow {
     pub fn before(&self, id: &StepId) -> Option<&ResolvedStep> {
         let at = self.steps.iter().position(|step| step.id() == id)?;
         at.checked_sub(1).and_then(|before| self.steps.get(before))
-    }
-    /// The one step whose entry sends the work out, at most one. `#663`.
-    pub fn delivering_step(&self) -> Option<&ResolvedStep> {
-        self.steps.iter().find(|step| step.delivers())
     }
 
     /// The handoff-only Checks a step gating on every Check leaves to a later

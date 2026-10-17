@@ -99,16 +99,7 @@
           "model": "haiku",
           "prompt_key": "fix_addresses_cause_not_symptom",
           "question": "Does this diff address the stated root cause, not just the symptom?",
-          "panel_size": 3,
-          "gaming_check": {
-            "enabled": true,
-            "baseline_ref": "root_cause.evidence",
-            "flag_if": [
-              "assertion_weakened",
-              "test_scope_narrowed",
-              "tautological_test"
-            ]
-          }
+          "panel_size": 3
         }
       ],
       "evidence_scope": {
@@ -120,8 +111,7 @@
         "scope_diff_check": true,
         "declare_plan_at": "step_start"
       },
-      "advance_gate": "auto_if_judge_passes",
-      "on_gaming_flag": "escalate:evidence_suspect"
+      "advance_gate": "auto_if_judge_passes"
     },
     {
       "id": "regression_verify",

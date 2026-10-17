@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, held, hosted } from "./sessions-fleet";
@@ -38,7 +38,7 @@ function fleet(): FakeSessionsFleet {
 }
 
 async function open(served: FakeSessionsFleet) {
-  mount(served.scenario(onBoard([], { repositories: [ARMADA], picked: ARMADA.root })));
+  mount(served.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
   const work = page.getByRole("region", { name: "Work", exact: true });
   await expect.element(work).toBeVisible();

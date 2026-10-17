@@ -43,7 +43,6 @@
 //! | Running one Manifest entry in the checkout, and reading, saving and editing the file, are operations Fleet serves | — |
 //! | **Verify.** What it runs is setup in `setup.requires` order, then every Check in written order, once each, and nothing else the file declares — a Check's prerequisites run inside its own run, other Commands and the server not at all — and starting one is an act Fleet serves | That any of it runs, one step at a time, writing nothing: those are processes, and `fleet`'s `verify_runs` tests. That Verify is offered on the sheet that wrote the file — #824. That a failed setup skips the Checks after it, as a Job's does |
 //! | **Fix.** A failed Check's command corrected as a form sends it — that Check's `run`, by name — changes that one line: every comment and every other line stays, the result loads, and a correction that would not load is refused with its faults | That a person sees the failing row and corrects it there: the form is Bridge's, a later child of #721. That only that Check runs again: #719's scoped Verify. That Fleet writes it and refuses a file that moved: that touches a file, and is `fleet`'s own tests |
-//! | A request naming a milestone is offered `epic` with what it is for, in a requester's words, beside its steps — and a definition saying nothing is offered as before | That a model reading it proposes `epic`. Choosing is a model's, and this file calls none |
 
 // The bench is shared with the other milestones' tests and none of them uses
 // all of it. Every item in it is reached from one of the six.

@@ -37,7 +37,6 @@ mod helm_record;
 mod helm_studio;
 mod host;
 mod http;
-mod journal;
 mod kit_allowlist;
 mod listener;
 mod manifest_proposals;

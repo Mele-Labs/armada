@@ -1,34 +1,21 @@
 // The Cockpit's Bays filter with pull requests no bay holds, each tied to the work it belongs to and
-// carrying that work's whole journey: a Session working, one idle holding two, one that has ended, a Job
-// waiting on him and a Job that is done, and one pull request nobody in Armada owns. Each owner's bay is
-// already given back. Over `dashboard-cockpit`; the walk `baysOutsidePrs` plays it.
+// carrying that work's whole journey: a Session working, one idle holding two, one that has ended, and
+// pull requests nobody in Armada owns. Each owner's bay is already given back. Over `dashboard-cockpit`; the walk `baysOutsidePrs` plays it.
 
 import type { MergeLines } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
-import { review } from "@armada/screens/src/fixtures/build/index";
 
-import { asRow } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 import { COCKPIT_SESSIONS as SESSIONS } from "../cockpit-sessions";
 import { s206DashboardCockpit } from "./dashboard-cockpit";
 
-const OWNER = repository().manifest!.id;
 const FORGE = "https://git.example/armada/pull/";
-const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-
-/** A Job that finished its work and is waiting on him: its bay is given back and its pull request is open. */
-const asking = (() => {
-  const fixture = asRow(review(), 93, "pause-column", "Add the pause marker column");
-  const job = { ...fixture.job, owner_manifest_id: OWNER, created_at: ago(150), started_at: ago(140), branch: "armada/93-pause-column" };
-  return { ...fixture, job };
-})();
 
 const pull = (number: number, title: string, branch: string, more: Record<string, unknown> = {}) => ({ number, title, branch, url: `${FORGE}${number}`, ...more });
 
-/** The open pull requests the dashboard holds, and six more that sit in no bay. */
+/** The open pull requests the dashboard holds, and five more that sit in no bay. */
 function withOutside(lines: MergeLines): MergeLines {
   return {
     lines: lines.lines.map((one) => ({
@@ -45,8 +32,7 @@ function withOutside(lines: MergeLines): MergeLines {
           pull(1898, "Rename the status tokens", "chore/rename-status-tokens", { ci: "running" }),
           // An ended Session's.
           pull(1899, "Bump the release script", "release/script-bump", { ci: "failed" }),
-          // A Job's, which the wire names, and another found on a done Job's branch.
-          pull(1900, "Add the pause marker column", "armada/93-pause-column", { ci: "passed", job: { id: asking.job.id, title: asking.job.title } }),
+          // One nobody in Armada owns.
           pull(1901, "Fold the notification routes", "armada/91-notification-routes", { ci: "passed", queue: { state: "queued", position: 3 } }),
         ],
       },
@@ -56,11 +42,6 @@ function withOutside(lines: MergeLines): MergeLines {
 
 function build(): Scenario {
   const base = s206DashboardCockpit;
-  const landed = base.state.jobs.find((one) => one.title === "Fold the two notification routes into one")!;
-  const jobs = [
-    ...base.state.jobs.map((one) => (one.id === landed.id ? { ...one, branch: "armada/91-notification-routes", created_at: ago(400), started_at: ago(390) } : one)),
-    asking.job,
-  ];
   const pr = (number: number, title: string, branch: string, checks: "passed" | "failed", failing = ""): SessionAttachment => ({
     kind: "pull_request",
     number,
@@ -92,11 +73,10 @@ function build(): Scenario {
   return {
     ...base,
     name: "bays-outside-prs",
-    says: "The Bays filter with pull requests outside a bay, each under the Job or Session it belongs to and the stations that work went through",
-    state: { ...base.state, jobs, mergeLines: withOutside(base.state.mergeLines!) },
-    reads: { ...base.reads, [asking.job.id]: asking },
+    says: "The Bays filter with pull requests outside a bay, each under the Session it belongs to and the stations that work went through",
+    state: { ...base.state, mergeLines: withOutside(base.state.mergeLines!) },
     later: [],
-    draft: { ...base.draft!, sessions: (control) => sessionsStore([none, none], none, control, [], sessions) },
+    draft: { ...base.draft!, sessions: () => sessionsStore(sessions) },
   };
 }
 

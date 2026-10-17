@@ -34,8 +34,8 @@ pub const READ_AS: &str =
                            until_from: until 7am\n\
                            spend: 30\n\
                            spend_from: $30 max\n\
-                           jobs: none\n\
-                           jobs_from: none";
+                           sessions: none\n\
+                           sessions_from: none";
 
 pub fn now() -> Timestamp {
     Timestamp::from_rfc3339(NOW)

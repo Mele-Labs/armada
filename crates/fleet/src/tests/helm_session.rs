@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use api::{Admitting, Conversations, HostedSessions, Refusal, Sessions};
 use ipc::{
-    AskHelm, HelmContext, HelmScreen, HelmSession, JobId, ManifestId, SessionRecord, SessionRow,
+    AskHelm, HelmContext, HelmScreen, HelmSession, ManifestId, SessionRecord, SessionRow,
     SessionState, SessionVoice, TuneSession,
 };
 
@@ -234,10 +234,8 @@ async fn the_message_that_starts_it_may_say_what_it_runs_on() {
 async fn the_line_saying_where_the_person_is_goes_ahead_of_their_words_and_is_not_on_the_thread() {
     let rig = rig_placing(None);
     let context = HelmContext {
-        screen: HelmScreen::Board,
+        screen: HelmScreen::Overview,
         picked: Some(ManifestId::carried("armada")),
-        chip: Some(JobId::carried("01JOB0000000000000000000A")),
-        cursor: None,
         studio: None,
         node: None,
     };
@@ -246,8 +244,7 @@ async fn the_line_saying_where_the_person_is_goes_ahead_of_their_words_and_is_no
         .expect("taken");
 
     let line = rig.stand_in.process(0).sent.lock().unwrap()[0].clone();
-    let at = line.find("The person is on the Job Board, picked on armada").expect("the line");
-    assert!(line.contains("Job 01JOB0000000000000000000A is chipped to Helm's message box"), "{line}");
+    let at = line.find("The person is on Overview, picked on armada").expect("the line");
     assert!(at < line.find("why did it stall?").expect("the words"), "ahead of them: {line}");
 
     let rows = rig.helm_rows().await;

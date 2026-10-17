@@ -1,6 +1,6 @@
 // Start Session on a retro item, through `App` (`docs/concepts/retro.md`, *Where Bridge draws it*):
 // the press asks Fleet to start the Session and the app goes to the Cockpit, where a Session is viewed. Fleet sends the brief
-// itself, so nothing is put in a message box. The mock Fleet mints no Session (the jobs fake holds
+// itself, so nothing is put in a message box. The mock Fleet mints no Session (the mock holds
 // none), so only the move to the Cockpit is checked here.
 
 import { beforeEach, expect, test } from "vitest";
@@ -37,7 +37,7 @@ test("a Kit item offers no Start Session", async () => {
   await onScreen();
   await toRetros();
 
-  const kit = page.getByRole("listitem", { name: "A Drone had to wait for grep to be allowed" });
+  const kit = page.getByRole("listitem", { name: "Walks opened in your browser" });
   await expect.element(kit).toBeVisible();
   expect(kit.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
 });

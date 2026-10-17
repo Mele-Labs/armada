@@ -29,8 +29,6 @@ mod acting;
 mod accounting;
 mod amending;
 mod answers;
-/// The four reads that narrow the Board rather than drawing it.
-mod attention;
 /// Who the listener answers at all: a page in a browser is refused before any
 /// handler runs. **The seam's one rule about callers**, and `#1460`.
 mod callers;
@@ -55,7 +53,6 @@ mod hosted_sessions;
 mod issues;
 /// A repository working its own backlog. #2092.
 mod autopilots;
-mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
 /// The build Fleet runs on, read, and the restart onto another.
@@ -77,8 +74,6 @@ mod pull_requests;
 mod queries;
 mod receipts;
 mod reconciling;
-/// The `:job_id` a route carries, resolved before a handler can reach it.
-mod reference;
 /// The run sheet's routes: a person's run of one Manifest entry in a Job's
 /// worktree, and what the runs left.
 mod rehearsing;
@@ -120,11 +115,9 @@ pub use daemon::{
     StoredFile, Studios,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
-pub use following::{Follow, Followed, LandOutput, LiveOutput, SessionCheckLive};
-pub use journal::{Journal, Reading, Window, FOLLOW};
+pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};
 pub use mcp::Caller;
 pub use reconciling::Reconciliation;
-pub use reference::Resolved;
 pub use routes::{router, Route, SERVED};
 pub use served::Served;
 pub use stream::{
@@ -132,6 +125,6 @@ pub use stream::{
 };
 pub use watching_session_run::{ObservedSessionRun, SessionRunEvent, SESSION_RUN_BACKLOG};
 pub use watching_run::{
-    ObservedCheckoutRun, ObservedRun, ObservedServer, RunChunk, RunFeed, RunSeen, RunWatch,
+    ObservedCheckoutRun, ObservedServer, RunChunk, RunFeed, RunSeen, RunWatch,
     RUN_BACKLOG,
 };

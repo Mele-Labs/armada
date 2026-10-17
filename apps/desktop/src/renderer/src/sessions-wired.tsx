@@ -14,7 +14,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import { EFFORTS } from "@armada/screens/src/draft/tuning";
 import type { ProposedField, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -73,7 +72,7 @@ type WaitRead = { sessionId: string; words: string; reading: WaitReading | undef
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
 
 /** `features.workflows` in settings.json, which the owner turns off to dispatch plain Sessions. On until Fleet says otherwise. */
 export const workflowsOffIn = (settings: SettingsList | null): boolean => settings?.settings.find((one) => one.key === "features.workflows")?.value === false;
@@ -133,20 +132,19 @@ export class WiredStore {
       // A failed re-read after a good one is not a list with no Sessions: what was held stays, as main's does.
       sessions: state.sessions.state === "failed" && was?.sessions.state === "read" ? was.sessions : share(was?.sessions, state.sessions),
       sessionThreads: share(was?.sessionThreads, state.sessionThreads),
-      jobs: share(was?.jobs, state.jobs),
       holds: share(was?.holds, state.holds),
       repository: state.repository,
       helm: share(was?.helm, state.helm),
       workflowsOff: workflowsOffIn(state.settings),
     };
-    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.jobs === next.jobs && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
     this.inputs = next;
     this.recompute();
   }
 
   private recompute(): void {
     const read = this.inputs?.sessions;
-    // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
+    // The window holds the picked repository's Sessions,: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
     const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo);
     // Nothing drawn changed: the same list, so what reads it does not draw again.
@@ -177,7 +175,6 @@ export class WiredStore {
   }
 
   private readonly beside = (id: string): Beside => ({
-    jobs: this.inputs?.jobs ?? NONE,
     picture: this.pictureOf,
     sketches: this.sketches.get(id) ?? NONE,
     pending: this.pending.get(id) ?? NONE,
@@ -462,12 +459,6 @@ export class WiredStore {
     return true;
   }
 
-  private async exiting(jobId: string, exit: "submit" | "attest" | "supersede"): Promise<void> {
-    this.say(undefined);
-    const done = await this.api.exitPilot(jobId, exit);
-    if (!done.ok) this.say(done);
-  }
-
   private commandsFrom: readonly string[] | undefined;
   private commandsAre: readonly SessionCommand[] = NONE;
 
@@ -483,17 +474,17 @@ export class WiredStore {
     return this.commandsAre;
   }
 
-  private async acting(id: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<boolean> {
+  private async acting(id: string, number: number, act: "ready" | "merge" | "auto_merge"): Promise<boolean> {
     this.say(undefined);
     const done = await this.api.pressPullRequest(id, number, act);
     if (!done.ok) this.say(done.outcome);
     // Whatever the answer, the sheet shows the pull request as the forge has it now.
-    if (act !== "review") await this.api.pressPullRequest(id, number, "read");
+    await this.api.pressPullRequest(id, number, "read");
     return done.ok;
   }
 
   /** A refusal is a toast, since the Manifest form and the deck have no Sessions view to show it in. */
-  private async actingInRepository(root: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<boolean> {
+  private async actingInRepository(root: string, number: number, act: "ready" | "merge" | "auto_merge"): Promise<boolean> {
     const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
     if (manifestId === undefined) {
       this.tell({ ok: false, why: "no_manifest" });
@@ -618,7 +609,6 @@ export class WiredStore {
     forkAt: (id, at) => this.forkingAt(id, at),
     move: (id, manifestId) => this.moving(id, manifestId),
     retro: (id) => this.retroing(id),
-    exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     subagent: async (id, subagentId) => {
       const read = await this.api.readSessionSubagent(id, subagentId);
@@ -693,7 +683,7 @@ export class WiredStore {
     get defaultModel() {
       return store.inputs?.holds.models?.session;
     },
-    efforts: EFFORTS,
+    efforts: ["low", "medium", "high"],
     work: {
       get workflows() {
         return store.workflowChoices();

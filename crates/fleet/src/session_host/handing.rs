@@ -275,7 +275,7 @@ where
     ) -> Result<Option<ipc::SlotReleased>, String> {
         let manifest = ManifestId::from(served.manifest().id());
         let holder = match &leased.holder {
-            SlotHeld::Job(by) if by == id && !hosted => {
+            SlotHeld::Hosted(by) if by == id && !hosted => {
                 let (vcs, pool, slot, by) = (Arc::clone(self.vcs()), pool_of(served), leased.slot, by.clone());
                 let parked = tokio::task::spawn_blocking(move || vcs.park_hosted_slot(&pool, slot, &by))
                     .await
@@ -283,7 +283,7 @@ where
                     .map_err(|why| why.said())?;
                 return Ok(crate::saving::released_answer(served, leased.slot, parked).released);
             }
-            SlotHeld::Job(by) => by.clone(),
+            SlotHeld::Hosted(by) => by.clone(),
             SlotHeld::Session(said) => said.clone(),
             _ => return Err(String::from("No session holds it now.")),
         };
@@ -302,7 +302,7 @@ where
         to: &str,
     ) -> Result<Option<ipc::SlotReleased>, String> {
         let from = match &leased.holder {
-            SlotHeld::Job(by) => format!("job {by}"),
+            SlotHeld::Hosted(by) => format!("job {by}"),
             SlotHeld::Session(said) => said.clone(),
             _ => return Err(String::from("No session holds it now.")),
         };
@@ -356,7 +356,7 @@ where
 /// A refusal's words, for the row that stayed.
 fn said_of(refusal: &Refusal) -> String {
     match refusal {
-        Refusal::NoSuchJob(why) | Refusal::IllegalMove(why) | Refusal::Unacceptable(why) | Refusal::Fault(why) => {
+        Refusal::NotFound(why) | Refusal::IllegalMove(why) | Refusal::Unacceptable(why) | Refusal::Fault(why) => {
             why.message.clone()
         }
     }

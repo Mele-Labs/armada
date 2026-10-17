@@ -4,19 +4,18 @@
 // lands, so the waiting Session starts with the handoff as its first message. The Sessions are draft data
 // (`packages/screens/src/draft/sessions.ts`), nothing here reaches Fleet. The walk `sessionAfterAnother` plays it.
 
-import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { asRow, holding, servedFrom } from "../holding";
+import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 import type { SessionsStore } from "../sessions/script";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const board = asRow(featureRunning(), 83, "migrate", "Order the store migrations");
-const OWNER = board.manifests[0]!.id;
-const ROOT = servedFrom(board.manifests[0]!).root;
+const OWNER = repository().manifest!.id;
+const ROOT = repository().root;
 
 /** The Session the new one waits on: the walk picks it by this id. */
 const MAP = "after-map";
@@ -39,7 +38,7 @@ const map: Session = {
   rows: [
     you("a-1", "13:50:00", "Draw the Cockpit as a map on the Pixi Field."),
     { id: "a-2", at: "13:58:12", kind: "tool", text: "Edit apps/desktop/src/renderer/src/cockpit/field.ts" },
-    agent("a-3", "14:00:05", "The Pixi Field draws the Sessions and Jobs. The overlay is next."),
+    agent("a-3", "14:00:05", "The Pixi Field draws the Sessions. The overlay is next."),
   ],
   attachments: [{ kind: "branch", name: BRANCH, slot: 1 }],
   work: {
@@ -67,9 +66,8 @@ const quiet: Session = {
   attachments: [{ kind: "branch", name: "fix/migration-names", slot: 2 }],
 };
 
-function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
-  const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, control, [], [map, quiet], [], new Map([[ROOT, OWNER]]));
+function sessions(): SessionsStore {
+  const base = sessionsStore([map, quiet], [], new Map([[ROOT, OWNER]]));
   let rowId = 0;
   let moment = 0;
   const said = (text: string): SessionRow => ({ id: `after-r${(rowId += 1)}`, at: `14:${String(10 + rowId).padStart(2, "0")}:00`, kind: "message", from: { kind: "agent" }, text });
@@ -100,11 +98,10 @@ function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
 }
 
 function build(): Scenario {
-  const rows = [{ ...board, job: { ...board.job, owner_manifest_id: OWNER, started_at: ago(30) } }];
-  const base = holding("session-after-another", "A Session dispatched to wait on another: the @ menu and the sentence over the request, its own row in the Work list, the thread of the Session it waits on, and its start", rows);
+  const base = holding("session-after-another", "A Session dispatched to wait on another: the @ menu and the sentence over the request, its own row in the Work list, the thread of the Session it waits on, and its start");
   return {
     ...base,
-    state: { ...base.state, repository: ROOT, jobs: rows.map((one) => one.job) },
+    state: { ...base.state, repository: ROOT },
     draft: { sessions },
   };
 }

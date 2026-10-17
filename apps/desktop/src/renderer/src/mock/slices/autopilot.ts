@@ -1,6 +1,6 @@
 // Autopilot's members: one repository's Autopilot mid-run, so the Cockpit lane has something to draw.
 // Two picks started, one set aside with its reason, and one withdrawn by an earlier Stop. `pocket`'s is
-// paused by its Job cap, and Resume is refused, naming the cap, until Edit caps raises it. The acts
+// paused by its Session cap, and Resume is refused, naming the cap, until Edit caps raises it. The acts
 // move it as Fleet would; what Fleet keeps and picks is `fleet::autopilot`'s. #2092, #2105.
 
 import type { Autopilot, AutopilotProposal, Outcome } from "@armada/protocol";
@@ -18,7 +18,7 @@ function running(manifestId: string): Autopilot {
     state: "running",
     started_at: "2026-10-12T03:00:00.000Z",
     spent_micros: 4_120_000,
-    jobs_started: 2,
+    sessions_started: 2,
     at_work: 1,
     picks: [
       {
@@ -35,7 +35,7 @@ function running(manifestId: string): Autopilot {
       {
         pick_id: "01JAUTOPILOTPICK0000000002",
         issue_reference: `#${377}`,
-        issue_title: "Should the Board group Jobs by repository?",
+        issue_title: "Should the Board group Sessions by repository?",
         issue_url: "https://forge.invalid/storefront/issues/377",
         workflow_id: "feature",
         state: "set_aside",
@@ -57,7 +57,7 @@ function running(manifestId: string): Autopilot {
   };
 }
 
-/** The second repository's: three Jobs started of a cap of three, so the cap paused it. */
+/** The second repository's: three Sessions started of a cap of three, so the cap paused it. */
 function capped(manifestId: string): Autopilot {
   const started = (n: number, title: string): Autopilot["picks"][number] => ({
     pick_id: `01JAUTOPILOTPOCKETPICK00${n}`,
@@ -72,14 +72,14 @@ function capped(manifestId: string): Autopilot {
   });
   return {
     manifest_id: manifestId,
-    instruction: "fix the pairing bugs, three Jobs at most",
+    instruction: "fix the pairing bugs, three Sessions at most",
     at_once: 1,
-    job_cap: 3,
+    session_cap: 3,
     state: "paused",
-    capped_by: "jobs",
+    capped_by: "sessions",
     started_at: "2026-10-12T03:00:00.000Z",
     spent_micros: 6_300_000,
-    jobs_started: 3,
+    sessions_started: 3,
     at_work: 0,
     picks: [started(1, "The pairing code expires early"), started(2, "Pairing fails offline"), started(3, "The QR code is cut off")],
   };
@@ -87,7 +87,7 @@ function capped(manifestId: string): Autopilot {
 
 /** The cap that still holds, in Fleet's words for a Resume past it. Until is left to the mock's own record. */
 function held(autopilot: Autopilot): string | undefined {
-  if (autopilot.job_cap !== undefined && autopilot.jobs_started >= autopilot.job_cap) return "the Job cap is reached. Raise it, then resume";
+  if (autopilot.session_cap !== undefined && autopilot.sessions_started >= autopilot.session_cap) return "the Session cap is reached. Raise it, then resume";
   if (autopilot.spend_cap_micros !== undefined && autopilot.spent_micros >= autopilot.spend_cap_micros) return "the spend cap is reached. Raise it, then resume";
   return undefined;
 }
@@ -100,7 +100,7 @@ const refused = (message: string): { ok: false; outcome: Outcome } => ({
 export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   name: "autopilot",
   state: {},
-  api: (scenario) => {
+  api: () => {
     const kept = new Map<string, Autopilot>();
     const told = new Set<(autopilot: Autopilot) => void>();
     const of = (manifestId: string): Autopilot => kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
@@ -126,8 +126,8 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
         return { ok: true, value: proposal };
       },
       startAutopilot: async (manifestId, settings) =>
-        moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, jobs_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined }),
-      updateAutopilot: async (manifestId, settings) => moved(manifestId, { until: undefined, spend_cap_micros: undefined, job_cap: undefined, ...settings }),
+        moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, sessions_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined }),
+      updateAutopilot: async (manifestId, settings) => moved(manifestId, { until: undefined, spend_cap_micros: undefined, session_cap: undefined, ...settings }),
       pauseAutopilot: async (manifestId) => moved(manifestId, { state: "paused" }),
       resumeAutopilot: async (manifestId) => {
         const holding = held(of(manifestId));
@@ -138,10 +138,6 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
       getAutopilot: async (manifestId) => ({ ok: true, value: of(manifestId) }),
       dispatchSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "started"),
       dismissSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "dismissed"),
-      readJob: async (jobId) => {
-        const watched = scenario.reads[jobId]?.watched;
-        return watched?.state === "read" ? { ok: true, value: watched.detail } : { ok: false, outcome: { ok: false, why: "not_connected" } };
-      },
       onAutopilotChanged: (onChanged) => {
         told.add(onChanged);
         return () => void told.delete(onChanged);

@@ -29,7 +29,7 @@ their work before advancing them. Rust daemon, Electron app, one repo.
 | What was measured, and what was not | `docs/spikes/` |
 | What is being built, and in what order | GitHub issues, grouped by milestone |
 | What a thing is, and how it is used | `docs/concepts/`, `docs/journeys/` |
-| Skills and subagents | `.claude/skills/`, `.claude/agents/` |
+| Skills and subagents, and which model each runs on | `.claude/skills/`, `.claude/agents/`, `plugins/armada/agents/`, `docs/practices/subagents.md` |
 | Landing a branch on `main` | `docs/practices/ci.md`, a pull request merged on a green `ci` |
 
 Everything written down is in `docs/INDEX.md`, and the gate refuses one that is

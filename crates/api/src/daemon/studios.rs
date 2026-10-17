@@ -29,7 +29,7 @@ pub trait Studios: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<StudioList, Refusal>> + Send;
 
-    /// `get_studio`. [`Refusal::NoSuchJob`]'s 404 where no Studio is `studio_id`.
+    /// `get_studio`. [`Refusal::NotFound`]'s 404 where no Studio is `studio_id`.
     fn get_studio(
         &self,
         studio_id: StudioId,

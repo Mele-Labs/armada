@@ -1,5 +1,0 @@
-[operations.get_usage]
-kind = "query"
-transport = "HTTP"
-agent_access = "Yes"
-description = "Spend or quota against the Machine gate"

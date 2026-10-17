@@ -18,7 +18,7 @@ const POINTED: StudioCapture = {
 
 /**
  * A Studio holding what each sentence is about: a Note with a picture and one
- * without, an Issue that produced a Note, a Job node, and an edge from a node
+ * without, an Issue that produced a Note, and an edge from a node
  * going to a node that stays.
  */
 const STUDIO: Studio = {
@@ -31,7 +31,6 @@ const STUDIO: Studio = {
     { id: "n2", kind: "note", said: "It wraps at 720 wide", position: { x: 0, y: 300 }, created_at: AT },
     { id: "n3", kind: "issue", address: "https://example.invalid/o/r/issues/1411", number: "1411", position: { x: 300, y: 0 }, created_at: AT },
     { id: "n4", kind: "note", said: "What the issue said", position: { x: 300, y: 300 }, created_at: AT },
-    { id: "n5", kind: "job", job_id: "j1", position: { x: 600, y: 0 }, created_at: AT },
   ],
   edges: [
     { id: "e1", from: "n3", to: "n4", kind: "produced", standing: "accepted", created_at: AT },
@@ -40,19 +39,18 @@ const STUDIO: Studio = {
 };
 
 test("everything picked takes every edge, and nothing is left hanging or reaching outside", () => {
-  const whole = clearingOf(STUDIO, ["n1", "n2", "n3", "n4", "n5"]);
-  expect(whole).toEqual({ nodes: 5, edges: 2, toWhatStays: 0, frames: 1, leftHanging: 0, jobs: 1 });
+  const whole = clearingOf(STUDIO, ["n1", "n2", "n3", "n4"]);
+  expect(whole).toEqual({ nodes: 4, edges: 2, toWhatStays: 0, frames: 1, leftHanging: 0 });
   expect(clearingSaid(whole)).toEqual([
-    "5 nodes go from this Studio, with the 2 edges on them.",
+    "4 nodes go from this Studio, with the 2 edges on them.",
     "1 Note going keeps a picture, and it goes with the Note.",
-    "1 Job node goes. The Job it names is untouched — a Studio holds a reference to a Job, never the Job.",
     "There is no undo.",
   ]);
 });
 
 test("an Issue picked without what it produced says the Note stays and the edge goes", () => {
   const some = clearingOf(STUDIO, ["n3"]);
-  expect(some).toEqual({ nodes: 1, edges: 1, toWhatStays: 1, frames: 0, leftHanging: 1, jobs: 0 });
+  expect(some).toEqual({ nodes: 1, edges: 1, toWhatStays: 1, frames: 0, leftHanging: 1 });
   expect(clearingSaid(some)).toEqual([
     "1 node goes from this Studio, with the 1 edge on it.",
     "1 of those edges reaches a node that stays. The node stays; the edge goes.",

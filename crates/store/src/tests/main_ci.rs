@@ -1,10 +1,9 @@
-//! Main's CI as last read survives a restart, and a pull request's number finds
-//! the Job that opened it.
+//! Main's CI as last read survives a restart.
 
 use core_model::Timestamp;
 
-use crate::tests::{at, created_at, job_id, open, top_level, TempDir};
-use crate::{Delivery, MainCi, MainFailedJob, MainMerge, MainState, Store};
+use crate::tests::{at, open, TempDir};
+use crate::{MainCi, MainFailedJob, MainMerge, MainState, Store};
 
 fn red_main() -> MainCi {
     MainCi {
@@ -36,7 +35,6 @@ fn red_main() -> MainCi {
             number: 1812,
             url: Some("https://forge.invalid/r/pull/1812".to_string()),
             branch: Some("armada/cache".to_string()),
-            job: Some(job_id("01MAINCI0000000000000001")),
             session: Some("c279e883-d316-4202-8134-76ea8b531835".to_string()),
         }),
     }
@@ -76,48 +74,4 @@ fn a_newer_reading_replaces_the_older_one_and_its_failed_jobs() {
     };
     store.record_main_ci(&green).expect("kept");
     assert_eq!(store.main_ci("/repos/armada").expect("reads"), Some(green));
-}
-
-#[test]
-fn a_pull_requests_number_finds_the_jobs_that_opened_it_and_not_a_longer_number() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    for (id, url) in [
-        (
-            "01MAINCI0000000000000001",
-            "https://forge.invalid/r/pull/1812",
-        ),
-        (
-            "01MAINCI0000000000000002",
-            "https://forge.invalid/r/pull/181",
-        ),
-        (
-            "01MAINCI0000000000000003",
-            "https://forge.invalid/r/pull/21812",
-        ),
-    ] {
-        store
-            .insert_job(&top_level(id), &created_at())
-            .expect("stored");
-        store
-            .record_delivery(
-                &job_id(id),
-                &Delivery {
-                    commit: None,
-                    pushed: None,
-                    pull_request: Some(url.to_string()),
-                    landed: None,
-                    unpushed: None,
-                },
-            )
-            .expect("recorded");
-    }
-    assert_eq!(
-        store.jobs_with_pull_request_number(1812).expect("reads"),
-        [job_id("01MAINCI0000000000000001")]
-    );
-    assert!(store
-        .jobs_with_pull_request_number(9)
-        .expect("reads")
-        .is_empty());
 }

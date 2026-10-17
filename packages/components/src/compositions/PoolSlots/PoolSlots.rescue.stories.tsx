@@ -10,7 +10,6 @@ import { FOUND, STRANDED, openTile, panel, slot, tile } from "./PoolSlots.fixtur
 const meta: Meta<typeof PoolSlots> = {
   title: "Compositions/Pool slots",
   component: PoolSlots,
-  args: { onOpenJob: fn() },
 };
 export default meta;
 
@@ -27,14 +26,8 @@ const opened = (
 
 const sheet = (canvas: Parameters<typeof tile>[0], n = 4) => panel(canvas, `slot-${n}`);
 
-const KEPT: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {
-  held: {
-    state: "job",
-    job_id: "01KEPT",
-    job_title: "Retry the manifest read",
-    job_status: "killed",
-    kept: "5 uncommitted, first crates/api/src/routes.rs",
-  },
+const WITH_WORK: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {
+  held: { state: "stranded", why: "5 uncommitted, first crates/api/src/routes.rs" },
   branch: "armada/14-retry-the-manifest-read",
   behind: 3,
   stranded: {
@@ -460,48 +453,14 @@ export const RescueNotWired: Story = {
 };
 
 /**
- * A Job that ended and kept its slot is its own bay, apart from a live hold and
- * from a stranded slot: it says Kept and why, as a bare fact, and keeps its
- * Job's title as a link. A Job still holding with nothing kept stays Held.
- */
-export const KeptJob: Story = {
-  name: "Kept Job",
-  args: {
-    rows: [
-      { slot: slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" } }) },
-      { slot: slot(8, KEPT), heldFor: "26 hours" },
-    ],
-    onAct: fn(),
-    onRescue: fn(),
-    onOpenJob: fn(),
-  },
-  play: async ({ args, canvas, userEvent }) => {
-    await expect(bay(canvas, 1).getByRole("img", { name: "Held" })).toBeInTheDocument();
-    const kept = bay(canvas, 8);
-    await expect(kept.getByRole("img", { name: "Kept: 5 uncommitted, first crates/api/src/routes.rs" })).toBeInTheDocument();
-    await expect(kept.getByText("5 uncommitted, first crates/api/src/routes.rs")).toBeInTheDocument();
-    await expect(kept.queryByRole("img", { name: "Held" })).toBeNull();
-    await userEvent.click(kept.getByRole("button", { name: "Retry the manifest read" }));
-    await expect(args.onOpenJob).toHaveBeenCalledWith("01KEPT");
-    // Rescue is offered on the kept bay alone: the live hold has no work to rescue.
-    const live = await opened(canvas, userEvent, 1);
-    await expect(live.queryByRole("button", { name: "Rescue" })).toBeNull();
-    await userEvent.keyboard("{Escape}");
-    const open = await opened(canvas, userEvent, 8);
-    await userEvent.click(open.getByRole("button", { name: "Rescue" }));
-    await expect(args.onRescue).toHaveBeenCalledWith("start", 8);
-  },
-};
-
-/**
- * The kept bay's rescue is a stranded bay's: its Finding is in its panel,
+ * A stranded bay's rescue: its Finding is in its panel,
  * Stash acts at once, and Scrap confirms by naming the files and the unpushed
  * commit.
  */
-export const KeptJobFinding: Story = {
-  name: "Kept Job finding",
+export const StrandedFinding: Story = {
+  name: "Stranded finding",
   args: {
-    rows: [{ slot: slot(8, { ...KEPT, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["The route test asserts a retry count the read does not return"] } }) }],
+    rows: [{ slot: slot(8, { ...WITH_WORK, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["The route test asserts a retry count the read does not return"] } }) }],
     onAct: fn(),
     onRescue: fn(),
   },

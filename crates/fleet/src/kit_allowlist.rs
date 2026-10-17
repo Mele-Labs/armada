@@ -1,14 +1,9 @@
-//! Kit's allowlist: the commands every Job on this machine may run without
-//! asking, in `~/.armada/allowed-commands`. `docs/concepts/kit.md`.
+//! Kit's allowlist: the commands a person allowed on this machine, in
+//! `~/.armada/allowed-commands`. `docs/concepts/kit.md`.
 //!
 //! **A plain file a person can edit.** One command per line, `#` starts a note,
-//! and a line Armada wrote ends in a tab and where it came from. It is read on
-//! every permission question, so a line added while Fleet runs is in force.
-//!
-//! **Matched by [`covers`](crate::allowed::covers)**, as a repository's Always
-//! allow is: the command, or it with plain arguments, and never a chained one.
-//! It is read after the destructive, check-runner and ungrantable answers, so it
-//! widens only what asking would have decided. A chained command is not kept.
+//! and a line Armada wrote ends in a tab and where it came from. A chained
+//! command is not kept.
 
 use std::path::PathBuf;
 use std::sync::Mutex;

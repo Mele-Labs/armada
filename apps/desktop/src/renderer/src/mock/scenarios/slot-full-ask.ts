@@ -3,12 +3,12 @@
 // leaves it queued, and it takes the next bay that is free or made. The Bays panel adds a bay of its own. Over the cockpit ship,
 // its one free bay now held. The claims are in `walks/slot-full-ask.ts`.
 
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import { repository } from "@armada/screens/src/fixtures/repository";
 import type { WaitingItem, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import type { BoardControl, SessionsStore } from "../sessions/script";
+import type { BayControl, SessionsStore } from "../sessions/script";
 import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
 const ARMADA = repository().manifest!.id;
@@ -59,7 +59,7 @@ function full(): WorktreesHeld {
 const open = (one: WorktreeSlot) => one.manifest_id === ARMADA && one.closed !== true && (one.held.state === "free" || one.held.state === "unmade");
 
 /** The Session moves into a bay: a free one when `free`, else a new one, and it stops waiting. */
-function moveIn(control: BoardControl, store: SessionsStore, id: string, free: boolean): boolean {
+function moveIn(control: BayControl, store: SessionsStore, id: string, free: boolean): boolean {
   const held = control.pool?.get();
   if (held === undefined) return false;
   const slots = held.slots ?? [];
@@ -89,7 +89,7 @@ function moveIn(control: BoardControl, store: SessionsStore, id: string, free: b
   return true;
 }
 
-function sessions(control: BoardControl): SessionsStore {
+function sessions(control: BayControl): SessionsStore {
   const store = ship.draft!.sessions!(control, [WAITER]);
   let queued = false;
   return {

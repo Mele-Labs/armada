@@ -28,19 +28,16 @@ export const s081FleetProtocolMismatch: Scenario = {
   name: "fleet/protocol-mismatch",
   says: "Fleet runs another protocol than this Bridge, so Bridge does not connect",
   state: MISMATCH,
-  reads: {},
 };
 
 export const s082FleetProtocolMismatchStillApart: Scenario = {
   name: "fleet/protocol-mismatch-still-apart",
   says: "The same, and the restart brings back a Fleet that still does not match",
   state: MISMATCH,
-  reads: {},
 };
 
 export const s083FleetProtocolMismatchUnmanaged: Scenario = {
   name: "fleet/protocol-mismatch-unmanaged",
   says: "The same, on a Fleet that was started by hand, so it cannot be restarted from here",
   state: MISMATCH,
-  reads: {},
 };

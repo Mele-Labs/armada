@@ -1,12 +1,12 @@
-//! Drones whose Fleet is gone, and ending them. Adoption owns a Fleet's own.
+//! Processes whose Fleet is gone, and ending them.
 //!
 //! **Positive identification only.** `Detached::spawn` puts `ARMADA_SPAWNED_BY=
 //! <pid>:<start>` on every process: the spawning Fleet's pid and start time. A
 //! group is ended when it leads itself, carries a mark, and the marked process
 //! is absent or started at another time. This process, another live Fleet, an
-//! unmarked process, an unreadable probe and a recorded Drone's pid are left.
+//! unmarked process and an unreadable probe are left.
 //!
-//! **One older road, for Drones spawned before the mark.** A parent-1 process
+//! **One older road, for processes spawned before the mark.** A parent-1 process
 //! whose argv names `<temp>/armada-fleet-<pid>-<n>/` for a dead `<pid>` is a
 //! Fleet test's fake Drone. Nothing else unmarked is touched.
 //!
@@ -17,7 +17,6 @@
 //! leader's `/proc/<pid>/environ` is read instead.
 
 use std::collections::HashMap;
-use std::future::Future;
 use std::io;
 use std::num::NonZeroU32;
 use std::process::Command;
@@ -26,9 +25,6 @@ use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-
-use crate::daemon::Fleet;
 use crate::group::{ask_the_group_to_end, end_the_group};
 use crate::process::{holder_of, Holder};
 
@@ -58,30 +54,22 @@ pub(crate) fn mark_of(pid: u32, started: &str) -> String {
     format!("{pid}:{started}")
 }
 
-/// Sweep at start and then each `every`. `held` is the pids this Fleet's store
-/// records a Drone at, which are adoption's (`None` where unreadable); `said`
-/// gets one line per group.
-pub fn keep_ending_orphans<F>(
+/// Sweep at start and then each `every`; `said` gets one line per group.
+pub fn keep_ending_orphans(
     every: Duration,
-    held: impl Fn() -> F + Send + 'static,
     said: impl Fn(&str) + Send + 'static,
-) -> JoinHandle<()>
-where
-    F: Future<Output = Option<Vec<u32>>> + Send,
-{
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(every);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             ticker.tick().await;
-            // A record that will not read is not an empty one: skip the round.
-            let Some(held) = held().await else { continue };
             let Ok(ended) = tokio::task::spawn_blocking(move || {
                 // A listing that will not read is not an empty one: skip the round.
-                let Ok(found) = find(&held) else {
+                let Ok(found) = find() else {
                     return Vec::new();
                 };
-                end(found, GRACE, || find(&held).unwrap_or_default())
+                end(found, GRACE, || find().unwrap_or_default())
             })
             .await
             else {
@@ -89,15 +77,15 @@ where
             };
             for group in ended {
                 said(&format!(
-                    "a Drone group of a Fleet that is gone was ended: {group}"
+                    "a process group of a Fleet that is gone was ended: {group}"
                 ));
             }
         }
     })
 }
 
-/// The groups to end: orphans of a Fleet that is gone, minus `held`.
-pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
+/// The groups to end: orphans of a Fleet that is gone.
+pub(crate) fn find() -> io::Result<Vec<NonZeroU32>> {
     let listing = listing()?;
     let temp = temp_prefixes();
     let mut probed: HashMap<u32, Option<String>> = HashMap::new();
@@ -120,7 +108,7 @@ pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
         let Some(group) = NonZeroU32::new(row.pid) else {
             continue;
         };
-        if row.pid != row.pgid || row.pid == me || held.contains(&row.pid) {
+        if row.pid != row.pgid || row.pid == me {
             continue;
         }
         let ended = match mark_of_process(&row) {
@@ -282,21 +270,4 @@ pub(crate) fn names_a_dead_test(
         });
         named.is_some_and(|pid| pid != std::process::id() && gone(pid, None))
     })
-}
-
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    /// The pids a Drone is recorded at, which adoption owns.
-    pub async fn recorded_drone_pids(&self) -> Option<Vec<u32>> {
-        let held = self.store().lock().await.drone_processes().ok()?;
-        Some(held.into_iter().map(|process| process.pid).collect())
-    }
 }

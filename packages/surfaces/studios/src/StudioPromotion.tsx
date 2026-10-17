@@ -1,5 +1,5 @@
 // Promotion on the whiteboard: cluster, outline, defer, write up, edit, end a Contradiction,
-// dispatch — #1291. Its own file because `Studios.tsx` is the surface and this is one panel on it.
+// read in — #1291. Its own file because `Studios.tsx` is the surface and this is one panel on it.
 //
 // **Every act is a dialog that collects.** Each rung writes a node a person then reads, so each
 // asks for the words before it sends them rather than making one from a title Armada invented.
@@ -13,13 +13,13 @@
 // anything inside its subtree. Delete node was already outside for the same reason.
 
 import { useState, type ReactNode } from "react";
-import { Bookmark, Download, Group, ListOrdered, Rocket, Type } from "lucide-react";
+import { Bookmark, Download, Group, ListOrdered, Type } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Dialog, Input, Select, Textarea, type StudioPickedAct } from "@armada/components";
 import type { EpicTake, Outcome, Studio, StudioNode, StudioPromotion } from "@armada/protocol";
 
 import { nodeNamed } from "@armada/screens/src/studio";
-import { actsOn, aWriteUp, dispatchedAs, placedBeside, selectedNodes } from "./studio-promotion";
+import { actsOn, aWriteUp, placedBeside, selectedNodes } from "./studio-promotion";
 
 /** One rung as the aside's control offers it. */
 type Rung = StudioPickedAct & { id: Filling };
@@ -34,7 +34,6 @@ type Filling =
   | "line"
   | "resolved"
   | "settled"
-  | "dispatch"
   | "read_in";
 
 export type StudioPromotionProps = {
@@ -141,8 +140,6 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
           outcome: "resolved_here",
           answer: body,
         });
-      case "dispatch":
-        return send({ act: "dispatch", node_id, position });
       case "read_in":
         // **The answer rides on an Epic alone.** Every other kind has one
         // thing to read and nothing to ask about — #1405.
@@ -169,7 +166,6 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
     ...rung("defer", "Defer", acts.defer, Bookmark),
     ...rung("edit", "Edit draft", acts.edit),
     ...rung("line", "Edit line", acts.editLink),
-    ...rung("dispatch", "Dispatch", acts.dispatch, Rocket),
     ...rung("read_in", "Read in", acts.readIn, Download),
     ...rung("settled", "Not a problem", acts.settle),
     ...rung("resolved", "Resolved here", acts.settle),
@@ -210,15 +206,8 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
   };
 }
 
-/**
- * What the dialog is called. **Dispatch names what it was pressed on**, because
- * a draft sends words a person wrote and the other three send something already
- * on a forge, and those are different things to be about to do — #1379, #1394.
- */
+/** What the dialog is called. **Read in names what it was pressed on** — #1379, #1394. */
 function asked(filling: Filling, one: StudioNode | undefined): string {
-  if (filling === "dispatch" && one !== undefined && one.kind in ON_A_FORGE) {
-    return `Dispatch this ${ON_A_FORGE[one.kind]}`;
-  }
   if (filling === "read_in" && one !== undefined) return `Read this ${aKind(one)} in`;
   if (filling === "line" && one !== undefined) return "Say why you kept this";
   return ASKED[filling];
@@ -249,7 +238,6 @@ const ASKED: Readonly<Record<Filling, string>> = {
   line: "Say why you kept this",
   settled: "End this as Not a problem",
   resolved: "Resolve this here",
-  dispatch: "Dispatch this Issue draft",
   read_in: "Read this in",
 };
 
@@ -263,7 +251,6 @@ const CONFIRMS: Readonly<Record<Filling, string>> = {
   line: "Save line",
   settled: "Not a problem",
   resolved: "Resolve",
-  dispatch: "Dispatch",
   read_in: "Read in",
 };
 
@@ -302,7 +289,7 @@ type FillingProps = {
 /** What each rung asks for, and what it says will happen. */
 function Filling(props: FillingProps) {
   const { filling, studio, one, picked, title, body, blocks, take } = props;
-  const named = (node: StudioNode) => nodeNamed(studio, node.id, []);
+  const named = (node: StudioNode) => nodeNamed(studio, node.id);
   switch (filling) {
     case null:
       return null;
@@ -355,7 +342,7 @@ function Filling(props: FillingProps) {
           <p>
             {filling === "write_up"
               ? "A draft on this Studio, and nothing filed anywhere. Filing it is yours to do."
-              : "What is dispatched is what you leave here."}
+              : "The draft keeps what you leave here."}
           </p>
           <Input label="Title" value={title} onChange={(event) => props.onTitle(event.target.value)} />
           <Textarea label="Body" rows={8} value={body} onChange={(event) => props.onBody(event.target.value)} />
@@ -402,27 +389,6 @@ function Filling(props: FillingProps) {
         <>
           <p>The answer is kept on the node, so this can be reread.</p>
           <Textarea label="Answer" rows={4} value={body} onChange={(event) => props.onBody(event.target.value)} />
-        </>
-      );
-    case "dispatch":
-      return (
-        <>
-          <p>
-            {one !== undefined && one.kind in ON_A_FORGE
-              ? // Nothing is filed: what the node names is already on the forge, and what goes to
-                // the proposer is its address. **Which workflow is the proposer's** — an issue, a
-                // pull request and an epic are three different asks, and the sentence says so
-                // rather than naming a workflow nobody chose — #1379, #1394.
-                `This address goes to the Job proposer, and it reads the ${ON_A_FORGE[one.kind]}. Nothing is filed: it already exists. Which workflow the work runs under is the proposer's answer.`
-              : "This text goes to the Job proposer, whole."}{" "}
-            Every Job it becomes waits at the dispatch gate, and appears here as a Job node.
-          </p>
-          <Textarea
-            label="What is sent"
-            rows={one !== undefined && one.kind in ON_A_FORGE ? 2 : 8}
-            readOnly
-            value={one === undefined ? "" : (dispatchedAs(one) ?? "")}
-          />
         </>
       );
   }

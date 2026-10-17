@@ -5,9 +5,6 @@
 // before the press is not the list back — they made it — but what goes that they did not pick:
 // the edges reaching nodes that stay, the pictures the Notes going keep, and the nodes one of
 // these produced, which stay behind with nothing saying where they came from.
-//
-// **A Job node is a reference.** Deleting one takes the node and leaves the Job, so the sentence
-// says so where one is picked and is absent otherwise.
 
 import type { Studio, StudioNode } from "@armada/protocol";
 
@@ -23,8 +20,6 @@ export type StudioClearing = {
   frames: number;
   /** Nodes a picked one produced that are not themselves picked. They stay. */
   leftHanging: number;
-  /** A Job node is picked, so the sentence about a Job's own life is said. */
-  jobs: number;
 };
 
 /** The frame a captured Note keeps, where it kept one. */
@@ -49,7 +44,6 @@ export function clearingOf(studio: Studio, picked: readonly string[]): StudioCle
         .filter((edge) => edge.kind === "produced" && going.has(edge.from) && !going.has(edge.to))
         .map((edge) => edge.to),
     ).size,
-    jobs: nodes.filter((node) => node.kind === "job").length,
   };
 }
 
@@ -82,12 +76,6 @@ export function clearingSaid(clearing: StudioClearing): string[] {
     const kept = clearing.frames === 1;
     said.push(
       `${plural(clearing.frames, "Note going keeps a picture", "Notes going keep a picture")}, and ${kept ? "it goes" : "each one goes"} with the Note.`,
-    );
-  }
-  if (clearing.jobs > 0) {
-    const job = clearing.jobs === 1;
-    said.push(
-      `${plural(clearing.jobs, "Job node goes", "Job nodes go")}. The ${job ? "Job it names is" : "Jobs they name are"} untouched — a Studio holds a reference to a Job, never the Job.`,
     );
   }
   said.push("There is no undo.");

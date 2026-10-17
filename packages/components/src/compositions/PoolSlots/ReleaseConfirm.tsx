@@ -15,8 +15,7 @@ function holderParts(holder: string): { command: string; pid: string | null } {
 
 /**
  * What releasing a slot an agent session holds will do, before it is sent.
- * **Uncommitted files are committed to the slot's branch as a WIP commit**, as
- * Clear does for a Job's, and the slot is released; the branch stays. The
+ * **Uncommitted files are committed to the slot's branch as a WIP commit**, and the slot is released; the branch stays. The
  * session's process is not touched, which the third line says.
  */
 export function ReleaseConfirm({ row, onSend, onCancel }: { row: TileRow; onSend: () => void; onCancel: () => void }) {

@@ -17,15 +17,14 @@ test("Studios draws on core and its own slice, and a call of another slice is un
   const asked = await api.readWorkflows();
   expect(asked).toMatchObject({ ok: false, outcome: { ok: false, why: "transport" } });
   // A slice left out holds its state empty, and one kept keeps the scenario's.
-  expect((await api.state()).watched).toEqual({ state: "none" });
-  expect((await api.state()).jobs.length).toBeGreaterThan(0);
+  expect((await api.state()).sessions).toEqual({ state: "none" });
+  expect((await api.state()).holds.repositories?.length).toBeGreaterThan(0);
 });
 
 test("every slice but Studios answers a call it owns as unanswered", async () => {
   const { api } = mount("default", { slices: ["studios"] });
-  expect(await api.killJob("none")).toMatchObject({ ok: false, why: "transport" });
   expect(await api.readHeld(true)).toMatchObject({ ok: false });
-  expect(SLICES.map((one) => one.name)).toHaveLength(25);
+  expect(SLICES.map((one) => one.name)).toHaveLength(26);
 });
 
 test("no slice list mounts every slice, as before", async () => {

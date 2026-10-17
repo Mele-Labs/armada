@@ -15,7 +15,7 @@ function steps(): Step[] {
     ...viaPalette("Merge line", "The merge line: no armada land queue, only open pull requests"),
     { look: row("docs/typo-in-the-readme"), say: "Auto-merge is on and ci is running: it has not joined the queue" },
     { hover: mark("docs/typo-in-the-readme", "Waiting for ci to join the merge queue"), say: "The mark names it" },
-    { look: row("fix/61-order-store-migrations"), say: "First in the queue, running its checks, a Job's pull request" },
+    { look: row("fix/61-order-store-migrations"), say: "First in the queue, running its checks, nobody here holds it" },
     { hover: mark("fix/61-order-store-migrations", "In the merge queue, running its checks"), say: "Checks running in the queue" },
     { look: row("fix/pin-store-clock"), say: "Second, waiting its turn, a Session's pull request" },
     { hover: mark("fix/pin-store-clock", "In the merge queue, waiting its turn"), say: "Queued" },

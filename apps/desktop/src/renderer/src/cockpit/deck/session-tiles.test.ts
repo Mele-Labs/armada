@@ -53,7 +53,6 @@ const held = (over: Partial<Session> = {}): Session =>
       { kind: "branch", name: "fix/ledger", slot: 3 },
       { kind: "pull_request", number: 2430, title: "Ledger rows", branch: "fix/ledger", address: "", checks: { state: "none" }, state: "open", auto: false },
       { kind: "pull_request", number: 2401, title: "Old one", branch: "x", address: "", checks: { state: "none" }, state: "merged", auto: false },
-      { kind: "job", id: "01JOB", number: 88, title: "Tidy the pool", state: "running", branch: "fleet/88" },
     ],
     needs: [{ path: "crates/ipc", what: "a new operation" }],
     rows: [],
@@ -66,7 +65,6 @@ test("Release names each thing the Session holds, and leaves a merged pull reque
     ["slot", "slot-3"],
     ["branch", "fix/ledger"],
     ["pr", "#2430 Ledger rows"],
-    ["job", "#88 Tidy the pool"],
     ["need", "crates/ipc"],
   ]);
 });
@@ -81,7 +79,6 @@ test("a hand goes to a live Session of the same repository, and the key names it
 });
 
 test("Fleet's rows are named as the confirmation named them", () => {
-  expect(nameOfHeldRow(held(), { kind: "job", target: "01JOB" })).toBe("#88 Tidy the pool");
   expect(nameOfHeldRow(held(), { kind: "pr", target: "2430" })).toBe("#2430 Ledger rows");
   expect(nameOfHeldRow(held(), { kind: "slot", target: "3" })).toBe("slot-3");
 });

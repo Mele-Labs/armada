@@ -50,16 +50,3 @@
   padding: var(--space-3);
   overflow-y: auto;
 }
-
-.armada-walk-panel__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-walk-panel__section-head {
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-xs);
-}

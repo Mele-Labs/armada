@@ -36,55 +36,27 @@ export * from "./primitives/Tooltip/Tooltip";
 export * from "./primitives/Inspect/Inspect";
 
 // Compositions — what M1 composes its screens from.
-export * from "./compositions/ActiveJobsList/ActiveJobsList";
 export * from "./compositions/BoardEmptyState/BoardEmptyState";
 export * from "./compositions/ChangedFiles/ChangedFiles";
-export * from "./compositions/CriterionVerdicts/CriterionVerdicts";
-export * from "./compositions/DroneQuestion/DroneQuestion";
 export * from "./compositions/DockQuestions/DockQuestions";
 export * from "./compositions/HelmRecord/HelmRecord";
 export * from "./compositions/HelmThread/HelmThread";
 export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/HelmHolds/HelmHolds";
-export * from "./compositions/JudgeQuestion/JudgeQuestion";
-export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";
 export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildPosition, FleetBuildStage } from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
-export * from "./compositions/EvidenceTrail/EvidenceTrail";
 export * from "./compositions/FailureNotice/FailureNotice";
-export * from "./compositions/FramesPaired/FramesPaired";
-export * from "./compositions/FramesShown/FramesShown";
-export * from "./compositions/GamingFlags/GamingFlags";
 export * from "./compositions/JobDiffSheet/JobDiffSheet";
-export * from "./compositions/JobBrief/JobBrief";
-export * from "./compositions/JobDetailHeaderActions/JobDetailHeaderActions";
 export * from "./compositions/JobLogReference/JobLogReference";
-export * from "./compositions/JobOutcome/JobOutcome";
-export * from "./compositions/JobLedger/JobLedger";
-export * from "./compositions/JobDrones/JobDrones";
-export * from "./compositions/CanvasAsk/CanvasAsk";
-export * from "./compositions/DronePeek/DronePeek";
-export * from "./compositions/JobRowStacked/JobRowStacked";
 export * from "./compositions/Panel/Panel";
-export * from "./compositions/ReviewComments/ReviewComments";
-export * from "./compositions/ReviewDecision/ReviewDecision";
-export * from "./compositions/VerdictSheet/VerdictSheet";
-export * from "./compositions/ConfidenceSheet/ConfidenceSheet";
 export * from "./compositions/ViewSheet/ViewSheet";
 export * from "./compositions/StepActivityMark/StepActivityMark";
 export * from "./compositions/StepPhaseTrack/StepPhaseTrack";
 export * from "./compositions/StepBar/StepBar";
 export * from "./compositions/TaskMark/TaskMark";
-export * from "./compositions/TransitionHistory/TransitionHistory";
 export * from "./compositions/UnifiedDiff/UnifiedDiff";
-export * from "./compositions/WorkflowRail/WorkflowRail";
-export * from "./compositions/ActivityInstrument/ActivityInstrument";
-export * from "./compositions/FootprintInstrument/FootprintInstrument";
 
-// What every job detail render shares. The five screens that took it are gone:
-// job detail is one arrangement, and the five were the defect.
-export * from "./screens/detail";
 export * from "./screens/absent";
 
 // The shell. Rail, panel and dock — the frame every screen mounts inside. A
@@ -111,7 +83,6 @@ export * from "./errors/FileAnIssue/FileAnIssue";
 
 // The run while a Job's own read is out — the workflow's step names, and a bar
 // where each duration will land.
-export * from "./compositions/RunTreeSkeleton/RunTreeSkeleton";
 
 // Where this step is. Each stage is a control, and Checks and the Judge are
 // drawn as the different things they are.
@@ -122,21 +93,18 @@ export * from "./compositions/ActivityLog/ActivityLog";
 
 // The step's story — Drone instructions, Activity log, Produced. Opening one
 // collapses the others to their header line.
-export * from "./compositions/StepStory/StepStory";
 
 // The two chips a step's facts are made of. A fact is a value; a path is the
 // one value that keeps its filename at every width.
 export * from "./compositions/FactChip/FactChip";
+export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PathChip/PathChip";
 
 // One row of the run — the step, its mark, its elapsed figure, and the short
 // facts the chevron opens. The tree composes these; it does not draw a row.
-export * from "./compositions/StepRow/StepRow";
 
 // The step's story. A chapter collapses to its header line and never to
 // nothing; a log entry opens in place to its payload, and every line opens.
-export * from "./compositions/Chapter/Chapter";
-export * from "./compositions/LogEntry/LogEntry";
 
 // What a stage of the phase strip opens to — what that tier is, what it is
 // waiting on and where it stands. The standing sentence for each tier lives
@@ -196,15 +164,9 @@ export * from "./haptics";
 // The token specimens: what a value looks like, read off the running sheet.
 export * from "./foundations/Tokens/Tokens";
 
-// What Armada told the Drone, in the blocks Fleet wrote it in. The chapter
-// preview drew it as one paragraph and every newline collapsed to a space —
-// #306.
-export * from "./compositions/DroneBrief/DroneBrief";
-
 // Dispatch a job by describing the work. The Job proposer answers the title,
 // the workflow and the split, and it is the only way in — the hand form that
 // used to sit behind `Enter by hand` is gone.
-export * from "./compositions/DispatchRequest/DispatchRequest";
 
 // One worktree Fleet is holding, and the test it did not pass. The reasons are
 // the component: not-provably-safe is one word for four situations a person
@@ -212,10 +174,8 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
-export { AddedFields, AddStep, RepairFileContext, addedCard, addedName, endsInPr, EveryMark, FiringMark, HoldNode, holdsOf, JobAlertMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerLeaf, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export type { AddedKind, Held, HoldVerb, RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export { additionBranches, fixOf } from "./compositions/WorkflowTriggers/side-branches";
-export type { SideBranch } from "./compositions/WorkflowTriggers/side-branches";
+export { EveryMark, LevelMark, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export type { TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
 export type {
   TriggerDraft,
@@ -226,20 +186,14 @@ export type {
   TriggersBinding,
 } from "./compositions/WorkflowTriggers/triggers";
 
-// What one Job holds on the machine, and the act that goes and looks. Not a
-// debug panel: the first thing on it is a sentence answering *is this working*,
-// because the moment it is for is a person worried about a Job.
-export * from "./compositions/JobResources/JobResources";
 export * from "./compositions/ManifestNotice/ManifestNotice";
 export * from "./compositions/ManifestForm/ManifestForm";
 // The calls a stopped job was refused, with the command each one was on. The
 // evidence for `blocked_by_policy`, which named a policy and nothing it stopped.
-export * from "./compositions/Refusals/Refusals";
 
 // What a Check's suite actually asserted. `exit 0 · 315 passed` cannot be
 // audited: a suite can go green by deleting the assertion that was failing,
 // and the list of what ran is the only place that is visible.
-export * from "./compositions/AssertionSet/AssertionSet";
 
 // A Check's own stdout, read where the Check is. Bridge reads the run log and
 // keeps nothing — no new store, no retention policy, and it goes when the Job
@@ -255,30 +209,24 @@ export * from "./compositions/CheckList/CheckList";
 // The panel's answer, as criteria against judges. The measured band is the
 // veto-only contract drawn: it says which parts of a verdict rest on a machine
 // and which on a model.
-export * from "./compositions/JudgeVerdicts/JudgeVerdicts";
 
 // A refusal, whole. The overlap line is why it exists — one veto out of three
 // means two opposite things, and comparing what each judge cited is what tells
 // them apart.
-export * from "./compositions/JudgeRefusal/JudgeRefusal";
 
 // Every pointer the panel made. A judgment is mostly a set of pointers into
 // other artifacts, which makes this the densest navigation surface on the
 // screen.
-export * from "./compositions/JudgeCitations/JudgeCitations";
 
 // What the panel was shown. A panel is only a panel if the judges ran
 // independently on identical inputs, and the digest is the evidence for it.
-export * from "./compositions/JudgeInputs/JudgeInputs";
 
 // Everything else the step produced, as selectors into the viewer. Not
 // FactChip: a fact chip is a value being read, and these are controls.
-export * from "./compositions/EvidenceStrip/EvidenceStrip";
 
 // One artifact at full size, on the layer that can hold it. A check's output,
 // a patch, a judgment: one viewer, and everything on the screen points into
 // it. The sheet for the reason the activity log is one.
-export * from "./compositions/EvidenceSheet/EvidenceSheet";
 
 // A passage held to a few lines. The control exists only where the text
 // actually overflows — measured, because the same words clamp at one width and
@@ -288,20 +236,10 @@ export * from "./compositions/Clamped/Clamped";
 // The Job's pulse, in a few lines. The full reading was the largest thing
 // in the run column and answered a question nobody had asked yet; this says
 // whether anything is wrong, and opens the reading when the answer is yes.
-export * from "./compositions/JobHoldsSummary/JobHoldsSummary";
 
-// That reading, on a trailing sheet. `JobResources` unchanged inside it — a
-// new home rather than an edit.
-export * from "./compositions/JobHoldsSheet/JobHoldsSheet";
-export * from "./compositions/PlanTaskSheet/PlanTaskSheet";
 
 // The plan read as the groups it will run in, and the boundary each ends at.
-export * from "./compositions/PlanBoard/PlanBoard";
-export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 
-// Every setting a person can change on a running Job, on the same layer, and
-// the header's way into it.
-export * from "./compositions/JobSettings/JobSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
 // Kit against the shared home: how each row stands, and the two versions of one that differs.
@@ -312,10 +250,8 @@ export * from "./compositions/Account/AccountScreen";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.
-export * from "./compositions/ShownAgain/ShownAgain";
 // Journey 9's rehearsal, run in the Job's own worktree. Writes no Evidence and
 // moves nothing on the Job — a rehearsal, never a verdict.
-export * from "./compositions/RunSheet/RunSheet";
 export * from "./compositions/RunPage/RunPage";
 export * from "./compositions/RunDiffSheet/RunDiffSheet";
 // A step's work with runs of one tool folded to a line. The rows inside a group
@@ -338,10 +274,8 @@ export * from "./compositions/ValuePopover/ValuePopover";
 // Overview's summary strip — every panel's count above the fold.
 export * from "./compositions/OverviewSummaryStrip/OverviewSummaryStrip";
 // The card a gaming flag holds a step with, and the two answers to it. #1079.
-export * from "./compositions/HeldFlag/HeldFlag";
 // The message box that sends a redirect from where a person is reading,
 // without reaching for the step header's button. #1154.
-export * from "./compositions/DroneMessageBox/DroneMessageBox";
 // A step's work as the Drone told it, under the plan task it served. #1185.
 // The graph surface React Flow draws — a Studio's board and a Job's workflow
 // share it, and neither holds placement. #1539.
@@ -364,14 +298,10 @@ export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
 // the card both draw, and the panel a step or group opens into. #1539.
 export * from "./compositions/WorkflowStepCard/WorkflowStepCard";
 export * from "./compositions/WorkflowCanvas/WorkflowCanvas";
-export * from "./compositions/RunNode/RunNode";
-export * from "./compositions/WorkflowInspector/WorkflowInspector";
 // A label and its figure in one aligned column — Pulse and the Fleet panel.
 export * from "./compositions/FigureList/FigureList";
 // What the Job has changed, as its own panel beside the run. #1187.
-export * from "./compositions/ProducedPanel/ProducedPanel";
 // A tool's name, in the colour of what the call does. #1196.
-export * from "./compositions/ToolName/ToolName";
 // A Note's frame, opened over the Studios surface. #1352.
 export * from "./compositions/StudioFrameSheet/StudioFrameSheet";
 // Drift's reading and Verify's run, each on its own layer instead of resident
@@ -379,36 +309,21 @@ export * from "./compositions/StudioFrameSheet/StudioFrameSheet";
 export * from "./compositions/DriftSheet/DriftSheet";
 export * from "./compositions/VerifySheet/VerifySheet";
 // The dispatch form's optional settings. #1540.
-export * from "./compositions/DispatchSettings/DispatchSettings";
 // The tier map and the Drone cap, which the dispatch form and the proposal
 // both set — one control drawn at two moments, never two. #1549, #1550.
-export * from "./compositions/DispatchSettings/TierModels";
-export * from "./compositions/DispatchSettings/DroneCap";
 // The proposal itself: gates, tiers, how it lands and what it is held to,
 // editable until approval and frozen at it. #1541, #1548, #1551.
-export * from "./compositions/GroupShape/GroupShape";
-export * from "./compositions/JobProposal/JobProposal";
 // Settings draws two of the proposal's regions on their own, frozen: what no
 // other destination holds once a Job is approved. Overview draws what it is
 // held to and its gates under the lead while it waits to be approved.
-export * from "./compositions/JobProposal/ProposalDoneWhen";
-export * from "./compositions/JobProposal/ProposalFields";
-export * from "./compositions/JobProposal/ProposalGates";
-export * from "./compositions/JobProposal/ProposalLanding";
-export * from "./compositions/JobProposal/ProposalTiers";
 // The picture a person draws beside a prompt, on the one graph surface. #1547.
 export * from "./compositions/SketchPad/SketchPad";
 // A pad's drawing, read-only at the size it is given: a Studio Sketch on the board.
 export * from "./compositions/SketchPreview/SketchPreview";
-// A Job whose members are Jobs — pull requests landing in order. #1543.
-export * from "./compositions/JobMembers/JobMembers";
-export * from "./compositions/JobMembers/MemberDecision";
 // The implement step opened — its groups, their tasks, and what ran at each
 // group's end. #1536.
 export * from "./compositions/GroupBoundary/GroupBoundary";
 export * from "./compositions/RowLink/RowLink";
-// A wave of Jobs under one plan, and which of them waits on which. #1544.
-export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is
 // not there yet.
 export * from "./compositions/BranchPicker/BranchPicker";
@@ -428,18 +343,13 @@ export * from "./compositions/GuideFigure/GuideFigure";
 export * from "./compositions/GuideSteps/GuideSteps";
 // The card a destination draws: a head strip, then what it holds. Pulse's and
 // Overview's, so the two cannot drift.
-export * from "./compositions/DestinationCard/DestinationCard";
 // The wait a Job at `proposing` is in: how far the model call has got, what it
 // has left of Fleet's budget, and the one act on it. #1159.
-export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
 export * from "./compositions/MainHead/MainHead";
 export * from "./compositions/MergeLine/MergeLine";
-export * from "./compositions/PullRequestCard/PullRequestCard";
 // Where a criterion's words came from, and its issue having moved, as marks.
-export * from "./compositions/CriterionOrigin/CriterionOrigin";
 // A field a proposing Job's proposer has not written yet.
-export * from "./compositions/SettlingMark/SettlingMark";
 // A Job's retro, and the Lessons page that lists every retro's items. 23.12.
 export * from "./compositions/WhoMark/WhoMark";
 export * from "./compositions/RetroPress/RetroPress";
@@ -449,17 +359,12 @@ export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 
-// A Job's pause: the mark beside its badge, and the two confirms around it.
-export * from "./compositions/PausedMark/PausedMark";
-export * from "./compositions/PauseConfirm/PauseConfirm";
-export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
 export * from "./compositions/SketchScene/screen";
 export * from "./compositions/SketchScene/share";
 export { SketchShareContext } from "./compositions/SketchScene/SketchShare";
-export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
 // The owner a pull request was registered to, from any machine under one GitHub login.
 export * from "./compositions/RegisteredOwner/RegisteredOwner";
@@ -467,7 +372,6 @@ export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/SessionRepository/SessionRepository";
-export * from "./compositions/CommanderPanel/CommanderPanel";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
@@ -483,7 +387,6 @@ export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/P
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
-export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/ReachFolderList/ReachFolderList";

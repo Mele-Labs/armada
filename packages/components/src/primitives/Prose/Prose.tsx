@@ -32,8 +32,8 @@ export type ProseProps = {
 
 /**
  * What opens a link, given an address already checked to be `http(s):`.
- * Without one a link draws as its text, `JobDetailHeaderActions`' rule for
- * `href`: no control where there is nowhere to go. Bridge provides it once,
+ * Without one a link draws as its text: no control where there is nowhere to
+ * go. Bridge provides it once,
  * at the root of `App`.
  */
 export const ProseLinks = createContext<((address: string) => void) | null>(null);
@@ -55,18 +55,18 @@ function isWalkLink(address: string): boolean {
 }
 
 /**
- * Something in the words that Bridge itself can open: a pull request or an issue by its number, a Job, a
+ * Something in the words that Bridge itself can open: a pull request or an issue by its number, a
  * Session. **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
  * so a number that names nothing it holds stays plain text.
  */
 export type ProseReference = {
-  kind: "pull_request" | "issue" | "job" | "session";
+  kind: "pull_request" | "issue" | "session";
   id: string;
   title: string;
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", job: "Job", session: "Session" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Session" };
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,

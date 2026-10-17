@@ -14,54 +14,23 @@ import type {
   ChosenHold,
   SessionHeld,
   SessionHoldsReleased,
-  AddTask,
-  FixMain,
-  EditTask,
-  MovePlan,
-  ApproveWave,
-  EditJob,
-  ToProposer,
-  ApproveDispatch,
-  BranchesRead,
-  Artifact,
   CaptureOpened,
   CheckOutputRead,
-  BriefRead,
   LessonAnswer,
   LessonsRead,
   RetroRead,
   RetroSubject,
-  ChooseTriggerFix,
-  HoldAct,
-  ClearOutcome,
-  AlwaysAllowScope,
-  AnswerMode,
-  Active,
-  CommanderThread,
-  CommandAnswer,
   HelmCallAnswer,
-  CommandExplainedRead,
-  DropTask,
-  FileReport,
   Followed,
   FleetRestart,
   FrameRead,
-  JudgeAnswer,
-  Opened,
   Outcome,
-  Proposed,
-  ReclaimOutcome,
-  RunListRead,
   RunOutputRead,
   CheckoutRunListRead,
   SavePreference,
   SaveSettings,
   SettingsList,
-  StagedAttachment,
   StartCheckoutRun,
-  StartRun,
-  WhenBlocked,
-  WhenRefused,
   ChangeSlotPool,
   LandCheckAt,
   RescueSlot,
@@ -71,7 +40,6 @@ import type {
   HelmContext,
   HelmDebugRead,
   CheckoutRunDiffRead,
-  ManifestChecksRead,
   AddKitServer,
   ManifestReach,
   ReachesDrones,
@@ -83,40 +51,21 @@ import type {
   WriteManifestProposal,
   BridgeIdentity,
   Connection,
-  Diff,
-  Evidence,
-  Examination,
-  Footprint,
-  Handed,
-  Crewed,
-  Holds,
   HeldWorktrees,
   ThoughtRead,
   ThoughtTarget,
-  History,
   Holdings,
   FollowedLog,
-  Journalled,
-  Observed,
-  Remarks,
-  Reports,
-  Watched,
   BuildSource,
   FleetBuildReport,
-  FleetCapacity,
   FleetLimits,
-  JobSummary,
   MergeLines,
   ModChecked,
   ModList,
   Preferences,
-  ProposalInFlight,
   RepositorySummary,
-  UnreadableJob,
   ManifestReading,
   FollowedLandLog,
-  RunFollowed,
-  RunSheetRead,
   ServerList,
   CheckoutRunFollowed,
   CheckoutRunSheetRead,
@@ -133,16 +82,12 @@ import type {
   Pattern,
 } from "./haptics";
 import type {
-  PlanEditAnswer,
-} from "@armada/screens/src/plan-edits";
-import type {
   RescueOutcome,
 } from "@armada/cleanup/api";
 import type {
   ManifestEditAnswer,
   ManifestFileRead,
   ManifestSaveAnswer,
-  ManifestSpendRead,
 } from "@armada/screens/src/editing";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type {
@@ -159,9 +104,7 @@ import type {
   WorkflowSaveAnswer,
   WorkflowsRead,
 } from "./workflows";
-import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "./added-steps";
 import type {
-  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -173,9 +116,6 @@ import type {
 import type {
   LocateAnswer,
 } from "@armada/screens/src/locate-reads";
-import type {
-  ComposingRead,
-} from "@armada/screens/src/composing-reads";
 import type {
   StudioAnswer,
   StudioRead,
@@ -190,8 +130,9 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
-import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { RequestRepositoryRead } from "./api/dispatch";
+import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
 import type { PlanUsageRead } from "./api/plan-usage";
@@ -202,7 +143,6 @@ import type { WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmAim, HelmCarry } from "./api/helm";
-import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
@@ -214,9 +154,6 @@ import type { BridgeState, HistoryStep, Summons } from "./bridge";
 type OldBridgeState = {
     connection: Connection;
     bridge: BridgeIdentity;
-    jobs: JobSummary[];
-    unreadable: UnreadableJob[];
-    capacity: FleetCapacity | null;
     fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
@@ -225,33 +162,14 @@ type OldBridgeState = {
     manifestReading: ManifestReading | null;
     missed: number;
     readAt: number | null;
-    approving: string[];
-    proposing: ProposalInFlight | null;
     holds: Holdings;
     repository: string | null;
     located: {
         repository: RepositorySummary;
         at: number;
     } | null;
-    watched: Watched;
-    observed: Observed;
-    journalled: Journalled;
-    commander: CommanderThread;
     followed: FollowedLog;
-    footprint: Footprint;
-    handed: Handed;
-    history: History;
-    evidence: Evidence;
-    diff: Diff;
-    remarks: Remarks;
-    reports: Reports;
-    resources: Holds;
-    jobDrones: Crewed;
-    active: Active;
-    examination: Examination;
     held: HeldWorktrees;
-    runSheet: RunSheetRead;
-    runFollowed: RunFollowed;
     servers: ServerList;
     mergeLines: MergeLines | null;
     landFollowed: FollowedLandLog;
@@ -272,61 +190,14 @@ type OldBridgeApi = {
     subscribeChanges: (onChange: (change: StateChange<OldBridgeState>) => void) => () => void;
     syncState: () => Promise<StateChange<OldBridgeState>>;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
-    proposeFromRequest: (request: string, attachments: readonly StagedAttachment[], repository?: string | null) => Promise<Proposed>;
-    stopProposal: () => Promise<Outcome>;
     stageAttachment: (bytes: ArrayBuffer, filename: string, mimeType: string) => Promise<{
         path: string;
     }>;
     searchFiles: (query: string) => Promise<string[]>;
     readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
-    approveDispatch: (jobId: string, approval?: ApproveDispatch) => Promise<Outcome>;
-    listBranches: (manifestId: string) => Promise<BranchesRead>;
-    redispatchJob: (jobId: string) => Promise<Outcome>;
-    killDrone: (jobId: string, droneId?: string) => Promise<Outcome>;
-    killJob: (jobId: string) => Promise<Outcome>;
-    parkJob: (jobId: string) => Promise<Outcome>;
-    resumeJob: (jobId: string) => Promise<Outcome>;
-    fixMain: (fix: FixMain) => Promise<Outcome>;
-    killProcess: (jobId: string, pid: number) => Promise<Outcome>;
-    killProcesses: (jobId: string) => Promise<Outcome>;
-    pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
-    restartTask: (jobId: string, taskId: string) => Promise<Outcome>;
-    editTask: (jobId: string, taskId: string, edit: EditTask) => Promise<Outcome>;
-    movePlan: (jobId: string, move: MovePlan) => Promise<Outcome>;
-    approveWave: (jobId: string, wave: ApproveWave) => Promise<Outcome>;
-    editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
-    setLandingTarget: (jobId: string, target: string) => Promise<Outcome>;
-    toProposer: (jobId: string, body: ToProposer) => Promise<Outcome>;
-    clearTerminalJobs: (jobIds: readonly string[]) => Promise<ReclaimOutcome>;
-    forgetTerminalJobs: (jobIds: readonly string[]) => Promise<ClearOutcome>;
-    reclaimWorktree: (jobId: string) => Promise<Outcome>;
     changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
     rescueSlot: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
-    deleteBranch: (jobId: string, tip: string) => Promise<Outcome>;
-    forgetJob: (jobId: string) => Promise<Outcome>;
-    redirectDrone: (jobId: string, instruction: string, droneId?: string) => Promise<Outcome>;
-    answerQuestion: (jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) => Promise<Outcome>;
-    answerCommand: (jobId: string, call: string, answer: CommandAnswer, note?: string, rule?: string, scope?: AlwaysAllowScope, mode?: AnswerMode) => Promise<Outcome>;
-    askCommander: (jobId: string, text: string) => Promise<Outcome>;
-    answerCommanderCard: (jobId: string, cardId: string, optionId: string) => Promise<Outcome>;
     answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
-    explainCommand: (jobId: string, callId: string) => Promise<CommandExplainedRead>;
-    setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked) => Promise<Outcome>;
-    answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode) => Promise<Outcome>;
-    setWhenRefused: (jobId: string, whenRefused: WhenRefused) => Promise<Outcome>;
-    setModel: (jobId: string, model: string | null) => Promise<Outcome>;
-    setReviewModel: (jobId: string, model: string | null) => Promise<Outcome>;
-    removeAllowedCommand: (jobId: string, run: string) => Promise<Outcome>;
-    restartStep: (jobId: string, note?: string) => Promise<Outcome>;
-    overrideVerdict: (jobId: string, reason: string) => Promise<Outcome>;
-    rerunGate: (jobId: string) => Promise<Outcome>;
-    rerunChecks: (jobId: string) => Promise<Outcome>;
-    retryCheck: (jobId: string, check: string) => Promise<Outcome>;
-    skipCheck: (jobId: string, check: string) => Promise<Outcome>;
-    skipChecks: (jobId: string) => Promise<Outcome>;
-    showAgain: (jobId: string, spec?: string) => Promise<Outcome>;
-    raiseCostCap: (jobId: string, costCapMicros: number) => Promise<Outcome>;
-    raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
     saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
     openSettingsFile: () => Promise<SettingsFileOpened>;
@@ -334,24 +205,8 @@ type OldBridgeApi = {
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
     phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
-    fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
-    addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
-    dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
-    watchJob: (jobId: string | null) => Promise<void>;
-    observeJob: (jobId: string | null) => Promise<void>;
     followCheckOutput: (jobId: string | null, kept: string | null) => Promise<void>;
     followLandCheck: (at: LandCheckAt | null) => Promise<void>;
-    readHistory: (jobId: string | null) => Promise<void>;
-    readResources: (jobId: string | null) => Promise<void>;
-    followActive: (want: boolean) => Promise<void>;
-    watchPulse: (jobId: string | null) => Promise<void>;
-    watchRunSheet: (jobId: string | null) => Promise<void>;
-    observeRun: (jobId: string | null, runId: string | null) => Promise<void>;
-    startRun: (jobId: string, body: StartRun) => Promise<Outcome>;
-    stopRun: (jobId: string, runId: string) => Promise<Outcome>;
-    undoRun: (jobId: string, runId: string) => Promise<Outcome>;
-    listRuns: (jobId: string) => Promise<RunListRead>;
-    getRunOutput: (jobId: string, runId: string) => Promise<RunOutputRead>;
     watchCheckoutRunSheet: (want: boolean) => Promise<void>;
     observeCheckoutRun: (runId: string | null) => Promise<void>;
     startCheckoutRun: (body: StartCheckoutRun) => Promise<Outcome>;
@@ -366,8 +221,6 @@ type OldBridgeApi = {
     readManifestFile: () => Promise<ManifestFileRead>;
     saveManifestFile: (body: SaveManifestFile) => Promise<ManifestSaveAnswer>;
     editManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
-    readManifestSpend: () => Promise<ManifestSpendRead>;
-    readManifestChecks: () => Promise<ManifestChecksRead>;
     readRepositoryScan: () => Promise<RepositoryScanRead>;
     readManifestProposals: () => Promise<ManifestProposalsRead>;
     editManifestProposal: (body: EditManifestProposal) => Promise<ProposalAnswer>;
@@ -385,17 +238,9 @@ type OldBridgeApi = {
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
     readTriggers: () => Promise<TriggersRead>;
-    readAlerts: () => Promise<AlertsRead>;
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
     removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
-    chooseTriggerFix: (jobId: string, body: ChooseTriggerFix) => Promise<Outcome>;
-    rerunTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
-    skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
-    addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
-    removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
-    editJobStep: (editing: EditingStep) => Promise<EditStepAnswer>;
-    readRepairDiff: (reading: ReadingRepairDiff) => Promise<RepairDiffAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -407,13 +252,8 @@ type OldBridgeApi = {
     openLink: (address: string) => Promise<Followed>;
     restartFleet: () => Promise<FleetRestart>;
     changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
-    examineJob: (jobId: string) => Promise<void>;
-    readEvidence: (jobId: string | null) => Promise<void>;
-    readDiff: (jobId: string | null) => Promise<void>;
-    readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
     stopSessionCheck: (run: number, force: boolean) => Promise<Outcome>;
-    readBrief: (jobId: string, name: string) => Promise<BriefRead>;
     readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
@@ -421,10 +261,6 @@ type OldBridgeApi = {
     startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
     reviewLessons: () => Promise<LessonReviewRead>;
     askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
-    readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
-    readComposing: (repository: string) => Promise<ComposingRead>;
-    frameStreamUrl: (jobId: string, kept: string) => string;
-    readReports: (want: boolean) => Promise<void>;
     readHeld: (want: boolean) => Promise<void>;
     watchStudios: (manifestId: string | readonly string[] | null) => Promise<void>;
     watchStudio: (studioId: string | null) => Promise<void>;
@@ -470,24 +306,6 @@ type OldBridgeApi = {
     walkPanel: {
         openInBridge: () => Promise<void>;
     };
-    approveReview: (jobId: string) => Promise<Outcome>;
-    mergePullRequest: (jobId: string) => Promise<Outcome>;
-    autoMergePullRequest: (jobId: string) => Promise<Outcome>;
-    rerunFailedChecks: (jobId: string) => Promise<Outcome>;
-    investigateFailedChecks: (jobId: string) => Promise<Outcome>;
-    queueAfterFinding: (jobId: string, finding: string) => Promise<Outcome>;
-    fileFindingIssue: (jobId: string, finding: string, title: string, body: string) => Promise<Outcome>;
-    openFindingIssue: (jobId: string, finding: string) => Promise<Followed>;
-    requestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => Promise<Outcome>;
-    removeWalkNote: (jobId: string, noteId: string) => Promise<Outcome>;
-    rejectWork: (jobId: string) => Promise<Outcome>;
-    readRemarks: (jobId: string | null) => Promise<void>;
-    takeUpRemarks: (jobId: string, remarks: string[]) => Promise<Outcome>;
-    dismissFinding: (jobId: string, finding: string, reason: string) => Promise<Outcome>;
-    openArtifact: (jobId: string, what: Artifact) => Promise<Opened>;
-    openInTerminal: (jobId: string) => Promise<Opened>;
-    openPullRequest: (jobId: string) => Promise<Followed>;
-    openRemarkLink: (jobId: string, remarkId: string) => Promise<Followed>;
     onSummoned: (onGo: (to: Summons) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
@@ -498,7 +316,6 @@ type OldBridgeApi = {
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
     startSession: (title?: string) => Promise<SessionActed>;
-    exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
@@ -564,8 +381,8 @@ type OldBridgeApi = {
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
-    pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
-    pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
+    pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
     readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
@@ -582,52 +399,30 @@ type OldBridgeApi = {
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
     bridge: { auditPath: null, fleetProtocol: null },
-    jobs: [],
-    unreadable: [],
-    capacity: null,
     fleetBuild: null,
-    limits: null,
-    preferences: { where_things_are_open: false },
-    settings: null,
-    mods: null,
-    manifestReading: null,
     missed: 0,
     readAt: null,
-    approving: [],
-    proposing: null,
     holds: { workflows: [], manifests: [], models: null, repositories: [] },
     repository: null,
-    located: null,
-    watched: { state: "none" },
-    observed: { state: "none" },
-    journalled: { state: "none" },
-    commander: { state: "none" },
-    followed: { state: "none" },
-    footprint: { state: "none" },
-    handed: { state: "none" },
-    history: { state: "none" },
-    evidence: { state: "none" },
-    diff: { state: "none" },
-    remarks: { state: "none" },
-    reports: { state: "none" },
-    resources: { state: "none" },
-    jobDrones: { state: "none" },
-    active: {},
-    examination: { state: "none" },
-    held: { state: "none" },
-    runSheet: { state: "none" },
-    runFollowed: { state: "none" },
     servers: { servers: [] },
-    mergeLines: null,
-    landFollowed: { state: "none" },
+    studios: { state: "none" },
+    studio: { state: "none" },
+    manifestReading: null,
     checkoutRunSheet: { state: "none" },
     checkoutRunFollowed: { state: "none" },
     manifestDrift: { state: "none" },
-    health: { state: "none" },
+    located: null,
       questions: [],
     helm: { state: "none" },
-    studios: { state: "none" },
-    studio: { state: "none" },
+    settings: null,
+    limits: null,
+    preferences: { where_things_are_open: false },
+    mods: null,
+    health: { state: "none" },
+    held: { state: "none" },
+    followed: { state: "none" },
+    mergeLines: null,
+    landFollowed: { state: "none" },
     sessions: { state: "none" },
     sessionThreads: {},
 };
@@ -637,59 +432,12 @@ const OLD_CHANNELS = {
     changed: "bridge:changed",
     syncState: "bridge:sync-state",
     walkFocused: "bridge:walk-focused",
-    proposeFromRequest: "bridge:propose-from-request",
-    stopProposal: "bridge:stop-proposal",
     stageAttachment: "bridge:stage-attachment",
     searchFiles: "bridge:search-files",
     readRequestRepository: "bridge:read-request-repository",
-    approveDispatch: "bridge:approve-dispatch",
-    listBranches: "bridge:list-branches",
-    redispatchJob: "bridge:redispatch-job",
-    killDrone: "bridge:kill-drone",
-    killJob: "bridge:kill-job",
-    parkJob: "bridge:park-job",
-    resumeJob: "bridge:resume-job",
-    fixMain: "bridge:fix-main",
-    killProcess: "bridge:kill-process",
-    killProcesses: "bridge:kill-processes",
-    pilotTask: "bridge:pilot-task",
-    restartTask: "bridge:restart-task",
-    editTask: "bridge:edit-task",
-    movePlan: "bridge:move-plan",
-    approveWave: "bridge:approve-wave",
-    editJob: "bridge:edit-job",
-    setLandingTarget: "bridge:set-landing-target",
-    toProposer: "bridge:to-proposer",
-    clearTerminalJobs: "bridge:clear-terminal-jobs",
-    forgetTerminalJobs: "bridge:forget-terminal-jobs",
-    reclaimWorktree: "bridge:reclaim-worktree",
     changeSlotPool: "bridge:change-slot-pool",
     rescueSlot: "bridge:rescue-slot",
-    deleteBranch: "bridge:delete-branch",
-    forgetJob: "bridge:forget-job",
-    redirectDrone: "bridge:redirect-drone",
-    answerQuestion: "bridge:answer-question",
-    answerCommand: "bridge:answer-command",
-    askCommander: "bridge:ask-commander",
-    answerCommanderCard: "bridge:answer-commander-card",
     answerHelmCall: "bridge:answer-helm-call",
-    explainCommand: "bridge:explain-command",
-    setWhenBlocked: "bridge:set-when-blocked",
-    answerJudge: "bridge:answer-judge",
-    setWhenRefused: "bridge:set-when-refused",
-    setModel: "bridge:set-model",
-    setReviewModel: "bridge:set-review-model",
-    removeAllowedCommand: "bridge:remove-allowed-command",
-    restartStep: "bridge:restart-step",
-    overrideVerdict: "bridge:override-verdict",
-    rerunGate: "bridge:rerun-gate",
-    rerunChecks: "bridge:rerun-checks",
-    retryCheck: "bridge:retry-check",
-    skipCheck: "bridge:skip-check",
-    skipChecks: "bridge:skip-checks",
-    showAgain: "bridge:show-again",
-    raiseCostCap: "bridge:raise-cost-cap",
-    raiseTurnCap: "bridge:raise-turn-cap",
     savePreference: "bridge:save-preference",
     saveSettings: "bridge:save-settings",
     openSettingsFile: "bridge:open-settings-file",
@@ -697,25 +445,8 @@ const OLD_CHANNELS = {
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
     phone: "bridge:phone",
-    fileReport: "bridge:file-report",
-    addTask: "bridge:add-task",
-    dropTask: "bridge:drop-task",
-    watchJob: "bridge:watch-job",
-    observeJob: "bridge:observe-job",
     followCheckOutput: "bridge:follow-check-output",
     followLandCheck: "bridge:follow-land-check",
-    readHistory: "bridge:read-history",
-    readEvidence: "bridge:read-evidence",
-    readResources: "bridge:read-resources",
-    followActive: "bridge:follow-active",
-    watchPulse: "bridge:watch-pulse",
-    watchRunSheet: "bridge:watch-run-sheet",
-    observeRun: "bridge:observe-run",
-    startRun: "bridge:start-run",
-    stopRun: "bridge:stop-run",
-    undoRun: "bridge:undo-run",
-    listRuns: "bridge:list-runs",
-    getRunOutput: "bridge:get-run-output",
     watchCheckoutRunSheet: "bridge:watch-checkout-run-sheet",
     observeCheckoutRun: "bridge:observe-checkout-run",
     startCheckoutRun: "bridge:start-checkout-run",
@@ -730,8 +461,6 @@ const OLD_CHANNELS = {
     readManifestFile: "bridge:read-manifest-file",
     saveManifestFile: "bridge:save-manifest-file",
     editManifest: "bridge:edit-manifest",
-    readManifestSpend: "bridge:read-manifest-spend",
-    readManifestChecks: "bridge:read-manifest-checks",
     readRepositoryScan: "bridge:read-repository-scan",
     readManifestProposals: "bridge:read-manifest-proposals",
     editManifestProposal: "bridge:edit-manifest-proposal",
@@ -749,17 +478,9 @@ const OLD_CHANNELS = {
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
     readTriggers: "bridge:read-triggers",
-    readAlerts: "bridge:read-alerts",
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",
     removeTrigger: "bridge:remove-trigger",
-    chooseTriggerFix: "bridge:choose-trigger-fix",
-    rerunTrigger: "bridge:rerun-trigger",
-    skipTrigger: "bridge:skip-trigger",
-    addJobStep: "bridge:add-job-step",
-    removeJobStep: "bridge:remove-job-step",
-    editJobStep: "bridge:edit-job-step",
-    readRepairDiff: "bridge:read-repair-diff",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",
@@ -771,13 +492,8 @@ const OLD_CHANNELS = {
     openLink: "bridge:open-link",
     restartFleet: "bridge:restart-fleet",
     changeFleetBuild: "bridge:change-fleet-build",
-    examineJob: "bridge:examine-job",
-    readDiff: "bridge:read-diff",
-    readRemarks: "bridge:read-remarks",
-    readCheckOutput: "bridge:read-check-output",
     readSessionCheckOutput: "bridge:read-session-check-output",
     stopSessionCheck: "bridge:stop-session-check",
-    readBrief: "bridge:read-brief",
     readRetro: "bridge:read-retro",
     readLessons: "bridge:read-lessons",
     agreeLesson: "bridge:agree-lesson",
@@ -785,29 +501,9 @@ const OLD_CHANNELS = {
     startLessonSession: "bridge:start-lesson-session",
     reviewLessons: "bridge:review-lessons",
     askLesson: "bridge:ask-lesson",
-    readFrame: "bridge:read-frame",
-    readReports: "bridge:read-reports",
     readHeld: "bridge:read-held",
-    approveReview: "bridge:approve-review",
-    mergePullRequest: "bridge:merge-pull-request",
-    autoMergePullRequest: "bridge:auto-merge-pull-request",
-    rerunFailedChecks: "bridge:rerun-failed-checks",
-    investigateFailedChecks: "bridge:investigate-failed-checks",
-    queueAfterFinding: "bridge:queue-after-finding",
-    fileFindingIssue: "bridge:file-finding-issue",
-    openFindingIssue: "bridge:open-finding-issue",
-    requestChanges: "bridge:request-changes",
-    removeWalkNote: "bridge:remove-walk-note",
-    rejectWork: "bridge:reject-work",
-    takeUpRemarks: "bridge:take-up-remarks",
-    dismissFinding: "bridge:dismiss-finding",
-    openArtifact: "bridge:open-artifact",
-    openInTerminal: "bridge:open-in-terminal",
-    openPullRequest: "bridge:open-pull-request",
-    openRemarkLink: "bridge:open-remark-link",
     summoned: "bridge:summoned",
     history: "bridge:history",
-    readComposing: "bridge:read-composing",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
     readThought: "bridge:read-thought",
@@ -858,7 +554,6 @@ const OLD_CHANNELS = {
     startSession: "bridge:start-session",
     forkSession: "bridge:fork-session",
     forkSessionAt: "bridge:fork-session-at",
-    exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",

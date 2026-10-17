@@ -95,6 +95,6 @@ Comments is not a run. It is the forge's conversation.
 | Definition routes | `crates/ipc/operations/list_review_tools.toml`, `save_review_tool.toml` |
 | Run engine | `crates/fleet/src/review_runs.rs` |
 | Definitions | `crates/config/src/review_tools.rs`, `crates/config/review-tools/*.md`, `crates/fleet/src/review_tools.rs` |
-| The bay | `Vcs::lease_review_bay` and `release_review_bay`, in `crates/adapters/src/leasing/jobs.rs` |
+| The bay | `Vcs::lease_review_bay` and `release_review_bay`, in `crates/adapters/src/leasing/jobs.rs (deleted)` |
 | Kept results | `crates/store/src/review_runs.rs` |
 | Keys | `review_*` rows of `crates/core-model/domain/actions.toml`, scope `review` |

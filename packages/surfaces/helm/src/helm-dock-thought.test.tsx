@@ -10,13 +10,13 @@ import { SessionThread } from "@armada/components";
 import type { SessionThreadRow } from "@armada/components";
 import type { HelmContext } from "@armada/protocol";
 import { mount, unmount } from "@armada/screens/src/mounted";
-import { MANIFEST_ID, MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/repository";
 import { HelmDock } from "./HelmDock";
 import type { RouteTarget, ThoughtReading, ThoughtRouting } from "./thought-routing";
 
 afterEach(unmount);
 
-const CONTEXT: HelmContext = { screen: "board" };
+const CONTEXT: HelmContext = { screen: "overview" };
 const WORDS = "the sessions page should say they are waiting for work to land";
 const MATCH: RouteTarget = {
   kind: "session",
@@ -42,7 +42,7 @@ type Wiring = {
 type Thread = { deliver?: (row: SessionThreadRow) => void };
 
 /** The dock over the Helm Session's thread, which it holds. */
-function Dock({ rows: first, thread, onAsk, routing, onOpenSent }: { rows: SessionThreadRow[]; thread: Thread; onAsk: (text: string, context: HelmContext) => void; routing: ThoughtRouting; onOpenSent: (target: { kind: "session" | "job"; id: string }) => void }) {
+function Dock({ rows: first, thread, onAsk, routing, onOpenSent }: { rows: SessionThreadRow[]; thread: Thread; onAsk: (text: string, context: HelmContext) => void; routing: ThoughtRouting; onOpenSent: (target: { kind: "session"; id: string }) => void }) {
   const [rows, setRows] = useState<SessionThreadRow[]>(first);
   thread.deliver = (row) => setRows((was) => [...was, row]);
   return (
@@ -50,7 +50,6 @@ function Dock({ rows: first, thread, onAsk, routing, onOpenSent }: { rows: Sessi
       helm={{ state: "pointed", manifestId: MANIFEST_ID }}
       hosted={{ working: false, thread: <SessionThread sessionId="helm-armada" rows={rows} agentName="Helm" onOpenSent={onOpenSent} onAnswer={() => {}} onOpenSession={() => {}} /> }}
       repositories={[repository()]}
-      jobs={[]}
       live
       context={CONTEXT}
       onAsk={onAsk}

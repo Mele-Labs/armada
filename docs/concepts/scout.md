@@ -19,12 +19,12 @@ You ask a [Studio](studio.md) how routing is decided across three packages. A sc
 > **Rule.** A scout has no worktree. It reads the repository's checkout as it is on disk, or a stranded slot's, and its Finding records the commit and whether uncommitted changes were present.
 > Why: it answers about the code a person is looking at, and the Finding says which state that was.
 
-| | Drone | Helm | Scout |
-|---|---|---|---|
-| Reads | Its Job's worktree | Fleet, through the Fleet MCP | The checkout on disk or a stranded slot's, and allowed sources |
-| Writes | Code, in its worktree | Through commands, on ask | Nothing |
-| Lifetime | One Job | A conversation | One ask |
-| Started by | The dispatch gate | A person's message | A person's ask, or Rescue on a stranded slot |
+| | Helm | Scout |
+|---|---|---|
+| Reads | Fleet, through the Fleet MCP | The checkout on disk or a stranded slot's, and allowed sources |
+| Writes | Through commands, on ask | Nothing |
+| Lifetime | A conversation | One ask |
+| Started by | A person's message | A person's ask, or Rescue on a stranded slot |
 
 ## What it may read
 
@@ -67,7 +67,7 @@ An address a scout is handed:
 
 > **Rule.** A Link to any other source stays a Link. Its address is kept and its contents are not read.
 
-> **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as a Drone's MCP servers and plugins.
+> **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as an agent's other MCP servers and plugins.
 
 Reading Helm threads needs no operation, and gets none: `get_helm_session` in `crates/ipc/operations/` refuses every agent, and Fleet reads the Helm Session's rows itself rather than opening that door.
 
@@ -84,7 +84,7 @@ Reading Helm threads needs no operation, and gets none: `get_helm_session` in `c
 > Why: its cost is shown on its Finding, and a person's ask is what started the spending.
 
 > **Rule.** A scout takes no place under Fleet's concurrency cap.
-> Why: research and Jobs then never wait on each other.
+> Why: research and Sessions then never wait on each other.
 
 > **Rule.** A stop interrupts the scout first, and ends its process group only if it has not ended ten seconds later.
 > Why: interrupted, the agent ends its turn and reports what it cost; ended outright, it reports nothing. Spike 017.
@@ -127,6 +127,6 @@ What it reads is the commit, the branch, the change against the base with uncomm
 
 | Operation | Who | Does |
 |---|---|---|
-| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then proposes a Job that continues from its branch, its request the Finding's items |
+| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then starts a Session on its branch, its request the Finding's items |
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

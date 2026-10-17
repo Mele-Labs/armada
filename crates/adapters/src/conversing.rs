@@ -16,7 +16,7 @@ use std::fmt;
 
 use adapter_traits::{
     DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused, ToolUse,
-    Toolbelt, Worktree,
+    Worktree,
 };
 
 use crate::harness::HeadlessAgent;
@@ -221,7 +221,6 @@ impl HeadlessAgent {
             conversing.model.clone(),
             Prompt::assembled("carried on stdin").map_err(ConversationRefused::Unassembled)?,
             conversing.door.clone(),
-            Toolbelt::evidence_only(),
             conversing
                 .environment
                 .clone()

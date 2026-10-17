@@ -1,237 +1,24 @@
-// What main will and will not hand to the OS when a person clicks a Job's pull
-// request.
+// What main will and will not hand to the OS when a person clicks a Studio node.
 //
-// **The address is the whole subject.** Everything else in this module is a
-// lookup; the thing worth pinning is that the string reaching `openExternal` is
-// the one Fleet recorded and never one the renderer composed, and that a record
-// carrying something other than a web address is refused by name rather than
-// opened. That is the difference between a link and an arbitrary URL handler,
-// and it is one comparison — which is exactly the kind of line that gets
-// deleted as redundant by somebody who did not know why it was there.
+// **The address is the whole subject.** The string reaching `openExternal` is the one the Studio
+// recorded and never one the renderer composed, and a record carrying something other than a web
+// address is refused by name rather than opened.
 //
-// **Electron is mocked, and only `shell.openExternal`.** The runner is node
-// with nothing from Electron by design; what is asserted here is the decision
-// in front of the call, so the call is a spy and the shell is not under test.
+// **Electron is mocked, and only `shell.openExternal`.** What is asserted here is the decision in
+// front of the call, so the call is a spy and the shell is not under test.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const openExternal = vi.fn(async (_url: string) => undefined);
 vi.mock("electron", () => ({ shell: { openExternal: (url: string) => openExternal(url) } }));
 
-const { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } = await import("./forge");
+const { openStudioNode } = await import("./forge");
 
 import { NOTHING_YET } from "../shared/bridge";
 import type { BridgeState } from "../shared/bridge";
-import type { JobDetail, JobRemarks, JobSummary, Studio, StudioNode } from "@armada/protocol";
-
-const JOB_ID = "01M1N1TJB3002E49K150S7AF2B";
-const ADDRESS = "https://forge.invalid/NickMele/armada/pull/4711";
-
-function summary(): JobSummary {
-  return {
-    id: JOB_ID,
-    handle: "12-a-job",
-    title: "Coalesce concurrent token refreshes",
-    status: "completed_success",
-    workflow_id: "bug",
-    owner_manifest_id: "01M1CNPKTV0018H2M1CXDNBK06",
-    origin: "dispatched",
-    urgency: "normal",
-    atomic: false,
-    model: "sonnet",
-    created_at: "2026-09-02T09:00:00Z",
-  };
-}
-
-/** Main holding one Job open, with whatever its branch came to. */
-function holding(delivery: JobDetail["delivery"]): BridgeState {
-  return {
-    ...NOTHING_YET,
-    jobs: [summary()],
-    watched: {
-      state: "read",
-      jobId: JOB_ID,
-      detail: {
-        job: summary(),
-        created_at: "2026-09-02T09:00:00Z",
-        steps: [],
-        acceptance_criteria: [],
-        dependencies: [],
-        ...(delivery === undefined ? {} : { delivery }),
-      },
-    },
-  };
-}
-
-/** Main holding one Job's remarks reading. */
-function holdingRemarks(remarks: JobRemarks["remarks"]): BridgeState {
-  return {
-    ...NOTHING_YET,
-    jobs: [summary()],
-    remarks: {
-      state: "read",
-      jobId: JOB_ID,
-      review: { job_id: JOB_ID, pull_request: ADDRESS, remarks },
-    },
-  };
-}
+import type { Studio, StudioNode } from "@armada/protocol";
 
 beforeEach(() => openExternal.mockClear());
-
-describe("opening a job's pull request", () => {
-  it("hands over the address Fleet recorded, and nothing else", async () => {
-    await expect(openPullRequest(holding({ pull_request: ADDRESS }), JOB_ID)).resolves.toEqual({
-      ok: true,
-    });
-    expect(openExternal).toHaveBeenCalledWith(ADDRESS);
-  });
-
-  it("refuses an address that is not a web address, by name", async () => {
-    // Nothing a person can bring about, and it is still refused rather than
-    // opened: `shell.openExternal` will hand a registered protocol handler
-    // whatever it is given, so the scheme is checked on a value that already
-    // came from Fleet.
-    const state = holding({ pull_request: "file:///Users/user/.ssh/id_ed25519" });
-    await expect(openPullRequest(state, JOB_ID)).resolves.toEqual({
-      ok: false,
-      why: "not_addressable",
-      address: "file:///Users/user/.ssh/id_ed25519",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("refuses a string that is not an address at all", async () => {
-    const state = holding({ pull_request: "armada/01M1N1TJB3002E49K150S7AF2B" });
-    await expect(openPullRequest(state, JOB_ID)).resolves.toMatchObject({
-      why: "not_addressable",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("says so where the reading it is holding names no pull request", async () => {
-    // The race the screen cannot draw: the Job was re-read between the draw
-    // and the click. A silent refusal here is the dead click `#422` is about.
-    await expect(
-      openPullRequest(holding({ commit: "9f2c1ab", pushed: "no remote" }), JOB_ID),
-    ).resolves.toEqual({ ok: false, why: "no_address" });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("says so where it no longer holds the job", async () => {
-    await expect(openPullRequest(NOTHING_YET, JOB_ID)).resolves.toEqual({
-      ok: false,
-      why: "unknown_job",
-    });
-  });
-
-  it("reads the address off the job that is open, never off another one", async () => {
-    // `watched` is one Job. A click arriving for a different id gets that id's
-    // answer — no address — rather than the open Job's address under the wrong
-    // name.
-    const state = holding({ pull_request: ADDRESS });
-    state.jobs = [summary(), { ...summary(), id: "01M1OTHER0000000000000000" }];
-    await expect(openPullRequest(state, "01M1OTHER0000000000000000")).resolves.toEqual({
-      ok: false,
-      why: "no_address",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("carries the machine's own words where it declines", async () => {
-    openExternal.mockRejectedValueOnce(new Error("no application knows how to open this"));
-    await expect(openPullRequest(holding({ pull_request: ADDRESS }), JOB_ID)).resolves.toMatchObject(
-      { why: "refused", address: ADDRESS },
-    );
-  });
-});
-
-describe("opening one comment's link", () => {
-  const REMARK_ID = "IC_kwDOfirst";
-  const REMARK_ADDRESS = "https://forge.invalid/NickMele/armada/pull/4711#issuecomment-1";
-
-  function remark(url?: string) {
-    return {
-      id: REMARK_ID,
-      by: "a-reviewer",
-      at: "2026-09-08T10:00:00Z",
-      said: "the reader still stops one line early",
-      taken_up: false,
-      ...(url === undefined ? {} : { url }),
-    };
-  }
-
-  it("hands over the comment's own address, and nothing else", async () => {
-    const state = holdingRemarks([remark(REMARK_ADDRESS)]);
-    await expect(openRemarkLink(state, JOB_ID, REMARK_ID)).resolves.toEqual({ ok: true });
-    expect(openExternal).toHaveBeenCalledWith(REMARK_ADDRESS);
-  });
-
-  it("says so where the comment carries no address", async () => {
-    const state = holdingRemarks([remark()]);
-    await expect(openRemarkLink(state, JOB_ID, REMARK_ID)).resolves.toEqual({
-      ok: false,
-      why: "no_address",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("says so where the reading names no such comment", async () => {
-    const state = holdingRemarks([]);
-    await expect(openRemarkLink(state, JOB_ID, REMARK_ID)).resolves.toEqual({
-      ok: false,
-      why: "no_address",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-
-  it("says so where it no longer holds the job", async () => {
-    await expect(openRemarkLink(NOTHING_YET, JOB_ID, REMARK_ID)).resolves.toEqual({
-      ok: false,
-      why: "unknown_job",
-    });
-  });
-});
-
-describe("openFindingIssue", () => {
-  const FINDING = "`headroom.rs` has grown";
-  const ISSUE = "https://forge.invalid/NickMele/armada/issues/990";
-
-  /** Main holding the Job open, with what its review's findings became. */
-  function holdingFollowed(
-    followed: NonNullable<JobDetail["confidence"]>["followed"],
-  ): BridgeState {
-    const state = holding(undefined);
-    if (state.watched.state !== "read") throw new Error("holding reads a Job");
-    const confidence: NonNullable<JobDetail["confidence"]> = {
-      says: "confident",
-      reasons: [],
-      areas: [],
-      needs_you: [],
-      small_fixes: [],
-      for_context: [],
-      ...(followed === undefined ? {} : { followed }),
-    };
-    return {
-      ...state,
-      watched: { ...state.watched, detail: { ...state.watched.detail, confidence } },
-    };
-  }
-
-  it("hands over the issue the finding became, read off the Job main holds", async () => {
-    const state = holdingFollowed([{ finding: FINDING, issue: ISSUE }]);
-    await expect(openFindingIssue(state, JOB_ID, FINDING)).resolves.toEqual({ ok: true });
-    expect(openExternal).toHaveBeenCalledWith(ISSUE);
-  });
-
-  it("says so where the finding became a Job and not an issue", async () => {
-    const state = holdingFollowed([{ finding: FINDING, job: JOB_ID }]);
-    await expect(openFindingIssue(state, JOB_ID, FINDING)).resolves.toEqual({
-      ok: false,
-      why: "no_address",
-    });
-    expect(openExternal).not.toHaveBeenCalled();
-  });
-});
 
 const STUDIO_ID = "01M1STUDIO000000000000001";
 

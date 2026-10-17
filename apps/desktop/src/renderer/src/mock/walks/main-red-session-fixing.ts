@@ -1,4 +1,4 @@
-// A Session holds main's red. The Fixing row names it as it names a Job, by the hammer, the Session's
+// A Session holds main's red. The Fixing row names it by the hammer, the Session's
 // icon and its title, which opens it. The band offers no way to dispatch or send back while it holds the red.
 
 import { button, inside, region, role, viaPalette, walk } from "../walk";
@@ -13,7 +13,7 @@ export const mainRedSessionFixing = walk("main-red-session-fixing", [
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green" },
   { later: inside(MERGE, role("img", "Main is green")), say: "A Session's pull request merges, and Fleet wakes the Session" },
   { look: RED, say: "Main is red" },
-  { look: inside(RED, role("img", "Working on it")), say: "Fixing: the hammer, as for a Job" },
+  { look: inside(RED, role("img", "Working on it")), say: "Fixing: the hammer" },
   { look: inside(RED, button(SESSION)), say: "The Session that holds it, by its title: it opens the Session" },
   { hover: inside(RED, role("img", "Session")), say: "A Session, by its icon" },
   { later: inside(RED, role("img", "Working on it")), say: "The Session fixes it" },

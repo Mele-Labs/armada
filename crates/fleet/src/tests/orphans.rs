@@ -66,7 +66,7 @@ async fn spawned(script: &str, mark: Option<&str>) -> Drone {
 }
 
 fn found(drone: &Drone) -> bool {
-    find(&[]).expect("ps runs").contains(&drone.group())
+    find().expect("ps runs").contains(&drone.group())
 }
 
 /// The mark the sweep reads off the Drone's row. Fails where the row is not
@@ -143,14 +143,6 @@ async fn a_process_nothing_marked_is_left_alone() {
     let drone = up(child).await;
     assert_eq!(mark_read(&drone), None);
     assert!(!found(&drone));
-}
-
-#[tokio::test]
-async fn a_group_a_recorded_drone_leads_is_left_alone_though_its_fleet_is_gone() {
-    let drone = spawned(HOLDS_FOR_A_MINUTE, Some(&a_fleet_that_is_gone())).await;
-    let held = [drone.group().get()];
-    assert!(mark_read(&drone).is_some());
-    assert!(!find(&held).expect("ps runs").contains(&drone.group()));
 }
 
 #[tokio::test]

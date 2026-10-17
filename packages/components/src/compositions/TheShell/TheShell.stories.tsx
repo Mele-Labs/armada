@@ -1,12 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ComponentProps } from "react";
 import { expect, within } from "storybook/test";
-import { Megaphone } from "lucide-react";
-import { Button } from "../../primitives/Button/Button";
 import { Tabs } from "../../primitives/Tabs/Tabs";
-import { ActiveJobsList } from "../ActiveJobsList/ActiveJobsList";
 import { DockQuestions } from "../DockQuestions/DockQuestions";
-import { JobRowStacked } from "../JobRowStacked/JobRowStacked";
 import { TheShell } from "./TheShell";
 
 /**
@@ -142,46 +138,6 @@ export const AScreenTallerThanTheWindow: Story = {
   render: Shell.render,
 };
 
-/**
- * **One Job on the Board, in a window with room for twenty.**
- *
- * A row is a row whether there is one of them or forty. The frame fills the
- * pane — that is what lets it scroll — and a grid stretches its rows into the
- * space it is given unless told not to, so a Board holding one Job drew that
- * Job a window tall with its content floating in the middle of it.
- *
- * What the pane does with the room left over is nothing, which is the correct
- * answer and the one a person expects.
- */
-export const OneRowInATallWindow: Story = {
-  args: {
-    ...shell,
-    children: (
-      <div className="armada-screen__mounted">
-        <div className="armada-screen__stack">
-          <ActiveJobsList summary="1 job needs you. 1 on the Board." selectable label="Job Board">
-            <JobRowStacked
-              status="escalated"
-              statusIcon={Megaphone}
-              statusLabel="went quiet"
-              headline="Preserve job metadata during resource cleanup"
-              jobId="01M21BKVPW002DC0ATD1X9T0VF"
-              handle="9-preserve-job-metadata-cleanup"
-              fields={[
-                { label: "Workflow", value: "feature, 4 steps" },
-                { label: "Progress", value: "scope" },
-                { label: "Run time", value: "5h 40m", mono: true },
-              ]}
-              action={<Button variant="secondary" size="sm">Open</Button>}
-            />
-          </ActiveJobsList>
-        </div>
-      </div>
-    ),
-  },
-  render: Shell.render,
-};
-
 function WithDock(args: ComponentProps<typeof TheShell>) {
   const [open, setOpen] = useState(args.dock?.open ?? false);
   const dock = args.dock === undefined ? undefined : { ...args.dock, open, onOpen: setOpen };
@@ -264,35 +220,32 @@ export const DockWithQuestions: Story = {
         <DockQuestions
           questions={[
             {
-              id: "b:judge",
+              id: "b:helm",
               repository: "shop-01",
-              job: "3",
-              title: "Checkout total ignores the discount code",
-              label: "Judge refused a criterion and is asking you",
-              asked: "Does the fix address the cause the note names?",
-              detail: "A customer with a valid code is still charged the full price.",
+              label: "Helm needs your permission",
+              asked: <span className="mono">pnpm test --filter checkout</span>,
+              detail: "Your settings would have to allow Bash(pnpm test:*).",
               waiting: "22m",
               answers: [
-                { id: "agree", label: "Agree with the refusal" },
-                { id: "disagree_once", label: "Disagree, just this step" },
-                { id: "disagree_always", label: "Always disagree" },
+                { id: "allow_once", label: "Allow once" },
+                { id: "allow_and_remember", label: "Allow and remember" },
+                { id: "refuse", label: "Refuse" },
               ],
-              note: "Open job 3 to answer.",
+              note: "Open Armada on this machine to answer.",
             },
             {
-              id: "a:command",
+              id: "a:helm",
               repository: "armada",
-              job: "12",
-              title: "The drone count is wrong after a restart",
-              label: "The drone wants to run a command it was not given",
+              label: "Helm needs your permission",
               asked: <span className="mono">cargo nextest run -p store</span>,
+              detail: "Your settings would have to allow Bash(cargo nextest run:*).",
               waiting: "1m",
               answers: [
-                { id: "allow_for_job", label: "Allow for this job" },
-                { id: "always_allow", label: "Always allow in this repository" },
-                { id: "reject", label: "Reject" },
+                { id: "allow_once", label: "Allow once" },
+                { id: "allow_and_remember", label: "Allow and remember" },
+                { id: "refuse", label: "Refuse" },
               ],
-              note: "Open job 12 to answer.",
+              note: "Open Armada on this machine to answer.",
             },
           ]}
         />

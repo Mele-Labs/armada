@@ -289,7 +289,7 @@ Rules that follow:
 - **The Drone asks for a narrowed run and never names the paths.** The tool
   takes one boolean, `only_what_changed`. A path list would be the Drone
   choosing the scope it is measured over, which is the same refusal
-  `crates/ipc/src/mcp/tools.rs` already makes about a Check name. Which paths a
+  `crates/ipc/src/mcp/tools.rs (deleted)` already makes about a Check name. Which paths a
   narrowed run reads is Fleet's reading of the worktree's own diff.
 - **A Drone's narrowed run is never a verdict and never gates a step.** The
   gate takes its own reading below, whatever a Drone asked for mid-step, and the
@@ -385,7 +385,7 @@ Added 18 September 2026, with `checks.<name>.runner` and `#1456`. Every way of
 running less than a whole Check used to be written on the Check, so the same
 command was written once per Check and again in every repository using that
 runner. A Check now names the runner instead, and the commands are written once
-per runner in its own description — `docs/concepts/runner-adapter.md`.
+per runner in its own description.
 
 | Key | Required | What it says |
 | --- | --- | --- |
@@ -528,8 +528,7 @@ Rules that follow:
   Checks.
 - **The gate runs it too, before a red is ruled on.** Each failing test runs
   alone in the Job's worktree; where every one passes, the whole Check runs
-  again alone and decides. Added 3 October 2026; `docs/concepts/manifest.md`,
-  Confirming a red.
+  again alone and decides. Added 3 October 2026.
 - **It is frozen with the workflow**, and `after_merge` drops it for the reason
   it drops `narrow`.
 
@@ -706,7 +705,7 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   purpose — `armada.yml` says so where it declares it. So a Job's gate never
   reads it, and on 8 Sept 2026 Job `01M21BKVPW002DC0ATD1X9T0VF` merged three
   over-long comment blocks past a fully green gate: `crates/armada/src/clean.rs`
-  at 27 lines, the `ending` module (deleted since) at 32, `crates/store/src/forget.rs`
+  at 27 lines, the `ending` module (deleted since) at 32, `crates/store/src/forget.rs (deleted)`
   at 28, all over the cap the hook refuses at, all in files the Job had touched.
   Every declared Check passed. A person running the gate afterwards is what
   caught it.

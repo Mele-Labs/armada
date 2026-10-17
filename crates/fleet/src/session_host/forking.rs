@@ -185,7 +185,7 @@ where
                 .session(&old_id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
-                    Refusal::NoSuchJob(WireError::raised(
+                    Refusal::NotFound(WireError::raised(
                         NO_SUCH_SESSION,
                         format!("no session is named {old_id}"),
                         self.run_id(),
@@ -198,7 +198,7 @@ where
             (session, hosting, held)
         };
         if self.repositories().serving(&to).is_none() {
-            return Err(Refusal::NoSuchJob(WireError::raised(
+            return Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_MANIFEST,
                 format!("no repository is served as {to}: held are `{}`", self.held_manifests()),
                 self.run_id(),

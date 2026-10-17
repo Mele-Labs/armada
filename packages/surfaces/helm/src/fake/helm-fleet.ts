@@ -8,9 +8,7 @@
 //
 // **Helm's thread is the Helm Session's**, which the window holds with every other Session; the
 // scenarios that draw it are `desktop/mock/scenarios/helm-is-a-session.ts` and `route-a-thought.ts`.
-// **The record is about the Job on the Board behind it**, and nothing in it is invented past what that
-// fixture already says: `escalatedGateFailure()` is Job 77 stopped on Regression check with
-// `cargo_nextest` failed three times, and Helm's reply renders that check run's own `expected` and
+// **The record is about one Session**, and Helm's reply renders that check run's own `expected` and
 // `produced` rather than paraphrasing them — `docs/contracts/agent-copy.md`, *Render a record, never
 // paraphrase it*.
 
@@ -18,25 +16,20 @@ import { connected } from "@armada/bridge-api";
 import type { PublishedCore, Scenario } from "@armada/bridge-api";
 import { PROTOCOL_ID } from "@armada/protocol";
 import type { HelmDebugInfo } from "@armada/protocol";
-import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
-import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/repository";
 
 import type { HelmApi, HelmState } from "../api";
 
-/** The Job the whole conversation is about — the same one the Board behind the dock draws. */
-const JOB = escalatedGateFailure();
-
 /**
- * What Helm answered, whole. **Every fact in it is the fixture's**: the step
- * and its ordinal, the three attempts, the check's `expected` and `produced`
- * strings verbatim, and the three recourses `stuck` names. No "I" — reading a
- * record is not something Helm did.
+ * What Helm answered, whole. **Every fact in it is the check's own**: its
+ * `expected` and `produced` strings verbatim. No "I" — reading a record is not
+ * something Helm did.
  */
 const ANSWER = [
-  "Job 77 stopped on step 4 of 6, Regression check. cargo_nextest failed on all three attempts.",
+  "Session 77 stopped on a failing check. cargo_nextest failed on all three runs.",
   "Expected — cargo nextest run --workspace exits 0",
   "Produced — exit 101 — 3 of 2034 tests failed",
-  "The worktree is still on disk. Override the verdict, redirect the drone, or redispatch.",
+  "The worktree is still on disk.",
 ].join("\n\n");
 
 /**
@@ -46,7 +39,7 @@ const ANSWER = [
  */
 const NOTE = [
   "You are Helm, in Armada. A person asks you about the work in one repository, and about the " +
-    "repository itself. You answer from what your tools return: Fleet's, for Jobs, Drones and " +
+    "repository itself. You answer from what your tools return: Fleet's, for Sessions and " +
     "what is waiting on a person, and the ordinary ones for reading, searching, editing and " +
     "running things. Saying that you did something does not do it. Only a tool call does.",
   `THIS REPOSITORY\n\nEvery question in this conversation is about Manifest ${MANIFEST_ID}, read ` +
@@ -66,11 +59,11 @@ const RECORD: HelmDebugInfo = {
   model: "sonnet",
   note: NOTE,
   door: "armada-fleet",
-  tools: ["list_jobs", "get_job", "get_check_output", "get_diff", "get_events_since", "ask_person_to_approve"],
+  tools: ["list_sessions", "get_check_output", "get_diff", "get_events_since"],
   session: "01M2C1TJ8G00HELMSESSION01",
   thread: [
     { at: "2026-09-10T14:31:06.000Z", line: "asked", text: { text: "why did 77 stop" } },
-    { at: "2026-09-10T14:31:11.000Z", line: "called", tool: "get_job", detail: JOB.job.id },
+    { at: "2026-09-10T14:31:11.000Z", line: "called", tool: "list_sessions", detail: "01M2C1TJ8G0077SESSION0001" },
     { at: "2026-09-10T14:31:19.000Z", line: "said", text: { text: ANSWER } },
     {
       at: "2026-09-10T14:33:48.000Z",
@@ -83,8 +76,7 @@ const RECORD: HelmDebugInfo = {
     from: 812,
     upto: 851,
     kinds: [
-      { kind: "job.checking", count: 3 },
-      { kind: "job.state_changed", count: 1 },
+      { kind: "session.row", count: 3 },
     ],
   },
   run_id: "01M2C1TJ8G00FLEETRUN0001",
@@ -110,10 +102,9 @@ export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(
     name: "helm-talking",
     says: "Helm pointed at a repository, with a session to report",
     state: {
-      ...connected(nothingYet, [JOB.job], JOB.workflows, [repository()]),
+      ...connected(nothingYet, [], [repository()]),
       helm: { state: "pointed", manifestId: MANIFEST_ID },
     },
-    reads: { [JOB.job.id]: JOB },
     // `A` is the app's whole API, so the one member this answers is narrowed to it by hand.
     behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }) as Partial<A>,
   };

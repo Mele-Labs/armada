@@ -3,20 +3,18 @@
 //! **In memory and never written down**, for `crate::rehearsing::Rehearsals`'
 //! reason: a server is true only as long as the process holding it lives.
 //! **One per holder per name**, taken under one lock — `docs/concepts/fleet.md`,
-//! *Servers* — so a person and a Drone asking at once share one instance.
+//! *Servers* — so two askers at once share one instance.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use core_model::JobId;
 use ipc::ServerState;
 use tokio::sync::watch;
 
 /// Whose worktree and span a server runs in.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Holder {
-    Job(JobId),
     /// A checkout, by its path — a repository's main checkout is the one at
     /// its root. **One instance per checkout per name**, so two checkouts of
     /// one repository each hold their own.
@@ -164,12 +162,6 @@ impl Servers {
             .filter(|((whose, _), _)| holder.is_none_or(|holder| holder == whose))
             .map(|(_, live)| (Arc::clone(&live.stop), live.now.subscribe()))
             .collect()
-    }
-
-    /// Let go of every ended instance `holder` left. A Job that ended has
-    /// nothing left to show a server of.
-    pub(crate) fn forget(&self, holder: &Holder) {
-        self.book().ended.retain(|(whose, _), _| whose != holder);
     }
 
     /// `commits` landed in the checkout `holder` serves: every instance it

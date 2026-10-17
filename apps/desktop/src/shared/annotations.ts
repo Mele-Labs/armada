@@ -58,11 +58,11 @@ export type AnnotationStatus = "open" | "done";
 
 export type Box = { x: number; y: number; width: number; height: number };
 
-/** Where a note was sent, #1250: the Job it became, or the Session it went to as a message. */
-export type Sent = { at: string } & ({ jobId: string; handle: string } | { sessionId: string; title: string });
+/** Where a note was sent, #1250: the Session it went to as a message. */
+export type Sent = { at: string; sessionId: string; title: string };
 
-/** What a sent note is called where it went: a Job's handle, a Session's title. */
-export const sentAs = (sent: Sent): string => ("jobId" in sent ? sent.handle : sent.title);
+/** What a sent note is called where it went: its Session's title. */
+export const sentAs = (sent: Sent): string => sent.title;
 
 /** What a whole-window note carries about what Bridge held as it was taken, for debugging that state. */
 export type AppContext = {
@@ -70,8 +70,6 @@ export type AppContext = {
   connection: string;
   /** Doctor's read: its one-line summary and each module's result. */
   doctor: { summary: string; rows: { module: string; result: string; detail: string }[] };
-  /** The Job whose detail was open, as Fleet last said it. */
-  job?: { id: string; handle: string; title: string; status: string; reason?: string; step?: string; drone?: string; workflow: string };
   /** The Session whose page was open, as Fleet last said it. */
   session?: { id: string; title?: string; state: string; harness: string; cwd: string; endReason?: string };
 };
@@ -123,12 +121,6 @@ export type Annotation = {
   location: string;
   /** `?scenario=` in the mock (#1223), or null. */
   scenario: string | null;
-  /**
-   * The ULID of the Job whose detail was open when the note was saved. **Absent, never null,
-   * where none was**: Fleet links a note to a Job's retro by this field alone, and never guesses
-   * one from the time a note was left (`docs/concepts/retro.md`, *The owner's annotations*).
-   */
-  openJobId?: string;
   /** What Bridge held as a whole-window note was taken. Absent on a note on one element. */
   context?: AppContext;
   /** The element's box in the window, in CSS pixels. */
@@ -186,7 +178,7 @@ function isSource(v: unknown): v is Source {
 
 function isSent(v: unknown): v is Sent {
   if (!isRecord(v) || !isString(v["at"])) return false;
-  return (isString(v["jobId"]) && isString(v["handle"])) || (isString(v["sessionId"]) && isString(v["title"]));
+  return isString(v["sessionId"]) && isString(v["title"]);
 }
 
 function isContext(v: unknown): v is AppContext {
@@ -196,7 +188,6 @@ function isContext(v: unknown): v is AppContext {
     isString(doctor["summary"]) &&
     Array.isArray(doctor["rows"]) &&
     doctor["rows"].every((row) => isRecord(row) && isString(row["module"]) && isString(row["result"]) && isString(row["detail"])) &&
-    (v["job"] === undefined || (isRecord(v["job"]) && isString(v["job"]["id"]) && isString(v["job"]["status"]))) &&
     (v["session"] === undefined || (isRecord(v["session"]) && isString(v["session"]["id"]) && isString(v["session"]["state"])))
   );
 }
@@ -233,7 +224,6 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNullableString(value["layer"]) &&
     isString(value["location"]) &&
     isNullableString(value["scenario"]) &&
-    (value["openJobId"] === undefined || isString(value["openJobId"])) &&
     (value["context"] === undefined || isContext(value["context"])) &&
     isBox(value["box"]) &&
     isRecord(window) &&
@@ -266,7 +256,6 @@ export function serializeAnnotation(note: Annotation): string {
     layer: note.layer,
     location: note.location,
     scenario: note.scenario,
-    ...(note.openJobId === undefined ? {} : { openJobId: note.openJobId }),
     ...(note.context === undefined ? {} : { context: note.context }),
     box: note.box,
     window: note.window,
@@ -307,7 +296,7 @@ export function requestOf(note: Annotation): string {
 }
 
 /** What a whole-window note records of the window. A failure sent to a Session records the same, so both write it with `windowLines`. */
-export type WindowFacts = Pick<Annotation, "screen" | "layer" | "location" | "scenario" | "window" | "context" | "openJobId">;
+export type WindowFacts = Pick<Annotation, "screen" | "layer" | "location" | "scenario" | "window" | "context">;
 
 /** A Session as a context records it. */
 export function sessionFacts(session: { id: string; title?: string; state: string; harness: string; cwd: string; end_reason?: string }): NonNullable<AppContext["session"]> {
@@ -336,11 +325,7 @@ export function windowLines(note: WindowFacts): string[] {
   lines.push(`- Window: ${note.window.width}×${note.window.height}`);
   const context = note.context;
   if (context !== undefined) {
-    const { job, session, doctor } = context;
-    if (job !== undefined) {
-      const facts = [`status ${job.status}`, job.reason === undefined ? null : `reason ${job.reason}`, job.step === undefined ? null : `step ${job.step}`, job.drone === undefined ? null : `Drone ${job.drone}`, `workflow ${job.workflow}`];
-      lines.push(`- Job open: ${job.handle} "${job.title}" (${job.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
-    } else if (note.openJobId !== undefined) lines.push(`- Job open: ${note.openJobId}`);
+    const { session, doctor } = context;
     if (session !== undefined) lines.push(sessionLine("Session open", session));
     lines.push(`- Connection to Fleet: ${context.connection}`, `- Doctor: ${doctor.summary}`);
     for (const row of doctor.rows) lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);

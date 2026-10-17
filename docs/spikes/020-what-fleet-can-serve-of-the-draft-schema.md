@@ -8,10 +8,10 @@ change** — #1545 is split, and this is its first half.
 problem: a closed set the registry owns, widened.** `Actor` is the expensive
 one, because it is the log envelope's vocabulary and not only the wire's —
 widening it writes spellings into `job_events` that an older Fleet's `from_wire`
-refuses when `crates/store/src/fold.rs` folds the history back.
+refuses when `crates/store/src/fold.rs (deleted)` folds the history back.
 
 **One claim in the drafts is wrong and it is load-bearing.**
-`packages/screens/src/draft/words.ts` says four of the five task states "are
+`packages/screens/src/draft/words.ts (deleted)` says four of the five task states "are
 rendered from the generated vocabulary as before". There is no `task_state`
 vocabulary: `crates/core-model/domain/enum-verbs.toml` declares no table for it
 and `packages/components/src/generated/vocabulary.ts` exports no `TASK_STATE`.
@@ -67,7 +67,7 @@ deserializer implements it.
 ### `Actor` is the expensive one
 
 `crates/core-model/src/envelope.rs` line 168 declares `human`, `fleet`, `drone`
-and `helm`. `crates/ipc/src/history.rs` line 65 carries one on every `Recorded`
+and `helm`. `crates/ipc/src/history.rs (deleted)` line 65 carries one on every `Recorded`
 row.
 
 **It is not the wire's set.** Line 180 of the same file says `job_events.actor`
@@ -86,13 +86,13 @@ as "you" costs nothing and renaming it costs a migration** — the registry's ve
 layer is where a spelling becomes a word, and `Actor` has nowhere to put one
 yet.
 
-`contributor` is the third addition, and `packages/screens/src/draft/ledger.ts`
+`contributor` is the third addition, and `packages/screens/src/draft/ledger.ts (deleted)`
 already records that nothing derives one: it needs the store between Armada
 instances that #1530 files separately.
 
 ### `failed` on a task
 
-`crates/core-model/src/job/work_plan.rs` line 59 declares `open`, `working`,
+`crates/core-model/src/job/work_plan.rs (deleted)` line 59 declares `open`, `working`,
 `done` and `dropped`, and `crates/ipc/src/enums.rs` makes them a strict wire
 set. Bridge's `stateOf` falls back to `open`, so Bridge survives a fifth; Rust
 does not.
@@ -104,7 +104,7 @@ second kind.
 
 ### `classifying`
 
-`crates/core-model/domain/job-statuses.toml` declares neither `proposing` nor
+`crates/core-model/domain/job-statuses.toml (deleted)` declares neither `proposing` nor
 `classifying`. `proposalViewOf` reads `detail.job.status`, which on a Job at its
 gate is `awaiting_approval`.
 
@@ -114,17 +114,17 @@ works either way.
 
 ### Worktrees as a list
 
-`crates/ipc/src/resources.rs` line 117 is `worktree: Option<WorktreeOnDisk>`.
+`crates/ipc/src/resources.rs (deleted)` line 117 is `worktree: Option<WorktreeOnDisk>`.
 Retyping it is major; adding `worktrees` beside it is minor and leaves one fact
 with two spellings, which this repository has removed before.
 
 ### A criterion with no id
 
-`crates/ipc/src/detail.rs` line 763 has `criterion_id` required.
-`crates/ipc/src/job.rs` line 628 says why: the id is minted with the Job because
+`crates/ipc/src/detail.rs (deleted)` line 763 has `criterion_id` required.
+`crates/ipc/src/job.rs (deleted)` line 628 says why: the id is minted with the Job because
 a Judge citation references a criterion by its frozen position.
 
-`packages/screens/src/draft/criterion.ts` makes it optional for a criterion read
+`packages/screens/src/draft/criterion.ts (deleted)` makes it optional for a criterion read
 out of an issue before approval. **A criterion with no id is a criterion no
 Judge can cite** — the id has to be minted at the moment the list freezes,
 whichever moment that is.
@@ -141,7 +141,7 @@ whichever moment that is.
 | Cost | The group id, below |
 
 `derivedGroupId` mints `g-` and the task id. `PlanTask.id` is documented as never
-renumbered — `crates/ipc/src/work_plan.rs` line 34 — so the derived id is stable
+renumbered — `crates/ipc/src/work_plan.rs (deleted)` line 34 — so the derived id is stable
 **while one task is one group**.
 
 **It stops being stable the moment a group holds two tasks.** A Record row
@@ -152,7 +152,7 @@ longer means what it meant, and nothing in the row says which.
 
 | | |
 |---|---|
-| Served | `id`, `title`, `note`, `scope`, `expects`, `shown`, `state`, `reason` — `crates/ipc/src/work_plan.rs` line 33 |
+| Served | `id`, `title`, `note`, `scope`, `expects`, `shown`, `state`, `reason` — `crates/ipc/src/work_plan.rs (deleted)` line 33 |
 | New | `touched_after_done`, `group`, `concurrent_with`, `tier`, `model`, `treatment`, `drone_id`, `turns`, `cost_micros`, `failed_reason`, `cases`, `coord` |
 | Bump | Minor for every field, major for `failed` |
 | Cost | Per-task cost and turns need a per-task agent session |
@@ -174,7 +174,7 @@ a per-**step** model the workflow declares, absent meaning the Job's own stands.
 | Bump | Minor — a new DTO |
 | Cost | The states, the timing, and the boundary |
 
-`GroupState` has no registry table, and `crates/core-model/domain/step-states.toml`
+`GroupState` has no registry table, and `crates/core-model/domain/step-states.toml (deleted)`
 declares none of `joining`, `checking` or `landed`.
 
 **Nothing times a group and nothing can derive one.** `groupsTimedBy` reads the
@@ -203,12 +203,12 @@ closed would draw a branch name off a read made for editing a file.
 
 | | |
 |---|---|
-| Served | `criterion_id`, `text`, `source` — `crates/ipc/src/detail.rs` line 762 |
+| Served | `criterion_id`, `text`, `source` — `crates/ipc/src/detail.rs (deleted)` line 762 |
 | New | `origin`, `origin_moved_at`; `source` renamed `verified_by` |
 | Bump | Minor for the new fields; major for the rename and the optional id |
 | Cost | Freezing moves from creation to approval |
 
-`AcceptanceCriterion` at `crates/core-model/src/job/fields.rs` line 465 reads
+`AcceptanceCriterion` at `crates/core-model/src/job/fields.rs (deleted)` line 465 reads
 "Frozen at creation. `Job` offers no method that edits, reorders or removes
 one." #1581 names the other documents that say it, and they are true of the code
 today.
@@ -221,7 +221,7 @@ and adding `origin` beside it costs nothing.
 
 | | |
 |---|---|
-| Served | `at`, `seq`, `actor` and three `Movement` shapes — `crates/ipc/src/history.rs` line 53 |
+| Served | `at`, `seq`, `actor` and three `Movement` shapes — `crates/ipc/src/history.rs (deleted)` line 53 |
 | New | `coord` replacing `step_id`, plus `kind`, `what`, `outcome`, and three actors |
 | Bump | Major, on the actors alone |
 | Cost | Seven families composed from four reads |
@@ -238,7 +238,7 @@ surface renders the spelling where it has no word. That is
 
 | | |
 |---|---|
-| Served | `NamedSpec` at `crates/ipc/src/showing.rs` line 167, `ShownSet` at line 184 |
+| Served | `NamedSpec` at `crates/ipc/src/showing.rs (deleted)` line 167, `ShownSet` at line 184 |
 | New | `covers`, `tasks`, `groups`, `state`, `dropped_by`, and most of a run's fields |
 | Bump | Minor — new DTOs and new fields |
 | Cost | Coverage is unbuilt, and a case has no id |
@@ -254,7 +254,7 @@ reads one.
 
 | | |
 |---|---|
-| Served | `advance_gate`, `checks`, `judge_checks`, `overridden` — `crates/ipc/src/detail/step.rs` lines 174, 142, 165, 218 |
+| Served | `advance_gate`, `checks`, `judge_checks`, `overridden` — `crates/ipc/src/detail/step.rs (deleted)` lines 174, 142, 165, 218 |
 | New | `tiers`, `drone_cap`, `fleet_always_looks`, `from_ref`, `pr_mode`, `approved_at` |
 | Bump | Minor — every addition is a new field or a new DTO |
 | Cost | A per-Job override reverses a stated decision |
@@ -279,13 +279,13 @@ moves after the press.
 
 | | |
 |---|---|
-| Served | `dispatched_by`, `status`, `branch`, `tasks`, `landed` — `crates/ipc/src/job.rs` lines 209, 258, 276 |
+| Served | `dispatched_by`, `status`, `branch`, `tasks`, `landed` — `crates/ipc/src/job.rs (deleted)` lines 209, 258, 276 |
 | New | `link`, `landed_at`, `dropped`; `scope`, `pull_request` and `question` need each member's own read |
 | Bump | Minor |
 | Cost | No Fleet operation closes a pull request or stacks a branch |
 
 `landed` reading the merge and not `completed_success` is served today:
-`Settled` (`crates/ipc/src/detail.rs` line 959) is `merged` or
+`Settled` (`crates/ipc/src/detail.rs (deleted)` line 959) is `merged` or
 `closed_unmerged`, and `JobDelivery.landed` carries it.
 
 **`landed_at` is absent for every member and cannot be derived.** The wire says
@@ -302,7 +302,7 @@ perform.
 
 | | |
 |---|---|
-| Served | `ScopeOverlap` at `crates/ipc/src/overlap.rs` line 24, hung off `JobDetail.write_scope_overlaps` |
+| Served | `ScopeOverlap` at `crates/ipc/src/overlap.rs (deleted)` line 24, hung off `JobDetail.write_scope_overlaps` |
 | New | Nothing in the shape. **When it can be asked** is the whole change |
 | Bump | Minor — a new query, or a field on the propose answer |
 | Cost | Nothing declares a path at dispatch |
@@ -319,7 +319,7 @@ which is a different fact from the one `write_scope_overlaps` carries. The
 
 | | |
 |---|---|
-| Served | `JobResources` at `crates/ipc/src/resources.rs` line 104 — `read_at`, `held`, `processes`, one `worktree`, `wrote_last_at` |
+| Served | `JobResources` at `crates/ipc/src/resources.rs (deleted)` line 104 — `read_at`, `held`, `processes`, one `worktree`, `wrote_last_at` |
 | New | `logs`, `PulseProcess.owner`, `worktree` as a list |
 | Bump | Minor for `owner` and `logs`; major for the list |
 | Cost | Nothing measures a log or says whether one is being written |
@@ -342,7 +342,7 @@ a case that never occurs.
 | Cost | Reopening a flattened picture |
 
 **Staging a PNG at dispatch already works.** `JobRequest.attachments`
-(`crates/ipc/src/job.rs` line 553) takes an `AttachmentRef` of a staged path, a
+(`crates/ipc/src/job.rs (deleted)` line 553) takes an `AttachmentRef` of a staged path, a
 filename and a mime type, on the same shared-filesystem assumption `StagedFrame`
 makes. A sketch attached to a prompt needs no new field.
 
@@ -395,7 +395,7 @@ vocabularies and the criterion reading — and each owes a glyph decision under
 
 | | |
 |---|---|
-| Served | `JobRequest` at `crates/ipc/src/job.rs` line 553 — `request`, `client_ref`, `attachments` |
+| Served | `JobRequest` at `crates/ipc/src/job.rs (deleted)` line 553 — `request`, `client_ref`, `attachments` |
 | New | `workflow_id`, `tiers`, `drone_cap`, `lands` |
 | Bump | Minor — additive, exactly as `attachments` was |
 | Cost | One of the four contradicts the operation's stated purpose |

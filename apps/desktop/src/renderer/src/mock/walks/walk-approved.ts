@@ -1,5 +1,5 @@
-// Approved, on the window's bar: once the person approves the page, the bar says so at its start, in a
-// finished Job's green, and keeps saying it. Over the `walk-variations` scenario, so the take is named.
+// Approved, on the window's bar: once the person approves the page, the bar says so at its start, in the
+// success green, and keeps saying it. Over the `walk-variations` scenario, so the take is named.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";

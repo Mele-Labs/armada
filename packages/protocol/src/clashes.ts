@@ -4,14 +4,14 @@
 // The header rules in `protocol.ts` hold here.
 
 /** What a clash is between. `main` is the repository's base branch as it stands now. */
-export type ClashSide = "job" | "session" | "main";
+export type ClashSide = "session" | "main";
 
 /** One side of a clash. */
 export type ClashHolder = {
   kind: ClashSide;
-  /** The Job's or Session's id; the base branch's name for `main`. */
+  /** The Session's id; the base branch's name for `main`. */
   id: string;
-  /** A Job's handle, a Session's title, the base branch's name. */
+  /** A Session's title, the base branch's name. */
   label: string;
 };
 
@@ -25,5 +25,5 @@ export type WriteClash = {
   since: string;
 };
 
-/** `list_write_clashes`: `GET /clashes?manifest_id=&holder=`. `holder` is a Job's or a Session's id. */
+/** `list_write_clashes`: `GET /clashes?manifest_id=&holder=`. `holder` is a Session's id. */
 export type WriteClashes = { clashes: WriteClash[] };

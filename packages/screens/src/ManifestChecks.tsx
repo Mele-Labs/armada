@@ -10,23 +10,19 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Button, CheckDetails, CheckList, ConsoleOutput, SlotOwner, Tabs, type ConsoleRow } from "@armada/components";
+import { Button, CheckDetails, CheckList, ConsoleOutput, Tabs, type ConsoleRow } from "@armada/components";
 import type {
-  CheckOutputRead,
   CheckoutRunFollowed,
   CheckoutRunListRead,
   CheckoutRunRecord,
   CheckoutRunSheetRead,
   FollowedLandLog,
-  FollowedLog,
-  ManifestCheckRow,
-  ManifestChecksRead,
   LandCheckAt,
   MergeLine,
   RunOutputRead,
 } from "@armada/protocol";
 
-import { JobCheckLogSheet, LandCheckLogSheet } from "./check-log-sheet";
+import { LandCheckLogSheet } from "./check-log-sheet";
 import {
   askerOf,
   CHECK_FILTER_LABEL,
@@ -39,7 +35,6 @@ import {
   type CheckEntry,
   type CheckFilter,
 } from "./manifest-checks";
-import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "./outputs";
 import { LogSheet } from "./log-sheet";
 
 export type ManifestChecksProps = {
@@ -60,23 +55,11 @@ export type ManifestChecksProps = {
   /** The merge line Check being followed, and the ask to follow one. */
   landFollowed: FollowedLandLog;
   onFollowLand: (at: LandCheckAt | null) => void;
-  /** `list_manifest_checks`: a Job's gate Checks and a Drone's own runs, beside the checkout's and the merge line's. */
-  onReadChecks: () => Promise<ManifestChecksRead>;
-  /** A Job's Check log, read whole or followed while it is written. */
-  onReadCheckOutput: ReadCheckOutput;
-  /** A Session's run, read by its id: it has no Job to read under. */
-  onReadSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
-  /** Ask a Session's running Check to stop, gracefully or by force. */
-  onStopSessionCheck: (run: number, force: boolean) => Promise<unknown>;
-  onFollowCheckOutput: FollowCheckOutput;
-  followedLog: FollowedLog;
-  /** A Job as a person names it, for a Check its gate asked for. */
-  jobLabel: (jobId: string) => string;
   /** Where a requester is opened: the merge line at a branch. */
   onOpenMergeLine: (branch?: string) => void;
   /** The window is at `--window-floor`. */
   floor: boolean;
-  /** A Check to have open on arriving: a Session's thread row names its run. */
+  /** A Check to have open on arriving. */
   focus?: string;
 };
 
@@ -92,8 +75,7 @@ function CheckFilters({ value, onChange }: { value: CheckFilter; onChange: (filt
 }
 
 export function ManifestChecks(props: ManifestChecksProps) {
-  const { sheet, onListRuns, onReadChecks, lines, jobLabel, floor } = props;
-  const [reported, setReported] = useState<readonly ManifestCheckRow[]>([]);
+  const { sheet, onListRuns, lines, floor } = props;
   const [runs, setRuns] = useState<readonly CheckoutRunRecord[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<CheckFilter>("all");
@@ -109,16 +91,13 @@ export function ManifestChecks(props: ManifestChecksProps) {
     void onListRuns().then((read) => {
       if (current && read.ok) setRuns(read.runs.runs);
     });
-    void onReadChecks().then((read) => {
-      if (current && read.ok) setReported(read.checks.rows);
-    });
     return () => {
       current = false;
     };
-  }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
+  }, [onListRuns, runningId, verifyId, verifyEnded]);
 
   const { focus } = props;
-  const entries = useMemo(() => checkEntriesOf(data, runs, lines, reported), [data, runs, lines, reported]);
+  const entries = useMemo(() => checkEntriesOf(data, runs, lines), [data, runs, lines]);
   useEffect(() => {
     if (focus === undefined) return;
     setFilter("all");
@@ -147,15 +126,13 @@ export function ManifestChecks(props: ManifestChecksProps) {
           floor={floor}
           onClose={close}
         />
-      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
-        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
       ) : (
         <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
       )}</>;
   return (
     <div className="armada-screen__overview">
       <CheckList
-        rows={shown.map((one) => rowOf(one, jobLabel))}
+        rows={shown.map((one) => checkRowOf(one))}
         openRow={open?.id ?? null}
         onOpenRow={setOpenId}
         controls={
@@ -178,8 +155,6 @@ export function ManifestChecks(props: ManifestChecksProps) {
           floor={floor}
           onClose={close}
         />
-      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
-        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
       ) : (
         <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
       )}
@@ -187,62 +162,9 @@ export function ManifestChecks(props: ManifestChecksProps) {
   );
 }
 
-/** A list row, with a Session's run asked by its owner chip where the line would say who. */
-function rowOf(entry: CheckEntry, jobLabel: (jobId: string) => string) {
-  const row = checkRowOf(entry, jobLabel);
-  return entry.session?.slot === undefined ? row : { ...row, by: <SlotOwner slot={entry.session.slot} /> };
-}
-
-/**
- * A gate's or a Drone's Check: its log read under its Job, followed while an asked run goes. A run
- * of several Checks has a log each, and a tab picks which is read.
- */
-function ReportedLogPanel(
-  props: ManifestChecksProps & { entry: CheckEntry; job: string; logs: NonNullable<CheckEntry["logs"]>; onClose: () => void },
-) {
-  const { entry, job, logs, floor, onClose } = props;
-  const [at, setAt] = useState(0);
-  const run = entry.session?.run;
-  const { onReadCheckOutput, onReadSessionCheckOutput } = props;
-  const read = useMemo<ReadCheckOutput>(
-    () => (run === undefined ? onReadCheckOutput : () => onReadSessionCheckOutput(run)),
-    [run, onReadCheckOutput, onReadSessionCheckOutput],
-  );
-  const outputs = useCheckOutputs(read, job);
-  const following = useFollowing(props.onFollowCheckOutput, props.followedLog, job);
-  const one = logs[Math.min(at, logs.length - 1)]!;
-  // A Session's log is kept when its run ends, so the key moves with the state and a log read while the run was out is read again.
-  const log = run === undefined ? one : { ...one, kept: `${one.kept}.${entry.status}` };
-  return (
-    <JobCheckLogSheet
-      log={{ name: log.check, kept: log.kept, live: entry.status === "running" }}
-      outputs={outputs}
-      following={following}
-      {...(run === undefined || entry.status !== "running"
-        ? {}
-        : {
-            stops: {
-              onStop: () => void props.onStopSessionCheck(run, false),
-              onForce: () => void props.onStopSessionCheck(run, true),
-            },
-          })}
-      bands={
-        <>
-          {logs.length < 2 ? null : (
-            <Tabs items={logs.map((one, n) => ({ id: String(n), label: one.check }))} value={String(at)} onChange={(id) => setAt(Number(id))} />
-          )}
-          <FactsOf {...props} />
-        </>
-      }
-      floor={floor}
-      onClose={onClose}
-    />
-  );
-}
-
 /** The Check's facts, with who asked as a link where a route to them exists. */
-function FactsOf({ entry, jobLabel, onOpenMergeLine }: ManifestChecksProps & { entry: CheckEntry }) {
-  const asker = askerOf(entry.requester, jobLabel);
+function FactsOf({ entry, onOpenMergeLine }: ManifestChecksProps & { entry: CheckEntry }) {
+  const asker = askerOf(entry.requester);
   return <CheckDetails details={checkDetailsOf(entry, <RequestedBy asker={asker} onOpenMergeLine={onOpenMergeLine} />)} />;
 }
 

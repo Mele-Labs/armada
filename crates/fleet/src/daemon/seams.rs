@@ -10,11 +10,10 @@ use std::sync::Arc;
 use adapter_traits::{
     AgentHarness, CiConfiguration, Delivery, SpawnConfigRefused, Trackers, Vcs, WorkProduct,
 };
-use core_model::{Job, Timestamp, Ulid};
+use core_model::{Timestamp, Ulid};
 use tokio::sync::Mutex;
 
 use super::{Fleet, Local};
-use crate::allowance::Allowance;
 use crate::clock::Clock;
 use crate::drone::{environment, HostPaths};
 use crate::headroom::{Headroom, Machine};
@@ -33,10 +32,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// What each Job is called on disk. See [`mod@crate::naming`].
-    pub(crate) fn names(&self) -> &Arc<crate::naming::Names> {
-        &self.names
-    }
     /// What happened, for the timeline. Public so the composition root hands it to the loops that
     /// see things Fleet does not publish.
     pub fn timeline(&self) -> &crate::timeline::Timeline {
@@ -125,11 +120,6 @@ where
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = tuned;
     }
-    /// How long a plain command may take. See
-    /// [`crate::budget::CommandBudget`].
-    pub(crate) fn command_budget(&self) -> crate::budget::CommandBudget {
-        self.tuned(|dials| dials.command_budget)
-    }
     /// How long one Check may run. See [`crate::budget::CheckBudget`].
     pub(crate) fn budget(&self) -> crate::budget::CheckBudget {
         self.tuned(|dials| dials.budget)
@@ -187,20 +177,6 @@ where
             // picker offers cannot disagree.
             choices: self.models.models.clone(),
         })
-    }
-
-    /// What a Job may spend on this machine before any Manifest says otherwise.
-    pub(crate) fn machine_allowance(&self) -> Allowance {
-        self.tuned(|dials| dials.allowance)
-    }
-
-    /// The allowance a Job is held to: the machine's, with the Manifest's tier over it.
-    pub(crate) fn allowance_for(&self, job: &Job) -> Allowance {
-        let machine = self.machine_allowance();
-        match self.served_by(job) {
-            Ok(served) => machine.at(served.manifest(), job),
-            Err(_) => machine,
-        }
     }
 
     /// What an agent run about a pull request needs in order to ask: the Judge's client, the

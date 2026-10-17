@@ -1,18 +1,16 @@
-// What a Job's retro and the Lessons listing are drawn from — `docs/concepts/retro.md`.
+// What a Session's retro and the Lessons listing are drawn from — `docs/concepts/retro.md`.
 //
 // A retro is read, and the owner decides what each item is worth: Agree or
 // Disagree. Every function below turns the wire into what the sheet and the
 // list draw, and `useAnswers` holds what an answer leaves on screen.
 //
 // **Read on open and on focus, never on a timer.** Nothing on `/events` says a
-// retro was written, and a retro is written once, after its Job ends — so a
-// surface asks when it opens and again when the window comes back to the
+// retro was written, so a surface asks when it opens and again when the window comes back to the
 // front, which is when somebody could have missed one being written.
 
 import { useEffect, useRef, useState } from "react";
 
 import type {
-  JobRetro,
   LandsIn,
   Lesson,
   LessonAnswer,
@@ -21,47 +19,44 @@ import type {
   Outcome,
   RecordAct,
   RecordAsked,
-  RecordCheck,
-  RecordNotMet,
   RecordRefusal,
   RecordSaid,
-  RecordWaited,
+  Retro,
   RetroChange,
   RetroRead,
   RetroRecord,
   RetroSubject,
 } from "@armada/protocol";
-import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
+import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroSheetItem } from "@armada/components";
 
 import { refusalWords } from "../refusal-words";
-import { absoluteOf, lasting } from "../duration";
+import { absoluteOf } from "../duration";
 import { addressOf } from "../sessions-wire";
 
 import { sessionProposedOf, type LessonSessionRead } from "./session-wire";
 
-/** Ask main for one retro: a Job's, or a Session's (the newest, or the numbered one). */
+/** Ask main for one retro: a Session's, the newest or the numbered one. */
 export type ReadRetro = (subject: RetroSubject) => Promise<RetroRead>;
 
 /**
- * The retro number in an item's id: Fleet spells a Session item `{session}-r{n}-{ordinal}`, and a
- * Job item `{ulid}-{ordinal}`. Session ids hold hyphens, so only the digits after the last `-r`
- * count. `undefined` for a Job's item, or an id that does not follow either spelling.
+ * The retro number in an item's id: Fleet spells an item `{session}-r{n}-{ordinal}`. Session ids
+ * hold hyphens, so only the digits after the last `-r` count. `undefined` for an id that does not
+ * follow the spelling.
  */
 export function retroNumberOf(lessonId: string): number | undefined {
   const match = /-r(\d+)-\d+$/.exec(lessonId);
   return match === null ? undefined : Number(match[1]);
 }
 
-/** The retro a listed item belongs to: its Session's numbered one, or its Job's. */
-export function retroSubjectOf(lesson: { id: string; job_id: string; session?: { id: string } }): RetroSubject {
-  if (lesson.session === undefined) return { kind: "job", id: lesson.job_id };
+/** The retro a listed item belongs to: its Session's numbered one. */
+export function retroSubjectOf(lesson: { id: string; session: { id: string } }): RetroSubject {
   const n = retroNumberOf(lesson.id);
   return { kind: "session", id: lesson.session.id, ...(n === undefined ? {} : { n }) };
 }
 
 /** What a read of one retro is held under, so a Session's two retros are two reads. */
 export function retroKeyOf(subject: RetroSubject): string {
-  return subject.kind === "job" ? subject.id : `${subject.id}:r${subject.n ?? ""}`;
+  return `${subject.id}:r${subject.n ?? ""}`;
 }
 /** Ask main for the Lessons listing, narrowed to this window's pick: the open items or the saved ones. */
 export type ReadLessons = (state: LessonsView) => Promise<LessonsRead>;
@@ -101,26 +96,8 @@ const refusal = (row: RecordRefusal): RetroCite => ({
   ...when(row.at),
 });
 
-const check = (row: RecordCheck): RetroCite => ({
-  id: row.cite,
-  name: row.name,
-  mono: true,
-  ...detail(row.produced ?? row.expected),
-  ...when(row.at),
-});
-
-const notMet = (row: RecordNotMet): RetroCite => ({
-  id: row.cite,
-  name: row.criterion,
-  mono: true,
-  ...detail(row.produced ?? row.expected),
-});
-
-/** Something a Drone said, under its step where it names one. */
-const said = (row: RecordSaid): RetroCite =>
-  row.step === undefined
-    ? { id: row.cite, name: row.said, ...when(row.at) }
-    : { id: row.cite, name: row.step, mono: true, ...detail(row.said), ...when(row.at) };
+/** Something an agent or a person said. */
+const said = (row: RecordSaid): RetroCite => ({ id: row.cite, name: row.said, ...when(row.at) });
 
 /** A move, and who made it through which door — `via` is what tells a press from an agent's `curl`. */
 const act = (row: RecordAct): RetroCite => ({
@@ -138,26 +115,11 @@ const asked = (row: RecordAsked): RetroCite => ({
   ...when(row.asked_at),
 });
 
-const waited = (row: RecordWaited): RetroCite => ({
-  id: row.cite,
-  name: row.status,
-  mono: true,
-  ...detail(row.ms === undefined ? undefined : lasting(row.ms)),
-  ...when(row.from),
-});
-
 /** Every row of the record, by its `cite`. */
 function rowsOf(record: RetroRecord): Map<string, RetroCite> {
   const rows: RetroCite[] = [
     ...(record.refusals ?? []).map(refusal),
-    ...(record.failed_checks ?? []).map(check),
-    ...(record.not_met ?? []).map(notMet),
-    ...(record.not_done ?? []).map(said),
-    ...(record.said_after ?? []).map(said),
     ...(record.restarts ?? []).map(act),
-    ...(record.asked ?? []).map(asked),
-    ...(record.waited ?? []).map(waited),
-    ...(record.acts ?? []).map(act),
     ...(record.notes ?? []).map(said),
     ...(record.asks ?? []).map(asked),
     ...(record.corrections ?? []).map(said),
@@ -168,7 +130,7 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
 }
 
 /** The record rows these cites name, in the order cited. One the record does not hold is left out. */
-export function citesOf(retro: JobRetro, cites: readonly string[]): RetroCite[] {
+export function citesOf(retro: Retro, cites: readonly string[]): RetroCite[] {
   const rows = rowsOf(retro.record);
   return cites.flatMap((cite) => {
     const row = rows.get(cite);
@@ -188,7 +150,6 @@ export function commandOf(change: RetroChange | undefined): string | undefined {
 /** A sheet's item with where it stands, which `useAnswers` reads and the sheet does not draw. */
 export type SheetItem = RetroSheetItem & {
   state?: LessonState;
-  jobProposed?: string;
   /** The Session started for it, where Start Session answered it. */
   sessionProposed?: string;
   /** What Update Kit would add, and what it added. */
@@ -202,12 +163,11 @@ export type SheetItem = RetroSheetItem & {
  * as a name nobody can read back — Fleet already drops those, and this holds
  * to it for a record read later than its retro was written.
  */
-export function itemsOf(retro: JobRetro): SheetItem[] {
+export function itemsOf(retro: Retro): SheetItem[] {
   const rows = rowsOf(retro.record);
   return (retro.items ?? []).map((item) => ({
     id: item.id,
     ...(item.state === undefined ? {} : { state: item.state }),
-    ...(item.job_proposed === undefined ? {} : { jobProposed: item.job_proposed }),
     ...(sessionProposedOf(item) === undefined ? {} : { sessionProposed: sessionProposedOf(item)! }),
     ...changed(item),
     who: item.who,
@@ -224,7 +184,7 @@ export function itemsOf(retro: JobRetro): SheetItem[] {
 }
 
 /** Where a retro stands, where it is not written. Nothing for a written one: its items say it. */
-export function statusOf(retro: JobRetro): string | undefined {
+export function statusOf(retro: Retro): string | undefined {
   const because = retro.why === undefined || retro.why === "" ? "" : `: ${retro.why}`;
   switch (retro.state) {
     case "written":
@@ -236,17 +196,6 @@ export function statusOf(retro: JobRetro): string | undefined {
     case "skipped":
       return `Skipped${because}`;
   }
-}
-
-/** The owner's notes left with this Job's detail open, as Fleet linked them. */
-export function notesOf(retro: JobRetro): RetroNote[] {
-  return (retro.annotations ?? []).map((note) => ({ id: note.id, text: note.text, ...when(note.at) }));
-}
-
-/** `Job 3` off `3-retire-two-guides` — `jobNumber`'s rule, for a lesson that carries no summary. */
-export function jobOf(handle: string): string {
-  const number = /^(\d+)-/.exec(handle)?.[1];
-  return number === undefined ? handle : `Job ${number}`;
 }
 
 /** A row of the list, with what Update Kit would add and what it added: read here, not drawn by the list. */
@@ -270,7 +219,7 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
   return lessons.map((lesson) => {
     return {
       id: lesson.id,
-      jobId: lesson.job_id,
+      sessionId: lesson.session.id,
       who: lesson.who,
       ...(lesson.lands_in === undefined ? {} : { landsIn: lesson.lands_in }),
       statement: lesson.statement,
@@ -278,8 +227,8 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
       ...(lesson.what === undefined ? {} : { what: lesson.what }),
       ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
       ...changed(lesson),
-      job: lesson.session === undefined ? jobOf(lesson.handle) : sessionOf(lesson.session),
-      jobExact: lesson.session === undefined ? lesson.handle : lesson.session.id,
+      session: sessionOf(lesson.session),
+      sessionExact: lesson.session.id,
       when: absoluteOf(lesson.at) ?? lesson.at,
       whenExact: lesson.at,
     };
@@ -302,25 +251,6 @@ export function lessonsTabNamed(value: string | null): LessonsTab {
   return LESSONS_TABS.find((one) => one.id === value)?.id ?? "all";
 }
 
-/** Whose retro an item came from: every item, a Session's, or a Job's. */
-export type LessonsSource = "all" | "sessions" | "jobs";
-
-export const LESSONS_SOURCES: readonly { id: LessonsSource; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "sessions", label: "Sessions" },
-  { id: "jobs", label: "Jobs" },
-];
-
-/** A remembered source read back. Anything not one — nothing stored, an old value — is All. */
-export function lessonsSourceNamed(value: string | null): LessonsSource {
-  return LESSONS_SOURCES.find((one) => one.id === value)?.id ?? "all";
-}
-
-/** The items of one source, in Fleet's order. A Session's item carries `session`; a Job's does not. */
-export function underSource(lessons: readonly Lesson[], source: LessonsSource): Lesson[] {
-  return source === "all" ? [...lessons] : lessons.filter((lesson) => (lesson.session !== undefined) === (source === "sessions"));
-}
-
 /**
  * The rows under one tab, still newest first. **Filtered here rather than
  * with `?lands_in=`**: the page holds one read, so a tab press asks Fleet for
@@ -331,26 +261,16 @@ export function underTab(rows: readonly ListedRow[], tab: LessonsTab): ListedRow
 }
 
 /**
- * The words on the button that agrees, by where the fix lands. **Only the words
- * differ from the wire's `agree`**: an Armada or Manifest item makes a Job, a
- * Kit item that carries a change updates Kit, and one without is saved.
+ * The button that agrees, for a Kit item alone: one that carries a change updates Kit, and one
+ * without is saved. **Any other item is agreed by starting a Session**, which has its own button.
  */
-export function agreeLabelOf(landsIn: LandsIn, changes = false): string {
-  if (landsIn !== "kit") return "Create Job";
-  return changes ? "Update Kit" : "Accept";
-}
-
-/** What that button does for an item, as its tooltip says it. */
-export function agreeTipOf(landsIn: LandsIn, changes = false): string {
-  if (landsIn !== "kit") {
-    return "Turn this into a Job that applies the change. It waits for your approval on the Board.";
-  }
+export function kitAgreeOf(changes = false): { label: string; tip: string } {
   return changes
-    ? "Adds this command to your Kit's allowed commands. You can remove it from the Kit page."
-    : "Saves it under Accepted.";
+    ? { label: "Update Kit", tip: "Adds this command to your Kit's allowed commands. You can remove it from the Kit page." }
+    : { label: "Accept", tip: "Saves it under Accepted." };
 }
 
-/** What Start Session does: the other way to agree with an Armada or Manifest item. */
+/** What Start Session does: how an Armada or Manifest item is agreed with. */
 export const START_SESSION_TIP =
   "Starts a Session on this repository and sends it this request now. It begins work at once.";
 
@@ -361,12 +281,11 @@ export const DISAGREE_TIP = "Discards it.";
 const AGREED = "Agreed";
 const ACCEPTED = "Accepted";
 const UPDATED_KIT = "Updated Kit";
-const PROPOSED_JOB = "Proposed Job";
 const SESSION_STARTED = "Session started";
 const OPEN_SESSION = "Open Session";
 
 /** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
-export type Standing = { state?: LessonState; jobProposed?: string; sessionProposed?: string; change?: string; applied?: string };
+export type Standing = { state?: LessonState; sessionProposed?: string; change?: string; applied?: string };
 
 /** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
 export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
@@ -375,19 +294,17 @@ export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gon
  * What answering leaves on screen, for the list and the sheet alike.
  *
  * **An answer sends once per item** and the item's buttons hold while it is out.
- * Agreed for an Armada or Manifest item stays, reading `Agreed` with a link to
- * the Job it proposed, until the surface is read again, when Fleet no longer
- * lists it as open. **Start Session answers the same two kinds** and stays as
- * `Session started` with a link that opens the Session; the host opens it at
- * once, with its first message in the message box. A Kit item that updated Kit stays the same way, reading
- * `Updated Kit` with the command Fleet says it applied. Agreeing any other Kit
- * item and disagreeing with any item take it off at once. A refusal stays on
+ * **Start Session agrees with an Armada or Manifest item** and it stays as
+ * `Session started` with a link that opens the Session, until the surface is read
+ * again, when Fleet no longer lists it as open; the host opens it at once, with its
+ * first message in the message box. A Kit item that updated Kit stays the same way,
+ * reading `Updated Kit` with the command Fleet says it applied. Agreeing any other
+ * Kit item and disagreeing with any item take it off at once. A refusal stays on
  * the item, in Fleet's own words, with both answers.
  */
 export function useAnswers(
   agree: AnswerLesson | undefined,
   disagree: AnswerLesson | undefined,
-  openJob: ((jobId: string) => void) | undefined,
   sessions?: SessionStarts,
 ): (lessonId: string, landsIn: LandsIn | undefined, standing: Standing) => AnswerView {
   const [pressing, setPressing] = useState<Record<string, "agree" | "disagree" | "session">>({});
@@ -399,7 +316,6 @@ export function useAnswers(
   latestSessions.current = sessions;
   const [refused, setRefused] = useState<Record<string, string>>({});
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
-  const [agreed, setAgreed] = useState<Record<string, string | undefined>>({});
   const [updated, setUpdated] = useState<Record<string, string>>({});
 
   async function press(lessonId: string, which: "agree" | "disagree", landsIn: LandsIn | undefined) {
@@ -414,9 +330,7 @@ export function useAnswers(
       return;
     }
     const applied = commandOf(answer.lesson.applied);
-    if (which === "agree" && landsIn !== "kit" && answer.lesson.state === "agreed") {
-      setAgreed((was) => ({ ...was, [lessonId]: answer.lesson.job_proposed }));
-    } else if (which === "agree" && landsIn === "kit" && applied !== undefined) {
+    if (which === "agree" && landsIn === "kit" && applied !== undefined) {
       setUpdated((was) => ({ ...was, [lessonId]: applied }));
     } else {
       setGone((was) => new Set(was).add(lessonId));
@@ -451,16 +365,6 @@ export function useAnswers(
     },
   });
 
-  const agreedAs = (job: string | undefined): AnswerView => ({
-    gone: false,
-    settled: {
-      said: AGREED,
-      ...(job === undefined || openJob === undefined
-        ? {}
-        : { job: { label: PROPOSED_JOB, onOpen: () => openJob(job) } }),
-    },
-  });
-
   const updatedAs = (command: string): AnswerView => ({
     gone: false,
     settled: { said: UPDATED_KIT, command },
@@ -468,7 +372,6 @@ export function useAnswers(
 
   return (lessonId, landsIn, standing) => {
     if (gone.has(lessonId)) return { gone: true };
-    if (lessonId in agreed) return agreedAs(agreed[lessonId]);
     const startedId = started[lessonId];
     if (startedId !== undefined) return startedAs(startedId, notSent[lessonId]);
     const was = updated[lessonId];
@@ -476,7 +379,7 @@ export function useAnswers(
     // **An item answered before this read stands as Fleet says**: its state, and no buttons.
     // Discarded draws nothing. One with no state is read and left alone.
     if (standing.state === "agreed") {
-      return standing.sessionProposed === undefined ? agreedAs(standing.jobProposed) : startedAs(standing.sessionProposed);
+      return standing.sessionProposed === undefined ? { gone: false, settled: { said: AGREED } } : startedAs(standing.sessionProposed);
     }
     if (standing.state === "accepted") {
       return standing.applied === undefined ? { gone: false, settled: { said: ACCEPTED } } : updatedAs(standing.applied);
@@ -484,16 +387,17 @@ export function useAnswers(
     if (standing.state === "discarded") return { gone: true };
     if (standing.state === undefined) return { gone: false };
     // An item kept before a place was named is refused both answers by Fleet, so it has none.
-    if (agree === undefined || disagree === undefined || landsIn === undefined) return { gone: false };
+    if (disagree === undefined || landsIn === undefined) return { gone: false };
     const held = pressing[lessonId];
     const why = refused[lessonId];
     return {
       gone: false,
       answers: {
-        agreeLabel: agreeLabelOf(landsIn, standing.change !== undefined),
-        agreeTip: agreeTipOf(landsIn, standing.change !== undefined),
+        // Only a Kit item has an agree of its own; the rest are agreed by a Session.
+        ...(landsIn !== "kit" || agree === undefined
+          ? {}
+          : { agree: { ...kitAgreeOf(standing.change !== undefined), onAgree: () => void press(lessonId, "agree", landsIn) } }),
         disagreeTip: DISAGREE_TIP,
-        onAgree: () => void press(lessonId, "agree", landsIn),
         onDisagree: () => void press(lessonId, "disagree", landsIn),
         // Kit is no repository, so a Kit item has no Session to start.
         ...(sessions === undefined || landsIn === "kit"
@@ -506,17 +410,17 @@ export function useAnswers(
   };
 }
 
-/** Where one Job's retro stands on the Retros list: out, read, or failed. */
-export type JobRead = { state: "pending" } | { state: "read"; retro: JobRetro } | { state: "failed"; outcome: Outcome };
+/** Where one Session's retro stands on the Retros list: out, read, or failed. */
+export type HeldRetro = { state: "pending" } | { state: "read"; retro: Retro } | { state: "failed"; outcome: Outcome };
 
 /**
- * The retros the Retros list's Evidence controls read, **each Job at most once**
- * and shared by that Job's items. Held by the screen, not globally, and dropped
+ * The retros the Retros list's Evidence controls read, **each at most once**
+ * and shared by that retro's items. Held by the screen, not globally, and dropped
  * when the window comes back to the front, as the list's own read is asked
  * again then. A failed read is not kept: pressing again asks again.
  */
-export function useJobRetros(read: ReadRetro): { of: (subject: RetroSubject) => JobRead | undefined; ask: (subject: RetroSubject) => void } {
-  const [held, setHeld] = useState<Record<string, JobRead>>({});
+export function useRetros(read: ReadRetro): { of: (subject: RetroSubject) => HeldRetro | undefined; ask: (subject: RetroSubject) => void } {
+  const [held, setHeld] = useState<Record<string, HeldRetro>>({});
   // What is out or answered, and which generation asked: a drop makes earlier answers stale.
   const asked = useRef(new Set<string>());
   const generation = useRef(0);
@@ -567,7 +471,7 @@ export function useReadOnFocus<T>(read: () => Promise<T>, key: string): T | unde
     let live = true;
     const again = () =>
       void latest.current().then((answer) => {
-        // An answer for a Job or a pick this surface has left is not this one's.
+        // An answer for a Session or a pick this surface has left is not this one's.
         if (live) setHeld({ key, read: answer });
       });
     again();

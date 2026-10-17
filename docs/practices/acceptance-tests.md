@@ -30,17 +30,11 @@ the gate asserts about it.
 
 | Milestone | The claim | Where |
 |---|---|---|
-| M1 — Dogfood | A Bug Job runs from the approval gate to `completed_success` | `crates/acceptance/tests/bug_job.rs` |
-| Landing | A Job's work reaches the thing it was for | `crates/acceptance/tests/landing.rs` |
 | Reach | Armada works on a repository I did not write the Manifest for by hand | `crates/acceptance/tests/reach.rs` |
-| Plan | A running Job shows how far through its plan it is | `crates/acceptance/tests/plan.rs` |
-| Trust | Work that passes its Check but is wrong gets caught, and I can see that it was caught rightly, before I take it | `crates/acceptance/tests/trust.rs` |
-| Overview | Everything in flight and everything waiting on me, across my repositories, on one surface — and I can answer it, or ask Helm about it, without leaving | `crates/acceptance/tests/overview.rs` |
 | Studio | I can work something out on a Studio — notes from using the app, what a scout read, what I pasted in — turn what holds up into a Job, and come back later to see how I got there | `crates/acceptance/tests/studio.rs` |
-| The new Job, spike 022 | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
 | Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
 | Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
-| Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Jobs that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
+| Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Sessions that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
@@ -94,36 +88,18 @@ Every assertion in a reconciliation is sorted into one of three, and no fourth:
 An exclusion is a change to what the milestone promises. It is written down as
 one, in the step that made it, and in the test's own header.
 
-## What M1's test proves
+## A later milestone's test, and the one thing M0's answer cannot repeat
 
-`crates/acceptance/tests/bug_job.rs` proves the machinery of M1 — Dogfood.
-
-| Proved | Not proved |
-|---|---|
-| Human approval before dispatch | The merge |
-| Fleet dispatch, one submission per step | An agent doing real work |
-| Evidence and passing checks both required, neither sufficient | A commit, a push, a pull request |
-| Both machines — Job status and step state | The loop that drives them |
-| Frozen acceptance criteria and step list | Frozen checks |
-| Branch derivation from the Job id | A Judge, a retry, a human advance gate |
-
-**The merge is the milestone's other half and no test covers it.** M1's claim
-is that Armada does a small real task in the Armada repo and a person merges
-the branch it wrote; the run itself is a person's to perform once. The test's
-own header carries the full list of gaps.
-
-## A second milestone's test, and the one thing M0's answer cannot repeat
-
-Focus writes its test first. `CLAUDE.md` says a milestone's test is written
-before the code, so that half was never really open.
+A later milestone writes its test first. `CLAUDE.md` says a milestone's test is
+written before the code, so that half was never really open.
 
 **What is decided here is that it compiles.** M0's test named APIs that did not
 exist, so `cargo test -p acceptance` did not compile and rule one was satisfied
 by a non-zero exit. That is unrepeatable now, for a reason that did not exist
 when there was one milestone: the package holds every milestone's test and the
-`acceptance` Check compiles all of them in one invocation. A Focus test that named `job_steps`'
-Drone pointer before #137 built it would take `bug_job.rs` down with it, and
-M1's claim would stop being run for the length of Focus.
+`acceptance` Check compiles all of them in one invocation. A test that named a type before its
+issue built it would take every other milestone's test down with it, and their
+claims would stop being run for the length of the build.
 
 > **Rule.** A milestone's test may not stop an earlier milestone's test running.
 > Why: a shipped claim that quietly stops being checked is the failure the gate
@@ -140,13 +116,12 @@ merges green.
 **It asserts what is carried, and states the rest.** A step of the claim that
 cannot be asserted yet is a row in the test's header naming the issue that
 carries it. The change that builds a step adds its assertion beside the code and
-takes the row out. Focus and Landing merged their tests red before this rule;
-neither is red now.
+takes the row out. Two early milestones merged their tests red before this
+rule; neither is red now.
 
 **What that costs is stated rather than hidden.** A claim needing vocabulary
 that does not exist yet cannot be an assertion, so it is named in the test's own
-header as a claim the file does not carry and why. `drone_per_step.rs` names
-three. That is weaker than a compiler error list, and the compiler error list is
+header as a claim the file does not carry and why. That is weaker than a compiler error list, and the compiler error list is
 not available at this price.
 
 **The header is the build order.** Its rows follow the order a person meets

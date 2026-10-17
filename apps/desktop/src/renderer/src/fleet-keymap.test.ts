@@ -33,28 +33,28 @@ afterEach(() => {
 
 describe("key bindings over Fleet", () => {
   it("lays what Fleet holds over the registry, and follows what it publishes", async () => {
-    const one = fleet('{"version":1,"bindings":{"kill":["q"]}}', { ok: true });
+    const one = fleet('{"version":1,"bindings":{"copy_debug_info":["y"]}}', { ok: true });
     await settle();
-    expect(keyFor("kill")).toBe("q");
+    expect(keyFor("copy_debug_info")).toBe("y");
     one.publish("");
-    expect(keyFor("kill")).toBe("x");
+    expect(keyFor("copy_debug_info")).toBe("c");
   });
 
   it("saves a change as the key_bindings preference", async () => {
     const one = fleet(undefined, { ok: true });
     await settle();
-    rebind("kill", parseSlots("q"));
-    expect(one.saved).toEqual([{ name: "key_bindings", value: false, text: '{"version":1,"bindings":{"kill":["q"]}}' }]);
+    rebind("copy_debug_info", parseSlots("y"));
+    expect(one.saved).toEqual([{ name: "key_bindings", value: false, text: '{"version":1,"bindings":{"copy_debug_info":["y"]}}' }]);
   });
 
   it("puts Fleet's keys back and says why when the save is refused", async () => {
     const refused: Outcome = { ok: false, why: "not_connected" };
     const one = fleet(undefined, refused);
     await settle();
-    rebind("kill", parseSlots("q"));
-    expect(keyFor("kill")).toBe("q");
+    rebind("copy_debug_info", parseSlots("y"));
+    expect(keyFor("copy_debug_info")).toBe("y");
     await settle();
-    expect(keyFor("kill")).toBe("x");
+    expect(keyFor("copy_debug_info")).toBe("c");
     expect(one.told).toHaveLength(1);
   });
 });

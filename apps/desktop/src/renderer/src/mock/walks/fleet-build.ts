@@ -3,7 +3,7 @@
 //
 // **The panel is opened from the Fleet dot on the title row**, which is where the build section is drawn now.
 
-import { button, dialog, role, text, walk } from "../walk";
+import { button, role, text, walk } from "../walk";
 
 const BUILD = role("combobox", "Build");
 const REFRESH = button("Refresh preview");
@@ -42,16 +42,6 @@ export const fleetBuildRefreshing = walk("fleet/build-refreshing", [
   { later: text("Restarting Fleet"), say: "Then the next" },
   { look: text("Reopening Bridge"), say: "The last, held until the restart finishes" },
   { hover: role("status"), say: "The tooltip names the build it is restarting onto" },
-]);
-
-export const fleetBuildDronesWorking = walk("fleet/build-drones-working", [
-  { press: button(/^Fleet — /), say: "The Fleet dot on the title row opens its panel, where the build section is" },
-  { press: UPDATE, say: "Update to main with two Drones working" },
-  { look: dialog("Drones are working"), say: "A confirm lists the Jobs that would be adopted" },
-  { look: text("Count drones from the roster"), say: "Each Job by its title" },
-  { look: text("Cannot be redirected until it finishes"), say: "The cost of adopting, in one line" },
-  { press: button("Restart"), say: "Restart" },
-  { look: button("Updating to main"), say: "The restart began once the person said so" },
 ]);
 
 export const fleetBuildFailed = walk("fleet/build-failed", [

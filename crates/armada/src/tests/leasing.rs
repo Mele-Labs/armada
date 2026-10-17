@@ -1,4 +1,4 @@
-//! What `armada worktree --status` says of a slot a Job holds.
+//! What `armada worktree --status` says of a slot a Session holds.
 
 use std::path::PathBuf;
 
@@ -6,38 +6,22 @@ use adapters::leasing::{Holder, Slot, SlotState};
 
 use crate::leasing::line;
 
-fn held_by_a_job(kept: Option<&str>, completed: bool) -> Slot {
+fn held_by_a_session() -> Slot {
     Slot {
         number: 2,
         path: PathBuf::from("/repo/.armada/slots/slot-2"),
         state: SlotState::Held {
             branch: String::from("armada/1-fix"),
-            holder: Holder::job("01JOB"),
+            holder: Holder::hosted("01SESSION"),
             since: 0,
-            kept: kept.map(str::to_string),
-            completed,
         },
         closed: false,
     }
 }
 
 #[test]
-fn a_slot_a_completed_job_holds_reads_as_done_until_it_is_cleared() {
-    let said = line(&held_by_a_job(None, true), 600);
-    assert!(said.starts_with("slot-2  done "), "{said}");
-    assert!(said.contains("by job 01JOB"), "{said}");
-    assert!(said.contains("until the Job is cleared"), "{said}");
-}
-
-#[test]
-fn a_refused_release_reads_as_kept_whether_or_not_the_job_completed() {
-    let said = line(&held_by_a_job(Some("2 uncommitted"), true), 600);
-    assert!(said.starts_with("slot-2  kept "), "{said}");
-}
-
-#[test]
-fn a_running_job_s_slot_reads_as_held() {
-    let said = line(&held_by_a_job(None, false), 600);
+fn a_slot_a_session_holds_reads_as_held() {
+    let said = line(&held_by_a_session(), 600);
     assert!(said.starts_with("slot-2  held "), "{said}");
 }
 
@@ -45,11 +29,11 @@ fn a_running_job_s_slot_reads_as_held() {
 fn a_closed_slot_says_so_beside_its_holder() {
     let slot = Slot {
         closed: true,
-        ..held_by_a_job(None, false)
+        ..held_by_a_session()
     };
     let said = line(&slot, 600);
     assert!(said.starts_with("slot-2 closed  held "), "{said}");
-    assert!(said.contains("by job 01JOB"), "{said}");
+    assert!(said.contains("01SESSION"), "{said}");
 }
 
 /// `armada worktree lease` reads the pool fresh each time, the Manifest's
@@ -167,7 +151,7 @@ fn a_pool_with_its_one_slot_held() -> (crate::tests::TempDir, std::path::PathBuf
     std::fs::write(&manifest, format!("{declared}setup:\n  worktrees: 1\n")).unwrap();
     let none = |_: &std::path::Path, _: &std::path::Path| Err(String::from("no seed"));
     let pool = crate::leasing::pool_of(repo.path()).expect("a pool");
-    let held = pool.try_lease("theirs", &Holder::job("someone-else"), 0, &none);
+    let held = pool.try_lease("theirs", &Holder::hosted("someone-else"), 0, &none);
     assert!(matches!(held, Ok(adapters::leasing::Leased::Took(_))), "the slot is taken: {held:?}");
     let slot = pool.path_of(1);
     (repo, slot)
