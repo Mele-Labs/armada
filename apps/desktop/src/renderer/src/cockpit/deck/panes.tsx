@@ -424,7 +424,7 @@ export function PrPane({ pr, owner, props, acts }: { pr: Pr; owner: Subject | un
   const sessions = useSessions();
   const views = viewsOf(props.state);
   const view = views.find((one) => one.root === pr.root);
-  const dot = view === undefined ? undefined : dotsOf(view, props.state.mergeLines, views, sessions).find((one) => one.key === `pull:${pr.number}`);
+  const dot = view === undefined ? undefined : dotsOf(view, props.state.mergeLines, sessions).find((one) => one.key === `pull:${pr.number}`);
   const card = dot?.card;
   const opened = heldFor(card?.opened, props.now);
   const who = owner === undefined || owner.kind === "pr" ? undefined : <Holder kind={owner.kind} id={owner.id} title={owner.title} />;

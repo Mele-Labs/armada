@@ -87,7 +87,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const touched = useMemo(
     () =>
       touchesFromEvents(events, {
-        keyOf: (event) => (event.subject.kind === "job" || event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
+        keyOf: (event) => (event.subject.kind === "session" ? `${event.subject.kind}:${event.subject.id}` : undefined),
         rootsOf: (key) => {
           const slot = holder.get(key);
           return slot === undefined ? [] : [slot.path];

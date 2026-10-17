@@ -11,9 +11,9 @@ const lines = (pull_requests: unknown[]): MergeLines =>
   ({ lines: [{ root: "/armada", line: [], off: [], landed: [], sent_back: [], hub: { pull_requests } }] }) as unknown as MergeLines;
 
 /** What the strip reads: the same fold the Merge line surface draws, then the blocks off it. */
-function blocksOf(served: MergeLines, sessions: Parameters<typeof pullBlocks>[3] = []) {
+function blocksOf(served: MergeLines, sessions: Parameters<typeof pullBlocks>[2] = []) {
   const views = mergeLineViews(served, null, [], []);
-  return pullBlocks(views[0]!, served, views, sessions);
+  return pullBlocks(views[0]!, served, sessions);
 }
 
 describe("the horizon's pull requests", () => {
@@ -54,11 +54,11 @@ describe("the horizon's pull requests", () => {
     expect(blocksOf(served)[0]!.tip).toBe("#2 Title 2 · feat/first · In the merge queue, running its checks, place 1");
   });
 
-  test("the hover names the Job that opened it, else the Session that holds it", () => {
-    const withJob = lines([pull(7, "fleet/pause", { job: { id: "j1", title: "Store a pause marker" } }), pull(8, "pocket/pwa")]);
-    const holds = [{ id: "s13", title: "Armada Pocket", rows: [], attachments: [{ kind: "pull_request", number: 8, branch: "pocket/pwa" }] }] as unknown as Parameters<typeof pullBlocks>[3];
+  test("the hover names the Session that holds it", () => {
+    const withJob = lines([pull(7, "fleet/pause"), pull(8, "pocket/pwa")]);
+    const holds = [{ id: "s13", title: "Armada Pocket", rows: [], attachments: [{ kind: "pull_request", number: 8, branch: "pocket/pwa" }] }] as unknown as Parameters<typeof pullBlocks>[2];
     const [first, second] = blocksOf(withJob, holds);
-    expect(first!.tip).toContain("Job: Store a pause marker");
+    expect(first!.tip).toBe("#7 Title 7 · fleet/pause · Open");
     expect(second!.tip).toContain("Session: Armada Pocket");
   });
 
@@ -96,7 +96,7 @@ describe("the landings as dots", () => {
   test("a pull request's card has its number, title, branch, the ci inside the queue, and its place", () => {
     const served = lines([pull(2, "feat/first", { ci: "passed", queue: { state: "awaiting_checks", position: 1 } })]);
     const views = mergeLineViews(served, null, [], []);
-    expect(dotsOf(views[0]!, served, views, [])[0]!.card).toEqual({
+    expect(dotsOf(views[0]!, served, [])[0]!.card).toEqual({
       heading: "#2",
       title: "Title 2",
       branch: "feat/first",
@@ -121,6 +121,6 @@ describe("the landings as dots", () => {
       ],
     } as unknown as MergeLines;
     const views = mergeLineViews(served, null, [], []);
-    expect(dotsOf(views[0]!, served, views, []).map((one) => one.card.heading)).toEqual(["docs/a", "#3", "#5"]);
+    expect(dotsOf(views[0]!, served, []).map((one) => one.card.heading)).toEqual(["docs/a", "#3", "#5"]);
   });
 });

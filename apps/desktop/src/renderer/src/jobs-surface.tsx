@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { Ellipsis, LoaderCircle } from "lucide-react";
-import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, useNow, usePilot, useOpenInSession } from "@armada/components";
+import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, useNow } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { JobSummary, MergeLines, RepositorySummary } from "@armada/protocol";
 import type { NowView } from "@armada/screens/src/draft/now";
@@ -127,8 +127,6 @@ function Tile({
   nows: Readonly<Record<string, NowView>> | undefined;
 } & Handlers) {
   const reading = readingOf(job);
-  const pilot = usePilot();
-  const session = useOpenInSession();
   if (reading.as !== "badge") return null;
   const Mark = reading.icon;
   const running = job.status === "running";
@@ -140,16 +138,12 @@ function Tile({
   const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
   const entries: DropdownMenuEntry[] = [
     ...(recent && job.status !== "rejected" ? [{ kind: "item" as const, id: "redispatch", label: ACT_LABEL.redispatch }] : []),
-    ...(pilot !== null && running ? [{ kind: "item" as const, id: "pilot", label: "Pilot" }] : []),
-    ...(session !== null && (job.status === "escalated" || job.status === "completed_failed") ? [{ kind: "item" as const, id: "session", label: "Open in a Session" }] : []),
     ...(pausing === null ? [] : [{ kind: "item" as const, id: pausing, label: ACT_LABEL[pausing] }]),
     ...(recent ? [{ kind: "item" as const, id: "clear", label: "Clear" }] : []),
     ...(ended ? [] : [{ kind: "separator" as const, id: "rule" }, { kind: "item" as const, id: "kill", label: "Kill", shortcut: "x", danger: true }]),
   ];
   const choose = (id: string) => {
     if (id === "redispatch") acts.onRedispatch(job.id);
-    else if (id === "pilot") pilot?.ask(job.id);
-    else if (id === "session") session?.open(job.id);
     else if (id === "pause_job" || id === "resume_job") acts.onPausing(id, job.id);
     else if (id === "clear") acts.onClear(job.id);
     else if (id === "kill") acts.onKill(job.id);

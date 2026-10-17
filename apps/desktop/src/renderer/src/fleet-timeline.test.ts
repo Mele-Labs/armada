@@ -8,8 +8,8 @@ import { createFleetTimeline, TIMELINE_WINDOW_MS } from "./fleet-timeline";
 const entry = (id: number, says = "Started"): TimelineEvent => ({
   id,
   at: "2026-10-13T10:00:00Z",
-  kind: "job.started",
-  subject: { kind: "job", id: "job-1" },
+  kind: "session.started",
+  subject: { kind: "session", id: "s-1" },
   tone: "run",
   says,
   live: true,

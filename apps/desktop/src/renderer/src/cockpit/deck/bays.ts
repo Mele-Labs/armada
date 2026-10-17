@@ -91,10 +91,10 @@ export function holdersOf(slots: readonly WorktreeSlot[]): Map<string, WorktreeS
 
 const same = (a: Holder, b: Holder) => a.kind === b.kind && a.id === b.id;
 
-/** The Job or Session a slot event is about. Events about a pull request or main are not a holder. */
+/** The Session a slot event is about. Events about a pull request or main are not a holder. */
 function holderOfEvent(event: TimelineEvent): Holder | undefined {
   const { subject } = event;
-  return subject.kind === "job" || subject.kind === "session" ? { kind: subject.kind, id: subject.id, title: event.title } : undefined;
+  return subject.kind === "session" ? { kind: subject.kind, id: subject.id, title: event.title } : undefined;
 }
 
 /**

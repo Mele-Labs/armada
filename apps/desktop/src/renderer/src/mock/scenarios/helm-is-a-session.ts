@@ -105,9 +105,9 @@ function build(): Scenario {
     says: "Helm hosted as a Session: its thread drawn as a Session's, Stop beside the working mark, the slot, branch and pull request it holds, and its row in the Sessions list",
     state: { ...board, mergeLines: { lines: [LINE] } },
     held: held(),
-    behaves: (handle) => ({
+    behaves: () => ({
       readThought: (text) =>
-        readAfterPause(text, { sessions: (store?.get() ?? []).filter((one) => one.helm !== true).map(recordOf), jobs: handle.state().jobs }),
+        readAfterPause(text, { sessions: (store?.get() ?? []).filter((one) => one.helm !== true).map(recordOf) }),
       // Words for Helm start its turn, which the walk's `later` steps carry on.
       askHelm: async (text, _context, carry) => {
         store?.ask(text, carry);

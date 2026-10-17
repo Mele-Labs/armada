@@ -157,16 +157,14 @@ const bucketOf = (event: FleetEvent, now: number): string => {
 };
 
 /**
- * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session or a
- * Job's Drone, and a Session's subagents. A waiting, a resolution and a Session started by another keep the
+ * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session, and
+ * its subagents. A waiting, a resolution and a Session started by another keep the
  * Session's dot in their tone.
  */
 const KIND_MARK: Partial<Record<TimelineKind, { icon: typeof Clock; said: string }>> = {
   "session.read": { icon: ScrollText, said: "Read" },
   "session.edited": { icon: FilePenLine, said: "Edited" },
   "session.ran": { icon: Terminal, said: "Ran" },
-  "job.read": { icon: ScrollText, said: "Read" },
-  "job.ran": { icon: Terminal, said: "Ran" },
   "session.subagent": { icon: SplitLine, said: "Subagent" },
 };
 
@@ -185,7 +183,7 @@ function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
 }
 
 /** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
-const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" || event.kind === "job.ran" ? "commands" : "files");
+const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" ? "commands" : "files");
 
 function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
   const says = (

@@ -16,13 +16,13 @@ const event = (kind: TimelineKind, subject: TimelineEvent["subject"], ago: numbe
   return { id: count, at: new Date(NOW - ago).toISOString(), kind, subject, tone: "run", says: kind, ...extra };
 };
 const s1 = { kind: "session", id: "s1" } as const;
-const j1 = { kind: "job", id: "j1" } as const;
+const s2 = { kind: "session", id: "s2" } as const;
 
-const drone = (key: string): DroneIn => ({ key, kind: key.startsWith("job:") ? "job" : "session", title: key, root: "/r", said: "now", hue: "calm", spin: false, hover: false, ping: false, stuck: false, flare: false, working: false, touches: [], shown: true });
+const drone = (key: string): DroneIn => ({ key, kind: "session", title: key, root: "/r", said: "now", hue: "calm", spin: false, hover: false, ping: false, stuck: false, flare: false, working: false, touches: [], shown: true });
 const none = () => undefined;
 
 test("the window is the last two hours of events, oldest first, and a replay starts at the first of them", () => {
-  const window = windowOf([event("session.turn", s1, 30 * MIN), event("session.started", s1, 90 * MIN), event("job.created", j1, WINDOW_MS + 5 * MIN)], NOW);
+  const window = windowOf([event("session.turn", s1, 30 * MIN), event("session.started", s1, 90 * MIN), event("session.started", s2, WINDOW_MS + 5 * MIN)], NOW);
 
   expect(window?.events.map((one) => one.kind)).toEqual(["session.started", "session.turn"]);
   expect(window?.from).toBe(NOW - 90 * MIN);
@@ -30,7 +30,7 @@ test("the window is the last two hours of events, oldest first, and a replay sta
 
 test("no event in the window is no replay", () => {
   expect(windowOf([], NOW)).toBeUndefined();
-  expect(windowOf([event("job.created", j1, WINDOW_MS + MIN)], NOW)).toBeUndefined();
+  expect(windowOf([event("session.started", s2, WINDOW_MS + MIN)], NOW)).toBeUndefined();
 });
 
 test("at most 2000 events, the newest, so the start moves up with them", () => {
@@ -50,11 +50,11 @@ test("a start is never earlier than the first event, and one with no wish starts
 });
 
 test("a drone whose start is in the window is absent before it; one the window finds already running is there", () => {
-  const events = [event("session.started", s1, 60 * MIN), event("job.step", j1, 40 * MIN)];
-  const drones = [drone("session:s1"), drone("job:j1")];
+  const events = [event("session.started", s1, 60 * MIN), event("session.step", s2, 40 * MIN)];
+  const drones = [drone("session:s1"), drone("session:s2")];
 
-  expect(fieldAt(events, NOW - 90 * MIN, drones, [], none).drones.map((one) => one.key)).toEqual(["job:j1"]);
-  expect(fieldAt(events, NOW - 50 * MIN, drones, [], none).drones.map((one) => one.key)).toEqual(["session:s1", "job:j1"]);
+  expect(fieldAt(events, NOW - 90 * MIN, drones, [], none).drones.map((one) => one.key)).toEqual(["session:s2"]);
+  expect(fieldAt(events, NOW - 50 * MIN, drones, [], none).drones.map((one) => one.key)).toEqual(["session:s1", "session:s2"]);
 });
 
 test("a drone stands as its last event up to the playhead left it, at that event's real time", () => {

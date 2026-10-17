@@ -517,7 +517,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
     const where = view.name ?? "Merge line";
     const main = view.hub?.main;
     if (tab === "command-central") {
-      if (main?.state === "red" && main.taken === undefined && (main.checking ?? []).length === 0) {
+      if (main?.state === "red" && (main.checking ?? []).length === 0) {
         items.push({
           key: `main:${view.root}`,
           owner: "line",

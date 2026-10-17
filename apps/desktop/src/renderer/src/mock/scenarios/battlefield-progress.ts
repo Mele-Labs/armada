@@ -159,7 +159,6 @@ const lease = (minutes: number, who: Who, slot: number) => event(minutes, who, "
 
 /** What places the drones: the directories each has edited, as the checkout spells them, and who holds each bay. The story's own record is the construction. */
 function placed(): TimelineEvent[] {
-  const job: Who = { subject: { kind: "job", id: cache.job.id }, title: cache.job.title };
   return [
     event(720, sessionWho(dock), "session.started", "run", "Started", { live: true }),
     // Scoped: a walk of the current dock is shown and two questions are asked before anything is planned.
@@ -173,13 +172,10 @@ function placed(): TimelineEvent[] {
     event(12, sessionWho(swarm), "session.started", "run", "Started", { live: true }),
     edited(4, sessionWho(swarm), ["apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", "apps/desktop/src/renderer/src/cockpit/deck/Bays.tsx"]),
     edited(20, sessionWho(clock), ["crates/store/tests/clock.rs", "crates/store/tests/pool.rs"]),
-    event(17, job, "job.started", "run", "Started", { live: true }),
-    event(10, job, "job.files", "run", "Changed 1 file", { detail: "packages/components/src/Tabs.tsx", live: true }),
     lease(720, sessionWho(dock), 1),
     lease(40, sessionWho(clock), 2),
     lease(15, sessionWho(crew), 4),
     lease(12, sessionWho(swarm), 5),
-    lease(17, job, 3),
   ];
 }
 

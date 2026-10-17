@@ -14,7 +14,7 @@
 // over. Only addresses moved off the file the gate measures.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
-import type { PilotOutcome, StartAfter } from "@armada/protocol";
+import type { StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
@@ -706,16 +706,6 @@ export class FleetConnection {
     const start = startOn(repository, title, root, request, tuning, after);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
-  }
-
-  /**
-   * Takes a Job over and starts a Session on its worktree. **The repository is the Job's own**, read
-   * off the row main holds, so a window on another repository, or on All, takes over the same Job.
-   */
-  async pilotJob(jobId: string, outcome: PilotOutcome): Promise<SessionActed> {
-    const job = this.current.jobs.find((row) => row.id === jobId);
-    if (job === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    return await this.sessions.start({ manifest_id: job.owner_manifest_id, pilot: { job_id: jobId, outcome } });
   }
 
   private connected(): BridgeStateFleet | null {

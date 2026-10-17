@@ -65,13 +65,12 @@ export function helmFleetOn(scenario: Scenario, handle: FleetHandle, reply: stri
 
   return {
     ...sessions,
-    // Fleet's reading of a thought: the mock's keyword scorer over this scenario's own Sessions and Jobs. Helm's own
+    // Fleet's reading of a thought: the mock's keyword scorer over this scenario's own Sessions. Helm's own
     // Session is not a place a thought goes.
     readThought: (text) => {
       const state = handle.state();
       return readAfterPause(text, {
         sessions: state.sessions.state === "read" ? state.sessions.sessions.filter((one) => one.helm !== true) : [],
-        jobs: state.jobs,
       });
     },
     askHelm: async (text, _context, carry?: HelmCarry) => {

@@ -14,9 +14,9 @@ const at = (secondsAgo: number) => new Date(Date.now() - secondsAgo * 1000).toIS
 const entry = (id: number, job: string, says: string, secondsAgo = 60): TimelineEvent => ({
   id,
   at: at(secondsAgo),
-  kind: "job.step",
-  subject: { kind: "job", id: job },
-  title: `Job ${job}`,
+  kind: "session.step",
+  subject: { kind: "session", id: job },
+  title: `Session ${job}`,
   tone: "run",
   says,
   live: true,
@@ -50,7 +50,7 @@ test("keep narrows the dots to the subjects it keeps, and absent keeps every one
   await expect.poll(names).toEqual(["Job a: Scope passed", "Job b: Implement started"]);
   off?.();
 
-  chart({ keep: (subject) => subject.kind === "job" && subject.id === "a" });
+  chart({ keep: (subject) => subject.kind === "session" && subject.id === "a" });
   await expect.poll(names).toEqual(["Job a: Scope passed"]);
 });
 
@@ -64,7 +64,7 @@ test("pressing a dot picks its event, and lit rings that dot alone", async () =>
 
   await userEvent.click(page.getByRole("button", { name: "Job a: Scope passed" }));
   expect(picked).toHaveBeenCalledTimes(1);
-  expect(picked.mock.calls[0]![0]).toMatchObject({ id: "1", subject: { kind: "job", id: "a" } });
+  expect(picked.mock.calls[0]![0]).toMatchObject({ id: "1", subject: { kind: "session", id: "a" } });
 });
 
 test("only the last hour is drawn", async () => {
@@ -78,7 +78,7 @@ test("a Job opened on the deck narrows the dots to its own events however many n
     ...Array.from({ length: 5 }, (_, i) => entry(1000 + i, "b", `B step ${i}`, 3000 - i)),
     ...Array.from({ length: 700 }, (_, i) => entry(i + 1, "a", `A step ${i + 1}`, 600 - i * 0.5)),
   ];
-  chart({ of: { kind: "job", id: "b" } }, many);
+  chart({ of: { kind: "session", id: "b" } }, many);
   await expect.poll(() => names().length).toBe(5);
   expect(names().every((name) => name!.startsWith("Job b:"))).toBe(true);
 });
