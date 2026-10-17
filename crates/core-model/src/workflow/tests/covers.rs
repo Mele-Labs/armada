@@ -7,7 +7,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::job::covers::{BadPattern, Covers, PathPattern};
+use crate::workflow::covers::{BadPattern, Covers, PathPattern};
 
 fn pattern(written: &str) -> PathPattern {
     PathPattern::parse(written).expect("a pattern this dialect reads")

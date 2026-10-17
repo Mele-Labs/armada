@@ -23,8 +23,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::job::gaming::GamingCheck;
-use crate::job::ids::{CriterionId, ModelName};
+use crate::workflow::gaming::GamingCheck;
+use crate::workflow::ids::{CriterionId, ModelName};
 
 /// One criterion, as the Judge saw it.
 ///

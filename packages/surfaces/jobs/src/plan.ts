@@ -50,7 +50,7 @@ function markStateOf(state: string): TaskMarkState {
   return (STATES as readonly string[]).includes(state) ? (state as TaskMarkState) : "open";
 }
 
-/** The `DeclaredCheck.kind` `crates/core-model/src/job/workflow.rs` names `PLAN_RECORDED`. */
+/** The `DeclaredCheck.kind` `crates/core-model/src/workflow/frozen.rs` names `PLAN_RECORDED`. */
 const PLAN_RECORDED = "plan_recorded";
 
 /**

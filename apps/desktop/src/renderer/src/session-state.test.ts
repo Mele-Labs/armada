@@ -55,3 +55,10 @@ describe("working is what Fleet derived, not only a turn of its own", () => {
     expect(stateOf(session({ turn: { state: "idle" }, standing: "working", lastTurnAt: undefined })).state).toBe("working");
   });
 });
+
+describe("a full pool holds the Session on him", () => {
+  test("a Session at work with the pool's call on it is waiting on him, whatever its turn says", () => {
+    const choice = { id: "slot-choice", text: "Every slot is in use", since: TURN_ENDED, source: "slot_choice", options: [{ label: "Wait for a slot" }, { label: "Add a slot" }] };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [choice] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});

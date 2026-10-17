@@ -139,7 +139,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 ## Choosing what reruns
 
-**Which Checks a set of paths hits is one answer, shared with Fleet's gate.** `armada covers` reads paths on stdin and asks each Check's `covers`, which calls `Covers::reach` in `crates/core-model/src/job/covers.rs`. `ResolvedCheck::covers`, which the gate's skip decision asks, calls the same function.
+**Which Checks a set of paths hits is one answer, shared with Fleet's gate.** `armada covers` reads paths on stdin and asks each Check's `covers`, which calls `Covers::reach` in `crates/core-model/src/workflow/covers.rs`. `ResolvedCheck::covers`, which the gate's skip decision asks, calls the same function.
 
 **Where the repository has workspaces, the keys are `<dir>:<name>`.** `armada covers` answers with the Checks of each manifest the paths gate, root first, and the line runs `armada check <key>` for each, in that workspace's directory. Setup follows: the root's `setup.requires` once, then each workspace's own for the workspaces that have a Check in the set, and a root Command a workspace names runs in the root and is not repeated. A repository with no workspace `armada.yml` sees none of this. [Manifest](../concepts/manifest.md), *Workspace gating*.
 

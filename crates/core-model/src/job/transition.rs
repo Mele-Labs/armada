@@ -29,7 +29,7 @@ use core::fmt;
 
 use crate::job::escalation::EscalationTrigger;
 use crate::job::guard::Guard;
-use crate::job::ids::{CriterionId, StepId};
+use crate::workflow::{CriterionId, StepId};
 use crate::job::status::{JobStatus, StepState};
 use crate::job::step::JobStep;
 
