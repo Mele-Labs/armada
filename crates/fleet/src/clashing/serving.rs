@@ -2,7 +2,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Clashing, Refusal};
-use ipc::{ClashHolder, ClashSide, ManifestId, RepositoryAreas, SlotTouches, WriteClash, WriteClashes};
+use ipc::{ClashFile, ClashHolder, ClashSide, ManifestId, RepositoryAreas, SlotTouches, WriteClash, WriteClashes};
 
 use super::{Side, Who};
 use crate::daemon::Fleet;
@@ -83,6 +83,16 @@ where
         holder: Option<String>,
     ) -> Result<WriteClashes, Refusal> {
         self.write_clashes(manifest_id, holder).await
+    }
+
+    async fn read_clash_file(
+        &self,
+        session_id: String,
+        other_kind: ClashSide,
+        other_id: String,
+        path: String,
+    ) -> Result<ClashFile, Refusal> {
+        self.clash_file(&session_id, other_kind, &other_id, &path).await
     }
 
     async fn list_repository_areas(&self) -> Result<RepositoryAreas, Refusal> {

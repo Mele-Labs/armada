@@ -122,6 +122,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/clashes",
     },
+    Route {
+        operation: "read_clash_file",
+        method: "GET",
+        path: "/clashes/file",
+    },
     // What a repository holds and where each agent has changed it, for the deck's map.
     // `docs/concepts/fleet.md`, *The territory*.
     Route {

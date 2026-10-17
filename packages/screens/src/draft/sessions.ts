@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -396,6 +396,8 @@ export type Session = {
   context?: { tokens: number; window: number };
   /** What fills that window, as the harness reports it. Absent where it has not. */
   contextBreakdown?: ContextBreakdown;
+  /** What its agent knows and was told, counted, and what the latest turn used. Absent until the Session reports one. */
+  loadout?: LoadoutSummary;
   /**
    * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
    * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
@@ -531,11 +533,22 @@ export type ArtifactRead =
   | { ok: true; bytes: Uint8Array; type: string }
   | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
 
+/** One Loadout row, as `read_loadout_item` is asked for it. A use's `skill`, `tool` or `subagent` is the same kind. */
+export type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
+
+export type { LoadoutItemBody };
+
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
 
 /** One file of a pull request as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { ok: false; said: string };
+
+/**
+ * One file of a write clash: each side's change to it as a unified diff from where the two split, or why it was not read. `ours`
+ * is the Session's own. Mock only until Fleet serves it.
+ */
+export type ClashFileRead = { ok: true; ours: string; theirs: string } | { ok: false; said: string };
 
 /** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. `cut` is set where Fleet sent only the start of a long change. */
 export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: false; said: string };
@@ -631,6 +644,10 @@ export type SessionsDraft = {
    * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
    */
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
+  /** A Session's whole Loadout, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadout?: (id: string) => Promise<SessionLoadout | undefined>;
+  /** What one Loadout item says, once read; undefined where it could not be. Absent where nothing serves it. */
+  loadoutItem?: (id: string, item: LoadoutItemAsk) => Promise<LoadoutItemBody | undefined>;
   /**
    * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
    * nothing serves it, and the Retro press is left off rather than drawn dead.
@@ -685,6 +702,8 @@ export type SessionsDraft = {
   pullRequestPage?: (id: string, number: number) => Promise<PullRequestPageRead>;
   /** One file of a pull request, read when a person opens it from the Files tab. Absent with `pullRequestPage`. */
   pullRequestFile?: (id: string, number: number, path: string) => Promise<PullRequestFileRead>;
+  /** One file of a write clash between the Session and `other`, read when a person opens it from Bays. */
+  clashFile?: (id: string, other: { kind: "session" | "main"; id: string }, path: string) => Promise<ClashFileRead>;
   /**
    * A comment, an approval or a request for changes on a pull request. **Answers the page read
    * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.

@@ -157,8 +157,8 @@ function Lead({ view }: { view: BayView }) {
   );
 }
 
-/** A berth: a door in the state's hue carrying the glyph and the bay's number, and to its right the holder, its branch and the time. */
-function Berth({ view }: { view: BayView }) {
+/** A berth: a door in the state's hue carrying the glyph and the bay's number, and to its right the holder, its branch and the time. `foot` adds marks of a host's own. */
+export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
   return (
     <>
       <span className="deck-bay__door">
@@ -171,6 +171,7 @@ function Berth({ view }: { view: BayView }) {
         <span className="deck-bay__foot">
           <Warmth view={view} />
           <Marks view={view} />
+          {foot}
           {timeOf(view)}
         </span>
       </span>

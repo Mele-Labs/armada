@@ -5,12 +5,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import type { LedgerEntry } from "@armada/components";
-import type { WorktreeSlot } from "@armada/protocol";
+import type { WorktreeSlot, WriteClash } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { closeLayer, dropLayer, showLayer, toggleLayer, useLayer } from "./layers";
 import { Layer } from "./SessionLayers";
-import type { SlotTrouble } from "./slot-trouble";
+import type { SessionBays } from "./slot-trouble";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -43,11 +43,19 @@ const entries = [
 ] as unknown as LedgerEntry[];
 
 const slot = { slot: 3, manifest_id: "m", path: "/s/3", base: "main", warm: true, behind: 31, branch: "armada/retry", held: { state: "stranded", why: "2 uncommitted" }, stranded: { uncommitted: ["a.rs"], commits: [], unpushed: 1 } } as unknown as WorktreeSlot;
-const trouble: SlotTrouble = { kind: "stranded", slot, branch: "armada/retry", said: "Slot 3 is stranded", clashes: [] };
+const other = { slot: 5, manifest_id: "m", path: "/s/5", base: "main", warm: true, behind: 2, branch: "armada/retry-wire", held: { state: "hosted_session", session_id: ID } } as unknown as WorktreeSlot;
+const clash = { one: { kind: "session", id: ID, label: "Retry the lease" }, other: { kind: "session", id: "s2", label: "Name the migrations" }, paths: ["crates/ipc/src/lib.rs"], since: "2026-10-17T13:00:00Z" } satisfies WriteClash;
+const bays: SessionBays = {
+  bays: [
+    { slot, branch: "armada/retry", wrong: "stranded", said: "Slot 3 is stranded" },
+    { slot: other, branch: "armada/retry-wire", wrong: undefined, said: undefined },
+  ],
+  clashes: [clash],
+};
 
 function Open({ over, checked }: { over: "artifacts" | "subagents" | "checks" | "slot"; checked?: (run: number) => void }) {
   const layer = useLayer(ID);
-  return layer === undefined ? null : <Layer id={layer} session={session} entries={entries} trouble={over === "slot" ? trouble : undefined} onOpenCheck={checked ?? (() => undefined)} onOpenSession={() => undefined} />;
+  return layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={over === "slot" ? bays : undefined} onOpenCheck={checked ?? (() => undefined)} onOpenSession={() => undefined} />;
 }
 
 function mount(over: "artifacts" | "subagents" | "checks" | "slot", checked?: (run: number) => void): HTMLElement {
@@ -138,10 +146,18 @@ test("Checks lists the runs newest first and a press opens the run", () => {
   expect(opened).toEqual([12]);
 });
 
-test("Slot says why the slot is worth a look, and offers the bay", () => {
+test("Bays lists the write clashes first, then every bay the Session holds drawn as the cockpit draws it, and offers each one", () => {
   const host = mount("slot");
   act(() => showLayer(ID, "slot"));
-  const facts = [...host.querySelectorAll(".sv-layer__fact")].map((one) => one.textContent);
-  expect(facts).toEqual(expect.arrayContaining(["Slot3", "Brancharmada/retry", "StateStranded", "Behind main31 commits", "Unpushed1 commit"]));
-  expect(host.querySelector('[data-layer-row]')?.textContent).toBe("Open the bay");
+  const groups = [...host.querySelectorAll(".sv-layer__group")].map((one) => one.getAttribute("aria-label"));
+  expect(groups).toEqual(["Write clashes", "slot-3", "slot-5"]);
+  const marks = (name: string) => [...host.querySelectorAll(`section[aria-label="${name}"] [role="img"]`)].map((one) => one.getAttribute("aria-label"));
+  const text = (name: string) => host.querySelector(`section[aria-label="${name}"]`)?.textContent ?? "";
+  expect(marks("slot-3")).toEqual(expect.arrayContaining(["Stranded", "1 commit not pushed", "31 behind main"]));
+  expect(marks("slot-5")).toEqual(expect.arrayContaining(["2 behind main"]));
+  expect(text("slot-5")).toContain("armada/retry-wire");
+  const clashRows = [...host.querySelectorAll('table[aria-label="Write clashes"] tbody tr')].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent));
+  expect(clashRows).toEqual([[expect.stringContaining("Name the migrations"), "crates/ipc/src/lib.rs"]]);
+  expect(host.querySelector('button[aria-label="Open Name the migrations"]')).not.toBeNull();
+  expect([...host.querySelectorAll("[data-layer-row]")].map((one) => one.getAttribute("aria-label"))).toEqual(["Show slot-3 in Bays", "Show slot-5 in Bays"]);
 });

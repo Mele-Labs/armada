@@ -1,5 +1,5 @@
 // A write clash on the flight deck, through `App` on the ship scenario: both parties of a clash carry the mark on their list rows,
-// on their drone, and where a Session's pane names the other in its Write clash bar. The mark names the
+// on their drone, and on the open Session's Bays key, which names the other. The mark names the
 // other party and opens it on the deck, and nothing is marked
 // where Fleet reports no clash. The ship holds two Sessions in one file, and a Session against a main that moved.
 // Hand-run with the rest of `mock/`.
@@ -56,15 +56,10 @@ test("a row of each party to a clash carries the mark, and the mark names the ot
   expect(said(rowMarks(ASKING))).toEqual([`Conflicts with ${SESSION} · ${FILE}`]);
   expect(said(rowMarks(SESSION))).toEqual([`Conflicts with ${ASKING} · ${FILE}`]);
 
-  // Pressed on one's row it opens the other on the deck, whose Write clash bar names the first. The bar is a line of chips while it is
-  // folded, and the chip opens that Session's pane.
+  // Pressed on one's row it opens the other on the deck, whose Bays key carries the glyph naming the first.
   rowMarks(ASKING)[0]!.click();
   await expect.element(pane(SESSION)).toBeVisible();
-  const bar = pane(SESSION).getByRole("region", { name: "Write clash" });
-  await expect.element(bar).toHaveTextContent(ASKING);
-  // The first is the chip: the closed list of clashes under the chips names it again.
-  await bar.getByRole("button", { name: `Open ${ASKING}` }).first().click();
-  await expect.element(pane(ASKING)).toBeVisible();
+  await expect.element(controls().getByRole("img", { name: `Write clash with ${ASKING}` })).toBeVisible();
 });
 
 test("a marked row keeps the list's width, less the mark", async () => {

@@ -275,3 +275,23 @@ fn a_transition() -> ipc::Event {
         manifest_id: ipc::ManifestId::carried(THE_MANIFEST),
     })
 }
+
+/// `read_loadout_item` reads its row off the query string, and a kind outside the closed set is the
+/// transport's 400 rather than a read.
+#[tokio::test]
+async fn a_loadout_item_is_asked_on_the_query_string() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/sessions/loadout/item?session_id=s1&kind=skill&name=productivity%3Astart&source=plugin&from=productivity",
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let answer: ipc::LoadoutItemBody = ipc::decode("an item's body", &body).expect("a body");
+    assert!(matches!(answer, ipc::LoadoutItemBody::NotRead { .. }));
+    let (status, _) = call(&app, "GET", "/sessions/loadout/item?session_id=s1&kind=everything&name=x&source=kit", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

@@ -1,0 +1,29 @@
+/* The Loadout's mark in a Session's head: quiet, as the fresh-start mark beside it is. */
+.armada-loadout-mark {
+  position: relative;
+  display: flex;
+}
+
+button.armada-loadout-mark__button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+button.armada-loadout-mark__button:hover {
+  color: var(--fg-default);
+}
+
+button.armada-loadout-mark__button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-loadout-mark__acts {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

@@ -1,0 +1,210 @@
+/* A Session's Loadout on a sheet: three sections, each kind under an eyebrow, a row a name and where it came from. */
+.armada-loadout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.armada-loadout__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-loadout__heading {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+}
+
+.armada-loadout__group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-loadout__eyebrow {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-loadout__rows,
+.armada-loadout__turns {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The name takes what is left, the source keeps to the trailing edge. */
+.armada-loadout__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* A tool's name runs long (`mcp__github__pull_request_read`) and is the fact being looked for, so it wraps rather
+   than being cut. */
+.armada-loadout__name {
+  min-width: 0;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.armada-loadout__source {
+  margin-left: auto;
+  flex: none;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.armada-loadout__kind {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-loadout__state {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-loadout__state[data-state="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-loadout__none {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-loadout__turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+}
+
+button.armada-loadout__turn-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.armada-loadout__turn-head:hover,
+button.armada-loadout__turn-head[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+
+button.armada-loadout__turn-head:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-loadout__turn > .armada-loadout__rows,
+.armada-loadout__turn > .armada-loadout__none {
+  padding-left: var(--space-6);
+}
+
+/* A row that opens its item: the row's own layout on a button, and the turn head's hover, selection and ring. */
+.armada-loadout__item {
+  display: flex;
+  min-width: 0;
+}
+
+button.armada-loadout__press {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.armada-loadout__press:hover,
+button.armada-loadout__press[aria-current="true"] {
+  background: var(--bg-hover);
+}
+
+button.armada-loadout__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The item's panel: where it came from, then the path it was read from, under its name. */
+.armada-loadout-item__said {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.armada-loadout-item__path {
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.armada-loadout-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-loadout-item__why {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* Text that is not markdown, as it was written: wrapped rather than scrolled, as Prose's fenced block is. */
+.armada-loadout-item__text {
+  margin: 0;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

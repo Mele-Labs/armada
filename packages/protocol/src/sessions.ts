@@ -7,6 +7,7 @@
 import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
+import type { LoadoutItems, LoadoutSummary, LoadoutUse } from "./loadout";
 import type { SessionActivity } from "./session-activity";
 import type { ReportedTask, SessionBuild } from "./session-build";
 import type { ProtocolId } from "./connection";
@@ -105,6 +106,11 @@ export type SessionRecord = {
    * mod reports one.
    */
   context_breakdown?: ContextBreakdown;
+  /**
+   * The Loadout in brief: counts and the latest turn's uses. Absent where no `equipped` was ever
+   * reported. The whole of it is `get_session_loadout`.
+   */
+  loadout_summary?: LoadoutSummary;
   /**
    * What a hosted session is doing, as Fleet saw its tool calls. Absent before the first call, on a
    * session a terminal runs and once the session ends. Since 14 Oct 2026.
@@ -482,6 +488,10 @@ export type SessionFact =
   | { kind: "committed"; branch?: string }
   /** A `git push` ran and its output showed a ref updated. */
   | { kind: "pushed"; branch?: string }
+  /** What the agent knows and was told, whole, replacing the last. */
+  | { kind: "equipped"; loadout: LoadoutItems }
+  /** A skill, tool or subagent used. Fleet keeps the last fifty turns. */
+  | { kind: "used"; use: LoadoutUse }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {

@@ -270,10 +270,10 @@
 .deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
 .deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
-/* On All with nothing open the line says so in the subtle ink, as a disabled thing does, and draws no chip. */
-.deck-queue__say { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
-.deck-queue[data-dim] .armada-button { color: var(--fg-subtle); }
 .deck-queue__gap { flex: none; width: var(--space-4); }
+/* On All, one repository's line at a time: the stack scrolls down a row at a time and snaps, each row scrolls across. */
+.deck-queue__stack { flex: 1 1 auto; min-width: 0; height: calc(var(--h-badge) + var(--space-2) * 2); overflow-x: hidden; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; scrollbar-width: none; }
+.deck-queue__stack > .deck-chips { box-sizing: border-box; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
 
 .deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
 .deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
@@ -669,6 +669,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-band .armada-kbd + .armada-kbd { margin-left: 0; }
 .deck-tile { position: relative; }
 .deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
+/* A write clash on the Bays key, where a key with a digit has its keycap: the clash mark's glyph and amber. */
+.deck-tile__clash { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--status-awaiting-review); }
 .deck-tile[aria-pressed="true"] .deck-tile__key { opacity: 0.9; }
 
 /* The key sheet: six groups in two columns, so it is read in one look. */
@@ -888,6 +890,8 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
 .deck-controls__tiles > .deck-tile svg,
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+/* The clash glyph keeps the mark's own size, not the key's. */
+.deck-controls__tiles > .deck-tile > .deck-tile__clash svg { width: var(--space-3); height: var(--space-3); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
 .deck-tile__done { color: var(--step-advanced); }
 /* ---- The repository combobox: a field that becomes a search box in place, and its list ----------------------- */

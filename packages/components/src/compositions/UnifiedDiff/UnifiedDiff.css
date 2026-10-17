@@ -141,6 +141,22 @@
   color: var(--fg-subtle);
 }
 
+/* A hunk that collides with another change: the clash mark's amber, as a bar on its leading edge and a glyph at
+   its end, so it reads without the colour too. */
+.armada-diff__line[data-collides] .armada-diff__text {
+  box-shadow: inset 2px 0 0 var(--status-awaiting-review);
+  color: var(--status-awaiting-review);
+}
+.armada-diff__collides {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  color: var(--status-awaiting-review);
+}
+
 /* The patch was longer than the bound and the rest is not on screen. Loud,
    because a decision taken on part of a diff is the failure this surface
    exists to prevent — the same treatment an unbuilt region takes, for the same

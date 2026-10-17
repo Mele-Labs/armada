@@ -8,5 +8,8 @@ import { unanswered } from "../moment";
 export const clashes: Slice<ClashesApi, Record<string, never>> = {
   name: "clashes",
   state: {},
-  api: () => ({ getWriteClashes: async () => ({ ok: false, outcome: unanswered("/clashes") }) }),
+  api: () => ({
+    getWriteClashes: async () => ({ ok: false, outcome: unanswered("/clashes") }),
+    readClashFile: async () => ({ ok: false, outcome: unanswered("/clashes/file") }),
+  }),
 };

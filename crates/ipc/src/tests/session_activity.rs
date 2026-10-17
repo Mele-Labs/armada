@@ -29,6 +29,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         done_since: None,
         held_until: None,
         context_breakdown: None,
+        loadout_summary: None,
         helm: false,
         standing: None,
         activity,
