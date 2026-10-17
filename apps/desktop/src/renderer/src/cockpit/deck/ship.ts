@@ -307,7 +307,7 @@ export function shipOf(input: Inputs): Ship {
       repo: nameOfRoot(root),
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       mark,
-      phase: needs || (alarm && !stuck) ? "needs" : stuck ? "held" : session.turn.state === "working" ? "working" : "done",
+      phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : session.turn.state === "working" ? "working" : "done",
       needs,
       alarm,
       ...(call === undefined ? {} : { call }),
@@ -315,7 +315,7 @@ export function shipOf(input: Inputs): Ship {
       ...(slot === undefined ? {} : { slot }),
       peek: peekOfSession(session),
       stoppable: session.turn.state === "working",
-      repliable: true,
+      repliable: session.waits === undefined,
       mergeable: pr !== undefined && (pr.stage === "queued" || pr.stage === "ready") && pr.ci === "passed",
       ...(ageOf(session.lastTurnAt, now) === undefined ? {} : { since: ageOf(session.lastTurnAt, now)! }),
     });

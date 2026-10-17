@@ -12,7 +12,7 @@ import type { Dispatching } from "./dispatch-panel/dispatching";
 export const ONE_BAR = ".armada-title-bar__search";
 
 export function useOneBar({ live, dispatching }: { live: boolean; dispatching: Dispatching }): PaletteDispatch {
-  useOpenedToDispatch(live, dispatching.openNew);
+  useOpenedToDispatch(live, dispatching.openNew, dispatching.openAfter);
 
   return {
     kind: dispatching.kind,
@@ -23,16 +23,24 @@ export function useOneBar({ live, dispatching }: { live: boolean; dispatching: D
 }
 
 /**
- * `n` and ⌘N open the dispatch sheet, from every surface. Read in the capture phase, so the surface under it never
+ * `n` and ⌘N open the dispatch sheet, from every surface; ⌥A opens it on a Session waiting on another. Read in the capture phase, so the surface under it never
  * hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
  * Where a sheet was put away holding words, they are the draft and the sheet comes back holding them.
  */
-function useOpenedToDispatch(live: boolean, open: () => void): void {
-  const held = useRef({ live, open });
-  held.current = { live, open };
+function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => void) | undefined): void {
+  const held = useRef({ live, open, openAfter });
+  held.current = { live, open, openAfter };
   useEffect(() => {
     function press(event: KeyboardEvent): void {
       if (event.repeat || event.defaultPrevented || !held.current.live) return;
+      // ⌥A, by its place on the keyboard since Option changes the character: a Session that waits on another. Not a registered act yet.
+      if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyA" && held.current.openAfter !== undefined) {
+        if (holdsText(event.target) || document.querySelector('[role="dialog"]') !== null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        held.current.openAfter();
+        return;
+      }
       // `new_job` and `dispatch_from_field`, as this person has them. A capital N is a Studio's Note,
       // and the keymap reads shift exactly, so a bare press is the lowercase n.
       const bare = isPressed("new_job", event);

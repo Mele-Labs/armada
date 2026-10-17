@@ -13,7 +13,8 @@ import { removedSaid } from "./removed";
 import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
-import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionWait, SessionsDraft, StartWhen } from "@armada/screens/src/draft/sessions";
+import { conditionSaid, firstLineOf, startsFrom } from "@armada/screens/src/session-waits";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
 export type SessionsStore = SessionsDraft & {
@@ -24,6 +25,13 @@ export type SessionsStore = SessionsDraft & {
   drop: (id: string, itemId: string, reason?: string) => void;
   /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
   edit: (id: string, change: (one: Session) => Session) => void;
+  /**
+   * The agent of the Session a waiting one waits on changes when it starts, as its tool call would: a tool row in its thread and a
+   * row that tells the change. `pull` names the pull request a `pushed` or `lands` condition waits on.
+   */
+  agentChanges: (id: string, change: { when: StartWhen; part?: { id: string; title: string }; pull?: { number: number; branch: string } }) => void;
+  /** A waiting Session's condition is met: it starts, its first message carries the handoff, and the Session it waited on is told. `met` is what happened. */
+  starts: (id: string, met: string) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
   /** How Fleet takes a message from the person: held until the walk lets it go, and refused where `outcomes` says so. Taken at once where absent. */
@@ -451,10 +459,29 @@ export function sessionsStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start(tag, root, _request, tuning) {
+    start(tag, root, request, tuning, after) {
       made += 1;
-      const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
+      const id = made === 1 && tag === undefined && after === undefined ? MINE : `s${7 + made}`;
       const manifestId = root === undefined ? undefined : owners.get(root);
+      if (after !== undefined) {
+        // Dispatched to wait: it holds its words and no slot, and the Session it waits on is told.
+        const brief = (request ?? "").trim();
+        const waiting: Session = {
+          id,
+          // What the proposer would name it: a few words of the brief.
+          title: firstLineOf(brief).split(/\s+/).slice(0, 4).join(" "),
+          ...(manifestId === undefined ? {} : { manifestId }),
+          attachments: [],
+          rows: [],
+          turn: idle,
+          standing: "idle",
+          ...(tuning?.model === undefined ? {} : { model: tuning.model }),
+          ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+          waits: { on: after.on, when: after.when, ...(after.part === undefined ? {} : { part: after.part }), brief, by: "you" },
+        };
+        set([waiting, ...now.map((one) => (one.id === after.on.id ? { ...one, rows: [...one.rows, row((rid, stamp): SessionRow => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title! }, event: "waits", says: firstLineOf(brief) }))] } : one))]);
+        return id;
+      }
       set([
         {
           id,
@@ -582,6 +609,18 @@ export function sessionsStore(
         settle("superseded", "superseded", "Closed as superseded. The Job record says the work landed outside it.");
       }
     },
+    startWhen(id, when, part) {
+      const waiting = now.find((one) => one.id === id);
+      if (waiting?.waits === undefined) return;
+      const was = waiting.waits;
+      const { part: _part, pull: _pull, ...rest } = was;
+      void _part;
+      void _pull;
+      const next: SessionWait = { ...rest, when, ...(part === undefined ? {} : { part }), ...(when === was.when && when !== "plan" && was.pull !== undefined ? { pull: was.pull } : {}), by: "you" };
+      edit(id, (one) => ({ ...one, waits: next }));
+      addTo(was.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "you" }))]);
+    },
+    startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
@@ -872,6 +911,43 @@ export function sessionsStore(
     },
     attach: (id, attachment) => addTo(id, [], [attachment]),
     edit,
+    agentChanges(id, change) {
+      const waiting = now.find((one) => one.id === id);
+      if (waiting?.waits === undefined) return;
+      const was = waiting.waits;
+      const next: SessionWait = { on: was.on, when: change.when, ...(change.part === undefined ? {} : { part: change.part }), ...(change.pull === undefined ? {} : { pull: change.pull }), brief: was.brief, by: "agent" };
+      edit(id, (one) => ({ ...one, waits: next }));
+      addTo(was.on.id, [
+        tool(`set_start_condition ${JSON.stringify({ session: id, when: change.when, ...(change.part === undefined ? {} : { part: change.part.id }) })}`),
+        row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "changed", from: conditionSaid(was), to: conditionSaid(next), by: "agent" })),
+      ]);
+    },
+    starts(id, met) {
+      const waiting = now.find((one) => one.id === id);
+      const wait = waiting?.waits;
+      if (waiting === undefined || wait === undefined) return;
+      const other = now.find((one) => one.id === wait.on.id);
+      const last = [...(other?.rows ?? [])].reverse().find((one) => one.kind === "message" && one.from.kind === "agent");
+      const lines = [
+        `Handoff from ${wait.on.title}.`,
+        `${met}.`,
+        `You start from ${startsFrom(wait)}.`,
+        ...(last?.kind === "message" ? [`It last said: ${firstLineOf(last.text)}`] : []),
+        `Your brief: ${firstLineOf(wait.brief)}`,
+      ];
+      edit(id, (one) => {
+        const { waits: _waits, ...rest } = one;
+        void _waits;
+        return {
+          ...rest,
+          rows: [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "session", id: wait.on.id, title: wait.on.title }, text: lines.join("\n") }))],
+          turn: { state: "working" },
+          standing: "working",
+          lastTurnAt: new Date().toISOString(),
+        };
+      });
+      addTo(wait.on.id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "waiter", session: { id, title: waiting.title ?? id }, event: "started", says: `From ${startsFrom(wait)}` }))]);
+    },
     // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
     drop: (id, itemId, reason) => {
       const stated = now.find((one) => one.id === id)?.waitingFor?.find((it) => it.id === itemId && it.source === "agent");

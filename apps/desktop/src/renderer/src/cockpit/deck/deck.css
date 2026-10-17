@@ -180,6 +180,10 @@
 .deck-facts dd[data-mono] { font-family: var(--font-mono); white-space: pre-line; }
 .deck-pane__body[data-tone="bad"] .deck-facts__row:first-child dd { color: var(--status-completed-failed); }
 
+/* A Session waiting on another: its brief as it was written, and the selects that change when it starts. */
+.deck-waiting__brief { white-space: pre-wrap; }
+.deck-waiting__when { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.deck-waiting__when .armada-select { height: var(--h-control-sm); font-family: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-overflow: ellipsis; }
 .deck-link { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
 .deck-link:hover { text-decoration: underline; }
 .deck-link:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }

@@ -9,11 +9,15 @@
 // chosen the act gives the row the keys (← and →, ↵ picks and sends) before anything is built.
 // A Session's band also holds its Model and Effort, the composer's own pair of selects, and Queue for later beside Start: ⌘⇧↵ saves the idea
 // without starting it. State is carried by the frame (its edge and hue) and by the chosen chip's fill, not by a phrase.
+// A Session may wait on another: an After row under the repositories picks the Session, then when it starts, and for a plan part which one. ⌥A
+// moves to it from the request, from any kind, and opens the sheet on it from anywhere. It is not a registered act yet.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
-import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
+import { Cpu, FolderGit2, Link, LoaderCircle, Zap } from "lucide-react";
 import { Button, DropdownMenu, Kbd, useMarking, type Mark, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
+import type { StartWhen } from "@armada/screens/src/draft/sessions";
+import { START_WHEN, startsFrom, type PlanPart } from "@armada/screens/src/session-waits";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
 import "./dispatch-panel.css";
@@ -63,6 +67,17 @@ export type PanelTuning = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
 };
 
+/** What a Session is dispatched to wait on: the Session, when it starts, and for a plan part which one. */
+export type AfterPick = { on: string; when: StartWhen; part?: string };
+
+/** The After row: the live Sessions that can be waited on, what is picked, and the plan parts of the picked one. Absent where the Session cannot wait. */
+export type PanelAfter = {
+  sessions: readonly { id: string; title: string }[];
+  picked?: AfterPick;
+  parts: readonly PlanPart[];
+  onPick: (next: AfterPick | undefined) => void;
+};
+
 /** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
 function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
@@ -102,6 +117,11 @@ export type PanelProps = {
   onAct: () => void;
   /** A Session's Model and Effort, beside the act. Absent for a Job and an Autopilot. */
   tuning?: PanelTuning;
+  /** The After row, under the repositories. Absent where a Session cannot wait. */
+  after?: PanelAfter;
+  /** The sheet was opened by ⌥A: the focus goes to the After row once it is drawn, and `onAfterFocused` says it has. */
+  focusAfter?: boolean;
+  onAfterFocused?: () => void;
   /** Queue for later: saves a Session's idea without starting it. Absent where the queue is not served, and for every other kind. */
   onQueue?: () => void;
   /** Queue for later pressed and held until the repository is read. */
@@ -140,6 +160,9 @@ export function DispatchPanel({
   sending,
   onAct,
   tuning,
+  after,
+  focusAfter = false,
+  onAfterFocused,
   onQueue,
   queueing = false,
   onCollapse,
@@ -153,6 +176,7 @@ export function DispatchPanel({
   const dispatching = useMarking(DISPATCHING);
   const field = useRef<HTMLTextAreaElement | null>(null);
   const row = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLElement>(null);
   const asked = useRef(false);
 
   // The row takes the keys when the act asks, and gives them back to the request when it stops.
@@ -167,7 +191,26 @@ export function DispatchPanel({
     if (!asking) field.current?.focus();
   };
 
+  // ⌥A asks for the After row, which is drawn once the kind is a Session: the focus lands when it is.
+  const wantsAfter = useRef(false);
+  useEffect(() => {
+    if (focusAfter) {
+      wantsAfter.current = true;
+      onAfterFocused?.();
+    }
+    if (!wantsAfter.current || !open || kind !== "session" || after === undefined) return;
+    wantsAfter.current = false;
+    frame.current?.querySelector<HTMLElement>('select[aria-label="After Session"]')?.focus();
+  });
+
   const keys = (event: KeyboardEvent<HTMLElement>) => {
+    // The key's place on the keyboard, since Option changes the character A types.
+    if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyA" && after !== undefined && !disabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      wantsAfter.current = true;
+      return kind === "session" ? frame.current?.querySelector<HTMLElement>('select[aria-label="After Session"]')?.focus() : onKind("session");
+    }
     // `dispatch_repository`'s row of digits, rebindable; Option changes the character a digit types, so it is read by its place on the keyboard.
     const digit = pressedDigit("dispatch_repository", event);
     const target = digit === null ? undefined : chips[digit - 1];
@@ -251,8 +294,70 @@ export function DispatchPanel({
     </div>
   );
 
+  const afterRow =
+    kind !== "session" || after === undefined ? null : (
+      <div className="armada-dispatch-panel__after" role="group" aria-label="After">
+        <Pick Glyph={Link} compact label="After">
+          <Select
+            aria-label="After Session"
+            value={after.picked?.on ?? ""}
+            disabled={disabled}
+            onChange={(event) => after.onPick(event.target.value === "" ? undefined : { on: event.target.value, when: after.picked?.when ?? "ends" })}
+          >
+            <option value="">None</option>
+            {after.sessions.map((one) => (
+              <option key={one.id} value={one.id}>
+                {one.title}
+              </option>
+            ))}
+          </Select>
+        </Pick>
+        {after.picked === undefined ? null : (
+          <>
+            <Pick Glyph={Link} compact={false} label="Starts when">
+              <Select
+                aria-label="Starts when"
+                value={after.picked.when}
+                disabled={disabled}
+                onChange={(event) => {
+                  const when = event.target.value as StartWhen;
+                  // A plan part is picked, never left open: the first one is chosen until another is.
+                  const first = after.parts[0];
+                  after.onPick({ on: after.picked!.on, when, ...(when === "plan" && first !== undefined ? { part: first.id } : {}) });
+                }}
+              >
+                {START_WHEN.map((one) => (
+                  <option key={one.id} value={one.id} disabled={one.id === "plan" && after.parts.length === 0}>
+                    {one.label}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+            {after.picked.when !== "plan" ? null : (
+              <Pick Glyph={Link} compact={false} label="Plan part">
+                <Select
+                  aria-label="Plan part"
+                  value={after.picked.part ?? after.parts[0]?.id ?? ""}
+                  disabled={disabled}
+                  onChange={(event) => after.onPick({ on: after.picked!.on, when: "plan", part: event.target.value })}
+                >
+                  {after.parts.map((one) => (
+                    <option key={one.id} value={one.id}>
+                      {`${one.kind === "group" ? "Group" : "Task"}: ${one.title}`}
+                    </option>
+                  ))}
+                </Select>
+              </Pick>
+            )}
+            <span className="armada-dispatch-panel__from">{`From ${startsFrom({ when: after.picked.when })}`}</span>
+          </>
+        )}
+      </div>
+    );
+
   const frameOf = (
     <section
+      ref={frame}
       className="armada-dispatch-panel__frame"
       aria-label="Dispatch"
       data-open={open || undefined}
@@ -300,6 +405,7 @@ export function DispatchPanel({
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
           {repositories}
+          {afterRow}
 
           <div className="armada-dispatch-panel__band">
             {kinds.length < 2 ? null : (

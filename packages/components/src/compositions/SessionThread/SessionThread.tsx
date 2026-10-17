@@ -27,6 +27,7 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
+import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
@@ -106,6 +107,11 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * A Session that waits on this one, told here: dispatched (`waits`, with the first line of its brief in `says`), its start condition changed (`from` and `to`; `by` is who
+   * changed it), or started (`says` is where from). A press opens it.
+   */
+  | { id: string; at: string; kind: "waiter"; session: { id: string; title: string }; event: "waits" | "changed" | "started"; says?: string; from?: string; to?: string; by?: "you" | "agent" }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
@@ -727,6 +733,7 @@ function Row({
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (
       <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>

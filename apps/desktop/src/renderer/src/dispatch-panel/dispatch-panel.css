@@ -326,6 +326,36 @@
 /* The menu past nine is drawn in a layer of its own, since the frame clips what hangs out of it; it has to clear the scrim. */
 body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
 
+/* ---- After: a Session that waits on another, its Session, when it starts, and where from ----------- */
+
+.armada-dispatch-panel__after {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+.armada-dispatch-panel__after .armada-select {
+  height: var(--h-control-sm);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+}
+
+.armada-dispatch-panel__after .armada-session-composer__pick { min-width: calc(var(--space-12) * 1.5); }
+
+.armada-dispatch-panel__from {
+  min-width: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
 /* ---- Settings: the existing block, set in the panel's mono ----------------------------------- */
 
 .armada-dispatch-panel__settings {

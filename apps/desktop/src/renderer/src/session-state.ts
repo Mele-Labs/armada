@@ -8,6 +8,7 @@ import { limitHeldSaid } from "@armada/components";
 import type { SessionState } from "@armada/components";
 import { attachmentsOf, isBlank, owesOf, standingOf } from "@armada/screens/src/draft/sessions";
 import type { Session } from "@armada/screens/src/draft/sessions";
+import { startsWhenSaid } from "@armada/screens/src/session-waits";
 
 import { viewedAt } from "./cockpit/viewed";
 
@@ -17,6 +18,8 @@ const readSince = (session: Session): boolean => session.lastTurnAt !== undefine
 export function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
+  // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
+  if (session.waits !== undefined) return { state: "after", said: startsWhenSaid(session.waits) };
   // The proposer is reading the request: the Session starts on its answer.
   if (session.work?.proposal?.reading === true) return { state: "working", said: "Reading the request" };
   if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };

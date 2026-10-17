@@ -4,7 +4,7 @@
 //
 //   Job        needs a repository: read from the words by Fleet, else the row of chips takes the keys. Sends `proposeFrom`.
 //   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session, on the model and effort
-//              picked beside the act. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Jobs and Sessions list instead and opens nothing.
+//              picked beside the act. Picked to wait on another Session (the After row), it holds its words and starts when the condition is met. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Jobs and Sessions list instead and opens nothing.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
@@ -15,21 +15,24 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
 import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
+import { planPartsOf } from "@armada/screens/src/session-waits";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { localNow, readingOf, settingsFrom } from "../cockpit/autopilot";
 import { useDispatchKind } from "../remembered-views";
-import { useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
-import type { PanelProps, PanelReading } from "./DispatchPanel";
+import type { AfterPick, PanelProps, PanelReading } from "./DispatchPanel";
 import { chipsFor, optionsFor, useReading } from "./reading";
 
 const REQUEST = "dispatch:request";
 const TUNING = "dispatch:session-tuning";
+const AFTER = "dispatch:session-after";
 
 /** The model and effort picked for a Session. Absent is Auto. */
 type Tuning = { model?: string; effort?: string };
@@ -37,6 +40,7 @@ type Tuning = { model?: string; effort?: string };
 /** The draft as it stands, for an act. */
 const wordsNow = () => readKept<string>(REQUEST) ?? "";
 const tuningNow = () => readKept<Tuning>(TUNING) ?? {};
+const afterNow = () => readKept<AfterPick | null>(AFTER) ?? undefined;
 
 /** `queue_session`'s key in the request, rebindable: ⇧⌘Enter, with Control answering as ⌘ does everywhere in Bridge. */
 const queuesOn = (event: KeyboardEvent<HTMLElement>) => isPressed("queue_session", event);
@@ -83,6 +87,8 @@ export type Dispatching = {
   openSheet: (words: string, root?: string) => void;
   /** Every New job and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
+  /** ⌥A: the panel on a Session, with the focus on the Session it waits on. Absent where a Session cannot wait. */
+  openAfter?: () => void;
   closeSheet: () => void;
   /** A hook, called by the sheet and nowhere else: it holds the words and their reading, which the rest of the window does not. */
   usePanel: () => EntryProps;
@@ -106,6 +112,19 @@ export function useDispatching(): Dispatching | undefined {
   return useContext(Held);
 }
 
+/** The After row: the live Sessions a new one can wait on, and the pick if that Session is still there. Helm's own is not offered. */
+function afterOf(sessions: readonly Session[], picked: AfterPick | null, set: (next: AfterPick | null) => void): NonNullable<PanelProps["after"]> {
+  const offered = sessions.filter((one) => one.dead === undefined && one.helm !== true);
+  const on = picked === null ? undefined : offered.find((one) => one.id === picked.on);
+  const parts = planPartsOf(on);
+  return {
+    sessions: offered.map((one) => ({ id: one.id, title: one.title ?? one.id })),
+    ...(picked === null || on === undefined ? {} : { picked: parts.length === 0 && picked.when === "plan" ? { on: picked.on, when: "ends" as const } : picked }),
+    parts,
+    onPick: (next) => set(next ?? null),
+  };
+}
+
 /** A Job's request is a long sentence and a title is a line. */
 const firstLine = (words: string) => words.trim().split("\n")[0] ?? "";
 
@@ -123,6 +142,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const [settings, setSettings, clearSettings] = useKept<DispatchSettingsValue>("dispatch:job-settings", {});
   const [sheet, setSheet] = useState(false);
   const [autopilotAsked, setAutopilotAsked] = useState(false);
+  // ⌥A pressed outside the sheet: the focus goes to its After row once it is drawn.
+  const [afterAsked, setAfterAsked] = useState(false);
   const [sheetGrown, setSheetGrown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [asking, setAsking] = useState<"send" | "queue" | "chip" | false>(false);
@@ -148,6 +169,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     stamp.current += 1;
     forgetKept(REQUEST);
     forgetKept(TUNING);
+    forgetKept(AFTER);
     clearPicked();
     clearSettings();
     setAsking(false);
@@ -217,10 +239,16 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     if (draft === undefined) return;
     const text = wordsNow().trim();
     recall(at);
+    // Picked to wait on a Session that is still there: it holds its words, and nothing is sent until its condition is met.
+    const picked = afterNow();
+    const waitsOn = picked === undefined ? undefined : draft.get().find((one) => one.id === picked.on && one.dead === undefined);
+    const parts = planPartsOf(waitsOn);
+    const part = picked?.when !== "plan" ? undefined : (parts.find((one) => one.id === picked.part) ?? parts[0]);
+    const after = waitsOn === undefined || picked === undefined ? undefined : { on: { id: waitsOn.id, title: waitsOn.title ?? waitsOn.id }, when: picked.when, ...(part === undefined ? {} : { part: { id: part.id, title: part.title } }) };
     setSending(true);
-    void Promise.resolve(draft.start(undefined, at, text, tuningNow())).then((id) => {
+    void Promise.resolve(draft.start(undefined, at, text, tuningNow(), after)).then((id) => {
       if (id === undefined) return setSending(false);
-      draft.send(id, { text, files: [], sketches: [], tags: [] });
+      if (after === undefined) draft.send(id, { text, files: [], sketches: [], tags: [] });
       clearAll();
       openSession(id);
     });
@@ -315,6 +343,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const usePanel = (): EntryProps => {
     const [words] = useKept(REQUEST, "");
     const [tuned, setTuned] = useKept<Tuning>(TUNING, {});
+    const [waitsOn, setWaitsOn] = useKept<AfterPick | null>(AFTER, null);
+    const live = useSessions();
     const { reading: found, likely } = useReading(words);
     const options = optionsFor(repositories, likely);
     const by = (root: string | null | undefined) => options.find((one) => one.root === root);
@@ -396,6 +426,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
             ...(draft.queue === undefined ? {} : { onQueue: queue, queueing: waiting === "queue" }),
           }
         : {}),
+      // Offered from any kind, since ⌥A on a Job's request turns it into a Session's.
+      ...(draft?.startWhen === undefined ? {} : { after: afterOf(live, waitsOn, setWaitsOn), focusAfter: afterAsked, onAfterFocused: () => setAfterAsked(false) }),
       onCollapse: collapse,
       onFieldKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {
         if (queuesOn(event) && kind === "session" && draft?.queue !== undefined) {
@@ -416,25 +448,28 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     };
   };
 
+  const openNew = (at?: string) => {
+    if (at === undefined && wordsNow().trim() !== "") return setSheet(true);
+    stamp.current += 1;
+    writeKept(REQUEST, "");
+    if (at !== undefined) pick(at);
+    setLatest(undefined);
+    setAsking(false);
+    setRead(undefined);
+    setRefused(undefined);
+    setSheet(true);
+  };
+
   return {
     kind,
     kinds,
     choose,
     sheet,
+    openNew,
+    ...(draft?.startWhen === undefined || !kinds.includes("session") ? {} : { openAfter: () => (choose("session"), setAfterAsked(true), openNew()) }),
     openSheet: (next, at) => {
       stamp.current += 1;
       writeKept(REQUEST, next);
-      if (at !== undefined) pick(at);
-      setLatest(undefined);
-      setAsking(false);
-      setRead(undefined);
-      setRefused(undefined);
-      setSheet(true);
-    },
-    openNew: (at) => {
-      if (at === undefined && wordsNow().trim() !== "") return setSheet(true);
-      stamp.current += 1;
-      writeKept(REQUEST, "");
       if (at !== undefined) pick(at);
       setLatest(undefined);
       setAsking(false);
