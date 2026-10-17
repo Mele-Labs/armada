@@ -165,7 +165,7 @@ out, then file what was decided. See `armada-bug`.
 
 ## If you say you are watching something, arm something
 
-A sentence about intending to check back is not a mechanism. When a Job or a
+A sentence about intending to check back is not a mechanism. When a Session or a
 build is running and you have told the owner you will report on it, use `Monitor`
 with a poll that emits on **every** terminal state — not just the good ones.
 

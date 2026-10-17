@@ -65,15 +65,11 @@ us "me" was.
 |---|---|
 | **Human** | A decision, a handoff, or something only he can run |
 | **Claude Code** | Work in this repository — me, or an agent I dispatch |
-| **Fleet** | A Job dispatched through Armada itself — the answer whenever the work could be one |
+| **Fleet** | A Session Armada started itself, as Autopilot does |
 
 Where a row is with something already running, say so — **Claude Code
 (running)**, **Fleet (running)** — because that is a different thing from work
 nobody has started.
-
-**Fleet is the owner more often than it gets written down.** Hand-landing what a
-Job could have done hides every gap in the fleet, so a row that reads Claude Code
-where Fleet could have taken it is worth a second look before it goes in.
 
 **A row that says `Nothing` under Blocked on and `Claude Code` under Owner is a
 row I should be working**, not reporting. Check that before writing it down.
