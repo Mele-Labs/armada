@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "pause";
 
 const ARMADA = "armada";
 
@@ -40,7 +40,12 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
   { id: "slot", label: "Slot", text: "Slot" },
+  // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is P, not a digit.
+  { id: "pause", label: "Pause", text: "Pause" },
 ];
+
+/** The key that presses Pause, or Resume while paused, with a Session open or on the list's cursor row. Not an act of the registry: `p` is Pilot's there. */
+export const PAUSE_KEY = "P";
 
 /** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
 export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
@@ -130,8 +135,10 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Session holds nothing";
+  if (draft.pause === undefined) off.pause = "Fleet does not offer this";
   const silent = mute(session);
   if (silent !== undefined) {
+    off.pause = silent;
     off.judge = silent;
     off.ask = silent;
     off.land = silent;

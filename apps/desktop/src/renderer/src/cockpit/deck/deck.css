@@ -858,3 +858,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
 .deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
 .deck-tile__done { color: var(--step-advanced); }
+/* A Session row's Pause: the paused mark always, the act on hover and focus, laid over the item's right edge. */
+.deck-list__item:has(> .deck-row-pause) { position: relative; }
+.deck-row-pause { position: absolute; inset-block: 0; inset-inline-end: var(--space-2); display: inline-flex; align-items: center; gap: var(--space-1); }
+.deck-row-pause__act { opacity: 0; }
+.deck-list__item:hover .deck-row-pause__act,
+.deck-row-pause__act:focus-visible { opacity: 1; }

@@ -47,6 +47,7 @@ import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
+import { RowPause } from "./RowPause";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -275,6 +276,7 @@ function List({ subjects, calling, banding, selected, builds, jobs, picked, foun
         </button>
         </Inspect>
         {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+        {one.kind === "session" ? <RowPause id={one.id} /> : null}
       </li>
     );
   };

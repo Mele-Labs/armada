@@ -101,8 +101,8 @@ test("a ledger row's Release names the row as the tile's confirmation does, and 
 });
 
 test("the tiles take the digits 1 to 9 and then 0, and the last has none", () => {
-  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined]);
-  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot"]);
+  expect(SESSION_TILES.map((_, at) => tileKey(at))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", undefined, undefined]);
+  expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot", "pause"]);
 });
 
 test("Subagents and Checks are off with nothing to list, and Slot is off unless something is wrong with it", () => {

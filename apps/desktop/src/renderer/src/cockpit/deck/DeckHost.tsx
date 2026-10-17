@@ -215,6 +215,16 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return focusPanel(cycleFrom(panel?.id, event.shiftKey ? -1 : 1), state.cursor);
     }
+    // P presses Pause on the open Session's tile, Resume while it is paused; not an act of the registry, where `p` is Pilot's.
+    if (event.key.toLowerCase() === "p" && !event.shiftKey) {
+      // In the list it is the row under the cursor's; elsewhere the open Session's.
+      const act = (panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null) ?? document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
+      if (act !== null) {
+        event.preventDefault();
+        act.click();
+        return;
+      }
+    }
     const digit = pressedDigit("deck_tile", event);
     if (digit !== null) {
       // With a Session open the tiles drawn are its own, and a key presses the one it names as a press on it does.

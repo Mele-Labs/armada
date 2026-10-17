@@ -6,7 +6,7 @@
 
 import { actionOf, digitKeyFor, formatSlot, slotsOf } from "@armada/components";
 
-import { SESSION_TILES, tileKey } from "./session-tiles";
+import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
 
 export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "dispatch" | "autopilot";
 
@@ -97,6 +97,7 @@ export function keySheetOf(): readonly SheetGroup[] {
                 const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
                 return key === undefined ? [] : [{ keys: [key], does: `Session open: ${tile.label}` }];
               }),
+              { keys: [PAUSE_KEY], does: "Pause the Session, or Resume it while paused" },
             ],
           },
         ]
