@@ -751,6 +751,8 @@ A terminal Session reports the files it wrote through the mod's `touched` fact, 
 
 **A Session that held a slot is told when the slot is stranded.** When a slot a Session held last has work in it and nothing holds it now, Fleet sends that Session one message, once. It names the slot and its branch, what the slot holds, and asks the Session to commit, push and release it. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
+**A Session whose slot is far behind its base is told to merge it.** When the checkout a Session holds is 20 or more commits behind the base, Fleet sends that Session one message: `slot-4 (branch armada/x) is 684 commits behind main. Merge main into your branch before your next push.` The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from. It is sent once. The Session is told again only after the slot has fallen below 20 and then behind again, and a Fleet that restarts may say it once more. A Job's slot, a free slot and a stranded slot are not told, and the owner is not called: merging the base in is the agent's work.
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number.

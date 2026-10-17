@@ -56,6 +56,7 @@ mod building;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
+mod behind_bay;
 mod catching_up;
 mod check_output;
 mod checkouts;
