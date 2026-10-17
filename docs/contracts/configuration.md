@@ -385,7 +385,7 @@ Added 18 September 2026, with `checks.<name>.runner` and `#1456`. Every way of
 running less than a whole Check used to be written on the Check, so the same
 command was written once per Check and again in every repository using that
 runner. A Check now names the runner instead, and the commands are written once
-per runner in its own description — `docs/concepts/runner-adapter.md`.
+per runner in its own description.
 
 | Key | Required | What it says |
 | --- | --- | --- |
@@ -528,8 +528,7 @@ Rules that follow:
   Checks.
 - **The gate runs it too, before a red is ruled on.** Each failing test runs
   alone in the Job's worktree; where every one passes, the whole Check runs
-  again alone and decides. Added 3 October 2026; `docs/concepts/manifest.md`,
-  Confirming a red.
+  again alone and decides. Added 3 October 2026.
 - **It is frozen with the workflow**, and `after_merge` drops it for the reason
   it drops `narrow`.
 

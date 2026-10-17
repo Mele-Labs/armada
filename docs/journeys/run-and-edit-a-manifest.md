@@ -1,14 +1,14 @@
 # Journey 9 — Run and edit a Manifest
 
-**What it is:** View a project's Manifest, run any single Check or Command against it — without dispatching a Job, or inside one Job's worktree — and edit it.
+**What it is:** View a project's Manifest, run any single Check or Command against it on demand, and edit it.
 
 Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
 
 ---
 
-**Trigger:** "I want to run the lint here without spinning up a drone," "this project's checks are wrong and I want to fix them," or "the gate refused `test` on this Job and I want to run it myself."
+**Trigger:** "I want to run the lint here without starting a Session," or "this project's checks are wrong and I want to fix them."
 
-**Concepts touched:** Bridge (Manifest — a new surface, and Job detail), Manifest, Fleet, Job.
+**Concepts touched:** Bridge (Manifest — a new surface), Manifest, Fleet.
 
 **Milestone:** Reach.
 
@@ -16,9 +16,9 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
 
 ## Why this journey did not exist
 
-Most of this capability was already sanctioned and had no surface. The Manifest concept page states that Commands are invoked by both a Drone during a Job and by you directly via Bridge, off the same named registry, and that your own manual invocation needs no second approval because you are the one triggering it. It also specifies **Update** as manual editing and **Verify** as drift detection plus a live dry-run.
+Most of this capability was already sanctioned and had no surface. The Manifest concept page states that Commands are invoked by both an agent and by you directly via Bridge, off the same named registry, and that your own manual invocation needs no second approval because you are the one triggering it. It also specifies **Update** as manual editing and **Verify** as drift detection plus a live dry-run.
 
-**Running a single Check on demand is the one new capability.** Checks are specified as invoked by Fleet as part of mechanical verification, and the only ad-hoc path was Verify's live dry-run, which runs all of them. Running one is new capability, not a missing screen.
+**Running a single Check on demand is the one new capability.** Checks are specified as run by an agent, and the only ad-hoc path was Verify's live dry-run, which runs all of them. Running one is new capability, not a missing screen.
 
 Manifest carries the `file-cog` glyph already assigned to it under Git and config. **It is reached by name from the palette, and from the title menu's repository entries where the row is narrow**, rather than from a tab or a strip page: the owner folded it into the picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
 
@@ -37,123 +37,52 @@ A monorepo's root `armada.yml` appears as its own entry in the switcher, since i
 ## Running one
 
 > **Rule.** A run from this surface executes in the working tree as it is on disk, and there is no Where control.
-> Why: a throwaway copy is a worktree by another name, and a Job's own run sheet is already that tree — a second way to make one answers a question a Job has answered.
+> Why: a throwaway copy is a worktree by another name, and the tree on disk is the one you are working in.
 
 > **Rule.** A destructive Command confirms once, naming the command, before it runs.
 > Why: the flag says nothing in a worktree that is about to be thrown away and everything in the tree you are working in. It is a confirmation and not an approval — you are the one who pressed it, which is what the Manifest concept page settles.
 
 > **Rule.** After a run that changed the checkout, the panel lists the changed files and offers Open the diff and Undo this run. Undo confirms, naming what it would discard.
-> Why: the snapshot restores the tree as it was just before the run, and this tree holds work of your own that no Job's worktree ever holds.
+> Why: the snapshot restores the tree as it was just before the run, and this tree holds work of your own.
 
-> **Rule.** Output goes to a panel on this surface — the result in Job colours with its exit code, duration, and the output — and stays until dismissed.
-> Why: there is no Job, so no Job Board row and no Evidence, and a toast would throw away the thing you ran it to read.
-
-A server started here runs in the main checkout and draws its ports from that checkout's span; it stops on Stop, exit, or Fleet stopping. A [Studio](../concepts/studio.md) starts one in the same checkout, on the same span and the same one instance, and holds it on a Run node.
-
-### A passing Check leaves no verdict behind — but the output is a log
-
-The output and the judgement are two different things.
-
-Each run writes its output to `./.armada`, one run directory per run in the same tree as Job logs, so the panel is a view onto a file rather than a buffer that evaporates — Dismiss closes the panel, not the log.
-
-> **Rule.** Ad-hoc run log retention is a Machine setting, default 30 days — shorter than a Job's own retention window.
-> Why: a Job log is worth keeping as long as its history is worth reading, and a rehearsal is only worth keeping as long as you might still be debugging what you just ran.
-
-> **Rule.** A run a [Studio](../concepts/studio.md) holds keeps its result and its log's last lines on the Studio's own node before the sweep takes the run, and nothing else survives it.
-> Why: a Studio is kept until a person deletes it, and this window is the only thing that expires a run. #1289.
-
-> **Rule.** No run from this surface writes Evidence, and no Check gets a stored pass or fail against it.
-> Why: a pass that counted for a Job from the same tree is the path around verification that v1 proved becomes the default path.
-
-A remembered per-Check verdict reads as Evidence the moment it sits beside a Job, and no copy saying "not evidence" survives being scanned. The tree can also change between the run and a dispatch, which is the whole reason Evidence ties a gate's answer to the diff it judged.
-
-The transcript is keepable, the judgement is not. This surface is for rehearsing; a Job is where a Check means something.
-
-## Running one inside a Job
-
-Job detail carries the same rehearsal for one Job, against the Manifest that Job froze and in that Job's worktree. It opens as a trailing sheet under the sheet rules in [Monitor Active Work](monitor-active-work.md).
-
-> **Rule.** The run sheet lists and runs the Manifest the Job froze at creation.
-> Why: the gate judges the Job against that snapshot, so rehearsing anything else answers a question the gate never asks.
-
-> **Rule.** A run from the sheet writes no Evidence and no `check_runs` row, and moves nothing on the Job.
-> Why: the reasoning under *A passing Check leaves no verdict behind* holds with more force beside a Job.
-
-### Opening it
-
-| From | Opens |
-|---|---|
-| **Run…** on the worktree row of *Where things are* | The sheet, nothing selected |
-| `r` on Job detail | The sheet, nothing selected |
-| **Run it here** on a refused Check's row | The sheet, that Check selected and narrowed |
-| The command palette | One entry per Check and Command |
-
-Where the Job's worktree no longer exists, **Run…** stays in place, disabled, and the row says why.
-
-**Retired: Run… and Run it here.** *Where things are* and the step's Checks chapter, which drew them, went with Overview's reframe of 29 Sep 2026, and their code is deleted. `r` and the palette are the ways in that remain.
-
-### What it lists
-
-| Group | Holds | Each row carries |
-|---|---|---|
-| Setup | The Commands `setup.requires` names | Its `run` line; re-running one repairs a broken install |
-| Checks | Every Check, in declaration order | Its `run` line |
-| Commands | Every Command `setup.requires` does not name | Its `run` line, or its `serve` line for a server |
-
-Setup rows show no time, because nothing records when setup finished in a worktree. Where the Manifest declares `setup.seed`, the Setup group says whether this worktree was seeded and from which base commit, or why it started cold. The sheet's header shows when `armada.yml` was last edited before the Job froze it, which Fleet reads from git. Where the worktree's own `armada.yml` differs from the frozen one, a notice says so and offers the worktree's version.
-
-### Running one
-
-> **Rule.** A run from the sheet executes in the Job's own worktree.
-> Why: it is the tree the gate will judge, and the one the Job's work is already in.
-
-| Case | Behaviour |
-|---|---|
-| A Check with `narrow` | Narrowed to what the Job changed; the whole tree is one press away |
-| A Check with `requires` | Its prerequisites run first, as the Manifest concept states |
-| Output | Streams live while the elapsed time counts up |
-| Stop | Ends the run's process group; the log keeps what printed |
-| A Drone working in the tree | Nothing locks; a notice says the run shares its tree and build directory |
-| Approval | None, destructive or not — the worktree is thrown away, which is what the checkout's own confirmation is for and this is not |
+> **Rule.** Output goes to a panel on this surface — the result in status colours with its exit code, duration, and the output — and stays until dismissed.
+> Why: a toast would throw away the thing you ran it to read.
 
 ### A server
 
-A Command with `serve` stays running, on ports from the Job's span. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per Job.
+A Command with `serve` stays running, in the main checkout and on ports from that checkout's span; it stops on Stop, exit, or Fleet stopping. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per checkout. A [Studio](../concepts/studio.md) starts one in the same checkout, on the same span and the same one instance, and holds it on a Run node.
 
-| Moment | What the sheet shows |
+| Moment | What the panel shows |
 |---|---|
 | Before `ready` passes | The row reads *starting*, with the log streaming |
 | Serving | *serving*, how long it has been up, a button per link, and Stop |
-| The sheet closed | Nothing stops. *Where things are* drew a row per server, with its links; that region is retired |
-| Started by a Drone | The same row, with Stop |
+| The panel closed | Nothing stops |
 | It exits on its own | Its exit code and log, as a failure |
 
 > **Rule.** A link hands its address to the system browser.
 > Why: no surface in Bridge navigates, per the design system's hard rules.
 
-> **Rule.** A server a Studio holds reads the same, on its node: *starting*, then *serving* with its uptime, a link each and Stop. Closing the Studio leaves it running, as closing this sheet does.
-> Why: a run reads the same wherever it appears, and a Studio's whiteboard is a drag surface — so each of those is an act on the node rather than a button on its card. #1345.
+### A passing Check leaves no verdict behind — but the output is a log
 
-### What a run leaves
+The output and the judgement are two different things.
 
-Each run writes its log under `./.armada` like every other ad-hoc run here, with the same retention. No Check row carries a result, and nothing from a run reaches the Cockpit, the Job header or the Job Board.
+Each run writes its output to `./.armada`, one run directory per run, so the panel is a view onto a file rather than a buffer that evaporates — Dismiss closes the panel, not the log.
 
-> **Rule.** The sheet's run list shows each run's result in Job colours, with its exit code, and opens its log.
-> Why: a past rehearsal is worth scanning, a run reads the same on a Studio, on this surface and here, and keeping it inside the sheet stops it reading as the gate's answer. #1277.
+> **Rule.** Ad-hoc run log retention is a Machine setting, default 30 days.
+> Why: a run is only worth keeping as long as you might still be debugging what you just ran.
 
-> **Rule.** After a run that changed the worktree, the sheet lists the changed files and offers Open the diff and Undo this run.
-> Why: nothing in a Manifest says in advance which Commands write, and a Check's `requires` can name one that does.
+> **Rule.** A run a [Studio](../concepts/studio.md) holds keeps its result and its log's last lines on the Studio's own node before the sweep takes the run, and nothing else survives it.
+> Why: a Studio is kept until a person deletes it, and this window is the only thing that expires a run. #1289.
 
-> **Rule.** Undo restores a snapshot of the worktree taken just before the run, and is not offered while a Drone is working.
-> Why: Fleet commits a Job's work only when it delivers, per the `landing` module (deleted since), so a plain discard would take the Drone's uncommitted work with it.
+> **Rule.** No Check gets a stored pass or fail from a run on this surface.
+> Why: a remembered per-Check verdict would read as evidence the work was checked, and the tree can change between the run and any later work that leans on it.
+
+The transcript is keepable, the judgement is not.
 
 ## Editing
 
-> **Rule.** Editing shows forms by default — one section each for Checks, Commands, budget and freeze — with the raw file behind a toggle. Always-allows are Fleet's own table, listed on the run view, and not a section of the file.
+> **Rule.** Editing shows forms by default — one section each for Checks and Commands, with the raw file behind a toggle. Always-allows are Fleet's own table, listed on the run view, and not a section of the file.
 > Why: those are the parts of a Manifest with known shapes and enumerated values.
-
-> **Rule.** The budget section edits both caps — dollars and turns per Job — and warns where a cap is below what this repository's past Jobs have cost.
-> Why: a cap below one Job's cost makes the workspace undispatchable, and this is the surface where past Jobs exist to set it against. Setup states the inherited caps and offers no control, because no Job has run there yet.
 
 > **Rule.** The form expresses everything the schema has, so an edit made in the file always round-trips back into the form and nothing can be dropped.
 > Why: the file view is there for people who would rather read the file than the form, not for what the form cannot reach.
@@ -165,9 +94,6 @@ The schema and the form move together — a field added to one is a field added 
 
 > **Rule.** The toggle is never labelled with the file's format; it is named by its path.
 > Why: the lexicon bans naming a Manifest by its format — it is a Manifest, never "the yaml."
-
-> **Rule.** Editing during a running Job needs no warning and no lock.
-> Why: a Job is judged against the Checks and Commands it snapshotted at creation, so an edit here cannot reach it — the next Job picks up the new file, the running one does not.
 
 > **Rule.** A form's save goes out as a pull request and applies at once; the checkout is not written. Only where the file is tracked and not ignored, the repository has an `origin` and the Manifest names a base: anywhere else the form writes the file to disk, and the file view's Save always does, with no staging and no commit.
 > Why: an edit left uncommitted in the checkout Fleet serves blocks every catch-up, because Fleet only fast-forwards a clean one (14 Oct 2026). Decided 15 Oct 2026, the owner's words: "PR, applies now, only in repos where the file is not gitignored."
@@ -217,7 +143,7 @@ Running Verify straight after Write, as [Set Up a Project (Manifest)](set-up-a-p
 > Why: the Manifest concept page specifies Verify as flagging without changing the file, with Update as the only manual edit path.
 
 > **Rule.** A drifted `id` row offers no fix action at all.
-> Why: `id` reads as drifted whenever a package is renamed, and changing it orphans every Job that references this Manifest.
+> Why: `id` reads as drifted whenever a package is renamed, and changing it orphans everything that references this Manifest.
 
 > **Rule.** Drift renders amber throughout, never red.
 > Why: a drifted file is behind, not broken — the dry-run beside it is what would prove broken.
@@ -229,13 +155,9 @@ Verdicts render as words in the status colour, matching Doctor: `gone` and `curr
 
 ## Open questions
 
-- **[runedit-destructive-command-warning]** Where a Job's gating Manifests disagree — one flags a Command destructive and another does not — which flag holds?
-  Most-restrictive-wins is the obvious answer and no page says it. The flag itself is settled as the one field that is a judgement rather than an observation — Scan can only propose it by matching against Kit's destructive defaults, propose-and-confirm, and Verify cannot check it at all, so a person sets it and this surface's edit screen is the only place it can be set.
-
 - **[runedit-no-manifest-state]** What does this surface show when no Manifest exists for the selected project?
   Setup's territory, and this journey meets Set Up a Project (Manifest) here without either page claiming ownership of the empty state.
 
 ## Related
 
 - [Set Up a Project (Manifest)](set-up-a-project-manifest.md) — where a Manifest first comes to exist, and the surface this journey's empty state hands off to.
-- [Monitor Active Work](monitor-active-work.md) — Job detail, where the run sheet opens.

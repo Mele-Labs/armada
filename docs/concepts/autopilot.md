@@ -14,7 +14,7 @@
 | At once | How many of its Sessions may hold a place together |
 | Until | A time, held in UTC. Optional |
 | Spend | A dollar total across its Sessions' reported costs, in millionths. Optional |
-| Jobs | How many Sessions it may start. Optional. Named for the Jobs it once started |
+| Sessions started | How many Sessions it may start. Optional. The store calls it `jobs` and the wire `job_cap` |
 | State | `running`, `paused` or `stopped`, with when it started and ended |
 | Capped by | `until`, `spend` or `jobs`, where a cap rather than a person paused it. A Resume clears it |
 | Picks | Each issue it picked, the workflow, the Session it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
@@ -24,7 +24,7 @@
 
 ## How a start happens
 
-1. The person types one sentence. One model call, made the way the [Job proposer](job-proposer.md)'s is, reads it as the five settings, each with the words of the sentence it was read from. A quote the sentence does not hold is dropped rather than shown as the person's. **It starts nothing.**
+1. The person types one sentence. One model call, made the way the [Proposer](job-proposer.md)'s is, reads it as the five settings, each with the words of the sentence it was read from. A quote the sentence does not hold is dropped rather than shown as the person's. **It starts nothing.**
 2. The person confirms or changes them, and the start takes what they confirmed. A blank instruction, no room, or a cap already reached is refused.
 
 ## How a pick happens
@@ -33,8 +33,8 @@ On Fleet's noticing interval, in a task of its own so a landing never waits behi
 
 1. **The caps first.** The first one reached pauses it, and says which.
 2. **The room.** Its Sessions that hold a place are counted against *at once*: the ones it started that are live, at work, and not waiting on a person.
-3. **What it may pick.** The open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a Job not yet ended came from, and any this run already picked.
-4. **One call per pick**, a Policy rather than a Drone, so it holds no place. It names an issue it was offered, a workflow the repository holds, whether it is sure, and why.
+3. **What it may pick.** The open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a live Autopilot Session of any run came from, and any this run already picked.
+4. **One call per pick**, a Policy rather than an agent, so it holds no place. It names an issue it was offered, a workflow the repository holds, whether it is sure, and why.
 
 | The picker | What happens |
 |---|---|
@@ -43,6 +43,8 @@ On Fleet's noticing interval, in a task of its own so a landing never waits behi
 | Finds none that fits | Nothing is picked, and it is not asked again until the list it was offered changes |
 | Names an issue or workflow it was not offered | Refused. Nothing starts and nothing is set aside |
 | Fails, or answers in a shape that cannot be read | The fault is kept, and it is not asked again for 30 seconds, twice as long after each further failure in a row, up to 15 minutes. An answer ends the rest |
+
+Autopilot never comments on, labels or closes the issue it picked, and nothing in Fleet does that for the owner unless he presses for it (see [tracker.md](tracker.md)).
 
 Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilotPicker`, under Prompts: Autopilot. A pass makes at most four calls per Autopilot, and asks again before keeping each answer, so a Pause pressed while a call was out wins.
 
@@ -72,4 +74,4 @@ Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilot
 
 ## In Bridge
 
-The Cockpit draws it: the Autopilot panel along the deck's foot, whose switch is its title and takes the running or paused state of the picked repository's Autopilot, and the Autopilot lane on the stage. Switching it on, with a repository picked, gives the stage to the lane and its bar for that repository, and switching it off puts the lane away without stopping anything (the owner, 13 Oct 2026). The bar holds the switch, the caps used of their limit, Pause, Resume and Stop, Edit caps, and the start form, which quotes under each setting the words Fleet read it from and says *not said* where it quoted none. A cap that paused it is named in the bar's state, *Paused · Job cap reached*, and lit; Edit caps raises it in the start form's fields, and Resume stays pressable and says Fleet's refusal while the cap holds. On **All** the lane asks for a repository with a picker, and the bar opens once one is picked. Under the lane the sidings are Next up, as a numbered list, and Set aside; each set-aside pick is also a call in Incoming calls. The dispatch panel offers Autopilot as a third kind: the repository is read from the words or asked, the panel's act reads the sentence into settings it draws for the person to edit, and Start starts it. Stop says before it is pressed which picks it withdraws and which Sessions go on, read from the Sessions the window holds by each pick's `session_id`. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
+The Cockpit draws it: the Autopilot panel along the deck's foot, whose switch is its title and takes the running or paused state of the picked repository's Autopilot, and the Autopilot lane on the stage. Switching it on, with a repository picked, gives the stage to the lane and its bar for that repository, and switching it off puts the lane away without stopping anything (the owner, 13 Oct 2026). The bar holds the switch, the caps used of their limit, Pause, Resume and Stop, Edit caps, and the start form, which quotes under each setting the words Fleet read it from and says *not said* where it quoted none. A cap that paused it is named in the bar's state and lit; Edit caps raises it in the start form's fields, and Resume stays pressable and says Fleet's refusal while the cap holds. On **All** the lane asks for a repository with a picker, and the bar opens once one is picked. Under the lane the sidings are Next up, as a numbered list, and Set aside; each set-aside pick is also a call in Incoming calls. The dispatch panel offers Autopilot as a third kind: the repository is read from the words or asked, the panel's act reads the sentence into settings it draws for the person to edit, and Start starts it. Stop says before it is pressed which picks it withdraws and which Sessions go on, read from the Sessions the window holds by each pick's `session_id`. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.

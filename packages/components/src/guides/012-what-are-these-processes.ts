@@ -10,7 +10,7 @@ export const GUIDE_PROCESSES: Guide = {
   group: "machine",
   title: "What are these processes?",
   piece: "pulse.processes",
-  concept: "docs/concepts/job.md",
+  concept: "docs/concepts/session.md",
   steps: [
     "Pulse lists what this job is running on this machine right now.",
     "Each row is named by the executable alone: node, cargo, git.",

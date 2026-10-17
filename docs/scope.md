@@ -31,7 +31,7 @@ The owner's own description, and the shape everything is measured against:
 
 **A Studio is where step 1 comes from, and it is part of the product.** You
 run the app and point at what is wrong, ask what the code does, read in what
-you already have, and promote what holds up into a Job. See
+you already have, and promote what holds up into a Session. See
 [Studio](concepts/studio.md).
 
 ## The four pains it exists to remove
@@ -40,10 +40,10 @@ He was juggling five or more agent sessions and hit these, in these words:
 
 | Pain | Answered by |
 |---|---|
-| *Which agents need me right now* | The Board. One list, live, saying which Jobs are waiting on a person |
-| *Oh, that agent didn't make a worktree* | Fleet makes one, always. A Drone never decides where it works |
-| *This agent is stuck because it doesn't know how to run checks properly* | A Drone never runs the Checks. Fleet does, from the repository's own Manifest |
-| *This one got ahead of itself and did all of the work in one PR instead of three* | Workflow steps, each gated, and a Judge criterion comparing the diff to the step's own scope note. **Partly solved** — it caught one on Aug 28 2026, and it exists only on the coding workflows' `implement` steps, only where a scope note precedes them |
+| *Which agents need me right now* | The Cockpit's Work list: every Session, live, with the ones waiting on a person called out |
+| *Oh, that agent didn't make a worktree* | Fleet leases the slot a Session writes in. An agent never decides where it works |
+| *This agent is stuck because it doesn't know how to run checks properly* | `armada check` runs the repository's own Checks from its Manifest, so an agent calls one command and does not work out the runner |
+| *This one got ahead of itself and did all of the work in one PR instead of three* | A Session's plan states its scope, and a workflow's steps nudge it when one is skipped. **Partly solved** — nothing blocks a Session, and no judge runs on its own |
 
 **Armada is the orchestrator above agents.** It babysits them, and surfaces a
 review only when it is confident the work is ready to be looked at.
@@ -79,45 +79,44 @@ proposal that reintroduces one of them is answering a question already settled.
 |---|---|---|
 | Skills in a repository | Worked, but was not portable to other projects | The Manifest. A repository carries its own setup, and one Fleet serves every repository a person adds rather than being configured per project |
 | A CLI | Did not surface the information he needed | Bridge, and why it is a board that is scanned rather than output that is read |
-| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's Evidence, a Session's branch — never a transcript read as a claim. Helm is a conversation with the tools of a terminal session, and the structure is what survives it |
+| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Session's plan, a Session's branch — never a transcript read as a claim. Helm is a conversation with the tools of a terminal session, and the structure is what survives it |
 | Armada v1 | Close | This |
 
 **The third one explains more of the design than it looks like.** Evidence is
 structured because prose is not a claim. Fleet decides because a self-report is a
-signal. The Board is scanned because reading a transcript is the thing being
+signal. The Cockpit is scanned because reading a transcript is the thing being
 escaped. Every time a design reaches for "ask the agent", it is reaching for the
 attempt that was already rejected.
 
 ## What Armada is not
 
-**It is not a sandbox, and confinement is not the point.** A Drone runs in a
-worktree with a near-empty environment and no credential, which bounds what it
-can reach. That is a floor and is deliberately not a fence:
+**It is not a sandbox, and confinement is not the point.** An unattended agent's
+launch bounds what it can reach. That is a floor and is deliberately not a fence:
 `crates/adapters/src/harness.rs` records the measurement — `--allowedTools` is a
 permission allowlist rather than a toolset, and it removed none of the built-in
-tools in three spike runs. A Drone can run a shell.
+tools in three spike runs. An agent launched this way can run a shell.
 
 Real confinement means containers with nothing mounted, and that is a different
 system that can be added later. **Time spent hardening the current arrangement
 is time not spent on the seven steps above.**
 
 The one confinement that does earn its place is `--strict-mcp-config`, because
-without it a Drone comes up holding every MCP server the operator has connected
+without it an unattended agent comes up holding every MCP server the operator has connected
 — measured at seven servers, ninety-five tools, personal accounts. That is not
-hypothetical tightening; it is the v1 defect that made a Drone unusable.
+hypothetical tightening; it is the v1 defect that made an unattended agent unusable.
 
-The flag stays, and Kit does not weaken it: `#1275` lets a person connect an MCP server from Bridge, and a server reaches a Drone only where that person turned it on for Kit or for the Manifest. A Drone still comes up holding what it was given. See [Kit](concepts/kit.md).
+The flag stays, and Kit does not weaken it: `#1275` lets a person connect an MCP server from Bridge, and a server reaches an unattended agent only where that person turned it on for Kit or for the Manifest. It still comes up holding what it was given. See [Kit](concepts/kit.md).
 
-**It is a Drone's and not Helm's.** A Drone is unattended, and the flag is what
+**It is an unattended agent's and not a Session's.** A Scout is unattended, and the flag is what
 stops one reaching an operator's accounts with nobody watching. Helm is that
-operator, in a Session of their own, reading the reply as it is written — so a Helm
+operator, in a Session of their own, reading the reply as it is written, so a Helm
 session comes up holding what they hold, measured at nineteen servers on this
 machine in
 [spike 18](spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md).
 The two launches are rendered apart and a test holds them apart.
 
 **It is not built for every kind of repository.** What Armada brings — its
-carried workflows and the gates on their steps — assumes code with tests: a Check
+carried workflows and the Checks a Session runs — assumes code with tests: a Check
 a shell can run in a worktree, and a diff a Judge can read. A repository whose
 correctness shows up another way needs evidence of its own kind, and Armada does
 not bring it.
@@ -130,11 +129,10 @@ not bring it.
 | Infrastructure as code | Only after `apply`, against real state |
 | Prose | There is no behaviour to test |
 
-**In such a repository a coding step can have nothing to check.** Its gate then
-passes on a non-empty diff and the Judge alone — an empty Check registry expands
-to nothing in `crates/config/src/resolve.rs` — and #847 is what tells a person so.
+**In such a repository the Checks can have nothing to run.** An empty Check registry expands
+to nothing in `crates/config/src/resolve.rs`, and #847 is what tells a person so.
 
-**A conversation is not a record.** Helm is a hosted Session and holds what a terminal session holds, writing in a slot on a branch like any Session, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Jobs it drafted. Nothing downstream reads the thread. See the third attempt: what was rejected was reading a transcript as a claim, not talking.
+**A conversation is not a record.** Helm is a hosted Session and holds what a terminal session holds, writing in a slot on a branch like any Session, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Sessions it started. Nothing downstream reads the thread. See the third attempt: what was rejected was reading a transcript as a claim, not talking.
 
 **It is not about throughput.** Running more agents was never the problem.
 

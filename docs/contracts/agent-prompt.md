@@ -637,9 +637,8 @@ on the need. Where no Drone is live it rides the next opening brief.
 
 **A conflict Fleet found is news too.** It is read from what was written, not from what was declared: git says merging this Job's changes with another Job's, a Session's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*). The item names the files, the other side, and how to reach it. A Job is reached with `leave_note` on its handle and a Session with `leave_note` on its address, `s-` and the first eight characters of its id. For the base it names the commit that changed the file and says to merge it in. The sentences about shared files and shared numbering are left out of a turn that carries only conflicts. It is spaced like the rest, and told once per set of files.
 
-**Overlap informs and never holds.** Nothing on the dispatch path reads it, for
-the reason `docs/concepts/fleet.md`, Write-scope overlap, gives. A need is the
-part that holds, at the merge and nowhere earlier.
+**Overlap informs and never holds.** A need is the part that holds, at the merge
+and nowhere earlier.
 
 **Fleet's own sentence, around one kind of outside words.** Titles, handles
 and paths are Armada's record. A note is another Drone's words: every line

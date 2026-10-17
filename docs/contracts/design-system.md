@@ -986,8 +986,7 @@ holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and 
 window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
 amber dot while signed out. **The one bar searches** (the owner, 10 Oct 2026): it opens the palette, centred
 across the window and not on the bar, and the palette offers what was typed as the work too, so the row draws no
-Dispatch button. Dispatching is its own sheet, centred across the window and not hung from the bar
-(`docs/journeys/dispatch-a-job.md`), and `n` opens it without the palette; the Cockpit's deck holds a
+Dispatch button. Dispatching is its own sheet, centred across the window and not hung from the bar, and `n` opens it without the palette; the Cockpit's deck holds a
 Dispatch tile for the same sheet. The row sits flush on
 `--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
@@ -1706,8 +1705,7 @@ query, a row offers it as a Job, as a Session where Sessions are served, or as
 an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches or when the words are a link; otherwise it waits at the foot, so ↵ still opens
 the match — a Job is searched by its title, and a title is a sentence. `n` and `⌘N` do not open the palette: they open
 the Dispatch sheet directly (the owner, 15 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
-sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none
-(`docs/journeys/dispatch-a-job.md`). The full composer for a file or a sketch is opened from a Studio's Sketch.
+sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none. The full composer for a file or a sketch is opened from a Studio's Sketch.
 
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,

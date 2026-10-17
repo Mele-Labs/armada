@@ -38,7 +38,7 @@ You open the plan.
 **Today almost nothing marks a task** (#1752): of eleven Drones told to mark
 theirs, two did, so tasks read open from start to finish. The rule written
 down for when Fleet marks them is *working when its agent starts, done when its
-group's Checks come back green* (`docs/concepts/plan.md`). Under that rule T1 reads working while nobody is
+group's Checks come back green*. Under that rule T1 reads working while nobody is
 working on it, and all four turn done together at the end.
 
 - **A. Done when its agent hands in.** If the group's Checks then go red, every
@@ -169,7 +169,7 @@ it touches `auth.rs` and T8 said `session.rs`, but T8 also fixes an import in
 `auth.rs`. The later save wins, and T7's change to that file is gone without a
 trace.
 
-**Tasks running at once share the Job's copy** (`docs/concepts/plan.md`), and
+**Tasks running at once share the Job's copy**, and
 nothing catches this today. `docs/contracts/system-architecture.md` still says
 one copy per agent, and #1530 holds that it has to be amended before this is
 built.
@@ -216,7 +216,7 @@ key left out, never `null`, by `docs/practices/protocol.md`'s rule.
 **Decided by the owner, 1 Oct 2026: a red group's Checks send it round on its
 own where the workflow allows retries, as today.** Restart this task (#1656) and
 Move apply once the retries run out. A failed task is the state after the
-retries are exhausted. That is what `docs/concepts/plan.md` means by *the retry
+retries are exhausted. That is what the Plan concept meant by *the retry
 that re-runs the group is what clears it*: the person's retry, once Fleet's own
 are spent.
 
@@ -732,7 +732,7 @@ The `drones_had` module (deleted since), the `evidence` module (deleted since),
 `crates/core-model/src/job/work_plan.rs`, the `workflow` module (deleted since),
 `crates/config/src/workflow/step.rs`, `crates/core-model/domain/workflowdef-fields.toml`,
 `.armada/workflows/`, `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`,
-`docs/concepts/plan.md`, `docs/contracts/agent-prompt.md`, and the wire set above.
+`docs/contracts/agent-prompt.md`, and the wire set above.
 
 **Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
 Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
