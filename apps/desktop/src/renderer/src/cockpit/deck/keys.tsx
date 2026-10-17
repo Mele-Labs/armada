@@ -100,7 +100,7 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
   useEffect(() => {
     const listen = (event: KeyboardEvent): void => {
       if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
-      // A Session's pinned calls opened over its thread: Esc closes them, and is not the deck going back.
+      // A layer opened over a Session's thread: Esc closes it, and is not the deck going back.
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
       latest.current(event);
     };

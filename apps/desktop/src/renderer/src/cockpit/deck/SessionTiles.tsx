@@ -6,7 +6,7 @@
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 
 import { useEffect, useRef, useState } from "react";
-import { Bug, CircleCheck, CircleDot, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Scale, Unplug } from "lucide-react";
+import { Bug, CircleCheck, CircleDot, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Rows3, Scale, ShieldCheck, Split, Unplug } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -17,10 +17,12 @@ import { askForUpdate } from "./acts";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { reportBrief } from "./report-brief";
-import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
+import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, tileKey, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
+import { toggleLayer, useLayer } from "../../session-view/layers";
+import type { SlotTrouble } from "../../session-view/slot-trouble";
 
-const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug } as const;
+const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug, artifacts: Files, subagents: Split, checks: ShieldCheck, slot: Rows3 } as const;
 
 /** How long a judge that found nothing is shown as done. */
 const CLEAR_MS = 2400;
@@ -29,7 +31,8 @@ const CLEAR_MS = 2400;
 export type ReportRepository = { root: string; name?: string };
 
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
-export function SessionTiles({ session, draft, repository, startIn }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string }) {
+export function SessionTiles({ session, draft, repository, startIn, trouble }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; trouble?: SlotTrouble | undefined }) {
+  const layer = useLayer(session.id);
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
   /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
@@ -52,7 +55,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
   const events = useFleetEvents();
   const refused = useSessionsSaid();
   const on = useAutoLand(session.id);
-  const { off, compact } = offeredOf(session, draft, repository?.root);
+  const { off, compact } = offeredOf(session, draft, repository?.root, trouble !== undefined);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: SessionTileId, act: () => Promise<void>) => {
     if (pending !== undefined) return;
@@ -83,6 +86,10 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
         await draft.work.judge(session.id);
       }),
     release: () => setReleasing(true),
+    artifacts: () => toggleLayer(session.id, "artifacts"),
+    subagents: () => toggleLayer(session.id, "subagents"),
+    checks: () => toggleLayer(session.id, "checks"),
+    slot: () => toggleLayer(session.id, "slot"),
   };
   const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {
     const before = session;
@@ -113,6 +120,10 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     map: "Map",
     judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
     release: "Release or hand over everything the Session holds",
+    artifacts: "Everything the Session made or used",
+    subagents: "Every subagent",
+    checks: "The Checks the Session ran",
+    slot: trouble?.said ?? "Slot",
   };
   const dialog = releasing ? (
     <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
@@ -143,12 +154,13 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
           const reading = tile.id === "judge" && judging;
           const cleared = tile.id === "judge" && clear && !reading;
           return (
-            <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
+            <Tooltip key={tile.id} label={why ?? tip[tile.id]} {...(tileKey(at) === undefined ? {} : { shortcut: tileKey(at)! })} asChild>
               <button
                 type="button"
                 className="deck-tile"
                 aria-label={tile.label}
-                aria-pressed={tile.id === "map" || tile.id === "release" ? false : pending === tile.id || (tile.id === "land" && on)}
+                aria-pressed={tile.id === "map" || tile.id === "release" ? false : pending === tile.id || (tile.id === "land" && on) || layer === tile.id}
+                data-lit={(tile.id === "slot" && trouble !== undefined) || undefined}
                 aria-busy={pending === tile.id || undefined}
                 aria-disabled={why !== undefined || undefined}
                 onClick={() => why === undefined && press[tile.id]()}
@@ -165,9 +177,11 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
                   <Glyph size={20} aria-hidden="true" />
                 )}
                 <span className="deck-tile__text">{tile.text}</span>
-                <Kbd className="deck-tile__key" aria-hidden="true">
-                  {at + 1}
-                </Kbd>
+                {tileKey(at) === undefined ? null : (
+                  <Kbd className="deck-tile__key" aria-hidden="true">
+                    {tileKey(at)}
+                  </Kbd>
+                )}
               </button>
             </Tooltip>
           );
