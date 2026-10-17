@@ -10,7 +10,7 @@ import { mount, toSystemPage, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 test("Studios draws on core and its own slice, and a call of another slice is unanswered", async () => {
-  const { api } = mount("every-state", { slices: ["studios"] });
+  const { api } = mount("default", { slices: ["studios"] });
   await toSystemPage("Studios");
   await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
   await page.getByRole("menuitem", { name: "armada", exact: true }).first().click();
@@ -24,13 +24,13 @@ test("Studios draws on core and its own slice, and a call of another slice is un
 });
 
 test("every slice but Studios answers a call it owns as unanswered", async () => {
-  const { api } = mount("every-state", { slices: ["studios"] });
+  const { api } = mount("default", { slices: ["studios"] });
   expect(await api.killJob("none")).toMatchObject({ ok: false, why: "transport" });
   expect(await api.readHeld(true)).toMatchObject({ ok: false });
   expect(SLICES.map((one) => one.name)).toHaveLength(24);
 });
 
 test("no slice list mounts every slice, as before", async () => {
-  const { api } = mount("every-state");
+  const { api } = mount("default");
   expect(await api.readWorkflows()).toMatchObject({ ok: true });
 });

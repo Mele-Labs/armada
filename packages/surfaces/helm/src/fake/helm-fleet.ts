@@ -98,7 +98,7 @@ const RECORD: HelmDebugInfo = {
  * **One repository set up, so the composer draws no switch**: pointed at a
  * repository, one is nothing to switch between, and a second served here would
  * only be there to make a control appear. `fleet-not-running` through
- * `every-state` are where the unpointed dock and its switch are read.
+ * `default` are where the unpointed dock and its switch are read.
  *
  * `behaves` answers `GET /helm/debug` alone. **Asking still moves nothing** —
  * a reply is Fleet's to decide and the fake invents none — so Send clears the

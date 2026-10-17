@@ -122,7 +122,7 @@ function build(): Scenario {
     draft: {
       sessions: (control) => {
         const helm = helmRecord("armada", name("armada"));
-        store = withHelm(sessionsStore(pair, pair[0], [], control, [], [helm, ...others]), helm.id, name);
+        store = withHelm(sessionsStore(pair, pair[0], control, [], [helm, ...others]), helm.id, name);
         return store;
       },
     },

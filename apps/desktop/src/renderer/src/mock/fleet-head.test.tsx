@@ -15,7 +15,7 @@ unmountAfterEach();
 
 // Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
 test.skip("the dot sits inside the Fleet panel's head, and the head says the state", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await expect.element(head()).toBeVisible();
@@ -28,7 +28,7 @@ test.skip("the dot sits inside the Fleet panel's head, and the head says the sta
 
 // Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
 test.skip("the state row under the head is gone, and the figures it sat above are not", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   // Open by default, so nothing is pressed: pid and port still read. The row

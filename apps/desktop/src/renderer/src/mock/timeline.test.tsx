@@ -177,7 +177,7 @@ test("an entry Fleet appends is drawn at once, in the lane of its subject, and a
   };
   root.render(
     <FleetEventsOver source={source}>
-      <Timeline now={Date.now()} jobs={[]} filter="running" recessed={false} onOpenJob={() => {}} onOpenSession={() => {}} onOpenLink={() => {}} />
+      <Timeline now={Date.now()} filter="running" recessed={false} onOpenSession={() => {}} onOpenLink={() => {}} />
     </FleetEventsOver>,
   );
   await expect.element(page.getByRole("button", { name: /^Scope passed/ })).toBeVisible();
@@ -207,7 +207,7 @@ test("a burst opens to the files or commands Fleet kept for it, and one kept non
   };
   root.render(
     <FleetEventsOver source={{ get: () => held, subscribe: () => () => undefined }}>
-      <Timeline now={Date.now()} jobs={[]} filter="running" recessed={false} onOpenJob={() => {}} onOpenSession={() => {}} onOpenLink={() => {}} />
+      <Timeline now={Date.now()} filter="running" recessed={false} onOpenSession={() => {}} onOpenLink={() => {}} />
     </FleetEventsOver>,
   );
   await page.getByRole("tab", { name: "Feed" }).click();

@@ -12,7 +12,7 @@ const sentence = button("From a Studio, by you", { exact: true });
 const studio = role("button", /^Studio, /);
 const picked = text("Studios · Every kind of node and edge · Job Cache the manifest read between dispatches selected");
 
-export const backToItsStudio = walk("every-state", [
+export const backToItsStudio = walk("default", [
   { press: option, say: "A Job dispatched off a Studio" },
   { press: open, say: "Open the Job page" },
   { look: sentence, say: "Where it came from is a link now; its tooltip names the Studio" },

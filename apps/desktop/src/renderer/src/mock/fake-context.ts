@@ -1,10 +1,7 @@
 // What a fake's slices share: the state it publishes, the one way to change it, and the few
 // things more than one surface reads or writes. Built once per window by `fake.ts`.
 
-import type { JobDetail, JobSummary, KitAllowedCommand, WorkPlan, WorktreesHeld } from "@armada/protocol";
-import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
-import type { GroupView } from "@armada/screens/src/draft/group";
-import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
+import type { JobSummary, KitAllowedCommand, WorktreesHeld } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { unanswered } from "./moment";
@@ -19,19 +16,8 @@ export type Fleet = {
   listen: (onState: (state: BridgeState) => void) => () => void;
   /** One field on one Job, and on its detail where that Job is the one open. */
   move: (jobId: string, change: Partial<JobSummary>) => void;
-  /** A Job the Judge did not answer on, moved the way Fleet would; any other is left as drawn. */
-  stepping: (jobId: string, moved: (whole: JobDetail, at: string) => JobDetail | undefined) => void;
-  /** A person's own add or drop, on the open plan and on the draft groups an arc board draws. */
-  editPlan: (
-    jobId: string,
-    route: string,
-    plan: (was: WorkPlan) => WorkPlan | undefined,
-    groups: (was: GroupView[]) => GroupView[],
-  ) => PlanEditAnswer;
   /** The pool as acts on it left it, read again after each as main does. */
   held: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld | undefined) => void };
-  /** The draft as it stands; `set` tells whoever is drawing it. */
-  draft: { get: () => ArcDraft | undefined; set: (draft: ArcDraft | undefined) => void; subscribe: (onDraft: () => void) => () => void };
   /** What Kit's allowlist holds on this machine. */
   kit: { get: () => KitAllowedCommand[]; set: (allowed: KitAllowedCommand[]) => void };
   readsOf: (jobId: string) => Scenario["reads"][string] | undefined;
@@ -94,8 +80,6 @@ export const nothing = { state: "none" } as const;
 export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
   let state = initial;
   const listeners = new Set<(state: BridgeState) => void>();
-  const drafters = new Set<() => void>();
-  let draft = scenario.draft;
   let held = scenario.held;
   let kit: KitAllowedCommand[] = [];
 
@@ -116,38 +100,8 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
     });
   }
 
-  function stepping(jobId: string, moved: (whole: JobDetail, at: string) => JobDetail | undefined): void {
-    const watched = state.watched;
-    if (watched.state !== "read" || watched.jobId !== jobId) return;
-    const detail = moved(watched.detail, new Date().toISOString());
-    if (detail === undefined) return;
-    publish({ jobs: state.jobs.map((job) => (job.id === jobId ? detail.job : job)), watched: { ...watched, detail } });
-  }
-
   const path = (jobId: string, route = "") => `/jobs/${encodeURIComponent(jobId)}${route}`;
   const refused = (route: string) => ({ ok: false, outcome: unanswered(route) }) as const;
-
-  /**
-   * **Refused where no plan is open to change**, as Fleet refuses a Job with no plan recorded.
-   * Folded where main's `foldPlan` folds the plan Fleet answers with.
-   */
-  function editPlan(
-    jobId: string,
-    route: string,
-    plan: (was: WorkPlan) => WorkPlan | undefined,
-    groups: (was: GroupView[]) => GroupView[],
-  ): PlanEditAnswer {
-    const watched = state.watched;
-    const was = watched.state === "read" && watched.jobId === jobId ? watched.detail.work_plan : undefined;
-    const now = was === undefined ? undefined : plan(was);
-    if (watched.state !== "read" || now === undefined) return refused(path(jobId, route));
-    publish({ watched: { ...watched, detail: { ...watched.detail, work_plan: now } } });
-    if (jobId === scenario.opens && draft?.groups !== undefined) {
-      draft = { ...draft, groups: groups(draft.groups) };
-      queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
-    }
-    return { ok: true, plan: now };
-  }
 
   return {
     scenario,
@@ -158,20 +112,7 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
       return () => listeners.delete(onState);
     },
     move,
-    stepping,
-    editPlan,
     held: { get: () => held, set: (next) => void (held = next) },
-    draft: {
-      get: () => draft,
-      set: (next) => {
-        draft = next;
-        queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
-      },
-      subscribe: (onDraft) => {
-        drafters.add(onDraft);
-        return () => drafters.delete(onDraft);
-      },
-    },
     kit: { get: () => kit, set: (next) => void (kit = next) },
     readsOf: (jobId) => scenario.reads[jobId],
     path,

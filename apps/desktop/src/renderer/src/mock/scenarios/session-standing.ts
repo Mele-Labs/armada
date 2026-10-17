@@ -157,7 +157,7 @@ function build(): Scenario {
     draft: {
       events: EVENTS,
       sessions: (control) => {
-        const store = sessionsStore([NONE, NONE], NONE, [], control, [], [terminal, replied, done, stuck, working, asking]);
+        const store = sessionsStore([NONE, NONE], NONE, control, [], [terminal, replied, done, stuck, working, asking]);
         return {
           ...store,
           // He answers Retry cap in its terminal: its turn begins again, and Fleet reads it working and drops the reply.

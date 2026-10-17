@@ -12,8 +12,6 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { HubMerged, HubPullRequest, MainStanding, MergeLines, PlanUsage, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld, WriteClash } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionChecks } from "@armada/screens/src/draft/sessions";
-import type { CallView } from "@armada/screens/src/draft/calls";
-import type { NowView } from "@armada/screens/src/draft/now";
 import { queued, review, running } from "@armada/screens/src/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
@@ -228,9 +226,9 @@ const REPLIED: Partial<Session> = {
 };
 
 /** The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly Session[] = SESSIONS): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2], list: readonly Session[] = SESSIONS): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, [], control, [], list);
+  const store = sessionsStore([none, none], none, control, [], list);
   let moment = 0;
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
   const own = new Set(list.map((one) => one.id));
@@ -375,40 +373,7 @@ function pool(): WorktreesHeld {
   };
 }
 
-/** What each Job's Drone is doing: the lines a Peek reads. */
-const NOWS: Record<string, NowView> = {
-  [cache.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Fix", line: "Editing manifest-read.ts", step: { id: "fix", name: "Fix" }, state: "running", tail: ["Read crates/manifest/src/read.rs", "Edit crates/manifest/src/read.rs: key the cache on the hash", "cargo test -p manifest read_again"] },
-      { key: "c", of: "check", name: "manifest_test", state: "running" },
-      { key: "l", of: "check", name: "lint", state: "running" },
-    ],
-  },
-  [reconnect.job.id]: {
-    running: [
-      { key: "d", of: "drone", name: "Drone on Fix", line: "Waiting on the store test", state: "running", tail: ["Edit crates/fleet/src/reconnect.rs", "cargo test -p store reconnect", "FAIL store::reconnect::waits_five_seconds"] },
-      { key: "c", of: "check", name: "store", state: "failed" },
-    ],
-  },
-  [code.job.id]: { waiting: [{ key: "w", kind: "resource", text: "A bay in pocket" }] },
-};
 
-const CALLS: Record<string, CallView> = {
-  [reconnect.job.id]: {
-    request: "When Bridge loses its socket to Fleet, it waits a flat 30s before reconnecting. Cut the first wait to 5s and back off from there, keeping the cap at 60s.",
-    running: [{ key: "r", of: "drone", name: "Drone on Fix", line: "Waiting on the store test", state: "running" }],
-    issues: [
-      {
-        key: "i1",
-        of: "check",
-        name: "store",
-        text: "store: 2 failed",
-        said: "Check failed",
-        context: ["FAIL store::reconnect::waits_five_seconds", "  expected: 5s", "  actual:   30s", "FAIL store::reconnect::caps_at_sixty", "  assertion failed: backoff(9) <= 60s"],
-      },
-    ],
-  },
-};
 
 // ---- What Fleet did, for the flight deck's timeline ---------------------------------------------------
 
@@ -519,7 +484,7 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
     later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
+    draft: { sessions: (control, more = []) => sessions(control, [...SESSIONS, ...more]), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

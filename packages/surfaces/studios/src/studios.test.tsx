@@ -274,8 +274,8 @@ async function openStudios(): Promise<void> {
 
 const FAILED = "This repository's Studios could not be read";
 
-test("every-state keeps Studios, so the surface opens on a list and not a read failure", async () => {
-  open("every-state");
+test("default keeps Studios, so the surface opens on a list and not a read failure", async () => {
+  open("default");
   await openStudios();
 
   await expect.element(page.getByRole("cell", { name: "Every kind of node and edge", exact: true })).toBeVisible();

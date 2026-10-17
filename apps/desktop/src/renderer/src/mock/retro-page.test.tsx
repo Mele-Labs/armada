@@ -1,8 +1,7 @@
 // Job retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page
 // lists what got in the way across Jobs, newest first, each item as words, a
-// headline, what happened, a fix and two answers. A Job label opens its retro,
-// and the same retro opens from the Job's own Record. Agree proposes a Job or
-// saves a Kit item; Disagree discards.
+// headline, what happened, a fix and two answers. A Job label opens its retro.
+// Agree proposes a Job or saves a Kit item; Disagree discards.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
@@ -80,25 +79,6 @@ test("a Job label opens its retro, each item with the record rows it cites behin
   await expect.element(sheet.getByRole("region", { name: "Notes" })).toBeVisible();
 });
 
-test("a Job's own retro opens from its Record, with the same items and answers", async () => {
-  mount("retro/job-3", SLICES);
-  await onScreen();
-
-  await page.getByRole("tab", { name: /^Record/ }).last().click();
-  await page.getByRole("button", { name: "Retro", exact: true }).click();
-  const sheet = page.getByRole("dialog", { name: "Retro" });
-  await entered(sheet);
-  await expect.element(sheet.getByText(/Browser tests timed out under the gate/)).toBeVisible();
-  // Where each item's fix lands, beside whose way it got in.
-  expect(sheet.getByRole("img", { name: "Lands in Kit" }).elements()).toHaveLength(1);
-  expect(sheet.getByRole("img", { name: "Lands in Armada" }).elements()).toHaveLength(2);
-  expect(sheet.getByRole("img", { name: "Lands in the Manifest" }).elements()).toHaveLength(1);
-  expect(sheet.getByRole("button", { name: "Create Job", exact: true }).elements()).toHaveLength(3);
-  // Job 3's grep item carries a change, so Fleet's Accept is Update Kit here.
-  expect(sheet.getByRole("button", { name: "Update Kit", exact: true }).elements()).toHaveLength(1);
-  expect(sheet.getByRole("button", { name: "Accept", exact: true }).elements()).toHaveLength(0);
-});
-
 test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
@@ -171,15 +151,4 @@ test("Update Kit puts the command on the Kit page's allowlist as a retro item's,
   await expect.element(row.getByText("Retro item", { exact: true })).toBeVisible();
   await row.getByRole("button", { name: "Remove grep" }).click();
   await expect.poll(() => allowlist.getByRole("listitem").elements().length).toBe(0);
-});
-
-test("a Job whose retro is not written says so, and nothing more", async () => {
-  mount("judge/refusal-agreed", SLICES);
-  await onScreen();
-
-  await page.getByRole("tab", { name: /^Record/ }).last().click();
-  await page.getByRole("button", { name: "Retro", exact: true }).click();
-  const sheet = page.getByRole("dialog", { name: "Retro" });
-  await entered(sheet);
-  await expect.element(sheet.getByText("Not written yet")).toBeVisible();
 });

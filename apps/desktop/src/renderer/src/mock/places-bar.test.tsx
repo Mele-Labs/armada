@@ -10,7 +10,7 @@ unmountAfterEach();
 
 const selected = () => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent;
 
-// The Cockpit holds Jobs and Sessions, so the bar has no tab for either; ⌘3 still arrives at the Cockpit.
+// The Cockpit holds Sessions, so the bar has no tab for them; ⌘3 still arrives at the Cockpit.
 test("The places bar reads Cockpit, Studios, Retros, System, and ⌘4 to ⌘6 open the last three, ⌘3 and ⌘1 the Cockpit", async () => {
   mount("cockpit-ship-flightdeck");
   await onScreen();
@@ -25,7 +25,7 @@ test("The places bar reads Cockpit, Studios, Retros, System, and ⌘4 to ⌘6 op
 });
 
 test("Settings opens on ⌘, and ⌘5 opens Retros", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await userEvent.keyboard("{Meta>},{/Meta}");
@@ -35,7 +35,7 @@ test("Settings opens on ⌘, and ⌘5 opens Retros", async () => {
 });
 
 test("Doctor is a row of the title bar's menu and not a page of the System strip", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await userEvent.click(page.getByRole("button", { name: "Menu" }));

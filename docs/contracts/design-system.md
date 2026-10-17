@@ -1481,7 +1481,6 @@ r              review             (list only)
 t              attest   (list and detail)
 d              redirect   (list and detail)
 s              restart step        (detail only)
-p              pilot               (not built)
 c              copy debug info
 b              report this job     (detail only) (confirms)
 x              kill                (confirms)

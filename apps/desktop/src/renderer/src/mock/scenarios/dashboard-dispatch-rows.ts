@@ -7,7 +7,6 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
-import type { NowView } from "@armada/screens/src/draft/now";
 import { completedFailed, completedSuccess, queued } from "@armada/screens/src/fixtures/build/index";
 import { featureRunning } from "@armada/screens/src/fixtures/jobs/feature-running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -45,46 +44,7 @@ const shipped = kept(asRow(completedSuccess(), 89, "dash-shipped", "Add the hear
 const shipped2 = kept(asRow(completedSuccess(), 90, "dash-shipped-2", "Cache the manifest read"));
 const failed = kept(asRow(completedFailed(), 91, "dash-failed", "Shorten the reconnect wait"));
 
-const STEP = { id: "implement", name: "Implement" } as const;
-const DRONE = { key: "d", of: "drone", name: "Implement Drone", line: "Edit crates/store/src/clock.rs", step: STEP, tail: ["Read crates/store/src/clock.rs", "Edit crates/store/src/clock.rs"], state: "running" } as const;
-const CHECK_ACTS = [
-  { key: "retry", glyph: "retry", said: "Retry now" },
-  { key: "skip", glyph: "skip", said: "Skip check" },
-] as const;
 
-const now: Record<string, NowView> = {
-  [pin.job.id]: { running: [DRONE] },
-  [fold.job.id]: {
-    running: [
-      { key: "c1", of: "check", name: "typecheck", step: STEP, state: "passed" },
-      { key: "c2", of: "check", name: "store", step: STEP, tail: ["running 212 tests", "test writer::flushes_on_close ..."], state: "running", acts: CHECK_ACTS },
-    ],
-  },
-  [cap.job.id]: {
-    running: [{ key: "j", of: "judge", name: "Judge on Implement", step: STEP, tail: ["Reading the diff against the criteria", "Criterion 2: met"], state: "running" }],
-  },
-  [split.job.id]: {
-    asks: [
-      {
-        key: "p",
-        kind: "plan",
-        decisions: [
-          {
-            id: "shape",
-            question: "Split the clock out of the writer, or wrap it in place?",
-            options: [
-              { id: "split", label: "Split it out" },
-              { id: "wrap", label: "Wrap it in place" },
-            ],
-          },
-        ],
-      },
-    ],
-    running: [DRONE],
-  },
-  [index.job.id]: { waiting: [{ key: "r", kind: "resource", text: "Worktree slot", step: STEP }] },
-  [rename.job.id]: { running: [{ ...DRONE, key: "d2", name: "Plan Drone", line: "Reading the gate verbs" }] },
-};
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const quiet = { state: "idle" } as const;
@@ -146,9 +106,8 @@ function build(): Scenario {
     ...base,
     state: { ...base.state, repository: repository().root, mergeLines: { lines: [mergeLines().lines[0]!] } },
     draft: {
-      now,
       sessions: (board) =>
-        sessionsStore([none, none], none, [], board, [], SESSIONS, [
+        sessionsStore([none, none], none, board, [], SESSIONS, [
           ["s20", "0043 also drops the index on clock_at, so open.rs needs the new one before the first write."],
           ["s20", "Adding the index to open.rs and running the store tests."],
         ]),

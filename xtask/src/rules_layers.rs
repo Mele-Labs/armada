@@ -41,17 +41,10 @@ use std::path::Path;
 
 use crate::{files_with_ext, Report};
 
-/// Where the drafts live, as a path spells them and as a specifier names them. The Jobs
-/// surface took the schema out of the screens, so both places are watched.
-const DRAFTS: &[(&str, &str)] = &[
-    ("packages/screens/src/draft", "@armada/screens/src/draft"),
-    ("packages/surfaces/jobs/src/draft", "@armada/jobs/draft"),
-];
+/// Where the drafts live, as a path spells them and as a specifier names them.
+const DRAFTS: &[(&str, &str)] = &[("packages/screens/src/draft", "@armada/screens/src/draft")];
 /// The files that could put the drafts behind a package name.
-const DRAFT_INDEXES: &[&str] = &[
-    "packages/screens/src/index.ts",
-    "packages/surfaces/jobs/src/index.ts",
-];
+const DRAFT_INDEXES: &[&str] = &["packages/screens/src/index.ts"];
 
 /// The layers, ground up. A package may import a package strictly below it.
 ///
@@ -211,14 +204,13 @@ mod tests;
 /// Nothing under `apps/desktop/src/main/` reads the draft schema.
 ///
 /// **The drafts are shapes Fleet does not serve**, kept in
-/// `packages/screens/src/draft/` (the Jobs surface's moved there on 17 Oct 2026, and
-/// the Jobs entry in [`DRAFTS`] watches a directory that is gone) rather than `@armada/protocol` because a type
+/// `packages/screens/src/draft/` rather than `@armada/protocol` because a type
 /// invented there is indistinguishable from one Fleet sends. `#1532`, decided
 /// in `#1530`. The main process is the half that holds the connection, so a
 /// draft type reaching it asks a daemon for a field nobody told it about.
 ///
 /// **Two checks, and the second is what makes the first worth having.** A
-/// re-export from either package's `index.ts` would put every draft behind
+/// re-export from the screens package's `index.ts` would put every draft behind
 /// a package name the main process already imports, and the
 /// first check would then see nothing at all.
 pub fn nothing_in_the_main_process_reads_the_draft_schema(root: &Path) -> Report {

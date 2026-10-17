@@ -59,7 +59,7 @@ function build(): Scenario {
     later: [{}],
     draft: {
       sessions: (board) => {
-        const store = sessionsStore([none, none], none, [], board, [], [SESSION]);
+        const store = sessionsStore([none, none], none, board, [], [SESSION]);
         const heard = new Set<() => void>();
         let settled = false;
         let seen: readonly Session[] | undefined;

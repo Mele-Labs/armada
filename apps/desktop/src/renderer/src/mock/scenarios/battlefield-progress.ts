@@ -93,9 +93,9 @@ const swarm: Session = {
 /** The turn ends when the pull request opens: the Session waits on its Checks. */
 const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurn: "14:52", lastTurnAt: new Date().toISOString() };
 
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, [], control, [], [dock, clock, crew, swarm]);
+  const store = sessionsStore([none, none], none, control, [], [dock, clock, crew, swarm]);
   const own = new Set([dock.id, clock.id, crew.id, swarm.id]);
   let moment = 0;
   let from: readonly Session[] | undefined;

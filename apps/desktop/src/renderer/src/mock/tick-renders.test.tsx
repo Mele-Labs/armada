@@ -72,7 +72,7 @@ async function twoTicks(): Promise<Map<string, number>> {
 }
 
 test("a tick on the Cockpit does not draw the window: its figures read minutes", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
   const total = await twoTicks();
   expect(total.has("App")).toBe(false);
@@ -81,7 +81,7 @@ test("a tick on the Cockpit does not draw the window: its figures read minutes",
 }, 20_000);
 
 test("a tick on the Jobs list moves its seconds and draws no more than the list", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
   await toPlace("Jobs");
   const before = document.body.textContent;

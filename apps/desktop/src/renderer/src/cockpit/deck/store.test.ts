@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, needingOf, listOf, moveCursor, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, setScope, setView, toggleChecks, toggleNeeds, withoutOpenSession } from "./store";
 
 const kept = new Map<string, string>();
 

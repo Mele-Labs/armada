@@ -21,7 +21,7 @@ const palette = () => userEvent.keyboard("{Meta>}k{/Meta}");
 const panel = (name = "Merge line") => page.getByRole("region", { name, exact: true });
 
 test("with no line, neither the palette row nor the Overview panel draws", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await expect.element(page.getByRole("tab", { name: "Cockpit" })).toBeVisible();

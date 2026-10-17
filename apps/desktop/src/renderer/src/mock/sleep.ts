@@ -10,26 +10,21 @@ const GRACE_MS = 700;
 
 type Night = (state: SleepState) => SleepState;
 
-/** The Sessions two of the decisions were made in; the scenario `sleep-cockpit` opens them. A Job's decision has none. */
+/** The Sessions the decisions were made in; the scenario `sleep-cockpit` opens them. */
 export const LUNCH_SESSION = "s21";
 export const BRANCH_SESSION = "s22";
 
 const LUNCH: MorningDecided = { id: "d1", who: "Order the lunch", asked: "Which size?", chose: "Large", sessionId: LUNCH_SESSION };
 const BRANCH: MorningDecided = { id: "d2", who: "Name the branch", asked: "fix or feat?", chose: "fix", sessionId: BRANCH_SESSION };
-const JOB: MorningDecided = { id: "d3", who: "Shorten the reconnect wait", asked: "The check timed out twice", chose: "Retried with the larger timeout" };
 
 const decide = (one: MorningDecided): Night => (state) => ({ ...state, decided: [...state.decided, one] });
 
-const NIGHT: readonly Night[] = [decide(LUNCH), decide(BRANCH), decide(JOB)];
+const NIGHT: readonly Night[] = [decide(LUNCH), decide(BRANCH)];
 
 const EMPTY: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
 
-/** Sleep still on after the night: every decision made, none looked at. The Job's is `jobId`'s. */
-export const overnight = (jobId: string | undefined): SleepState => ({
-  ...EMPTY,
-  on: true,
-  decided: [LUNCH, BRANCH, jobId === undefined ? JOB : { ...JOB, jobId }],
-});
+/** Sleep still on after the night: every decision made, none looked at. */
+export const overnight = (): SleepState => ({ ...EMPTY, on: true, decided: [LUNCH, BRANCH] });
 
 export function createMockSleep(): SleepSource & { reset(to?: SleepState): void } {
   let state = EMPTY;

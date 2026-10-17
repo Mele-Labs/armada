@@ -9,12 +9,10 @@
 
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { running } from "@armada/screens/src/fixtures/build/index";
-import { GUIDES, GUIDE_WORKFLOW } from "@armada/components";
+import { GUIDES, GUIDE_MERGE_LINE } from "@armada/components";
 
-import { onJob } from "./scenario";
 import { mountApp } from "./mount";
-import { mount, toSystemPage, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -37,22 +35,25 @@ const cardFor = (guide: { number: number; title: string }) =>
   page.getByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` });
 
 /**
- * The Work lane's head carries the first mark a person meets on a Job — the
- * Workflow card's, until the canvas became the whole Overview (4 Oct 2026).
- *
- * **It was the run band's step bar until 29 Sep 2026** — `GUIDE_STEP_BAR`,
- * guide 8, whose only mark was in `InsideAJob`. The Overview reframe took
- * that arrangement off, so guide 8 has no piece on screen and cannot be the
- * first one met; the board's own cards carry the marks now.
+ * The merge line's heading carries the first mark a person meets: the Cockpit draws no other piece
+ * with a guide on it, so the page is reached by the palette's row, `⌘K`.
  */
-const runMark = () =>
-  page.getByRole("button", { name: `Open guide ${GUIDE_WORKFLOW.number}, ${GUIDE_WORKFLOW.title}` });
+const mergeLineMark = () =>
+  page.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }).first();
 
-const card = () => cardFor(GUIDE_WORKFLOW);
+const card = () => cardFor(GUIDE_MERGE_LINE);
 const closeCard = () => card().getByRole("button", { name: "Close" }).click();
 
+/** The window on a Fleet with merge lines, open on the page that draws one. */
+async function onMergeLine(): Promise<void> {
+  mount("merge-line");
+  await onScreen();
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await page.getByRole("dialog", { name: "Command palette" }).getByRole("option", { name: /^Merge line/ }).click();
+}
+
 test("the first piece a person meets opens its card by itself, and the card carries the switch", async () => {
-  mount(onJob(running()));
+  await onMergeLine();
   await expect.element(card()).toBeVisible();
   await expect
     .element(card().getByRole("switch", { name: /Open a guide the first time/ }))
@@ -65,7 +66,10 @@ test("a piece opens itself once and never again, across the window reopening", a
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  const first = mountApp(onJob(running()), host);
+  const first = mountApp("merge-line", host);
+  await onScreen();
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await page.getByRole("dialog", { name: "Command palette" }).getByRole("option", { name: /^Merge line/ }).click();
   await expect.element(card()).toBeVisible();
   await closeCard();
   first.unmount();
@@ -73,24 +77,23 @@ test("a piece opens itself once and never again, across the window reopening", a
 
   // The memory is all that survives a reopen, and a card that came back would
   // be the uninvited thing arriving twice.
-  mount(onJob(running()));
-  await expect.element(runMark()).toBeVisible();
+  await onMergeLine();
+  await expect.element(mergeLineMark()).toBeVisible();
   expect(card().query()).toBeNull();
 });
 
 test("the mark still opens the card after the piece has been met", async () => {
-  mount(onJob(running()));
+  await onMergeLine();
   await closeCard();
 
-  // Pressed at the mark itself: the run opens on where the Job is, below the lane's head.
-  (runMark().element() as HTMLElement).click();
+  (mergeLineMark().element() as HTMLElement).click();
   await expect.element(card()).toBeVisible();
   // No switch: the offer was made once, and Settings is where it lives now.
   expect(card().getByRole("switch").query()).toBeNull();
 });
 
 test("the switch on the first card turns all of them off, and Settings is where it is found", async () => {
-  mount(onJob(running()));
+  await onMergeLine();
   // The label, not the input: the switch's own text sits over its checkbox,
   // and a label click is what a person's press is anyway.
   await card().getByText("Open a guide the first time I meet a piece").click();
@@ -104,7 +107,7 @@ test("the switch on the first card turns all of them off, and Settings is where 
 });
 
 test("the rail reaches the catalogue, every guide is in the list, and one is open", async () => {
-  mount(onJob(running()));
+  await onMergeLine();
   await closeCard();
 
   await toSystemPage("Guides");
@@ -146,15 +149,10 @@ const listWidth = () =>
   Math.round(document.querySelector(".armada-guides__list")?.getBoundingClientRect().width ?? 0);
 
 /**
- * The catalogue, from a window that has just opened. The uninvited card is
- * over the rail the first time a piece is met and never again.
- *
- * **Whichever card is up, rather than a card the caller named.** A Job drew
- * one mark until 29 Sep 2026 and the board of cards that replaced it draws
- * several, so which piece a window meets first is the board's business — and
- * an unclosed card's scrim is what swallows the press to `Guides`.
+ * The catalogue, from a window that has just opened. **A window that has met no piece has no card up**
+ * (`met`); one that has needs the card closed first, since its scrim swallows the press to `Guides`.
  */
-const openCatalogue = async (met = false) => {
+const openCatalogue = async (met = true) => {
   if (!met) {
     const open = page.getByRole("dialog", { name: /^Guide \d+, / });
     await expect.element(open).toBeVisible();
@@ -166,7 +164,7 @@ const openCatalogue = async (met = false) => {
 };
 
 test("the list rests at its token's width, and its inner edge moves it", async () => {
-  mount(onJob(running()));
+  mount("default");
   await openCatalogue();
 
   await expect.element(handle()).toHaveAttribute("aria-valuenow", String(resting()));
@@ -188,7 +186,8 @@ test("the width is remembered, so the catalogue opens at it next time", async ()
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  const first = mountApp(onJob(running()), host);
+  const first = mountApp("default", host);
+  await onScreen();
   await openCatalogue();
   await handle().click();
   await userEvent.keyboard("{End}");
@@ -204,7 +203,7 @@ test("the width is remembered, so the catalogue opens at it next time", async ()
   // **A second window still meets a card**, because the board draws a mark
   // per card and only the first of them was met above. It was one mark on a
   // Job until 29 Sep 2026, and `met` was true here for that reason.
-  mount(onJob(running()));
+  mount("default");
   await openCatalogue();
   await expect.element(handle()).toHaveAttribute("aria-valuenow", widest);
 });

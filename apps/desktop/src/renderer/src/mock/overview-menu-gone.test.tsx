@@ -32,7 +32,7 @@ async function cleanup(): Promise<void> {
 // One name, so the whole file runs as one Check: `armada check desktop_test "overview menu gone"`.
 describe("overview menu gone", () => {
   test("Overview carries no menu at all", async () => {
-    mount("every-state");
+    mount("default");
     await onScreen();
 
     // The Cockpit, drawn: its list.
@@ -42,7 +42,7 @@ describe("overview menu gone", () => {
   });
 
   test("⇧⌘R refreshes, from Overview with nothing on screen to press", async () => {
-    const app = mount("every-state");
+    const app = mount("default");
     await onScreen();
     const state = vi.spyOn(app.api, "state");
 
@@ -51,7 +51,7 @@ describe("overview menu gone", () => {
   });
 
   test("Clear and Delete records are on Cleanup's head, and each still asks first", async () => {
-    mount("every-state");
+    mount("default");
     await onScreen();
     await cleanup();
 
@@ -68,7 +68,7 @@ describe("overview menu gone", () => {
   });
 
   test("the palette lists Refresh with its key, Reported, and both sweeps", async () => {
-    mount("every-state");
+    mount("default");
     await onScreen();
     const list = await palette();
 
@@ -79,7 +79,7 @@ describe("overview menu gone", () => {
   });
 
   test("Reported, chosen from the palette, opens the reports", async () => {
-    mount("every-state");
+    mount("default");
     await onScreen();
     const list = await palette();
 
@@ -89,7 +89,7 @@ describe("overview menu gone", () => {
   });
 
   test("Clear, chosen from the palette, asks before it sweeps", async () => {
-    mount("every-state");
+    mount("default");
     await onScreen();
     const list = await palette();
 

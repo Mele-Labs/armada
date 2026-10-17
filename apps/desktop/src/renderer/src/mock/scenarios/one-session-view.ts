@@ -382,9 +382,9 @@ const QUESTIONS = [
 
 // ---- The store -------------------------------------------------------------------------------------------
 
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big, live]);
+  const base = sessionsStore([none, none], none, control, [], [dispatched, quiet, busy, big, live]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   revision.on = false;

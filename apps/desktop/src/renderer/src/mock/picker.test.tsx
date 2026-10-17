@@ -39,7 +39,7 @@ afterEach(() => {
 
 /** The app up, and the picker mounted beside it as `main.tsx` mounts the pair. */
 async function show(): Promise<void> {
-  mount("every-state");
+  mount("default");
   await onScreen();
   host = document.createElement("div");
   host.id = "picker";
@@ -203,7 +203,7 @@ test("walks are listed first, in words, above the scenarios", async () => {
 });
 
 test("on a walk page the picker names the walk and marks its row", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
   host = document.createElement("div");
   document.body.append(host);
