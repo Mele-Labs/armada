@@ -20,7 +20,7 @@ import { reportBrief } from "./report-brief";
 import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, tileKey, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 import { toggleLayer, useLayer } from "../../session-view/layers";
-import type { SlotTrouble } from "../../session-view/slot-trouble";
+import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 
 const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug, artifacts: Files, subagents: Split, checks: ShieldCheck, slot: Rows3 } as const;
 
@@ -31,7 +31,7 @@ const CLEAR_MS = 2400;
 export type ReportRepository = { root: string; name?: string };
 
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
-export function SessionTiles({ session, draft, repository, startIn, trouble }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; trouble?: SlotTrouble | undefined }) {
+export function SessionTiles({ session, draft, repository, startIn, bays }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined }) {
   const layer = useLayer(session.id);
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
@@ -55,7 +55,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
   const events = useFleetEvents();
   const refused = useSessionsSaid();
   const on = useAutoLand(session.id);
-  const { off, compact } = offeredOf(session, draft, repository?.root, trouble !== undefined);
+  const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: SessionTileId, act: () => Promise<void>) => {
     if (pending !== undefined) return;
@@ -112,6 +112,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
     select({ kind: "session", key: `session:${id}` });
     return true;
   };
+  const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...((bays?.clashes.length ?? 0) > 0 ? ["Write clash"] : [])];
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Session for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
@@ -123,7 +124,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
     artifacts: "Everything the Session made or used",
     subagents: "Every subagent",
     checks: "The Checks the Session ran",
-    slot: trouble?.said ?? "Slot",
+    slot: wrongs.length === 0 ? "Every bay the Session holds" : wrongs.join(", "),
   };
   const dialog = releasing ? (
     <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
@@ -160,7 +161,7 @@ export function SessionTiles({ session, draft, repository, startIn, trouble }: {
                 className="deck-tile"
                 aria-label={tile.label}
                 aria-pressed={tile.id === "map" || tile.id === "release" ? false : pending === tile.id || (tile.id === "land" && on) || layer === tile.id}
-                data-lit={(tile.id === "slot" && trouble !== undefined) || undefined}
+                data-lit={(tile.id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
                 aria-busy={pending === tile.id || undefined}
                 aria-disabled={why !== undefined || undefined}
                 onClick={() => why === undefined && press[tile.id]()}

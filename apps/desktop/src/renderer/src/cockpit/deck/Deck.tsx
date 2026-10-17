@@ -14,7 +14,7 @@ import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepos
 import { age, type Item } from "../../Dashboard";
 import { RepositoryCombobox } from "./RepositoryCombobox";
 import { clashingOf, useWriteClashes } from "../../clashes";
-import { slotTroubleOf } from "../../session-view/slot-trouble";
+import { baysOf } from "../../session-view/slot-trouble";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
@@ -660,7 +660,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
   const clashes = useWriteClashes();
-  const trouble = session === undefined ? undefined : slotTroubleOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
+  const bays = session === undefined ? undefined : baysOf(session, props.state.held.state === "read" ? (props.state.held.held.slots ?? []) : [], clashes);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
@@ -668,7 +668,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} trouble={trouble} {...(startIn === undefined ? {} : { startIn })} />
+        <SessionTiles session={session} draft={draft} repository={repository} bays={bays} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (

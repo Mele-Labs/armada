@@ -163,7 +163,7 @@ export const Collapsed: Story = {
   },
 };
 
-/** Two clashes are one bar, folded to a line of two chips; opened, a row for each. */
+/** Two clashes are one bar, folded to a line saying how many others; opened, a row for each. */
 export const WithTwoClashes: Story = {
   render: () => (
     <ClashesProvider value={{ open: opened, of: (kind, id) => (kind === "job" && id === "j-two" ? [{ with: SESSION, paths: PATHS }, { with: MAIN, paths: ["crates/store/src/open.rs"] }] : []) }}>
@@ -174,6 +174,9 @@ export const WithTwoClashes: Story = {
     await expect(canvas.getAllByRole("region", { name: "Write clash" })).toHaveLength(1);
     const header = canvas.getByRole("button", { name: "Write clash" });
     await expect(header).toHaveAttribute("aria-expanded", "false");
+    await expect(canvas.getByText("2 others")).toBeVisible();
+    // The line names neither holder while folded; their links are in the rows it opens to.
+    await expect(header.parentElement).not.toHaveTextContent("Retry tuning");
     await userEvent.click(header);
     await expect(canvas.getByRole("list", { name: "Conflicting files with Retry tuning" })).toHaveTextContent("retry.rs");
     await expect(canvas.getByRole("list", { name: "Conflicting files with main" })).toHaveTextContent("open.rs");

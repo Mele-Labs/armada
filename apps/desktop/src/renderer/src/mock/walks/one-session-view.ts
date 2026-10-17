@@ -28,7 +28,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: role("button", "More"), say: "Everything he does to the Session is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Session page, Retro and End session, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
   { key: "Escape", on: role("menu"), say: "Esc shuts the menu" },
-  { look: role("button", /^Write clash/), say: "The write clashes under the bar are one bar, however many there are, folded to a line: its glyph, Write clash, and the other Sessions as chips" },
+  { look: role("button", /^Write clash/), say: "The write clashes under the bar are one bar, however many there are, folded to a line: its glyph, Write clash, and how many other Sessions. One clash names its Session as a link" },
   { hover: role("button", "Open Rotate the audit log"), say: "Each chip names its Session and the files in conflict in a tooltip, and a press opens that Session" },
   { press: role("button", /^Write clash/), say: "A press on the line opens a row for each clash, on the panels' own height animation" },
   { look: role("list", "Conflicting files with Name the store migrations"), say: "Each row has the other Session and the files in conflict. Enter or Space on the header folds it again, and the bar stays as he left it for this Session: a new clash does not open it" },

@@ -105,9 +105,9 @@ test("the tiles take the digits 1 to 9 and then 0, and the last has none", () =>
   expect(SESSION_TILES.slice(7).map((one) => one.id)).toEqual(["artifacts", "subagents", "checks", "slot"]);
 });
 
-test("Subagents and Checks are off with nothing to list, and Slot is off unless something is wrong with it", () => {
+test("Subagents and Checks are off with nothing to list, and Bays is off where the Session holds no bay", () => {
   const draft = draftWith(false);
-  expect(offeredOf(bare, draft, "/code").off).toMatchObject({ subagents: "The Session has no subagents", checks: "The Session has run no Checks", slot: "Nothing is wrong with the slot" });
+  expect(offeredOf(bare, draft, "/code").off).toMatchObject({ subagents: "The Session has no subagents", checks: "The Session has run no Checks", slot: "The Session holds no bay" });
   const made = { attachments: [{ kind: "subagent", id: "sa", task: "Read", state: "running" }], rows: [{ id: "c", at: "13:00", kind: "check", name: "fleet", run: 1, state: "passed" }] } as unknown as Session;
   const off = offeredOf(made, draft, "/code", true).off;
   expect(off.subagents).toBeUndefined();

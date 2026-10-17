@@ -26,7 +26,7 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
 
 /**
  * In the order their keys, `1` to `9` and `0`, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
- * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Slot lit only when something is wrong with it.
+ * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Bays where the Session holds one, lit when a bay is wrong or its work clashes.
  */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
   { id: "ask", label: "Ask for update", text: "Update" },
@@ -39,7 +39,7 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "artifacts", label: "Artifacts", text: "Artifacts" },
   { id: "subagents", label: "Subagents", text: "Subagents" },
   { id: "checks", label: "Checks", text: "Checks" },
-  { id: "slot", label: "Slot", text: "Slot" },
+  { id: "slot", label: "Bays", text: "Bays" },
 ];
 
 /** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
@@ -120,12 +120,12 @@ export function handTargets(session: Session, all: readonly Session[]): Session[
 export const releaseKeyOf = (to: Session | undefined, all = true): string => (to === undefined ? (all ? "Release all" : "Release") : `Hand to ${to.title ?? to.address ?? to.id}`);
 
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
-export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, wrong = false): Offered {
+export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined, holdsBays = false): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
   // What the Session made or used can be read after it ended; the layers are drawn from what Bridge holds.
   if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Session has no subagents";
   if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Session has run no Checks";
-  if (!wrong) off.slot = "Nothing is wrong with the slot";
+  if (!holdsBays) off.slot = "The Session holds no bay";
   // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
   if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";

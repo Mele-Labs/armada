@@ -155,6 +155,13 @@ function Holder({ clash }: { clash: ClashView }) {
   );
 }
 
+/** What a folded bar says of more than one other holder, in place of a chip for each: the owner's ask of 17 Oct 2026. */
+function othersSaid(clashes: readonly ClashView[]): string {
+  const kinds = new Set(clashes.map((one) => one.with.kind));
+  const noun = kinds.size > 1 || kinds.has("main") ? "others" : kinds.has("job") ? "other Jobs" : "other Sessions";
+  return `${clashes.length} ${noun}`;
+}
+
 function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: string }) {
   const [shown, setShown] = useState(opened.has(owner));
   const toggle = () => {
@@ -175,12 +182,12 @@ function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: st
           </span>
           Write clash
         </button>
-        {shown ? null : (
+        {shown ? null : clashes.length === 1 ? (
           <span className="armada-clash-notice__chips">
-            {clashes.map((clash) => (
-              <Holder key={`${clash.with.kind}:${clash.with.id}`} clash={clash} />
-            ))}
+            <Holder clash={clashes[0]!} />
           </span>
+        ) : (
+          <span className="armada-clash-notice__others">{othersSaid(clashes)}</span>
         )}
       </div>
       <div className="armada-clash-notice__fold-box" id={boxId} data-open={shown || undefined} inert={!shown}>
@@ -188,7 +195,7 @@ function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: st
           {clashes.map((clash) => (
             <li key={`${clash.with.kind}:${clash.with.id}`} className="armada-clash-notice__clash">
               <Holder clash={clash} />
-              <Paths clash={clash} />
+              <ClashPaths clash={clash} />
             </li>
           ))}
         </ul>
@@ -197,7 +204,8 @@ function ClashBar({ clashes, owner }: { clashes: readonly ClashView[]; owner: st
   );
 }
 
-function Paths({ clash }: { clash: ClashView }) {
+/** The paths a clash names, a long list folded to its first few and one chip to open the rest. With `onPath`, each path is a press. */
+export function ClashPaths({ clash, onPath }: { clash: ClashView; onPath?: (path: string) => void }) {
   const [all, setAll] = useState(false);
   const folds = clash.paths.length > SHOWN + 1;
   const drawn = folds && !all ? clash.paths.slice(0, SHOWN) : clash.paths;
@@ -205,9 +213,16 @@ function Paths({ clash }: { clash: ClashView }) {
     <ul className="armada-clash-notice__paths" aria-label={`Conflicting files with ${clash.with.label}`}>
       {drawn.map((path) => {
         const cut = path.lastIndexOf("/") + 1;
+        const chip = <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />;
         return (
           <li key={path}>
-            <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />
+            {onPath === undefined ? (
+              chip
+            ) : (
+              <button type="button" className="armada-clash-notice__open" aria-label={`Open ${path}`} onClick={() => onPath(path)}>
+                {chip}
+              </button>
+            )}
           </li>
         );
       })}

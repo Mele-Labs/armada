@@ -275,6 +275,10 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-layer__fact dt { color: var(--fg-muted); }
 .sv-layer__fact dd { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .sv-layer__fact code { font-size: var(--text-xs); }
+.sv-layer__clash-with { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-align: start; cursor: pointer; }
+.sv-layer__clash-with:hover { text-decoration: underline; }
+.sv-clash-file { display: flex; flex-direction: column; gap: var(--space-4); }
+.sv-clash-file__side { display: flex; flex-direction: column; gap: var(--space-2); }
 
 /* ---- A Work row whose Session is calling him ------------------------------------------------------------------- */
 
