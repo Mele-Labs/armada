@@ -272,13 +272,13 @@ async fn a_bad_signature_or_a_changed_body_is_refused() {
     let mut forged = signed(&id, "GET", "/api/needs", now, "");
     forged[2].1 = "00".repeat(64);
     assert_eq!(get_needs(&rig, &forged).await, StatusCode::UNAUTHORIZED);
-    let other_path = signed(&id, "GET", "/api/jobs", now + 1, "");
+    let other_path = signed(&id, "GET", "/api/sessions", now + 1, "");
     assert_eq!(get_needs(&rig, &other_path).await, StatusCode::UNAUTHORIZED);
-    let headers = signed(&id, "POST", "/api/jobs", now + 2, "{\"a\":1}");
-    let (status, _) = call(&rig.app, Method::POST, "/api/jobs", &headers, "{\"a\":2}").await;
+    let headers = signed(&id, "POST", "/api/sessions", now + 2, "{\"a\":1}");
+    let (status, _) = call(&rig.app, Method::POST, "/api/sessions", &headers, "{\"a\":2}").await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     // Past the signature, the dispatch route refuses this body on its own terms.
-    let (status, _) = call(&rig.app, Method::POST, "/api/jobs", &headers, "{\"a\":1}").await;
+    let (status, _) = call(&rig.app, Method::POST, "/api/sessions", &headers, "{\"a\":1}").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
