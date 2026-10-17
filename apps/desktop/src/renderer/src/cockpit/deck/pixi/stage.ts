@@ -15,6 +15,7 @@ import type { Cam } from "../camera";
 import type { Size } from "../layout";
 import { drawAir } from "./air";
 import { over, type Clock } from "./clock";
+import { Beams, drawDoings } from "./doings";
 import { Fliers } from "./fliers";
 import { drawGround } from "./ground";
 import { drawLifted } from "./lifted";
@@ -50,6 +51,7 @@ export class Stage {
   private lines: PlaneLayer | undefined;
   private linesGlow: PlaneLayer | undefined;
   private fliers: Fliers | undefined;
+  private beams: Beams | undefined;
   private readonly playStart = new Map<string, number>();
   private palette: Palette | undefined;
   private frame = 0;
@@ -112,6 +114,7 @@ export class Stage {
     this.lines = new PlaneLayer(this.planeView);
     this.linesGlow = new PlaneLayer(this.planeView, true);
     this.fliers = new Fliers(this.drones);
+    this.beams = new Beams(this.effects);
     this.stands.sortableChildren = true;
     app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
     app.ticker.add(this.tick);
@@ -178,6 +181,7 @@ export class Stage {
     app.ticker.remove(this.tick);
     app.ticker.stop();
     this.fliers?.destroy();
+    this.beams?.destroy();
     this.terrain?.destroy();
     this.tiles?.destroy();
     this.air?.destroy();
@@ -244,6 +248,7 @@ export class Stage {
     const clock = this.clock();
     const [shade, glow, lines, lit] = [new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder()];
     drawGround(shade, glow, scene, palette, this.floorOf, clock);
+    drawDoings(glow, scene, palette, this.floorOf, clock);
     drawLifted(lines, lit, scene, palette, this.floorOf, clock);
     this.ground.set(shade);
     this.groundGlow!.set(glow);
@@ -251,8 +256,11 @@ export class Stage {
     this.linesGlow!.set(lit);
   }
 
+  /** Everything that stands upright over the ground and follows the camera: the drones, and the lines between them and what they work on. */
   private placeFliers(): void {
-    this.fliers?.place(this.shown, this.floorOf, this.clock());
+    const clock = this.clock();
+    this.fliers?.place(this.shown, this.floorOf, clock);
+    if (this.scene !== undefined && this.palette !== undefined) this.beams?.update(this.scene, this.palette, this.shown, this.floorOf, clock);
   }
 
   private build(layer: PlaneLayer, draw: (b: PlaneBuilder) => void): void {
