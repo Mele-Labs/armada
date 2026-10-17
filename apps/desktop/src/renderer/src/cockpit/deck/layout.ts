@@ -60,7 +60,7 @@ export type DroneIn = {
   shown: boolean;
 };
 
-export function droneOf(subject: Subject, owed: boolean, extra: { parent?: string | undefined; slot?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
+export function droneOf(subject: Subject, owed: boolean, extra: { parent?: string | undefined; slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
   const failing = !stuck && (subject.alarm || subject.mark.tone === "bad");
   const ask = owed || subject.needs;
@@ -80,6 +80,7 @@ export function droneOf(subject: Subject, owed: boolean, extra: { parent?: strin
     working,
     ...(extra.parent === undefined ? {} : { parent: extra.parent }),
     ...(extra.slot === undefined ? {} : { slot: extra.slot }),
+    ...(extra.file === undefined ? {} : { file: extra.file }),
     shown: extra.shown,
     touches: extra.touches ?? [],
   };

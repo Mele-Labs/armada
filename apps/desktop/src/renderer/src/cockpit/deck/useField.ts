@@ -109,6 +109,8 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       return droneOf(one, callOfSubject(one, answered) !== undefined, {
         parent: parent !== undefined && has.has(parent) ? parent : undefined,
         slot: slot === undefined ? undefined : slotKey(slot),
+        // The file a Session is on, as its own Field has it: its drone hovers at that pill.
+        file: one.kind === "session" ? sessions.find((row) => row.id === one.id)?.work?.field?.find((at) => at.agent === undefined)?.file : undefined,
         shown: shown.has(one.key),
         // What a tool burst placed, else what Fleet read of the holder's slot against the base; else nothing.
         touches: touchesOf(one.key, touched, slotTouched),
