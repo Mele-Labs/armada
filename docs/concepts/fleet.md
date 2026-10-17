@@ -149,7 +149,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 | Read | Serves | From | Kept |
 |---|---|---|---|
-| `list_repository_areas`, `GET /repository_areas` | Each served repository's directories one and two names deep, with the files at or under each | `git ls-tree -r --name-only` of the base branch's head, counted | Against the head it was read at: an unchanged head asks git for the head alone |
+| `list_repository_areas`, `GET /repository_areas` | Each served repository's directories one and two names deep, with the files at or under each, and the first 100 file names of each directory that has no directory listed inside it | `git ls-tree -r --name-only` of the base branch's head, counted and named | Against the head it was read at: an unchanged head asks git for the head alone |
 | `list_slot_touches`, `GET /slot_touches` | For each hosted Session holding a slot, the paths changed in it, by repository | The slot's tree as it stands, through a scratch index, against the tree of its merge base with the base branch | 20 seconds, as a whole |
 
 **Areas are capped at the 40 largest** by files, counting each top directory and each directory inside one, and the answer says how many were left out. A top directory sorts before the directories inside it, so none is listed without its top. A file at the top of a repository is in no directory. What git does not track, and what `.gitignore` names, is not in the tree.

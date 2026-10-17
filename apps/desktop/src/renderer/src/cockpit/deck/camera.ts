@@ -1,5 +1,5 @@
 // The map's camera: where it looks on the plane and how far it stands, and the maths the pointer, the wheel and the keys move it by.
-// Pure. The CSS applies `rotateX(pitch) rotateZ(yaw) scale(eye) translate(-x, -y)` in a `perspective`, and these readings are that
+// Pure. The canvas applies `rotateX(pitch) rotateZ(yaw) scale(eye) translate(-x, -y)` in a perspective (`pixi/project.ts`), and these readings are that
 // same projection and its inverse, so a point held under the pointer stays under it however far from the middle it is.
 //
 // **Rest is the whole field, zoomed out** (`homeOf`): every territory, base, flag and drone inside the pane at whatever size the
@@ -50,7 +50,7 @@ export function unproject(size: Size, sx: number, sy: number, tilt: boolean): Po
   return { x: x1 * Math.cos(yaw) + y1 * Math.sin(yaw), y: -x1 * Math.sin(yaw) + y1 * Math.cos(yaw) };
 }
 
-/** Where a point of the plane, at some height, lands on the screen, from the middle of the pane: the same turn, scale and perspective the CSS applies. */
+/** Where a point of the plane, at some height, lands on the screen, from the middle of the pane: the same turn, scale and perspective the canvas applies. */
 export function projectOf(size: Size, p: P3, c: Cam): Point {
   const phi = rad(c.tilt ? CAM.near : CAM.wide);
   const yaw = rad(CAM.yaw);

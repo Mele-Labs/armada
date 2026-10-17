@@ -15,7 +15,7 @@ const filter = () => list().getByRole("button", { name: /^Filter/ });
 const search = () => page.getByRole("searchbox", { name: "Search Work" });
 const places = () => page.getByRole("navigation", { name: "Places" });
 const row = (title: string) => list().getByRole("button", { name: title, exact: true });
-const drones = () => [...document.querySelectorAll<HTMLElement>(".bf-drone")].map((one) => one.getAttribute("data-label"));
+const drones = () => [...document.querySelectorAll<HTMLElement>(".bf [data-hit=drone]")].map((one) => one.getAttribute("data-label"));
 
 async function opened() {
   mount("cockpit-sessions-list");
