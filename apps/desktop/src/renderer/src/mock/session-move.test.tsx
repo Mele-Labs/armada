@@ -12,7 +12,7 @@ import type { SessionRow } from "@armada/protocol";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, held, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -45,8 +45,7 @@ const threads = (): Record<string, SessionRow[]> => ({
 });
 
 async function open(title: string) {
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
+  await toSession(title);
 }
 const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
 

@@ -5,15 +5,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 test("PR acts: pending while underway, auto-merge settles the Merge item, Review dispatched", async () => {
   mount("session-pr-acts");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Store migration spike/ }));
+  await toSession(/Store migration spike/);
 
   const waiting = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(waiting.getByRole("button", { name: /^Needs you/ }));

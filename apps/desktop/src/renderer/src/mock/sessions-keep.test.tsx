@@ -9,15 +9,14 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, toPageByName, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
 const open = async (title: string) => {
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
+  await toSession(title);
 };
 
 const message = () => page.getByRole("textbox", { name: "Message" });
