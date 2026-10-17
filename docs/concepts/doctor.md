@@ -16,7 +16,7 @@ Doctor is one of Bridge's **seven** surfaces — seven since Manifest was added.
 
 - **Per-module status**, each module independently pass, warn or fail. No blended score, so a problem in one module is never obscured by a healthy one.
 - **Checked on demand.** Doctor itself never pushes.
-- **Doctor never enters Alerts.** A health check is a standing condition, not a queued decision: a failing module has no workspace, no spend, no step and no Job id, and Alerts stays a list of Jobs.
+- **Doctor never enters Alerts.** A health check is a standing condition, not a queued decision: a failing module has no workspace, no spend and no Session id, so Alerts is not the place for it.
 - **A failure reaches you as a one-line neutral strip** above the Triage Queue tabs, naming which modules are failing and whether work is stopped, and disappearing when they all pass.
 - Doctor sits under the Bridge section label in the sidebar with the other six surfaces, reachable in sidebar order. Its nav icon is `stethoscope` at 16px.
 
@@ -75,9 +75,9 @@ crates later is an afternoon.
 
 **The count is not a contract.** The rule generates the list and the number is its output. Carry the rule and the current list, never a number in a sentence.
 
-**Doctor reports service health, not Job-readiness.** A module passes when the thing it names is working, whether or not anything currently uses it. Docker running with no Check invoking it is a true pass.
+**Doctor reports service health, not readiness to run work.** A module passes when the thing it names is working, whether or not anything currently uses it. Docker running with no Check invoking it is a true pass.
 
-The narrower rule — a row exists where failure prevents a Job from running —
+The narrower rule — a row exists where failure prevents work from running —
 excludes Docker outright, because Docker blocks nothing when no Manifest's
 Checks use it.
 
@@ -94,8 +94,8 @@ Each row states what its probe reads and where the boundaries sit.
 | Docker | Is the daemon reachable | Reachable | **Never warns** | Not reachable |
 | SQLite | `armada.db` opens, schema version matches, WAL is writable | Opens and writes | Schema behind, migration pending | Locked, corrupt, or the volume is full |
 | Keychain | The macOS Keychain is unlocked and Armada's brokered scope readable | Unlocked, readable | **Never warns** | Locked or access denied — secret brokering fails |
-| System stats | CPU in use, and memory and disk headroom against the thresholds admission holds. CPU is reported and never the reason nothing is admitted | Above threshold | Below threshold — Drones queue rather than spawn | Insufficient to run anything |
-| Claude | CLI present, authenticated, quota against the Machine floor | Authenticated, quota above the floor | Quota below the reserved floor — dispatch gated | Not authenticated, or CLI absent |
+| System stats | CPU in use, and memory and disk headroom against the thresholds Check places hold. CPU is reported and never the reason nothing is placed | Above threshold | Below threshold — Checks wait for a place | Insufficient to run anything |
+| Claude | CLI present, authenticated, quota against the Machine floor | Authenticated, quota above the floor | Quota below the reserved floor | Not authenticated, or CLI absent |
 | Manifest | Every known `armada.yml` parses, schema current, no drift | All parse, all schemas current | Some parse and some do not, or some have drifted | None parse, or none found |
 | Kit | `kit.yml` present, parses, schema version current | Parses, schema current | Parses, schema behind, migration pending | Missing or unparseable |
 | Machine | `machine.yml` present, parses, schema version current | Parses, schema current | Parses, schema behind, migration pending | Missing or unparseable |
@@ -121,13 +121,13 @@ Each row states what its probe reads and where the boundaries sit.
 
 ### Denial-frequency rollup
 
-**After N denials of the same command across Jobs, Doctor surfaces a rollup** with a suggested change to confirm or decline. It is never auto-applied.
+**After N denials of the same command across Sessions, Doctor surfaces a rollup** with a suggested change to confirm or decline. It is never auto-applied.
 
 **The rollup sits below the grid, not in it.** Drawn 2026-08-31. It is a suggestion about configuration rather than a module that can be up or down, so a row in the grid would put it under a pass/warn/fail vocabulary it cannot answer in.
 
 ## The first-run hard gate
 
-Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Job. The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
+Doctor is step 3 of four in First-Run Onboarding: Guild Init, Set Up a Project, Check System Health, Dispatch a Session. The name of the first step, and whether the sequence holds four steps or five, is tracked in [Kit](kit.md).
 
 - On a fresh install, dispatching before Doctor reports green is **blocked**.
 - This is **the one place in Armada where step order is enforced** rather than left as a recommendation.
@@ -140,7 +140,7 @@ The reason is diagnosis: dispatching before Fleet, Git and Docker are verified p
 
 ## Relationship to Fleet and to Bridge
 
-**Fleet has no engineer-facing surface of its own.** Its own health status is one module among several in Doctor's grid. Fleet is infrastructure, and you never go to Fleet the way you go to Job Board or Helm.
+**Fleet has no engineer-facing surface of its own.** Its own health status is one module among several in Doctor's grid. Fleet is infrastructure, and you never go to Fleet the way you go to the Cockpit or Helm.
 
 On a Fleet crash, auto-restart is attempted first; if that fails, Doctor shows Fleet as fail and an explicit "Restart Fleet" action becomes available as a manual fallback.
 
@@ -154,9 +154,9 @@ On a Fleet crash, auto-restart is attempted first; if that fails, Doctor shows F
 
 ## Result vocabulary
 
-**pass / warn / fail**, on the existing `completed-success`, `awaiting-review` and `completed-failed` status tokens — green, amber and red. `../contracts/design-system.md` maps those tokens one to one onto the Job state machine and names no token for a Doctor result.
+**pass / warn / fail**, on the existing `completed-success`, `awaiting-review` and `completed-failed` status tokens — green, amber and red. `../contracts/design-system.md` maps those tokens one to one onto status and names no token for a Doctor result.
 
-**Colour is shared with Job states; Doctor has no tokens of its own.** A health grid rendering green, amber and red in values nobody else uses makes a problem harder to spot, and one colour vocabulary across the app is worth more than a private one here.
+**Colour is shared with Session states; Doctor has no tokens of its own.** A health grid rendering green, amber and red in values nobody else uses makes a problem harder to spot, and one colour vocabulary across the app is worth more than a private one here.
 
 The result words carry no glyphs. A result is the word `pass`, `warn` or `fail` in the status colour: `circle-check` and `circle-x` are reserved to Judge criterion verdicts, so Doctor cannot own them, and a column of words scans better than a column of glyphs and survives greyscale.
 
