@@ -25,7 +25,7 @@ import type {
   StudioPromotion,
 } from "@armada/protocol";
 import { foldStudio } from "@armada/screens/src/studio-reads";
-import type { StudioAnswer, StudioRead, StudiosRead } from "@armada/screens/src/studio-reads";
+import type { StudioAnswer, StudioRead, StudiosOfOne, StudiosRead } from "@armada/screens/src/studio-reads";
 import { ask, studioFrameOf } from "./request";
 
 type Publish = (change: { studios?: StudiosRead; studio?: StudioRead }) => void;
@@ -52,23 +52,28 @@ const PROMOTION_ROUTE: Readonly<Record<StudioPromotion["act"], string>> = {
 export class StudioReads {
   private readonly publish: Publish;
   private readonly port: () => number | null;
-  /** The repository whose list is held, or `null` where no surface holds one. */
-  private listing: string | null = null;
+  /** The repositories whose lists are held, empty where no surface holds one. */
+  private listing: readonly string[] = [];
+  /** Held for All repositories: published as `many`, one read for each repository, however few. */
+  private many = false;
+  /** Each held repository's list, as last read. */
+  private readonly reads = new Map<string, StudiosOfOne>();
   /** The Studio held open, or `null`. */
   private opened: string | null = null;
   /** The open Studio as Fleet last wrote it, kept so a Run node can be looked up by its server. */
   private graph: Studio | null = null;
-  private list: StudiosRead = { state: "none" };
 
   constructor(publish: Publish, port: () => number | null) {
     this.publish = publish;
     this.port = port;
   }
 
-  /** Hold one repository's list, or `null` to drop it. */
-  async watchList(manifestId: string | null): Promise<void> {
-    this.listing = manifestId;
-    if (manifestId === null) return this.showList({ state: "none" });
+  /** Hold one repository's list, every listed repository's, or `null` to drop them. */
+  async watchList(manifestId: string | readonly string[] | null): Promise<void> {
+    this.many = typeof manifestId === "object" && manifestId !== null;
+    this.listing = manifestId === null ? [] : typeof manifestId === "string" ? [manifestId] : [...new Set(manifestId)];
+    for (const held of [...this.reads.keys()]) if (!this.listing.includes(held)) this.reads.delete(held);
+    if (this.listing.length === 0) return this.show();
     await this.readList();
   }
 
@@ -110,8 +115,10 @@ export class StudioReads {
       this.graph = studio;
       this.publish({ studio: { state: "read", studio } });
     }
-    if (this.list.state === "read" && this.list.manifestId === studio.manifest_id) {
-      this.showList({ ...this.list, list: { studios: foldStudio(this.list.list.studios, studio) } });
+    const held = this.reads.get(studio.manifest_id);
+    if (held?.state === "read") {
+      this.reads.set(studio.manifest_id, { ...held, list: { studios: foldStudio(held.list.studios, studio) } });
+      this.show();
     }
   }
 
@@ -121,9 +128,11 @@ export class StudioReads {
       this.graph = null;
       this.publish({ studio: { state: "gone", studioId: gone.id } });
     }
-    if (this.list.state === "read" && this.list.manifestId === gone.manifest_id) {
-      const studios = this.list.list.studios.filter((one) => one.id !== gone.id);
-      this.showList({ ...this.list, list: { studios } });
+    const held = this.reads.get(gone.manifest_id);
+    if (held?.state === "read") {
+      const studios = held.list.studios.filter((one) => one.id !== gone.id);
+      this.reads.set(gone.manifest_id, { ...held, list: { studios } });
+      this.show();
     }
   }
 
@@ -274,10 +283,11 @@ export class StudioReads {
   }
 
   close(): void {
-    this.listing = null;
+    this.listing = [];
+    this.many = false;
+    this.reads.clear();
     this.opened = null;
     this.graph = null;
-    this.list = { state: "none" };
   }
 
   private acted(answer: StudioAnswer): Outcome {
@@ -294,21 +304,29 @@ export class StudioReads {
   }
 
   private async readList(): Promise<void> {
-    const manifestId = this.listing;
-    if (manifestId === null) return;
+    await Promise.all(this.listing.map((manifestId) => this.readOne(manifestId)));
+  }
+
+  private async readOne(manifestId: string): Promise<void> {
     const port = this.port();
-    if (port === null) return this.showList({ state: "failed", manifestId, outcome: NOT_CONNECTED });
-    if (this.list.state !== "read" || this.list.manifestId !== manifestId) {
-      this.showList({ state: "reading", manifestId });
+    if (port === null) {
+      this.reads.set(manifestId, { state: "failed", manifestId, outcome: NOT_CONNECTED });
+      return this.show();
+    }
+    if (this.reads.get(manifestId)?.state !== "read") {
+      this.reads.set(manifestId, { state: "reading", manifestId });
+      this.show();
     }
     const answer = await ask(port, "GET", `/studios?manifest_id=${encodeURIComponent(manifestId)}`);
-    // The surface closed or moved to another repository while this was out.
-    if (this.listing !== manifestId) return;
-    this.showList(
+    // The surface closed or moved to other repositories while this was out.
+    if (!this.listing.includes(manifestId)) return;
+    this.reads.set(
+      manifestId,
       answer.ok
         ? { state: "read", manifestId, list: answer.body as StudioList }
         : { state: "failed", manifestId, outcome: answer.outcome },
     );
+    this.show();
   }
 
   private async readStudio(): Promise<void> {
@@ -326,8 +344,12 @@ export class StudioReads {
     });
   }
 
-  private showList(list: StudiosRead): void {
-    this.list = list;
-    this.publish({ studios: list });
+  /** What the held reads say: one repository's own, or each of several's together. */
+  private show(): void {
+    const reads = this.listing.map((id) => this.reads.get(id)).filter((one): one is StudiosOfOne => one !== undefined);
+    const studios: StudiosRead = this.many
+      ? { state: "many", reads }
+      : (reads[0] ?? { state: "none" });
+    this.publish({ studios });
   }
 }

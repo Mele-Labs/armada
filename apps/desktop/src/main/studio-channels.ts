@@ -80,7 +80,9 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     return node.kind === "file" && text(node.path);
   };
   ipc.handle(CHANNELS.watchStudios, (_event, manifestId: unknown) =>
-    text(manifestId) || manifestId === null ? connection()?.studios.watchList(manifestId) : undefined,
+    text(manifestId) || manifestId === null || (Array.isArray(manifestId) && manifestId.every(text))
+      ? connection()?.studios.watchList(manifestId as string | string[] | null)
+      : undefined,
   );
   ipc.handle(CHANNELS.watchStudio, (_event, studioId: unknown) =>
     text(studioId) || studioId === null ? connection()?.studios.watchStudio(studioId) : undefined,

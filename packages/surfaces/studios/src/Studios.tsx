@@ -184,8 +184,10 @@ export type StudiosProps = {
   onSelectNode: (nodeId: string | null) => void;
   onOpen: (studioId: string) => void;
   onContinue: () => void;
-  /** Start an untitled Studio in this repository. */
-  onCreate: () => Promise<StudioAnswer>;
+  /** Start an untitled Studio in this repository, or in the one a panel of All repositories names. */
+  onCreate: (manifestId?: string) => Promise<StudioAnswer>;
+  /** What a repository is called, by its Manifest id: the heading of its panel on All repositories. */
+  nameOf?: (manifestId: string) => string;
   /** Name a Studio, or name it again. Reaches the list's rows and the open Studio alike. */
   onRename: (studioId: string, name: string) => Promise<Outcome>;
   /**
@@ -276,7 +278,54 @@ export function Studios(props: StudiosProps) {
   return props.open === null ? <StudioList {...props} /> : <OpenedStudio {...props} open={props.open} />;
 }
 
-function StudioList({ studios, live, onOpen, onCreate, onRename }: StudiosProps) {
+function StudioList({ studios, live, onOpen, onCreate, onRename, nameOf }: StudiosProps) {
+  if (studios.state !== "many") {
+    return (
+      <div className="armada-screen__pane armada-studios-page">
+        <h1 className="armada-page__title">Studios</h1>
+        <StudiosPanel title={studios.state === "none" ? "Studios" : (nameOf?.(studios.manifestId) ?? "Studios")} studios={studios} live={live} onOpen={onOpen} onCreate={() => onCreate()} onRename={onRename} />
+      </div>
+    );
+  }
+  // All repositories: a panel for each repository that keeps any, in name order. One that keeps none draws none.
+  const panels = studios.reads
+    .filter((one) => one.state === "failed" || (one.state === "read" && one.list.studios.length > 0))
+    .map((one) => ({ one, name: nameOf?.(one.manifestId) ?? one.manifestId }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+  return (
+    <div className="armada-screen__pane armada-studios-page">
+      <h1 className="armada-page__title">Studios</h1>
+      {panels.map(({ one, name }) => (
+        <StudiosPanel
+          key={one.manifestId}
+          title={name}
+          studios={one}
+          live={live}
+          onOpen={onOpen}
+          onCreate={() => onCreate(one.manifestId)}
+          onRename={onRename}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One repository's Studios in one panel: its list, and New Studio. */
+function StudiosPanel({
+  title,
+  studios,
+  live,
+  onOpen,
+  onCreate,
+  onRename,
+}: {
+  title: string;
+  studios: StudiosRead;
+  live: boolean;
+  onOpen: (studioId: string) => void;
+  onCreate: () => Promise<StudioAnswer>;
+  onRename: (studioId: string, name: string) => Promise<Outcome>;
+}) {
   const [creating, setCreating] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
@@ -300,25 +349,22 @@ function StudioList({ studios, live, onOpen, onCreate, onRename }: StudiosProps)
   }
 
   return (
-    <div className="armada-screen__pane armada-studios-page">
-      <h1 className="armada-page__title">Studios</h1>
-      <Card>
-        <CardHeader className="armada-studio__head">
-          <CardTitle>Studios</CardTitle>
-          <Button variant="primary" size="sm" pending={creating} disabled={!live} onClick={create}>
-            {creating ? "Starting a Studio" : "New Studio"}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {refused === null ? null : (
-            <Alert tone="escalated" title="Fleet did not take that">
-              {refused}
-            </Alert>
-          )}
-          <ListBody studios={studios} live={live} naming={naming} onOpen={onOpen} onRename={rename} />
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardHeader className="armada-studio__head">
+        <CardTitle>{title}</CardTitle>
+        <Button variant="primary" size="sm" pending={creating} disabled={!live} onClick={create}>
+          {creating ? "Starting a Studio" : "New Studio"}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {refused === null ? null : (
+          <Alert tone="escalated" title="Fleet did not take that">
+            {refused}
+          </Alert>
+        )}
+        <ListBody studios={studios} live={live} naming={naming} onOpen={onOpen} onRename={rename} />
+      </CardContent>
+    </Card>
   );
 }
 

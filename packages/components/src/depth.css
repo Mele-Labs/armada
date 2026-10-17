@@ -300,7 +300,7 @@
 :root[data-look="new"][data-panels="glass"] {
   --glass-fill: 56%;
 }
-:root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"])) {
+:root[data-look="new"][data-panels="glass"] :is(.deck-panel, .deck-pane:not([aria-label="Flight map"]), .armada-studios-page > .armada-card) {
   background: color-mix(in srgb, var(--bg-sunken) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   backdrop-filter: blur(28px) saturate(170%);

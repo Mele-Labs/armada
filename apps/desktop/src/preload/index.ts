@@ -861,7 +861,7 @@ const api: BridgeApi = {
 
   // A repository's Studios, and one open — #1287. Two reads a surface holds, four acts, each one
   // operation with its own ids: nothing here names a route or reaches a node on another Studio.
-  watchStudios: (manifestId: string | null): Promise<void> =>
+  watchStudios: (manifestId: string | readonly string[] | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.watchStudios, manifestId),
   watchStudio: (studioId: string | null): Promise<void> => ipcRenderer.invoke(CHANNELS.watchStudio, studioId),
   createStudio: (manifestId: string): Promise<StudioAnswer> =>

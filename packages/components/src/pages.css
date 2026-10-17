@@ -26,7 +26,6 @@
 /* A panel is the Cockpit's: raised, hairline, rest shadow. */
 :root[data-look="new"] :is(
   .armada-lessons-page .armada-lessons,
-  .armada-studios-page .armada-studio-list,
   .armada-studio__board,
   .armada-doctor .armada-tiles.armada-view__grid,
   .armada-doctor .armada-doctor-pane,
@@ -137,30 +136,42 @@
 :root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__when { margin-left: auto; color: var(--fg-subtle); }
 
 /* ================================================================ Studios ==================================== */
-/* The list: title and its act on one row, then the table as a panel; a row is a row, hover a flat step. */
+/* The list: the page's title, then one panel for each repository that keeps Studios. A panel is the Cockpit's: a header band
+   naming the repository, with New Studio at its end, and the table under it. */
 :root[data-look="new"] .armada-studios-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-auto-rows: min-content;
-  align-content: start;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-4) var(--space-8);
 }
-:root[data-look="new"] .armada-studios-page > .armada-card,
-:root[data-look="new"] .armada-studios-page > .armada-card > .armada-card-content { display: contents; }
-:root[data-look="new"] .armada-studios-page .armada-card-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+:root[data-look="new"] .armada-studios-page > .armada-card {
+  gap: 0;
+  padding: 0;
   overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  border: var(--border-width) solid var(--edge-rest);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-rest);
 }
-:root[data-look="new"] .armada-studios-page .armada-studio__head { padding: 0; border: 0; background: none; }
-:root[data-look="new"] .armada-studios-page .armada-studio-list,
-:root[data-look="new"] .armada-studios-page .armada-card-content > .armada-alert { grid-column: 1 / -1; }
-:root[data-look="new"] .armada-studio-list { border-collapse: separate; border-spacing: 0; overflow: hidden; }
+:root[data-look="new"] .armada-studios-page .armada-studio__head {
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
+}
+:root[data-look="new"] .armada-studios-page .armada-card-title {
+  color: var(--fg-default);
+  font-family: var(--font-display);
+  font-size: var(--text-head);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-head);
+  letter-spacing: var(--tracking-head);
+  text-transform: uppercase;
+}
+:root[data-look="new"] .armada-studios-page .armada-card-content { padding: 0; }
+:root[data-look="new"] .armada-studios-page .armada-card-content > .armada-alert { margin: var(--space-3); }
+:root[data-look="new"] .armada-studio-list { border-collapse: separate; border-spacing: 0; overflow: hidden; width: 100%; }
 :root[data-look="new"] .armada-studio-list .armada-table-header-cell {
   padding: var(--space-3) var(--space-4);
   background: transparent;
@@ -464,3 +475,8 @@
 :root[data-look="new"] .armada-bay__name,
 :root[data-look="new"] .armada-bay__branch,
 :root[data-look="new"] .armada-bay__foot { font-family: var(--font-mono); font-size: var(--text-meta); font-variant-numeric: tabular-nums; }
+
+/* Each repository's table has the same columns, so Last touched lines up from one panel to the next. */
+:root[data-look="new"] .armada-studio-list { table-layout: fixed; }
+:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(2) { width: 260px; }
+:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(3) { width: 140px; }

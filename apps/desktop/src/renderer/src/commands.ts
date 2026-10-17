@@ -81,7 +81,7 @@ export const readDiff = (jobId: string | null): void => void window.armada.readD
 export const readReports = (want: boolean): void => void window.armada.readReports(want);
 export const readHeld = (want: boolean): void => void window.armada.readHeld(want);
 // The Studios surface — #1287. The two reads are held by effects, so they are stable here too.
-export const watchStudios = (manifestId: string | null): void => void window.armada.watchStudios(manifestId);
+export const watchStudios = (manifestId: string | readonly string[] | null): void => void window.armada.watchStudios(manifestId);
 export const watchStudio = (studioId: string | null): void => void window.armada.watchStudio(studioId);
 export const createStudio = (manifestId: string) => window.armada.createStudio(manifestId);
 // Named, and added to, by a person — #1364. Neither goes through Helm.
