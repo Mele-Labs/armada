@@ -530,6 +530,8 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 
 **A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
 
+**A `screen` node is a wireframe of an app's screen, for any product.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where. `crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed. A tree nests at most 12 levels. The test reads the element types, their fields, the enums and the glyph list out of `screen.ts`. The tool's description teaches the types, and a refused glyph is answered with the whole list.
+
 | Cap | Holds |
 |---|---|
 | Nodes, edges, strokes | 80, 120, 20 |

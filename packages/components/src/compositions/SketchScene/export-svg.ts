@@ -8,6 +8,7 @@
 
 import { bezierAt, type LabelPlace, type Rect } from "./edge-labels";
 import { CHANGE_SAID, partLabel, type Scene, type SceneChange, type SceneNode } from "./scene";
+import { screenSteps } from "./screen";
 import { pathOf } from "../SketchPad/ink-path";
 
 /** The tokens the drawing reads, by name. The caller resolves each against the theme in force. */
@@ -16,6 +17,9 @@ export const EXPORT_TOKENS = [
   "--status-running", "--status-not-started", "--status-completed-success", "--status-completed-failed", "--status-awaiting-review", "--status-rejected",
   "--edge-focus", "--edge-active", "--row-tint-recent", "--font-mono", "--font-sans", "--text-xs", "--text-sm", "--text-base", "--leading-xs", "--leading-sm",
   "--space-1", "--space-2", "--space-3", "--space-4", "--space-6", "--weight-heading", "--tracking-caps", "--radius-sm", "--radius-md", "--radius-lg", "--ease", "--duration-base",
+  // What a screen's own stylesheet reads, which the export writes in beside its markup.
+  "--border-width", "--space-8", "--space-12", "--text-2xs", "--text-xl", "--leading-2xs", "--leading-base", "--leading-xl", "--weight-medium", "--weight-body",
+  "--h-control-sm", "--h-badge",
 ] as const;
 
 /** The lengths the layout needs as numbers, in px: read from the tokens, or these where one cannot be read. */
@@ -51,6 +55,15 @@ export type ExportGeometry = {
   places: ReadonlyMap<string, LabelPlace>;
 };
 
+/**
+ * One screen as markup: how it stands at rest and how it stands at each step an element of it carries, from
+ * `ScreenView`, so the file draws it as the canvas does. `top` is where the sheet starts under the node's title.
+ */
+export type ScreenMarkup = { top: number; rest: string; steps: Readonly<Record<number, string>> };
+
+/** The screens of a scene by node id, and the stylesheet they are drawn with. A node with no entry is drawn as its frame and name. */
+export type ExportScreens = { css: string; nodes: Readonly<Record<string, ScreenMarkup>> };
+
 /** What the owner and a diff did to the scene, as the canvas draws it. */
 export type ExportState = {
   change?: ReadonlyMap<string, SceneChange>;
@@ -66,6 +79,8 @@ export type SketchSvgInput = {
   tokens: Readonly<Record<string, string>>;
   /** Inner markup of each glyph a node carries, 24 units square, drawn as strokes. */
   icons?: Readonly<Partial<Record<string, string>>>;
+  /** What each `screen` node draws. Only the markup given is written, so a still picture is handed the rest alone. */
+  screens?: ExportScreens;
   state?: ExportState;
   /** Each body as the canvas broke it into lines, by node id: the browser's own wrapping, which a count of characters only approximates. */
   bodyLines?: Readonly<Record<string, readonly string[]>>;
@@ -78,6 +93,8 @@ export type SketchSvgInput = {
 };
 
 const GROUND = new Set(["group", "lane"]);
+const SVG_NS = "http://www.w3.org/2000/svg";
+const XHTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const xml = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const num = (n: number) => String(Math.round(n * 100) / 100);
@@ -168,16 +185,20 @@ export function frameOf(scene: Scene, geometry: ExportGeometry, m: ExportMetrics
   return { x, y, w: Math.ceil(Math.max(...xs) + m.pad) - x, h: Math.ceil(Math.max(...ys) + m.pad) - y };
 }
 
-/** The player's order: what each step lights and which arrows carry its dot. Read from the scene as the canvas reads it. */
-export type StepPlan = { at: number; nodes: string[]; edges: string[] }[];
+/**
+ * The player's order: what each step lights and which arrows carry its dot. Read from the scene as the canvas reads it.
+ * `inner` lists the screens that hold the step in one of their elements: they ring that element, and do not stand back.
+ */
+export type StepPlan = { at: number; nodes: string[]; edges: string[]; inner?: string[] }[];
 
 export function stepPlan(scene: Scene): StepPlan {
-  const numbers = [...new Set([...scene.nodes.map((one) => one.step), ...scene.edges.map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b);
-  return numbers.map((at) => ({
-    at,
-    nodes: [...new Set([...scene.nodes.filter((one) => one.step === at).map((one) => one.id), ...scene.edges.filter((one) => one.step === at).map((one) => one.to)])],
-    edges: scene.edges.filter((one) => one.step === at).map((one) => one.id),
-  }));
+  const inside = (one: SceneNode) => (one.screen === undefined ? [] : screenSteps(one.screen));
+  const numbers = [...new Set([...scene.nodes.flatMap((one) => [one.step, ...inside(one)]), ...scene.edges.map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b);
+  return numbers.map((at) => {
+    const nodes = [...new Set([...scene.nodes.filter((one) => one.step === at).map((one) => one.id), ...scene.edges.filter((one) => one.step === at).map((one) => one.to)])];
+    const inner = scene.nodes.filter((one) => !nodes.includes(one.id) && inside(one).includes(at)).map((one) => one.id);
+    return { at, nodes, edges: scene.edges.filter((one) => one.step === at).map((one) => one.id), ...(inner.length === 0 ? {} : { inner }) };
+  });
 }
 
 /** The drawing's own rules. Colours are variables so the one block of token values is the whole theme. */
@@ -186,7 +207,7 @@ export const EXPORT_CSS = `
 .sk-ground { fill: var(--bg-sunken); }
 .sk-node { --hue: var(--status-running); }
 .sk-node[data-kind="code"] { --hue: var(--status-not-started); }
-.sk-node[data-kind="wire"] { --hue: var(--border-strong); }
+.sk-node[data-kind="wire"], .sk-node[data-kind="screen"] { --hue: var(--border-strong); }
 .sk-node[data-change="added"], .sk-edge[data-change="added"] { --hue: var(--status-completed-success); }
 .sk-node[data-change="removed"], .sk-edge[data-change="removed"] { --hue: var(--status-completed-failed); }
 .sk-node[data-change="changed"], .sk-edge[data-change="changed"] { --hue: var(--status-awaiting-review); }
@@ -198,7 +219,7 @@ export const EXPORT_CSS = `
 .sk-border { fill: none; stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-frame { fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised)); stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-node[data-kind="group"] .sk-frame, .sk-node[data-kind="lane"] .sk-frame { fill: none; stroke-dasharray: var(--space-2) var(--space-2); }
-.sk-node[data-kind="wire"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
+.sk-node[data-kind="wire"] .sk-frame, .sk-node[data-kind="screen"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
 .sk-ring { display: none; fill: none; stroke: var(--edge-focus); stroke-width: var(--edge-active); }
 .sk-node[data-current] .sk-ring { display: inline; }
 .sk-head { fill: var(--hue); }
@@ -208,6 +229,11 @@ export const EXPORT_CSS = `
 .sk-body { fill: var(--fg-default); font-size: var(--text-sm); white-space: pre; dominant-baseline: central; }
 .sk-label { fill: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
 .sk-wire-title { fill: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
+.sk-caption { fill: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--weight-heading); dominant-baseline: central; }
+.sk-screen[data-off] { display: none; }
+:where(.sk-screen) *, :where(.sk-screen) ::before, :where(.sk-screen) ::after { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }
+:where(.sk-screen) svg { display: block; vertical-align: middle; }
+:where(.sk-screen) table { border-collapse: collapse; text-indent: 0; border-color: inherit; }
 .sk-wire-line { fill: var(--border-strong); }
 .sk-wire-input { fill: none; stroke: var(--border-strong); stroke-width: var(--edge-active); }
 .sk-edge { --hue: var(--fg-muted); }
@@ -253,6 +279,7 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   const clip = `sk-clip-${xml(node.id).replace(/[^A-Za-z0-9_-]/g, "_")}`;
   const mid = (top: number, line: number) => num(top + line / 2);
   const glyph = node.icon === undefined ? undefined : input.icons?.[node.icon];
+  const sheet = input.screens?.nodes[node.id];
 
   const head = (): number => {
     if (node.title === undefined && node.icon === undefined) return 0;
@@ -288,6 +315,22 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   } else if (mine) {
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
     body(e, node.body ?? "");
+  } else if (node.kind === "screen" && sheet !== undefined) {
+    // The sheet as the canvas draws it, under its name: the screen's own markup and stylesheet in a foreignObject.
+    if (node.title !== undefined) parts.push(`<text class="sk-caption" x="0" y="${num((sheet.top - m.space2) / 2)}">${xml(node.title)}</text>`);
+    const html = (markup: string) => {
+      const bare = markup.replace(/ xmlns="[^"]*"/g, "");
+      return input.standalone ? bare.replace(/<svg /g, `<svg xmlns="${SVG_NS}" `) : bare;
+    };
+    const variants: [string, string][] = [["rest", sheet.rest], ...Object.entries(sheet.steps).map(([at, markup]): [string, string] => [at, markup])];
+    for (const [at, markup] of variants) {
+      const body = `<div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${html(markup)}</div>`;
+      parts.push(`<g class="sk-screen" data-at="${at}"${at === "rest" ? "" : ' data-off=""'}><foreignObject x="0" y="${num(sheet.top)}" width="${num(w)}" height="${num(Math.max(0, h - sheet.top))}" overflow="visible">${body}</foreignObject></g>`);
+    }
+  } else if (node.kind === "screen") {
+    // The screen's outer frame and its name, for a picture handed no markup to draw it with.
+    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    if (node.title !== undefined) parts.push(`<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`);
   } else if (node.kind === "wire") {
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
     const part = node.wire ?? "card";
@@ -329,7 +372,8 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
     parts.push(`</g>`);
     parts.push(`<rect class="sk-border" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
   }
-  if (node.kind !== "label") parts.push(`<rect class="sk-ring" x="${num(-e)}" y="${num(-e)}" width="${num(w + e * 2)}" height="${num(h + e * 2)}" rx="${num(m.radiusMd + e)}"/>`);
+  if (sheet !== undefined && node.kind === "screen") parts.push(`<rect class="sk-ring" x="${num(-e)}" y="${num(sheet.top - e)}" width="${num(w + e * 2)}" height="${num(h - sheet.top + e * 2)}" rx="${num(m.radiusSm + e)}"/>`);
+  else if (node.kind !== "label") parts.push(`<rect class="sk-ring" x="${num(-e)}" y="${num(-e)}" width="${num(w + e * 2)}" height="${num(h + e * 2)}" rx="${num(m.radiusMd + e)}"/>`);
   return `<g ${attrs}>${parts.join("")}</g>`;
 }
 
@@ -367,7 +411,7 @@ export function sketchSvg(input: SketchSvgInput): string {
   const grounds = input.scene.nodes.filter((one) => GROUND.has(one.kind));
   const solids = input.scene.nodes.filter((one) => !GROUND.has(one.kind));
   const ink = (input.scene.strokes ?? []).map((one) => `<path class="sk-ink" d="${xml(pathOf(one.points))}" role="img" aria-label="Drawn by hand"/>`).join("");
-  const css = `.sk { ${tokenDeclarations(input.tokens)} }${EXPORT_CSS}${input.extraCss ?? ""}`;
+  const css = `.sk { ${tokenDeclarations(input.tokens)} }${EXPORT_CSS}${input.screens?.css ?? ""}${input.extraCss ?? ""}`;
   return [
     `<svg ${input.standalone ? 'xmlns="http://www.w3.org/2000/svg" ' : ""}class="sk armada-sketch-export" viewBox="${frame.x} ${frame.y} ${frame.w} ${frame.h}" width="${frame.w}" height="${frame.h}" role="group" aria-label="${xml(input.title)}">`,
     `<title>${xml(input.title)}</title>`,

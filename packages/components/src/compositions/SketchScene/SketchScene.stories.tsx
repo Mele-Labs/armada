@@ -449,6 +449,74 @@ export const ShareAsImage: Story = {
   },
 };
 
+/** A sign in screen with a step inside it and an arrow to the box it opens. */
+const SIGN_IN: Scene = {
+  nodes: [
+    {
+      id: "login",
+      kind: "screen",
+      x: 0,
+      y: 0,
+      w: 420,
+      title: "Sign in",
+      screen: {
+        type: "window",
+        chrome: "desktop",
+        title: "Tally",
+        children: [
+          {
+            type: "column",
+            gap: "md",
+            pad: "md",
+            size: "fill",
+            children: [
+              { type: "text", style: "heading", text: "Welcome back" },
+              { type: "button", id: "submit", text: "Sign in", variant: "primary", step: 1 },
+            ],
+          },
+        ],
+      },
+    },
+    { id: "home", kind: "box", x: 600, y: 0, w: 240, h: 100, title: "Home", step: 2 },
+  ],
+  edges: [{ id: "go", from: "login", to: "home", label: "Signed in", step: 2 }],
+};
+
+/** A screen is saved as the web page draws it, once at rest and once at the step its button carries, with the rules that style it and the player's controls. */
+export const ShareScreenAsWebPage: Story = {
+  ...shared,
+  args: { scene: SIGN_IN, title: "Sign in flow" },
+  play: async ({ canvas }) => {
+    await choose(canvas, "Save as web page");
+    await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));
+    const page = text(host.save.mock.calls[0]![0][0]!.data);
+    const drawn = new DOMParser().parseFromString(page, "text/html");
+    await expect([...drawn.querySelectorAll("[data-node='login'] .sk-screen")].map((one) => one.getAttribute("data-at"))).toEqual(["rest", "1"]);
+    await expect(drawn.querySelector("[data-node='login'] [data-at='rest'] .armada-wireframe--button")!.textContent).toBe("Sign in");
+    await expect(drawn.querySelector("[data-node='login'] [data-at='1'] .armada-wireframe--button")!.hasAttribute("data-current")).toBe(true);
+    await expect(drawn.querySelector("svg style")!.textContent).toContain(".armada-wireframe");
+    await expect(drawn.getElementById("sketch-play")).not.toBeNull();
+    await expect(page).not.toMatch(/https?:/);
+  },
+};
+
+/** A screen is saved as an image with its sheet drawn, under its name, in a picture a browser reads back. */
+export const ShareScreenAsImage: Story = {
+  ...shared,
+  args: { scene: SIGN_IN, title: "Sign in flow" },
+  play: async ({ canvas }) => {
+    await choose(canvas, "Save as image");
+    await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));
+    const [png, svg] = host.save.mock.calls[0]![0] as [SketchShareFile, SketchShareFile];
+    await expect([...(png.data as Uint8Array).slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const drawn = new DOMParser().parseFromString(text(svg.data), "image/svg+xml");
+    await expect(drawn.querySelector("parsererror")).toBeNull();
+    await expect(drawn.querySelector(".sk-caption")!.textContent).toBe("Sign in");
+    await expect(drawn.querySelector("foreignObject .armada-wireframe--button")!.textContent).toBe("Sign in");
+    await expect(drawn.querySelectorAll(".sk-screen")).toHaveLength(1);
+  },
+};
+
 /** Copy as Mermaid puts a flowchart on the clipboard with the arrows' words escaped, and says what was copied. */
 export const ShareAsMermaid: Story = {
   ...shared,
