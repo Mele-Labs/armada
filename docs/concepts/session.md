@@ -740,7 +740,7 @@ A minute after `held_until`, a tick of the notice loop sends the session `Contin
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 
-**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*. Bridge marks the Session's row, and its open thread names the other holder and the files, from the standing clashes Fleet lists.
+**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*. Bridge marks the Session's row and puts the swords glyph on its Bays key, and the Bays panel names the other holder and the files, from the standing clashes Fleet lists.
 
 | The other is | The message names |
 |---|---|
@@ -961,7 +961,7 @@ Since 16 Oct 2026. The owner, 16 Oct 2026, short of room: Progress, no Ledger, m
 | Artifacts | `8` | The Session's rows as they stand: `pr`, `artifact` (pages, files, docs, images), `sketch`, `subagent`, `background`, `studio` and `started_to` (the Sessions it handed a plan group to, each with the group and its state), the files its drones touched (`touches`), and from the thread the commands it ran and the commits it made. **The wire holds no commit record, so a commit is the thread's `git commit -m` line**, not Fleet's observation,. A field at the top narrows every group as it is typed in |
 | Subagents | `9` | Every `subagent` row, the running ones first. A press opens its own thread |
 | Checks | `0` | The `check` rows of the thread, newest first. A press opens the run on the Checks page |
-| Slot | none | The slot's lease, how far it is behind its base and the write clashes: `slot-trouble.ts`. **Lit only when the slot is stranded, 20 or more commits behind, or in a write clash**, and then also a call in the thread's last card. Off, with its reason, otherwise |
+| Bays | none | Every bay the Session holds, or held last before it stranded, each with its lease and how far it is behind its base, and the Session's write clashes: `slot-trouble.ts`. **Lit only when a bay is stranded or 20 or more commits behind.** A write clash puts the swords glyph at the key's corner and does not light it. A stranded bay is also a call in the thread's last card. A bay behind and a write clash are not: Fleet tells the agent, so they leave the owner nothing to do. Off, with its reason, where the Session holds no bay |
 
 A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was. The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere. Esc is the layer's while one is open, and a sheet over it keeps its own. The layer is dropped when another Session is opened.
 
