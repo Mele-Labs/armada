@@ -1,5 +1,5 @@
 //! The pass: on the noticing interval, each running Autopilot with room is asked for a pick, and
-//! a sure pick becomes a Job that starts unasked.
+//! a sure pick becomes a Session that starts unasked, briefed on the issue.
 //!
 //! **Its own loop, beside the noticing one and on the same interval.** A pick is a model call, and
 //! a landing told late because it waited behind one is the cost `crate::notice_loop` exists to
@@ -13,26 +13,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Actor, IssueSource, Job, JobStatus, Target, TopLevelOrigin, Urgency};
 use store::{KeptAutopilot, KeptPick};
 use tokio::task::JoinHandle;
 
 use super::bounds::{PickState, State};
 use super::picking::{candidates, picked, Pick, SetAside, SurePick};
+use super::starting::Issue;
 use super::wire::Gathered;
 use super::Asking;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::proposal::{enrich, stated_by, Enriched};
-use crate::proposing::ProposedJob;
 
 /// The most calls one Autopilot makes in one pass. **A bound on money, not on picks**: a backlog
 /// it is unsure of throughout sets this many aside a pass and carries on at the next.
 const CALLS_PER_PASS: usize = 4;
-
-/// The log line on a Job Autopilot started without asking.
-const STARTED_UNASKED: &str =
-    "Autopilot picked this issue and was sure of it, so it started unasked";
 
 /// Pick for every running Autopilot, every `tick`. `adrift` hears only a store that would not list
 /// them; what stopped one repository's picks is on its record, for the person who reads it.
@@ -72,12 +66,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// One pass over every Autopilot. Answers how many Jobs it started.
+    /// One pass over every Autopilot. Answers how many Sessions it started.
     ///
     /// **One repository's failure is kept on its record and the rest still pass**: a tracker that
     /// will not answer for one is not a reason for the others to stop, and the person who comes
     /// back in the morning reads why it picked nothing on the Autopilot itself.
-    pub async fn autopilot_pass(&self) -> Result<usize, Adrift> {
+    pub async fn autopilot_pass(self: &Arc<Self>) -> Result<usize, Adrift> {
         let every = self
             .store()
             .lock()
@@ -100,7 +94,7 @@ where
         Ok(started)
     }
 
-    async fn passed_over(&self, kept: KeptAutopilot) -> Result<usize, String> {
+    async fn passed_over(self: &Arc<Self>, kept: KeptAutopilot) -> Result<usize, String> {
         let said = |why: Adrift| why.to_string();
         let manifest_id = ipc::ManifestId::carried(kept.manifest_id.clone());
         let mut gathered = self.autopilot_gathered(kept).await.map_err(said)?;
@@ -183,9 +177,7 @@ where
             match pick {
                 Pick::Sure(sure) => {
                     let url = sure.issue().url.clone();
-                    self.sure_pick_started(&gathered.kept, &served, sure)
-                        .await
-                        .map_err(said)?;
+                    self.sure_pick_started(&gathered.kept, &served, sure).await?;
                     offered.retain(|one| one.url != url);
                     room -= 1;
                     made += 1;
@@ -212,7 +204,7 @@ where
         Ok(made)
     }
 
-    /// The Job proposer's client, budget, model and environment.
+    /// The proposer's client, budget, model and environment.
     pub(crate) fn asking(&self) -> Result<Asking, adapter_traits::SpawnConfigRefused> {
         let proposing = self.proposing()?;
         Ok(Asking {
@@ -245,7 +237,7 @@ where
             issue_title: aside.issue.title,
             issue_url: aside.issue.url,
             workflow_id: aside.workflow.map(|id| id.as_str().to_string()),
-            started_job: None,
+            started_session: None,
             state: PickState::SetAside.as_stored().to_string(),
             reason: aside.reason,
             at: self.now().as_str().to_string(),
@@ -257,60 +249,24 @@ where
             .map_err(Adrift::Writing)
     }
 
-    /// A sure pick, drafted as a dispatch from its issue would be and queued with no approval.
+    /// A sure pick: a Session started on its issue, with no one asked. **Takes the [`SurePick`]
+    /// whole**, so only reading the picker's answer starts one unasked.
     async fn sure_pick_started(
-        &self,
+        self: &Arc<Self>,
         kept: &KeptAutopilot,
         served: &crate::repositories::Served,
         sure: SurePick,
-    ) -> Result<Job, Adrift> {
-        let issue = sure.issue().clone();
-        // The same read of the issue a dispatch makes, so the Drone is briefed from the issue
-        // itself rather than its title.
-        let links = self.links_of(served);
-        let outcome = enrich(&issue.url, links.as_ref()).await;
-        let read_an_issue = matches!(outcome, Enriched::Resolved(_));
-        let brief = match &outcome {
-            Enriched::Resolved(text) => format!("{}\n\n{text}", issue.url),
-            Enriched::AsGiven | Enriched::Failed(_) => {
-                format!("{}\n\n{}\n\n{}", issue.url, issue.title, issue.excerpt)
-            }
-        };
-        let proposed = ProposedJob {
-            workflow_id: sure.workflow().clone(),
-            title: issue.title.clone(),
-            brief: brief.trim_end().to_string(),
-            because: Some(format!("Autopilot: {}", sure.reason())),
-            after: Vec::new(),
-            done_when: Vec::new(),
-            urgency: Urgency::Normal,
-            model: None,
-        };
-        let proposal = self.as_proposal(
-            served,
-            &proposed,
-            Vec::new(),
-            Vec::new(),
-            TopLevelOrigin::AutopilotPicked,
-        );
-        let job = self
-            .proposed_job(
-                proposal,
-                stated_by(&proposed, read_an_issue),
-                None,
-                Actor::Fleet,
+    ) -> Result<(), String> {
+        let issue = sure.issue();
+        let session = self
+            .session_on_issue(
+                served,
+                &Issue { url: &issue.url, title: &issue.title, excerpt: &issue.excerpt },
+                Some(sure.workflow().as_str()),
+                Some(sure.reason()),
             )
-            .await?;
-        if let Enriched::Failed(cause) = &outcome {
-            self.noted_lookup_failed(job.id(), cause);
-        }
-        // The issue is its source whether or not the lookup read it: the tracker named it, and
-        // #91's write-back reads this row.
-        let reference = links
-            .issue(&issue.url)
-            .map(|address| address.reference().to_string())
-            .unwrap_or_else(|| issue.reference.clone());
-        let source = IssueSource::read(reference, issue.url.clone(), self.now());
+            .await
+            .map_err(|refused| refused.error().message.clone())?;
         let pick = KeptPick {
             pick_id: self.mint().ulid().as_str().to_string(),
             run_id: kept.run_id.clone(),
@@ -319,42 +275,16 @@ where
             issue_title: issue.title.clone(),
             issue_url: issue.url.clone(),
             workflow_id: Some(sure.workflow().as_str().to_string()),
-            started_job: Some(job.id().as_str().to_string()),
+            started_session: Some(session),
             state: PickState::Started.as_stored().to_string(),
             reason: sure.reason().to_string(),
             at: self.now().as_str().to_string(),
         };
-        {
-            let mut store = self.store().lock().await;
-            store
-                .record_issue_source(job.id(), &source)
-                .map_err(Adrift::Writing)?;
-            store.add_autopilot_pick(&pick).map_err(Adrift::Writing)?;
-        }
-        self.queued_unasked(sure, &job).await
-    }
-
-    /// **The one place the dispatch gate is skipped**, and it takes the [`SurePick`] whole: no
-    /// other caller holds one. Otherwise it is `approve_as_proposed`, moved by Fleet rather than a
-    /// person, so a repository whose pull requests open as drafts still opens this one as a draft.
-    async fn queued_unasked(&self, _sure: SurePick, job: &Job) -> Result<Job, Adrift> {
-        if job.status() != JobStatus::AwaitingApproval {
-            return Ok(job.clone());
-        }
-        let served = self.served_by(job)?;
-        let (repository, machine) = self.pr_modes_beneath(&served).await;
-        let drafts = crate::approving::pr_mode_default(job.workflow(), repository, machine)
-            == core_model::PrMode::Draft;
-        let job = match drafts {
-            true => {
-                self.kept_as_left(job.id(), &ipc::ApproveDispatch::default(), STARTED_UNASKED)
-                    .await?
-            }
-            false => job.clone(),
-        };
-        self.not_alone(&job)?;
-        Box::pin(self.freeze_triggers(&job)).await;
-        self.move_job(&job, Target::Queued, Actor::Fleet).await
+        self.store()
+            .lock()
+            .await
+            .add_autopilot_pick(&pick)
+            .map_err(|why| Adrift::Writing(why).to_string())
     }
 
     /// Publish this repository's Autopilot as it stands now, if it moved since last told.

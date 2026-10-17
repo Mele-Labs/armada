@@ -26,7 +26,7 @@ pub struct KeptAutopilot {
     pub capped_by: Option<String>,
 }
 
-/// One pick. `started_job` is the Job it started, where it started one.
+/// One pick. `started_session` is the Session it started, where it started one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptPick {
     pub pick_id: String,
@@ -37,7 +37,7 @@ pub struct KeptPick {
     pub issue_title: String,
     pub issue_url: String,
     pub workflow_id: Option<String>,
-    pub started_job: Option<String>,
+    pub started_session: Option<String>,
     /// `started`, `set_aside`, `withdrawn` or `dismissed`.
     pub state: String,
     pub reason: String,
@@ -49,7 +49,7 @@ const AUTOPILOT: &str =
                          state, started_at, ended_at, capped_by";
 const PICK: &str =
     "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
-                    started_job, state, reason, at, issue_reference";
+                    started_session, state, reason, at, issue_reference";
 
 fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
     Ok(KeptAutopilot {
@@ -82,7 +82,7 @@ fn pick_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPick> {
         issue_title: row.get(4)?,
         issue_url: row.get(5)?,
         workflow_id: row.get(6)?,
-        started_job: row.get(7)?,
+        started_session: row.get(7)?,
         state: row.get(8)?,
         reason: row.get(9)?,
         at: row.get(10)?,
@@ -217,7 +217,7 @@ impl Store {
                     pick.issue_title,
                     pick.issue_url,
                     pick.workflow_id,
-                    pick.started_job,
+                    pick.started_session,
                     pick.state,
                     pick.reason,
                     pick.at,
@@ -228,20 +228,20 @@ impl Store {
             .map_err(failed("keeping an Autopilot's pick"))
     }
 
-    /// Move one pick from `from` to `to`, naming the Job it started where it started one. **False
-    /// where the pick is not at `from`**, which is how two presses on one pick start one Job.
+    /// Move one pick from `from` to `to`, naming the Session it started where it started one. **False
+    /// where the pick is not at `from`**, which is how two presses on one pick start one Session.
     pub fn move_autopilot_pick(
         &mut self,
         pick_id: &str,
         from: &str,
         to: &str,
-        started_job: Option<&str>,
+        started_session: Option<&str>,
     ) -> Result<bool, WriteError> {
         self.conn
             .execute(
-                "UPDATE autopilot_picks SET state = ?3, started_job = COALESCE(?4, started_job)
+                "UPDATE autopilot_picks SET state = ?3, started_session = COALESCE(?4, started_session)
                  WHERE pick_id = ?1 AND state = ?2",
-                params![pick_id, from, to, started_job],
+                params![pick_id, from, to, started_session],
             )
             .map(|changed| changed > 0)
             .map_err(failed("moving an Autopilot's pick"))

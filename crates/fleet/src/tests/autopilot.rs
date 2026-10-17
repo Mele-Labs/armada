@@ -1,20 +1,22 @@
-//! Autopilot through a Fleet: a sure pick starts a Job at `queued` unasked with its issue as its
-//! source, an unsure one is set aside and the next issue is taken in the same pass, room and caps
-//! hold the next pick, and Pause, Stop and the set-aside pile do what they say. #2092.
+//! Autopilot through a Fleet: a sure pick starts a Session unasked with its issue as its brief, an
+//! unsure one is set aside and the next issue is taken in the same pass, room and caps count its
+//! live Sessions and hold the next pick, and Pause, Stop and the set-aside pile do what they say.
+//! #2092.
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use api::{Autopilots, Refusal};
-use core_model::{Actor, JobStatus, Origin, TopLevelOrigin};
+use api::{Autopilots, HostedSessions, Refusal};
 use ipc::{AutopilotCap, AutopilotPickState, AutopilotSettings, AutopilotState, ManifestId};
 use testkit::{FakeHarness, FakeJudge, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
+use super::session_host::{Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::proposing::a_catalogue;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Arc<Fleet<FakeHarness, FakeVcs, FakeWorkProduct>>;
 
 const SURE_12: &str = "issue: 12\nworkflow: bug\nsure: yes\nbecause: a wrong label, one file";
 const UNSURE_11: &str =
@@ -25,8 +27,9 @@ fn url(number: u64) -> String {
     format!("https://forge.invalid/o/r/issues/{number}")
 }
 
-/// A Fleet whose tracker lists issues 11 to 13 and whose model answers `replies` in turn.
-fn a_fleet(home: &TempDir, replies: &[&str]) -> (Fixture, Arc<FakeJudge>) {
+/// A Fleet whose tracker lists issues 11 to 13, whose model answers `replies` in turn, and whose
+/// Sessions run on a stand-in process.
+fn a_fleet(home: &TempDir, replies: &[&str]) -> (Fixture, Arc<FakeJudge>, Arc<StandIn>) {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/read.rs"]));
     fittings.starting().workflows = a_catalogue()
         .into_iter()
@@ -39,7 +42,10 @@ fn a_fleet(home: &TempDir, replies: &[&str]) -> (Fixture, Arc<FakeJudge>) {
         FakeTracker::issue(12, "The Board labels a killed Job as failed"),
         FakeTracker::issue(11, "Should Helm keep one conversation per repository?"),
     ]))));
-    (Fleet::assembled(fittings), model)
+    let stand_in = Arc::new(StandIn::default());
+    let fleet = Fleet::assembled(fittings)
+        .hosting_sessions_on(Arc::new(Shared(Arc::clone(&stand_in))), Duration::from_secs(600));
+    (Arc::new(fleet), model, stand_in)
 }
 
 fn here(fleet: &Fixture) -> ManifestId {
@@ -63,14 +69,26 @@ async fn started(fleet: &Fixture, at_once: u32, job_cap: Option<u32>) -> ipc::Au
         .expect("it starts")
 }
 
-fn job_of(pick: &ipc::AutopilotPick) -> core_model::JobId {
-    pick.job_id.as_ref().expect("a Job").to_domain()
+fn session_of(pick: &ipc::AutopilotPick) -> String {
+    pick.session_id.as_ref().expect("a Session").as_str().to_string()
+}
+
+/// The Session's ledger row.
+async fn row_of(fleet: &Fixture, id: &str) -> store::KeptSession {
+    fleet.store().lock().await.session(id).expect("reads").expect("a Session")
+}
+
+async fn closed(fleet: &Fixture, id: &str) {
+    fleet
+        .close_session(ipc::CloseSession { session_id: ipc::SessionId::carried(id) })
+        .await
+        .expect("closes");
 }
 
 #[tokio::test]
-async fn a_sure_pick_starts_unasked_and_an_unsure_one_is_set_aside_in_the_same_pass() {
+async fn a_sure_pick_starts_a_session_unasked_with_the_issue_as_its_brief() {
     let home = TempDir::new();
-    let (fleet, _) = a_fleet(&home, &[UNSURE_11, SURE_12]);
+    let (fleet, _, stand_in) = a_fleet(&home, &[UNSURE_11, SURE_12]);
     started(&fleet, 1, None).await;
 
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
@@ -89,69 +107,82 @@ async fn a_sure_pick_starts_unasked_and_an_unsure_one_is_set_aside_in_the_same_p
         ]
     );
     assert_eq!(now.picks[0].reason, "it may want a design call");
-    let job = fleet.load(&job_of(&now.picks[1])).await.expect("the Job");
-    assert_eq!(job.status(), JobStatus::Queued, "no approval asked");
-    assert_eq!(job.origin(), Origin::from(TopLevelOrigin::AutopilotPicked));
-    assert_eq!(job.workflow().id().as_str(), "bug");
-    let events = fleet
-        .store()
-        .lock()
-        .await
-        .events_for(job.id())
-        .expect("its log");
-    assert_eq!(
-        events.last().expect("a move").actor(),
-        Actor::Fleet,
-        "Fleet queued it, not a person"
-    );
-    let source = fleet
-        .store()
-        .lock()
-        .await
-        .issue_source(job.id())
-        .expect("reads");
-    assert_eq!(
-        source.expect("its issue").url,
-        url(12),
-        "the write-back reads this"
-    );
+    assert_eq!(now.picks[0].session_id, None, "a set-aside pick started nothing");
+    let id = session_of(&now.picks[1]);
+    let session = row_of(&fleet, &id).await;
+    assert_eq!(session.state, store::SessionState::Live);
+    assert_eq!(session.title.as_deref(), Some("The Board labels a killed Job as failed"));
+    let hosting = fleet.store().lock().await.hosting(&id).expect("reads").expect("hosted");
+    assert_eq!(hosting.workflow.as_deref(), Some("bug"), "the workflow the picker chose");
+    assert_eq!(stand_in.starts().len(), 1, "its agent started on the brief, unasked");
+    let sent = stand_in.process(0).sent.lock().unwrap().join("\n");
+    assert!(sent.contains(&url(12)), "the issue's link is in the brief: {sent}");
+    assert!(sent.contains("The Board labels a killed Job as failed"), "and its title: {sent}");
+    assert!(sent.contains("a wrong label, one file"), "and the picker's reason: {sent}");
     assert_eq!(now.at_work, 1);
     assert_eq!(now.jobs_started, 1);
 }
 
 #[tokio::test]
-async fn a_full_autopilot_asks_nothing_and_a_job_waiting_on_a_person_gives_its_place_back() {
+async fn a_full_autopilot_asks_nothing_and_a_session_that_ends_or_waits_gives_its_place_back() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
+    let (fleet, model, _) = a_fleet(&home, &[SURE_12, SURE_13]);
     started(&fleet, 1, None).await;
     fleet.autopilot_pass().await.expect("a pass");
     let asked = model.asked().len();
 
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 0);
-    assert_eq!(model.asked().len(), asked, "no room, so no call");
+    assert_eq!(model.asked().len(), asked, "its one live Session fills it, so no call");
 
     let first = fleet.get_autopilot(here(&fleet)).await.expect("held").picks[0].clone();
-    let job = fleet.load(&job_of(&first)).await.expect("the Job");
-    // Escalated is waiting on a person, like an asking Drone or a gate at review.
-    fleet
-        .move_job(
-            &job,
-            core_model::Target::Escalated(core_model::EscalationTrigger::DependencyFailed),
-            Actor::Fleet,
-        )
-        .await
-        .expect("it escalates");
+    closed(&fleet, &session_of(&first)).await;
     assert_eq!(
         fleet.autopilot_pass().await.expect("a pass"),
         1,
-        "its place is free"
+        "the ended Session's place is free"
     );
+    let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
+    assert_eq!(now.at_work, 1, "an ended Session holds none");
+    assert_eq!(now.jobs_started, 2, "and still counts as started");
 }
 
 #[tokio::test]
-async fn the_first_cap_reached_pauses_it_and_says_which_and_the_started_job_carries_on() {
+async fn a_session_waiting_on_a_person_does_not_count_against_at_once() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
+    let (fleet, _, _) = a_fleet(&home, &[SURE_12, SURE_13]);
+    started(&fleet, 1, None).await;
+    fleet.autopilot_pass().await.expect("a pass");
+    let first = fleet.get_autopilot(here(&fleet)).await.expect("held").picks[0].clone();
+    let id = session_of(&first);
+    let at = fleet.now().as_str().to_string();
+    let manifest_id = row_of(&fleet, &id).await.manifest_id.expect("a repository");
+    fleet
+        .store()
+        .lock()
+        .await
+        .attach(
+            &store::KeptAttachment {
+                holder: store::Holder::session(&id),
+                kind: "unsent".to_string(),
+                manifest_id,
+                target: "a message nobody has sent".to_string(),
+                state: store::AttachmentState::Standing,
+                detail: Default::default(),
+                since: at.clone(),
+                changed_at: at,
+            },
+            false,
+        )
+        .expect("attached");
+
+    assert_eq!(fleet.get_autopilot(here(&fleet)).await.expect("held").at_work, 0);
+    assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1, "its place is free");
+}
+
+#[tokio::test]
+async fn the_first_cap_reached_pauses_it_and_says_which_and_the_started_session_carries_on() {
+    let home = TempDir::new();
+    let (fleet, model, _) = a_fleet(&home, &[SURE_12, SURE_13]);
     started(&fleet, 2, Some(1)).await;
 
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
@@ -162,11 +193,11 @@ async fn the_first_cap_reached_pauses_it_and_says_which_and_the_started_job_carr
     assert_eq!(now.ended_at, None);
     assert_eq!(now.capped_by, Some(AutopilotCap::Jobs));
     assert_eq!(model.asked().len(), 1, "the cap stopped the next pick");
-    let job = fleet.load(&job_of(&now.picks[0])).await.expect("the Job");
+    let session = row_of(&fleet, &session_of(&now.picks[0])).await;
     assert_eq!(
-        job.status(),
-        JobStatus::Queued,
-        "and not the Job it started"
+        session.state,
+        store::SessionState::Live,
+        "and not the Session it started"
     );
 }
 
@@ -175,7 +206,7 @@ async fn the_first_cap_reached_pauses_it_and_says_which_and_the_started_job_carr
 #[tokio::test]
 async fn a_capped_autopilot_resumes_only_once_a_person_raises_the_cap() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
+    let (fleet, model, _) = a_fleet(&home, &[SURE_12, SURE_13]);
     started(&fleet, 2, Some(1)).await;
     fleet.autopilot_pass().await.expect("a pass");
     fleet.autopilot_pass().await.expect("a pass");
@@ -233,7 +264,7 @@ async fn a_capped_autopilot_resumes_only_once_a_person_raises_the_cap() {
 #[tokio::test]
 async fn a_stopped_autopilot_takes_no_new_settings() {
     let home = TempDir::new();
-    let (fleet, _) = a_fleet(&home, &[]);
+    let (fleet, _, _) = a_fleet(&home, &[]);
     started(&fleet, 1, None).await;
     fleet.stop_autopilot(here(&fleet)).await.expect("stops");
 
@@ -257,9 +288,9 @@ async fn a_stopped_autopilot_takes_no_new_settings() {
 }
 
 #[tokio::test]
-async fn pause_picks_nothing_resume_carries_on_and_stop_withdraws_what_never_started() {
+async fn pause_picks_nothing_resume_carries_on_and_stop_leaves_a_session_that_ran_to_finish() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
+    let (fleet, model, _) = a_fleet(&home, &[SURE_12, SURE_13]);
     started(&fleet, 1, None).await;
     fleet.pause_autopilot(here(&fleet)).await.expect("pauses");
 
@@ -271,12 +302,13 @@ async fn pause_picks_nothing_resume_carries_on_and_stop_withdraws_what_never_sta
 
     let stopped = fleet.stop_autopilot(here(&fleet)).await.expect("stops");
     assert_eq!(stopped.state, AutopilotState::Stopped);
-    assert_eq!(stopped.picks[0].state, AutopilotPickState::Withdrawn);
-    let job = fleet
-        .load(&job_of(&stopped.picks[0]))
-        .await
-        .expect("the Job");
-    assert_eq!(job.status(), JobStatus::Killed, "it never had a Drone");
+    assert_eq!(
+        stopped.picks[0].state,
+        AutopilotPickState::Started,
+        "its agent had started, so nothing is withdrawn"
+    );
+    let session = row_of(&fleet, &session_of(&stopped.picks[0])).await;
+    assert_eq!(session.state, store::SessionState::Live, "and it finishes on its own");
     assert!(matches!(
         fleet.resume_autopilot(here(&fleet)).await,
         Err(Refusal::IllegalMove(_))
@@ -284,15 +316,14 @@ async fn pause_picks_nothing_resume_carries_on_and_stop_withdraws_what_never_sta
 }
 
 #[tokio::test]
-async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismissed_leaves_the_pile()
+async fn a_set_aside_pick_a_person_dispatches_starts_a_session_and_one_dismissed_leaves_the_pile()
 {
     let home = TempDir::new();
-    let (fleet, _) = a_fleet(
+    let (fleet, _, _) = a_fleet(
         &home,
         &[
             UNSURE_11,
             "issue: none\nbecause: the rest are not what was asked",
-            "workflow: feature\ntitle: One Helm conversation per repository",
         ],
     );
     started(&fleet, 1, None).await;
@@ -300,19 +331,18 @@ async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismisse
     let aside = fleet.get_autopilot(here(&fleet)).await.expect("held").picks[0].clone();
     assert_eq!(aside.state, AutopilotPickState::SetAside);
 
-    let now = fleet
+    let now = Arc::clone(&fleet)
         .dispatch_set_aside(here(&fleet), aside.pick_id.clone())
         .await
         .expect("dispatched");
 
     assert_eq!(now.picks[0].state, AutopilotPickState::Started);
-    let job = fleet.load(&job_of(&now.picks[0])).await.expect("the Job");
+    let session = row_of(&fleet, &session_of(&now.picks[0])).await;
+    assert_eq!(session.state, store::SessionState::Live);
     assert_eq!(
-        job.status(),
-        JobStatus::AwaitingApproval,
-        "a person chose it, so the gate holds"
+        session.title.as_deref(),
+        Some("Should Helm keep one conversation per repository?")
     );
-    assert_eq!(job.origin(), Origin::Manual);
     assert!(matches!(
         fleet.dismiss_set_aside(here(&fleet), aside.pick_id).await,
         Err(Refusal::IllegalMove(_))
@@ -322,7 +352,7 @@ async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismisse
 #[tokio::test]
 async fn a_picker_that_finds_nothing_is_not_asked_again_until_the_list_changes() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(
+    let (fleet, model, _) = a_fleet(
         &home,
         &["issue: none\nbecause: nothing here is what was asked"],
     );
@@ -337,7 +367,7 @@ async fn a_picker_that_finds_nothing_is_not_asked_again_until_the_list_changes()
 #[tokio::test]
 async fn a_start_over_a_running_one_or_with_no_room_is_refused() {
     let home = TempDir::new();
-    let (fleet, _) = a_fleet(&home, &[]);
+    let (fleet, _, _) = a_fleet(&home, &[]);
 
     assert!(matches!(
         fleet.start_autopilot(here(&fleet), settings(0, None)).await,
@@ -353,7 +383,7 @@ async fn a_start_over_a_running_one_or_with_no_room_is_refused() {
 #[tokio::test]
 async fn one_sentence_is_proposed_and_nothing_starts() {
     let home = TempDir::new();
-    let (fleet, _) = a_fleet(
+    let (fleet, _, _) = a_fleet(
         &home,
         &[
             "instruction: fix the flaky tests\ninstruction_from: fix the flaky tests\nat_once: 2\n\
@@ -390,7 +420,7 @@ async fn one_sentence_is_proposed_and_nothing_starts() {
 #[tokio::test]
 async fn a_dismissed_pick_leaves_the_pile_and_is_not_offered_again() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(
+    let (fleet, model, _) = a_fleet(
         &home,
         &[
             UNSURE_11,
@@ -429,7 +459,10 @@ async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_thr
     )]));
     tracker.will_not_list("nobody is signed in to the forge");
     fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker.clone()));
-    let fleet: Fixture = Fleet::assembled(fittings);
+    let fleet: Fixture = Arc::new(Fleet::assembled(fittings).hosting_sessions_on(
+        Arc::new(Shared(Arc::new(StandIn::default()))),
+        Duration::from_secs(600),
+    ));
     started(&fleet, 1, None).await;
 
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 0);
@@ -457,7 +490,10 @@ async fn a_picker_that_fails_rests_longer_each_time_and_keeps_its_fault_meanwhil
     fittings.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]))));
     let clock = Arc::new(crate::tests::planted::Held::started());
     fittings.clock = clock.clone();
-    let fleet: Fixture = Fleet::assembled(fittings);
+    let fleet: Fixture = Arc::new(Fleet::assembled(fittings).hosting_sessions_on(
+        Arc::new(Shared(Arc::new(StandIn::default()))),
+        Duration::from_secs(600),
+    ));
     started(&fleet, 1, None).await;
 
     fleet.autopilot_pass().await.expect("a pass");

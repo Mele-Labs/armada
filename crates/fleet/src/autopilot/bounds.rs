@@ -1,55 +1,42 @@
 //! What Fleet decides about an Autopilot, deterministically: whether it has room, which cap it
 //! has reached, and what Pause and Stop may do. **Pure**, so each is a case a test names.
 //!
-//! > **Rule.** Each cap stops the next pick and never a running Job.
-//! > Why: a Job's cost arrives when its Drone ends, the reason #51's cap refuses the next
-//! > dispatch. Autopilot can overshoot a cap by as many Jobs as it runs at once.
+//! > **Rule.** Each cap stops the next pick and never a running Session.
+//! > Why: a Session's cost arrives as it works, so Autopilot can overshoot a cap by as many
+//! > Sessions as it runs at once.
 //!
 //! **A reached cap pauses, and Resume waits for it to be raised.** The owner's *fix the gaps*,
 //! 12 Oct 2026: a cap that ended the run made a person start it again to carry on.
 
 use std::fmt;
 
-use core_model::{Job, JobStatus, Timestamp};
+use core_model::Timestamp;
 
-/// One of its Jobs, as much as room and Stop read of it.
+/// One of its Sessions, as much as room and Stop read of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Standing {
-    pub status: JobStatus,
-    /// Its Drone asked and the answer has not come, or it is paused.
+    /// Not ended.
+    pub live: bool,
+    /// It holds something for the person: a question, a permission, a plan to approve, a done.
     pub waiting_on_a_person: bool,
-    /// A Drone has started on it at some point.
+    /// Its agent's process has started at some point.
     pub ever_ran: bool,
 }
 
 impl Standing {
-    pub fn of(job: &Job, ever_ran: bool) -> Standing {
-        Standing {
-            status: job.status(),
-            waiting_on_a_person: job.waiting_on_an_answer()
-                || job.pause().is_some_and(|pause| !pause.resuming),
-            ever_ran,
-        }
-    }
-
-    /// **Running, or ready to run and not waiting on a person.** Escalated, at review, awaiting
-    /// repair or attestation, piloted, and a queued Job waiting on an answer or paused all hold
-    /// none: the owner's *doesn't block the queue*.
+    /// **Live, and not waiting on a person.** A Session with a call standing holds none: the
+    /// owner's *doesn't block the queue*. An ended one holds none either.
     pub fn holds_a_place(&self) -> bool {
-        match self.status {
-            JobStatus::Running => true,
-            JobStatus::Queued => !self.waiting_on_a_person,
-            _ => false,
-        }
+        self.live && !self.waiting_on_a_person
     }
 
-    /// Picked and not started: queued, and no Drone has ever been on it. Stop withdraws these.
+    /// Picked and not started: live, and its agent has never run. Stop withdraws these.
     pub fn withdrawn_at_stop(&self) -> bool {
-        self.status == JobStatus::Queued && !self.ever_ran
+        self.live && !self.ever_ran
     }
 }
 
-/// How many more Jobs it may start now: `at_once` less those holding a place.
+/// How many more Sessions it may start now: `at_once` less those holding a place.
 pub fn room(at_once: u32, standing: &[Standing]) -> u32 {
     let holding = standing.iter().filter(|one| one.holds_a_place()).count();
     at_once.saturating_sub(u32::try_from(holding).unwrap_or(u32::MAX))
@@ -63,7 +50,7 @@ pub struct Caps {
     pub job_cap: Option<u32>,
 }
 
-/// What its Jobs have spent and how many it started, which the caps are held to.
+/// What its Sessions have spent and how many it started, which the caps are held to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Spent {
     pub micros: u64,
@@ -147,7 +134,7 @@ impl fmt::Display for Unsettable {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         out.write_str(match self {
             Unsettable::NoInstruction => "Autopilot needs an instruction to pick by",
-            Unsettable::NoRoom => "Autopilot needs room for at least one Job at once",
+            Unsettable::NoRoom => "Autopilot needs room for at least one Session at once",
             Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
             Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
             Unsettable::AlreadyOver(Cap::Jobs) => "a Job cap of none would start nothing",

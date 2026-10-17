@@ -1,13 +1,13 @@
 //! Autopilot: a repository works its own backlog from one instruction until a person pauses or
 //! stops it. #2092, `docs/concepts/autopilot.md`, which has the parts and the rules.
 //!
-//! **A Fleet record that starts Jobs, and neither a Session nor a Job.** Fleet does what is
+//! **A Fleet record that starts Sessions, and neither a Session nor a Job.** Fleet does what is
 //! deterministic: the room, the caps, Pause and Stop. The judgement is two model calls made the
-//! way the Job proposer's is, each of which ends, so neither holds a place a Job needs.
+//! way the Session proposer's is, each of which ends, so neither holds a place a Session needs.
 //!
-//! **A sure pick skips the dispatch gate, and nothing else does.** [`picking::SurePick`] has no
-//! public constructor: only reading the picker's answer makes one, and only a sure pick reaches
-//! the queue unasked. The owner's call of 11 Oct 2026, `2026-10-11-autopilots-clear-picks-start-unasked.md`.
+//! **Only a sure pick starts unasked.** [`picking::SurePick`] has no public constructor: only
+//! reading the picker's answer makes one, and only a sure pick starts a Session with no person
+//! pressing. The owner's call of 11 Oct 2026, `2026-10-11-autopilots-clear-picks-start-unasked.md`.
 
 mod acts;
 pub mod bounds;
@@ -15,6 +15,7 @@ mod editing;
 mod pass;
 pub mod picking;
 pub mod sentence;
+mod starting;
 mod wire;
 
 use std::sync::Arc;
@@ -29,7 +30,7 @@ pub use pass::keep_autopiloting;
 pub use picking::{candidates, picked, read_pick, Candidate, NotPicked, Pick, SetAside, SurePick};
 pub use sentence::{read_settings, settings_from, NotRead, ProposedSettings, Quoted};
 
-/// Everything one call needs in order to ask: the Job proposer's client, budget, model and
+/// Everything one call needs in order to ask: the proposer's client, budget, model and
 /// environment, and the prompts in force when the call was put together. **Each call fills its
 /// own**: `prompts.autopilotSentence` for the reader and `prompts.autopilotPicker` for the picker.
 #[derive(Clone)]
