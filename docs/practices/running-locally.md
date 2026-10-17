@@ -893,7 +893,7 @@ already a file read away.
 armada worktree lease <branch>      # a warm slot on the branch at its tip, or on a new one cut from the base; prints its path
 armada worktree lease --existing <branch>   # the same, refusing a name nothing has rather than cutting it
 armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
-armada worktree --status            # every slot, who holds it, and for how long
+armada worktree --status            # every slot, the branch checked out in it, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
 armada worktree remove <n>          # slot n gone, if it is free or not made
 armada worktree close <n>           # no lease takes slot n until it is opened

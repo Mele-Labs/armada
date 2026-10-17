@@ -101,6 +101,9 @@ pub(super) struct FakeSlots {
     parked: Mutex<Vec<(u32, String)>>,
     /// Every lease of an existing branch: the branch, the slot, the Job.
     reseated: Mutex<Vec<(String, u32, String)>>,
+    /// What a slot holds after its branch merged, where a case says; a slot nothing was said of
+    /// is idle.
+    after_merge: Mutex<BTreeMap<u32, adapter_traits::SlotAfterMerge>>,
 }
 
 impl FakeSlots {
@@ -324,6 +327,15 @@ impl FakeSlots {
             .expect("not poisoned")
             .push((slot, job.to_string()));
         Ok(())
+    }
+
+    pub(super) fn after_merge(&self, slot: u32) -> adapter_traits::SlotAfterMerge {
+        self.after_merge
+            .lock()
+            .expect("not poisoned")
+            .get(&slot)
+            .cloned()
+            .unwrap_or(adapter_traits::SlotAfterMerge::Idle)
     }
 
     pub(super) fn refuse_next_park(&self, why: SlotParkRefused) {
@@ -623,6 +635,15 @@ impl FakeVcs {
     /// slot on the base, or one another holds.
     pub fn refuse_next_park(&self, why: SlotParkRefused) {
         self.slots.refuse_next_park(why);
+    }
+
+    /// What slot `slot` holds once its branch merged, in place of nothing.
+    pub fn slot_holds_after_merge(&self, slot: u32, held: adapter_traits::SlotAfterMerge) {
+        self.slots
+            .after_merge
+            .lock()
+            .expect("not poisoned")
+            .insert(slot, held);
     }
 
     /// Every slot parked, and by which Job, in order.

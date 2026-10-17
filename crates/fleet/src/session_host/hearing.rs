@@ -374,6 +374,9 @@ where
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {
             self.next_turn_awaited(id, runtime);
+        } else {
+            let (fleet, id) = (Arc::clone(self), id.to_string());
+            tokio::spawn(async move { fleet.slots_reclaimed(&id).await });
         }
     }
 

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    RescueRefused, SlotChange, SlotKept, SlotLeased, SlotParkRefused, SlotParked, SlotPool,
+    RescueRefused, SlotAfterMerge, SlotChange, SlotKept, SlotLeased, SlotParkRefused, SlotParked, SlotPool,
     SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree,
     WorktreeSpec,
 };
@@ -41,6 +41,11 @@ pub(crate) fn lease(
             reused: !lease.made(),
         }),
     }
+}
+
+/// What slot `slot` holds now that the pull request from `merged` has merged.
+pub(crate) fn after_merge(slots: &SlotPool, slot: u32, merged: &str) -> SlotAfterMerge {
+    pool(slots).after_merge(slot as usize, merged)
 }
 
 /// Read here, at the edge: only `--status` reads it, to say for how long.

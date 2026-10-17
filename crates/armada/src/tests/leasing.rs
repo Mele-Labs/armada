@@ -100,3 +100,31 @@ fn the_clis_lease_can_take_an_existing_branch() {
     assert_ne!(crate::leasing::lease(repo.path(), "nope", true), 0);
     assert_eq!(crate::leasing::lease(repo.path(), "feature", true), 0);
 }
+
+/// `--status` names the branch the slot is on, which is where the work is, and says the leased one
+/// beside it only where a session moved off it.
+#[test]
+fn status_names_the_branch_checked_out_and_the_leased_one_where_they_differ() {
+    use super::clean::{a_repository, git};
+
+    let repo = a_repository();
+    let manifest = repo.path().join("armada.yml");
+    let declared = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, format!("{declared}setup:\n  worktrees: 1\n")).unwrap();
+    assert_eq!(crate::leasing::lease(repo.path(), "feature", false), 0);
+    let pool = crate::leasing::pool_of(repo.path()).unwrap();
+    let slot = pool.path_of(1);
+    let said = || line(&pool.status()[0], 600);
+
+    let on_it = said();
+    assert!(on_it.contains("  feature  by "), "{on_it}");
+    assert!(!on_it.contains("leased as"), "{on_it}");
+
+    git(&slot, &["switch", "--quiet", "-c", "follow-up"]);
+    let moved = said();
+    assert!(moved.contains("  follow-up (leased as feature)  by "), "{moved}");
+
+    git(&slot, &["switch", "--quiet", "--detach"]);
+    let detached = said();
+    assert!(detached.contains("  detached (leased as feature)  by "), "{detached}");
+}
