@@ -36,7 +36,7 @@ function Structure({ build }: { build: BuildIn }) {
         {...(road === undefined ? {} : { arcs: road })}
         wrap={(k, piece) => {
           const task = build.tasks[k]!;
-          const said = `${task.text}, ${(task.said ?? SAID[task.piece]).toLowerCase()}`;
+          const said = `${task.text}, ${SAID[task.piece].toLowerCase()}`;
           return spoken(task.by === undefined ? said : `${said}, ${askedOf(task.by)}`, piece);
         }}
         wrapArc={(k, arc) => {

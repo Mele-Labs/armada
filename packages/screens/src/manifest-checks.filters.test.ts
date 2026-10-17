@@ -1,9 +1,9 @@
-// The Checks filter row's rules: what each filter holds, and a Job's narrowing.
+// The Checks filter row's rules: what each filter holds.
 
 import { expect, test } from "vitest";
 import type { ManifestCheckRow, MergeLines } from "@armada/protocol";
 
-import { CHECK_FILTERS, checkEntriesOf, entryOfReported, heldBy, ofJob, type CheckEntry } from "./manifest-checks";
+import { CHECK_FILTERS, checkEntriesOf, entryOfReported, heldBy, type CheckEntry } from "./manifest-checks";
 
 function row(source: string, state: string, job = "J1"): ManifestCheckRow {
   return {
@@ -56,14 +56,6 @@ test("a Check asked for and not started is Waiting alone", () => {
   expect(CHECK_FILTERS.filter((filter) => heldBy(filter, waiting))).toEqual(["all", "waiting"]);
 });
 
-test("a Job's Checks are the reported rows with its id and any entry whose requester names it", () => {
-  const mine = one("gate", "passed");
-  const other = entryOfReported(row("gate", "passed", "J2"));
-  const outside: CheckEntry = { id: "o", name: "o", status: "passed", command: "", requester: { kind: "outside" } };
-  const line: CheckEntry = { id: "l", name: "l", status: "waiting", command: "", requester: { kind: "merge_line", job_id: "J1" } };
-  expect(ofJob([mine, other, outside, line], "J1")).toEqual([mine, line]);
-});
-
 test("a Job whose branch is queued behind another has its Checks in Waiting, as Fleet lists them", () => {
   const requester = { kind: "merge_line", branch: "fleet/mine", job_id: "J1", handle: "7-mine" };
   const lines: MergeLines = {
@@ -80,7 +72,7 @@ test("a Job whose branch is queued behind another has its Checks in Waiting, as 
       },
     ],
   };
-  const mine = ofJob(checkEntriesOf(undefined, [], lines.lines), "J1");
+  const mine = checkEntriesOf(undefined, [], lines.lines).filter((entry) => entry.requester.branch === "fleet/mine");
   expect(mine.filter((entry) => heldBy("waiting", entry)).map((entry) => entry.name)).toEqual(["ipc_test", "fleet_test"]);
   expect(mine.filter((entry) => heldBy("active", entry))).toEqual([]);
 });

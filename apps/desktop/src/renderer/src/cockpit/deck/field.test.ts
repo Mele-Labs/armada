@@ -36,11 +36,11 @@ const own = (e: TimelineEvent) => (e.subject.kind === "session" ? `session:${e.s
 // ---- A call marker ------------------------------------------------------------------------------------
 
 test("a drone that holds a call he has not opened carries a marker, amber while it is owed and red while its Check fails", () => {
-  const drones = [drone("session:a", { ping: true }), drone("job:b", { kind: "job", ping: true, flare: true }), drone("session:quiet")];
+  const drones = [drone("session:a", { ping: true }), drone("session:b", { ping: true, flare: true }), drone("session:quiet")];
   const owed = (key: string) => (key === "session:quiet" ? undefined : `call:${key}`);
   const marks = callMarkersOf(drones, owed, new Set(), true);
 
-  expect([...marks]).toEqual([["session:a", "ask"], ["job:b", "bad"]]);
+  expect([...marks]).toEqual([["session:a", "ask"], ["session:b", "bad"]]);
 });
 
 test("a call he has opened or answered no longer marks its drone, and a drone the filters dim carries none", () => {
@@ -52,10 +52,10 @@ test("a call he has opened or answered no longer marks its drone, and a drone th
 });
 
 test("in a replay the markers are the drones that were calling at the playhead, whatever has since been opened", () => {
-  const drones = [drone("session:a", { ping: true }), drone("job:b", { kind: "job", ping: true, flare: true }), drone("session:c")];
+  const drones = [drone("session:a", { ping: true }), drone("session:b", { ping: true, flare: true }), drone("session:c")];
   const marks = callMarkersOf(drones, () => undefined, new Set(["x"]), false);
 
-  expect([...marks]).toEqual([["session:a", "ask"], ["job:b", "bad"]]);
+  expect([...marks]).toEqual([["session:a", "ask"], ["session:b", "bad"]]);
 });
 
 // ---- The loops ------------------------------------------------------------------------------------------

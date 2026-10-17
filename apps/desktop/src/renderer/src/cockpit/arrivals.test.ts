@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Item } from "../Dashboard";
 import { alertOf, arrived } from "./arrivals";
 
-const call = (key: string, title: string, at?: string, status?: string): Item =>
-  ({ key, title, at, ...(status === undefined ? {} : { job: { id: key, status } }) }) as unknown as Item;
+const call = (key: string, title: string, at?: string): Item => ({ key, title, at }) as unknown as Item;
 
 describe("arrived", () => {
   it("tells nobody on the first reading, so a call standing when Bridge opened is not news", () => {
@@ -26,17 +25,12 @@ describe("alertOf", () => {
     expect(alertOf([])).toBeNull();
   });
 
-  it("names one call, and its dot wears the Job's state", () => {
-    expect(alertOf([call("job_1", "Fix the login", undefined, "awaiting_review")])).toEqual({
-      key: "job_1",
-      keys: ["job_1"],
+  it("names one call", () => {
+    expect(alertOf([call("session:s1:q", "Fix the login")])).toEqual({
+      key: "session:s1:q",
+      keys: ["session:s1:q"],
       sentence: "“Fix the login” needs you.",
-      status: "awaiting-review",
     });
-  });
-
-  it("has no dot for a call that is not a Job's", () => {
-    expect(alertOf([call("session:s1:q", "Which database?")])).not.toHaveProperty("status");
   });
 
   it("counts several as one toast and lands on the one that has waited longest", () => {

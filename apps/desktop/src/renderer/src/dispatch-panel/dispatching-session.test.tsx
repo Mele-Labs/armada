@@ -34,11 +34,8 @@ function Window() {
   const dispatching = useDispatch({
     state,
     repositories: [armada],
-    proposeFrom: async () => null,
     openSession: opened,
-    openJob: () => undefined,
     openAutopilot: () => undefined,
-    said: () => undefined,
   });
   return (
     <DispatchingProvider value={dispatching}>
@@ -78,7 +75,6 @@ test("starting a Session from the sheet passes the typed words as the request an
   const request = page.getByRole("textbox", { name: "Request" });
   await expect.element(request).toBeVisible();
   await expect.element(request).toHaveFocus();
-  await userEvent.keyboard("{Tab}");
   await expect.element(page.getByRole("button", { name: "Start" })).toBeVisible();
   await userEvent.keyboard("Fix the login page");
   await expect.element(request).toHaveValue("Fix the login page");

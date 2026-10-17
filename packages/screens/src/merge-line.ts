@@ -5,8 +5,8 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { HubPull, MainRed, PlaceRow, MainState, RecentSession, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
-import type { HubMerged, HubPullRequest as WireHubPull, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { HubPull, MainRed, PlaceRow, MainState, RecentSession, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
+import type { HubMerged, HubPullRequest as WireHubPull, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -67,26 +67,20 @@ export function mergeLineViews(
   lines: MergeLines | null,
   picked: string | null,
   repositories: readonly RepositorySummary[],
-  jobs: readonly JobSummary[] = [],
 ): readonly MergeLineView[] {
   const served = lines?.lines ?? [];
   const chosen = picked === null ? served : served.filter((one) => one.root === picked);
   const named = chosen.length > 1;
-  const owners = ownersOf(jobs);
-  const owned = (entry: MergeLineEntry): MergeLineEntry => {
-    const job = entry.job ?? owners.get(entry.branch);
-    return job === undefined ? entry : { ...entry, job };
-  };
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: inOrder(one.line).map((row) => owned(entryOf(row, (one as NoticedLine).notice?.kind === "main"))),
+    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
     // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
     // files only from a Fleet before 23.42, or one whose forge said none.
-    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => owned(entryOf(row))),
-    sentBack: one.sent_back.map((row) => owned(entryOf(row))),
+    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => entryOf(row)),
+    sentBack: one.sent_back.map((row) => entryOf(row)),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
-    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs)) }),
+    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub) }),
   }));
 }
 
@@ -111,15 +105,6 @@ export function recentSessionsOf(sessions: readonly Session[], culprit?: { id: s
   return culprit === undefined || open.some((one) => one.id === culprit.id) ? open : [{ id: culprit.id, title: culprit.title }, ...open];
 }
 
-/** The Job each branch belongs to, from the Board's rows. The newest Job wins where two named one branch. */
-function ownersOf(jobs: readonly JobSummary[]): Map<string, { id: string; title: string }> {
-  const owners = new Map<string, { id: string; title: string }>();
-  for (const job of [...jobs].sort((a, b) => (a.ended_at ?? "\uffff").localeCompare(b.ended_at ?? "\uffff") || a.id.localeCompare(b.id))) {
-    if (job.branch !== undefined) owners.set(job.branch, { id: job.id, title: job.title });
-  }
-  return owners;
-}
-
 /** A pull request the forge lists as merged, as a landed row draws it. */
 function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
@@ -137,23 +122,12 @@ function mainRunOf(run: MainRun, commit: string): Pick<MergeLineEntry, "mainRun"
   return { mainRun: { state: run.state, ...(run.failed === undefined || run.failed.length === 0 ? {} : { failed: run.failed }), branch: `main@${commit}` } };
 }
 
-/** The statuses work can be sent back to: at its review, or over. */
-const SENDABLE = new Set(["awaiting_review", "completed_success", "completed_failed", "killed"]);
-
-/** The Jobs main's red can be sent back to, newest first: the Board's rows that hold a branch. */
-function recentOf(jobs: readonly JobSummary[]): readonly RecentJob[] {
-  return jobs
-    .filter((job) => SENDABLE.has(job.status) && job.branch !== undefined)
-    .sort((a, b) => (b.ended_at ?? "").localeCompare(a.ended_at ?? "") || b.id.localeCompare(a.id))
-    .map((job) => ({ id: job.id, title: job.title, branch: job.branch! }));
-}
-
 /**
  * The hub as the panel draws it. **Main is drawn green or red and nothing else**: a commit still
  * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for. A red
  * with newer commits running is held, and the panel draws it as such.
  */
-function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
+function hubOf(hub: WireHub): MergeLineHub {
   const main = mainOf(hub);
   return {
     ...(main === undefined ? {} : { main }),
@@ -173,7 +147,6 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
       ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
       ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
-    recent,
     ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
     ...(hub.forge_read_at === undefined ? {} : { readAt: hub.forge_read_at }),
     ...(hub.quiet_since === undefined ? {} : { quietSince: hub.quiet_since }),

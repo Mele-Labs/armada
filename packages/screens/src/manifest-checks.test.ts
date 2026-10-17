@@ -51,17 +51,10 @@ test("a stopped run is stopped, and a run with no exit code says what ended it",
 
 const label = (id: string) => `job-${id}`;
 
-test("every kind but outside opens its requester", () => {
-  expect(askerOf({ kind: "gate", job_id: "1", step: "implement" }, label)).toEqual({
-    label: "Gate · job-1 · implement",
-    opens: { to: "job", jobId: "1", step: "implement" },
-  });
-  expect(askerOf({ kind: "drone_task", job_id: "1", step: "implement", task_id: "T3", drone_id: "d9" }, label)).toEqual({
-    label: "Drone d9 · job-1 · implement · T3",
-    opens: { to: "job", jobId: "1", task: "T3" },
-  });
-  expect(askerOf({ kind: "drone_task", job_id: "1", step: "implement", drone_id: "d9" }, label).opens).toEqual({ to: "job", jobId: "1", drone: "d9", step: "implement" });
-  expect(askerOf({ kind: "drone_step", job_id: "1", step: "fix", drone_id: "d9" }, label).opens).toEqual({ to: "job", jobId: "1", drone: "d9", step: "fix" });
+test("only the merge line opens its requester, and the rest are plain words", () => {
+  expect(askerOf({ kind: "gate", job_id: "1", step: "implement" }, label)).toEqual({ label: "Gate · job-1 · implement" });
+  expect(askerOf({ kind: "drone_task", job_id: "1", step: "implement", task_id: "T3", drone_id: "d9" }, label)).toEqual({ label: "Drone d9 · job-1 · implement · T3" });
+  expect(askerOf({ kind: "drone_step", job_id: "1", step: "fix", drone_id: "d9" }, label).opens).toBeUndefined();
   expect(askerOf({ kind: "merge_line", branch: "b" }, label)).toEqual({ label: "Merge line · b", opens: { to: "merge-line", branch: "b" } });
   expect(askerOf({ kind: "outside" }, label)).toEqual({ label: "Started outside a Job" });
 });

@@ -26,8 +26,7 @@ import type {
   RunOutputRead,
 } from "@armada/protocol";
 
-import { JobCheckLogSheet, LandCheckLogSheet } from "@armada/screens/src/check-log-sheet";
-import type { JobOpening } from "./detail-props";
+import { JobCheckLogSheet, LandCheckLogSheet } from "./check-log-sheet";
 import {
   askerOf,
   CHECK_FILTER_LABEL,
@@ -36,13 +35,12 @@ import {
   checkEntriesOf,
   checkRowOf,
   heldBy,
-  ofJob,
   type Asker,
   type CheckEntry,
   type CheckFilter,
-} from "@armada/screens/src/manifest-checks";
-import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "@armada/screens/src/outputs";
-import { LogSheet } from "@armada/screens/src/log-sheet";
+} from "./manifest-checks";
+import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "./outputs";
+import { LogSheet } from "./log-sheet";
 
 export type ManifestChecksProps = {
   /** Draw only the focused run's panel, over whatever surface asked; the list and filters are left out. */
@@ -72,15 +70,12 @@ export type ManifestChecksProps = {
   onStopSessionCheck: (run: number, force: boolean) => Promise<unknown>;
   onFollowCheckOutput: FollowCheckOutput;
   followedLog: FollowedLog;
-  /** A Job as a person names it, for the link to it. */
+  /** A Job as a person names it, for a Check its gate asked for. */
   jobLabel: (jobId: string) => string;
-  /** Where a requester is opened: a Job at a step, Drone or task, and the merge line at a branch. */
-  onOpenJob: (jobId: string, to?: JobOpening) => void;
+  /** Where a requester is opened: the merge line at a branch. */
   onOpenMergeLine: (branch?: string) => void;
   /** The window is at `--window-floor`. */
   floor: boolean;
-  /** Narrows the list to one Job's Checks, which is the Job detail's Checks tab. */
-  job?: string;
   /** A Check to have open on arriving: a Session's thread row names its run. */
   focus?: string;
 };
@@ -122,11 +117,8 @@ export function ManifestChecks(props: ManifestChecksProps) {
     };
   }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
 
-  const { job, focus } = props;
-  const entries = useMemo(() => {
-    const all = checkEntriesOf(data, runs, lines, reported);
-    return job === undefined ? all : ofJob(all, job);
-  }, [data, runs, lines, reported, job]);
+  const { focus } = props;
+  const entries = useMemo(() => checkEntriesOf(data, runs, lines, reported), [data, runs, lines, reported]);
   useEffect(() => {
     if (focus === undefined) return;
     setFilter("all");
@@ -249,25 +241,17 @@ function ReportedLogPanel(
 }
 
 /** The Check's facts, with who asked as a link where a route to them exists. */
-function FactsOf({ entry, jobLabel, onOpenJob, onOpenMergeLine }: ManifestChecksProps & { entry: CheckEntry }) {
+function FactsOf({ entry, jobLabel, onOpenMergeLine }: ManifestChecksProps & { entry: CheckEntry }) {
   const asker = askerOf(entry.requester, jobLabel);
-  return <CheckDetails details={checkDetailsOf(entry, <RequestedBy asker={asker} onOpenJob={onOpenJob} onOpenMergeLine={onOpenMergeLine} />)} />;
+  return <CheckDetails details={checkDetailsOf(entry, <RequestedBy asker={asker} onOpenMergeLine={onOpenMergeLine} />)} />;
 }
 
-/** Who asked, pressable where there is a requester to open. */
-function RequestedBy({ asker, onOpenJob, onOpenMergeLine }: { asker: Asker; onOpenJob: ManifestChecksProps["onOpenJob"]; onOpenMergeLine: ManifestChecksProps["onOpenMergeLine"] }): ReactNode {
+/** Who asked, pressable where the requester is the merge line, which has a row to open. */
+function RequestedBy({ asker, onOpenMergeLine }: { asker: Asker; onOpenMergeLine: ManifestChecksProps["onOpenMergeLine"] }): ReactNode {
   const { opens, label } = asker;
-  if (opens === undefined) return label;
+  if (opens === undefined || opens.to !== "merge-line") return label;
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() =>
-        opens.to === "merge-line"
-          ? onOpenMergeLine(opens.branch)
-          : onOpenJob(opens.jobId, opens.step === undefined && opens.drone === undefined && opens.task === undefined ? undefined : { ...(opens.step === undefined ? {} : { step: opens.step }), ...(opens.drone === undefined ? {} : { drone: opens.drone }), ...(opens.task === undefined ? {} : { task: opens.task }) })
-      }
-    >
+    <Button variant="ghost" size="sm" onClick={() => onOpenMergeLine(opens.branch)}>
       {label}
     </Button>
   );

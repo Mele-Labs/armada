@@ -381,7 +381,6 @@ export const MainRed: Story = {
         },
         takenBySession: { id: "session-1", title: "Cache the manifest read between dispatches" },
       },
-      recent: [],
       pulls: [
         { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", ci: "waiting_on_main" },
         { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens", ci: "waiting_on_main" },
@@ -417,7 +416,6 @@ export const MainGreen: Story = {
     line: [],
     hub: {
       main: { state: "green" },
-      recent: [],
       pulls: [
         { number: 1817, url: `${PULL}1817`, branch: "docs/merge-line-hub", ci: "passed" },
         { number: 1818, url: `${PULL}1818`, branch: "fleet/pause-markers", ci: "running" },
@@ -449,7 +447,7 @@ export const MainNotKnown: Story = {
   name: "Main not known, a pull request nothing ran on",
   args: {
     line: [],
-    hub: { recent: [], pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
+    hub: { pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
   },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("img", { name: /^Main is/ })).toBeNull();
@@ -504,7 +502,6 @@ export const MainHeld: Story = {
         },
         checking: [{ commit: "d".repeat(40), number: 1852, url: `${PULL}1852` }],
       },
-      recent: [],
       pulls: [],
     },
     landed: [
@@ -515,7 +512,7 @@ export const MainHeld: Story = {
     await expect(canvas.getByRole("img", { name: "Main is red, new checks are running" })).toBeVisible();
     const band = canvas.getByRole("status", { name: "New checks are running on main" });
     await expect(within(band).getByText(/New checks are running on main:/)).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");

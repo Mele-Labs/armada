@@ -3,7 +3,7 @@
 // `TimelineEvent`); `fleet-timeline.ts` reads them in the app, and a mock scenario carries its own list.
 // Both reach the window through `FleetEventsFrom` or `FleetEventsOver`, and `fromWire` is where an entry
 // becomes what the takes draw. **A pull request is no subject**: its entries are events on the track of the
-// Job or Session that owns it, and one nobody owns is left out.
+// Session that owns it, and one nobody owns is left out.
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
@@ -17,7 +17,7 @@ import type { Owner } from "./owner";
 /** What an event is a state of, as the colour reads it: working, needs him, failing, passed, waiting. */
 export type EventTone = TimelineTone;
 
-export type Subject = { kind: "job"; id: string; title: string } | { kind: "session"; id: string; title: string } | { kind: "main" };
+export type Subject = { kind: "session"; id: string; title: string } | { kind: "main" };
 
 /** The pull request an event is about, where it is drawn on its owner's track. */
 export type Pull = { number: number; title: string; url?: string };
@@ -42,7 +42,7 @@ export type FleetEvent = {
   live?: boolean;
   /** The subject is over after this: landed, failed, merged, ended. */
   over?: boolean;
-  /** Set where the event is a pull request's: it sits on the track of the Job or Session that owns it. */
+  /** Set where the event is a pull request's: it sits on the track of the Session that owns it. */
   pull?: Pull;
   /** The files or commands a coalesced row counts, newest first. The first is `detail`. Absent where Fleet kept none, and the row then opens to nothing. */
   items?: readonly string[];
@@ -69,9 +69,8 @@ export function useFleetEvents(): readonly TimelineEvent[] {
   return useSyncExternalStore(source.subscribe, source.get);
 }
 
-/** What a subject is called where the entry itself carries no title: the Jobs and Sessions the window holds. */
+/** What a subject is called where the entry itself carries no title: the Sessions the window holds. */
 export type Names = {
-  job: (id: string) => string | undefined;
   session: (id: string) => string | undefined;
   /** Whoever owns pull request `number`. */
   pull: (number: number) => Owner | undefined;
@@ -90,10 +89,7 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
   else if (subject.kind === "pull_request") {
     const owner = names.pull(subject.number);
     if (owner === undefined) return undefined;
-    drawn =
-      owner.kind === "job"
-        ? { kind: "job", id: owner.id, title: names.job(owner.id) ?? owner.title }
-        : { kind: "session", id: owner.id, title: names.session(owner.id) ?? owner.title };
+    drawn = { kind: "session", id: owner.id, title: names.session(owner.id) ?? owner.title };
     pull = { number: subject.number, title: event.title ?? "", ...(subject.url === undefined ? {} : { url: subject.url }) };
   } else drawn = { kind: "main" };
   const detail = pull === undefined ? event.detail : [`#${pull.number}`, event.detail].filter((one) => one !== undefined).join(" ");
@@ -113,7 +109,7 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
   };
 }
 
-export const keyOf = (subject: Subject): string => (subject.kind === "job" ? `job:${subject.id}` : subject.kind === "session" ? `session:${subject.id}` : "main");
+export const keyOf = (subject: Subject): string => (subject.kind === "session" ? `session:${subject.id}` : "main");
 
 export const titleOf = (subject: Subject): string => (subject.kind === "main" ? "main" : subject.title);
 
@@ -128,9 +124,6 @@ export const STANDINGS: readonly { id: Standing; said: string }[] = [
   { id: "idle", said: "Waiting" },
   { id: "done", said: "Finished" },
 ];
-
-/** A Job working and silent this long is stuck. A Session is not read this way: Fleet says whether it is (`session-state.ts`). */
-export const STUCK_MS = 10 * 60_000;
 
 export type Lane = {
   key: string;
@@ -174,7 +167,7 @@ function sessionStanding(state: SessionState): Standing {
  * window holds, as the Sessions list reads it; a Session it does not hold stands by its newest event's
  * tone and is never moving or stuck.
  */
-export function lanesOf(events: readonly FleetEvent[], now: number, reading: (sessionId: string) => SessionState | undefined = () => undefined): Lane[] {
+export function lanesOf(events: readonly FleetEvent[], reading: (sessionId: string) => SessionState | undefined = () => undefined): Lane[] {
   const by = new Map<string, FleetEvent[]>();
   for (const event of events) {
     const key = keyOf(event.subject);
@@ -182,7 +175,7 @@ export function lanesOf(events: readonly FleetEvent[], now: number, reading: (se
   }
   const lanes = [...by].map(([key, own]): Lane => {
     const newest = own.sort((a, b) => when(b) - when(a));
-    // A pull request's events are marks on the track and do not say how the Job or Session stands.
+    // A pull request's events are marks on the track and do not say how the Session stands.
     const head = newest.find((one) => one.pull === undefined) ?? newest[0]!;
     const read = head.subject.kind === "session" ? reading(head.subject.id) : undefined;
     const standing: Standing =
@@ -195,9 +188,7 @@ export function lanesOf(events: readonly FleetEvent[], now: number, reading: (se
             : head.tone === "bad"
               ? "bad"
               : head.subject.kind !== "session" && head.live === true
-                ? now - when(head) > STUCK_MS
-                  ? "stuck"
-                  : "run"
+                ? "run"
                 : "idle";
     return { key, subject: head.subject, repo: head.repo, events: newest, head, standing, ...(read === undefined ? {} : { session: read }), last: when(newest[0]!) };
   });

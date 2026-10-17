@@ -50,12 +50,3 @@ test("a hidden drone is not a doer, and a drone flies higher while it hovers tha
   expect(frame.doers).toEqual([]);
   expect(frame.altOf(hovers)).toBeGreaterThan(frame.altOf(rests));
 });
-
-test("the mission's own drone hovers clear of the pin it is over", () => {
-  const job = drone("job:j", { kind: "job", slot: "slot-1" });
-  const layout = layoutOf([repo], [job], SIZE, BIG);
-  const plain = frameOf({ layout, drones: [job], plays: [], big: BIG });
-  const mission = frameOf({ layout, drones: [job], plays: [], big: BIG, missionJob: "job:j" });
-
-  expect(mission.altOf(job)).toBeGreaterThan(plain.altOf(job));
-});

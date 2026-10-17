@@ -1,6 +1,6 @@
 // Which pull requests the Merge line marks while a Session is open: the ones it owns or opened. A pull request is the Session's when the
 // forge listing named it the owner (`Pr.owner`), or when the Session holds it as an attachment, by number or by its branch, as `ship.ts`
-// names an owner. Nothing selected, or a Job, marks none.
+// names an owner. Nothing selected marks none.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 

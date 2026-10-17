@@ -34,7 +34,6 @@ function Host() {
         context="board"
         on={null}
         surfaces={[]}
-        jobs={[]}
         settings={[{ id: "fleet_settings", label: "Fleet limits" }]}
         onChoose={(choice) => {
           if (choice.of === "setting") openSettingsAt(choice.id, () => setShowing(true));

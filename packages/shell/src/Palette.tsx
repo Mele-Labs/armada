@@ -9,8 +9,8 @@
 //
 // # The contents, in the order the contract fixes
 //
-// Acts on the current context, navigation, jobs, settings. The context block
-// is **titled with the job it acts on**, so a palette that will Kill something
+// Acts on the current context, navigation, sessions, settings. The context block
+// is **titled with what it acts on**, so a palette that will act on something
 // says which something before the first row is read.
 //
 // # Everything here is the registry's, and nothing is decided here
@@ -39,9 +39,6 @@ import type { LucideIcon } from "lucide-react";
 
 import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
 import type { Action, ActionContext, PaletteDispatch, PaletteEntry, PaletteSection } from "@armada/components";
-
-/** A Job as a search result. It carries no binding, and that is not a gap. */
-export type PaletteJob = { id: string; label: string };
 
 /** A Session as a search result: found by any word of its title, or by its id. */
 export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
@@ -121,17 +118,14 @@ export type PaletteSetting = { id: string; label: string; value?: string; aliase
 export type PaletteFilter = { id: string; label: string; shortcut: string };
 
 /**
- * A row read or acted on across every Job, with no registry row and no rail
- * row: Reported, and the two bulk sweeps. Drawn under Navigation beside the
- * global acts, which reach no one Job either. The palette is the only place
- * Reported is drawn — the owner's note of 1 Oct 2026.
+ * A row about the window as a whole, with no registry row and no rail row: Reported. Drawn under
+ * Navigation beside the global acts. The palette is the only place Reported is drawn — the owner's note of 1 Oct 2026.
  */
 export type PaletteBoardRow = { id: string; label: string; destructive?: boolean; dormant?: string };
 
 /** What a chosen row was. The section it came from decides what happens. */
 export type PaletteChoice =
   | { of: "act"; id: string }
-  | { of: "job"; id: string }
   | { of: "session"; id: string }
   | { of: "surface"; id: string }
   | { of: "run"; id: string }
@@ -147,10 +141,10 @@ export type PaletteRepository = { root: string; label: string };
 export type PaletteProps = {
   open: boolean;
   onClose: () => void;
-  /** Where the person is standing: the board, or one Job read whole. */
+  /** Where the person is standing: the board, or a Studio. */
   context: ActionContext;
   /**
-   * The Job the acts act on, as a person reads it. `null` where nothing is
+   * What the acts act on, as a person reads it. `null` where nothing is
    * focused — and then the block says so rather than being titled with
    * nothing, because a heading that names no object over rows that need one is
    * the ambiguity the title exists to remove.
@@ -164,13 +158,12 @@ export type PaletteProps = {
    *
    * **Empty everywhere else, and that is the whole of the scoping.** Choosing
    * one runs it in the checkout, which is an act on a surface rather than on a
-   * Job — so a row offered from the Board would be a run started from a
+   * Session — so a row offered from the Board would be a run started from a
    * surface that cannot show its output.
    */
   runnables?: readonly PaletteRunnable[];
-  /** Rows about every Job at once. Absent draws none. */
+  /** Rows about the window as a whole. Absent draws none. */
   board?: readonly PaletteBoardRow[];
-  jobs: readonly PaletteJob[];
   /** Sessions to jump to. Absent draws none. */
   sessions?: readonly PaletteSession[];
   settings: readonly PaletteSetting[];
@@ -191,11 +184,12 @@ export type PaletteProps = {
   /**
    * A row was chosen. **Destructive acts do not come through here** — they go
    * to `onConfirmAct`, because every destructive action confirms even from the
-   * keyboard, and the palette stays open behind the confirmation.
+   * keyboard, and the palette stays open behind the confirmation. Absent where
+   * no act that confirms is offered.
    */
   onChoose: (choice: PaletteChoice) => void;
-  onConfirmAct: (actionId: string) => void;
-  /** The one bar's dispatch row: what was typed, sent as a Job or a Session. */
+  onConfirmAct?: (actionId: string) => void;
+  /** The one bar's dispatch row: what was typed, sent as a Session or an Autopilot. */
   dispatch?: PaletteDispatch;
   /** The title bar's field, which the palette opens over. */
   anchor?: string;
@@ -205,7 +199,6 @@ export type PaletteProps = {
 const CONTEXT = "context";
 const NAVIGATION = "navigation";
 const RUN = "run";
-const JOBS = "jobs";
 const SESSIONS = "sessions";
 const SETTINGS = "settings";
 const REPOSITORIES = "repositories";
@@ -216,8 +209,8 @@ const ALL_REPOSITORIES = "repo-all";
 /** The registry row the Board's filters stand in for. */
 const STATE_FILTER = "state_filter";
 
-/** What the block is titled where nothing is under the cursor. */
-const NOTHING_FOCUSED = "No job focused";
+/** What the block is titled where nothing is focused. */
+const NOTHING_FOCUSED = "Nothing focused";
 
 /**
  * Whether ⌘K is down, and the state it opens.
@@ -260,7 +253,6 @@ export function Palette({
   filters = [],
   runnables = [],
   board = [],
-  jobs,
   sessions = [],
   settings,
   repositories = [],
@@ -275,15 +267,14 @@ export function Palette({
   const sections: PaletteSection[] = [
     { id: CONTEXT, title: on ?? NOTHING_FOCUSED },
     { id: NAVIGATION, title: "Navigation" },
-    // **Below Navigation and above Jobs, and it is a fifth block.** The
+    // **Below Navigation and above Sessions, and it is a fifth block.** The
     // contract's contents order names four, and none of them is this: a Check
-    // is not an act on the Job under the cursor, not a place, not a Job and
+    // is not an act on what is focused, not a place, not a Session and
     // not a setting. It sits where it does because it is the one block scoped
     // to the surface showing — nearer the acts than the index of everything.
     ...(runnables.length === 0 ? [] : [{ id: RUN, title: "Run in the checkout" }]),
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
     ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
-    { id: JOBS, title: "Jobs" },
     ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Sessions" }]),
     { id: SETTINGS, title: "Settings" },
   ];
@@ -353,7 +344,6 @@ export function Palette({
             ...(picked === one.root ? { value: "picked" } : {}),
           })),
         ]),
-    ...jobs.map((job) => ({ id: `job:${job.id}`, section: JOBS, label: job.label })),
     ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: session.aliases })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
@@ -369,14 +359,14 @@ export function Palette({
       open={open}
       sections={sections}
       entries={entries}
-      searched={searchedSentence(jobs.length, sessions.length, settings.length, runnables.length, repositories.length)}
+      searched={searchedSentence(sessions.length, settings.length, runnables.length, repositories.length)}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.
       onConfirm={(entry) =>
-        entry.id.startsWith("board:") ? onChoose(choiceOf(entry.id)) : onConfirmAct(bare(entry.id))
+        entry.id.startsWith("board:") ? onChoose(choiceOf(entry.id)) : onConfirmAct?.(bare(entry.id))
       }
     />
   );
@@ -417,7 +407,6 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("repo:")) return { of: "repository", root: rest };
   if (id.startsWith("act:")) return { of: "act", id: rest };
   if (id.startsWith("nav:")) return { of: "surface", id: rest };
-  if (id.startsWith("job:")) return { of: "job", id: rest };
   if (id.startsWith("session:")) return { of: "session", id: rest };
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
@@ -434,13 +423,12 @@ function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(jobs: number, sessions: number, settings: number, runnables: number, repositories: number): string {
+function searchedSentence(sessions: number, settings: number, runnables: number, repositories: number): string {
   const held = [
     "every act available here",
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
     repositories === 0 ? null : "every repository",
-    jobs === 0 ? null : "every active job",
     sessions === 0 ? null : "every live session",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);

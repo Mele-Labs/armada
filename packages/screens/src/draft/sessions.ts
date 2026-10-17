@@ -26,9 +26,8 @@ export type SessionTrail = {
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
-  /** `handed` is a slot that came with a Job a person piloted, which the Session did not lease. */
-  | { kind: "slot"; slot: number; handed?: { job: number } }
-  | { kind: "branch"; name: string; slot: number; handed?: { job: number } }
+  | { kind: "slot"; slot: number }
+  | { kind: "branch"; name: string; slot: number }
   | {
       kind: "pull_request";
       number: number;
@@ -721,8 +720,6 @@ export type SessionsDraft = {
    * draw the press as underway until then. A refusal is `said`, not thrown.
    */
   act: (id: string, number: number, act: PullRequestAct) => Promise<boolean>;
-  /** Set where `act` dispatches the review itself, so the window does not propose one beside it. */
-  reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
   /** The model a Session follows while it names none, as Fleet's model list holds it. */

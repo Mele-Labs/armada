@@ -88,7 +88,6 @@ import { SessionRefs } from "./helm-refs";
 import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
-import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
@@ -300,7 +299,6 @@ function useOpenRetro(session: Session): (retro: number) => void {
 
 /** Where a ledger row goes: the surface that already shows the thing. */
 export type LedgerGoes = {
-  onOpenJob: (jobId: string) => void;
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
   onOpenCheck: (sessionId: string, run: number) => void;
@@ -837,7 +835,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
       : [{ key: "waiting-slot", kind: "waiting" as const, name: trouble.said, text: trouble.said, onOpen: () => showLayer(session.id, "slot") }]),
     ...entriesOf(
     released.shown,
-    narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
+    narrow ? { ...goes, onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
@@ -1082,10 +1080,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {
           const done = draft.act(session.id, number, act);
-          // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
-          // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
-          const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
-          if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
           // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
           const asked = (session.waitingFor ?? []).find(
             (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
@@ -1105,7 +1099,7 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
           setPadOpen(false);
         }}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
       </ProseTerminal.Provider>
     </SessionRefs>
   );

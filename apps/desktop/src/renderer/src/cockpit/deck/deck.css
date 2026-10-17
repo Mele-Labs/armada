@@ -410,7 +410,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 }
 .deck-bay[data-bay="leased"],
 .deck-bay[data-bay="busy"] { --hue: var(--slot-held); }
-.deck-bay[data-bay="leased"][data-kept],
 .deck-bay[data-bay="stranded"] { --hue: var(--slot-stranded); }
 .deck-bay[data-bay="free"] { --hue: var(--slot-free); }
 .deck-bay[data-bay="closed"] { --hue: var(--slot-closed); }

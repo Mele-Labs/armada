@@ -17,7 +17,7 @@ const REST: Record<Side, number> = { left: 6, right: 5.75 };
 const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = { session: { right: 8.5 } };
 /** The narrowest each column goes before its rows clip: the left's row is a kind, a title, a few words and a mark. */
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
-/** The least the stage keeps: a Job's canvas beside its mission, a Session's thread. */
+/** The least the stage keeps: a Session's thread. */
 const CENTRE_FLOOR = 10;
 
 export type Columns = {

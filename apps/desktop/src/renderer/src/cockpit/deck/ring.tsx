@@ -10,7 +10,7 @@ export type RingProps = {
   big: number;
   /** How far the unfinished part has dimmed, 0 to 1. */
   dim: number;
-  /** The road, one arc for each stop and the landing last. Absent where the ring has none: a Job's route is its road. */
+  /** The road, one arc for each stop and the landing last. Absent where the ring has none. */
   arcs?: readonly Arc[];
   /** Draws a piece inside something that speaks for it when it is hovered. */
   wrap?: (k: number, piece: ReactNode) => ReactNode;

@@ -58,7 +58,7 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
         {...(place === undefined ? {} : { value: place })}
         onChange={(id) => {
           const tab = DECK_TABS.find((one) => one.id === id);
-          // Pressing the place a person is in goes up to its list (an open Job or Session closes), except the Cockpit, which is already the deck.
+          // Pressing the place a person is in goes up to its list (an open Session closes), except the Cockpit, which is already the deck.
           if (tab !== undefined && (tab.id !== "cockpit" || tab.id !== place || away)) onGoTo(tab.surface);
         }}
       />

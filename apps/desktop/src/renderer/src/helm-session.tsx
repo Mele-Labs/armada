@@ -8,13 +8,10 @@ import { HelmHolds, SessionThread, TileSheet } from "@armada/components";
 import type { HelmDockProps } from "@armada/helm";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions";
-import type { JobSummary, MergeLines, SettingsList, WorkflowSummary } from "@armada/protocol";
+import type { MergeLines, SettingsList } from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
-import { withApprovals } from "./helm-approval";
-import type { Pressed } from "./helm-approval";
-import { proposeRequest } from "./dispatch";
 import { pullRequestPlaceOf } from "./pull-request-place";
 import { entriesOf, ReadingSheet, readingOf, stepsReadingOf } from "./sessions";
 import type { HeldReads, LedgerGoes, Reading } from "./sessions";
@@ -46,10 +43,6 @@ type Host = {
   manifestId: string | undefined;
   goes: LedgerGoes;
   held: HeldReads;
-  board: readonly JobSummary[];
-  workflows: readonly WorkflowSummary[];
-  /** The press on a Job's approval gate, which an approval Helm asked for is answered with. */
-  onApprove: (jobId: string) => Promise<{ ok: boolean }>;
   lines: MergeLines | null;
   settings: SettingsList | null;
   openSession: (id: string) => void;
@@ -58,14 +51,13 @@ type Host = {
 };
 
 /** What the dock is given to draw Helm as a Session, and the sheets its chips open, drawn once beside the dock. */
-export function useHelmHosted({ manifestId, goes, held, board, workflows, onApprove, lines, settings, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
+export function useHelmHosted({ manifestId, goes, held, lines, settings, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = useHelmSession(manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
-  const [pressed, setPressed] = useState<Record<string, Pressed>>({});
   const id = session?.id;
   const watch = draft?.watch;
   // A real Fleet reads a thread when it is opened and follows it from there.
@@ -83,13 +75,6 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
   const rows = useMemo(() => words.engine.overlay(words.key, session?.rows ?? NO_SESSION_ROWS), [words, session?.rows, version]);
   const waiting = session === undefined && rows.length > 0;
   const thread = useBackfilled(session === undefined && !waiting ? NO_ROWS : threadRowsFrom(rows, session?.attachments), id ?? words.key);
-  const drawn = withApprovals(thread, {
-    jobs: board,
-    workflows,
-    pressed,
-    onApprove,
-    onPress: (cardId, press) => setPressed(({ [cardId]: _was, ...rest }) => (press === undefined ? rest : { ...rest, [cardId]: press })),
-  });
   if (draft === undefined) return { hosted: undefined, sheets: null };
   // The repository's first message has no Session yet and so no thread: the words are shown where it will be.
   if (session === undefined) {
@@ -97,7 +82,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     return {
       hosted: {
         working: false,
-        thread: <SessionThread sessionId={words.key} rows={drawn} agentName="Helm" onRetry={words.retry} onAnswer={() => undefined} onOpenSession={openSession} />,
+        thread: <SessionThread sessionId={words.key} rows={thread} agentName="Helm" onRetry={words.retry} onAnswer={() => undefined} onOpenSession={openSession} />,
       },
       sheets: null,
     };
@@ -130,7 +115,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     thread: (
       <SessionThread
         sessionId={session.id}
-        rows={drawn}
+        rows={thread}
         onRetry={words.retry}
         agentName="Helm"
         working={session.turn.state === "working"}
@@ -166,15 +151,9 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
         lines={lines}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
-        onAct={(number, act) => {
-          const done = draft.act(session.id, number, act);
-          // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
-          const opened = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
-          if (act === "review" && opened?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(opened.address, []);
-          return done;
-        }}
+        onAct={(number, act) => draft.act(session.id, number, act)}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
     </>
   );
   return { hosted, sheets };

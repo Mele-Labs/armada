@@ -1,4 +1,4 @@
-// How loud a Job or Session is, and the order the deck's list reads them in. Gray is the baseline, one hue says he is
+// How loud a Session is, and the order the deck's list reads them in. Gray is the baseline, one hue says he is
 // owed something, and red is a Check failing right now and nothing handled, old or somebody else's.
 
 import type { Phase, Ship, Subject, Tone } from "./ship";
@@ -13,14 +13,13 @@ export const GROUPS: readonly { id: Group; name: string }[] = [
 
 /**
  * **Amber says he is owed something; red says a Check is failing on it right now.** A Session that is stuck is held in
- * its own group and gray, and a red pull request on an idle Session is drawn quiet on its chip: the Job that is on the
+ * its own group and gray, and a red pull request on an idle Session is drawn quiet on its chip: the Session that is on the
  * same failure carries the red.
  */
 const QUIET_AFTER = 15;
 const minutes = (subject: Subject) => Number.parseInt(subject.since ?? "0", 10) || 0;
 
 export function toneOf(subject: Subject): Tone {
-  if (subject.kind === "job") return subject.mark.said === "Check failed" ? "bad" : subject.mark.tone === "ask" ? "ask" : "calm";
   if (subject.kind === "session") {
     if (subject.mark.tone === "ask") return "ask";
     // A failure nobody has touched for a quarter of an hour is old news and drawn quiet; so is a stuck Session.
@@ -37,7 +36,7 @@ export function groupOf(subject: Subject): Group {
 
 const LOUD: Record<Tone, number> = { bad: 0, ask: 1, calm: 2 };
 
-/** The Jobs and Sessions of the ship, grouped by standing, the loudest first inside each. */
+/** The Sessions of the ship, grouped by standing, the loudest first inside each. */
 export function groupedOf(ship: Ship): { group: (typeof GROUPS)[number]; rows: Subject[] }[] {
   const rows = ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined);
   return GROUPS.map((group) => ({

@@ -16,7 +16,7 @@ const burst = (kind: TimelineKind, subject: TimelineEvent["subject"], ago: numbe
 };
 const drone = (key: string, working = true): DroneIn => ({
   key,
-  kind: key.startsWith("job:") ? "job" : "session",
+  kind: "session",
   title: key,
   root: "/r",
   said: "",

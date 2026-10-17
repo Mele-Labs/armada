@@ -23,12 +23,10 @@ const FRESH_LAND_MS = 15 * 60_000;
 type Placed = { build: BuildIn; anchor: Point; /** The plot it stands over, which lifts it. */ tile: string | undefined };
 
 /**
- * Where each ring lies, in layout units: round its drone's shadow. A Job's lies at the waypoint of the step that works its plan
- * (`stand`), and a Job with no such waypoint on the field draws none. A Session whose drone is not on the field draws none.
+ * Where each ring lies, in layout units: round its drone's shadow. A Session whose drone is not on the field draws none.
  */
-export function placeBuilds(builds: readonly BuildIn[], layout: Layout, stand?: Point): Placed[] {
+export function placeBuilds(builds: readonly BuildIn[], layout: Layout): Placed[] {
   return builds.flatMap<Placed>((build) => {
-    if (build.key.startsWith("job:")) return stand === undefined ? [] : [{ build, anchor: stand, tile: undefined }];
     const shadow = layout.at.get(build.key);
     return shadow === undefined ? [] : [{ build, anchor: shadow, tile: layout.over.get(build.key)?.[0]?.tile.path }];
   });
@@ -52,7 +50,7 @@ const pick = (onTip: OnTip, tip: Tip) => ({
 const speak = (build: BuildIn, onTip: OnTip) => (k: number, piece: ReactNode): ReactNode => {
   const task = build.tasks[k];
   if (task === undefined) return piece;
-  const said = task.said ?? SAID[task.piece];
+  const said = SAID[task.piece];
   const tip: Tip = { label: "Task", title: task.text, hue: task.piece === "solid" ? "good" : "quiet", lines: task.by === undefined ? [said] : [said, askedOf(task.by)] };
   return (
     <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={task.by === undefined ? `${task.text}, ${said}` : `${task.text}, ${said}, ${askedOf(task.by)}`} {...pick(onTip, tip)}>

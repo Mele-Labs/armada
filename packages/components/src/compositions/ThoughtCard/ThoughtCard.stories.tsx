@@ -26,7 +26,6 @@ const onSend = fn();
 const onNo = fn();
 const onAskHelm = fn();
 const onSession = fn();
-const onJob = fn();
 const onDismiss = fn();
 
 /** A Session that holds a slot: its name draws the Session's card, and Send, No and Ask Helm each carry their key. */
@@ -78,13 +77,12 @@ export const MatchSessionWithoutSlot: Story = {
   },
 };
 
-/** Nothing matched, or No pressed: start a Session or a Job with the words, or ask Helm. Esc dismisses. */
+/** Nothing matched, or No pressed: start a Session with the words, or ask Helm. Esc dismisses. */
 export const New: Story = {
   args: {
     stage: "new",
     words: "the merge line page should group PRs by repository",
     onSession,
-    onJob,
     onAskHelm,
     onDismiss,
   },
@@ -92,14 +90,11 @@ export const New: Story = {
     await expect(canvas.getByRole("group", { name: "Start new" })).toBeVisible();
     await expect(canvas.getByText("the merge line page should group PRs by repository")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Session" })).toHaveTextContent("S");
-    await expect(canvas.getByRole("button", { name: "Job" })).toHaveTextContent("J");
     await expect(canvas.getByRole("button", { name: "Ask Helm" })).toHaveTextContent("H");
     await expect(canvas.getByRole("button", { name: "Dismiss" })).toHaveAttribute("aria-keyshortcuts", "Escape");
 
     await userEvent.click(canvas.getByRole("button", { name: "Session" }));
     await expect(onSession).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Job" }));
-    await expect(onJob).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole("button", { name: "Ask Helm" }));
     await expect(onAskHelm).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole("button", { name: "Dismiss" }));

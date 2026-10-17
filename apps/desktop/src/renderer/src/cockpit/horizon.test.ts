@@ -12,7 +12,7 @@ const lines = (pull_requests: unknown[]): MergeLines =>
 
 /** What the strip reads: the same fold the Merge line surface draws, then the blocks off it. */
 function blocksOf(served: MergeLines, sessions: Parameters<typeof pullBlocks>[2] = []) {
-  const views = mergeLineViews(served, null, [], []);
+  const views = mergeLineViews(served, null, []);
   return pullBlocks(views[0]!, served, sessions);
 }
 
@@ -79,7 +79,7 @@ describe("the landings as dots", () => {
       { place: 3, branch: "fleet/pulse-log-rows", state: "red", failed: ["desktop_test"] },
       { place: 4, branch: "fleet/helm-kills-processes", state: "waiting" },
     ]);
-    const views = mergeLineViews(served, null, [], []);
+    const views = mergeLineViews(served, null, []);
     const dots = landingDots(views[0]!.line);
     expect(dots.map((one) => one.state)).toEqual(["running", "running", "failing", "queued"]);
     expect(dots[0]!.card).toMatchObject({ heading: "docs/wire-lock-signed", says: "Running Checks before landing", check: "Running: screens_test", place: 1 });
@@ -87,15 +87,9 @@ describe("the landings as dots", () => {
     expect(dots.every((one) => one.icon !== null && one.queued)).toBe(true);
   });
 
-  test("a landing's card names the Job it belongs to", () => {
-    const served = line([{ place: 1, branch: "fleet/x", state: "gating", checks: [] }]);
-    const views = mergeLineViews(served, null, [], [{ id: "j", title: "Do x", branch: "fleet/x", status: "running" }] as never);
-    expect(landingDots(views[0]!.line)[0]!.card.owner).toEqual({ kind: "job", id: "j", title: "Do x" });
-  });
-
   test("a pull request's card has its number, title, branch, the ci inside the queue, and its place", () => {
     const served = lines([pull(2, "feat/first", { ci: "passed", queue: { state: "awaiting_checks", position: 1 } })]);
-    const views = mergeLineViews(served, null, [], []);
+    const views = mergeLineViews(served, null, []);
     expect(dotsOf(views[0]!, served, [])[0]!.card).toEqual({
       heading: "#2",
       title: "Title 2",
@@ -120,7 +114,7 @@ describe("the landings as dots", () => {
         },
       ],
     } as unknown as MergeLines;
-    const views = mergeLineViews(served, null, [], []);
+    const views = mergeLineViews(served, null, []);
     expect(dotsOf(views[0]!, served, []).map((one) => one.card.heading)).toEqual(["docs/a", "#3", "#5"]);
   });
 });

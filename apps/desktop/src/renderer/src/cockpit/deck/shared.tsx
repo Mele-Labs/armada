@@ -1,15 +1,10 @@
-// What the deck's panes and panels share: the mark a state wears, the pull request chip and the steps bar. Ported from
+// What the deck's panes and panels share: the mark a state wears and the pull request chip. Ported from
 // proto/cockpit-flight-deck. #2301.
 
 import { Check, CircleDot, GitMerge, GitPullRequest, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
-import { StepBar, Tooltip } from "@armada/components";
+import { Tooltip } from "@armada/components";
 
-import type { Mark, Pr, Subject } from "./ship";
-
-/** A Job's place in its workflow, in the step bar its row already wears. */
-export function StepsBar({ step, tone }: { step: NonNullable<Subject["step"]>; tone: Mark["tone"] }) {
-  return <StepBar total={step.of} current={step.at} activity={tone === "bad" ? "failed" : tone === "ask" ? "awaiting_human" : "running"} label={`Step ${step.at} of ${step.of}: ${step.label}`} />;
-}
+import type { Mark, Pr } from "./ship";
 
 /** One state as its registry glyph, named by a tooltip and never by a word. */
 export function MarkGlyph({ mark, size = 16 }: { mark: Mark; size?: 12 | 16 | 20 }) {
