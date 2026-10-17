@@ -1,5 +1,5 @@
 // Progress: where the Session is, in one panel. Status and the Plan showed the same thing from two levels, so they are one. The workflow's
-// steps are a line in the band, the step the Session is at named; under it, the plan's groups and their tasks, with the plan's edits and marks
+// steps are a line of glyphs in the band, each named by its hover card; under it, the plan's groups and their tasks, with the plan's edits and marks
 // as they were. A Session with no plan is its band alone.
 
 import { BadgeCheck, PencilRuler } from "lucide-react";

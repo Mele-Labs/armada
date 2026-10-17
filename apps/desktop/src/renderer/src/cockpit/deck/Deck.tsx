@@ -56,7 +56,7 @@ import type { Found } from "./find";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { callOfSubject, callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -216,7 +216,17 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   );
 }
 
-function List({ subjects, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
+/** What each thing a Session waits on is called, by the item's source. */
+const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", walk: "Walk", done: "Done" };
+
+/** What a call says, as the tooltip on its row: what it is, then its words. */
+const callLabel = (call: Item): string => {
+  const kind = call.kind.replace(/^Session ?/, "");
+  const word = CALL_WORD[call.waiting?.item.source ?? ""] ?? (kind === "" ? "Waiting" : kind.charAt(0).toUpperCase() + kind.slice(1));
+  return call.fact === "" ? word : `${word}: ${call.fact}`;
+};
+
+function List({ subjects, calling, banding, selected, builds, jobs, picked, found, onPick }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
@@ -230,14 +240,21 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
     const said = quiet.length > 9 ? "" : quiet;
     // What a search matched in the Session, in place of its age.
     const hit = found?.get(one.key);
-    return (
-      <li key={one.key} className="deck-list__item">
-        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
-          <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
+    // A Session or Job calling him: its row pulses, and its tooltip names the call.
+    const call = calling?.get(one.key);
+    const button = (
+        <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined ? undefined : ""} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-past={one.past} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
+          {call === undefined ? (
+            <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
+              <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
+                <Kind size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          ) : (
             <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
               <Kind size={14} aria-hidden="true" />
             </span>
-          </Tooltip>
+          )}
           <span className="deck-row__title">{one.title}</span>
           {hit === undefined || hit.short === "" ? (
             <span className="deck-row__said">{said}</span>
@@ -251,6 +268,10 @@ function List({ subjects, banding, selected, builds, jobs, picked, found, onPick
           <Phase subject={one} builds={builds} jobs={jobs} />
           <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
         </button>
+    );
+    return (
+      <li key={one.key} className="deck-list__item">
+        {call === undefined ? button : <Tooltip label={callLabel(call)} beside>{button}</Tooltip>}
         {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
       </li>
     );
@@ -810,31 +831,6 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
   );
 }
 
-/**
- * Incoming calls while a Session is open: one icon for each other thing waiting on him, at the Work list's inner edge. Its tooltip names the Session
- * and what it waits on, and a press opens it. The open Session's own calls are in its thread. The strip keeps its width with no call, so the list does not move.
- */
-function CallRail({ calls, ship, hosts }: { calls: readonly Item[]; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
-  return (
-    <section className="deck-panel deck-incoming deck-rail" aria-label="Incoming calls" tabIndex={-1}>
-      <ul className="deck-rail__calls">
-        {calls.map((item) => {
-          const Icon = item.icon;
-          return (
-            <li key={item.key}>
-              <Tooltip label={`${item.title}: ${item.fact === "" ? item.kind : item.fact}`} beside asChild>
-                <button type="button" className="deck-hail deck-rail__call" data-hue={item.hue} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
-                  <Icon size={16} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 // ---- The body ------------------------------------------------------------------------------------------
 
 /** A clash mark anywhere on the deck opens the other party on the stage, where the window's own answer would leave the deck for a page. */
@@ -945,7 +941,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
-  const list = <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => select(selOfSubject(one))} />;
+  // With a Session open its calling neighbours pulse on their rows, in place of a panel of calls.
+  const calling = useMemo(() => (unified ? new Map(incoming.map((one) => [callOwnerOf(one), one] as const)) : undefined), [unified, incoming]);
+  const list = <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} found={found} onPick={(one) => select(selOfSubject(one))} />;
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
@@ -956,17 +954,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          {unified ? (
-            <div className="deck-left__work">
-              {list}
-              <CallRail calls={incoming} ship={ship} hosts={props} />
-            </div>
-          ) : (
-            <>
-              {list}
-              <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
-            </>
-          )}
+          {list}
+          {unified ? null : <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />}
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">

@@ -8,8 +8,8 @@ const key = (name: string) => inside(controls, button(name));
 
 const compactSessionView = walk("compact-session-view", [
   { press: deckRow("Retry the slot lease"), say: "A Session open keeps the Work list, the thread, the Field, Progress and Flight control. Nothing else" },
-  { look: region("Progress"), say: "Progress is Status and the Plan as one panel: the workflow runs along its band, the plan's groups and tasks sit under it" },
-  { hover: inside(region("Incoming calls"), button(/Prune the stale branches/)), say: "Another Session is waiting on him. The rail at the list's edge has one icon for each, and the tooltip names it and what it waits on" },
+  { hover: inside(region("Progress"), role("img", "Build · current")), say: "Progress is Status and the Plan as one panel: the workflow runs along its band as glyphs, and hovering a step names it and its state. The plan's groups and tasks sit under it" },
+  { hover: deckRow("Prune the stale branches"), say: "Another Session is calling him, so its row pulses. Hovering the row names the call" },
   { press: key("Artifacts"), say: "Artifacts (8) opens everything the Session made or used, over the thread: pull requests, commits, pages, files, docs, sketches, subagents and commands" },
   { type: "lease", into: inside(region("Artifacts"), role("searchbox", "Search artifacts")), say: "Typing narrows the groups at once" },
   { press: key("Subagents"), say: "Subagents (9) lists every one. The Field draws only those at work" },

@@ -237,14 +237,13 @@
 .sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
 
-/* Progress: the workflow as one line in the band, the step the Session is at named. */
+/* Progress: the workflow as one line of glyphs in the band. */
 .sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }
 .sv-rail__step { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-xs); }
 .sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-default); }
 .sv-rail__mark { display: inline-flex; }
 .sv-rail__step[data-state="done"] { color: var(--step-advanced); }
-.sv-rail__step[data-state="now"] { flex: 0 1 auto; color: var(--accent); }
-.sv-rail__name { overflow: hidden; color: var(--fg-default); font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.sv-rail__step[data-state="now"] { color: var(--accent); }
 
 /* ---- A layer over the stage ------------------------------------------------------------------------------------ */
 
@@ -301,14 +300,38 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-layer__fact dd { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .sv-layer__fact code { font-size: var(--text-xs); }
 
-/* ---- Incoming calls as a rail at the Work list's inner edge ---------------------------------------------------- */
+/* ---- A Work row whose Session is calling him ------------------------------------------------------------------- */
 
-.deck-left__work { display: flex; flex: 1 1 0; min-height: 0; gap: var(--space-2); }
-.deck-left__work > .deck-list { flex: 1 1 0; min-width: 0; min-height: 0; }
-/* Two classes over `.deck-incoming`'s own size, which the rail shares only for the C key to find it. */
-.deck-left__work > .deck-rail { flex: 0 0 calc(var(--space-8) + var(--space-2)); align-items: center; width: calc(var(--space-8) + var(--space-2)); min-height: 0; max-height: none; }
-.deck-rail__calls { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-2) 0; list-style: none; overflow-y: auto; }
-/* A call's card is `.deck-hail`'s, which the C key walks; the rail draws it as a bare glyph. */
-.deck-rail .deck-rail__call.deck-hail { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--space-8); min-height: 0; height: var(--space-8); padding: 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--hue, var(--fg-muted)); container-type: normal; overflow: visible; cursor: pointer; }
-.deck-rail .deck-rail__call.deck-hail:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
-.deck-rail .deck-rail__call.deck-hail:focus-visible { outline: none; background: color-mix(in srgb, var(--hue, var(--accent)) 14%, transparent); box-shadow: inset 2px 0 0 var(--hue, var(--accent)); }
+/* A 2px bar in the call's colour on the row's left edge fades in and out on a slow loop. Only its opacity moves. */
+.deck-row[data-calling]::before { content: ""; position: absolute; inset-block: var(--space-1); inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@keyframes deck-call-pulse { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-calling]::before { animation: none; } }
+.deck-list__item > .armada-tooltip { flex: 1 1 0; min-width: 0; }
+.deck-list__item > .armada-tooltip > .deck-row { flex: 1 1 0; }
+
+/* ---- A Session's card, half as padded ---------------------------------------------------------------------------- */
+
+/* The card's own padding and the gutters of what is in it: the head, the message column, the pinned calls and the box are half what they were.
+   Here and not in the components, so it holds wherever a Session is open. Specific enough to stand over the new look's own padding. */
+.armada-card.armada-session-frame { --pad-card: calc(var(--space-6) / 2); gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-frame__centre,
+.armada-session-frame .armada-session-thread,
+.armada-session-frame .armada-session-thread__stage,
+.armada-session-frame .armada-session-thread__footer { gap: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-you__band { padding: calc(var(--space-1) / 2) calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-you__body { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
+:root[data-look="new"] .armada-session-frame .armada-session-you__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2) 0; }
+:root[data-look="new"] .armada-session-frame .armada-session-you__body { padding: calc(var(--space-1) / 2) calc(var(--space-4) / 2) calc(var(--space-3) / 2); }
+:root[data-look="new"] .armada-session-frame .armada-session-thread__rows > .armada-helm-thread__rows { padding-block: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
+:root[data-look="new"] .armada-session-frame .armada-session-thread .armada-helm-thread__row { padding-inline: calc(var(--space-1) / 2); }
+.armada-session-frame .armada-session-thread__calls-band { padding: 0 calc(var(--space-3) / 2) 0 calc(var(--space-4) / 2); }
+.armada-session-frame .armada-session-thread__calls-list { gap: calc(var(--space-3) / 2); padding: calc(var(--space-3) / 2); }
+.armada-session-frame .armada-session-needs__band,
+.armada-session-frame .armada-session-needs__rows,
+.armada-session-frame .armada-session-working__band,
+.armada-session-frame .armada-session-working__rows,
+.armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
+.armada-session-frame .armada-question-deck__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
+.armada-session-frame .armada-question-deck__body { padding: calc(var(--space-4) / 2); }
+:root[data-look="new"] .armada-session-frame .armada-session-composer__editor { padding: calc(var(--space-3) / 2) calc(var(--space-4) / 2); }
+:root[data-look="new"] .armada-session-frame .armada-session-composer__bar { padding: calc(var(--space-1) / 2) calc(var(--space-2) / 2) calc(var(--space-2) / 2); }

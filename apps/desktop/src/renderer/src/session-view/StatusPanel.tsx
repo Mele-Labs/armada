@@ -65,21 +65,24 @@ function Steps({ steps, at }: { steps: readonly string[]; at: number | undefined
   );
 }
 
-/** The workflow's steps as one line: a glyph each, joined by a hairline, with only the step the Session is at named. The rest are named by their tooltips. */
+/** What a step reads as in its hover card: "Build · current". */
+const WORD = { done: "done", now: "current", next: "next" } as const;
+
+/** The workflow's steps as one line of glyphs joined by a hairline; the current one is the dotted circle. Hovering or focusing a step names it and its state. */
 export function StepRail({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
   return (
     <ol className="sv-rail" aria-label="Workflow">
       {steps.map((step, i) => {
         const state = stateOf(i, at);
-        const { Glyph, said } = MARK[state];
+        const { Glyph } = MARK[state];
+        const said = `${step} · ${WORD[state]}`;
         return (
           <li key={step} className="sv-rail__step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <Tooltip label={`${step}, ${said.toLowerCase()}`}>
-              <span className="sv-rail__mark" role="img" aria-label={`${step}, ${said.toLowerCase()}`}>
+            <Tooltip label={said}>
+              <span className="sv-rail__mark" role="img" aria-label={said}>
                 <Glyph size={12} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
-            {state === "now" ? <span className="sv-rail__name">{step}</span> : null}
           </li>
         );
       })}
