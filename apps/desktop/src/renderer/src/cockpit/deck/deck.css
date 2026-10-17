@@ -108,7 +108,7 @@
 .deck-list__more svg { animation: deck-spin 1s linear infinite; }
 @keyframes deck-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
-.deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
 .deck-list__band { display: flex; flex-direction: column; gap: var(--space-1); }
 .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
 .deck-list__group { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
