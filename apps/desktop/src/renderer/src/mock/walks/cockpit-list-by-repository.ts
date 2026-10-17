@@ -3,7 +3,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs and Sessions");
+const list = region("Work", { exact: true });
 
 const cockpitListByRepository = walk("cockpit-list-by-repository", [
   { look: inside(list, role("heading", "armada")), say: "On All, armada is the first heading, in the repository listing's order" },

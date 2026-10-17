@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const bays = () => page.getByRole("region", { name: "Bays" });
 const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const right = () => document.querySelector(".deck-right")!;

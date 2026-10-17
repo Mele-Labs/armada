@@ -10,7 +10,7 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { sheet, close, row } = kit(narrow);
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   const card = sheet("Pull request #1850");
   return [
     { press: inside(sessions, button("Store migration spike")), say: "A Session holding a pull request whose Checks are still running" },

@@ -14,7 +14,7 @@ const typed = role("textbox", "Terminal input");
 
 const steps: Step[] = [
   toSessions,
-  { press: inside(region("Sessions"), button(/Deploy the store/)), say: "Opened" },
+  { press: inside(region("Work", { exact: true }), button(/Deploy the store/)), say: "Opened" },
   { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened" },
   { look: inside(run, button("Run", { exact: true })), say: "The command, with Run" },
   { press: inside(run, button("Run", { exact: true })), say: "Run" },

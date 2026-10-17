@@ -92,6 +92,20 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
+/* Filter, in the list's band: plain text and a chevron at the right, ahead of the panel's key. Small caps are the band's own and not the trigger's. */
+.deck-list > .deck-band .armada-dropdown-menu { margin-left: auto; }
+.deck-list > .deck-band .armada-dropdown-menu + .armada-kbd { margin-left: 0; }
+.deck-list > .deck-band .armada-dropdown-menu__trigger { font-family: var(--font-sans); font-size: var(--text-xs); letter-spacing: normal; text-transform: none; }
+
+/* A Session Fleet cannot reach, or that ended: read quieter than one in flight. */
+.deck-row[data-past] .deck-row__title { color: var(--fg-muted); }
+.deck-row[data-past][data-selected] .deck-row__title { color: var(--fg-default); }
+/* What a search matched, in the age's place: mono, cut with an ellipsis where it is long. */
+.deck-row__said[data-found] { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-default); }
+.deck-list__more { display: flex; justify-content: center; padding: var(--space-2); color: var(--fg-subtle); list-style: none; }
+.deck-list__more svg { animation: deck-spin 1s linear infinite; }
+@keyframes deck-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 .deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
 .deck-list__band { display: flex; flex-direction: column; gap: var(--space-1); }
 .deck-list__band + .deck-list__band { margin-top: var(--space-2); }
@@ -118,7 +132,7 @@
   padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-md);
-  background: none;
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-default);
   font: inherit;
   font-family: var(--font-sans);

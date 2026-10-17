@@ -6,8 +6,8 @@ import { button, inside, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const timeline = region("Timeline");
-const sessions = region("Sessions");
-const row = (title: string) => inside(sessions, role("listitem", title));
+const sessions = region("Work", { exact: true });
+const row = (title: string) => inside(sessions, button(title, { exact: true }));
 const call = (title: RegExp) => region(title);
 const reason = role("textbox", /^Reason for removing/);
 
@@ -23,9 +23,9 @@ const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { look: call(/^Session: Cache key/), say: "The item went, and the second is in front" },
   { look: inside(region("Waiting"), text("Changelog script")), say: "A done is still a call, behind it" },
   toSessions,
-  { look: row("Pin the store clock"), say: "The reply is under Idle" },
+  { look: row("Pin the store clock"), say: "The reply" },
   { hover: inside(row("Pin the store clock"), role("img", "Unread reply")), say: "Unread reply: the mark stays until he opens the Session" },
-  { look: inside(row("Changelog script"), role("img", "Done")), say: "Done is under Needs you" },
+  { look: inside(row("Changelog script"), role("img", "Done")), say: "Done" },
   { press: inside(sessions, button(/Cache key/)), say: "Cache key opened" },
   { look: text(/Owner removed/), say: "The agent was told, with his reason" },
   { press: inside(region("Needs you"), button(/^Needs you/)), say: "The second item, in the band at the foot of the thread" },

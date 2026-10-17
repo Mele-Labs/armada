@@ -2,16 +2,19 @@
 // caret. A crash in the Sessions store raises the toast; one press starts a Session in Armada's repository whose first message is the
 // debug info, opens it, and puts the toast away. Over `failure-dispatch-session`.
 
-import { kit, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { kit } from "../sessions/walk-kit";
+import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
 const { thread } = kit(false);
-const sessions = region("Sessions");
+const request = inside(dialog("Dispatch"), role("textbox", "Request"));
 
 const failureDispatchSession = walk("failure-dispatch-session", [
-  toSessions,
-  { press: inside(sessions, button("New Session")), say: "A new Session, and the Sessions store throws" },
-  { look: button("Dispatch session"), say: "The failure stands over the page. The face of its one control is Dispatch session, with Dismiss beside it" },
+  { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "Dispatch" },
+  { press: inside(dialog("Dispatch"), tab("Session")), say: "Session" },
+  { type: "Look into the flaky store test", into: request, say: "A request for a new Session" },
+  { press: role("radio", "Repository armada"), say: "In armada" },
+  { key: "Enter", on: request, say: "A new Session, and the Sessions store throws" },
+  { look: button("Dispatch session"), say: "The failure stands over the window. The face of its one control is Dispatch session, with Dismiss beside it" },
   { press: button("More ways to act on this failure"), say: "The caret opens the rest" },
   { look: role("menuitem", "Copy debug info"), say: "Copy debug info is the first entry, one pick away" },
   { look: role("menuitem", "File an issue"), say: "File an issue, which still opens its review and sends nothing" },

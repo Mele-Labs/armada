@@ -1,5 +1,5 @@
 // A Session's agent starts a Session, and forks its own conversation, when the owner asks it to. The
-// new Session appears at once under Needs you, with the agent's first message in its box, unsent;
+// new Session appears at once in the list, waiting on him, with the agent's first message in its box, unsent;
 // nothing runs until he sends it. In the Session that started it, a line in the thread names the new
 // Session and opens it with a press. Its own thread says where it came from. Told twice, wide and below the breakpoint.
 
@@ -10,7 +10,7 @@ import type { Step } from "../walk";
 function steps(narrow: boolean): Step[] {
   const { message, thread, opened } = kit(narrow);
   const started = (title: string) => role("button", title, { exact: true });
-  const sessions = region("Sessions");
+  const sessions = region("Work", { exact: true });
   return [
     { press: inside(sessions, button("Debug Job 14")), say: "A live Session, with a finding in it" },
     { look: inside(thread, text("The loop reads the cap once at startup")), say: "What it found" },
@@ -26,9 +26,8 @@ function steps(narrow: boolean): Step[] {
     ...opened([
       { look: inside(role("region", "Started"), text("Started by Debug Job 14")), say: "The ledger says where it came from" },
     ]),
-    { press: place("Sessions"), say: "Back to the list" },
-    { look: inside(sessions, role("heading", "Needs you")), say: "The new Session is under Needs you" },
-    { hover: inside(sessions, role("img", /^Waiting on you:/)), say: "A hand, and on hover what it waits on" },
+    { press: place("Cockpit"), say: "Back to the list" },
+    { hover: inside(sessions, role("img", /^Waiting on you/)), say: "The new Session has a hand on its row, and on hover what it waits on" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },
     { press: button("Send", { exact: true }), say: "He sends it" },
     { look: inside(thread, text("A cap set for one repository never reaches it.")), say: "Now it runs" },

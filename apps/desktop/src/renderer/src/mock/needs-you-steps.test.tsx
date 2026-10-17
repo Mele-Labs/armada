@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -14,8 +14,7 @@ const TITLE = "Register the OAuth app";
 async function openSteps() {
   mount("needs-you-steps");
   await onScreen();
-  await toPlace("Sessions");
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Add single sign-on/ }));
+  await toSession(/Add single sign-on/);
   const needs = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(needs.getByRole("button", { name: /^Needs you/ }));
   const row = needs.getByRole("button", { name: `Open ${TITLE}` });

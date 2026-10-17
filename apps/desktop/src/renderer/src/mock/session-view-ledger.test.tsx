@@ -9,7 +9,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 
 async function open(title: string) {
   mount("one-session-view");

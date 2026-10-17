@@ -75,7 +75,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
-  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && (only === undefined || one.root === only)), [ship.subjects, only]);
+  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && (only === undefined || one.root === only)), [ship.subjects, only]);
   const mains = useMemo(() => ship.mains.filter((one) => only === undefined || one.root === only), [ship.mains, only]);
   const shipPrs = useMemo(() => ship.prs.filter((one) => only === undefined || one.root === only), [ship.prs, only]);
   const ownerOf = (number: number) => {

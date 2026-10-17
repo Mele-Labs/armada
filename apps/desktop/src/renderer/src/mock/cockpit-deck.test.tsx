@@ -11,7 +11,7 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const list = () => page.getByRole("region", { name: "Work", exact: true });
 const incoming = () => page.getByRole("region", { name: "Incoming calls" });
 const controls = () => page.getByRole("region", { name: "Flight controls" });
 const places = () => page.getByRole("navigation", { name: "Places" });
