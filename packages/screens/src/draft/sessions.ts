@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, PullRequestFilePatch, PullRequestPage, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -536,13 +536,7 @@ export type ArtifactRead =
 /** One Loadout row, as `read_loadout_item` is asked for it. A use's `skill`, `tool` or `subagent` is the same kind. */
 export type LoadoutItemAsk = { kind: LoadoutKind; name: string; source: LoadoutSource; from?: string };
 
-/**
- * What a Loadout item says, as `read_loadout_item` answers: its file read from disk, or why it was not. Declared here
- * until the wire type lands in `@armada/protocol`, which replaces it on merge.
- */
-export type LoadoutItemBody =
-  | { what: "read"; path?: string; format: "markdown" | "text"; body: string; truncated?: true }
-  | { what: "not_read"; why: string };
+export type { LoadoutItemBody };
 
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
