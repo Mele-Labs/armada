@@ -813,8 +813,6 @@ export function OverviewTab(props: OverviewTabProps) {
             commander: {
               jobId: job.id,
               ...commander,
-              // `@` offers the Board's other Jobs, written into the message by their handle.
-              taggable: (props.board ?? []).filter((one) => one.id !== job.id).map((one) => ({ kind: "job" as const, id: one.id, title: one.handle })),
               onSend: (text: string) => void props.onAskCommander?.(job.id, text),
             },
           })}

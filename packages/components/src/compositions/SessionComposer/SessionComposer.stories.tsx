@@ -7,7 +7,7 @@ import { SessionComposer } from "./SessionComposer";
  * A Session's message box, one box over one slim row: the permission mode,
  * Dispatch's model and effort pair, attach and draw as glyphs with tooltips,
  * and what is waiting to go in a strip that scrolls sideways. `/` opens the
- * skills and commands, `@` the other Sessions, the Jobs and the files.
+ * skills and commands, `@` the other Sessions and the files.
  */
 const meta: Meta<typeof SessionComposer> = {
   title: "Compositions/Session composer",
@@ -28,7 +28,7 @@ const meta: Meta<typeof SessionComposer> = {
     taggable: [
       { kind: "session", id: "s2", title: "Release notes script" },
       { kind: "session", id: "s3", title: "Store migration spike" },
-      { kind: "job", id: "j55", title: "55 Cap the retry backoff" },
+      { kind: "session", id: "s4", title: "Cap the retry backoff" },
     ],
     searchFiles: async (query) => ["packages/components/src/compositions/SessionComposer/SessionComposer.tsx", "docs/practices/bridge.md", "README.md"].filter((path) => path.toLowerCase().includes(query.toLowerCase())),
     tags: [],
@@ -94,7 +94,7 @@ export const EnterSends: Story = {
 };
 
 /**
- * `@` opens the other Sessions, then the Jobs, grouped. Choosing one writes it into the line
+ * `@` opens the other Sessions, grouped. Choosing one writes it into the line
  * at the caret, as a unit: it is not in the row of what waits, Backspace takes it whole, and a send
  * carries it as `@title` in the text and in `tags`.
  */
@@ -102,19 +102,19 @@ export const At: Story = {
   play: async ({ canvas, args }) => {
     const field = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(field, "why did @retry");
-    await expect(await canvas.findByRole("group", { name: "Jobs" })).toBeInTheDocument();
-    await userEvent.click(await canvas.findByRole("option", { name: "55 Cap the retry backoff" }));
+    await expect(await canvas.findByRole("group", { name: "Sessions" })).toBeInTheDocument();
+    await userEvent.click(await canvas.findByRole("option", { name: "Cap the retry backoff" }));
     const chip = field.querySelector("[data-tag-kind]");
-    await expect(chip).toHaveTextContent("55 Cap the retry backoff");
-    await expect(within(canvas.getByRole("group", { name: "Attached" })).queryByText("55 Cap the retry backoff")).toBeNull();
+    await expect(chip).toHaveTextContent("Cap the retry backoff");
+    await expect(within(canvas.getByRole("group", { name: "Attached" })).queryByText("Cap the retry backoff")).toBeNull();
     await userEvent.keyboard("stall");
     await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).toHaveBeenCalledWith({ text: "why did @55 Cap the retry backoff stall", files: [], tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] });
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "why did @Cap the retry backoff stall", files: [], tags: [{ kind: "session", id: "s4", title: "Cap the retry backoff" }] });
   },
 };
 
 /**
- * A letter after `@` also asks for files, which show under the Sessions and the Jobs. Choosing one writes
+ * A letter after `@` also asks for files, which show under the Sessions. Choosing one writes
  * `@path` into the line as plain text, with no chip.
  */
 export const AtFiles: Story = {
@@ -137,21 +137,21 @@ export const TagIsOneUnit: Story = {
   play: async ({ canvas, args }) => {
     const field = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(field, "see @retry");
-    await userEvent.click(await canvas.findByRole("option", { name: "55 Cap the retry backoff" }));
+    await userEvent.click(await canvas.findByRole("option", { name: "Cap the retry backoff" }));
     await expect(field.querySelector("[data-tag-kind]")).toHaveAttribute("contenteditable", "false");
     await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).toHaveBeenCalledWith({ text: "see @55 Cap the retry backoff", files: [], tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] });
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "see @Cap the retry backoff", files: [], tags: [{ kind: "session", id: "s4", title: "Cap the retry backoff" }] });
   },
 };
 
 /** A tag that arrives from outside the box is written in at the end of the line, and the host is told it was taken. */
 export const Tagged: Story = {
-  args: { tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
+  args: { tags: [{ kind: "session", id: "s4", title: "Cap the retry backoff" }] },
   play: async ({ canvas, args }) => {
-    await expect(canvas.getByRole("textbox", { name: "Message" }).querySelector("[data-tag-kind]")).toHaveTextContent("55 Cap the retry backoff");
+    await expect(canvas.getByRole("textbox", { name: "Message" }).querySelector("[data-tag-kind]")).toHaveTextContent("Cap the retry backoff");
     await expect(args.onTags).toHaveBeenCalledWith([]);
     await userEvent.click(canvas.getByRole("button", { name: "Send" }));
-    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ text: "@55 Cap the retry backoff", tags: [expect.objectContaining({ id: "j55" })] }));
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ text: "@Cap the retry backoff", tags: [expect.objectContaining({ id: "s4" })] }));
   },
 };
 

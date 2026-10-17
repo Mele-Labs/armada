@@ -107,16 +107,6 @@ function standingOf(detail: Record<string, string>, spent: boolean): SessionPull
   return detail["state"] === "draft" ? "draft" : "open";
 }
 
-/**
- * The Job a slot or branch came with, where the session was handed it by a take over. Fleet writes
- * `detail.handed` as `job <id>`; a Job the Board no longer holds names nothing.
- */
-function handedOf(detail: Record<string, string>, jobs: readonly JobSummary[]): { handed?: { job: number } } {
-  const id = /^job (.+)$/.exec(detail["handed"] ?? "")?.[1];
-  const job = id === undefined ? undefined : jobs.find((row) => row.id === id);
-  return job === undefined ? {} : { handed: { job: numberOf(job) } };
-}
-
 /** What a scene that does not validate is drawn as: nothing. Never a partial drawing, never a repaired one. */
 const NO_SCENE: Scene = { nodes: [], edges: [] };
 
@@ -221,12 +211,12 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
     const detail = one.detail ?? {};
     switch (one.kind) {
       case "slot":
-        if (one.state === "standing") out.push({ kind: "slot", slot: Number(one.target), ...handedOf(detail, beside.jobs) });
+        if (one.state === "standing") out.push({ kind: "slot", slot: Number(one.target) });
         break;
       case "branch": {
         if (one.state !== "standing") break;
         const slot = slots.find((s) => s.manifest_id === one.manifest_id) ?? slots[0];
-        out.push({ kind: "branch", name: one.target, slot: slot === undefined ? 0 : Number(slot.target), ...handedOf(detail, beside.jobs) });
+        out.push({ kind: "branch", name: one.target, slot: slot === undefined ? 0 : Number(slot.target) });
         break;
       }
       case "pr": {
@@ -248,7 +238,6 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           ...(detail["looking"] === "true" ? { looking: true as const } : {}),
           // A person's word closed it. Said apart from a Job that passed its gates.
           ...(job.piloted?.exit === "attested" ? { attested: true as const } : {}),
-          ...(job.status === "piloted" && job.piloted?.session_id !== record.id ? { pilotedElsewhere: true as const } : {}),
         });
         break;
       }
@@ -340,7 +329,6 @@ const tagOf = (tag: WireTag): SessionTag => ({
   id: tag.id,
   title: tag.title,
   ...(tag.url === undefined ? {} : { url: tag.url }),
-  ...(tag.job === undefined ? {} : { job: { ...tag.job, state: jobStateOf(tag.job.state) } }),
 });
 
 function askOf(ask: HelmCallInFlight): SessionAsk {
@@ -383,13 +371,6 @@ const SETTLED: Record<string, string> = {
   unanswered: "no answer",
   session_gone: "session ended",
 };
-
-/** What the Drone said it tried, a line to an item with any list marker taken off. */
-const linesOf = (text: string): string[] =>
-  text
-    .split("\n")
-    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s+/, "").trim())
-    .filter((line) => line !== "");
 
 /** The files a message carried, each with its picture where it is one and has been read. */
 function filesOf(sessionId: string, files: readonly SentFile[], picture: Beside["picture"]) {
@@ -480,23 +461,6 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           at,
           kind: "tool",
           text: `Asked in the window: ${row.question}${row.answer === undefined ? "" : ` — ${row.answer.replace(/\n/g, " · ")}`}`,
-        });
-        break;
-      case "handoff":
-        out.push({
-          id: row.id,
-          at,
-          kind: "handoff",
-          job: { number: row.number, title: row.title },
-          slot: row.slot ?? 0,
-          branch: row.branch,
-          ...(row.step === undefined ? {} : { step: row.step }),
-          attempts: row.attempts,
-          refusals: row.refusals ?? [],
-          plan: { outside: row.plan.outside ?? [], unwritten: row.plan.unwritten ?? [] },
-          ...(row.narrative === undefined
-            ? {}
-            : { narrative: { trying_to: row.narrative.trying_to, blocked_by: row.narrative.blocked_by, tried: linesOf(row.narrative.tried) } }),
         });
         break;
       case "plan_changes":

@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, Box, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -81,8 +81,6 @@ export type LedgerEntry = {
   linked?: LinkedSessionProps;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
-  /** Came with a Job a person piloted: handed over, not leased. */
-  handed?: string;
   /** A Job this Session is piloting: its exits are drawn in the row. */
   exits?: ReactNode;
   /** The slot a Job or a branch stands in, as a chip at the row's end. */
@@ -522,13 +520,6 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               <Tooltip label="Given back">
                 <span className="armada-session-mark" role="img" aria-label="Given back">
                   <Unplug size={12} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            )}
-            {row.handed === undefined ? null : (
-              <Tooltip label={row.handed}>
-                <span className="armada-session-mark" role="img" aria-label={row.handed}>
-                  <Hand size={12} strokeWidth={2} aria-hidden />
                 </span>
               </Tooltip>
             )}
