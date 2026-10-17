@@ -378,6 +378,8 @@ export type Session = {
    * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
    */
   dead?: "ended" | "quiet";
+  /** Parked by the person: the running turn stopped, its work committed to its branch and its slot given back. It stays in the list; Resume, or a message, takes a slot again. */
+  paused?: true;
   /** Ended more than a week ago: left off the list, found by search. */
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
@@ -634,7 +636,7 @@ export type SessionsDraft = {
    * nothing serves it, and the Retro press is left off rather than drawn dead.
    */
   retro?: (id: string) => Promise<boolean>;
-  /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
+  /** Ends a Session: the slot is parked and the row ends. Absent in the mock except where a scenario scripts the end. */
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
@@ -645,6 +647,13 @@ export type SessionsDraft = {
    * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
    */
   releaseHolds?: (id: string, to?: string, rows?: readonly { kind: string; target: string }[]) => Promise<HoldsReleased | undefined>;
+  /**
+   * Stops the running turn, commits the work to the Session's branch and gives its slot back; the Session stays listed as paused.
+   * Resolves false when Fleet refuses, and says why in `said`. Absent where nothing serves it.
+   */
+  pause?: (id: string) => Promise<boolean>;
+  /** Lifts a pause: the Session takes a slot again. A message to a paused Session does the same. Absent with `pause`. */
+  resume?: (id: string) => Promise<boolean>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

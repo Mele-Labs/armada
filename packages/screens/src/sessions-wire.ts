@@ -474,6 +474,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(record.helm === true ? { helm: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),
+    ...(hosted?.paused === undefined || ended ? {} : { paused: true as const }),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,

@@ -958,6 +958,16 @@ impl Vcs for FakeVcs {
         self.noted(self.leased(pool, spec, job_id))
     }
 
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        let leased = self.slots.lease_existing(pool, branch, job_id);
+        self.noted(Ok(leased))
+    }
+
     fn park_slot(
         &self,
         pool: &SlotPool,

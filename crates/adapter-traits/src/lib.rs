@@ -373,6 +373,16 @@ pub trait Vcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 
+    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
+    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
+    /// **Not necessarily the slot the holder parked from.**
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
     /// Commit everything in the holder's slot to its own branch and give the
     /// slot back, pushing nothing: the work stays on the branch. Refused, the
     /// holder keeps the slot.

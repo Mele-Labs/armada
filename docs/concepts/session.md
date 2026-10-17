@@ -416,6 +416,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks every slot held for the session and ends what ran in it, ends the row and its walk. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `stop_session` | Ends the turn that is running and leaves the row live (*Stopping a turn*) |
+| `pause_session`, `resume_session` | Parks the Session's work on its branch and gives its slot back, and takes a slot again (*Pausing a Session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -1010,6 +1011,24 @@ A layer covers the thread and the composer, which stay mounted under it: Back (t
 **A terminal Session has no Stop.** Fleet does not host its process and refuses the act.
 
 **Debug Bridge starts a Session with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note and leaves the note and its picture in the message box as a draft (`annotate/debug-draft.ts`). The first turn is the person's Enter, with whatever he added. `docs/practices/running-locally.md`, *Annotating Bridge*.
+
+## Pausing a Session
+
+**A pause gives the slot back and keeps the Session.** `pause_session` (`POST /sessions/pause`, 23.92) ends the running turn as `stop_session` does, commits what is in the Session's slot to the branch the checkout is on as a `WIP:` commit (nothing is pushed; a checkout on no branch or on the base gets a `kept/` branch), and frees the slot for the pool. The row stays live in the list and carries `hosted.paused` (`at`, `resuming`). It is not a state: `state` is `live` and `hosted.turn` is `idle`. The ledger's `slot` row is given back and its `branch` row stays, since the Session still owns the branch. It is the Job pause (`job.md`, *Pausing a Job*) for a Session, and it reuses the same park.
+
+**A resume takes a slot at the branch tip.** `resume_session` (`POST /sessions/resume`) leases the branch into a free slot and clears the marker. It starts no turn. **It never forces another holder out**: where every slot is held, or Sessions already wait, the Session joins the repository's line and the row reads `hosted.paused.resuming` until the first slot to free is leased to it. A pause while it waits calls the wait off.
+
+**A message to a paused Session resumes it**, as a stopped Session's next message resumes its conversation: the lease is taken before the process starts, and a full pool leaves the Session paused and waiting.
+
+| Refused | Code |
+|---|---|
+| Ended, a Helm, or holding no slot | 409 `fleet.session_not_pausable` |
+| Paused already | 409 `fleet.session_already_paused` |
+| Not paused (resume) | 409 `fleet.session_not_paused` |
+| The pool or git will not park the work or seat the branch | 409 `fleet.session_pause_refused` |
+| A terminal Session | 422 `fleet.session_command_refused` |
+
+**What it does not do.** Only the slot the ledger records for the Session is parked; one a subagent of the Session leased stays held. The marker is kept in `hosted_sessions` (`paused_at`, `paused_resuming`), so it survives a Fleet restart; a restart forgets the line, and the Session's next message joins it again.
 
 ## What a message names
 

@@ -73,6 +73,7 @@
    components: the path's whole reason to exist is the half of it that refuses
    to truncate, and folding it into the fact chip would lose that. */
 @import "./compositions/FactChip/FactChip.css";
+@import "./compositions/PausedMark/PausedMark.css";
 @import "./compositions/PathChip/PathChip.css";
 
 /* One row of the run, and the facts it opens. */

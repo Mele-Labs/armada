@@ -527,6 +527,16 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
   }
 
+  /** Stops the turn, commits the work to the branch and gives the slot back. Answers the record with `hosted.paused` set. */
+  async pause(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/pause", { session_id: sessionId });
+  }
+
+  /** Takes a slot again at the branch tip, or waits for one. Starts no turn. */
+  async resume(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/resume", { session_id: sessionId });
+  }
+
   /** The Session's workflow, or none with no `workflow`. Fleet tells the agent; the record it answers is folded in. */
   async setWorkflow(sessionId: string, workflow?: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/workflow", workflow === undefined ? { session_id: sessionId } : { session_id: sessionId, workflow });

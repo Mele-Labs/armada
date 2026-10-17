@@ -97,6 +97,7 @@ export * from "./compositions/ActivityLog/ActivityLog";
 // The two chips a step's facts are made of. A fact is a value; a path is the
 // one value that keeps its filename at every width.
 export * from "./compositions/FactChip/FactChip";
+export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PathChip/PathChip";
 
 // One row of the run — the step, its mark, its elapsed figure, and the short

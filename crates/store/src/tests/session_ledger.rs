@@ -405,6 +405,8 @@ fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
         proposed: String::new(),
         turn_model: None,
         turn_effort: None,
+        paused_at: None,
+        paused_resuming: false,
     }
 }
 
