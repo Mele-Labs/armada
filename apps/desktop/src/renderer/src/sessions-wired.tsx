@@ -677,7 +677,6 @@ export class WiredStore {
       ),
     command: (id, text) => void this.plain(this.api.runSessionCommand(id, text)),
     act: (id, number, act) => this.acting(id, number, act),
-    reviews: "fleet",
     get models() {
       return store.inputs?.holds.models?.models ?? NONE;
     },

@@ -2,7 +2,7 @@
 // does not take you anywhere: a card appears in the thread where you pressed, says which stage
 // Fleet is at and for how long, and settles the retro's items as the model writes them. When it is
 // written the card folds to one line and its `Open retro` link opens the kept retro on the Retros
-// page, where its items read like a Job's and agreeing with one proposes a Job.
+// page, where agreeing with an item proposes a Job.
 
 import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -38,13 +38,13 @@ const retro = walk("session-retro-live", [
   { press: inside(CARD, button("Open retro")), say: "Open retro is the one way it goes to the Retros page" },
   { look: RETRO, say: "That retro, on the Retros page" },
   { look: inside(RETRO, text(/Fix the flaky store test · s-01IDLECC/)), say: "Headed by the Session's title and address" },
-  { look: inside(RESET, text(/^Agent$/)), say: "An agent's way, where a Job's says Drone" },
-  { look: inside(RESET, text(/^Armada$/)), say: "And where the fix lands, as on a Job's" },
+  { look: inside(RESET, text(/^Agent$/)), say: "An agent's way" },
+  { look: inside(RESET, text(/^Armada$/)), say: "And where the fix lands" },
   { look: item("Walks opened in your browser"), say: "Five items, from today's pains" },
   { press: inside(RESET, button("Evidence")), say: "The record rows it cites" },
   { look: inside(RESET, text("Allow git reset --hard origin/main?")), say: "The ask, and how long it waited" },
-  { press: inside(RESET, button("Create Job", { exact: true })), say: "Agree proposes a Job, as on a Job's retro" },
-  { look: inside(RESET, button("Proposed Job")), say: "The item keeps a link to it" },
+  { press: inside(RESET, button("Create Job", { exact: true })), say: "Agree proposes a Job" },
+  { look: inside(RESET, text(/^Agreed$/)), say: "The item reads Agreed" },
 ]);
 
 export { retro as "session-retro" };

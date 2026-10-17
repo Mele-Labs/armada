@@ -1,7 +1,7 @@
 // The one Dispatch sheet through `App` on the mock Fleet's `quick-dispatch` scenario, four set-up repositories with
-// armada busiest: `n` opens it directly, the Cockpit's tile and the Jobs page's New Job open the same one, and the
+// armada busiest: `n` opens it directly, the Cockpit's tile opens the same one, and the
 // repository is a row of chips with their keys, read from the words as Fleet reads them and given the keys when the
-// act finds none chosen. Also the three kinds, the strip a send leaves, and the draft. The look is the walk's
+// act finds none chosen. Also the two kinds, the strip an Autopilot's start leaves, and the draft. The look is the walk's
 // (`quick-dispatch-deck-button`); this holds what it decided.
 
 import { expect, test, vi } from "vitest";
@@ -16,9 +16,6 @@ const SCENARIO = "quick-dispatch";
 const NAMING_BRIDGE = "Show the Drone's branch on each Bridge cockpit tile";
 const NAMING_DOCS = "Add a docs-site page for the retry settings";
 const NAMING_NOTHING = "Clean up the old retry logic";
-const ARMADA = repository().root;
-const STOREFRONT = "/Users/user/code/storefront";
-const BILLING = "/Users/user/code/billing";
 
 const frame = () => page.getByRole("region", { name: "Dispatch", exact: true });
 const request = () => page.getByRole("textbox", { name: "Request" });
@@ -52,7 +49,7 @@ test("N opens the sheet directly from the Cockpit, the caret in the request and 
   await expect.element(request()).toHaveFocus();
   expect(palette().query()).toBeNull();
   // The kinds are on the band, and every set-up repository is a chip.
-  await expect.element(frame().getByRole("tab", { name: "Job" })).toBeVisible();
+  await expect.element(frame().getByRole("tab", { name: "Session" })).toBeVisible();
   await expect.element(row()).toBeVisible();
 });
 
@@ -63,16 +60,6 @@ test("the Cockpit's Dispatch tile opens the same sheet", async () => {
   await tile().click();
   await expect.element(request()).toBeVisible();
   await expect.element(request()).toHaveFocus();
-});
-
-test("New Job on the Jobs page opens the sheet, on Job, and not the composer's page with a dropdown", async () => {
-  mount(SCENARIO);
-  await onScreen();
-  await page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Jobs" }).click();
-  await page.getByRole("region", { name: "Jobs" }).getByRole("button", { name: "New Job" }).click();
-  await expect.element(request()).toBeVisible();
-  await expect.element(frame().getByRole("tab", { name: "Job" })).toHaveAttribute("aria-selected", "true");
-  expect(page.getByRole("button", { name: "Choose a repository", exact: true }).query()).toBeNull();
 });
 
 test("a dispatch row chosen in the palette moves the words into the sheet in one press", async () => {
@@ -117,43 +104,19 @@ test("⌥2 picks the second chip, from inside the request", async () => {
   expect(names()).toEqual(["docs-site", "armada", "billing", "storefront"]);
 });
 
-test("a repository read from the words is the one the Job is sent to", async () => {
-  const app = await sheet();
-  const propose = vi.spyOn(app.api, "proposeFromRequest");
-  await request().fill(NAMING_BRIDGE);
-  await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toBeVisible();
-  expect(propose).toHaveBeenCalledWith(NAMING_BRIDGE, [], ARMADA);
-});
-
-test("pressing the act with nothing chosen gives the row the keys, and a chip picked there sends", async () => {
-  const app = await sheet();
-  const propose = vi.spyOn(app.api, "proposeFromRequest");
+test("pressing the act with nothing chosen gives the row the keys, and a chip picked there starts the Session", async () => {
+  await sheet();
   await request().fill(NAMING_NOTHING);
   await expect.element(reading("Repository, not found")).toBeVisible();
-  await act("Dispatch").click();
-  // The frame takes the call's hue, the first chip has focus, and nothing was built.
+  await act("Start").click();
+  // The frame takes the call's hue, the first chip has focus, and nothing was started.
   await expect.element(frame()).toHaveAttribute("data-asking");
   await expect.element(chip("armada")).toHaveFocus();
-  expect(propose).not.toHaveBeenCalled();
-
+  expect(page.getByRole("textbox", { name: "Message" }).query()).toBeNull();
   await userEvent.keyboard("{ArrowRight}");
   await expect.element(chip("billing")).toHaveFocus();
   await userEvent.keyboard("{Enter}");
-  await expect.element(strip()).toBeVisible();
-  expect(propose).toHaveBeenCalledWith(NAMING_NOTHING, [], BILLING);
-});
-
-test("the Job lands on the repository chosen, not the first the Board lists", async () => {
-  const app = await sheet();
-  await request().fill(NAMING_NOTHING);
-  await act("Dispatch").click();
-  await chip("storefront").click();
-  await expect.element(strip()).toBeVisible();
-  const state = await app.api.state();
-  const made = state.jobs.find((job) => job.title === NAMING_NOTHING);
-  expect(made?.owner_manifest_id).toBe("storefront");
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 });
 
 test("an answer to words that have since changed is let go", async () => {
@@ -177,8 +140,7 @@ test("an answer to words that have since changed is let go", async () => {
 });
 
 test("a repository picked by hand beats the one read from the words", async () => {
-  const app = await sheet();
-  const propose = vi.spyOn(app.api, "proposeFromRequest");
+  await sheet();
   await request().fill(NAMING_BRIDGE);
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await chip("storefront").click();
@@ -187,30 +149,23 @@ test("a repository picked by hand beats the one read from the words", async () =
   await request().fill(`${NAMING_BRIDGE} again`);
   await new Promise((resume) => setTimeout(resume, 800));
   await expect.element(chip("storefront")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toBeVisible();
-  expect(propose).toHaveBeenCalledWith(`${NAMING_BRIDGE} again`, [], STOREFRONT);
 });
 
-// The owner, 13 Oct 2026: on All, a Session asks where it starts, as a Job does.
+// The owner, 13 Oct 2026: on All, a Session asks where it starts.
 test("a Session on All that names no repository gives the row the keys, and the pick starts it there", async () => {
-  const app = await sheet();
-  const propose = vi.spyOn(app.api, "proposeFromRequest");
+  await sheet();
   await request().fill(NAMING_NOTHING);
-  await userEvent.keyboard("{Tab}");
   await expect.element(frame().getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
   await expect.element(reading("Repository, not found")).toBeVisible();
   await act("Start").click();
   await expect.element(frame()).toHaveAttribute("data-asking");
   await chip("storefront").click();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
-  expect(propose).not.toHaveBeenCalled();
 });
 
 test("a Session whose words name a repository starts there without asking", async () => {
   await sheet();
   await request().fill(NAMING_BRIDGE);
-  await userEvent.keyboard("{Tab}");
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await act("Start").click();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
@@ -239,39 +194,27 @@ test("an Autopilot is read first, and started from what was read", async () => {
   await expect.element(page.getByRole("region", { name: "Autopilot lane" })).toBeVisible();
 });
 
-test("a Job sent leaves a strip, and Enter opens the Job the call named", async () => {
-  const app = await sheet();
-  await request().fill(NAMING_BRIDGE);
+/** An Autopilot read and started from the sheet, which is what leaves the strip. */
+async function sendAutopilot() {
+  await request().fill("Work through the open Bridge bugs until 7am");
+  await frame().getByRole("tab", { name: "Autopilot" }).click();
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toHaveTextContent(NAMING_BRIDGE);
-  // The sheet has gone with the send, and the strip stands over the title bar's field.
-  expect(frame().query()).toBeNull();
-
-  // The Job's id is the one the call carries, and the Board's row for it is what the strip draws.
-  const state = await app.api.state();
-  const made = state.jobs.find((job) => job.title === NAMING_BRIDGE);
-  expect(made).toBeDefined();
-  expect(state.proposing?.job_id).toBe(made?.id);
-
-  await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("heading", { name: new RegExp(NAMING_BRIDGE.slice(0, 20)) })).toBeVisible();
-});
+  await act("Read it").click();
+  await expect.element(page.getByRole("textbox", { name: "Instruction" })).toBeVisible();
+  await act("Start Autopilot").click();
+  await expect.element(strip()).toBeVisible();
+}
 
 test("Escape lets the strip go, and typing starts a new draft over it", async () => {
   await sheet();
-  await request().fill(NAMING_BRIDGE);
-  await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toBeVisible();
+  await sendAutopilot();
+  // The sheet has gone with the send, and the strip stands over the title bar's field.
+  expect(frame().query()).toBeNull();
   await userEvent.keyboard("{Escape}");
   expect(strip().query()).toBeNull();
 
   await userEvent.keyboard("n");
-  await request().fill(NAMING_BRIDGE);
-  await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toBeVisible();
+  await sendAutopilot();
   await userEvent.keyboard("x");
   expect(strip().query()).toBeNull();
   await expect.element(request()).toHaveValue("x");
@@ -280,7 +223,7 @@ test("Escape lets the strip go, and typing starts a new draft over it", async ()
 test("Escape puts the sheet away and N brings the draft back, and a send clears it", async () => {
   await sheet();
   await request().fill(NAMING_NOTHING);
-  await expect.element(act("Dispatch")).toBeVisible();
+  await expect.element(act("Start")).toBeVisible();
   await userEvent.keyboard("{Escape}");
   expect(frame().query()).toBeNull();
   expect(request().query()).toBeNull();
@@ -298,10 +241,9 @@ test("Escape puts the sheet away and N brings the draft back, and a send clears 
 
   await request().fill(NAMING_BRIDGE);
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
-  await act("Dispatch").click();
-  await expect.element(strip()).toBeVisible();
+  await act("Start").click();
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
-  expect(strip().query()).toBeNull();
   await userEvent.keyboard("n");
   await expect.element(request()).toHaveValue("");
 });

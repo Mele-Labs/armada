@@ -87,21 +87,18 @@ async function layerOff(sink: Sink, fleet: LayerFleet, openSession = vi.fn(), te
   return { openSession, tell };
 }
 
-function onJob(): void {
+function onOverview(): void {
   const rail = document.createElement("a");
   rail.setAttribute("data-noted", "");
   rail.setAttribute("aria-current", "page");
   rail.setAttribute("aria-label", "Overview");
-  const detail = document.createElement("div");
-  detail.setAttribute("data-noted", "");
-  detail.setAttribute("data-armada-open-job", JOB);
-  document.body.append(rail, detail);
+  document.body.append(rail);
 }
 
 test("the palette's Debug Bridge opens a Session holding the picture and the state as a draft, and sends nothing", async () => {
   const { sink, notes, capture } = capturing();
   const { fleet, sent } = fleetWith();
-  onJob();
+  onOverview();
   const { openSession } = await layerOff(sink, fleet);
   askToDebugBridge();
 
@@ -114,7 +111,6 @@ test("the palette's Debug Bridge opens a Session holding the picture and the sta
 
   const draft = readKept<{ text: string; tags: unknown[]; files: { name: string; file?: File }[] }>("session:01DEBUGSESSION00");
   expect(draft?.text).toContain("Work out what is going on in Bridge");
-  expect(draft?.text).toContain(`- Job open: 12-the-drone-count-is-wrong "The Drone count is wrong" (${JOB}) — status running`);
   expect(draft?.text).toContain("- Doctor: ");
   // A blank line under the state, where his context goes.
   expect(draft?.text.endsWith("\n\n")).toBe(true);
@@ -122,7 +118,7 @@ test("the palette's Debug Bridge opens a Session holding the picture and the sta
   expect(draft?.files[0]?.file?.type).toBe("image/png");
 
   const [note] = [...notes.values()];
-  expect(note).toMatchObject({ scope: "window", openJobId: JOB, screenshot: `${note?.id}.png` });
+  expect(note).toMatchObject({ scope: "window", screenshot: `${note?.id}.png` });
   // Nothing was sent, so the note says so.
   expect(note?.sent).toBeUndefined();
   // Nothing of the layer was drawn: it stayed off.

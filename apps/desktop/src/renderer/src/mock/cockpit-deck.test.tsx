@@ -76,18 +76,20 @@ test("a Session that waits on him raises an Incoming call", async () => {
 
 test("the Cockpit tab returns from a page opened from the deck exactly", async () => {
   await deck();
-  // Exactly: the Session in clash with it carries a mark that names it.
-  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
-  const pane = page.getByRole("region", { name: /^Job: Shorten the reconnect wait/ });
-  await expect.element(pane).toBeVisible();
+  const label = () => stage()?.getAttribute("aria-label") ?? "";
+  await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
+  await expect.poll(label).toContain("Pin the store clock");
+  const was = label();
 
-  await pane.getByRole("button", { name: "Open the Job page" }).click();
-  await expect.element(pane).not.toBeInTheDocument();
-  expect(document.querySelector(".deck-list")).toBeNull();
+  // The reports open over the Cockpit, which stays mounted under them.
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await page.getByRole("option", { name: "Reported" }).click();
+  await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
+  await expect.poll(() => document.querySelector(".deck-list")).toBeNull();
 
   await places().getByRole("tab", { name: "Cockpit" }).click();
-  await expect.element(page.getByRole("region", { name: /^Job: Shorten the reconnect wait/ })).toBeVisible();
-  expect(document.querySelector('.deck-row[data-selected]')?.getAttribute("aria-label")).toBe("Shorten the reconnect wait");
+  await expect.poll(label).toBe(was);
+  expect(document.querySelector('.deck-row[data-selected]')?.getAttribute("aria-label")).toBe("Pin the store clock");
 
   // Exactly, to history too: the tab went back to the deck and did not open it a second time, so Back does not find the page again.
   await userEvent.keyboard("{Meta>}[[{/Meta}");
@@ -97,8 +99,8 @@ test("the Cockpit tab returns from a page opened from the deck exactly", async (
 
 test("Checks filters list, Activity and Stage to subjects running a Check", async () => {
   await deck();
-  const kept = "Add the pause marker column";
-  const dropped = "Shorten the reconnect wait";
+  const kept = "Migration notes";
+  const dropped = "Pin the store clock";
   const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
   await expect.poll(() => rows().includes(dropped)).toBe(true);
   const whole = rows().length;

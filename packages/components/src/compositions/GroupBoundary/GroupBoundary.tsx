@@ -76,7 +76,7 @@ export type GroupBoundaryProps = {
   /** The commit the group left. Absent until it left one. */
   commit?: string;
   tests?: readonly GroupBoundaryTest[];
-  /** The `?` beside the Checks label. A plan group passes guide 5; the merge line passes none. */
+  /** The `?` beside the Checks label. No caller passes one now; guide 5 was retired with the plan board. */
   guide?: Guide;
 };
 

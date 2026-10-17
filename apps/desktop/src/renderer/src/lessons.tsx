@@ -24,11 +24,8 @@ export function LessonsSurface({
   repository,
   bridge,
   onCopied,
-  onOpenJob,
 }: {
   repository: string | null;
-  /** A Job an agreed item proposed opens over Lessons, and Escape comes back here. */
-  onOpenJob: (jobId: string) => void;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
 }) {
@@ -51,7 +48,6 @@ export function LessonsSurface({
         onOpenSession={askToOpenSession}
         onReviewLessons={reviewLessons}
         onAskLesson={askLesson}
-        onOpenJob={onOpenJob}
         repository={repository}
         floor={floor}
         tab={tab}

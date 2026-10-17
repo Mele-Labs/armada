@@ -12,7 +12,7 @@ import { OwnerChip } from "../OwnerChip/OwnerChip";
  *
  * **Two stages, one card.** While Helm reads where the words belong there is no card: the words are in
  * the thread, going. A match names the Session and offers Send. Nothing matched, or No pressed, offers to start
- * a Session or a Job with the words. Every act is a button with its key on it, and the dock binds
+ * a Session with the words. Every act is a button with its key on it, and the dock binds
  * the keys while the message box is empty.
  */
 export type ThoughtTarget = {
@@ -29,7 +29,7 @@ export type ThoughtCardProps = {
   words: string;
 } & (
   | { stage: "match"; target: ThoughtTarget; onSend: () => void; onNo: () => void; onAskHelm: () => void }
-  | { stage: "new"; onSession: () => void; onJob: () => void; onAskHelm: () => void; onDismiss: () => void }
+  | { stage: "new"; onSession: () => void; onAskHelm: () => void; onDismiss: () => void }
 );
 
 /** The kind's glyph and the word for it, which are the Session card's own. */
@@ -110,7 +110,6 @@ export function ThoughtCard(props: ThoughtCardProps) {
       </div>
       <div className="armada-thought-card__acts" role="group" aria-label="Answers">
         <Act label="Session" keys={["S"]} onPress={props.onSession} />
-        <Act label="Job" keys={["J"]} onPress={props.onJob} />
         <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
       </div>
     </Card>

@@ -7,33 +7,22 @@ import { DeckBody } from "./cockpit/deck/Deck";
 import { AGE_MS } from "./cockpit/deck/clock";
 import type { CockpitProps } from "./cockpit/deck/props";
 
-type Data = "state" | "now" | "picked" | "nowViews" | "nows" | "bring" | "bayActs";
+type Data = "state" | "now" | "picked" | "bring" | "bayActs";
 type Act = Exclude<keyof CockpitProps, Data>;
 
 /** Every callback the deck is handed. A record, so a callback added to its props and left off this list does not compile. */
 const ACTS: Record<Act, true> = {
-  onOpen: true,
   onOpenSession: true,
   onOpenLink: true,
   onOpenCheck: true,
-  onFix: true,
   onSendToSession: true,
-  onPropose: true,
-  onKill: true,
-  onRedispatch: true,
-  onClear: true,
-  onPausing: true,
   onTell: true,
-  onNowAct: true,
-  onAnswerCard: true,
   onReleaseSlot: true,
   onWantHeld: true,
-  onCursor: true,
   onGoTo: true,
   onPickRepository: true,
   onAddRepository: true,
   onRescueSlot: true,
-  onMergeJob: true,
   onBrought: true,
 };
 
@@ -57,7 +46,7 @@ function useSteady(props: Omit<CockpitProps, "now">): Pick<CockpitProps, Act> {
 
 export function CommandCentral(props: Omit<CockpitProps, "now">) {
   const acts = useSteady(props);
-  const { state, picked, nowViews, nows, bring, bayActs } = props;
+  const { state, picked, bring, bayActs } = props;
   // The deck reads ages in whole minutes, so it reads the minute: a clock that moves each second would draw all of it each second.
-  return <DeckBody state={state} now={useNow(AGE_MS)} picked={picked} nowViews={nowViews} nows={nows} bring={bring} bayActs={bayActs} {...acts} />;
+  return <DeckBody state={state} now={useNow(AGE_MS)} picked={picked} bring={bring} bayActs={bayActs} {...acts} />;
 }

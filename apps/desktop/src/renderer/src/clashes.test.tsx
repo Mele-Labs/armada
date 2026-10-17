@@ -14,8 +14,8 @@ import { useOpenHolderAsked } from "./open-holder";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const JOB_AND_SESSION: WriteClash = {
-  one: { kind: "job", id: "j1", label: "Cap the retry backoff" },
+const TWO_SESSIONS: WriteClash = {
+  one: { kind: "session", id: "s3", label: "Cap the retry backoff" },
   other: { kind: "session", id: "s1", label: "Retry tuning" },
   paths: ["crates/fleet/src/retry.rs", "crates/fleet/src/backoff.rs"],
   since: "2026-10-13T09:00:00Z",
@@ -40,7 +40,7 @@ afterEach(() => {
   }
 });
 
-/** A window whose rows are one Job, two Sessions and a Job nobody conflicts with, over a Fleet that answers `clashes`. */
+/** A window whose rows are four Sessions, over a Fleet that answers `clashes`. */
 async function window(clashes: WriteClash[]): Promise<HTMLElement> {
   const connected = { connection: { state: "connected" } } as never;
   const source = createFleetClashes(
@@ -48,11 +48,11 @@ async function window(clashes: WriteClash[]): Promise<HTMLElement> {
     () => () => {},
   );
   function Rows() {
-    useOpenHolderAsked({ job: (id) => opened.push(`job ${id}`), session: (id) => opened.push(`session ${id}`) });
+    useOpenHolderAsked({ session: (id) => opened.push(`session ${id}`) });
     return (
       <>
-        <section aria-label="Job j1">
-          <ClashMark kind="job" id="j1" />
+        <section aria-label="Session s3">
+          <ClashMark kind="session" id="s3" />
         </section>
         <section aria-label="Session s1">
           <ClashMark kind="session" id="s1" />
@@ -60,8 +60,8 @@ async function window(clashes: WriteClash[]): Promise<HTMLElement> {
         <section aria-label="Session s2">
           <ClashMark kind="session" id="s2" />
         </section>
-        <section aria-label="Job j9">
-          <ClashMark kind="job" id="j9" />
+        <section aria-label="Session s9">
+          <ClashMark kind="session" id="s9" />
         </section>
       </>
     );
@@ -77,8 +77,8 @@ async function window(clashes: WriteClash[]): Promise<HTMLElement> {
 const marksOn = (host: HTMLElement, row: string) => [...host.querySelectorAll(`section[aria-label="${row}"] .armada-clash-mark`)];
 
 test("marks both rows of a pair, each naming the other holder and the paths", async () => {
-  const host = await window([JOB_AND_SESSION, SESSION_AND_MAIN]);
-  expect(marksOn(host, "Job j1").map((mark) => mark.getAttribute("aria-label"))).toEqual([
+  const host = await window([TWO_SESSIONS, SESSION_AND_MAIN]);
+  expect(marksOn(host, "Session s3").map((mark) => mark.getAttribute("aria-label"))).toEqual([
     "Conflicts with Retry tuning · crates/fleet/src/retry.rs, crates/fleet/src/backoff.rs",
   ]);
   expect(marksOn(host, "Session s1").map((mark) => mark.getAttribute("aria-label"))).toEqual([
@@ -88,8 +88,8 @@ test("marks both rows of a pair, each naming the other holder and the paths", as
 });
 
 test("leaves a row that is in no clash unmarked", async () => {
-  const host = await window([JOB_AND_SESSION]);
-  expect(marksOn(host, "Job j9")).toEqual([]);
+  const host = await window([TWO_SESSIONS]);
+  expect(marksOn(host, "Session s9")).toEqual([]);
 });
 
 test("marks nothing where Fleet reports none, as an older Fleet that answers 404 comes to", async () => {
@@ -98,10 +98,10 @@ test("marks nothing where Fleet reports none, as an older Fleet that answers 404
 });
 
 test("opens the other holder of a pair from either row", async () => {
-  const host = await window([JOB_AND_SESSION]);
-  await act(async () => (marksOn(host, "Job j1")[0] as HTMLElement).click());
+  const host = await window([TWO_SESSIONS]);
+  await act(async () => (marksOn(host, "Session s3")[0] as HTMLElement).click());
   await act(async () => (marksOn(host, "Session s1")[0] as HTMLElement).click());
-  expect(opened).toEqual(["session s1", "job j1"]);
+  expect(opened).toEqual(["session s1", "session s3"]);
 });
 
 test("draws a clash against main as a picture, with nothing to open", async () => {

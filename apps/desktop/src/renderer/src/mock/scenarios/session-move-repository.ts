@@ -76,7 +76,7 @@ function build(): Scenario {
     state: { ...base.state, repository: null },
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [WRONG, LISTENING]);
+        const store = sessionsStore([none, none], none, control, [], [WRONG, LISTENING]);
         // The first start is the store's own fixture, spent here so a move makes the next.
         store.start();
         return movable(store, new Set([WRONG.id, LISTENING.id]));

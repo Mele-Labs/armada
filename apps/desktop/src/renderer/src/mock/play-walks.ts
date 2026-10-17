@@ -8,7 +8,6 @@ import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
 import { page, userEvent } from "vitest/browser";
 
-import { pace } from "@armada/jobs/fake";
 import { settle } from "../cockpit/CallAlerts";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
@@ -66,16 +65,13 @@ export async function parkThePointer(): Promise<void> {
 export function playWalks(part: number, of: number): void {
   unmountAfterEach();
 
-  const slow = pace.arrivingMs;
   const settling = settle.ms;
   beforeEach(async () => {
-    pace.arrivingMs = 100;
     // A walk is played faster than a person walks it, so the beat the first reading is given before a call can toast is spent.
     settle.ms = 0;
     await parkThePointer();
   });
   afterEach(() => {
-    pace.arrivingMs = slow;
     settle.ms = settling;
   });
 

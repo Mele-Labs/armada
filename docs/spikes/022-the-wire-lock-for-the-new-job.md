@@ -736,7 +736,7 @@ The `drones_had` module (deleted since), the `evidence` module (deleted since),
 
 **Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
 Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
-for no task on today's Fleet (`packages/surfaces/jobs/src/task-live.ts`). This slice
+for no task on today's Fleet (the Jobs package, since deleted). This slice
 is what turns them on.
 
 ### 2 — Groups, and a task that failed

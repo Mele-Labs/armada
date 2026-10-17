@@ -88,10 +88,10 @@ test("a drone with an observed path hovers over the plot of that area", () => {
 });
 
 test("two drones over one plot are not a clash: only Fleet's write-clash read marks one, and only on a plot that is drawn", () => {
-  const drones = [drone("session:a", { touches: [{ path: "crates/fleet", w: 2 }] }), drone("job:b", { kind: "job", touches: [{ path: "crates/fleet", w: 2 }] })];
+  const drones = [drone("session:a", { touches: [{ path: "crates/fleet", w: 2 }] }), drone("session:b", { touches: [{ path: "crates/fleet", w: 2 }] })];
   expect(layoutOf([repo({ areas: AREAS })], drones, SIZE, BIG).clashes).toEqual([]);
 
-  const clash = { path: "crates/fleet", root: "/r", keys: ["session:a", "job:b"] };
+  const clash = { path: "crates/fleet", root: "/r", keys: ["session:a", "session:b"] };
   const elsewhere = { path: "apps/desktop", root: "/r", keys: ["session:a"] };
   expect(layoutOf([repo({ areas: AREAS })], drones, SIZE, BIG, [], [clash, elsewhere]).clashes).toEqual([clash]);
 });

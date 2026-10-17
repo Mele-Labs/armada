@@ -46,11 +46,8 @@ function Window() {
   const dispatching = useDispatch({
     state,
     repositories: [armada],
-    proposeFrom: async () => null,
     openSession: opened,
-    openJob: () => undefined,
     openAutopilot: () => undefined,
-    said: () => undefined,
   });
   return (
     <DispatchingProvider value={dispatching}>
@@ -92,7 +89,6 @@ test("sending a brief that tags a Session waits for the proposer's reading, then
   await expect.element(request).toBeVisible();
   await userEvent.keyboard("Write the docs once @Retry loop lands, so the schema is in");
   await expect.element(request).toHaveValue("Write the docs once @Retry loop lands, so the schema is in");
-  await userEvent.keyboard("{Tab}");
   await userEvent.keyboard("{Enter}");
 
   await expect.poll(() => start.mock.calls.length).toBe(1);

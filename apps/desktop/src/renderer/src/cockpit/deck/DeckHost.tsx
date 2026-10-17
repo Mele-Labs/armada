@@ -1,5 +1,5 @@
 // What the flight deck mounts at the window, outside the Cockpit's body: the places in the title bar, and the keys, which are the
-// window's wherever the person is (the page chord and the next call work over a Job's page too). **Mounted only while the preview
+// window's wherever the person is (the page chord and the next call work over a page opened from the deck too). **Mounted only while the preview
 // switch is on**, so with it off none of this is in the window. The body is `Deck.tsx`; the state is `store.ts`, a module, so
 // this, the body and the keys are one thing and a body that unmounts while a page is open comes back exact. #2301.
 
@@ -12,8 +12,6 @@ import { useItems, type Hosts } from "../../Dashboard";
 import { useQueued } from "../../sessions-draft";
 import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
-import type { CallView } from "@armada/screens/src/draft/calls";
-import type { NowView } from "@armada/screens/src/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { holdFor } from "./props";
@@ -25,12 +23,12 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
-const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
+const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
 
 /** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
@@ -38,8 +36,6 @@ const AWAIT_SESSION_MS = 3000;
 type Where = {
   state: BridgeState;
   picked: RepositorySummary | null;
-  nowViews: Readonly<Record<string, CallView>> | undefined;
-  nows: Readonly<Record<string, NowView>> | undefined;
 };
 
 const NONE: ReadonlySet<string> = new Set();
@@ -50,11 +46,11 @@ const NONE: ReadonlySet<string> = new Set();
  * that was opened from the deck goes back**, so the deck returns exactly as it was left; pressing another place from over the
  * Cockpit replaces the layers, so Back from it returns to the Cockpit.
  */
-export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onGoTo, onBack, onReplaceNext }: Pick<Where, "state" | "picked" | "nowViews"> & {
+export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBack, onReplaceNext }: Where & {
   showing: string;
   /** Surfaces nothing serves yet, left off the tabs beside what a layout hides. */
   hidden: readonly string[];
-  /** A page opened from the deck stands over the Cockpit: the Job's page, the composer, a report. */
+  /** A page opened from the deck stands over the Cockpit: the composer, a report. */
   away: boolean;
   onGoTo: (surface: string) => void;
   onBack: () => void;
@@ -63,7 +59,7 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onG
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
-  const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
+  const calls = useItems("command-central", state, picked, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, held, visited).length > 0;
   useEffect(() => {
     if (deckTabOf(showing) === "system") rememberSystemPage(showing);
@@ -86,18 +82,15 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
+export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
   here: boolean;
-  openJobId: string | null;
   onGoTo: (surface: string) => void;
-  /** Where a call about a Job or Session the deck does not list goes, as a link to it does. */
-  onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked, nowViews, nows }, false);
+  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked }, false);
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
@@ -134,7 +127,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
   const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
-  const { listed } = useListed(ship, state.jobs, banding);
+  const { listed } = useListed(ship, banding);
   const queued = useQueued();
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
@@ -172,7 +165,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       callTrail.at = callTrail.keys.length - 1;
     }
     if (to === undefined) return;
-    if (openCall(ship, to, { onOpen, onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
+    if (openCall(ship, to, { onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
   };
 
   useDeckKeys((event) => {
@@ -194,8 +187,8 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return walkCalls(event.shiftKey ? -1 : 1);
     }
-    // Two keys: the page in front reads neither (`armChord` takes the second before it can). Not over a Job's page, where `g` is its own.
-    if (isPressed("deck_page", event) && openJobId === null) {
+    // Two keys: the page in front reads neither (`armChord` takes the second before it can).
+    if (isPressed("deck_page", event)) {
       event.preventDefault();
       return armChord(Object.fromEntries(Object.entries(PAGE_LETTERS).map(([letter, place]) => [letter, () => go(place)])));
     }
@@ -248,19 +241,6 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       setView("map");
       return focusSoon("stage");
-    }
-    // With a Job open, `v` swaps its mission and its canvas, wherever focus is on the deck.
-    if (isPressed("deck_view", event) && state.sel?.kind === "job") {
-      event.preventDefault();
-      return toggleJobView();
-    }
-    // In a Job's pane, 0 is the canvas's own Fit or the mission's whole route: the whole run in the frame.
-    if (event.key === "0" && !event.shiftKey && state.sel?.kind === "job") {
-      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] :is(.deck-job__canvas button[aria-label="Fit"], .deck-job__mission button[aria-label="Whole route"])');
-      if (fit !== null) {
-        event.preventDefault();
-        return fit.click();
-      }
     }
     // Zoom is the map's wherever focus is, while the map is what the stage is showing.
     if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && !event.shiftKey && state.sel === undefined && state.view === "map") {

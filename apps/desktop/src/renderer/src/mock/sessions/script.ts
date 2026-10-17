@@ -169,7 +169,7 @@ const VARIED = "Board layouts";
 /** Its takes: the mock itself on three scenarios, the way a Session would serve three branches of one page. */
 const takes = (): Variation[] =>
   [
-    { name: "Every state", scenario: "every-state" },
+    { name: "Every state", scenario: "default" },
     { name: "Needs you first", scenario: "dashboard-needs-you" },
     { name: "Sessions beside", scenario: "sessions" },
   ].map(({ name, scenario }) => {
@@ -192,9 +192,6 @@ const walkTakes = (): Variation[] =>
     url.search = `?walk=${walk}&walked`;
     return { name, url: url.toString() };
   });
-
-/** A Job on the Board, as the scenarios still hand it to `sessionsStore`, which reads none of it: a Job can no longer be tagged. */
-export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
 
 /** What the mock Fleet lets a Session do to the Board: move a Job to another status, on the row and on its detail. */
 export type BoardControl = {
@@ -231,7 +228,6 @@ const RUN_DEFAULT = ["done"];
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
   review: DispatchedJob,
-  _taggableJobs: readonly TaggableJob[],
   board: BoardControl,
   /** The Board rows the dispatching moment adds. */
   dispatchedRows: readonly unknown[] = [],
@@ -507,9 +503,7 @@ export function sessionsStore(
         board.setStatus(jobId, status);
         edit(id, (one) => ({
           ...one,
-          // The worktree goes back with the Job: the Session no longer holds its slot or its branch.
           attachments: one.attachments
-            .filter((a) => !((a.kind === "slot" || a.kind === "branch") && a.handed !== undefined))
             .map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state, ...extra } : a)),
           rows: [...one.rows, row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "agent" }, text: said_ }))],
           turn: idle,

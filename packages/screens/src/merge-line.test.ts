@@ -4,7 +4,7 @@
 // real `armada-land/` directory and holds equal to this file, so this is the other half of one
 // reading of the wire.
 
-import type { JobSummary, MergeLineHub, MergeLines } from "@armada/protocol";
+import type { MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
@@ -135,23 +135,6 @@ describe("the merge line Fleet serves", () => {
     ]);
   });
 
-  test("an entry names the Job whose branch it is", () => {
-    const jobs = [
-      { id: "J1", title: "Order the migrations", branch: "fleet/push-the-base" },
-      { id: "J2", title: "Newer", branch: "fleet/helm-kills-processes", ended_at: "2026-10-07T10:00:00Z" },
-      { id: "J3", title: "Older", branch: "fleet/helm-kills-processes", ended_at: "2026-10-06T10:00:00Z" },
-    ] as JobSummary[];
-    const [one] = mergeLineViews(SERVED, "/repo", REPOSITORIES, jobs);
-    expect(one?.line.map((row) => [row.branch, row.job])).toEqual([
-      ["docs/wire-lock-signed", undefined],
-      ["worktree-agent-a", undefined],
-      ["fleet/gate-policy-every-run", undefined],
-      ["fleet/push-the-base", { id: "J1", title: "Order the migrations" }],
-      ["fleet/helm-kills-processes", { id: "J2", title: "Newer" }],
-      ["fleet/read-in-cluster-membership", undefined],
-    ]);
-  });
-
   test("a landed pull request wears the Job's own badge for how it ended, and one in line its number alone", () => {
     const [one] = views(SERVED, "/repo");
     expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({ number: 1770, url: `${PULL}1770` });
@@ -207,7 +190,7 @@ describe("the hub Fleet serves beside the line", () => {
   });
   const hubOf = (hub: MergeLineHub) => views(hubbed(hub), null)[0]?.hub;
 
-  test("an open pull request keeps its queue state and place, and the Board's Jobs name none of them", () => {
+  test("an open pull request keeps its queue state and place", () => {
     const hub = mergeLineViews(
       {
         lines: [
@@ -228,7 +211,6 @@ describe("the hub Fleet serves beside the line", () => {
       },
       null,
       REPOSITORIES,
-      [{ id: "job-1", title: "Cache the manifest read", branch: "armada/cache" } as JobSummary],
     )[0]?.hub;
     expect(hub?.pulls).toEqual([
       { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", queue: { state: "queued", position: 2 } },
@@ -298,7 +280,6 @@ describe("the hub Fleet serves beside the line", () => {
         { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "waiting_on_main" },
         { number: 9, url: `${PULL}9`, branch: "nick/new" },
       ],
-      recent: [],
     });
   });
 
@@ -370,9 +351,9 @@ describe("the hub Fleet serves beside the line", () => {
 
   test("a main still running, one nothing ran on, and one not read draw no mark", () => {
     for (const state of ["running", "nothing_ran"]) {
-      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [], recent: [] });
+      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [] });
     }
-    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [], recent: [] });
+    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [] });
   });
 
   test("a line from a Fleet before the hub draws none and keeps its own landed rows", () => {
@@ -442,21 +423,6 @@ describe("the hub Fleet serves beside the line", () => {
     expect(green?.main).toEqual({ state: "green", checking: [{ commit, number: 1852 }] });
     const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
     expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
-  });
-
-  test("the Jobs main's red can go back to are the Board's rows at their review or over, newest first", () => {
-    const row = (id: string, status: string, branch?: string, ended_at?: string) =>
-      ({ id, title: id, status, ...(branch === undefined ? {} : { branch }), ...(ended_at === undefined ? {} : { ended_at }) }) as JobSummary;
-    const jobs = [
-      row("01A", "running", "armada/a"),
-      row("01B", "completed_success", "armada/b", "2026-10-06T10:00:00Z"),
-      row("01C", "awaiting_review", "armada/c"),
-      row("01D", "killed", "armada/d", "2026-10-06T12:00:00Z"),
-      row("01E", "completed_success"),
-    ];
-    const lines = hubbed({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "ci", check: "test" }] } });
-    const [view] = mergeLineViews(lines, null, REPOSITORIES, jobs);
-    expect(view?.hub?.recent.map((one) => one.id)).toEqual(["01D", "01B", "01C"]);
   });
 });
 

@@ -88,11 +88,6 @@ export function heldBy(filter: CheckFilter, entry: CheckEntry): boolean {
   }
 }
 
-/** The Checks of one Job: a reported row by its `job_id`, any other by the Job its requester names. */
-export function ofJob(entries: readonly CheckEntry[], jobId: string): CheckEntry[] {
-  return entries.filter((entry) => (entry.job?.id ?? entry.requester.job_id) === jobId);
-}
-
 /** What each status says on hover, as the Check list's mark names it. */
 const SAYS: Record<CheckListStatus, string> = {
   waiting: "waiting",
@@ -210,13 +205,12 @@ function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
   );
 }
 
-/** Where a press on who asked goes: a Job, at a step or a Drone, or the merge line at a branch. */
-export type AskerOpens = { to: "job"; jobId: string; step?: string; drone?: string; task?: string } | { to: "merge-line"; branch?: string };
+/** Where a press on who asked goes: the merge line at a branch. */
+export type AskerOpens = { to: "merge-line"; branch?: string };
 
 /**
- * Who asked, as one line of bare facts, and where pressing it goes. **Every kind but `outside` opens
- * its requester**: a gate its Job at the step, a Drone's task its Job at that task, a Drone's step its Job at that Drone, the merge line at the
- * branch. Absent `opens` is plain text, which is `outside` and any kind with no id to go to.
+ * Who asked, as one line of bare facts, and where pressing it goes. **Only the merge line opens its requester**,
+ * at the branch. Absent `opens` is plain text: a Job's gate or Drone, which has no page to open, a Session, and `outside`.
  */
 export type Asker = { label: string; opens?: AskerOpens };
 
@@ -226,24 +220,10 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
   const job = jobId === undefined ? undefined : (requester.handle ?? jobLabel(jobId));
   switch (kind) {
     case "gate":
-      return {
-        label: said("Gate", job, step),
-        ...(jobId === undefined ? {} : { opens: { to: "job", jobId, ...(step === undefined ? {} : { step }) } as const }),
-      };
+      return { label: said("Gate", job, step) };
     case "drone_task":
-      return {
-        label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task),
-        ...(jobId === undefined
-          ? {}
-          : { opens: { to: "job", jobId, ...(task === undefined ? (drone === undefined ? {} : { drone }) : { task }), ...(task !== undefined || step === undefined ? {} : { step }) } as const }),
-      };
     case "drone_step":
-      return {
-        label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task),
-        ...(jobId === undefined
-          ? {}
-          : { opens: { to: "job", jobId, ...(drone === undefined ? {} : { drone }), ...(step === undefined ? {} : { step }) } as const }),
-      };
+      return { label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task) };
     case "merge_line":
       return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
     case "session":
@@ -251,7 +231,7 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
     case "outside":
       return { label: "Started outside a Job" };
     default:
-      return { label: said(kind, job, step, task, drone, branch), ...(jobId === undefined ? {} : { opens: { to: "job", jobId } as const }) };
+      return { label: said(kind, job, step, task, drone, branch) };
   }
 }
 

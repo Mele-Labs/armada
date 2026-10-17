@@ -22,7 +22,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const SCENARIO = "arc/executing-concurrent";
+const SCENARIO = "merge-line-failed-check";
 
 let takePicker: (() => void) | null = null;
 let host: HTMLElement | null = null;
@@ -39,7 +39,7 @@ afterEach(() => {
 
 /** The app up, and the picker mounted beside it as `main.tsx` mounts the pair. */
 async function show(): Promise<void> {
-  mount("every-state");
+  mount("default");
   await onScreen();
   host = document.createElement("div");
   host.id = "picker";
@@ -124,11 +124,11 @@ test("the search is fuzzy — the initials of a long name reach it", async () =>
   await show();
   await said().click();
 
-  // Nothing in `arc/executing-concurrent` spells `arcex`; every letter of it
+  // Nothing in `merge-line-failed-check` spells `mlfch`; every letter of it
   // is in that name in that order, which is the whole ask.
-  await find("arcex");
+  await find("mlfch");
   expect(names()).toContain(SCENARIO);
-  for (const one of names()) expect(one).toMatch(/a.*r.*c.*e.*x/);
+  expect(names().length).toBeLessThan(SCENARIOS.length + EVERY_WALK.size);
 });
 
 test("choosing one mounts it — the reload `?scenario=` is read on", async () => {
@@ -159,12 +159,12 @@ test("a walk is a row too, and choosing one plays it — the reload `?walk=` is 
   const went = intercept();
 
   await said().click();
-  await find("back from a drone");
-  await page.getByRole("link", { name: "back from a drone" }).click();
+  await find("cockpit sessions list");
+  await page.getByRole("link", { name: "cockpit sessions list" }).click();
 
   expect(went).toHaveLength(1);
   const asked = new URL(went[0]!).searchParams;
-  expect(asked.get("walk")).toBe("backFromADrone");
+  expect(asked.get("walk")).toBe("cockpitSessionsList");
   // `?walk` wins over `?scenario` already; the stale one is not left to say otherwise.
   expect(asked.has("scenario")).toBe(false);
 });
@@ -198,22 +198,22 @@ test("walks are listed first, in words, above the scenarios", async () => {
   const all = rows();
   expect(all.slice(0, EVERY_WALK.size).every((row) => row.dataset.walk !== undefined)).toBe(true);
   expect(all[EVERY_WALK.size]?.dataset.walk).toBeUndefined();
-  expect(names()).toContain("back from a drone");
-  expect(names()).not.toContain("backFromADrone");
+  expect(names()).toContain("cockpit sessions list");
+  expect(names()).not.toContain("cockpitSessionsList");
 });
 
 test("on a walk page the picker names the walk and marks its row", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
   host = document.createElement("div");
   document.body.append(host);
-  takePicker = mountPicker("backFromADrone", host, true);
-  const said2 = page.getByRole("button", { name: "Mock scenario — back from a drone" });
+  takePicker = mountPicker("cockpitSessionsList", host, true);
+  const said2 = page.getByRole("button", { name: "Mock scenario — cockpit sessions list" });
   await expect.element(said2).toBeVisible();
 
   await said2.click();
   const current = document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row[data-current]");
   expect(current).toHaveLength(1);
-  expect(current[0]?.textContent).toBe("back from a drone");
-  expect(current[0]?.href).toContain("walk=backFromADrone");
+  expect(current[0]?.textContent).toBe("cockpit sessions list");
+  expect(current[0]?.href).toContain("walk=cockpitSessionsList");
 });

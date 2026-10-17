@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Settings, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Settings, Shapes, Stamp, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -325,19 +325,6 @@ export const ACTIONS: readonly Action[] = [
     destructive: false,
     confirms: false,
     unbuilt: null,
-  },
-  {
-    id: "pilot",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Pilot",
-    icon: Terminal,
-    iconAbsent: null,
-    shortcut: "p",
-    scope: "list and detail",
-    destructive: false,
-    confirms: false,
-    unbuilt: "#250",
   },
   {
     id: "copy_debug_info",

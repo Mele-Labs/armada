@@ -12,14 +12,11 @@ import { absentIn, carryOut, dormantIn, type PaletteHands } from "./palette";
 afterEach(unmount);
 
 const hands = (debugBridge: () => void, copyDebugInfo: () => void = () => {}): PaletteHands => ({
-  openJob: () => {},
   openSession: () => {},
-  closeJob: () => {},
   compose: () => {},
   surface: () => {},
   run: () => {},
   copyDebugInfo,
-  confirm: () => {},
   openSetting: () => {},
   debugBridge,
   refresh: () => {},
@@ -30,7 +27,7 @@ const hands = (debugBridge: () => void, copyDebugInfo: () => void = () => {}): P
 });
 
 function palette(failing: boolean, act: PaletteHands, debuggable = true) {
-  const where = { reading: false, cursor: null, failing };
+  const where = { failing };
   return (
     <Palette
       open
@@ -38,12 +35,10 @@ function palette(failing: boolean, act: PaletteHands, debuggable = true) {
       context="board"
       on={null}
       surfaces={[]}
-      jobs={[]}
       settings={[]}
       dormant={dormantIn({ ...where, live: true, debuggable, studioRun: null, studioAdd: null })}
       absent={absentIn(where)}
-      onChoose={(choice) => carryOut(choice, null, act)}
-      onConfirmAct={() => {}}
+      onChoose={(choice) => carryOut(choice, act)}
     />
   );
 }

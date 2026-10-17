@@ -133,28 +133,23 @@ test("⌥⌘S does the same while annotating, taking the picture as it is presse
   expect([...notes.values()][0]?.scope).toBe("window");
 });
 
-test("a whole-window note carries the open Job, Doctor's read and the connection, and sends them", async () => {
+test("a whole-window note carries Doctor's read and the connection, and sends them", async () => {
   const { sink, notes } = capturing();
   const fleet = fleetWith();
-  onScreen("Overview", { "data-armada-open-job": JOB });
+  onScreen("Overview");
   await annotating(sink, fleet);
   await vi.waitFor(() => expect(fleet.state).toHaveBeenCalled());
   pressShoot();
-  await say("This Job looks stuck");
+  await say("This looks stuck");
 
   const saved = [...notes.values()][0]!;
-  expect(saved.openJobId).toBe(JOB);
-  expect(saved.context).toMatchObject({
-    connection: "connected",
-    job: { id: JOB, handle: "12-the-drone-count-is-wrong", status: "escalated", reason: "gate_failed", step: "verify", drone: "d-3", workflow: "default" },
-  });
+  expect(saved.context).toMatchObject({ connection: "connected" });
   expect(saved.context?.session).toBeUndefined();
   expect(saved.context?.doctor.rows).toContainEqual({ module: "SQLite", result: "warn", detail: "3 rows will not load" });
 
   const request = requestOf(saved);
-  expect(request).toContain("This Job looks stuck");
+  expect(request).toContain("This looks stuck");
   expect(request).toContain("- Screen: Overview");
-  expect(request).toContain(`- Job open: 12-the-drone-count-is-wrong "The Drone count is wrong" (${JOB}) — status escalated, reason gate_failed, step verify, Drone d-3`);
   expect(request).toContain("- Connection to Fleet: connected");
   expect(request).toContain("  - SQLite: warn — 3 rows will not load");
   expect(request).not.toContain("Selector");

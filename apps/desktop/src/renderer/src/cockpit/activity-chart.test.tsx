@@ -38,7 +38,7 @@ function chart(props: Partial<Parameters<typeof ActivityGraph>[0]> = {}, held: r
   };
   root.render(
     <FleetEventsOver source={{ get: () => held, subscribe: () => () => undefined }}>
-      <ActivityGraph now={Date.now()} jobs={[]} filter="running" onPick={() => {}} {...props} />
+      <ActivityGraph now={Date.now()} filter="running" onPick={() => {}} {...props} />
     </FleetEventsOver>,
   );
 }

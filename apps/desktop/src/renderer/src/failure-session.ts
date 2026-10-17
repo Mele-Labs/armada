@@ -6,7 +6,6 @@
 // The owner's ask of 15 Oct 2026.
 
 import { useRef } from "react";
-import { openJobIn } from "@armada/jobs";
 import type { DebugPayload } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -22,7 +21,6 @@ import { askToTell } from "./tell";
 /** The window as the whole-window note records it, read now. */
 function windowNow(state: ContextState): WindowFacts {
   const { screen, layer, location, scenario, window: size } = captureWindow(new Date());
-  const openJobId = openJobIn(document);
   let context: WindowFacts["context"];
   try {
     context = contextOf(state);
@@ -30,7 +28,7 @@ function windowNow(state: ContextState): WindowFacts {
     // A state read half-published is no reason to lose the rest.
     context = undefined;
   }
-  return { screen, layer, location, scenario, window: size, ...(openJobId === undefined ? {} : { openJobId }), ...(context === undefined ? {} : { context }) };
+  return { screen, layer, location, scenario, window: size, ...(context === undefined ? {} : { context }) };
 }
 
 /** A picture of the window with the layer out of it, or none: only a build with the annotation layer can capture, and a capture that fails sends without. */

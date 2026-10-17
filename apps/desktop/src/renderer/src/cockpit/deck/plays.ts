@@ -20,7 +20,7 @@ export const STAGE_SAID: Record<Pr["stage"], string> = { checking: "Checks runni
  *  sweep    a radar cone turns on the drone that is running a Check
  *  payload  a pull request leaves its drone for the objective
  *  capture  the objective flashes: a merge landed
- *  tracer   a short light runs between a Session and its Job
+ *  tracer   a short light runs between a Session and what it answered
  *  blip     one ring goes out from the drone: something was said or decided
  *  flare    the objective's beacon flares: main went red or green
  */

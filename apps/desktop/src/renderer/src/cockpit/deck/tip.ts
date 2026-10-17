@@ -18,7 +18,7 @@ export type TipHue = Hue | "quiet" | "good";
 type Tone = "calm" | "ask" | "bad" | "good";
 
 export type Tip = {
-  /** The kind, in small caps: Job, Session, Main, Bay. */
+  /** The kind, in small caps: Session, Main, Bay. */
   label: string;
   title: string;
   hue: TipHue;
@@ -47,11 +47,11 @@ export type Tip = {
 export type DroneFacts = { state: { Glyph: LucideIcon; said: string; tone: "calm" | "ask" | "bad" }; call?: string; last?: { says: string; ago: string }; ticks: readonly number[]; bay?: { slot: number; Glyph: LucideIcon; word: string }; build?: BuildTip };
 
 /** A bay as the map draws its pad. */
-export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"; word: string; repo: string; Glyph: LucideIcon; holder?: string; holderKind?: "job" | "session"; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
+export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"; word: string; repo: string; Glyph: LucideIcon; holder?: string; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
 export type GoalIn = { root: string; said: string; red: boolean };
 
 export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback: LucideIcon): Tip => ({
-  label: drone.kind === "job" ? "Job" : "Session",
+  label: "Session",
   title: drone.title,
   hue: drone.hue,
   state: facts?.state ?? { Glyph: fallback, said: drone.said, tone: drone.hue },
@@ -70,7 +70,7 @@ export const padTip = (pad: PadIn): Tip => ({
   hue: pad.bay === "stranded" ? "ask" : pad.bay === "held" || pad.bay === "kept" ? "calm" : "quiet",
   state: { Glyph: pad.Glyph, said: pad.word, tone: pad.bay === "stranded" ? "ask" : "calm" },
   pills: [pad.repo, ...(pad.branch === undefined ? [] : [pad.branch])],
-  ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}${pad.holderKind === "session" ? "Session" : "Job"}: ${pad.holder}`] }),
+  ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}Session: ${pad.holder}`] }),
 });
 
 export const NEEDS_YOU: readonly string[] = ["Needs you"];

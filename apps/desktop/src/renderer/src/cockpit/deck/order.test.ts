@@ -1,4 +1,4 @@
-// How loud a Job or Session is: amber is owed to him, red is a Check failing now and nobody has dealt with it, and the list
+// How loud a Session is: amber is owed to him, red is a Check failing now and nobody has dealt with it, and the list
 // reads the loudest first inside each group.
 
 import { Bot } from "lucide-react";
@@ -9,12 +9,6 @@ import type { Phase, Ship, Subject, Tone } from "./ship";
 
 const subject = (key: string, kind: Subject["kind"], tone: Tone, phase: Phase, more: Partial<Subject> = {}): Subject =>
   ({ key, kind, id: key, title: key, root: "/r", repo: "r", mark: { Glyph: Bot, said: "state", tone }, phase, needs: false, alarm: false, peek: [], stoppable: false, repliable: false, mergeable: false, ...more }) as unknown as Subject;
-
-test("a Job's tone is red only for a failed Check and amber when it is owed something", () => {
-  expect(toneOf(subject("j1", "job", "bad", "needs", { mark: { Glyph: Bot, said: "Check failed", tone: "bad" } }))).toBe("bad");
-  expect(toneOf(subject("j2", "job", "ask", "needs"))).toBe("ask");
-  expect(toneOf(subject("j3", "job", "calm", "working"))).toBe("calm");
-});
 
 test("a Session failing is red, but old news or stuck is drawn quiet", () => {
   expect(toneOf(subject("s1", "session", "bad", "needs", { since: "3m" }))).toBe("bad");

@@ -52,7 +52,7 @@ function build(): Scenario {
   return {
     ...base,
     state: { ...base.state, repository: repository().root, jobs: [running.job] },
-    draft: { sessions: (board) => sessionsStore([none, none], none, [], board, [], [SESSION]) },
+    draft: { sessions: (board) => sessionsStore([none, none], none, board, [], [SESSION]) },
   };
 }
 

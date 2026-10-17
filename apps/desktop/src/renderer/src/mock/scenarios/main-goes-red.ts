@@ -14,7 +14,7 @@ function goesRed(): Scenario {
   const { first, later } = mainRed(repository().root);
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   // Sessions served, so the Dispatch panel offers a Session beside a Job.
-  const draft = { ...base.draft, sessions: (board: Parameters<typeof sessionsStore>[3]) => sessionsStore([none, none], none, [], board, [], [], []) };
+  const draft = { ...base.draft, sessions: (board: Parameters<typeof sessionsStore>[2]) => sessionsStore([none, none], none, board, [], [], []) };
   return { ...base, state: { ...base.state, ...first }, later, draft, behaves: writingMainsLogs };
 }
 

@@ -81,9 +81,9 @@ export function markWalkWindow(readiness: CaptureBarReadiness): void {
 /** The mock itself on another scenario: the one address a browser page can serve as a page to show. */
 export function mockPage(): string {
   // The roster is also read in node, by `scenario.test.ts`, where there is no page.
-  if (typeof window === "undefined") return "http://localhost:41311/?scenario=every-state&walked";
+  if (typeof window === "undefined") return "http://localhost:41311/?scenario=default&walked";
   const url = new URL(window.location.href);
-  url.search = "?scenario=every-state&walked";
+  url.search = "?scenario=default&walked";
   return url.toString();
 }
 

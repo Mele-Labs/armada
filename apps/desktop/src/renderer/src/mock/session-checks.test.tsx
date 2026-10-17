@@ -21,6 +21,9 @@ test("Session checks: a running row ends, and pressing it opens the run with the
   await expect.element(thread.getByRole("button", { name: "Check app_smoke, running" })).toBeVisible();
 
   timePasses();
+  // The pointer is still over the Session's row in the list, whose hover card lies across the thread.
+  await userEvent.unhover(page.getByRole("region", { name: "Work", exact: true }));
+  await expect.poll(() => document.querySelector(".armada-inspect")).toBeNull();
   await userEvent.click(thread.getByRole("button", { name: "Check app_smoke, failed" }));
 
   await expect.element(page.getByRole("dialog", { name: "Check log" })).toBeVisible();

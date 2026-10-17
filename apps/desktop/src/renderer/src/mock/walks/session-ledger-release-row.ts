@@ -1,15 +1,12 @@
 // Release on one row of a Session's ledger: hovering a held row shows it, a confirm names the row (a branch row with the slot it carries), Cancel changes nothing, and Release
-// gives it back and leaves it drawn given back. A row a piloted Job handed over is kept, and says why. Over `session-ledger-release-row`.
+// gives it back and leaves it drawn given back. Over `session-ledger-release-row`.
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
 
 const ledger = region("Attachments");
 const branch = inside(ledger, role("listitem", "Branch fix/pin-store-clock"));
-const slot7 = inside(ledger, role("listitem", "Worktree slot 7"));
 const release4 = inside(branch, button("Release fix/pin-store-clock"));
-const release7 = inside(slot7, button("Release slot-7"));
 const asked4 = dialog("Release fix/pin-store-clock in slot-4");
-const asked7 = dialog("Release slot-7");
 
 const sessionLedgerReleaseRow = walk("session-ledger-release-row", [
   { press: deckRow("Pin the store clock"), say: "A Session open on the stage, working, its ledger at the side" },
@@ -21,10 +18,6 @@ const sessionLedgerReleaseRow = walk("session-ledger-release-row", [
   { press: release4, say: "Release again" },
   { press: inside(asked4, button("Release", { exact: true })), say: "Fleet gives the slot back, with the branch it has checked out" },
   { look: inside(branch, role("img", "Given back")), say: "The row stays, given back, with no Release on it" },
-  { hover: slot7, say: "A slot a piloted Job handed over" },
-  { press: release7, say: "Release on it" },
-  { press: inside(asked7, button("Release", { exact: true })), say: "Fleet keeps it" },
-  { look: inside(slot7, text("A piloted Job holds it, and the pilot's exit gives it back.")), say: "The row says why it stayed, in Fleet's words" },
 ]);
 
 export { sessionLedgerReleaseRow as "session-ledger-release-row" };

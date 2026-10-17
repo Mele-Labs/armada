@@ -65,7 +65,7 @@ test("The card's Open retro link opens that retro on the Retros page, headed by 
 
   const item = sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" });
   await userEvent.click(item.getByRole("button", { name: "Create Job", exact: true }));
-  await expect.element(item.getByRole("button", { name: "Proposed Job" })).toBeVisible();
+  await expect.element(item.getByText("Agreed")).toBeVisible();
 });
 
 test("A second press while one is being written is refused in Fleet's words and the card goes on", async () => {

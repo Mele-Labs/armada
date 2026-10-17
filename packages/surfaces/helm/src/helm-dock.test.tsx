@@ -4,7 +4,7 @@
 // publishes it for several reasons — a rail sitting on a repository that is
 // not set up is one, with others set up beside it. The dock drew one sentence
 // for all of them, "No repository has a Manifest yet for Helm to answer
-// about.", which on `every-state` told a person a false fact about their own
+// about.", which on `default` told a person a false fact about their own
 // machine on the one surface whose job is answering about it.
 //
 // Every mock scenario publishes `helm: { state: "none" }` — no main is behind
@@ -50,7 +50,7 @@ function threadSaysNothing(): void {
 
 test("repositories set up and Helm pointed at none: the thread says nothing, and the switch that points it is there", async () => {
   // Two of this scenario's repositories are set up, and nothing has pointed Helm at either.
-  mount("every-state", SLICES);
+  mount("default", SLICES);
   await openHelm();
 
   const switcher = page.getByRole("button", { name: "Point Helm at a repository" });

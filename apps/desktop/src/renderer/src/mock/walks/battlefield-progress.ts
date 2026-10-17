@@ -6,7 +6,7 @@ import { deckRow, inside, region, role, walk } from "../walk";
 const map = role("listbox", "Map");
 const places = role("navigation", "Places");
 const dock = inside(map, role("option", "Rebuild the dock panel"));
-const stage = region(/^(Job|Session): /);
+const stage = region(/^Session: /);
 const build = region("Build");
 const opened = [
   { press: deckRow("Rebuild the dock panel"), say: "Open the Session" },
@@ -42,10 +42,6 @@ const battlefieldProgress = walk("battlefield-progress", [
   { press: deckRow("Rebuild the dock panel"), say: "Session page. Its row in the list carries one glyph for its phase, with a tooltip naming it" },
   { look: build, say: "Session page. The ring above the ledger, every arc lit: it has landed. Hover a segment for its task and state" },
   { hover: inside(build, role("img", /^Pull request opened/)), say: "An arc says its name and when it happened. A faint one says it is only what this repository usually does next" },
-  { key: "Escape", on: stage, say: "Esc is back to the map" },
-  { press: deckRow("Cache the manifest read"), say: "Job page. The bays stay and there is no band" },
-  { look: role("listbox", "Route"), say: "Job page. The ring of its plan lies in the map beside the waypoint of the step that works it, and its drone hovers over that waypoint: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and dashed. The later waypoints are the road to main" },
-  { hover: inside(role("listbox", "Route"), role("option", /^Warm it at start/)), say: "A segment says its task and where it stands" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { later: places, say: "A fourth Session, drawing subagents in the ring, writes a list. Its own agent wrote two tasks and two subagents wrote two each, one of them still running" },
   { look: map, say: "Subagents. The ring has six pieces. A piece a subagent wrote carries a dot at its middle. The running subagent is a small drone that stands by its two pieces and does not lap. The one that finished has no drone, and its pieces keep their dots" },

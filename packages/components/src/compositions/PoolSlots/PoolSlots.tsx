@@ -35,8 +35,8 @@ export { ReleaseConfirm } from "./ReleaseConfirm";
 export type PoolSlotsProps = {
   /** Bays first, then worktrees outside the pool, in the order they are drawn. */
   rows: readonly TileRow[];
-  /** Open the Job holding a tile. */
-  onOpenJob: (jobId: string) => void;
+  /** Open the Job holding a tile. Absent draws the Job as a name. */
+  onOpenJob?: ((jobId: string) => void) | undefined;
   /**
    * Change the pool: add a slot (no `slot`), or remove, close or reopen one.
    * Absent draws no slot acts and no add tile.
