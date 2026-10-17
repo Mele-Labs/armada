@@ -19,8 +19,7 @@ use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
-    JobId, LandOutputMessage, LandOutputOpened, OutputClosed, OutputEnded, OutputLines,
-    OutputMessage, OutputOpened, ProtocolId, SessionCheckOutputMessage, SessionCheckOutputOpened,
+    LandOutputMessage, LandOutputOpened, OutputClosed, OutputEnded, OutputLines, ProtocolId, SessionCheckOutputMessage, SessionCheckOutputOpened,
 };
 use serde::Serialize;
 
@@ -126,33 +125,6 @@ pub(crate) async fn relay_session_check(socket: WebSocket, live: SessionCheckLiv
     .await;
 }
 
-/// Serve one viewer of a Job's running Check.
-pub(crate) async fn relay(socket: WebSocket, job_id: JobId, live: LiveOutput) {
-    let LiveOutput {
-        name,
-        attempt,
-        path,
-        follow,
-    } = live;
-    let opened = move |skipped| {
-        OutputMessage::Opened(OutputOpened {
-            protocol_id: ProtocolId::current(),
-            job_id,
-            name,
-            attempt,
-            path,
-            skipped,
-        })
-    };
-    tail(
-        socket,
-        follow,
-        opened,
-        OutputMessage::Lines,
-        OutputMessage::Closed,
-    )
-    .await;
-}
 
 /// Serve one viewer of a merge line Check's log.
 pub(crate) async fn relay_land(socket: WebSocket, land: LandOutput) {

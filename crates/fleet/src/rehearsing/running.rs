@@ -123,7 +123,7 @@ where
             required: outcome.required,
             started_at: plan.underway.started_at.clone(),
             ended_at: ipc::Instant::from(&ended),
-            duration_ms: u64::try_from(crate::converging::elapsed(&started, &ended).as_millis())
+            duration_ms: u64::try_from(crate::clock::elapsed(&started, &ended).as_millis())
                 .unwrap_or(u64::MAX),
             exit_code: match outcome.exit {
                 Exit::Code(code) => Some(code),
@@ -360,7 +360,7 @@ async fn settled(
 pub(super) fn wired(file: &adapter_traits::ChangedFile) -> ipc::ChangedFile {
     ipc::ChangedFile {
         path: file.path().to_string(),
-        change: crate::footprint::kind(file.change()),
+        change: crate::wire::kind(file.change()),
         outside_plan: false,
         lines: None,
     }

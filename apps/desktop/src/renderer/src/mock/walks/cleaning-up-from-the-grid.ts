@@ -2,7 +2,7 @@
 // that worktree: what it holds, and the acts that fit it. A finished Job's bay
 // is released after a confirm that says its uncommitted files are committed to
 // the Job's branch as a WIP commit; a worktree outside the pool is committed to
-// the same way and then removed; the Job's own Clear says the same; a slot an
+// the same way and then removed; a slot an
 // agent session holds, in a terminal or hosted, is released, with its files committed first or with none, and refused while a hosted one is working; a running Job's
 // holds the tree and offers nothing; two worktrees outside the pool sit after
 // the bays, one with a branch to delete; a stranded bay is rescued and a closed
@@ -29,12 +29,6 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { look: role("list", "Worktree slots"), say: "One grid: the pool's bays, a tile to add one, and the Jobs' worktrees outside it" },
   { press: TILE(1), say: "A finished Job's bay opens its panel" },
   { look: inside(PANEL(1), role("region", "What it holds", { exact: true })), say: "What it holds: uncommitted changes, and commits not on main" },
-  { press: inside(PANEL(1), role("button", /Debounce the Job Board/)), say: "The bay's Job opens over Cleanup" },
-  { press: role("button", "Reclaim worktree"), say: "The Job's own Clear, on the same worktree" },
-  { look: dialog("Give this job's worktree back?"), say: "It says the same: the uncommitted files committed to the branch, the slot released, the branch kept" },
-  { press: inside(dialog("Give this job's worktree back?"), role("button", "Cancel", { exact: true })), say: "Cancel sends nothing" },
-  ...viaPalette("Worktree Slots", "Back to Cleanup"),
-  { press: TILE(1), say: "The bay again" },
   { hover: IN_PANEL(1, "button", "Clear"), say: "Clear says which worktree it acts on and what happens to the branch" },
   { press: IN_PANEL(1, "button", "Clear"), say: "Clear asks first" },
   { look: role("group", "Clear slot-1", { exact: true }), say: "It says what will happen: the uncommitted files committed to the branch as a WIP commit, the slot released, the branch kept" },

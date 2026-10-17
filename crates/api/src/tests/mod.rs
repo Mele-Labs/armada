@@ -12,10 +12,6 @@
 /// Who the listener answers at all: a page in a browser, and everything that
 /// is not one.
 mod callers;
-mod commander_card;
-mod commander_reach;
-mod commander_repair;
-mod commander_scope;
 mod conversing;
 mod door;
 mod door_scope;
@@ -23,8 +19,6 @@ mod door_sessions;
 mod door_without_manifest;
 mod fake;
 mod following;
-mod helm_kills;
-mod helm_pauses;
 mod helm_box;
 mod helm_tells;
 mod hosted_sessions;
@@ -34,11 +28,7 @@ mod accounts;
 mod building;
 mod limits;
 mod settings;
-mod mcp;
-mod observing;
-mod plan_signing;
 mod preferences;
-mod processes;
 mod reconciling;
 mod reference;
 mod retros;
@@ -46,7 +36,6 @@ mod served;
 mod shapes;
 mod stream;
 mod studios;
-mod walk_notes;
 mod watching_run;
 
 use axum::Router;

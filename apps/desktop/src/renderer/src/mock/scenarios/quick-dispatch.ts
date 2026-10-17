@@ -50,5 +50,5 @@ export const s210QuickDispatch: Scenario = {
   ...base,
   state: { ...base.state, holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) } },
   // A Session starts in the repository it is given and is listed under it, as Fleet lists one by the Manifest it started in.
-  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, [], board, [], [], [], owners) },
+  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, board, [], [], [], owners) },
 };

@@ -72,8 +72,8 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
       return true;
     },
     open: (target) => openSession(target.id),
-    startNew: (kind, text) => {
-      dispatching.choose(kind);
+    startNew: (text) => {
+      dispatching.choose("session");
       dispatching.openSheet(text);
     },
   };

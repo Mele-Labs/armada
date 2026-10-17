@@ -14,7 +14,7 @@
 //! the Job: the same reading every Job got before this existed.
 
 use config::Manifest;
-use core_model::{Component, Envelope, FieldValue, Job, Level};
+use core_model::Job;
 
 use crate::daemon::Fleet;
 
@@ -28,56 +28,6 @@ where
     W: adapter_traits::WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Read the Manifest as it stands **right now** and record it against a
-    /// Job this same call just inserted.
-    ///
-    /// **The only two callers this crate has**: the three dispatch paths that
-    /// create a Job — `crate::daemon::answering`, `crate::sub_dispatch`,
-    /// `crate::redispatch` — call this once, right after `insert_job`, to
-    /// turn the Manifest Fleet resolved into what every later read sees; and
-    /// a person-approved scope revision is `docs/concepts/drone.md`'s one
-    /// re-snapshot, calling it again on a Job already running. Nothing else
-    /// may, and this module does not guard against a third caller doing so —
-    /// the same trust `Store::insert_job` already places in whoever passes it
-    /// `created_at`.
-    ///
-    /// **After the insert, never before.** A caller whose `insert_job` failed
-    /// has no Job row for this to name, and a snapshot with nowhere to land is
-    /// a fact this has no column to place.
-    ///
-    /// A read that fails — the file moved, a permission changed, between the
-    /// Manifest Fleet already holds and this instant — leaves the column
-    /// null rather than failing a Job that otherwise dispatched cleanly:
-    /// [`effective_manifest`](Fleet::effective_manifest) reads that the same
-    /// way it reads a Job written before this column existed.
-    pub(crate) async fn manifest_snapshotted(&self, store: &mut store::Store, job: &Job) {
-        let read = self
-            .served_by(job)
-            .map_err(|why| why.to_string())
-            .and_then(|served| {
-                std::fs::read_to_string(served.manifest().path()).map_err(|why| why.to_string())
-            });
-        let why = match read {
-            Ok(text) => match store.set_manifest_snapshot(job.id(), &text) {
-                Ok(()) => return,
-                Err(why) => why.to_string(),
-            },
-            Err(why) => why,
-        };
-        self.noted_in_the_log(
-            job.id(),
-            &Envelope::new(
-                self.now(),
-                Level::Warn,
-                Component::Fleet,
-                self.run().clone(),
-                "the Manifest could not be snapshotted for this Job, which will read Fleet's \
-                 live Manifest instead of what it froze at creation",
-            )
-            .in_job(job.id().as_ulid().clone())
-            .with_field("why", FieldValue::Str(why)),
-        );
-    }
 
     /// What this Job's Drones, gate and run route resolve their Commands,
     /// Checks and Setup against, and whether that is actually what the Job

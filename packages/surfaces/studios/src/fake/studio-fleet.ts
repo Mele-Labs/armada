@@ -642,8 +642,8 @@ const TOUCHED = "2026-09-17T08:40:00Z";
 
 /**
  * A Studio holding a node of every kind and an edge of every kind, proposed and accepted — what
- * `every-state` carries for Studios, the way it carries a Job in every state. `jobId` is a row on
- * that Board, so the Job node draws the state the Board holds rather than a bare id.
+ * `default` carries for Studios. `jobId` is a row on that Fleet, so the Job node draws the state
+ * it holds rather than a bare id.
  */
 export const EVERY_KIND_STUDIO = "01STUDIOEVERYKIND0000000000";
 

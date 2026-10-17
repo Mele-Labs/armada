@@ -8,10 +8,6 @@
 //! was done, because the files are left where they are: nothing is deleted until
 //! a person has seen the list.
 //!
-//! **The Jobs' own slot and branch rows are written here too**, for a Job that
-//! began before Fleet wrote them as it leased. That one is not once: it is
-//! idempotent, and a Job that holds a branch should read as holding it however
-//! it started.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -40,12 +36,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Convert one repository's files, where that has not been done, and write
-    /// its live Jobs' own branch and slot. **A fault is left for the next start**:
+    /// Convert one repository's files, where that has not been done. **A fault is left for the next start**:
     /// nothing is recorded as converted that was not.
     pub(crate) async fn needs_converted(&self, served: &Served, jobs: &[Job]) {
         let manifest = served.manifest().id().as_str().to_string();
-        self.live_jobs_on_the_ledger(&manifest, jobs).await;
         let done = {
             let store = self.store().lock().await;
             store

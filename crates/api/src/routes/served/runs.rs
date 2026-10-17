@@ -4,50 +4,12 @@
 use super::Route;
 
 pub(super) const ROUTES: &[Route] = &[
-    // The run sheet: what can be run in a Job's worktree, a person's run of one
-    // entry, and what the runs left. A rehearsal, so nothing here moves the Job.
-    // `runs/:run_id/output` is `checks/:kept/output`'s shape one record over.
-    Route {
-        operation: "get_run_sheet",
-        method: "GET",
-        path: "/jobs/:job_id/run_sheet",
-    },
-    Route {
-        operation: "list_runs",
-        method: "GET",
-        path: "/jobs/:job_id/runs",
-    },
-    Route {
-        operation: "get_run_output",
-        method: "GET",
-        path: "/jobs/:job_id/runs/:run_id/output",
-    },
-    Route {
-        operation: "start_run",
-        method: "POST",
-        path: "/jobs/:job_id/start_run",
-    },
-    Route {
-        operation: "stop_run",
-        method: "POST",
-        path: "/jobs/:job_id/stop_run",
-    },
-    Route {
-        operation: "undo_run",
-        method: "POST",
-        path: "/jobs/:job_id/undo_run",
-    },
     // The same sheet for the main checkout, under `/manifest` beside
     // `get_manifest_reading` and for its reason: no Job is involved at all.
     Route {
         operation: "get_checkout_run_sheet",
         method: "GET",
         path: "/manifest/run_sheet",
-    },
-    Route {
-        operation: "list_manifest_checks",
-        method: "GET",
-        path: "/manifest/checks",
     },
     Route {
         operation: "list_checkout_runs",

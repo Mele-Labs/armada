@@ -70,7 +70,7 @@ const sameBox = (a: PageBounds | undefined, b: PageBounds): boolean =>
 /** The mock itself on another scenario, which is the one address a browser can serve as a page to show. */
 function mockPage(): string {
   const url = new URL(window.location.href);
-  url.search = "?scenario=every-state&walked";
+  url.search = "?scenario=default&walked";
   return url.toString();
 }
 

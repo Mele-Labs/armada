@@ -19,19 +19,13 @@ use config::settings::{self as keys, Key, Resolved, Supplied, Words};
 use crate::helm::Authority;
 
 mod judge;
-mod shipped;
 
 /// Every prompt as it ships, read from the module that owns its wording.
 fn shipped_texts() -> Vec<(Words, String)> {
     vec![
-        (
-            keys::PROMPT_DRONE_BASELINE,
-            crate::briefing::BASELINE.to_string(),
-        ),
         (keys::PROMPT_SCOUT_ASK, crate::scout::shipped_ask()),
         (keys::PROMPT_SCOUT_READ_IN, crate::scout::shipped_read_in()),
         (keys::PROMPT_SCOUT_RESCUE, crate::scout::shipped_rescue()),
-        (keys::PROMPT_PROPOSER, crate::proposing::shipped()),
         (keys::PROMPT_RETRO_JOB, crate::retro::QUESTION.to_string()),
         (
             keys::PROMPT_RETRO_SESSION,
@@ -47,47 +41,16 @@ fn shipped_texts() -> Vec<(Words, String)> {
         ),
         (keys::PROMPT_RETRO_REVIEW, crate::retro::REVIEW.to_string()),
         (keys::PROMPT_RETRO_ASK, crate::retro::ASK.to_string()),
-        (
-            keys::PROMPT_CROSSING_REDIRECT,
-            crate::crossing::REDIRECTED.to_string(),
-        ),
-        (
-            keys::PROMPT_CROSSING_OVERTAKEN,
-            crate::crossing::OVERTAKEN.to_string(),
-        ),
-        (
-            keys::PROMPT_CROSSING_CONFLICTS,
-            crate::crossing::CLEARING_CONFLICTS.to_string(),
-        ),
         (keys::PROMPT_HELM, crate::helm::shipped(Authority::Acting)),
         (
             keys::PROMPT_HELM_READ_ONLY,
             crate::helm::shipped(Authority::ReadOnly),
         ),
         (
-            keys::PROMPT_COMMANDER,
-            crate::helm::commander_brief::shipped(),
-        ),
-        (
             keys::PROMPT_HELM_ROUTE,
             crate::helm::routing::QUESTION.to_string(),
         ),
-        (
-            keys::PROMPT_TRIGGER_REPAIR,
-            crate::trigger_repair::SHIPPED.to_string(),
-        ),
-        (
-            keys::PROMPT_JOB_REPAIR,
-            crate::job_repair::SHIPPED.to_string(),
-        ),
-        (
-            keys::PROMPT_CROSSING_ANSWERED,
-            crate::questioning::ANSWERED.to_string(),
-        ),
-        (
-            keys::PROMPT_CROSSING_DECIDED,
-            crate::interviewing::DECIDED.to_string(),
-        ),
+        (keys::PROMPT_HELM_VOICE, crate::helm::VOICE.to_string()),
         (
             keys::PROMPT_AUTOPILOT_SENTENCE,
             crate::autopilot::sentence::QUESTION.to_string(),
@@ -98,11 +61,6 @@ fn shipped_texts() -> Vec<(Words, String)> {
         ),
     ]
     .into_iter()
-    .chain(
-        shipped::drone()
-            .into_iter()
-            .map(|(key, text)| (key, text.to_string())),
-    )
     .chain(
         judge::judge()
             .into_iter()

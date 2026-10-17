@@ -32,7 +32,7 @@ const own = (id: number, minutes: number, over: Partial<TimelineEvent> = {}): Ti
 });
 
 type Owner = ReturnType<Names["pull"]>;
-const names = (owner: Owner): Names => ({ job: () => undefined, session: () => undefined, pull: () => owner });
+const names = (owner: Owner): Names => ({ session: () => undefined, pull: () => owner });
 const drawn = (events: TimelineEvent[], owner: Owner): FleetEvent[] => events.flatMap((one) => fromWire(one, names(owner)) ?? []);
 
 describe("a pull request's entry", () => {
@@ -63,7 +63,7 @@ describe("the lanes a pull request's entries make", () => {
   const owner = { kind: "session", id: "s1", title: "Debounce" } as const;
 
   test("one lane for the owner, holding its own entries and the pull request's, and none for the pull request", () => {
-    const lanes = lanesOf(drawn([own(1, 30), pull(2, 10), pull(3, 5, { kind: "pr.queued", says: "Queued, place 1" })], owner), NOW);
+    const lanes = lanesOf(drawn([own(1, 30), pull(2, 10), pull(3, 5, { kind: "pr.queued", says: "Queued, place 1" })], owner));
     expect(lanes.map((one) => one.key)).toEqual(["session:s1"]);
     expect(lanes[0]?.events.map((one) => one.says)).toEqual(["Queued, place 1", "Checks passed", "Implement started"]);
   });
@@ -73,13 +73,13 @@ describe("the lanes a pull request's entries make", () => {
     const ended = own(1, 30, { kind: "session.ended", subject: { kind: "session", id: "s1" }, says: "Ended", tone: "idle", live: false, over: true });
     // Both entries are read through one owner, so the ended entry is the Session's own.
     const events = [...drawn([ended], undefined), ...drawn([pull(2, 5, { kind: "pr.opened", says: "Opened", tone: "idle" })], session)];
-    const lanes = lanesOf(events, NOW);
+    const lanes = lanesOf(events);
     expect(lanes[0]?.standing).toBe("done");
     expect(lanes[0]?.head.says).toBe("Ended");
   });
 
   test("a pull request nobody owns makes no lane", () => {
-    expect(lanesOf(drawn([own(1, 30), pull(2, 5)], undefined), NOW).map((one) => one.key)).toEqual(["session:s1"]);
+    expect(lanesOf(drawn([own(1, 30), pull(2, 5)], undefined)).map((one) => one.key)).toEqual(["session:s1"]);
   });
 });
 
@@ -115,7 +115,7 @@ describe("what a Session's Drone did between its turns", () => {
     const waiting = burst("session.waiting", "Waiting: approve #1896", { tone: "ask", live: false });
     const asked = burst("session.asked", "Asked: manifest hash or path?", { tone: "ask", live: false });
     for (const head of [waiting, asked]) {
-      const [lane] = lanesOf([fromWire(burst("session.read", "Read 3 files"), names(undefined))!, fromWire({ ...head, at: at(1) }, names(undefined))!], NOW);
+      const [lane] = lanesOf([fromWire(burst("session.read", "Read 3 files"), names(undefined))!, fromWire({ ...head, at: at(1) }, names(undefined))!]);
       expect(lane?.standing).toBe("ask");
     }
   });
@@ -125,7 +125,7 @@ describe("a Session's lane stands by what Fleet says it is doing", () => {
   const session = { kind: "session", id: "s1", title: "Flaky store" } as const;
   const turn = (minutes: number) => own(1, minutes, { kind: "session.turn", subject: { kind: "session", id: "s1" }, tone: "idle", says: "Turn took 2m 14s", live: true });
   const lane = (minutes: number, reading?: "working" | "stuck" | "replied" | "idle") =>
-    lanesOf(drawn([turn(minutes)], session), NOW, reading === undefined ? undefined : () => reading)[0];
+    lanesOf(drawn([turn(minutes)], session), reading === undefined ? undefined : () => reading)[0];
 
   test("an old live-flagged turn is not stuck and not moving unless Fleet says so", () => {
     expect(lane(90)?.standing).toBe("idle");

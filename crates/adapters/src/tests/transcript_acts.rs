@@ -54,17 +54,6 @@ fn a_task_restart_and_an_edit_carry_the_task() {
 }
 
 #[test]
-fn a_repair_carries_what_broke() {
-    assert_eq!(
-        detail_of(
-            "mcp__armada__send_repair_drone",
-            r#"{"job_id":"01JOB9","body":{"broke":"merge_conflict"}}"#
-        ),
-        "merge_conflict"
-    );
-}
-
-#[test]
 fn an_added_dropped_or_moved_task_carries_what_it_was_done_to() {
     assert_eq!(
         detail_of(

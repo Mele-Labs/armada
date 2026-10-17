@@ -8,7 +8,7 @@ const calls = region("Incoming calls");
 
 const cockpitLook = walk("cockpit-list-by-repository", [
   { look: list, say: "Every panel has one frame and one header" },
-  { hover: inside(list, text("The retry loop")), say: "A row under the pointer rises" },
+  { hover: inside(list, text("Draft the migration notes")), say: "A row under the pointer rises" },
   { hover: inside(calls, text("Prune the stale branches")), say: "A call reads kind, subject, age" },
   { press: inside(calls, text("Prune the stale branches")), say: "The opened Session is lit in the list" },
   { press: role("combobox", "Repository"), say: "The field becomes a search box and the list opens" },

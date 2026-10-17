@@ -11,43 +11,21 @@
 //! both are separate routes so that the reads made on every refresh do not pay
 //! for them.
 
-use axum::extract::{Path, Query, State};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::extract::{Query, State};
+use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
 
 use ipc::{JobLog, WireError};
 
-use crate::answers::{answer, asked_for, file, file_beyond, file_span, problem, refused, streams};
-use crate::daemon::{FramePart, Queries};
+use crate::answers::{answer, problem, refused};
+use crate::daemon::Queries;
 use crate::reference::Resolved;
 use crate::scoped::{InManifest, InRepository};
 use crate::served::Served;
 
-/// The second segment of `/jobs/:job_id/calls/:call_id/explain`.
-///
-/// **Its own struct rather than a tuple**, because the Job is extracted beside
-/// it and a tuple would make the handler state a segment it does not use.
-#[derive(Deserialize)]
-pub(crate) struct Called {
-    call_id: String,
-}
 
-/// The second segment of `/jobs/:job_id/checks/:kept/output`. See [`Called`].
-#[derive(Deserialize)]
-pub(crate) struct Kept {
-    kept: String,
-}
 
-/// The two segments after the Job on `get_frame`, named rather than
-/// positional. **A tuple `Path` would take the Job's segment too**, and the
-/// Job's segment is `Resolved`'s — which is the whole reason this struct
-/// exists where `Kept`'s one field did not need it.
-#[derive(Deserialize)]
-pub(crate) struct Framed {
-    run: String,
-    name: String,
-}
 
 pub(crate) async fn list_jobs<D: Queries>(
     State(served): State<Served<D>>,
@@ -59,28 +37,7 @@ pub(crate) async fn list_jobs<D: Queries>(
     }
 }
 
-/// Every Check run a repository's Jobs asked for or ran, newest first.
-pub(crate) async fn list_manifest_checks<D: Queries>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-) -> Response {
-    match served.daemon().list_manifest_checks(scope.manifest()).await {
-        Ok(checks) => answer(StatusCode::OK, &checks, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// The bound, what is occupying it, and what holds the next Drone back.
-///
-/// **Its own route rather than a field on `/jobs`.** That read is a list of
-/// Jobs and is made on every Board refresh; this is three values about Fleet,
-/// asked for by the surface that draws Fleet's state.
-pub(crate) async fn get_capacity<D: Queries>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().get_capacity().await {
-        Ok(capacity) => answer(StatusCode::OK, &capacity, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// What Fleet's last re-read of `armada.yml` came to.
 ///
@@ -215,35 +172,7 @@ pub(crate) async fn get_job_events<D: Queries>(
     }
 }
 
-/// Every claim a Job's Drones have submitted. **What the work says about
-/// itself**, which the gate ruled on and a person reads before deciding.
-///
-/// Its own route beside the diff rather than folded into it: this is a few
-/// sentences per step and that is however large the work is.
-pub(crate) async fn get_evidence<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_evidence(job.id()).await {
-        Ok(evidence) => answer(StatusCode::OK, &evidence, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// What anybody has written on one Job's open pull request.
-///
-/// **The one query on this router that talks to a forge**, which is why it is a
-/// route somebody asks for rather than a field on `get_job`. A forge that would
-/// not answer is a 500 and never an empty list.
-pub(crate) async fn get_remarks<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_remarks(job.id()).await {
-        Ok(remarks) => answer(StatusCode::OK, &remarks, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// One Job's whole patch. **The expensive read, on the one route that asks for
 /// it** — `get_job` is fetched on every open to draw a summary, and the bytes
@@ -258,113 +187,11 @@ pub(crate) async fn get_diff<D: Queries>(
     }
 }
 
-/// Every Drone one Job has had, running or not, with what each spent.
-///
-/// **Its own route rather than a field on `get_job`**, which is re-read on
-/// every event naming the Job; this one reads the Job's whole history and a
-/// transcript per running Drone.
-pub(crate) async fn list_job_drones<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().list_job_drones(job.id()).await {
-        Ok(drones) => answer(StatusCode::OK, &drones, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// What this Job holds on this machine — its processes, what each is burning,
-/// the disk its worktree has taken, and when its own log was last written.
-///
-/// **Its own route rather than a field on `get_job`.** That read is made on
-/// every open of a Job and again on every event naming it; this one walks a
-/// process table and a directory, and paying for that continuously to answer a
-/// question asked rarely is the cost the issue this serves rules out.
-///
-/// It answers rather than refuses on a reading it could not take. The figures
-/// carry the instant they were read at, because a process can exit between the
-/// sample and the render.
-pub(crate) async fn get_job_resources<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-) -> Response {
-    match served.daemon().get_job_resources(job.id()).await {
-        Ok(resources) => answer(StatusCode::OK, &resources, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// What one command a Drone was not granted does, read by a model for the
-/// person deciding about it. **It decides nothing**: the offers stay, the Drone
-/// stays held, nothing is recorded, and a person who never asks is answered
-/// exactly as they were before this route existed.
-///
-/// Under the call, because it is a reading of one call a Drone made.
-///
-/// 404 where the Job is unknown, and 404 again where the id names nothing this
-/// Job is waiting on or refused — the reading exists only while that command is
-/// open, so an id naming none is a screen that has moved on. 500 where the
-/// model would not answer, which changes nothing about the command.
-pub(crate) async fn explain_command<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    Path(Called { call_id }): Path<Called>,
-) -> Response {
-    match served.daemon().explain_command(job.id(), call_id).await {
-        Ok(explained) => answer(StatusCode::OK, &explained, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// One Check's own output, read back into the app. **The other end of a path
-/// that opened nothing in Armada.**
-///
-/// `CheckRun::output_path` has said where a Check wrote its stdout and stderr
-/// since the record kept them, and the only thing Bridge could do with it was
-/// hand it to the operating system. This is what a person who pressed the row
-/// asks for, once, so the reading happens on the screen the Check is on.
-///
-/// **It is not the socket's job**, for the reason `get_diff` is not: `/events`
-/// is one drop-oldest channel carrying every Job, and a test runner's output on
-/// it would evict the state changes the Board is drawn from.
-///
-/// 404 where the Job is unknown. 422 where the Job is known and no row of it
-/// kept an output under that name — a reclaimed `.armada`, or an id that was
-/// never one. The request is well-formed and the value in it names nothing,
-/// which is a different thing from the Job not existing.
-pub(crate) async fn get_check_output<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    Path(Kept { kept }): Path<Kept>,
-) -> Response {
-    match served.daemon().get_check_output(job.id(), kept).await {
-        Ok(output) => answer(StatusCode::OK, &output, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
-/// The segment after the Job on `/jobs/:job_id/briefs/:name`. See [`Kept`].
-#[derive(Deserialize)]
-pub(crate) struct BriefName {
-    name: String,
-}
 
-/// One brief a Judge or a gaming check was asked, read back once.
-///
-/// `get_check_output`'s route for the file a verdict was argued from. 404
-/// where the Job is unknown; 422 where the Job is known and kept no brief
-/// under that name, which is also the answer to a name that would leave the
-/// Job's briefs directory.
-pub(crate) async fn get_brief<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    Path(BriefName { name }): Path<BriefName>,
-) -> Response {
-    match served.daemon().get_brief(job.id(), name).await {
-        Ok(brief) => answer(StatusCode::OK, &brief, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// One Job's own log, settled: what Fleet did to it, read back once.
 ///
@@ -426,67 +253,6 @@ pub(crate) async fn get_job_log<D: Queries>(
     answer(StatusCode::OK, &log, served.run_id())
 }
 
-/// One frame a step's harness produced, answered as the file itself.
-///
-/// **The one route on this seam that does not answer JSON.** An image has no
-/// window — a truncated PNG is not a shorter PNG, it is a file nothing can draw
-/// — so there is no partial reading for an envelope to describe, and base64
-/// would inflate the bytes by a third to carry nothing extra. The split is
-/// `get_check_output`'s: the row rides `StepDetail` and the image is fetched
-/// once, by whoever opens one.
-///
-/// The media type is read off the frame's own name rather than stored beside
-/// its path, and `nosniff` goes with it — `answers::file` holds both, and why.
-///
-/// 404 where the Job is unknown. 422 where the Job is known and no row of it
-/// kept a frame under that name — a reclaimed `.armada/frames`, or a name that
-/// was never one.
-/// **Two path segments and one id.** A frame's name is the harness's own, so
-/// two steps of one Job may both have written `home.png` and the file name
-/// alone identifies no row — the run's directory in front of it is what does.
-/// They are rejoined here into the `kept` the record composes, which keeps the
-/// one spelling of that identity in `showing::tail` rather than a second one
-/// here.
-/// **A recording is answered a span at a time, and nothing else is.** A player
-/// cannot hold a two-minute capture whole before it draws a frame, and the
-/// surface answered that by refusing to draw one at all. Video is the only kind
-/// asked this way: a `Range` on anything else is ignored, which is what a
-/// caller reads as *answer it whole* and is always legal.
-pub(crate) async fn get_frame<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    headers: HeaderMap,
-    Path(Framed { run, name }): Path<Framed>,
-) -> Response {
-    let kept = format!("{run}/{name}");
-    let span = streams(&name)
-        .then(|| {
-            asked_for(
-                headers
-                    .get(header::RANGE)
-                    .and_then(|said| said.to_str().ok()),
-            )
-        })
-        .flatten();
-    let Some(span) = span else {
-        return match served.daemon().get_frame(job.id(), kept).await {
-            Ok((held, bytes)) => file(&held.name, bytes),
-            Err(refusal) => refused(refusal),
-        };
-    };
-    match served.daemon().get_frame_part(job.id(), kept, span).await {
-        Ok((
-            held,
-            FramePart::Span {
-                first,
-                bytes,
-                total,
-            },
-        )) => file_span(&held.name, first, bytes, total),
-        Ok((_, FramePart::Beyond { total })) => file_beyond(total),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// The workflows a proposal may name. **The set Fleet will accept**, which is
 /// why it is served rather than left to a caller to know.

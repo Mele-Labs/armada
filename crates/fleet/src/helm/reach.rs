@@ -25,11 +25,12 @@ pub enum Authority {
     ReadOnly,
 }
 
-/// The one act that stays a person's, independent of what the machine's
-/// authority setting allows. `undo_run` reverses a run's own files, and
-/// nothing else here draws the line — `#1150` named it the sole exception to
-/// "any command Helm is offered, on request."
-pub(super) const RESERVED: &[&str] = &["undo_run"];
+/// The acts that stay a person's, independent of what the machine's authority
+/// setting allows. **None now.** `#1150` named `undo_run` the sole exception to
+/// "any command Helm is offered, on request", and it went with the Job runs it
+/// reversed; the list stays so the next act that must stay a person's has
+/// somewhere to be named.
+pub(super) const RESERVED: &[&str] = &[];
 
 /// The acts on a Studio Helm may take **without being asked**: adding a node
 /// that starts proposed, proposing an edge, and naming an untitled Studio.

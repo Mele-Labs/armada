@@ -72,7 +72,7 @@ function build(): Scenario {
     state: { ...base.state, repository: null, jobs: board.map((one) => one.job) },
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [HOLDER, TAKER]);
+        const store = sessionsStore([none, none], none, control, [], [HOLDER, TAKER]);
         const own = new Set([HOLDER.id, TAKER.id]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];

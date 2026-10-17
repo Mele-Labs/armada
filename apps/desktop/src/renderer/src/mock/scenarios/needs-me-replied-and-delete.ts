@@ -114,7 +114,7 @@ function build(): Scenario {
     later: [{}],
     draft: {
       events: EVENTS,
-      sessions: (control) => sessionsStore([NONE, NONE], NONE, [], control, [], [replied, done, asking, idle]),
+      sessions: (control) => sessionsStore([NONE, NONE], NONE, control, [], [replied, done, asking, idle]),
     },
   };
 }

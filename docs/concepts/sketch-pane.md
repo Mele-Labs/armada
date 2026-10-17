@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-The pane is drawn by `packages/surfaces/jobs/src/OverviewBoard.tsx`. Its views are `SketchScene` and `AskerView` in `packages/components/src/compositions/`, and the panel that picks between them is `NowPanel` beside them.
+The Overview board that drew the pane is deleted with the Jobs surface, and no screen draws it now. Its views are `SketchScene` and `AskerView` in `packages/components/src/compositions/`, and the panel that picks between them is `NowPanel` beside them.
 
 ## Status
 

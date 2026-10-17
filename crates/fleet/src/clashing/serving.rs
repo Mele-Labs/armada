@@ -9,7 +9,6 @@ use crate::daemon::Fleet;
 
 fn kind_and_id(who: &Who) -> (ClashSide, String) {
     match who {
-        Who::Job(id) => (ClashSide::Job, id.as_str().to_string()),
         Who::Session(id) => (ClashSide::Session, id.clone()),
     }
 }

@@ -31,9 +31,6 @@ the gate asserts about it.
 | Milestone | The claim | Where |
 |---|---|---|
 | M1 — Dogfood | A Bug Job runs from the approval gate to `completed_success` | `crates/acceptance/tests/bug_job.rs` |
-| Focus | A Drone belongs to the step it was given | `crates/acceptance/tests/drone_per_step.rs` |
-| Board | Every Job is a row, and opening one says what it did | `crates/acceptance/tests/board.rs` |
-| Recovery | A Job that needs me says so, and can be unstuck without leaving Bridge | `crates/acceptance/tests/recovery.rs` |
 | Landing | A Job's work reaches the thing it was for | `crates/acceptance/tests/landing.rs` |
 | Reach | Armada works on a repository I did not write the Manifest for by hand | `crates/acceptance/tests/reach.rs` |
 | Plan | A running Job shows how far through its plan it is | `crates/acceptance/tests/plan.rs` |
@@ -42,10 +39,8 @@ the gate asserts about it.
 | Studio | I can work something out on a Studio — notes from using the app, what a scout read, what I pasted in — turn what holds up into a Job, and come back later to see how I got there | `crates/acceptance/tests/studio.rs` |
 | The new Job, spike 022 | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
 | Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
-| Auto-release | When other work waits for a worktree slot and the pool is full, Fleet frees one by pausing the parked Job that has waited longest, leaves alone one a person may be looking at, and gives nothing back on its own | `crates/acceptance/tests/auto_release.rs` |
 | Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
 | Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Jobs that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
-| Commander | When a Job's Drone ends with nothing handed in, or a group is red with its retries spent, the Job's Commander steers it without the owner: it raises the cap inside its ceiling, splits or restarts a task, redirects a Drone, or sends a repair Drone onto the Job's branch. The owner sees in the thread and on each task's mark that it did, and can write to it and get an answer. Where the fix is out of its reach it puts one card to him. The Job never advances on anything the Commander said | `crates/acceptance/tests/commander.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
@@ -157,25 +152,3 @@ not available at this price.
 **The header is the build order.** Its rows follow the order a person meets
 the claim, so the next row to take out is the next thing to build — and a green
 run always means every step asserted so far holds.
-
-## What Board's test proves, and the layer it stops at
-
-Board's claim is about a screen — every Job on a board a person can scan, and
-opening one telling them what it did. Nothing in this workspace renders, so
-`crates/acceptance/tests/board.rs` proves the record-to-wire seam the screen is
-drawn from and names the screen as unproved. Every assertion is made against a
-value that has been through `ipc::encode` and back, so it is an assertion about
-what a Board receives.
-
-| Proved | Not proved |
-|---|---|
-| Every Job the record holds becomes a row, whatever its status | That a person scanning the result learns anything |
-| A Job that will not load rides beside the ones that did | That `store` hands back every row it holds |
-| Steps, their order and state, and the gate's verdict on each | That Fleet hands the assembled facts in |
-| The Judge's citation, against a criterion the Job carries | The evidence, the declared Checks, the changed files |
-| What each Check did, and what a stopped Job's recourse is | Whether the work landed — #337 |
-
-The reasons in the right-hand column are in the test's own header, and three of
-them are the hermetic rule biting: `store` has no in-memory constructor, and
-`fleet`'s conversions for evidence, declared Checks and a footprint are
-`pub(crate)`.

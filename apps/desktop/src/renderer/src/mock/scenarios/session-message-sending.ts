@@ -51,7 +51,7 @@ function build(): Scenario {
     later: [{}, {}, {}],
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [SESSION]);
+        const store = sessionsStore([none, none], none, control, [], [SESSION]);
         const delivery = { gate: gate(), outcomes: ["taken", "refused", "taken"] as ("taken" | "refused")[] };
         store.delivery = delivery;
         // The ship holds this Session alone; the mock's own first Session is spent.

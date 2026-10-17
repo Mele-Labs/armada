@@ -14,8 +14,6 @@ const CANNOT_UNDO: &str = "fleet.cannot_undo";
 const NOT_DECLARED_HERE: &str = "fleet.not_declared_here";
 /// The worktree's own `armada.yml`, asked for, would not read.
 const WORKTREE_MANIFEST_UNREADABLE: &str = "fleet.worktree_manifest_unreadable";
-/// A narrowed run with nothing to narrow to.
-const NOTHING_TO_NARROW_TO: &str = "fleet.nothing_to_narrow_to";
 /// An id no run of this Job has.
 const NO_SUCH_RUN: &str = "fleet.no_such_run";
 /// A workspace named by a path that leaves the repository.
@@ -71,15 +69,6 @@ pub enum Unrehearsable {
     WorktreeManifest {
         why: String,
     },
-    DoesNotNarrow {
-        name: String,
-    },
-    NothingToNarrowTo {
-        name: String,
-    },
-    Unreadable {
-        why: String,
-    },
     NoSuchRun {
         id: String,
         whose: Whose,
@@ -87,7 +76,6 @@ pub enum Unrehearsable {
     NotRunning {
         id: String,
     },
-    DroneWorking,
     RunInFlight,
     AlreadyUndone {
         id: String,
@@ -139,8 +127,7 @@ impl Unrehearsable {
             | NotRunning { .. }
             | StillRunning { .. }
             | VerifyUnderway => (CANNOT_RUN_HERE, Refusal::IllegalMove),
-            DroneWorking
-            | RunInFlight
+            RunInFlight
             | AlreadyUndone { .. }
             | NothingToUndo { .. }
             | Moved { .. } => (CANNOT_UNDO, Refusal::IllegalMove),
@@ -148,11 +135,8 @@ impl Unrehearsable {
                 (NOT_DECLARED_HERE, Refusal::Unacceptable)
             }
             WorktreeManifest { .. } => (WORKTREE_MANIFEST_UNREADABLE, Refusal::Unacceptable),
-            DoesNotNarrow { .. } | NothingToNarrowTo { .. } => {
-                (NOTHING_TO_NARROW_TO, Refusal::Unacceptable)
-            }
             NoSuchRun { .. } => (NO_SUCH_RUN, Refusal::Unacceptable),
-            Unreadable { .. } | NotKept { .. } | DiffUnreadable { .. } => {
+            NotKept { .. } | DiffUnreadable { .. } => {
                 (RUN_FAULT, Refusal::Fault)
             }
             WorkspaceOutside { .. } => (WORKSPACE_OUTSIDE, Refusal::Unacceptable),
@@ -214,30 +198,12 @@ impl fmt::Display for Unrehearsable {
                 out,
                 "the worktree's own armada.yml could not be read, so its version cannot run: {why}"
             ),
-            DoesNotNarrow { name } => write!(
-                out,
-                "`{name}` declares no `narrow`, so it runs on the whole tree or not at all"
-            ),
-            NothingToNarrowTo { name } => write!(
-                out,
-                "nothing this Job changed feeds `{name}`'s narrowing, so a narrowed run would \
-                 measure nothing. Run it on the whole tree"
-            ),
-            Unreadable { why } => write!(
-                out,
-                "the worktree's change could not be read, so the narrowed command could not be \
-                 worked out: {why}"
-            ),
             NoSuchRun { id, whose } => {
                 write!(out, "no run of {} is called `{id}`", whose.owner())
             }
             NotRunning { id } => write!(
                 out,
                 "run `{id}` has already finished, so there is nothing to stop"
-            ),
-            DroneWorking => out.write_str(
-                "a Drone is working in this Job's worktree, and Undo would take its edits with \
-                 the run's. Undo once the Job stops",
             ),
             RunInFlight => out.write_str("a run is still going in this tree. Undo once it ends"),
             AlreadyUndone { id } => write!(out, "run `{id}` has already been undone"),

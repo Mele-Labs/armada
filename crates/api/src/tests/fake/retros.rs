@@ -12,7 +12,7 @@ use ipc::{
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{Redirector, Refusal, Retros};
+use crate::{Refusal, Retros};
 
 impl Retros for FakeDaemon {
     async fn get_job_retro(&self, job_id: JobId) -> Result<JobRetro, Refusal> {
@@ -69,13 +69,6 @@ impl Retros for FakeDaemon {
         })
     }
 
-    async fn agree_lesson(
-        self: Arc<Self>,
-        lesson_id: String,
-        _by: Redirector,
-    ) -> Result<Lesson, Refusal> {
-        Err(self.refusing_lesson(&lesson_id))
-    }
 
     async fn start_lesson_session(
         self: Arc<Self>,

@@ -225,9 +225,8 @@ pub(crate) fn named_model(block: &str) -> Option<String> {
 
 /// Everything one call needs in order to ask.
 ///
-/// The same four fields as [`Judging`](crate::Judging), and three of them the
-/// same values: one client, one budget, Fleet's own environment. Only the model
-/// differs, because only the model is a separate dial.
+/// One client, one budget, Fleet's own environment, and a model of its own: the model is a
+/// separate dial.
 #[derive(Clone)]
 pub struct Proposing {
     pub client: Arc<dyn ModelClient + Send + Sync>,
@@ -237,16 +236,13 @@ pub struct Proposing {
     pub model: Model,
     /// Fleet's own, because the call authenticates as Fleet.
     pub environment: Environment,
-    /// Every model a Drone on this machine may be spawned as —
+    /// Every model a Session on this machine may be started as —
     /// `ipc::ModelChoices::models`, as `list_models` serves it.
     ///
-    /// **Not the dial above.** `model` is what reads the request; this is what
-    /// the request's Job will be worked by, and the owner's decision of 30 Sep
-    /// 2026 is that this call picks it from here. A list rather than a free
-    /// field, so the proposer cannot name a model nothing can run.
+    /// **Not the dial above.** `model` is what reads the request; this is what the request's
+    /// Session will be worked by. A list rather than a free field, so the proposer cannot name
+    /// a model nothing can run.
     pub choices: Vec<String>,
-    /// `prompts.proposer` as it stood when the call was put together.
-    pub prompt: String,
 }
 
 // ---- A Session that waits on another ----------------------------------------------------------------------

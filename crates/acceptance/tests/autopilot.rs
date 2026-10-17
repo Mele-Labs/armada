@@ -1,5 +1,5 @@
 //! Autopilot's claim: **I start Autopilot on a repository with one sentence
-//! and a cap, leave it, and come back to Jobs that ran, picks it was unsure of
+//! and a cap, leave it, and come back to Sessions that ran, picks it was unsure of
 //! set aside with their reason, and nothing past the caps I set; Pause and
 //! Stop do what they say.** #2092, `docs/capabilities/autopilot.md`.
 //!
@@ -8,11 +8,11 @@
 //! | Proved | Not proved |
 //! |---|---|
 //! | One sentence is read as settings, and reading starts nothing | That Bridge shows them for the person to confirm. The Cockpit lane is #2092's Bridge half |
-//! | Settings nothing could run under are refused at start | That a Job starts from a sure pick, at `queued` and unasked, with the issue as its source. `fleet`'s `tests::autopilot` drives that through a Fleet, since a Job here would need a store |
+//! | Settings nothing could run under are refused at start | That a Session starts from a sure pick, unasked, with the issue as its brief. `fleet`'s `tests::autopilot` drives that through a Fleet, since a Session here would need a store |
 //! | The picker is offered only issues nothing holds, and a pick it is unsure of is set aside with its reason | That the pass takes the next issue straight after one it set aside. The same tests |
-//! | A Job waiting on a person does not count against at once | That a Job ran, landed or waits at review. That is every other milestone's claim, and an Autopilot Job is an ordinary one |
+//! | A Session waiting on a person, or ended, does not count against at once | That a Session ran or landed its work. That is every other milestone's claim, and an Autopilot Session is an ordinary one |
 //! | The first cap reached is named and pauses it, each stops only the next pick, and Resume waits until a person raises it | That the pass pauses it and a raised cap picks again. `tests::autopilot` again |
-//! | Pause stops picking and Stop withdraws only what never started | That a withdrawn Job is killed. `tests::autopilot` again |
+//! | Pause stops picking and Stop withdraws only what never started | That a withdrawn Session is closed. `tests::autopilot` again |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
@@ -20,10 +20,10 @@ mod bench;
 
 use std::collections::BTreeSet;
 
-use core_model::{JobStatus, Timestamp};
+use core_model::Timestamp;
 use fleet::autopilot::{
     candidates, picked, read_pick, read_settings, room, settings_from, Candidate, Cap, Caps,
-    NotPicked, NotResumed, Pick, Settings, Spent, State,
+    NotPicked, NotResumed, Pick, Settings, Spent, Standing, State,
 };
 
 use bench::autopilot::{
@@ -191,22 +191,19 @@ fn a_tracker_that_names_issues_by_key_is_picked_by_key() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn a_job_waiting_on_a_person_does_not_count_against_at_once() {
+fn a_session_waiting_on_a_person_or_ended_does_not_count_against_at_once() {
     let at_work = [
-        standing(JobStatus::Running, false, true),
-        standing(JobStatus::Queued, true, true),
-        standing(JobStatus::Escalated, false, true),
-        standing(JobStatus::AwaitingReview, false, true),
-        standing(JobStatus::AwaitingRepair, false, true),
-        standing(JobStatus::CompletedSuccess, false, true),
+        standing(true, false, true),
+        standing(true, true, true),
+        standing(false, false, true),
     ];
-    assert_eq!(room(2, &at_work), 1, "only the running one holds a place");
+    assert_eq!(room(2, &at_work), 1, "only the live one with nothing owed holds a place");
 
-    let full = [
-        standing(JobStatus::Running, false, true),
-        standing(JobStatus::Queued, false, false),
-    ];
-    assert_eq!(room(2, &full), 0, "a Job ready to run holds one too");
+    let full = [standing(true, false, true), standing(true, false, false)];
+    assert_eq!(room(2, &full), 0, "a Session not yet run holds one too");
+
+    let replied = Standing { working: false, ..standing(true, false, true) };
+    assert_eq!(room(1, &[replied]), 1, "one that replied or went idle holds none");
 }
 
 // ---------------------------------------------------------------------------
@@ -301,14 +298,17 @@ fn stop_ends_it_and_withdraws_only_what_never_started() {
     assert!(State::Stopped.resumed().is_err(), "stopped is the end");
     assert!(State::Stopped.paused().is_err());
 
-    assert!(standing(JobStatus::Queued, false, false).withdrawn_at_stop());
+    assert!(standing(true, false, false).withdrawn_at_stop());
     assert!(
-        !standing(JobStatus::Running, false, true).withdrawn_at_stop(),
-        "a running Job finishes"
+        !standing(true, false, true).withdrawn_at_stop(),
+        "a Session that ran finishes"
     );
     assert!(
-        !standing(JobStatus::Queued, true, true).withdrawn_at_stop(),
+        !standing(true, true, true).withdrawn_at_stop(),
         "one that ran and is waiting on an answer is started"
     );
-    assert!(!standing(JobStatus::AwaitingReview, false, true).withdrawn_at_stop());
+    assert!(
+        !standing(false, false, false).withdrawn_at_stop(),
+        "an ended one is not live to withdraw"
+    );
 }

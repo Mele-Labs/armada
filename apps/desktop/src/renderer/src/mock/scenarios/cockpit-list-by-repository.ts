@@ -1,4 +1,4 @@
-// The Cockpit's Jobs and Sessions list on All repositories, two of them served: Jobs and Sessions in several states under
+// The Cockpit's Sessions list on All repositories, two of them served: Sessions in several states under
 // each repository's heading. The walk `cockpit-list-by-repository` plays it, then picks one repository, which draws none.
 
 import type { RepositorySummary } from "@armada/protocol";
@@ -40,7 +40,7 @@ function build(): Scenario {
   return {
     ...served,
     name: "cockpit-list-by-repository",
-    says: "The flight deck's Jobs and Sessions list on All repositories, headed by repository, and then one picked",
+    says: "The flight deck's Sessions list on All repositories, headed by repository, and then one picked",
     behaves: (handle) => new FakeSessionsFleet(records(), {}).scenario(board).behaves!(handle),
   };
 }

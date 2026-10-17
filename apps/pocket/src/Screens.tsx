@@ -1,19 +1,15 @@
-// The phone app's screens (#1997): a plain responsive page, fixture data only.
+// The phone app's screens (#1997): a plain responsive page.
 // Everything it reads comes through `./data`, from the Gateway.
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Plus, RefreshCw,
-  Split, SquareTerminal, Unplug, UserCheck, X,
-} from "lucide-react";
+import { Check, ChevronLeft, CircleDot, LoaderCircle, Plus, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { Button, HoldButton } from "@armada/components";
+import { Button } from "@armada/components";
 
 import { Refused, lastRefusal } from "./client";
-import { DRAFTS, actOn, ago, answer, attempt, dispatch as dispatchJob, redirect, repositories, requestChanges, startLive, useJob, useJobs, useSessions } from "./data";
-import type { PocketJob } from "./data";
+import { DRAFTS, ago, answer, attempt, dispatch as dispatchSession, repositories, startLive, useSessions } from "./data";
 import type { PhoneSession } from "./gateway";
 import { paired } from "./device";
 import { claim, codeFromInput, codeFromUrl, defaultName, waitForConfirm } from "./pair";
@@ -22,27 +18,6 @@ import { go } from "./router";
 
 type Tab = "Needs you" | "Running" | "Done";
 const TABS: Tab[] = ["Needs you", "Running", "Done"];
-
-/** Glyphs and verbs are `crates/core-model/domain/enum-verbs.toml`'s. */
-const REASON: Record<string, { icon?: LucideIcon; says: string }> = {
-  stalled: { icon: OctagonAlert, says: "Stalled" },
-  thrashing: { icon: RefreshCw, says: "Churning" },
-  rate_cap: { icon: Split, says: "Hit the sub-dispatch cap" },
-  interrupted: { icon: Unplug, says: "Interrupted" },
-};
-
-const reasonOf = (reason: string): { icon?: LucideIcon; says: string } => REASON[reason] ?? { says: reason.replace(/_/g, " ") };
-
-type Act = "approve" | "redirect" | "restart" | "redispatch" | "kill";
-/** What a state allows. `approve_dispatch` means something only on a Job awaiting dispatch approval. */
-const ACTS: Record<string, Set<Act>> = {
-  approval: new Set(["approve"]),
-  stalled: new Set(["redirect", "restart", "redispatch", "kill"]),
-  thrashing: new Set(["redirect", "restart", "redispatch", "kill"]),
-  rate_cap: new Set(["restart", "kill"]),
-  interrupted: new Set(["restart", "redispatch", "kill"]),
-};
-const actsOf = (job: PocketJob): Set<Act> => ACTS[job.reason ?? "approval"] ?? ACTS.stalled!;
 
 function Draft({ id, ...rest }: { id: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const [value, setValue] = useState(() => DRAFTS.get(id) ?? "");
@@ -57,8 +32,6 @@ function Draft({ id, ...rest }: { id: string } & React.TextareaHTMLAttributes<HT
     />
   );
 }
-
-const drafted = (id: string) => (DRAFTS.get(id) ?? "").trim() !== "";
 
 function Mark({ icon: Icon, tip, className }: { icon?: LucideIcon; tip: string; className?: string }) {
   if (Icon === undefined) return <span className="pk-mark" title={tip} />;
@@ -134,13 +107,6 @@ function Row({ icon, tip, title, where, age, onOpen, spin }: { icon?: LucideIcon
   return onOpen === undefined ? <li className="pk-row" data-still>{body}</li> : <li><button className="pk-row" onClick={onOpen}>{body}</button></li>;
 }
 
-function needRow(job: PocketJob) {
-  const approval = job.status === "awaiting_approval";
-  const review = job.status === "awaiting_review";
-  const shown = job.reason !== undefined ? reasonOf(job.reason) : approval ? { icon: UserCheck, says: "Approval" } : review ? { icon: Eye, says: "Review" } : { says: "Asking" };
-  return <Row key={job.id} icon={shown.icon} tip={shown.says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go(`/jobs/${job.id}`)} />;
-}
-
 function sessionRow(session: PhoneSession) {
   const age = session.waiting_since === undefined ? "" : ago(session.waiting_since, Date.now());
   const title = session.title ?? "";
@@ -153,8 +119,7 @@ function sessionRow(session: PhoneSession) {
 
 function Tabs() {
   const [tab, setTab] = useState<Tab>("Needs you");
-  const { needs, running, done, error } = useJobs();
-  const sessions = useSessions();
+  const { needs, running, done, error } = useSessions();
   return (
     <section className="pk-screen" aria-label={tab}>
       <Band title={tab} end={<button className="pk-icon" aria-label="Dispatch" onClick={() => go("/dispatch")}><Plus /></button>} />
@@ -162,21 +127,20 @@ function Tabs() {
         {error !== undefined && <p className="pk-fact"><Unplug aria-hidden="true" /> {error}</p>}
         {tab === "Needs you" && (
           <ul className="pk-list">
-            {needs.map(needRow)}
-            {sessions.map(sessionRow)}
+            {needs.map(sessionRow)}
           </ul>
         )}
         {tab === "Running" && (
           <ul className="pk-list">
-            {running.map((job) => (
-              <Row key={job.id} icon={CircleDot} tip="Running" spin title={job.title} where={job.step === undefined ? job.repository : `${job.repository}  ${job.step.at}/${job.step.of} ${job.step.name}`} age={job.age} />
+            {running.map((session) => (
+              <Row key={session.id} icon={CircleDot} tip="Running" spin title={session.title ?? ""} where={session.repository ?? ""} age={ago(session.started_at, Date.now())} />
             ))}
           </ul>
         )}
         {tab === "Done" && (
           <ul className="pk-list">
-            {done.map((job) => (
-              <Row key={job.id} icon={job.status === "completed_success" ? Check : X} tip={job.status === "completed_success" ? "Landed" : "Failed"} title={job.title} where={job.pr === undefined ? job.repository : `${job.repository}  #${job.pr.number}`} age={job.age} />
+            {done.map((session) => (
+              <Row key={session.id} icon={Check} tip="Ended" title={session.title ?? ""} where={session.repository ?? ""} age={ago(session.ended_at ?? session.started_at, Date.now())} />
             ))}
           </ul>
         )}
@@ -187,26 +151,6 @@ function Tabs() {
         ))}
       </nav>
     </section>
-  );
-}
-
-function Facts({ job }: { job: PocketJob }) {
-  const reason = job.reason === undefined ? undefined : reasonOf(job.reason);
-  return (
-    <dl className="pk-facts">
-      <dt>Repository</dt><dd>{job.repository}</dd>
-      <dt>Status</dt><dd>{reason === undefined ? job.status.replace(/_/g, " ") : <><Mark icon={reason.icon} tip={reason.says} /> {reason.says}</>}</dd>
-      {job.step !== undefined && <><dt>Step</dt><dd>{job.step.at} of {job.step.of}, {job.step.name}</dd></>}
-      <dt>Age</dt><dd>{job.age}</dd>
-      {job.quiet !== undefined && <><dt>Quiet</dt><dd>{job.quiet}</dd></>}
-      {job.verdict !== undefined && <><dt>Judge</dt><dd>{job.verdict.line}</dd></>}
-      {job.checks !== undefined && job.checks.length > 0 && (
-        <><dt>Checks</dt><dd><ul className="pk-checks">{job.checks.map((check) => (
-          <li key={check.name} data-passed={check.passed}><Mark icon={check.passed ? Check : X} tip={check.passed ? "Passed" : "Failed"} /> {check.name}</li>
-        ))}</ul></dd></>
-      )}
-      {job.pr !== undefined && <><dt>Pull request</dt><dd><a className="pk-link" href={`https://${job.pr.url}`}><GitPullRequest aria-hidden="true" /> #{job.pr.number}</a></dd></>}
-    </dl>
   );
 }
 
@@ -221,79 +165,6 @@ function useRun(done: () => void): [string, (act: () => Promise<void>, draftIds?
 }
 
 const Trouble = ({ says }: { says: string }) => (says === "" ? null : <p className="pk-fact">{says}</p>);
-
-function HoldToKill({ onKilled }: { onKilled: () => void }) {
-  return (
-    <HoldButton className="pk-big" size="default" askLabel="Kill" description="Kill. Hold until the fill completes, then confirm." onCommit={onKilled} onAsk={onKilled}>
-      Hold to kill
-    </HoldButton>
-  );
-}
-
-function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
-  const [redirecting, setRedirecting] = useState(false);
-  const [trouble, run] = useRun(done);
-  const draftId = `redirect-${job.id}`;
-  const acts = actsOf(job);
-  return (
-    <section className="pk-screen" aria-label={job.title}>
-      <Band title={job.title} onBack={back} back="Back to Needs you" />
-      <div className="pk-body"><Facts job={job} /><Trouble says={trouble} /></div>
-      {redirecting ? (
-        <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Redirect">
-          <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Redirect" aria-label="Redirect" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
-          <div className="pk-pair-acts">
-            <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(false)}>Close</Button>
-            <Button variant="primary" className="pk-big" onClick={() => run(() => redirect(job.id, (DRAFTS.get(draftId) ?? "").trim()), [draftId])}>Send</Button>
-          </div>
-        </footer>
-      ) : (
-        <footer className="pk-bar">
-          {acts.has("approve") && <Button variant="primary" className="pk-big" onClick={() => run(() => actOn(job.id, "approve"))}>Approve</Button>}
-          {acts.has("redirect") && (
-            <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(true)}>
-       Redirect{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
-          )}
-          {(acts.has("restart") || acts.has("redispatch")) && (
-            <div className="pk-pair-acts">
-              {acts.has("restart") && <Button variant="secondary" className="pk-big" onClick={() => run(() => actOn(job.id, "restart_step"))}>Restart step</Button>}
-              {acts.has("redispatch") && <Button variant="secondary" className="pk-big" onClick={() => run(() => actOn(job.id, "redispatch"))}>Redispatch</Button>}
-            </div>
-          )}
-          {acts.has("kill") && <HoldToKill onKilled={() => run(() => actOn(job.id, "kill"))} />}
-        </footer>
-      )}
-    </section>
-  );
-}
-
-function ReviewScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
-  const [asking, setAsking] = useState(false);
-  const [trouble, run] = useRun(done);
-  const draftId = `changes-${job.id}`;
-  return (
-    <section className="pk-screen" aria-label={`Review ${job.title}`}>
-      <Band title={job.title} onBack={back} back="Back to Needs you" />
-      <div className="pk-body"><Facts job={job} /><Trouble says={trouble} /></div>
-      {asking ? (
-        <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Request changes">
-          <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Reason" aria-label="Reason" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
-          <div className="pk-pair-acts">
-            <Button variant="secondary" className="pk-big" onClick={() =>setAsking(false)}>Close</Button>
-            <Button variant="primary" className="pk-big" onClick={() => run(() => requestChanges(job.id, (DRAFTS.get(draftId) ?? "").trim()), [draftId])}>Send</Button>
-          </div>
-        </footer>
-      ) : (
-        <footer className="pk-bar">
-          <div className="pk-pair-acts">
-            <Button variant="secondary" className="pk-big" onClick={() =>setAsking(true)}>Request changes{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
-            <Button variant="primary" className="pk-big" onClick={() => run(() => actOn(job.id, "approve_review"))}>Approve</Button>
-          </div>
-        </footer>
-      )}
-    </section>
-  );
-}
 
 function AskScreen({ session, back, done }: { session: PhoneSession; back: () => void; done: () => void }) {
   const ask = session.ask!;
@@ -361,7 +232,7 @@ function DispatchScreen({ back, done }: { back: () => void; done: () => void }) 
       <Band title="Dispatch" onBack={back} back="Back" />
       <div className="pk-body">
         <input
-          className="pk-line" aria-label="Job" placeholder="Job" value={line} enterKeyHint="send"
+          className="pk-line" aria-label="Session" placeholder="Session" value={line} enterKeyHint="send"
           autoCapitalize="sentences" autoCorrect="on"
           onChange={(event) => { DRAFTS.set("dispatch", event.target.value); setLine(event.target.value); }}
         />
@@ -373,7 +244,7 @@ function DispatchScreen({ back, done }: { back: () => void; done: () => void }) 
         <Trouble says={trouble} />
       </div>
       <footer className="pk-bar">
-        <Button variant="primary" className="pk-big" disabled={line.trim() === "" || repo === undefined} onClick={() => run(() => dispatchJob({ text: line.trim(), repository: repo! }), ["dispatch"])}>Dispatch</Button>
+        <Button variant="primary" className="pk-big" disabled={line.trim() === "" || repo === undefined} onClick={() => run(() => dispatchSession({ text: line.trim(), repository: repo! }), ["dispatch"])}>Dispatch</Button>
       </footer>
     </section>
   );
@@ -381,9 +252,8 @@ function DispatchScreen({ back, done }: { back: () => void; done: () => void }) 
 
 export function App({ path }: { path: string }) {
   const home = () => go("/");
-  const job = useJob(path.startsWith("/jobs/") ? path.slice("/jobs/".length) : undefined);
-  const sessions = useSessions();
-  const asked = path.startsWith("/sessions/") ? sessions.find((one) => one.id === path.slice("/sessions/".length) && one.ask !== undefined) : undefined;
+  const { needs } = useSessions();
+  const asked = path.startsWith("/sessions/") ? needs.find((one) => one.id === path.slice("/sessions/".length) && one.ask !== undefined) : undefined;
   useEffect(() => {
     if (path === "/pair") return;
     void paired().then((device) => {
@@ -398,9 +268,6 @@ export function App({ path }: { path: string }) {
     <main className="pk-app" aria-label="Armada">
       {path === "/pair" && <Pair />}
       {path === "/" && <Tabs />}
-      {job !== undefined && (job.status === "awaiting_review"
-        ? <ReviewScreen key={job.id} job={job} back={home} done={home} />
-        : <JobScreen key={job.id} job={job} back={home} done={home} />)}
       {asked !== undefined && <AskScreen key={asked.id} session={asked} back={home} done={home} />}
       {path === "/dispatch" && <DispatchScreen back={home} done={home} />}
     </main>

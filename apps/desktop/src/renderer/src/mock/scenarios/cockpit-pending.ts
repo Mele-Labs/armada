@@ -65,7 +65,7 @@ function build(): Scenario {
     later: [{}, {}, {}, { jobs: [cache.job, mainChecks.job, landed] }],
     draft: {
       sessions: (control) => {
-        const store = sessionsStore([none, none], none, [], control, [], [SESSION]);
+        const store = sessionsStore([none, none], none, control, [], [SESSION]);
         const { held, ...clocks } = SLOW_FLEET;
         // Fleet answers when the walk lets it, so the waiting state stands as long as a person wants to look at it.
         const hold = held ? gate() : undefined;

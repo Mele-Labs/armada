@@ -1,7 +1,7 @@
 // The dispatch panel: the place work is described, a centred sheet over the window that `n`, the Cockpit's
-// Dispatch tile, every New job and a dispatch row chosen in the palette all open. One frame holds it: the line (prompt, request, the key that switches kind)
-// never moves, and a drawer under it opens for the band (kind, repository, the act) and a body that depends on the kind: a Job's
-// Settings, an Autopilot's read settings, nothing for a Session. The request is one textarea that is
+// Dispatch tile, every New session and a dispatch row chosen in the palette all open. One frame holds it: the line (prompt, request, the key that switches kind)
+// never moves, and a drawer under it opens for the band (kind, repository, the act) and a body that depends on the kind: an Autopilot's
+// read settings, nothing for a Session. The request is one textarea that is
 // never remounted, so what was typed and the caret stay where they were while the frame grows.
 //
 // The repository is a row of chips under the request, never a dropdown: each carries its key, ⌥1 to ⌥9, and
@@ -112,7 +112,7 @@ export type PanelProps = {
   /** The act pressed and held until the repository is read, or until Fleet answers. */
   sending: boolean;
   onAct: () => void;
-  /** A Session's Model and Effort, beside the act. Absent for a Job and an Autopilot. */
+  /** A Session's Model and Effort, beside the act. Absent for an Autopilot. */
   tuning?: PanelTuning;
   /** The `@` menu and the sentence over the request. Absent where a Session cannot wait. */
   wait?: PanelWait;
@@ -129,7 +129,7 @@ export type PanelProps = {
   onDismiss?: () => void;
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  /** Under the band: a Job's Settings, an Autopilot's read settings. Absent for a Session. */
+  /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
   autoFocus?: boolean;

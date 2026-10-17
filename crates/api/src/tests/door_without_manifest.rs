@@ -89,7 +89,6 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "list_jobs",
         "get_events_since",
         "list_sessions",
-        "start_run",
     ] {
         assert!(
             !listed.contains(&named(tool)),

@@ -26,51 +26,11 @@
 
 use std::num::NonZeroU32;
 
-/// Whether the process has exited, **without collecting it**.
-///
-/// `WNOWAIT` is what makes this a reading rather than a reap: the child is left
-/// exactly as it was found, so the `try_wait` that follows still collects it
-/// and tokio's own bookkeeping never learns this happened. That is the whole
-/// reason it exists — the group can be signalled while the pid is still the
-/// Drone's, instead of a few instructions after the reap handed it back.
-///
-/// `waitid` and not `waitpid`, because `WNOWAIT` is only legal on the first:
-/// `waitpid(pid, WNOHANG | WNOWAIT)` answers `EINVAL` here, measured.
-///
-/// **`false` on every error**, including the `ECHILD` of a child something else
-/// has already collected. A reading that failed is not a Drone that stopped,
-/// and the only thing a `true` can do is add a signal.
-#[allow(unsafe_code)]
-pub(crate) fn run_is_over(pid: NonZeroU32) -> bool {
-    let Ok(pid) = libc::pid_t::try_from(pid.get()) else {
-        return false;
-    };
-    // SAFETY: `waitid` writes one `siginfo_t` through the pointer given, which
-    // is a live local zeroed to start with — `si_pid` stays zero unless the
-    // call filled it in, which is how "nothing changed state" is told from
-    // "this pid exited". Nothing is read after the call but that field.
-    unsafe {
-        let mut reading: libc::siginfo_t = std::mem::zeroed();
-        let asked = libc::waitid(
-            libc::P_PID,
-            pid as libc::id_t,
-            &mut reading,
-            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
-        );
-        asked == 0 && si_pid_of(&reading) == pid
-    }
-}
-
 /// libc exposes `si_pid` as an unsafe method on Linux and a field on macOS.
 #[cfg(target_os = "linux")]
 #[allow(unsafe_code)]
 unsafe fn si_pid_of(reading: &libc::siginfo_t) -> libc::pid_t {
     reading.si_pid()
-}
-
-#[cfg(not(target_os = "linux"))]
-fn si_pid_of(reading: &libc::siginfo_t) -> libc::pid_t {
-    reading.si_pid
 }
 
 /// `SIGKILL` to a whole process group.
@@ -121,29 +81,6 @@ pub(crate) fn ask_the_group_to_end(group: NonZeroU32) {
     // SAFETY: as `end_the_group`: two integers, non-zero, naming one group.
     unsafe {
         libc::killpg(group, libc::SIGTERM);
-    }
-}
-
-/// `SIGKILL` to one process, not its group: a person ending one row of a Job's
-/// Pulse (`#1647`), where the group is the Drone's and must not go with it.
-///
-/// **The caller proves the pid is the Job's**, by finding it in a process tree
-/// read immediately before, under a recorded Drone whose start time matched. A
-/// tree is read in one `ps`, so that proof is as wide as the act takes, not as
-/// wide as the screen was old. `ESRCH` is a process that left first, and is
-/// answered as nothing, for [`end_the_group`]'s reason.
-#[allow(unsafe_code)]
-pub(crate) fn end_the_process(pid: NonZeroU32) {
-    // Above `i32::MAX` names nothing; a cast would make it a negative number,
-    // which `kill` reads as a group.
-    let Ok(pid) = libc::pid_t::try_from(pid.get()) else {
-        return;
-    };
-    // SAFETY: `kill` is a plain system call over two integers. The pid is
-    // positive, so it names one process and never a group, and non-zero, so it
-    // never names the caller's own group.
-    unsafe {
-        libc::kill(pid, libc::SIGKILL);
     }
 }
 

@@ -94,8 +94,8 @@ export type WorktreesProps = {
   onCopied: (value: string) => void;
   /** Drawn in the head, across from the way out: the caller's bulk sweeps. */
   actions?: ReactNode;
-  /** Open the Job holding a worktree. */
-  onOpenJob: (jobId: string) => void;
+  /** Open the Job holding a worktree. Absent draws the Job as a name. */
+  onOpenJob?: ((jobId: string) => void) | undefined;
   /** Add, remove, close or reopen one slot of a repository's pool. Absent draws no acts. */
   onChangeSlotPool?: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   /** Start or stop a rescue of a stranded slot, or Scrap or Stash it. Absent draws none of its acts. */

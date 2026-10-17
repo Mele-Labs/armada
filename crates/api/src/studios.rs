@@ -543,27 +543,3 @@ pub(crate) async fn settle_contradiction<D: Studios>(
     answered(&served, StatusCode::OK, settled)
 }
 
-/// **Reads the daemon by its `Arc`**, as a scout's ask does: the Job proposer
-/// is a model call made while the caller waits.
-pub(crate) async fn dispatch_studio_draft<D: Studios>(
-    State(served): State<Served<D>>,
-    Path(studio_id): Path<String>,
-    scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
-    bytes: Bytes,
-) -> Response {
-    let dispatching = match body(&served, "a draft to dispatch", &bytes) {
-        Ok(dispatching) => dispatching,
-        Err(response) => return response,
-    };
-    let dispatched = served
-        .shared()
-        .dispatch_studio_draft(
-            StudioId::carried(studio_id),
-            dispatching,
-            acting(helm),
-            within(scope),
-        )
-        .await;
-    answered(&served, StatusCode::OK, dispatched)
-}

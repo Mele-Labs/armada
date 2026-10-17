@@ -192,7 +192,7 @@ approximations.
 - [`spikes/014-how-much-room-does-a-brief-leave-for-comments.md`](spikes/014-how-much-room-does-a-brief-leave-for-comments.md)
   — how much of an opening brief a merge press's chosen comments could take
   before they are most of what the Drone reads, read cold against `assemble`
-  in `crates/fleet/src/briefing.rs`, and the character bound on the whole set
+  in the `briefing` module (deleted since), and the character bound on the whole set
   that follows from it. Not measured in this session; handed over.
 - [`spikes/015-can-a-person-answer-a-blocked-command.md`](spikes/015-can-a-person-answer-a-blocked-command.md)
   — whether a Drone refused a command can wait on a person's answer through a
@@ -304,7 +304,6 @@ can find them.
 | Running a whole milestone by dispatching agents at its issues | `orchestrate-milestone` |
 | Closing a session — what the work just made untrue, and what to update | `reflect` |
 | Putting a decision to a person, and writing the options | `asking-a-person` |
-| Running a whole milestone from one approval, wave by wave | `epic-as-one-job` |
 | Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
 | Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
 | Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |

@@ -8,9 +8,8 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, PullRequestState, ReviewDispatched, ReviewPullRequest};
+use ipc::{ManifestId, PullRequestState};
 
-use super::Redirector;
 use crate::daemon::Refusal;
 
 pub trait PullRequests: Send + Sync + 'static {
@@ -49,12 +48,4 @@ pub trait PullRequests: Send + Sync + 'static {
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
 
-    /// `review_pull_request` — draft a Code Review Job against it, naming the
-    /// workflow itself. **At the approval gate**, like every dispatch.
-    fn review_pull_request(
-        &self,
-        manifest_id: ManifestId,
-        review: ReviewPullRequest,
-        by: Redirector,
-    ) -> impl Future<Output = Result<ReviewDispatched, Refusal>> + Send;
 }

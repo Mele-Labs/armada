@@ -10,28 +10,19 @@
 
 use super::{Applies, Entry, Kind, Section, Shipped, Words};
 
-pub const PROMPT_DRONE_BASELINE: Words = Words("prompts.droneBaseline");
 pub const PROMPT_SCOUT_ASK: Words = Words("prompts.scoutAsk");
 pub const PROMPT_SCOUT_READ_IN: Words = Words("prompts.scoutReadIn");
 pub const PROMPT_SCOUT_RESCUE: Words = Words("prompts.scoutRescue");
-pub const PROMPT_PROPOSER: Words = Words("prompts.proposer");
 pub const PROMPT_RETRO_JOB: Words = Words("prompts.retroJob");
 pub const PROMPT_RETRO_SESSION: Words = Words("prompts.retroSession");
 pub const PROMPT_RETRO_WHERE_FIXES_LAND: Words = Words("prompts.retroWhereFixesLand");
 pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
 pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
 pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
-pub const PROMPT_CROSSING_REDIRECT: Words = Words("prompts.crossingRedirect");
-pub const PROMPT_CROSSING_OVERTAKEN: Words = Words("prompts.crossingOvertaken");
-pub const PROMPT_CROSSING_CONFLICTS: Words = Words("prompts.crossingConflicts");
-pub const PROMPT_CROSSING_ANSWERED: Words = Words("prompts.crossingAnswered");
-pub const PROMPT_CROSSING_DECIDED: Words = Words("prompts.crossingDecided");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
-pub const PROMPT_COMMANDER: Words = Words("prompts.commander");
-pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
-pub const PROMPT_JOB_REPAIR: Words = Words("prompts.jobRepair");
+pub const PROMPT_HELM_VOICE: Words = Words("prompts.helmVoice");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 
@@ -44,31 +35,15 @@ pub fn prompt_keys() -> impl Iterator<Item = Words> {
 }
 
 /// The sub-heading a prompt is drawn under, inside the Prompts group. **In
-/// the order a Drone meets them**: its brief, what it is told at a step
-/// boundary and about other Jobs, the step's own terms, the turns injected
-/// while it works, then the Judge that reads its work, and last the agents that
-/// are not Drones. [`super::entries`] lays prompts out in this order whichever
-/// table holds them.
+/// the order Bridge draws them**: the Judge that reads an agent's work, then the
+/// agents that are not Sessions. [`super::entries`] lays prompts out in this
+/// order whichever table holds them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PromptSection {
-    DroneBrief,
-    Crossing,
-    AnotherJobsFix,
-    OtherJobs,
-    StepTerms,
-    Review,
-    InjectedTurns,
-    PlanChanges,
-    WorktreeRepair,
-    SideRuns,
-    Triggers,
     Judge,
     JudgeGaming,
     JudgeSecondReading,
-    JudgeConvergence,
-    JudgeWidening,
     Scouts,
-    Proposer,
     Autopilot,
     Helm,
     Retros,
@@ -76,25 +51,11 @@ pub enum PromptSection {
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 21] = [
-        PromptSection::DroneBrief,
-        PromptSection::Crossing,
-        PromptSection::AnotherJobsFix,
-        PromptSection::OtherJobs,
-        PromptSection::StepTerms,
-        PromptSection::Review,
-        PromptSection::InjectedTurns,
-        PromptSection::PlanChanges,
-        PromptSection::WorktreeRepair,
-        PromptSection::SideRuns,
-        PromptSection::Triggers,
+    pub const ORDER: [PromptSection; 7] = [
         PromptSection::Judge,
         PromptSection::JudgeGaming,
         PromptSection::JudgeSecondReading,
-        PromptSection::JudgeConvergence,
-        PromptSection::JudgeWidening,
         PromptSection::Scouts,
-        PromptSection::Proposer,
         PromptSection::Autopilot,
         PromptSection::Helm,
         PromptSection::Retros,
@@ -104,51 +65,23 @@ impl PromptSection {
     /// new section is placed before it compiles.
     pub const fn position(self) -> usize {
         match self {
-            PromptSection::DroneBrief => 0,
-            PromptSection::Crossing => 1,
-            PromptSection::AnotherJobsFix => 2,
-            PromptSection::OtherJobs => 3,
-            PromptSection::StepTerms => 4,
-            PromptSection::Review => 5,
-            PromptSection::InjectedTurns => 6,
-            PromptSection::PlanChanges => 7,
-            PromptSection::WorktreeRepair => 8,
-            PromptSection::SideRuns => 9,
-            PromptSection::Triggers => 10,
-            PromptSection::Judge => 11,
-            PromptSection::JudgeGaming => 12,
-            PromptSection::JudgeSecondReading => 13,
-            PromptSection::JudgeConvergence => 14,
-            PromptSection::JudgeWidening => 15,
-            PromptSection::Scouts => 16,
-            PromptSection::Proposer => 17,
-            PromptSection::Autopilot => 18,
-            PromptSection::Helm => 19,
-            PromptSection::Retros => 20,
+            PromptSection::Judge => 0,
+            PromptSection::JudgeGaming => 1,
+            PromptSection::JudgeSecondReading => 2,
+            PromptSection::Scouts => 3,
+            PromptSection::Autopilot => 4,
+            PromptSection::Helm => 5,
+            PromptSection::Retros => 6,
         }
     }
 
     /// The sub-heading Bridge draws.
     pub fn title(self) -> &'static str {
         match self {
-            PromptSection::DroneBrief => "Drone brief",
-            PromptSection::Crossing => "Crossing a step",
-            PromptSection::AnotherJobsFix => "Another Job's fix",
-            PromptSection::OtherJobs => "Other Jobs",
-            PromptSection::StepTerms => "Step terms",
-            PromptSection::Review => "Review",
-            PromptSection::InjectedTurns => "Injected turns",
-            PromptSection::PlanChanges => "Plan changes",
-            PromptSection::WorktreeRepair => "Worktree repair",
-            PromptSection::SideRuns => "Side runs",
-            PromptSection::Triggers => "Triggers",
             PromptSection::Judge => "Judge",
             PromptSection::JudgeGaming => "Judge: gaming",
             PromptSection::JudgeSecondReading => "Judge: second reading",
-            PromptSection::JudgeConvergence => "Judge: convergence",
-            PromptSection::JudgeWidening => "Judge: widening",
             PromptSection::Scouts => "Scouts",
-            PromptSection::Proposer => "Proposer",
             PromptSection::Autopilot => "Autopilot",
             PromptSection::Helm => "Helm",
             PromptSection::Retros => "Retros",
@@ -179,13 +112,6 @@ pub(super) const fn prompt(
 
 pub(super) const PROMPTS: &[Entry] = &[
     prompt(
-        PromptSection::DroneBrief,
-        PROMPT_DRONE_BASELINE,
-        "Drone baseline",
-        "The first block of every Drone's brief: how it works and how it reports. The Job, the step and the checks follow it, written by Fleet.",
-        &[],
-    ),
-    prompt(
         PromptSection::Scouts,
         PROMPT_SCOUT_ASK,
         "A question about the code",
@@ -205,13 +131,6 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Reading stranded work",
         "What a scout is told before reading work an agent left in a worktree. {root}, {branch}, {commit} and {base} say where the work is. What git read follows it.",
         &["root", "branch", "commit", "base"],
-    ),
-    prompt(
-        PromptSection::Proposer,
-        PROMPT_PROPOSER,
-        "Job proposer",
-        "What the proposer is asked when a request becomes Jobs. {request} is the request, {workflows} the workflows held and {models} the models this machine runs. Its answer is read by field name, so keep the field names.",
-        &["request", "workflows", "models"],
     ),
     prompt(
         PromptSection::Autopilot,
@@ -270,41 +189,6 @@ pub(super) const PROMPTS: &[Entry] = &[
         &["item", "rows", "history", "question"],
     ),
     prompt(
-        PromptSection::Crossing,
-        PROMPT_CROSSING_REDIRECT,
-        "A person's note",
-        "The block a new Drone reads when a person left a note before it started. {note} is the note, word for word.",
-        &["note"],
-    ),
-    prompt(
-        PromptSection::Crossing,
-        PROMPT_CROSSING_OVERTAKEN,
-        "A sibling landed",
-        "The block a Drone reads when a Job from the same request landed while this one was between steps. {title} is that Job's title and {claimed} what its evidence said.",
-        &["title", "claimed"],
-    ),
-    prompt(
-        PromptSection::Crossing,
-        PROMPT_CROSSING_CONFLICTS,
-        "Sent back for conflicts",
-        "The block a Drone reads when Fleet sent the work back because the base moved and the branch conflicts with it.",
-        &[],
-    ),
-    prompt(
-        PromptSection::Crossing,
-        PROMPT_CROSSING_ANSWERED,
-        "A person answered",
-        "The block a new Drone reads when the Drone before it on this part asked a person and stood down for the answer. {question} is the question, {label} the answer they chose and {consequence} what the asking Drone said that answer means.",
-        &["question", "label", "consequence"],
-    ),
-    prompt(
-        PromptSection::Crossing,
-        PROMPT_CROSSING_DECIDED,
-        "A person decided several things",
-        "The block a new Drone reads when the Drone before it on this part asked several decisions in one ask and stood down for the answers. {answers} lists each decision with the answer chosen and what the asking Drone said that answer means.",
-        &["answers"],
-    ),
-    prompt(
         PromptSection::Helm,
         PROMPT_HELM,
         "Helm",
@@ -320,30 +204,10 @@ pub(super) const PROMPTS: &[Entry] = &[
     ),
     prompt(
         PromptSection::Helm,
-        PROMPT_COMMANDER,
-        "A Job's Commander",
-        "What a Job's Commander is told when its session starts. {job} names the Job it steers. Each turn after it is worded by Fleet.",
-        &["job"],
-    ),
-    prompt(
-        PromptSection::Helm,
         PROMPT_HELM_ROUTE,
         "Routing a thought",
         "What the model is asked when a person types into Helm's message box, to decide whether it is a question for Helm or a thought for running work. {candidates} is the live Sessions and running Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
         &["candidates", "message"],
     ),
-    prompt(
-        PromptSection::Triggers,
-        PROMPT_TRIGGER_REPAIR,
-        "Repairing a Trigger",
-        "What a Drone is told under the heading naming a failed Trigger. {command} is what it runs, {exited} says how it ended and {printed} is what it printed. {trigger}, its name, may be used too.",
-        &["command", "exited", "printed"],
-    ),
-    prompt(
-        PromptSection::WorktreeRepair,
-        PROMPT_JOB_REPAIR,
-        "Repairing a Job's branch",
-        "What a repair Drone is told under REPAIR THE JOB, when a Job's Commander sends one onto the Job's own branch. {job} is the Job's title, {branch} its branch, {step} the step that stopped and {broke} what is wrong and the one thing to do about it.",
-        &["job", "branch", "step", "broke"],
-    ),
+    prompt(PromptSection::Helm, PROMPT_HELM_VOICE, "Voice", "The block Machine Voice is given in. {voice} is the setting.", &["voice"]),
 ];

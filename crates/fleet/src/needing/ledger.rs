@@ -270,17 +270,6 @@ pub(crate) fn release(
     )
 }
 
-/// Everything `holder` still held is spent, where its work landed, or given
-/// back, where it did not. **One move**, so nothing here asks which.
-pub(crate) fn ended(
-    store: &mut Store,
-    holder: &Holder,
-    state: AttachmentState,
-    at: &str,
-) -> Result<bool, WriteError> {
-    store.settle_held(holder, Some(NEED), state, at)
-}
-
 /// Give back every need held by a branch alone whose branch `exists` no longer
 /// finds, so nobody waits behind a branch that was deleted. A Job's and a
 /// session's needs are given back where they end, not here.

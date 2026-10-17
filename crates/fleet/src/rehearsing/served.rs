@@ -2,7 +2,6 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Rehearsing};
-use ipc::JobId;
 
 use crate::daemon::Fleet;
 
@@ -16,28 +15,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// A person's run in a Job's worktree. **The `Arc` is handed on**, so the
-    /// run is a task of its own — `crate::rehearsing`.
-    ///
-    /// **Not [`budgeted`](crate::budget::budgeted)**: a rehearsal answers through its own refusal type,
-    /// never [`Adrift`], because it is not a move on the Job at all.
-    async fn start_run(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        run: ipc::StartRun,
-    ) -> Result<ipc::RunUnderway, Refusal> {
-        Fleet::start_rehearsal(self, &job_id.to_domain(), run).await
-    }
-
-    /// **Not [`budgeted`](crate::budget::budgeted)**, for [`Rehearsing::start_run`]'s reason.
-    async fn stop_run(&self, job_id: JobId, run: ipc::NamedRun) -> Result<ipc::RunRecord, Refusal> {
-        self.stop_rehearsal(&job_id.to_domain(), run.id).await
-    }
-
-    /// **Not [`budgeted`](crate::budget::budgeted)**, for [`Rehearsing::start_run`]'s reason.
-    async fn undo_run(&self, job_id: JobId, run: ipc::NamedRun) -> Result<ipc::RunRecord, Refusal> {
-        self.undo_rehearsal(&job_id.to_domain(), run.id).await
-    }
 
     /// A person's run in the main checkout. **The `Arc` is handed on**, for
     /// [`Rehearsing::start_run`]'s reason — `crate::rehearsing::checkout`.

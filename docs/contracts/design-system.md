@@ -1481,7 +1481,6 @@ r              review             (list only)
 t              attest   (list and detail)
 d              redirect   (list and detail)
 s              restart step        (detail only)
-p              pilot               (not built)
 c              copy debug info
 b              report this job     (detail only) (confirms)
 x              kill                (confirms)
@@ -2769,8 +2768,7 @@ read plausibly under a different job has failed.
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no
   difference in kind. Helm's thread and its session record are the case:
-  Fleet writes the *no reply came* sentences
-  (`crates/fleet/src/helm/unanswered.rs`) and Bridge words the row about
+  Fleet writes the *no reply came* sentences and Bridge words the row about
   a session it could not resume. Fleet's open lower case and cannot do
   otherwise — some of them lead with the program that would not start,
   `claude` or `codex`, and the lexicon refuses a model or program name

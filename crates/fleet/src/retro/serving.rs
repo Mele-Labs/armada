@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Redirector, Refusal, Retros};
+use api::{Refusal, Retros};
 use ipc::{
     JobId, JobRetro, LandsIn, Lesson, LessonState, Lessons, ManifestId, RetroChange, RetroItem,
     RetroState,
@@ -275,15 +275,6 @@ where
         session_id: String,
     ) -> Result<JobRetro, Refusal> {
         Fleet::write_session_retro(&self, &session_id).await
-    }
-
-    /// Agree with an item. `agreeing` has it.
-    async fn agree_lesson(
-        self: Arc<Self>,
-        lesson_id: String,
-        by: Redirector,
-    ) -> Result<Lesson, Refusal> {
-        self.agreed_with(&lesson_id, by).await
     }
 
     /// Start a Session for an item. `starting` has it.

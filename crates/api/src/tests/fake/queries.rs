@@ -9,9 +9,7 @@
 //! `ipc` alone.
 
 use ipc::{
-    AlertList, BriefContents, CheckOutput, CommandExplained, DroneDetail, DroneId,
-    DroneList, FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobDrones,
-    JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame, ManifestConfig,
+    AlertList, FilesFound, FleetHealth, FleetUsage, JobDetail, JobDiff, JobHistory, JobId, JobList, ManifestConfig,
     ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices,
     WorkflowSummary, WorktreesHeld,
 };
@@ -19,44 +17,10 @@ use ipc::{
 use super::FakeDaemon;
 use crate::tests::shapes;
 use crate::tests::shapes::run_id;
-use crate::{FramePart, FrameSpan, Observed, Queries, Refusal, Resolved};
+use crate::{Queries, Refusal, Resolved};
 
 impl FakeDaemon {
-    /// The row a frame id resolves to, and the bytes behind it.
-    ///
-    /// **The record is the allowlist here too.** Both frame routes go through
-    /// this, so a name no row of this Job holds reaches nothing on either —
-    /// which is the rule a ranged read must not be able to route around.
-    fn frame_held(
-        &self,
-        job_id: &JobId,
-        kept: String,
-    ) -> Result<(KeptFrame, &'static [u8]), Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| &job.id == job_id) {
-            return Err(self.no_such_job(job_id));
-        }
-        if kept != shapes::THE_FRAME && kept != shapes::THE_RECORDING {
-            return Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.no_such_frame",
-                format!("no step of this Job kept a frame named `{kept}`"),
-                run_id(),
-            )));
-        }
-        let bytes = shapes::bytes_of(&kept);
-        Ok((shapes::frame(kept), bytes))
-    }
 
-    /// The run sheet's six operations, which the fake does not run: a 404 for
-    /// a Job it does not hold, and a 422 naming that for one it does. What the
-    /// routes prove is that each is wired, and `fleet` proves what they do.
-    pub(super) fn runs_nothing<T>(&self, job_id: &JobId) -> Result<T, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| &job.id == job_id) {
-            return Err(self.no_such_job(job_id));
-        }
-        self.runs_nothing_here()
-    }
 
     /// The checkout's own, which name no Job to be missing.
     pub(super) fn runs_nothing_here<T>(&self) -> Result<T, Refusal> {
@@ -199,17 +163,6 @@ impl Queries for FakeDaemon {
         Ok(shapes::alerts())
     }
 
-    async fn list_drones(&self, manifest_id: Option<ManifestId>) -> Result<DroneList, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        Ok(DroneList {
-            drones: vec![shapes::drone()]
-                .into_iter()
-                .filter(|drone| self.owns(manifest_id.as_ref(), &drone.job_id))
-                .collect(),
-        })
-    }
 
     async fn owned_jobs(&self, manifest_id: ManifestId) -> Result<Vec<JobId>, Refusal> {
         let manifest_id = self.scope(Some(manifest_id)).await?;
@@ -221,14 +174,6 @@ impl Queries for FakeDaemon {
             .collect())
     }
 
-    /// **The refusal is what matters**: an id naming no live Drone is a 404,
-    /// never a detail with nothing in it.
-    async fn get_drone(&self, drone_id: DroneId) -> Result<DroneDetail, Refusal> {
-        match drone_id == shapes::drone().drone_id {
-            true => Ok(shapes::drone_detail()),
-            false => Err(self.no_such_job(&JobId::carried(drone_id.as_str()))),
-        }
-    }
 
     async fn get_health(&self) -> Result<FleetHealth, Refusal> {
         Ok(shapes::health())
@@ -265,12 +210,6 @@ impl Queries for FakeDaemon {
         }
     }
 
-    async fn get_capacity(&self) -> Result<FleetCapacity, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        Ok(shapes::capacity())
-    }
 
     /// The build [`shapes::fleet_build`] describes, restarting onto whatever the
     /// last change asked for.
@@ -419,45 +358,9 @@ impl Queries for FakeDaemon {
         Ok(shapes::history(job_id, at))
     }
 
-    /// **The refusal is what matters here too**: an id naming nothing is a 404
-    /// rather than a panel of empty lists, which is the one thing a client
-    /// cannot tell apart on its own.
-    /// **A Job that names nothing is a 404**, never an empty list: a Job that
-    /// has never run is a real answer with no Drones in it.
-    async fn list_job_drones(&self, job_id: JobId) -> Result<JobDrones, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(shapes::job_drones(job_id))
-    }
 
-    async fn get_job_resources(&self, job_id: JobId) -> Result<JobResources, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(shapes::resources(job_id))
-    }
 
-    async fn get_evidence(&self, job_id: JobId) -> Result<JobEvidence, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(shapes::evidence(job_id))
-    }
 
-    /// **Two comments, one already spent.** The forge is not reached from here
-    /// — what a route test can see is the shape, and `taken_up` is the field
-    /// that decides whether a surface offers a comment at all.
-    async fn get_remarks(&self, job_id: JobId) -> Result<JobRemarks, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        Ok(shapes::remarks(job_id))
-    }
 
     async fn get_diff(&self, job_id: JobId) -> Result<JobDiff, Refusal> {
         let jobs = self.jobs.lock().expect("not poisoned");
@@ -467,122 +370,14 @@ impl Queries for FakeDaemon {
         Ok(shapes::diff(job_id))
     }
 
-    async fn get_repair_diff(&self, job_id: JobId, _of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
-        self.get_diff(job_id).await
-    }
 
-    /// **Two refusals again, and both are 404s here**: a Job that is not there,
-    /// and a call this fake holds no open command for. The second is a 404
-    /// rather than a 422, because the id is only nameable
-    /// while the command is open — `crates/ipc/operations/`. No model is
-    /// reached; what the route has to prove is the shape and the two answers.
-    async fn explain_command(
-        &self,
-        job_id: JobId,
-        call_id: String,
-    ) -> Result<CommandExplained, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        if call_id != shapes::THE_CALL {
-            return Err(Refusal::NoSuchJob(ipc::WireError::raised(
-                "fleet.nothing_to_explain",
-                format!("this Job is neither waiting on nor refused the call `{call_id}`"),
-                run_id(),
-            )));
-        }
-        Ok(shapes::explained())
-    }
 
-    /// **The same two refusals one record over**: a Job that is not there, and
-    /// a name no row of the Job kept. [`shapes::THE_OUTPUT`] is the one name it
-    /// does hold, and nothing here opens a file — what the route has to prove
-    /// is the shape and the two answers, not the reading.
-    async fn get_check_output(&self, job_id: JobId, kept: String) -> Result<CheckOutput, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        if kept != shapes::THE_OUTPUT {
-            return Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.no_such_check_output",
-                format!("no Check of this Job kept an output named `{kept}`"),
-                run_id(),
-            )));
-        }
-        Ok(shapes::check_output(kept))
-    }
 
-    /// **Fleet's two refusals, word for word**: a Job that is not there, and
-    /// a name the Job's briefs directory does not hold — which is also what
-    /// Fleet answers a name that would leave it. [`shapes::THE_BRIEF`] is the
-    /// one brief the fake holds.
-    async fn get_brief(&self, job_id: JobId, name: String) -> Result<BriefContents, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        if name != shapes::THE_BRIEF {
-            return Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.unacceptable_proposal",
-                format!(
-                    "this Job kept no brief named `{name}`. A brief is named by the last part of \
-                     its `brief_path`, and one whose `.armada/briefs` directory has since been \
-                     reclaimed reaches no file"
-                ),
-                run_id(),
-            )));
-        }
-        Ok(shapes::brief(&name))
-    }
 
-    /// **The planted log, under its own name, and a refusal for any other.**
-    /// A route test plants a [`crate::LiveOutput`] whose reader it drives, so
-    /// what the socket does with a growing file is proved without a file.
-    async fn observe_check_output(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> Result<crate::LiveOutput, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        let planted = self.live.lock().expect("not poisoned").clone();
-        match planted {
-            Some((name, live)) if name == kept => Ok(live),
-            _ => Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.no_such_check_output",
-                format!("no running Check of this Job is writing a log named `{kept}`"),
-                run_id(),
-            ))),
-        }
-    }
 
-    async fn get_run_sheet(&self, job_id: JobId) -> Result<ipc::RunSheet, Refusal> {
-        self.runs_nothing(&job_id)
-    }
 
-    async fn list_runs(&self, job_id: JobId) -> Result<ipc::RunList, Refusal> {
-        self.runs_nothing(&job_id)
-    }
 
-    async fn get_run_output(
-        &self,
-        job_id: JobId,
-        _run_id: String,
-    ) -> Result<ipc::RunOutput, Refusal> {
-        self.runs_nothing(&job_id)
-    }
 
-    async fn observe_run(
-        &self,
-        job_id: JobId,
-        _run_id: String,
-    ) -> Result<crate::ObservedRun, Refusal> {
-        self.runs_nothing(&job_id)
-    }
 
     /// **The fake declares nothing**, so the sheet is empty rather than
     /// refused: `get_checkout_run_sheet` answers on a repository that has
@@ -605,16 +400,6 @@ impl Queries for FakeDaemon {
         })
     }
 
-    async fn list_manifest_checks(
-        &self,
-        _manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::ManifestChecks, Refusal> {
-        Ok(ipc::ManifestChecks {
-            rows: Vec::new(),
-            total: 0,
-            truncated: false,
-        })
-    }
 
     async fn list_checkout_runs(
         &self,
@@ -681,48 +466,7 @@ impl Queries for FakeDaemon {
         )))
     }
 
-    /// **The same two refusals again**, and nothing here opens a file: what the
-    /// route has to prove is that the bytes come back as themselves, under a
-    /// media type read off the name, and that a name the record does not hold
-    /// reaches nothing.
-    async fn get_frame(
-        &self,
-        job_id: JobId,
-        kept: String,
-    ) -> Result<(KeptFrame, Vec<u8>), Refusal> {
-        let (held, bytes) = self.frame_held(&job_id, kept)?;
-        Ok((held, bytes.to_vec()))
-    }
 
-    /// **The span is arithmetic here rather than a seek**, because the fake
-    /// holds bytes and not files. What the route has to prove is the three
-    /// answers — a span, a span past the end, and a name no row holds — and
-    /// every one of those is a property of the response.
-    async fn get_frame_part(
-        &self,
-        job_id: JobId,
-        kept: String,
-        span: FrameSpan,
-    ) -> Result<(KeptFrame, FramePart), Refusal> {
-        let (held, bytes) = self.frame_held(&job_id, kept)?;
-        let total = bytes.len() as u64;
-        let (first, last) = match span {
-            FrameSpan::From { first, last } => (first, last),
-            FrameSpan::Last(back) => (total.saturating_sub(back), None),
-        };
-        if first >= total {
-            return Ok((held, FramePart::Beyond { total }));
-        }
-        let upto = last.map_or(total - 1, |last| last.min(total - 1));
-        Ok((
-            held,
-            FramePart::Span {
-                first,
-                bytes: bytes[first as usize..=upto as usize].to_vec(),
-                total,
-            },
-        ))
-    }
 
     async fn list_workflows(&self) -> Result<Vec<WorkflowSummary>, Refusal> {
         if *self.mute.lock().expect("not poisoned") {
@@ -815,25 +559,6 @@ impl Queries for FakeDaemon {
         })
     }
 
-    /// Subscribe, then read the history. The same order Fleet takes, so a test
-    /// of the socket exercises the order rather than assuming it.
-    async fn observe_job(&self, job_id: JobId) -> Result<Observed, Refusal> {
-        if *self.mute.lock().expect("not poisoned") {
-            return Err(self.fault("the fake was told not to answer"));
-        }
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        drop(jobs);
-        let live = self.turns.watching(&job_id);
-        Ok(Observed {
-            job_id,
-            live,
-            history: self.history.lock().expect("not poisoned").clone(),
-            skipped: *self.skipped.lock().expect("not poisoned"),
-        })
-    }
 
     async fn list_repositories(&self) -> Result<ipc::RepositoryList, Refusal> {
         Ok(ipc::RepositoryList {

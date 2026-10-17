@@ -27,9 +27,6 @@ pub mod autopilot;
 /// Board's own apparatus: the record-to-wire conversions, and the round trip
 /// every assertion in `board.rs` is made through. See its own header.
 pub mod board;
-/// Commander's own apparatus: the record as a Commander's act would leave it,
-/// and the wire as a Bridge receives it. See its own header.
-pub mod commander;
 /// Focus's own apparatus, which reaches this module's private seams rather
 /// than making a second copy of them. See its own header.
 pub mod focus;
@@ -44,9 +41,6 @@ pub mod plan;
 /// Reach's own apparatus: a Manifest and a workflow definition for a
 /// repository that is not this one, held as text. See its own header.
 pub mod reach;
-/// Recovery's own apparatus: the two moves a person makes on a Job, and a
-/// detail assembled against a standing the caller names. See its own header.
-pub mod recovery;
 /// Studio's own apparatus: an Issue draft's text, and the round trip a
 /// dispatch request makes. No Studio type yet. See its own header.
 pub mod studio;
@@ -56,25 +50,19 @@ pub mod trust;
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 
-use std::sync::Arc;
 
-use adapter_traits::{Environment, Footprint, Model, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{Vcs, Worktree, WorktreeSpec};
 use config::{EvidenceType, ResolvedWorkflow};
 use core_model::{
     AcceptanceCriterion, Actor, CriterionId, CriterionSource, DeclaredPaths, Facts,
     IllegalStepTransition, IllegalTransition, Job, JobEvent, JobId, JobStatus, JobStep, ManifestId,
-    ModelName, NewJob, StepEvent, StepEvidence, StepId, StepSeed, StepState, StepTarget, Target,
+    ModelName, NewJob, StepEvent, StepId, StepSeed, StepState, StepTarget, Target,
     Timestamp, Title, TopLevelOrigin, TransitionReason, Ulid, Urgency,
 };
-use fleet::dispatch::stopping;
-use fleet::{
-    apply, rule_on, Asked, AtStep, CheckBudget, Clock, JudgeBudget, Judging, Keeping, Marking,
-    Mint, Policies, Ruling,
-};
-use testkit::{resolved, FakeJudge, FakeVcs, FakeWorkProduct, Gaming, Gate, Sketch};
-use verification::{Claimed, Lifted, NotClaimed, Request, ShownBy, Submission};
+use fleet::{Clock, Mint};
+use testkit::{resolved, FakeVcs, FakeWorkProduct, Gaming, Gate, Sketch};
+use verification::{Claimed, NotClaimed, ShownBy, Submission};
 
 /// Absolute, because `WorktreeSpec` refuses a relative root — a derived path
 /// that moves with the caller is the stored-path failure in another shape.
@@ -281,8 +269,6 @@ pub struct Bench {
     workflow: ResolvedWorkflow,
     pub vcs: FakeVcs,
     pub work: FakeWorkProduct,
-    budget: CheckBudget,
-    judging: Judging,
     /// Every event the two machines handed back, in order.
     ///
     /// **This is the whole record.** A `Job` carries no history — the log is
@@ -290,11 +276,6 @@ pub struct Bench {
     /// a test assert that a Job arrived somewhere rather than was put there.
     pub moves: RefCell<Vec<JobEvent>>,
     step_moves: RefCell<Vec<StepEvent>>,
-    /// What each step has submitted, which is what `store` holds for a real
-    /// Job. A later step's gaming check reads it as its baseline, so a bench
-    /// that dropped it would run every gaming check baseline-less and prove
-    /// less than it looks like it does.
-    recorded: RefCell<Vec<(StepId, StepEvidence)>>,
 }
 
 impl Bench {
@@ -304,39 +285,18 @@ impl Bench {
     /// criterion: a gate that asked anyway would answer `CouldNotDecide` and
     /// the run would stop, rather than advancing and saying nothing.
     pub fn with(work: FakeWorkProduct) -> Bench {
-        Bench::judged_by(
-            work,
-            bug_workflow_as_far_as_m1_expresses_it(),
-            FakeJudge::that_fails("a Judge that should never be asked"),
-        )
+        Bench::over(work, bug_workflow_as_far_as_m1_expresses_it())
     }
 
-    pub fn judged_by(work: FakeWorkProduct, workflow: ResolvedWorkflow, judge: FakeJudge) -> Bench {
+    pub fn over(work: FakeWorkProduct, workflow: ResolvedWorkflow) -> Bench {
         Bench {
             clock: Ticking(AtomicU64::new(0)),
             mint: Counted(AtomicU64::new(1)),
             workflow,
             vcs: FakeVcs::new(),
             work,
-            budget: CheckBudget::of(Duration::from_secs(5)),
-            judging: Judging {
-                client: Arc::new(judge),
-                budget: JudgeBudget::of(Duration::from_secs(20)),
-                default_model: Model::named("the-cheap-model").expect("a model name"),
-                second_opinion_model: Model::named("the-second-model").expect("a model name"),
-                environment: Environment::nothing(),
-                // The bench asserts on rulings, not on what a call said about
-                // itself while it was out — and it reaches no `api` and no
-                // `ipc`, which is the hermetic rule this file's header states.
-                marking: Marking::detached(),
-                asked: Asked::nowhere(),
-                standing: verification::Standing::unstated(),
-                reading: None,
-                wording: verification::Wording::shipped(),
-            },
             moves: RefCell::new(Vec::new()),
             step_moves: RefCell::new(Vec::new()),
-            recorded: RefCell::new(Vec::new()),
         }
     }
 
@@ -435,99 +395,8 @@ impl Bench {
         self.step_moved(run, &first, StepTarget::Running);
     }
 
-    /// Run the step's checks over one submission and decide. **Fleet's own
-    /// gate**, called directly, because a hermetic test cannot reach the loop
-    /// that ordinarily calls it.
-    pub async fn gate(&self, run: &Run, step: &StepId, submitted: &Submission) -> Ruling {
-        let at = AtStep::named(self.workflow.frozen(), step, &run.worktree)
-            .expect("a step of the workflow");
-        self.gate_at(run, at, submitted).await
-    }
 
-    /// [`Bench::gate`], at a position the caller has already placed on a run.
-    pub async fn gate_at(&self, run: &Run, at: AtStep<'_>, submitted: &Submission) -> Ruling {
-        let step = at.step().id();
-        let recorded = self.recorded.borrow().clone();
-        // The worktree as the step found it. A Run's worktree starts empty and
-        // the bench drives one step at a time, so an empty footprint is what
-        // `fleet::dispatch` would have read at the step's start — see
-        // `Working::entered_with`, which is the thing being stood in for.
-        let entered_with = Footprint::nothing();
-        let ruling = rule_on(
-            at,
-            // The Job's own request, which is what the Judge is measured
-            // against — not a fixture, because the bench holds the real record.
-            Request::of(&run.job),
-            submitted,
-            run.declared.as_ref(),
-            &Lifted::of(&run.job),
-            &[],
-            fleet::Began::At(&entered_with),
-            &recorded,
-            &self.work,
-            self.budget,
-            &fleet::Room::ignoring_the_machine(fleet::ChecksAtOnce::of(4)),
-            &self.judging,
-            // Where a kept deliverable would go. **Nothing is written**: no
-            // step here declares an `artifact_exists`, so the gate never holds
-            // a deliverable's bytes and `REPO_ROOT` is never touched.
-            &Keeping::of(REPO_ROOT, &run.job.handle()),
-            Policies::unstated(),
-            &fleet::Announcing::nowhere(),
-            &std::collections::BTreeMap::new(),
-            &[],
-            core_model::WhenRefused::default(),
-            &[],
-            None,
-            None,
-        )
-        .await;
-        // What `fleet::dispatch` does with the store, done with a list: the
-        // evidence the gate ruled on is written down before anything moves.
-        let mut held = self.recorded.borrow_mut();
-        held.retain(|(id, _)| id != step);
-        held.push((step.clone(), submitted.recorded()));
-        ruling
-    }
 
-    /// The moves a ruling implies, in the one order the two machines admit.
-    ///
-    /// **This is the one thing the test restates rather than calls.**
-    /// `fleet::dispatch` does it inside a method that also speaks to a live
-    /// session and reaps a child, so there is no way to reach it without a
-    /// process. The Job move itself is `fleet::apply` and is not restated.
-    /// **The step moves first, and the order is not a preference.** The inner
-    /// machine is frozen beneath every status but `running` and
-    /// `awaiting_review`, so a step stopped after the Job ended would be
-    /// refused and its verdict never written — which is #179, observed on a
-    /// real Job whose `tests` step read `running` beneath `completed_failed`.
-    /// Why it stops is [`fleet::dispatch::stopping`]'s and is not restated
-    /// here: a second spelling of the trigger is how the bench and Fleet would
-    /// come to disagree about the same failure.
-    pub fn settled(&self, run: &mut Run, step: &StepId, ruling: &Ruling) {
-        if ruling.advanced() {
-            self.step_moved(run, step, StepTarget::Advanced);
-        }
-        if let Ruling::Advanced { .. } = ruling {
-            let next = self.step_after(step).expect("a step follows an advance");
-            self.step_moved(run, &next, StepTarget::Running);
-        }
-        // **The step leaves for the gate before the Job does**, which is
-        // `crate::dispatch`'s own ordering and for its reason: a client
-        // watching would otherwise see a Job at `awaiting_review` whose
-        // current step still said a Drone was working it. `#522`.
-        if let Ruling::HeldForReview { .. } = ruling {
-            self.step_moved(run, step, StepTarget::HeldForReview);
-        }
-        if let Some(why) = stopping(ruling) {
-            self.step_moved_by(run, step, StepTarget::Stopped(why), ruling.signed_by());
-        }
-        if let Some(moved) = apply(&run.job, ruling, self.clock.now()) {
-            let moved = moved.expect("the move a ruling implies is a legal one");
-            self.moves.borrow_mut().push(moved.event);
-            run.job = moved.job;
-        }
-    }
 
     pub fn step_after(&self, step: &StepId) -> Option<StepId> {
         let at = self.workflow.steps().iter().position(|s| s.id() == step)?;

@@ -299,7 +299,7 @@ after it had already failed. A paragraph in a practice doc is a weaker version
 of the mechanism that had already failed twice. So what changed is not what is
 written down but **what is available to reach for**:
 
-- `crates/fleet/src/tests/transcript/reading.rs` holds `Transcript`, which has
+- the `reading` tests (deleted since) holds `Transcript`, which has
   **no read and no accessor for its path**. The only ways to text are `until`,
   which polls for a predicate and hands back what the file stood at when its
   patience ran out, and `settled`, which waits the writer out for a case

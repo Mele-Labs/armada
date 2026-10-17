@@ -139,9 +139,9 @@ const QUESTION = {
 /** What the parent is told, as the row its thread keeps. */
 const told = (id: string, at: string, session: string, title: string, event: "needs" | "done" | "merged"): SessionRow => ({ id, at, kind: "linked", session: { id: session, title }, event });
 
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[2]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [parent(), names(), order(), record(), other()]);
+  const base = sessionsStore([none, none], none, control, [], [parent(), names(), order(), record(), other()]);
   let moment = 0;
   const handed: Session[] = [];
   let read: { from: readonly Session[]; made: number; out: readonly Session[] } | undefined;

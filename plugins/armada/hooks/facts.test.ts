@@ -10,8 +10,6 @@ import {
   ghAct,
   modeOf,
   modelName,
-  isDispatch,
-  jobIdsIn,
   madeTask,
   mayMoveBranch,
   needAct,
@@ -75,20 +73,6 @@ test('a gh command is read for the act and the number it names', () => {
   expect(ghAct('gh pr merge --auto --merge 2027 | tail -1')).toBeUndefined()
   expect(ghAct('gh pr close')).toEqual({ act: 'close', number: undefined })
   expect(ghAct('gh pr view 12')).toBeUndefined()
-})
-
-test('a dispatch is an armada-fleet tool that makes or sends a Job', () => {
-  expect(isDispatch('mcp__armada-fleet__propose_job')).toBe(true)
-  expect(isDispatch('mcp__armada-fleet__list_jobs')).toBe(false)
-  expect(isDispatch('mcp__other__propose_job')).toBe(false)
-})
-
-test('Job ids are ULIDs in an answer, each once and at most ten', () => {
-  const one = '01J8ZQ4W8N5T6V7Y9B2C3D4E5F'
-  expect(jobIdsIn(`created ${one} and ${one}`)).toEqual([one])
-  expect(jobIdsIn('nothing')).toEqual([])
-  const many = Array.from({ length: 12 }, (_, n) => `01J8ZQ4W8N5T6V7Y9B2C3D4E${String(10 + n)}`)
-  expect(jobIdsIn(many.join(' ')).length).toBeLessThanOrEqual(10)
 })
 
 test('a sender is the teammate where there is one and the kind where there is not', () => {

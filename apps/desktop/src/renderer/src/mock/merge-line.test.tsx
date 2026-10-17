@@ -21,7 +21,7 @@ const palette = () => userEvent.keyboard("{Meta>}k{/Meta}");
 const panel = (name = "Merge line") => page.getByRole("region", { name, exact: true });
 
 test("with no line, neither the palette row nor the Overview panel draws", async () => {
-  mount("every-state");
+  mount("default");
   await onScreen();
 
   await expect.element(page.getByRole("tab", { name: "Cockpit" })).toBeVisible();
@@ -57,7 +57,7 @@ test("the rail surface draws the same panels", async () => {
   await expect.element(panel("Merge line, scratch").getByRole("img", { name: "Empty" })).toBeVisible();
 });
 
-test("a landed pull request wears the Job's own badge for how it ended, and its number still opens it", async () => {
+test("a landed pull request wears its own badge for how it ended, and its number still opens it", async () => {
   const opened: string[] = [];
   const watching: Scenario = {
     ...scenarioNamed("merge-line")!,
@@ -89,7 +89,7 @@ test("a landed pull request wears the Job's own badge for how it ended, and its 
 });
 
 
-test("each entry names who it came from: a Session by its title, a Job by its title, nobody by nothing", async () => {
+test("each entry names who it came from: a Session by its title, nobody by nothing", async () => {
   mount("merge-line-owners");
   await onScreen();
 
@@ -98,7 +98,7 @@ test("each entry names who it came from: a Session by its title, a Job by its ti
   const line = panel("Merge line");
   const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
   await expect.element(entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" })).toHaveTextContent("Pin the store clock");
-  await expect.element(entry("fix/61-order-store-migrations").getByText("Order the store migrations", { exact: true })).toBeVisible();
+  expect(entry("fix/61-order-store-migrations").element().querySelector(".armada-owner-chip")).toBeNull();
   const bare = entry("docs/typo-in-the-readme").element();
   expect(bare.querySelector(".armada-merge-line__owner")).toBeNull();
   expect(bare.querySelector(".armada-owner-chip")).toBeNull();
@@ -128,11 +128,11 @@ test("an open pull request wears its merge queue mark and place, and its owner",
 
 // The surface reads keys as the cockpit's glass does, the cursor being DOM focus: one Tab stop for
 // every repository's tiles, `j` and `k` through them in reading order, the bare arrows across the
-// board, and Enter on a tile or `o` in one opening the Job it came from.
+// board.
 const nowhere = () => (document.activeElement as HTMLElement | null)?.blur();
 const tileFocused = () => (document.activeElement as HTMLElement | null)?.closest("[data-merge-item]")?.getAttribute("aria-label") ?? null;
 
-test("j and k walk the tiles, Enter and o open a tile's Job, and a tile with no Job leaves the press alone", async () => {
+test("j and k walk the tiles in reading order, and Enter on a tile leaves the press alone", async () => {
   mount("merge-line-owners");
   await onScreen();
 
@@ -149,21 +149,6 @@ test("j and k walk the tiles, Enter and o open a tile's Job, and a tile with no 
   await userEvent.keyboard("j");
   await userEvent.keyboard("k");
   await expect.element(entry("fix/61-order-store-migrations")).toHaveFocus();
-  await userEvent.keyboard("o");
-  await expect.element(page.getByRole("heading", { name: "Order the store migrations" })).toBeVisible();
-});
-
-test("Enter on a tile opens its Job", async () => {
-  mount("merge-line-owners");
-  await onScreen();
-
-  await palette();
-  await row().click();
-  nowhere();
-  await userEvent.keyboard("jj");
-  await expect.element(panel("Merge line").getByRole("listitem", { name: /^fix\/61-order-store-migrations,/ })).toHaveFocus();
-  await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("heading", { name: "Order the store migrations" })).toBeVisible();
 });
 
 test("Tab enters the tiles once and leaves without visiting another", async () => {
@@ -214,8 +199,8 @@ test("on a picked repository, the band and the horizon stay in view while the gl
   await page.viewport(1200, 600);
   mount("merge-line");
   await onScreen();
-  await page.getByRole("button", { name: "All repositories" }).click();
-  await page.getByRole("menuitem", { name: "armada", exact: true }).click();
+  await page.getByRole("combobox", { name: "Repository" }).click();
+  await page.getByRole("option", { name: "armada", exact: true }).click();
   await palette();
   await row().click();
 

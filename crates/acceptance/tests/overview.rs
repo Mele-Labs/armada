@@ -400,18 +400,10 @@ fn every_kind_of_question_is_served_on_the_job_it_belongs_to_across_two_manifest
 }
 
 /// Each answer names the id it was served with — `ChosenAnswer::question_id`,
-/// `AnswerCommand::call`, `JudgeAnswered::asked_at` — and every one of the
-/// three routes is a route Fleet serves. **Not that a stale one is refused**:
+/// `AnswerCommand::call`, `JudgeAnswered::asked_at`. **Not that a stale one is refused**:
 /// see the file header.
 #[test]
-fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
-    for operation in ["answer_question", "answer_command", "answer_judge"] {
-        assert!(
-            api::SERVED.iter().any(|route| route.operation == operation),
-            "`{operation}` is offered on a Job's detail and nothing serves it"
-        );
-    }
-
+fn each_answer_names_the_id_it_was_served_with() {
     let chosen = ChosenAnswer {
         question_id: QuestionId::carried("01QUESTIONOVERVIEWDRONEA"),
         chose: Some("the read cursor".to_string()),

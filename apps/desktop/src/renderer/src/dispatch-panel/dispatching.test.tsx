@@ -36,11 +36,8 @@ function Window() {
   const dispatching = useDispatch({
     state,
     repositories: scene.repositories,
-    proposeFrom: async () => null,
     openSession: (id) => void scene.opened.push(id),
-    openJob: () => undefined,
     openAutopilot: () => undefined,
-    said: () => undefined,
   });
   return (
     <DispatchingProvider value={dispatching}>
@@ -239,11 +236,11 @@ test("the selects offer the draft's models and efforts, with the default model n
   await expect.element(page.getByRole("combobox", { name: "Effort" }).getByRole("option", { name: "high" })).toBeInTheDocument();
 });
 
-test("a Job and an Autopilot have no Queue for later, and the key queues nothing there", async () => {
+test("an Autopilot has no Queue for later, and the key queues nothing there", async () => {
   const fleet = served();
   (window as unknown as { armada: Record<string, unknown> }).armada = { readRequestRepository, proposeAutopilot: vi.fn() };
   await remount({ draft: fleet.draft, repositories: [ARMADA] });
-  for (const kind of ["job", "autopilot"] as const) {
+  for (const kind of ["autopilot"] as const) {
     held?.choose(kind);
     held?.openNew(ROOT);
     const request = page.getByRole("textbox", { name: "Request" });

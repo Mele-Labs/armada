@@ -39,30 +39,25 @@ describe("who owns main's red", () => {
 });
 
 describe("whose work a pull request is", () => {
-  const jobs = [{ id: "j9", title: "Seven by branch", branch: "feat/seven" }];
   const branched = (name: string) => ({ kind: "branch", name });
 
-  test("a Job on its branch comes before a Session that holds it", () => {
-    expect(workOwner(jobs, [session("s1", "S", [holds(7)])], 7, "feat/seven")).toEqual({ kind: "job", id: "j9", title: "Seven by branch" });
-  });
-
   test("a Session holds it by its number, its pull request's branch, or the branch it works on", () => {
-    expect(workOwner([], [session("s1", "S", [holds(7)])], 7, "feat/seven")?.id).toBe("s1");
-    expect(workOwner([], [session("s2", "S", [holds(0, "feat/seven")])], 7, "feat/seven")?.id).toBe("s2");
-    expect(workOwner([], [session("s3", "S", [branched("feat/seven")])], 7, "feat/seven")?.id).toBe("s3");
+    expect(workOwner([session("s1", "S", [holds(7)])], 7, "feat/seven")?.id).toBe("s1");
+    expect(workOwner([session("s2", "S", [holds(0, "feat/seven")])], 7, "feat/seven")?.id).toBe("s2");
+    expect(workOwner([session("s3", "S", [branched("feat/seven")])], 7, "feat/seven")?.id).toBe("s3");
   });
 
   test("a live Session comes before one that ended, and an ended one still owns what no live one holds", () => {
     const ended = { ...session("old", "Old", [holds(7)]), dead: "ended" } as unknown as Sessions[number];
     const live = session("live", "Live", [branched("feat/seven")]);
-    expect(workOwner([], [ended, live], 7, "feat/seven")?.id).toBe("live");
-    expect(workOwner([], [ended], 7, "feat/seven")?.id).toBe("old");
+    expect(workOwner([ended, live], 7, "feat/seven")?.id).toBe("live");
+    expect(workOwner([ended], 7, "feat/seven")?.id).toBe("old");
   });
 
   test("a Session without a title is called by its id, and nobody owns a person's pull request", () => {
     const blank = { id: "s5", attachments: [holds(7)], rows: [] } as unknown as Sessions[number];
-    expect(workOwner([], [blank], 7, "feat/seven")).toEqual({ kind: "session", id: "s5", title: "s5" });
-    expect(workOwner(jobs, [session("s1", "S", [holds(8, "other")])], 7, "chore/by-hand")).toBeUndefined();
+    expect(workOwner([blank], 7, "feat/seven")).toEqual({ kind: "session", id: "s5", title: "s5" });
+    expect(workOwner([session("s1", "S", [holds(8, "other")])], 7, "chore/by-hand")).toBeUndefined();
   });
 });
 
@@ -74,58 +69,38 @@ describe("whether the owner is already on the failure", () => {
   const message = (from: "you" | "agent" | "session", instant: string) => ({ kind: "message", from: { kind: from }, at: "00:00:00", instant });
   const held = (turn: "working" | "idle", rows: unknown[] = [], extra: object = {}) =>
     [{ id: "s1", title: "Pin the clock", turn: { state: turn }, rows, attachments: [], ...extra }] as unknown as Sessions;
-  const nobody = new Set<string>();
-  const untold = new Map<string, string>();
 
   test("a Session at work is on it, whatever was said", () => {
-    expect(isOnIt(owns, held("working"), nobody, untold, FAILED)).toBe(true);
-    expect(isOnIt(owns, held("working"), nobody, untold, undefined)).toBe(true);
+    expect(isOnIt(owns, held("working"), FAILED)).toBe(true);
+    expect(isOnIt(owns, held("working"), undefined)).toBe(true);
   });
 
   test("an idle Session sent anything after the failure is on it, from the owner or from another Session", () => {
-    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, FAILED)).toBe(true);
-    expect(isOnIt(owns, held("idle", [message("session", after)]), nobody, untold, FAILED)).toBe(true);
+    expect(isOnIt(owns, held("idle", [message("you", after)]), FAILED)).toBe(true);
+    expect(isOnIt(owns, held("idle", [message("session", after)]), FAILED)).toBe(true);
   });
 
   test("what the agent said itself, or was sent before the failure, does not count", () => {
-    expect(isOnIt(owns, held("idle", [message("agent", after)]), nobody, untold, FAILED)).toBe(false);
-    expect(isOnIt(owns, held("idle", [message("you", before)]), nobody, untold, FAILED)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("agent", after)]), FAILED)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("you", before)]), FAILED)).toBe(false);
   });
 
   test("an idle Session with nothing sent is not on it, and with no failure time nothing but work counts", () => {
-    expect(isOnIt(owns, held("idle"), nobody, untold, FAILED)).toBe(false);
-    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, undefined)).toBe(false);
+    expect(isOnIt(owns, held("idle"), FAILED)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("you", after)]), undefined)).toBe(false);
   });
 
   test("a Session that ended, or that is not there, is not on it", () => {
-    expect(isOnIt(owns, held("working", [], { dead: "ended" }), nobody, untold, FAILED)).toBe(false);
-    expect(isOnIt(owns, [], nobody, untold, FAILED)).toBe(false);
-  });
-
-  const job: Owner = { kind: "job", id: "j1", title: "Name the zone" };
-
-  test("a Job is on it while it runs", () => {
-    expect(isOnIt(job, [], new Set(["j1"]), untold, FAILED)).toBe(true);
-    expect(isOnIt(job, [], new Set(["j1"]), untold, undefined)).toBe(true);
-  });
-
-  test("a Job told after the failure is on it, one told before is not, and none told is not", () => {
-    expect(isOnIt(job, [], nobody, new Map([["j1", after]]), FAILED)).toBe(true);
-    expect(isOnIt(job, [], nobody, new Map([["j1", before]]), FAILED)).toBe(false);
-    expect(isOnIt(job, [], nobody, untold, FAILED)).toBe(false);
-    expect(isOnIt(job, [], nobody, new Map([["j2", after]]), FAILED)).toBe(false);
-  });
-
-  test("a Job's telling counts only against a failure time", () => {
-    expect(isOnIt(job, [], nobody, new Map([["j1", after]]), undefined)).toBe(false);
+    expect(isOnIt(owns, held("working", [], { dead: "ended" }), FAILED)).toBe(false);
+    expect(isOnIt(owns, [], FAILED)).toBe(false);
   });
 
   test("main red is dated by `since`, so a Session sent anything after it first read red is on it", () => {
     const red = views([], { state: "red", red: { check: "desktop_test", since: "2026-10-13T13:00:00Z" } });
     const since = failedAt(red, "main:/armada");
     expect(since).toBe(FAILED);
-    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, since)).toBe(true);
-    expect(isOnIt(owns, held("idle", [message("you", before)]), nobody, untold, since)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("you", after)]), since)).toBe(true);
+    expect(isOnIt(owns, held("idle", [message("you", before)]), since)).toBe(false);
   });
 
   test("a pull request is dated by its updated_at, and main without `since` has no date", () => {
@@ -137,27 +112,21 @@ describe("whether the owner is already on the failure", () => {
 describe("whose a pull request on the timeline is", () => {
   const lines = (pulls: unknown[], landed: unknown[] = [], line: unknown[] = []) =>
     [{ root: "/armada", hub: { pulls }, line, landed, sentBack: [] }] as unknown as Parameters<typeof timelineOwner>[0];
-  const jobs = [{ id: "j9", title: "Pin the clock", branch: "fix/pin-clock" }];
 
-  test("the Job a landed row names, once the pull request has left the open list", () => {
-    const seen = lines([], [{ branch: "b", state: "landed", pr: { number: 4, url: "u" }, job: { id: "j2", title: "Landed" } }]);
-    expect(timelineOwner(seen, [], [], 4, undefined)).toEqual({ kind: "job", id: "j2", title: "Landed" });
-  });
-
-  test("the Job whose branch the entry carried, and a Session that works on the branch", () => {
-    expect(timelineOwner(lines([]), jobs, [], 5, "fix/pin-clock")).toEqual({ kind: "job", id: "j9", title: "Pin the clock" });
+  test("a Session that works on the branch the entry carried", () => {
     const held = [session("s1", "Flaky store", [{ kind: "branch", name: "fix/flaky" }])];
-    expect(timelineOwner(lines([]), jobs, held, 6, "fix/flaky")).toEqual({ kind: "session", id: "s1", title: "Flaky store" });
+    expect(timelineOwner(lines([]), held, 6, "fix/flaky")).toEqual({ kind: "session", id: "s1", title: "Flaky store" });
   });
 
   test("the branch the open list gives the number, where the entry carried none", () => {
     const seen = lines([{ number: 7, branch: "fix/pin-clock" }]);
-    expect(timelineOwner(seen, jobs, [], 7, undefined)?.id).toBe("j9");
+    const held = [session("s1", "Pin the clock", [{ kind: "branch", name: "fix/pin-clock" }])];
+    expect(timelineOwner(seen, held, 7, undefined)?.id).toBe("s1");
   });
 
-  test("nobody, where no Job or Session is on it", () => {
-    expect(timelineOwner(lines([{ number: 8, branch: "chore/bump" }]), jobs, [session("s2", "Other", [])], 8, undefined)).toBeUndefined();
-    expect(timelineOwner(lines([]), jobs, [], 9, undefined)).toBeUndefined();
-    expect(timelineOwner(lines([]), jobs, [], 10, "chore/else")).toBeUndefined();
+  test("nobody, where no Session is on it", () => {
+    expect(timelineOwner(lines([{ number: 8, branch: "chore/bump" }]), [session("s2", "Other", [])], 8, undefined)).toBeUndefined();
+    expect(timelineOwner(lines([]), [], 9, undefined)).toBeUndefined();
+    expect(timelineOwner(lines([]), [], 10, "chore/else")).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@
 //!
 //! **The wire carries one line of argument per call**, so each act is reduced
 //! here to the one figure a row can name it by: a cap's new number, the task
-//! restarted, the breakage a repair was sent for. Nothing else of the body is
+//! restarted. Nothing else of the body is
 //! kept, and `CallDetail` bounds the line as it does any other.
 //!
 //! **Only the acts below are read, by operation.** A door call carries its path
@@ -65,7 +65,6 @@ impl<'de> Deserialize<'de> for Said {
 struct Fields {
     turn_cap: Option<Said>,
     cost_cap_micros: Option<Said>,
-    broke: Option<Said>,
     title: Option<Said>,
     task: Option<Said>,
     group: Option<Said>,
@@ -151,7 +150,6 @@ pub(crate) fn figure(operation: &str, call: &Arguments) -> Option<String> {
             (None, Some(group)) => Some(String::from(group)),
             _ => None,
         },
-        "send_repair_drone" => said(|fields| &fields.broke).map(String::from),
         "redirect_one_drone" => call.drone_id.and_then(|said| said.0.clone()),
         _ => None,
     }

@@ -18,7 +18,6 @@ mod limits;
 mod machine;
 mod models;
 mod prompts;
-mod prompts_drone;
 mod prompts_judge;
 mod resolve;
 mod timeouts;
@@ -33,7 +32,6 @@ pub use limits::*;
 pub use machine::*;
 pub use models::*;
 pub use prompts::*;
-pub use prompts_drone::*;
 pub use prompts_judge::*;
 pub use resolve::{Env, Resolved, Supplied};
 pub use timeouts::*;
@@ -245,7 +243,7 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
 fn prompt_entries() -> impl Iterator<Item = &'static Entry> {
     static SORTED: std::sync::LazyLock<Vec<&'static Entry>> = std::sync::LazyLock::new(|| {
         let mut all: Vec<&'static Entry> =
-            [prompts::PROMPTS, prompts_drone::DRONE, prompts_judge::JUDGE]
+            [prompts::PROMPTS, prompts_judge::JUDGE]
                 .into_iter()
                 .flatten()
                 .collect();

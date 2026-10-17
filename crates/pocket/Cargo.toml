@@ -16,7 +16,6 @@ workspace = true
 # a caller did not write (Fleet refuses `Origin`). `/events` is a WebSocket, so
 # its upgrade and the few frame kinds Fleet sends are read in `fleet_events`.
 axum = "0.7"
-core-model = { path = "../core-model" }
 futures-util = "0.3"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }

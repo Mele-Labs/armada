@@ -213,7 +213,7 @@ where
                         let _ = adapters::leasing::note_session(std::path::Path::new(&at), &id);
                     }
                     let whole = absolute(&gate, &path);
-                    Some(crate::edit_calls::repository_relative(&whole, &at, &self.host().home))
+                    Some(crate::clashing::repository_relative(&whole, &at, &self.host().home))
                 }
                 // A relative path is read against the session's own directory.
                 Place::Main if !path.starts_with('/') => Some(path.clone()),
