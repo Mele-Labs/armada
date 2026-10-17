@@ -27,3 +27,14 @@ export type WriteClash = {
 
 /** `list_write_clashes`: `GET /clashes?manifest_id=&holder=`. `holder` is a Session's id. */
 export type WriteClashes = { clashes: WriteClash[] };
+
+/**
+ * `read_clash_file`: `GET /clashes/file?session_id=&other_kind=&other_id=&path=`. Each side is what `git diff` prints for
+ * that one path from where the two split, `diff --git` header and `@@` hunks; empty where that side left the file as it was.
+ */
+export type ClashFile = {
+  /** The asking Session's change. */
+  ours: string;
+  /** The other holder's; for `main`, what main changed since the Session's branch met it. */
+  theirs: string;
+};

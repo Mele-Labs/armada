@@ -1,4 +1,4 @@
-//! `list_write_clashes`, and beside it, as what the agents on a repository write and where:
+//! `list_write_clashes` and `read_clash_file`, and beside them, as what the agents on a repository write and where:
 //! `list_repository_areas` and `list_slot_touches`.
 
 use axum::extract::{Query, State};
@@ -26,6 +26,30 @@ pub(crate) async fn list_write_clashes<D: Clashing>(
     let manifest = asked.manifest_id.map(ipc::ManifestId::carried);
     match served.daemon().list_write_clashes(manifest, asked.holder).await {
         Ok(clashes) => answer(StatusCode::OK, &clashes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=&other_kind=&other_id=&path=` on `read_clash_file`.
+#[derive(Deserialize)]
+pub(crate) struct ClashFileQuery {
+    session_id: String,
+    other_kind: ipc::ClashSide,
+    #[serde(default)]
+    other_id: String,
+    path: String,
+}
+
+pub(crate) async fn read_clash_file<D: Clashing>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ClashFileQuery>,
+) -> Response {
+    match served
+        .daemon()
+        .read_clash_file(asked.session_id, asked.other_kind, asked.other_id, asked.path)
+        .await
+    {
+        Ok(file) => answer(StatusCode::OK, &file, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

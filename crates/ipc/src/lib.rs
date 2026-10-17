@@ -318,7 +318,7 @@ pub use mods::{
     ScaffoldMod, SetModEnabled,
 };
 pub use clashes::{
-    ClashHolder, ClashSide, WriteClash, WriteClashes,
+    ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches,
