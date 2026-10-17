@@ -89,7 +89,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0" },
   { press: role("button", "Judge"), say: "Judge. He thinks something is going sideways, so a judge reads the work so far against the plan" },
   { look: role("img", "Judge reading"), say: "While it reads, the tile shows the working mark and its tooltip says so" },
-  { key: "End", on: role("region", "Thread", { exact: true }), say: "The thread is at its last row, where what waits on him stands whole as its last card. A call that arrives with the thread scrolled up shows as a chip over the box" },
+  { key: "End", on: role("region", "Thread", { exact: true }), say: "The thread is at its last row, where a plan or a judge's concern waits as its last card. A question is a pill over the box" },
   { look: concern(/renewed after the retry/), say: "A concern arrives in the thread, as a card the way a question is: the concern, the file it cites, Send to session and Dismiss. Nothing pulses for it: it is this Session's own" },
   { look: inside(concern(/renewed after the retry/), role("img", "Judge")), say: "It says what it is at a glance: the judge glyph and the word Judge in its band, then where it came from, here the Judge tile, and its own frame colour" },
   { hover: inside(concern(/renewed after the retry/), button("Send to session")), say: "Send to session goes to the agent as his message, which the tooltip says" },

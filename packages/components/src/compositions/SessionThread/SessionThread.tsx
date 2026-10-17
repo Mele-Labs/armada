@@ -1022,61 +1022,17 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
 
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
-  const whole = useRef<HTMLDivElement>(null);
-  useCopyOnSelect(whole);
-  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
-  const scroller = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
-  // A person who scrolled up to read is not moved by a row that arrives.
-  useLayoutEffect(() => {
-    pinned.current = true;
-  }, [sessionId]);
-  useLayoutEffect(() => {
-    const one = scroller.current;
-    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, `${asked?.command ?? ""}:${concerns?.length ?? 0}`]);
-  const items = itemsOf(rows);
-  const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const asking = (approval !== undefined && !approval.approved) || (concerns?.length ?? 0) > 0 || asked !== undefined || lapsed !== undefined;
-  // What waits on him is the thread's last card, answered in place.
-  const cards = (
+/** The words on the pill that holds the question: its header, or the permission card's own eyebrow. */
+export function askLabel({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "lapsed">): string {
+  if (asked !== undefined && (asked.questions?.length ?? 0) === 0) return asked.reachesTo === undefined ? "Permission" : `Permission to ${asked.reachesTo}`;
+  const header = (asked?.questions ?? lapsed?.questions)?.[0]?.header ?? "";
+  return header === "" ? "Question" : header;
+}
+
+/** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
+export function AskCards({ asked, askRef, onAnswer, lapsed }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed">) {
+  return (
     <>
-      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
-      {(concerns ?? []).map((one) => (
-        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
-          <div className="armada-session-thread__concern-band">
-            <Tooltip label="Judge">
-              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
-                <Scale size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-            <span className="armada-session-thread__eyebrow">Judge</span>
-            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
-          </div>
-          <ConcernClaim concern={one} />
-          {one.cites === undefined || one.cites.length === 0 ? null : (
-            <ul className="armada-session-thread__cites" aria-label="Cites">
-              {one.cites.map((path) => (
-                <li key={path}>
-                  <code>{path}</code>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            <Tooltip label="Goes to the agent as your message">
-              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
-                Send to session
-              </Button>
-            </Tooltip>
-            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
-      ))}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : (
@@ -1147,6 +1103,66 @@ export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismis
           />
         </Card>
       )}
+    </>
+  );
+}
+
+export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+  const whole = useRef<HTMLDivElement>(null);
+  useCopyOnSelect(whole);
+  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
+  const scroller = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
+  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
+  // A person who scrolled up to read is not moved by a row that arrives.
+  useLayoutEffect(() => {
+    pinned.current = true;
+  }, [sessionId]);
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1, `${asked?.command ?? ""}:${concerns?.length ?? 0}`]);
+  const items = itemsOf(rows);
+  const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const asking = (approval !== undefined && !approval.approved) || (concerns?.length ?? 0) > 0 || asked !== undefined || lapsed !== undefined;
+  // What waits on him is the thread's last card, answered in place.
+  const cards = (
+    <>
+      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      {(concerns ?? []).map((one) => (
+        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+          <div className="armada-session-thread__concern-band">
+            <Tooltip label="Judge">
+              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
+                <Scale size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            <span className="armada-session-thread__eyebrow">Judge</span>
+            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
+          </div>
+          <ConcernClaim concern={one} />
+          {one.cites === undefined || one.cites.length === 0 ? null : (
+            <ul className="armada-session-thread__cites" aria-label="Cites">
+              {one.cites.map((path) => (
+                <li key={path}>
+                  <code>{path}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+            <Tooltip label="Goes to the agent as your message">
+              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
+                Send to session
+              </Button>
+            </Tooltip>
+            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      ))}
+      <AskCards {...(asked === undefined ? {} : { asked })} {...(askRef === undefined ? {} : { askRef })} onAnswer={onAnswer} {...(lapsed === undefined ? {} : { lapsed })} />
     </>
   );
   return (

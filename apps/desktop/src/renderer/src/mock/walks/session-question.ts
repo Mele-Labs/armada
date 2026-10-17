@@ -14,7 +14,7 @@ function steps(narrow: boolean): Step[] {
   return [
     { press: rail("Sessions"), say: "The Sessions page" },
     { press: inside(sessions, button(/Order the lunch/)), say: "A Session that is waiting on an answer" },
-    { look: inside(ask, text("Size")), say: "The agent's questions, under the thread" },
+    { look: inside(ask, text("Size")), say: "The agent's questions, in a sheet over the thread" },
     { look: inside(ask, text("Which size?")), say: "One question at a time, the next behind it" },
     { look: inside(ask, role("radio", "Large")), say: "Each option on its row, with what it means" },
     { press: inside(ask, role("radio", "Large")), say: "Large, and the next comes forward" },

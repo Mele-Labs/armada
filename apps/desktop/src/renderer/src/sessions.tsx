@@ -4,7 +4,7 @@
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -15,7 +15,10 @@ import {
   ChipOwnership,
   ContextFigure,
   ForkedFrom,
-  NeedsYouEyebrow,
+  AskCards,
+  askLabel,
+  ComposerPills,
+  type PillSheet,
   DockedTerminal,
   ProseTerminal,
   Tooltip,
@@ -693,7 +696,8 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const [focusFor, setFocusFor] = useState<string | undefined>();
   // The old Session is writing the handoff a fresh one opens on.
   const [handing, setHanding] = useState(false);
-  const askCard = useRef<HTMLDivElement>(null);
+  // Which of the pills over the composer has its sheet up, and for which Session.
+  const [sheet, setSheet] = useState<{ id: string; which: PillSheet } | undefined>();
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
@@ -824,9 +828,9 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
     narrow
       ? () => {
           setLedgerOpen(false);
-          askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+          setSheet({ id: session.id, which: "question" });
         }
-      : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      : () => setSheet({ id: session.id, which: "question" }),
     { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
@@ -843,6 +847,39 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
   const todos = todosOf(session);
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
+  // What the agent is held on, or asked and was not answered, is a pill over the composer and its sheet, not the thread's last card.
+  const asked: ComponentProps<typeof AskCards>["asked"] =
+    session.asked === undefined
+      ? undefined
+      : {
+          command: session.asked.command,
+          ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
+          ...(session.asked.offers === undefined
+            ? {}
+            : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+          ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
+          ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
+        };
+  const lapsed: ComponentProps<typeof AskCards>["lapsed"] =
+    session.lapsed === undefined || session.lapsed.id === answeredLapse
+      ? undefined
+      : {
+          id: session.lapsed.id,
+          questions: session.lapsed.questions,
+          onAnswer: (answers) => {
+            const lapse = session.lapsed!.id;
+            void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
+          },
+          onSkip: () => setAnsweredLapse(session.lapsed!.id),
+        };
+  const question =
+    asked === undefined && lapsed === undefined
+      ? undefined
+      : {
+          id: asked === undefined ? lapsed!.id : (session.asked?.call ?? asked.command),
+          label: askLabel({ ...(asked === undefined ? {} : { asked }), ...(lapsed === undefined ? {} : { lapsed }) }),
+          children: <AskCards {...(asked === undefined ? {} : { asked })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
+        };
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <ProseTerminal.Provider value={terminal}>
@@ -927,7 +964,6 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
-            askRef={askCard}
             {...(session.work?.plan === undefined
               ? {}
               : { approval: { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) } })}
@@ -953,38 +989,13 @@ export function SessionView({ session, goes, onOpen, held, lines, settings, deck
                 })}
             {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
-            {...(session.asked === undefined
-              ? {}
-              : {
-                  asked: {
-                    command: session.asked.command,
-                    ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
-                    ...(session.asked.offers === undefined
-                      ? {}
-                      : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }), ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
-                  },
-                })}
-            onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
-            {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
-              ? {}
-              : {
-                  lapsed: {
-                    id: session.lapsed.id,
-                    questions: session.lapsed.questions,
-                    onAnswer: (answers) => {
-                      const lapse = session.lapsed!.id;
-                      void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
-                    },
-                    onSkip: () => setAnsweredLapse(session.lapsed!.id),
-                  },
-                })}
+            onAnswer={() => undefined}
             onOpenSession={onOpen}
           />
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
-          <CallChip word={callWord(session, needs.length) ?? (session.lapsed === undefined || session.lapsed.id === answeredLapse ? undefined : "Unanswered")} scope={centre} />
-          <div className="sv-dock" data-needs={needs.length > 0 ? "" : undefined}>
-          <NeedsYouEyebrow rows={needs} />
+          <CallChip word={callWord(session)} scope={centre} />
+          <div className="sv-dock" data-pills={needs.length > 0 || question !== undefined ? "" : undefined}>
+          <ComposerPills rows={needs} open={sheet?.id === session.id ? sheet.which : undefined} onOpen={(which) => setSheet(which === undefined ? undefined : { id: session.id, which })} {...(question === undefined ? {} : { question })} />
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}

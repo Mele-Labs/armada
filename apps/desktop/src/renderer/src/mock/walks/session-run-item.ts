@@ -18,7 +18,7 @@ function steps(): Step[] {
     { press: inside(stop, button("Run")), say: "Run from the band" },
     { look: text("It ran clean."), say: "A clean exit settles the item, and the agent is told" },
     { press: inside(install, button("Run")), say: "The other command, run from the thread instead" },
-    { look: region("Thread"), say: "It settles the same way, and the band is gone with nothing left in it" },
+    { look: region("Thread"), say: "It settles the same way, and the pill is gone with nothing left in it" },
   ];
 }
 

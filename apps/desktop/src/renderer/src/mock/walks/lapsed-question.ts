@@ -1,6 +1,6 @@
-// A question the agent asked and nobody answered in time stays under the thread as the deck, and
+// A question the agent asked and nobody answered in time stays as the deck in a pill's sheet over the composer, and
 // answering it sends the choice to the agent as the person's own message. A waiting item that
-// offers choices is the same deck in the Needs you band. Over the `lapsed-question` scenario.
+// offers choices is the same deck in the Needs you sheet. Over the `lapsed-question` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
@@ -15,7 +15,7 @@ const lapsedQuestion = walk("lapsed-question", [
   toSessions,
   { press: inside(sessions, button(/Book the table/)), say: "A Session whose question timed out" },
   { look: inside(thread, text("AskUserQuestion: no answer")), say: "The thread keeps a line for it" },
-  { look: inside(lapsed, text("Which night?")), say: "The question is still under the thread, with its options" },
+  { look: inside(lapsed, text("Which night?")), say: "The question is still there, with its options" },
   { press: inside(lapsed, role("radio", "Friday")), say: "Friday" },
   { press: inside(lapsed, button("Answer")), say: "Answered" },
   { look: inside(thread, text(/Answering your earlier question "Which night\?": Friday/)), say: "The choice goes to the agent as the person's message, and the deck is gone" },

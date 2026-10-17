@@ -18,7 +18,8 @@ function steps(): Step[] {
     { press: inside(needs, button("Open Look at the findings page")), say: "The page item opens the window" },
     { look: dialog("Bridge's window on Pin the store clock"), say: "The window" },
     { press: button("Close window"), say: "Closed" },
-    { look: role("article", "Waiting on you"), say: "The question is on its own card, and not in the sheet" },
+    { press: inside(needs, button("Clock", { exact: true })), say: "The question is a pill of its own, and its sheet swaps in" },
+    { look: role("article", "Waiting on you"), say: "The question is on its own card, and not in the Needs you sheet" },
   ];
 }
 

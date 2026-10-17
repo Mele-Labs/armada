@@ -18,7 +18,8 @@ function steps(): Step[] {
     { look: inside(needs, button("Open Approve #1843")), say: "The ledger's own rows, each a press that does its act" },
     { press: inside(needs, button("Open Keep the old fixture or drop it?")), say: "An item with no act opens a box" },
     { look: inside(needs, role("textbox", /^Reply to Keep the old fixture/)), say: "What is typed here goes to the agent" },
-    { look: role("article", "Waiting on you"), say: "The question keeps its own card, and is not in the sheet" },
+    { press: inside(needs, button("Clock", { exact: true })), say: "The question is a pill of its own, and its sheet swaps in" },
+    { look: role("article", "Waiting on you"), say: "The question keeps its own card, and is not in the Needs you sheet" },
   ];
 }
 

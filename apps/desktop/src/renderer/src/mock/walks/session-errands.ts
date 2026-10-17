@@ -14,7 +14,7 @@ const shell = inside(needs, role("group", "kill $(lsof -ti tcp:5788) && scripts/
 const sessionErrands = walk("session-errands", [
   toSessions,
   { press: inside(region("Work", { exact: true }), button(/Land the speed fixes/)), say: "A Session with five lines waiting on him" },
-  { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
+  { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
   { look: inside(slash, button("Run")), say: "A slash command is for the Session itself: Run sends it as the reply" },
   { look: shell, say: "A shell command is for him: the command itself, in the case it was written" },
   { look: inside(shell, button("Run")), say: "Run runs it where the Session works" },

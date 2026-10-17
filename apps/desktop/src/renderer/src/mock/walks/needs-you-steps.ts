@@ -16,7 +16,7 @@ function steps(): Step[] {
   return [
     toSessions,
     { press: inside(sessions, button(/Add single sign-on/)), say: "Opened" },
-    { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
+    { press: inside(needs, button(/^Needs you/)), say: "Needs you, raised from the composer" },
     { hover: inside(needs, role("img", "Steps")), say: "A procedure wears the Steps glyph" },
     { hover: inside(needs, role("img", "Reply")), say: "An ordinary item keeps its own" },
     { press: inside(needs, button(`Open ${TITLE}`)), say: "A press opens its steps, not the link" },
