@@ -5,8 +5,8 @@ import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const compactSlotClash = walk("compact-slot-clash", [
   { press: deckRow("Retry the slot lease"), say: "This Session holds two bays and clashes with two other Sessions. The thread's last card has the question, and no call for the clashes" },
-  { look: role("region", "Write clash"), say: "The clashes are one notice under the header: Write clash, 2 other Sessions" },
-  { press: role("button", /^Bays$/), say: "The Bays key is lit by the clash. It opens every bay the Session holds" },
+  { look: role("img", "Write clash with Name the store migrations, Rotate the audit log"), say: "The clash is the swords glyph on the Bays key, and its tooltip names the other Sessions. The header has no notice" },
+  { press: role("button", /^Bays$/), say: "The Bays key opens every bay the Session holds" },
   { look: inside(region("Bays"), role("region", "slot-4")), say: "Each bay has its branch, its state and how far it is behind main. Show in Bays opens it there, and Back returns here" },
   { look: inside(region("Bays"), role("table", "Write clashes")), say: "The clashes are a table under the bays: the other Session, linked, and the files" },
   { press: inside(region("Bays"), button("5 more")), say: "A long list shows its first three files. The chip shows them all" },

@@ -6,7 +6,7 @@
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 
 import { useEffect, useRef, useState } from "react";
-import { Bug, CircleCheck, CircleDot, CirclePause, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Play, Rows3, Scale, ShieldCheck, Split, Unplug } from "lucide-react";
+import { Bug, CircleCheck, CircleDot, CirclePause, Files, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Play, Rows3, Scale, ShieldCheck, Split, Swords, Unplug } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -113,7 +113,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
     select({ kind: "session", key: `session:${id}` });
     return true;
   };
-  const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...((bays?.clashes.length ?? 0) > 0 ? ["Write clash"] : [])];
+  const clashing = (bays?.clashes ?? []).map((one) => (one.one.kind === "session" && one.one.id === session.id ? one.other : one.one).label);
+  const clashSaid = clashing.length === 0 ? undefined : `Write clash with ${clashing.join(", ")}`;
+  const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Session for an update",
     land: on ? "Turn auto land off" : "Turn auto land on",
@@ -184,6 +186,12 @@ export function SessionTiles({ session, draft, repository, startIn, bays }: { se
                   <Glyph size={20} aria-hidden="true" />
                 )}
                 <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>
+                {tile.id !== "slot" || clashSaid === undefined ? null : (
+                  // A write clash is marked here and not in the Session's header: the owner's ask of 17 Oct 2026.
+                  <span className="deck-tile__clash" role="img" aria-label={clashSaid}>
+                    <Swords size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                )}
                 {key === undefined ? null : (
                   <Kbd className="deck-tile__key" aria-hidden="true">
                     {key}

@@ -7,7 +7,6 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { ClashNotice } from "../ClashMark/ClashMark";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
@@ -225,7 +224,6 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {menu === undefined || menu.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={menu.entries} onSelect={menu.onSelect} />}
         {back}
       </header>
-      <ClashNotice kind="session" id={id} />
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}

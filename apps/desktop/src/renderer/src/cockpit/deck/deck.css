@@ -662,6 +662,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-band .armada-kbd + .armada-kbd { margin-left: 0; }
 .deck-tile { position: relative; }
 .deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
+/* A write clash on the Bays key, where a key with a digit has its keycap: the clash mark's glyph and amber. */
+.deck-tile__clash { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--status-awaiting-review); }
 .deck-tile[aria-pressed="true"] .deck-tile__key { opacity: 0.9; }
 
 /* The key sheet: six groups in two columns, so it is read in one look. */

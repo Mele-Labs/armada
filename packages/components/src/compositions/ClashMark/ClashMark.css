@@ -1,4 +1,4 @@
-/* A write clash: the one mark on a row, and the line it becomes in an open Job or Session.
+/* A write clash: the one mark on a row, and the paths it names in a Session's Bays panel.
    The hue is the caution amber a state that wants a look already wears. Tokens only. */
 
 .armada-clash-mark {
@@ -20,128 +20,9 @@
   gap: var(--space-1);
 }
 
-.armada-clash-notice {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.armada-clash-notice__row {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--status-awaiting-review-bg);
-  border-radius: var(--radius-md);
-  background: var(--status-awaiting-review-bg);
-}
-
-.armada-clash-notice__head {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.armada-clash-notice__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-default);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.armada-clash-notice__toggle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-clash-notice__with {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-heading);
-}
-
-button.armada-clash-notice__with { color: var(--accent); cursor: pointer; }
-button.armada-clash-notice__with:hover { text-decoration: underline; }
-
 /* A path that opens its diff: the chip as it is, pressable. */
 .armada-clash-notice__open { display: inline-flex; max-width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
 .armada-clash-notice__open:hover .armada-path__base { color: var(--accent); }
-
-/* Opens and folds on a height animation, the panels' own: a grid row from nothing to its content. */
-.armada-clash-notice__fold-box {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration-sheet) var(--ease);
-}
-
-.armada-clash-notice__fold-box[data-open="true"] {
-  grid-template-rows: 1fr;
-}
-
-.armada-clash-notice__fold-box > /* More than one other holder, folded: how many, in the line's own muted text. Opened, each has its row. */
-.armada-clash-notice__others {
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  white-space: nowrap;
-}
-
-.armada-clash-notice__clashes {
-  min-height: 0;
-  overflow: hidden;
-  padding-top: 0;
-  transition: padding-top var(--duration-sheet) var(--ease);
-}
-
-.armada-clash-notice__fold-box[data-open="true"] > .armada-clash-notice__clashes {
-  padding-top: var(--space-2);
-}
-
-/* The folded line's chips: the other holders, on the one line, cut at its end. */
-.armada-clash-notice__chips {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.armada-clash-notice__clashes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-  padding-inline: 0;
-  list-style: none;
-}
-
-.armada-clash-notice__clash {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
 
 .armada-clash-notice__paths {
   display: flex;
