@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Bell, ClipboardList, FileCog, HardDrive, LayoutDashboard, Settings, Stethoscope } from "lucide-react";
+import { Bell, ClipboardList, FileCog, HardDrive, LayoutDashboard, Settings, Stethoscope, Trash2 } from "lucide-react";
 import { expect, fn, waitFor } from "storybook/test";
 
 import { actsIn, ALIASES, globalActs, type Action } from "../../actions";
@@ -21,11 +21,26 @@ export default meta;
 type Story = StoryObj<typeof CommandPalette>;
 
 /**
- * The one Job the board's cursor is on. **The context block is titled with the
- * job it acts on**, so a palette that will Kill something says which something
- * before the row is read.
+ * The one Session the board's cursor is on. **The context block is titled with
+ * the Session it acts on**, so a palette that will Delete something says which
+ * something before the row is read.
  */
-const CONTEXT = "job_2d90bb — coalesce the session refresh";
+const CONTEXT = "s-2d90bb — coalesce the session refresh";
+
+/**
+ * A destructive act, as a fixture: the registry holds none now, and the safety
+ * rule these stories render is the palette's own. Every destructive entry
+ * confirms, even from the keyboard.
+ */
+const DESTRUCTIVE: PaletteEntry = {
+  id: "delete",
+  section: "context",
+  label: "Delete",
+  shortcut: "x",
+  icon: Trash2,
+  aliases: ["remove", "terminate"],
+  destructive: true,
+};
 
 /**
  * The whole rail, one row per destination. Each glyph is the icon registry's
@@ -62,11 +77,11 @@ const RAIL: PaletteEntry[] = [
   },
 ];
 
-/** Jobs carry no key. Opening a specific job is a search result, not an act. */
-const JOBS: PaletteEntry[] = [
-  { id: "job_2d90bb", section: "jobs", label: "job_2d90bb — coalesce the session refresh" },
-  { id: "job_8f2a1c", section: "jobs", label: "job_8f2a1c — split the settings reducer" },
-  { id: "job_41c07e", section: "jobs", label: "job_41c07e — drop the stale socket on reconnect" },
+/** Sessions carry no key. Opening a specific session is a search result, not an act. */
+const SESSIONS: PaletteEntry[] = [
+  { id: "s-2d90bb", section: "sessions", label: "s-2d90bb — coalesce the session refresh" },
+  { id: "s-8f2a1c", section: "sessions", label: "s-8f2a1c — split the settings reducer" },
+  { id: "s-41c07e", section: "sessions", label: "s-41c07e — drop the stale socket on reconnect" },
 ];
 
 /**
@@ -78,7 +93,7 @@ const SETTINGS: PaletteEntry[] = [
   { id: "set-fleet", section: "settings", label: "Fleet settings", icon: Settings },
   { id: "set-model", section: "settings", label: "Default model", value: "sonnet", icon: Settings },
   { id: "set-headroom", section: "settings", label: "Concurrent drones", value: "4", icon: Settings },
-  { id: "set-history", section: "settings", label: "Job history kept", value: "30 days", icon: Settings },
+  { id: "set-history", section: "settings", label: "Session history kept", value: "30 days", icon: Settings },
   { id: "set-theme", section: "settings", label: "Appearance", value: "dark", icon: Settings },
 ];
 
@@ -100,14 +115,14 @@ function sections(title: string): PaletteSection[] {
   return [
     { id: "context", title },
     { id: "navigation", title: "Navigation" },
-    { id: "jobs", title: "Jobs" },
+    { id: "sessions", title: "Sessions" },
     { id: "settings", title: "Settings" },
   ];
 }
 
 /**
  * The contents in the order the contract fixes: acts on the current context,
- * navigation, jobs, settings.
+ * navigation, sessions, settings.
  *
  * Navigation is the rail's destinations plus the global acts the rail is not.
  * `deck_tabs` is one registry row over the tabs, because the
@@ -118,16 +133,17 @@ function sections(title: string): PaletteSection[] {
 function entriesFor(context: "board" | "detail"): PaletteEntry[] {
   return [
     ...actsIn(context).map(asEntry("context")),
+    DESTRUCTIVE,
     ...RAIL,
     ...globalActs().map(asEntry("navigation")),
-    ...JOBS,
+    ...SESSIONS,
     ...SETTINGS,
   ];
 }
 
 /** What the host says its index covered, for the state where nothing matched. */
 const SEARCHED =
-  "every act on this job, every place in Bridge, every job on this Manifest at every " +
+  "every act on this session, every place in Bridge, every session on this Manifest at every " +
   "status, and every setting";
 
 const board = {
@@ -158,8 +174,8 @@ export const EveryBindingAtRest: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole("option")).toHaveLength(board.entries.length);
     for (const section of board.sections) {
-      // `getAllBy`, because the context block is titled with the job it acts
-      // on and that job is also a row under Jobs — which is the contents
+      // `getAllBy`, because the context block is titled with the session it acts
+      // on and that session is also a row under Sessions — which is the contents
       // order working rather than a duplicate.
       await expect(canvas.getAllByText(section.title)[0]).toBeVisible();
     }
@@ -167,15 +183,9 @@ export const EveryBindingAtRest: Story = {
 };
 
 /**
- * The same palette on job detail. **The context block changes; a key never
- * does.** `r` is Review on both, and the acts a list cannot offer — Restart
- * step, Observe, Report this job, the diff, the stage — are here because this
- * is where they are offered.
- *
- * Two rows are worth reading: **Pilot appears and is not in the board's row
- * map**, which is the superset rule doing its work, and it draws disabled with
- * the issue that answers it, because a row a person presses and gets nothing
- * from is worse than one that is absent.
+ * The same palette on a detail view. **The context block changes; a key never
+ * does.** The acts a list cannot offer are here because this is where they are
+ * offered, and the acts only a list offers are not.
  */
 export const OnJobDetail: Story = {
   args: {
@@ -208,7 +218,7 @@ export const TopAnchoredAtTwoCounts: Story = {
     const inputTop = field.getBoundingClientRect().top;
     const rowTop = canvas.getAllByRole("option")[0]!.getBoundingClientRect().top;
 
-    await userEvent.type(field, "job");
+    await userEvent.type(field, "session");
 
     await expect(canvas.getAllByRole("option").length).toBeLessThan(wide);
     await expect(field.getBoundingClientRect().top).toBe(inputTop);
@@ -217,28 +227,28 @@ export const TopAnchoredAtTwoCounts: Story = {
 };
 
 /**
- * **Matching across sections.** One word returning acts, a place, three jobs
- * and a setting. The section heads are what stop them reading as one list —
- * without them a person cannot tell the Job Board surface from a job whose
- * title carries the word from the setting that decides how long jobs are kept.
+ * **Matching across sections.** One letter returning acts, a place, three
+ * sessions and a setting. The section heads are what stop them reading as one
+ * list — without them a person cannot tell a surface from a session whose
+ * title carries the letter from the setting that decides how long sessions are kept.
  */
 export const MatchingAcrossSections: Story = {
-  args: { ...board, defaultQuery: "job" },
+  args: { ...board, defaultQuery: "e" },
   /**
    * The claim is about the heads, not the rows: four kinds of result under
    * four names. A palette that dropped the heads would pass any assertion
    * counting matches and would be the flat list this state exists to refuse.
    */
   play: async ({ canvas }) => {
-    for (const title of [CONTEXT, "Navigation", "Jobs", "Settings"]) {
+    for (const title of [CONTEXT, "Navigation", "Sessions", "Settings"]) {
       await expect(canvas.getAllByText(title)[0]).toBeVisible();
     }
   },
 };
 
 /**
- * **An alias hit.** The query is "terminate", which is Kill's alias — and the
- * row reads Kill, because the alias never renders. Other queries mark the
+ * **An alias hit.** The query is "terminate", which is Delete's alias — and the
+ * row reads Delete, because the alias never renders. Other queries mark the
  * matched span; this one has none to mark, and faking one would render the
  * alias.
  */
@@ -251,14 +261,12 @@ export const AnAliasFindsTheLexiconTerm: Story = {
    * does — so the assertion is on all three: the term renders, the alias does
    * not, and nothing is marked.
    *
-   * The job whose title carries "terminate" is a real match on a real label
-   * and is expected beside it; it is the reason the mark assertion is scoped
-   * to Kill's own row rather than to the list.
+   * The mark assertion is scoped to Delete's own row rather than to the list.
    */
   play: async ({ canvas }) => {
-    const kill = canvas.getByRole("option", { name: /^Kill/ });
-    await expect(kill).toHaveAccessibleName("Kill x");
-    await expect(kill.querySelector("mark")).toBeNull();
+    const row = canvas.getByRole("option", { name: /^Delete/ });
+    await expect(row).toHaveAccessibleName("Delete x");
+    await expect(row.querySelector("mark")).toBeNull();
     await expect(canvas.queryByText("terminate")).toBeNull();
   },
 };
@@ -319,7 +327,7 @@ export const MatchingNothing: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryAllByRole("option")).toHaveLength(0);
     await expect(canvas.getByText(/Nothing matches “zzz”/)).toBeVisible();
-    await expect(canvas.getByText(/every job on this Manifest at every status/)).toBeVisible();
+    await expect(canvas.getByText(/every session on this Manifest at every status/)).toBeVisible();
   },
 };
 
@@ -353,13 +361,13 @@ export const NothingMatchesSoTheWorkLeads: Story = {
 export const AMatchKeepsEnter: Story = {
   args: {
     ...board,
-    defaultQuery: "kill",
+    defaultQuery: "delete",
     dispatch: { kind: "session", onDispatch: fn() },
   },
   play: async ({ canvas }) => {
     const options = canvas.getAllByRole("option");
     await expect(options[0]).toHaveAttribute("aria-selected", "true");
-    await expect(options[options.length - 1]).toHaveAccessibleName(/^Start a Session with “kill”/);
+    await expect(options[options.length - 1]).toHaveAccessibleName(/^Start a Session with “delete”/);
   },
 };
 
@@ -382,58 +390,57 @@ export const TheDispatchRowStaysInView: Story = {
  * two-key act: type enough, press Enter.
  */
 export const TheFirstRowIsActive: Story = {
-  args: { ...board, defaultQuery: "re" },
+  args: { ...board, defaultQuery: "d" },
   /**
    * Asserted after a change to the query and not only on the resting state,
    * because the regression is a cursor left at position four in a list that
    * now holds two — which reads as a palette that ignored what was typed.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Review/);
+    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Copy debug info/);
 
     await userEvent.keyboard("{ArrowDown}");
     await expect(canvas.getByRole("option", { selected: true })).not.toHaveAccessibleName(
-      /^Review/,
+      /^Copy debug info/,
     );
 
     await userEvent.clear(canvas.getByRole("combobox"));
-    await userEvent.type(canvas.getByRole("combobox"), "kill");
+    await userEvent.type(canvas.getByRole("combobox"), "delete");
 
     await expect(canvas.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
   },
 };
 
 /**
- * The safety rule, rendered. Selecting Kill from the palette does not kill —
+ * The safety rule, rendered. Selecting Delete from the palette does not delete —
  * every destructive action confirms, even from the keyboard, and in the
  * confirmation Cancel holds initial focus and `Enter` fires it.
  *
  * **Danger is the dropdown-menu treatment**: `--status-completed-failed` on
  * the label and the glyph, no background. A filled red row in a list of thirty
- * reads as a failed job rather than an act.
+ * reads as a failed session rather than an act.
  */
 export const DestructiveEntryConfirms: Story = {
   render: () => {
     const [pending, setPending] = useState<PaletteEntry | undefined>(undefined);
     return (
       <>
-        <CommandPalette {...board} defaultQuery="kill" onConfirm={(entry) => setPending(entry)} />
+        <CommandPalette {...board} defaultQuery="delete" onConfirm={(entry) => setPending(entry)} />
         <Dialog
           open={pending !== undefined}
           tone="destructive"
-          title="Kill the drone on job 12?"
-          confirmLabel="Kill job"
+          title="Delete session 12?"
+          confirmLabel="Delete session"
           onCancel={() => setPending(undefined)}
           onConfirm={() => setPending(undefined)}
         >
-          Step 3 of 5, 18 minutes in. The worktree is left in place and evidence carries forward
-          if you redispatch.
+          18 minutes in. The worktree is left in place.
         </Dialog>
       </>
     );
   },
   /**
-   * **Selecting Kill does not kill.** The palette hands the entry to its host
+   * **Selecting Delete does not delete.** The palette hands the entry to its host
    * and stays where it is; the host opens the confirmation over it. So the
    * assertion is that two things are true at once after one `Enter` — the
    * dialog is on screen, and the palette did not act and did not close.
@@ -442,17 +449,17 @@ export const DestructiveEntryConfirms: Story = {
    * the wrong one: the way back from a confirmation is the list you chose from.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Kill/);
-    await expect(canvas.queryByRole("dialog", { name: "Kill the drone on job 12?" })).toBeNull();
+    await expect(canvas.getByRole("option", { selected: true })).toHaveAccessibleName(/^Delete/);
+    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
 
     await userEvent.keyboard("{Enter}");
 
-    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Kill the drone on job 12?" })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Delete session 12?" })).toBeVisible());
     await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
 
     // `Esc` answers the top layer: the confirmation goes, and the list chosen from stays.
     await userEvent.keyboard("{Escape}");
-    await expect(canvas.queryByRole("dialog", { name: "Kill the drone on job 12?" })).toBeNull();
+    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
     await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   },
 };
@@ -593,31 +600,30 @@ export const ClickInsideAConfirmationDoesNotClose: Story = {
         <CommandPalette
           {...board}
           open={open}
-          defaultQuery="kill"
+          defaultQuery="delete"
           onConfirm={(entry) => setPending(entry)}
           onClose={() => setOpen(false)}
         />
         <Dialog
           open={pending !== undefined}
           tone="destructive"
-          title="Kill the drone on job 12?"
-          confirmLabel="Kill job"
+          title="Delete session 12?"
+          confirmLabel="Delete session"
           onCancel={() => setPending(undefined)}
           onConfirm={() => setPending(undefined)}
         >
-          Step 3 of 5, 18 minutes in. The worktree is left in place and evidence carries forward
-          if you redispatch.
+          18 minutes in. The worktree is left in place.
         </Dialog>
       </>
     );
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Kill the drone on job 12?" })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Delete session 12?" })).toBeVisible());
 
     await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
 
-    await expect(canvas.queryByRole("dialog", { name: "Kill the drone on job 12?" })).toBeNull();
+    await expect(canvas.queryByRole("dialog", { name: "Delete session 12?" })).toBeNull();
     await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   },
 };
