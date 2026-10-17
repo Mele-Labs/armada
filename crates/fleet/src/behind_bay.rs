@@ -39,14 +39,11 @@ impl BehindTold {
     }
 }
 
-/// The Session a slot is held for, where one is.
+/// The hosted Session a slot is held for, where one is. A process's slot naming a Session is a subagent's bay, whose branch is not
+/// the Session's own, so it is not told: the stranded read skips it too (`docs/concepts/fleet.md`).
 fn holder_of(slot: &WorktreeSlot) -> Option<&str> {
     match &slot.held {
         SlotHolding::HostedSession { session_id, .. } => Some(session_id),
-        SlotHolding::Session {
-            session_id: Some(session_id),
-            ..
-        } => Some(session_id),
         _ => None,
     }
 }
