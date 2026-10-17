@@ -10,142 +10,23 @@
   min-height: 0;
 }
 
-/* The thread and the region pinned over its foot share the stage; what is under the stage (working on, needs you, done) is the footer. */
+/* The thread has the stage; what is under it (working on, done) is the footer. What waits on him is the thread's last card, in the rows. */
 .armada-session-thread__stage {
-  --calls-band: var(--h-row-header);
-  /* No region, no height: a length of nothing, which the thread sets inline once it has cards. */
-  --calls-body: calc(var(--border-width) * 0);
   position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
   min-height: 0;
-  /* The region is slid down off the stage's foot and clipped there. */
-  overflow: clip;
-  timeline-scope: --thread-scroll;
 }
 
-/* **The scroller keeps its size and ends in padding the height of the pinned region**, which lies over that padding. Its scroll range is
-   then the same whether the region is whole or shrunk, so he can always scroll back down to where it is whole again. */
 .armada-session-thread__rows {
   flex: 1;
   min-height: 0;
-  padding-block-end: var(--calls-body);
   overflow: auto;
-  scroll-timeline: --thread-scroll block;
 }
 
-/* The band's row is kept in the stage's flow, so the thread ends above it with a gap. */
-.armada-session-thread__stage:has(> .armada-session-thread__calls)::after {
-  content: "";
-  flex: none;
-  height: calc(var(--calls-band) + var(--border-width) * 2);
-}
-
-/* Everything the Session waits on him for sits in one framed region over the foot of the thread: a band, then its cards. It is as tall as
-   its cards (`--calls-body`, set from the cards' height, never above two fifths of the stage) and is slid down off the stage as the thread
-   is scrolled up, so that only the band is left. */
-.armada-session-thread__calls {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  height: calc(var(--calls-band) + var(--calls-body) + var(--border-width) * 2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-sunken);
-  overflow: hidden;
-}
-.armada-session-thread__calls[data-open] {
-  height: 100%;
-  border-color: var(--accent);
-}
-
-/* **A pixel of scroll is a pixel of height.** The region slides down the length of its own body as the thread is scrolled up through the last
-   body's height of its range, and is whole again when he is at the end. Longhands, not `animation`: the build's lightningcss folds a
-   following `animation-timeline` into the shorthand, which Chromium refuses, and the region never moved (`src/main/scroll-timelines.test.ts`). */
-@keyframes armada-session-calls-shrink {
-  from { transform: translateY(var(--calls-body)); }
-  to { transform: translateY(0); }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .armada-session-thread__calls:not([data-open]) {
-    animation-name: armada-session-calls-shrink;
-    animation-timing-function: linear;
-    animation-fill-mode: both;
-    animation-timeline: --thread-scroll;
-    animation-range: calc(100% - var(--calls-body)) 100%;
-  }
-}
-/* Reduced motion snaps: whole at the end of the thread, the band alone once he is a region's height away. */
-@media (prefers-reduced-motion: reduce) {
-  .armada-session-thread__calls[data-shrink="collapsed"]:not([data-open]) { transform: translateY(var(--calls-body)); }
-}
-
-/* The band is the region's header, as a panel's is: small caps in mono over the raised surface. */
-.armada-session-thread__calls-band {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-  box-sizing: border-box;
-  height: var(--calls-band);
-  padding: 0 var(--space-3) 0 var(--space-4);
-  border: 0;
-  border-bottom: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-align: start;
-  text-transform: uppercase;
-  cursor: pointer;
-  user-select: none;
-}
-.armada-session-thread__calls-band:hover { color: var(--fg-default); }
-.armada-session-thread__calls-band:focus-visible {
-  outline: var(--border-width) solid var(--accent);
-  outline-offset: calc(var(--border-width) * -1);
-}
-.armada-session-thread__calls-head { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); color: var(--fg-default); }
-.armada-session-thread__calls-chip {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-.armada-session-thread__calls-fold { flex: none; margin-inline-start: auto; }
-
-.armada-session-thread__calls-body {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.armada-session-thread__calls-body:is([inert]) { visibility: hidden; }
-.armada-session-thread__calls-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
-}
-.armada-session-thread__calls-list > * { flex-shrink: 0; }
-.armada-session-thread__calls-list > .armada-session-thread__ask { max-height: none; }
-/* Open over the thread, the plan is shown whole and the region scrolls rather than the card. */
-.armada-session-thread__calls[data-open] .armada-session-thread__plan { max-height: none; }
-
-/* Under the stage: what the agent is working on, what needs him, and the Session being done. It never takes more than two fifths of the thread
+/* Under the stage: what the agent is working on and the Session being done. It never takes more than two fifths of the thread
    and scrolls past that, so his message and the agent's replies above it are always in view. */
 .armada-session-thread__footer {
   display: flex;
@@ -158,7 +39,6 @@
 }
 .armada-session-thread__footer:empty { display: none; }
 .armada-session-thread__footer > * { flex-shrink: 0; }
-.armada-session-thread__footer > .armada-session-needs { max-height: none; }
 
 /* The first write: the one row that is not a message, filled in the slot's
    leased hue so it reads before anything around it. */
@@ -315,7 +195,6 @@
 .armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
 .armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); overflow: hidden; }
-.armada-session-thread__calls-list > .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); }
 .armada-session-thread__plan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .armada-session-thread__plan-band { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fg-muted); font: inherit; text-align: start; cursor: pointer; }
 .armada-session-thread__plan-band:hover { color: var(--fg-default); }
@@ -1269,3 +1148,7 @@
   color: var(--accent);
   font-family: var(--font-mono);
 }
+
+/* A take: what waits on him as the thread's last card, whole and answered in place. */
+.armada-session-thread__tail { display: flex; flex-direction: column; gap: var(--space-3); list-style: none; }
+.armada-session-thread__tail > .armada-session-thread__ask { max-height: none; flex-shrink: 0; }

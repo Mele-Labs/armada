@@ -8,7 +8,7 @@ import { button, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
-  const { message, thread, opened } = kit(narrow);
+  const { message, thread } = kit(narrow);
   const started = (title: string) => role("button", title, { exact: true });
   const sessions = region("Work", { exact: true });
   return [
@@ -17,15 +17,11 @@ function steps(narrow: boolean): Step[] {
     { type: "Start a session to look into the settings loader ignoring a cap set for one repository\n", into: message, say: "He asks its agent to start a Session for the second finding" },
     { look: inside(thread, started("Settings loader and the cap")), say: "It does: a line in the thread, with the new Session's name" },
     { hover: inside(thread, started("Settings loader and the cap")), say: "It reads as a press" },
-    ...opened([{ look: inside(role("region", "Started"), text("Started Settings loader and the cap")), say: "The ledger lists it too" }]),
     { press: inside(thread, started("Settings loader and the cap")), say: "He opens it from the thread" },
     { look: role("button", "Started by Debug Job 14", { exact: true }), say: "Its thread opens on where it came from" },
     { look: message, say: "The agent's first message waits in its box, unsent" },
     // A running Session's items wait in Needs you at the foot of the thread, not the ledger.
     { look: region("Needs you"), say: "And in Needs you, at the foot of the thread" },
-    ...opened([
-      { look: inside(role("region", "Started"), text("Started by Debug Job 14")), say: "The ledger says where it came from" },
-    ]),
     { press: place("Cockpit"), say: "Back to the list" },
     { hover: inside(sessions, role("img", /^Waiting on you/)), say: "The new Session has a hand on its row, and on hover what it waits on" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },
@@ -34,7 +30,6 @@ function steps(narrow: boolean): Step[] {
     { press: role("button", "Started by Debug Job 14", { exact: true }), say: "The row opens the Session that started it" },
     { type: "Fork yourself at that finding and check the loop per attempt\n", into: message, say: "He asks the agent to fork itself at its finding" },
     { look: inside(thread, started("Debug Job 14, cap per attempt")), say: "It does: the same line, with the fork glyph" },
-    ...opened([{ look: inside(role("region", "Forks"), text("Forked to Debug Job 14, cap per attempt")), say: "The ledger lists the fork" }]),
     { press: inside(thread, started("Debug Job 14, cap per attempt")), say: "He opens it from the thread" },
     { press: role("button", "Forked from Debug Job 14", { exact: true }), say: "It opens onto the conversation up to that finding" },
     { look: inside(role("group", "Forked from Debug Job 14"), text("settings loader seems to ignore")), say: "Up to the message it was forked at" },
