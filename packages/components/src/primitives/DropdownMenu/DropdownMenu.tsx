@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -303,6 +303,23 @@ export function DropdownMenu({
                 autoComplete="off"
                 value={query}
                 onChange={(event) => (field?.onChange ?? setQuery)(event.target.value)}
+                trailing={
+                  query === "" ? undefined : (
+                    <Tooltip label="Clear search">
+                      <button
+                        type="button"
+                        className="armada-dropdown-menu__clear"
+                        aria-label="Clear search"
+                        onClick={() => {
+                          (field?.onChange ?? setQuery)("");
+                          search.current?.focus();
+                        }}
+                      >
+                        <X size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                    </Tooltip>
+                  )
+                }
                 onKeyDown={(event) => {
                   if (event.key !== "Enter") return;
                   event.preventDefault();

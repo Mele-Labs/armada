@@ -27,3 +27,11 @@
     size = "12px"
     status = "Specified"
     notes = "Specified 16 Oct 2026 for the walk `session-message-sending`, which the owner walked and approved, tooltip `Not sent`. The system did not take it and nobody decided, which is this glyph's claim as a badge. The Retry beside it is a text button with no glyph. Helm's thread and a Drone's message box draw the same row, so the same mark."
+
+  [[icons.x.usage]]
+    means = "Clear a menu's search field"
+    group = "Chrome"
+    size = "14px"
+    status = "Proposed"
+    reserved = "Inside the trailing edge of a DropdownMenu's filter field, shown only while it holds text. Chrome, like the dialog close: it empties the field and nothing else."
+    notes = "Added 16 Oct 2026 for the Cockpit Work list's Filter menu. Tooltip `Clear search`."
